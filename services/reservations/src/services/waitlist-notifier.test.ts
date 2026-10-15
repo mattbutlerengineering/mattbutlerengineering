@@ -11,6 +11,8 @@ const mockSchedule = vi.fn().mockResolvedValue("job-123");
 const mockExpire = vi.fn().mockResolvedValue(null);
 const mockListWaiting = vi.fn().mockResolvedValue([]);
 const mockNotifyTableReady = vi.fn().mockResolvedValue(undefined);
+const mockMarkNotified = vi.fn().mockResolvedValue({ id: "entry-1", venueId: "venue-1" });
+const mockRevertNotified = vi.fn().mockResolvedValue({ id: "entry-1" });
 
 function buildDeps(overrides: Partial<WaitlistNotifierDeps> = {}): WaitlistNotifierDeps {
   return {
@@ -28,6 +30,8 @@ function buildDeps(overrides: Partial<WaitlistNotifierDeps> = {}): WaitlistNotif
     expireEntry: mockExpire,
     listWaiting: mockListWaiting,
     notifyTableReady: mockNotifyTableReady,
+    markNotified: mockMarkNotified,
+    revertNotified: mockRevertNotified,
     logger: { error: vi.fn(), info: vi.fn() },
     ...overrides,
   };
@@ -326,6 +330,52 @@ describe("WaitlistNotifier.handleExpiry", () => {
 
     await notifier.handleExpiry({ waitlistEntryId: "entry-1" });
 
+    expect(mockNotifyTableReady).not.toHaveBeenCalled();
+  });
+});
+
+// ─── notified-state lifecycle (#6492) ─────────────────────────────────────
+
+describe("WaitlistNotifier.notifyTableReady records notified state", () => {
+  const input = { id: "entry-1", guestPhone: "+15551234567", guestName: "Ann", venueId: "venue-1" };
+
+  it("marks the row notified before texting and scheduling expiry", async () => {
+    const notifier = createWaitlistNotifier(buildDeps());
+    await notifier.notifyTableReady(input);
+    expect(mockMarkNotified).toHaveBeenCalledWith("entry-1");
+    expect(mockSendWaitlistTableReady).toHaveBeenCalledOnce();
+    expect(mockSchedule).toHaveBeenCalledOnce();
+  });
+
+  it("sends no SMS and schedules no expiry when the party is no longer waiting", async () => {
+    mockMarkNotified.mockResolvedValueOnce(null);
+    const notifier = createWaitlistNotifier(buildDeps());
+    await notifier.notifyTableReady(input);
+    expect(mockSendWaitlistTableReady).not.toHaveBeenCalled();
+    expect(mockSchedule).not.toHaveBeenCalled();
+  });
+
+  it("reverts the row to waiting and rethrows when scheduling the expiry fails", async () => {
+    mockSchedule.mockRejectedValueOnce(new Error("redis down"));
+    const notifier = createWaitlistNotifier(buildDeps());
+    await expect(notifier.notifyTableReady(input)).rejects.toThrow("redis down");
+    expect(mockRevertNotified).toHaveBeenCalledWith("entry-1");
+  });
+
+  it("does not revert when scheduling succeeds", async () => {
+    const notifier = createWaitlistNotifier(buildDeps());
+    await notifier.notifyTableReady(input);
+    expect(mockRevertNotified).not.toHaveBeenCalled();
+  });
+
+  it("expiry after the party was seated texts nobody (expireEntry no-ops)", async () => {
+    mockExpire.mockResolvedValue(null);
+    mockListWaiting.mockResolvedValue([
+      { id: "entry-2", venueId: "venue-1", guestPhone: "+1555", guestName: "Bob" },
+    ]);
+    const notifier = createWaitlistNotifier(buildDeps());
+    await notifier.handleExpiry({ waitlistEntryId: "entry-1" });
+    expect(mockListWaiting).not.toHaveBeenCalled();
     expect(mockNotifyTableReady).not.toHaveBeenCalled();
   });
 });

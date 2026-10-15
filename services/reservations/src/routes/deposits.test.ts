@@ -960,7 +960,7 @@ describe("Deposit API routes", () => {
     ] as const)(
       "%s rejects an unresolvable venue before any money moves",
       async (action, stripeCall) => {
-        // Resolved before depositService.getById is ever called (loadInVenueContext
+        // Resolved before depositService.getById is ever called (former loadInVenueContext
         // returns the not-found fallback without invoking `load`) — no unscoped
         // read of the deposit happens either.
         mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: null }]);

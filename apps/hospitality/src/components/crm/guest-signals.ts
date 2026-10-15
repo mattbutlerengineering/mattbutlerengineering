@@ -4,7 +4,7 @@
  * (ux.md decision (g)).
  */
 
-import type { GuestRiskScore } from "@mbe/types";
+import { classifyGuestSegment, type GuestRiskScore } from "@mbe/types";
 
 /** Substrings that mark a dietary restriction as an allergy (ux.md Screen 1). */
 export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
@@ -19,12 +19,9 @@ export function isAllergyTag(tag: string): boolean {
   return ALLERGY_KEYWORDS.some((keyword) => lower.includes(keyword));
 }
 
-/** VIP on a `vip` tag (any case) or ten-plus visits; Repeat from the second visit; else New. */
+/** Badge label from the shared segment rule (`classifyGuestSegment` in @mbe/types, also used by the server's segment counts). */
 export function getSegmentLabel(visitCount: number, tags: readonly string[] | null): string {
-  const tagList = (tags ?? []).map((tag) => tag.toLowerCase());
-  if (tagList.includes("vip") || visitCount >= 10) return "VIP";
-  if (visitCount >= 2) return "Repeat";
-  return "New";
+  return classifyGuestSegment(visitCount, tags);
 }
 
 export function getSegmentVariant(label: string): GuestSegmentVariant {

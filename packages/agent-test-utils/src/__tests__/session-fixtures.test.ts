@@ -131,6 +131,47 @@ describe("extractToolCalls", () => {
   });
 });
 
+describe("tool_use payload shape", () => {
+  function payload(event: SessionEvent | undefined): Record<string, unknown> {
+    return JSON.parse((event!.data as { message: string }).message) as Record<string, unknown>;
+  }
+
+  it("carries the shape agent-core's event mapper emits", () => {
+    const events = buildBugFixFixture({
+      toolCalls: [{ toolName: "Bash", input: { command: "ls" } }],
+    });
+    const use = payload(events.find((e) => e.type === "session:tool_use"));
+    const res = payload(events.find((e) => e.type === "session:tool_result"));
+    expect(use).toEqual({
+      type: "session:tool_use",
+      toolName: "Bash",
+      toolInput: { command: "ls" },
+      toolUseId: expect.any(String),
+    });
+    expect(res.toolUseId).toBe(use.toolUseId);
+  });
+
+  it("gives every tool call a unique toolUseId, even for same-tool same-size inputs", () => {
+    const events = buildBugFixFixture({
+      toolCalls: [
+        { toolName: "Read", input: { file_path: "a.ts" } },
+        { toolName: "Read", input: { file_path: "b.ts" } },
+      ],
+    });
+    const uses = events.filter((e) => e.type === "session:tool_use").map((e) => payload(e));
+    const results = events.filter((e) => e.type === "session:tool_result").map((e) => payload(e));
+    expect(new Set(uses.map((u) => u.toolUseId)).size).toBe(2);
+    expect(results.map((r) => r.toolUseId)).toEqual(uses.map((u) => u.toolUseId));
+  });
+
+  it("round-trips the tool input through extractToolCalls", () => {
+    const calls = extractToolCalls(
+      buildBugFixFixture({ toolCalls: [{ toolName: "Bash", input: { command: "ls" } }] })
+    );
+    expect(calls).toEqual([{ toolName: "Bash", input: { command: "ls" } }]);
+  });
+});
+
 describe("compareToolCalls", () => {
   it("identifies matched calls", () => {
     const expected = [{ toolName: "Read", input: {} }];

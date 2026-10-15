@@ -90,6 +90,7 @@ interface CredentialsStepProps {
   isLoading: boolean;
   onSubmit: (event: FormEvent) => void;
   onPasskey: () => void;
+  onSocial: (provider: string) => void;
   onForgotPassword: () => void;
 }
 
@@ -105,6 +106,7 @@ function CredentialsStep({
   isLoading,
   onSubmit,
   onPasskey,
+  onSocial,
   onForgotPassword,
 }: CredentialsStepProps) {
   const [rememberMe, setRememberMe] = useState(false);
@@ -204,6 +206,7 @@ function CredentialsStep({
           type="button"
           className={styles.socialButton}
           disabled={isLoading}
+          onClick={() => onSocial("Google")}
         >
           Google
         </Button>
@@ -212,6 +215,7 @@ function CredentialsStep({
           type="button"
           className={styles.socialButton}
           disabled={isLoading}
+          onClick={() => onSocial("GitHub")}
         >
           GitHub
         </Button>
@@ -345,9 +349,15 @@ export function SignIn() {
       return;
     }
 
+    await completeSignIn("Signed in successfully");
+  }
+
+  // The shared verified → toast → handoff → navigate path, so every way of
+  // signing in (code or passkey) ends on the dashboard.
+  async function completeSignIn(title: string) {
     setPhase("verified");
     await delay(device.reducedMotion ? REDUCED_VERIFIED_SETTLE_MS : VERIFIED_SETTLE_MS);
-    toast({ title: "Signed in successfully", variant: "success" });
+    toast({ title, variant: "success" });
     await delay(device.reducedMotion ? REDUCED_HANDOFF_DELAY_MS : HANDOFF_DELAY_MS);
     navigate(DEMO_ROUTES.dashboard);
   }
@@ -357,8 +367,15 @@ export function SignIn() {
     if (phase === "rejected") setPhase("idle");
   }
 
-  function handlePasskey() {
-    toast({ title: "Signed in with your passkey", variant: "success" });
+  async function handlePasskey() {
+    if (phase !== "idle") return;
+    setPhase("submitting");
+    await delay(SIMULATED_NETWORK_MS);
+    await completeSignIn("Signed in with your passkey");
+  }
+
+  function handleSocial(provider: string) {
+    toast({ title: `Demo: ${provider} sign-in isn't wired up yet` });
   }
 
   function handleForgotPassword() {
@@ -421,9 +438,10 @@ export function SignIn() {
             setPassword={setPassword}
             passwordError={passwordError}
             setPasswordError={setPasswordError}
-            isLoading={isLoading}
+            isLoading={isLoading || isVerified}
             onSubmit={handleCredentialsSubmit}
             onPasskey={handlePasskey}
+            onSocial={handleSocial}
             onForgotPassword={handleForgotPassword}
           />
         </motion.div>

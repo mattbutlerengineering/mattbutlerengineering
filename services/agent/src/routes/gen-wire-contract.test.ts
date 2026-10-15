@@ -99,7 +99,7 @@ describe("gen-chat wire contract (text/plain)", () => {
 
   it("Content-Type is exactly text/plain; charset=utf-8", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
-      fullStream: mockStream([]),
+      fullStream: mockStream([{ type: "text-delta", text: "x" }]),
       usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
       providerMetadata: Promise.resolve({}),
     } as never);
@@ -115,7 +115,7 @@ describe("gen-chat wire contract (text/plain)", () => {
 
   it("shared streaming headers are present", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
-      fullStream: mockStream([]),
+      fullStream: mockStream([{ type: "text-delta", text: "x" }]),
       usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
       providerMetadata: Promise.resolve({}),
     } as never);
@@ -196,7 +196,7 @@ describe("gen-agent wire contract (application/x-ndjson)", () => {
 
   it("Content-Type is exactly application/x-ndjson; charset=utf-8", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
-      fullStream: mockStream([]),
+      fullStream: mockStream([{ type: "text-delta", text: "x" }]),
       usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
       providerMetadata: Promise.resolve({}),
     } as never);
@@ -212,7 +212,7 @@ describe("gen-agent wire contract (application/x-ndjson)", () => {
 
   it("shared streaming headers are present", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
-      fullStream: mockStream([]),
+      fullStream: mockStream([{ type: "text-delta", text: "x" }]),
       usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
       providerMetadata: Promise.resolve({}),
     } as never);

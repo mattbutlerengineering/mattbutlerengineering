@@ -5,8 +5,7 @@ import { validatePartySize } from "@mbe/database";
 import { venueService } from "../services/venue.js";
 import { availabilityService } from "../services/availability.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
+import { publicVenueScoped } from "./public-venue-scope.js";
 
 export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
@@ -28,23 +27,22 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         querystring: publicAvailabilityQueryJsonSchema,
       },
     },
-    async (request, reply) => {
-      const { slug } = request.params;
-      const { date, partySize } = request.query;
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: (slug) => ({
+          title: "Venue Not Found",
+          detail: `No venue found with slug '${slug}'.`,
+        }),
+      },
+      async (request, reply) => {
+        const { slug } = request.params;
+        const { date, partySize } = request.query;
 
-      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
-      // run the rest of the lookup (venue re-fetch + slot generation) inside
-      // that venue's RLS context, never an unscoped slug read.
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) {
-        return reply
-          .status(404)
-          .send(
-            createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
-          );
-      }
+        // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+        // run the rest of the lookup (venue re-fetch + slot generation) inside
+        // that venue's RLS context, never an unscoped slug read.
 
-      return runWithVenueContext(venueId, async () => {
         const venue = await venueService.getBySlug(slug);
         if (!venue) {
           return reply
@@ -69,7 +67,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         const availableOnly = slots.filter((s: TimeSlot) => s.available);
 
         return reply.send({ data: availableOnly });
-      });
-    }
+      }
+    )
   );
 };

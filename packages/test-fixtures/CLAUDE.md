@@ -29,7 +29,7 @@ src/
 
 ## Gotchas
 
-- `depends on @mbe/types` — changes to shared entity shapes there (e.g. `Reservation`, `User`) can silently drift `MockReservation`/`MockUser` out of sync since they're hand-maintained interfaces, not `z.infer<>` aliases
+- `depends on @mbe/types` — changes to shared entity shapes there (e.g. `Reservation`, `User`) are checked against it: `MockTable`/`MockUser` alias the `@mbe/types` types, `MockReservation` is `Reservation & { table }`, and the factories use `satisfies`, so shape drift fails typecheck
 - Always add overrides via the factory's `Partial<T>` param, not by mutating the returned object post-hoc — it's frozen and will throw in strict mode
 
 ## Commands

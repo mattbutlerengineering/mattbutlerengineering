@@ -1,4 +1,4 @@
-import { TABLE_VALID_TRANSITIONS, type Reservation, type Table } from "@mbe/types";
+import { TABLE_VALID_TRANSITIONS, partyFitsTable, type Reservation, type Table } from "@mbe/types";
 
 /**
  * The client's one reading of "can this party sit at this table?". The table rule comes from
@@ -27,11 +27,10 @@ export function canSeat(
 }
 
 /** Tables the party can be sat at now and that are big enough, smallest fit first. */
-export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
-  tables: readonly T[],
-  partySize: number
-): T[] {
+export function tablesThatFit<
+  T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
+>(tables: readonly T[], partySize: number): T[] {
   return tables
-    .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
+    .filter((table) => tableAcceptsParty(table) && partyFitsTable(table, partySize))
     .sort((a, b) => a.capacity - b.capacity);
 }

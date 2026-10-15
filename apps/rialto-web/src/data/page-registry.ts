@@ -7,7 +7,7 @@
  * Raw entries only need to declare `{id, label, category, comingSoon?}` —
  * `path` and `load` are derived by convention in `buildPageRegistry`:
  *   - path: /components/{id}, or /examples/{id sans "example-" prefix} for
- *     the Examples category, or /dashboard for the Dashboard category.
+ *     the Examples category.
  *   - load: resolved by finding the page module whose file name matches
  *     PascalCase(label) + "Page" (or + "ExamplePage" for Examples), via
  *     import.meta.glob — this preserves per-page code splitting and fails
@@ -16,6 +16,10 @@
  * A handful of pages predate this convention (their module's file name or
  * export doesn't match their label) and carry an explicit `load` override.
  */
+
+import { derivePath } from "../../../../scripts/ui-quality/derive-path.mjs";
+
+export { derivePath };
 
 export interface PageEntry {
   id: string;
@@ -110,13 +114,6 @@ function resolveLoad(entry: RawPageEntry): () => Promise<unknown> {
 
   const importModule = PAGE_MODULES[modulePath]!;
   return () => importModule().then((mod) => ({ default: mod[exportName] }));
-}
-
-/** Derives a page's route path from its id + category. */
-function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string {
-  if (entry.category === "Dashboard") return "/dashboard";
-  if (entry.category === "Examples") return `/examples/${entry.id.replace(/^example-/, "")}`;
-  return `/components/${entry.id}`;
 }
 
 /** Builds full PageEntry objects (path + load resolved) from raw entries. */
@@ -228,14 +225,6 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "shadows", label: "Shadows", category: "Tokens" },
   { id: "surfaces", label: "Surfaces", category: "Tokens" },
   { id: "icon-vocabulary", label: "Icon Vocabulary", category: "Tokens" },
-  // ── Dashboard ───────────────────────────────────────────────────────────
-  // Reuses the /demos/dashboard page component — module name doesn't match label.
-  {
-    id: "acmm-dashboard",
-    label: "ACMM Dashboard",
-    category: "Dashboard",
-    load: () => import("../pages/dashboard/Dashboard").then((m) => ({ default: m.Dashboard })),
-  },
   // ── Examples ────────────────────────────────────────────────────────────
   { id: "example-dashboard", label: "Dashboard", category: "Examples" },
   { id: "example-settings", label: "Settings", category: "Examples" },

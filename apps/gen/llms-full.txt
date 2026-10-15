@@ -434,7 +434,7 @@
         onGenerationComplete: () =>
           toast({ title: "Generation complete", variant: "success", duration: 3000 }),
       });
-      const { reset, error, toggleGallery, toggleShortcuts, openGallery } = session;
+      const { reset, error, openGallery } = session;
     
       const onSignOut = useCallback(() => {
         reset();
@@ -460,32 +460,6 @@
           });
         }
       }, [error, toast]);
-    
-      // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
-      useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "t") {
-            e.preventDefault();
-            toggleGallery();
-          }
-        };
-        document.addEventListener("keydown", handler);
-        return () => document.removeEventListener("keydown", handler);
-      }, [toggleGallery]);
-    
-      // Keyboard shortcut: "?" to open shortcuts help (only when no input is focused)
-      useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-          if (e.key !== "?") return;
-          const tag = (e.target as HTMLElement)?.tagName;
-          if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-          if ((e.target as HTMLElement)?.isContentEditable) return;
-          e.preventDefault();
-          toggleShortcuts();
-        };
-        document.addEventListener("keydown", handler);
-        return () => document.removeEventListener("keydown", handler);
-      }, [toggleShortcuts]);
     
       return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
     }
@@ -524,7 +498,7 @@
           id: "new-generation",
           label: "New Generation",
           group: "Actions",
-          shortcut: ["⌘", "N"],
+          shortcut: shortcutKeys("newGeneration"),
           onSelect: () => {
             closePalette();
             reset();
@@ -534,7 +508,7 @@
           id: "toggle-fullscreen",
           label: "Toggle Fullscreen",
           group: "Actions",
-          shortcut: ["⌘", "F"],
+          shortcut: shortcutKeys("fullscreen"),
           onSelect: () => {
             closePalette();
             toggleFullscreen();
@@ -546,7 +520,7 @@
                 id: "stop-generation",
                 label: "Stop Generation",
                 group: "Actions",
-                shortcut: ["Esc"],
+                shortcut: shortcutKeys("stop"),
                 onSelect: () => {
                   closePalette();
                   stop();
@@ -558,7 +532,7 @@
           id: "open-templates",
           label: "Browse Templates",
           group: "Actions",
-          shortcut: ["⌘", "T"],
+          shortcut: shortcutKeys("templates"),
           onSelect: () => {
             closePalette();
             openGallery();
@@ -590,7 +564,7 @@
           id: "toggle-history",
           label: "Toggle History Panel",
           group: "Panels",
-          shortcut: ["⌘", "1"],
+          shortcut: shortcutKeys("history"),
           onSelect: () => {
             closePalette();
             toggleHistory();
@@ -600,7 +574,7 @@
           id: "toggle-inspector",
           label: "Toggle JSON Inspector",
           group: "Panels",
-          shortcut: ["⌘", "2"],
+          shortcut: shortcutKeys("inspector"),
           onSelect: () => {
             closePalette();
             toggleInspector();
@@ -610,7 +584,7 @@
           id: "keyboard-shortcuts",
           label: "Keyboard Shortcuts",
           group: "Settings",
-          shortcut: ["?"],
+          shortcut: shortcutKeys("help"),
           onSelect: () => {
             closePalette();
             openShortcuts();
@@ -637,9 +611,36 @@
       ];
     }
   </file>
+  <file path="src/hooks/useShortcuts.ts">
+    export type ShortcutHandlers = Partial<Record<ShortcutAction, () => void>>;
+    function isTypingTarget(target: EventTarget | null): boolean {
+      const el = target as HTMLElement | null;
+      const tag = el?.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!el?.isContentEditable;
+    }
+    export function useShortcuts(handlers: ShortcutHandlers): void {
+      useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+          // A palette, dialog or fullscreen layer that consumed the key has preventDefault()ed it.
+          if (e.defaultPrevented) return;
+          const action = matchShortcut(e);
+          if (!action) return;
+          const handler = handlers[action];
+          if (!handler) return;
+          // Only Escape (stop) works while typing; Option+digit etc. produce characters.
+          if (action !== "stop" && isTypingTarget(e.target)) return;
+          e.preventDefault();
+          handler();
+        };
+        document.addEventListener("keydown", onKeyDown);
+        return () => document.removeEventListener("keydown", onKeyDown);
+      }, [handlers]);
+    }
+  </file>
   <file path="src/hooks/useSpecsApi.ts">
     export interface SaveSpecData {
       prompt: string;
+      kind?: EntryKind;
       spec: unknown;
       rawLines: string[];
     }
@@ -739,6 +740,122 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/entry-kind.ts">
+    export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
+      kind: EntryKind;
+      prompt: string;
+    } {
+      if (entry.kind) return { kind: entry.kind, prompt: entry.prompt };
+      for (const [prefix, kind] of LEGACY_PREFIXES) {
+        if (entry.prompt.startsWith(prefix)) {
+          return { kind, prompt: entry.prompt.slice(prefix.length) };
+        }
+      }
+      return { kind: "generate", prompt: entry.prompt };
+    }
+  </file>
+  <file path="src/lib/shortcuts.ts">
+    export type ShortcutAction =
+      "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
+    export type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";
+    export interface ShortcutDef {
+      id: string;
+      label: string;
+      section: ShortcutSection;
+      /** Canonical key tokens: optional "Alt"/"Shift" modifiers, then the key. */
+      keys: readonly string[];
+      /** Present when the global handler owns this binding. */
+      action?: ShortcutAction;
+    }
+    export const SHORTCUTS: readonly ShortcutDef[] = [
+      { id: "palette", label: "Command palette", section: "Navigation", keys: ["Mod", "K"] },
+      {
+        id: "templates",
+        label: "Templates gallery",
+        section: "Navigation",
+        keys: ["Alt", "Shift", "T"],
+        action: "templates",
+      },
+      {
+        id: "newGeneration",
+        label: "New generation",
+        section: "Navigation",
+        keys: ["Alt", "Shift", "N"],
+        action: "newGeneration",
+      },
+      { id: "send", label: "Send prompt", section: "Editing", keys: ["Enter"] },
+      { id: "newline", label: "New line", section: "Editing", keys: ["Shift", "Enter"] },
+      { id: "prevPrompt", label: "Previous prompt", section: "Editing", keys: ["↑"] },
+      { id: "nextPrompt", label: "Next prompt", section: "Editing", keys: ["↓"] },
+      { id: "stop", label: "Stop generation", section: "Editing", keys: ["Esc"], action: "stop" },
+      {
+        id: "history",
+        label: "Toggle history panel",
+        section: "Panels",
+        keys: ["Alt", "1"],
+        action: "history",
+      },
+      {
+        id: "inspector",
+        label: "Toggle JSON inspector",
+        section: "Panels",
+        keys: ["Alt", "2"],
+        action: "inspector",
+      },
+      {
+        id: "fullscreen",
+        label: "Toggle fullscreen",
+        section: "Panels",
+        keys: ["Alt", "Shift", "F"],
+        action: "fullscreen",
+      },
+      { id: "help", label: "Show this help", section: "General", keys: ["?"], action: "help" },
+    ];
+    export const SHORTCUT_SECTIONS: readonly ShortcutSection[] = [
+      "Navigation",
+      "Editing",
+      "Panels",
+      "General",
+    ];
+    function isMac(): boolean {
+      return typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent);
+    }
+    export function displayKeys(def: ShortcutDef, mac: boolean = isMac()): string[] {
+      return def.keys.map((k) => {
+        if (k === "Mod") return mac ? "⌘" : "Ctrl";
+        if (k === "Alt") return mac ? "⌥" : "Alt";
+        if (k === "Shift" && mac) return "⇧";
+        return k;
+      });
+    }
+    export function shortcutKeys(id: string, mac?: boolean): string[] {
+      const def = SHORTCUTS.find((s) => s.id === id);
+      if (!def) throw new Error(`Unknown shortcut: ${id}`);
+      return displayKeys(def, mac);
+    }
+    function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean {
+      if (token === "Esc") return event.key === "Escape";
+      // With Alt held, macOS rewrites event.key (Option+F -> a symbol), so match the
+      // physical key via event.code instead.
+      if (usesAlt) return event.code === (/^\d$/.test(token) ? `Digit${token}` : `Key${token}`);
+      return event.key === token;
+    }
+    export function matchShortcut(event: KeyboardEvent): ShortcutAction | null {
+      if (event.metaKey || event.ctrlKey) return null;
+      for (const def of SHORTCUTS) {
+        if (!def.action) continue;
+        const token = def.keys[def.keys.length - 1];
+        if (token === undefined) continue;
+        const usesAlt = def.keys.includes("Alt");
+        if (event.altKey !== usesAlt) continue;
+        // Bare keys like "?" are shifted on many layouts, so only require Shift
+        // to match when the binding is an Alt combo.
+        if (usesAlt && event.shiftKey !== def.keys.includes("Shift")) continue;
+        if (mainKeyMatches(token, event, usesAlt)) return def.action;
+      }
+      return null;
+    }
+  </file>
   <file path="src/lib/spec.ts">
     export interface SpecStats {
       elementCount: number;
@@ -855,9 +972,9 @@
       const [activeId, setActiveId] = useState<string | null>(null);
       const [filter, setFilter] = useState<"all" | "favorites">("all");
       // Track the most recently submitted prompt without triggering a re-render.
-      // `promptRef` holds the string saved to history (tagged "Refined:"/
-      // "Recovered:" per the existing convention).
+      // `promptRef` holds the user's text saved to history; `kindRef` its kind.
       const promptRef = useRef("");
+      const kindRef = useRef<EntryKind>("generate");
       // The exact user-entered text (untagged), so a failure can restore it for
       // editing (`failedPrompt` below). State, not a ref — it's read during
       // render, and react-hooks/refs forbids reading ref.current at render time.
@@ -875,12 +992,13 @@
           options?.onGenerationComplete?.();
           void saveSpec({
             prompt: promptRef.current,
+            kind: kindRef.current,
             spec: completedSpec,
             rawLines: completedRawLines,
           }).then((stored) => setActiveId(stored.id));
         },
-        // Record the failed attempt in the same history mechanism (tagged
-        // "Failed:", following the existing "Refined:" convention) so a
+        // Record the failed attempt in the same history mechanism (kind
+        // "failed") so a
         // failure -> success recovery is visible. Not selected as active —
         // that would null out displayError (see the derivation below) and hide
         // the error the user is meant to see and act on. Skipped for a
@@ -889,7 +1007,8 @@
         onError: (err) => {
           if (!rawPrompt || isTransportError(err)) return;
           void saveSpec({
-            prompt: `Failed: ${rawPrompt}`,
+            prompt: rawPrompt,
+            kind: "failed",
             spec: EMPTY_SPEC,
             rawLines: [],
           }).catch((saveErr: unknown) => {
@@ -932,12 +1051,14 @@
           if (mode === "refine" && displaySpec) {
             refineSpecRef.current = displaySpec;
             const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
-            promptRef.current = `Refined: ${prompt}`;
+            promptRef.current = prompt;
+            kindRef.current = "refine";
             setActiveId(null);
             void send(refinementPrompt);
           } else {
             refineSpecRef.current = null;
             promptRef.current = prompt;
+            kindRef.current = "generate";
             setActiveId(null);
             void send(prompt);
           }
@@ -958,18 +1079,33 @@
         if (initialPromptHandledRef.current) return;
         initialPromptHandledRef.current = true;
         const initialPrompt = new URLSearchParams(window.location.search).get("prompt")?.trim();
-        if (initialPrompt) queueMicrotask(() => submit(initialPrompt));
+        if (!initialPrompt) return;
+        // Consume the param so a reload or sign-in round-trip doesn't regenerate.
+        const params = new URLSearchParams(window.location.search);
+        params.delete("prompt");
+        const search = params.toString();
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`
+        );
+        queueMicrotask(() => submit(initialPrompt));
       }, [submit]);
     
       const replay = useCallback(
         (id: string) => {
           const entry = specs.find((s) => s.id === id);
           if (!entry) return;
-          promptRef.current = entry.prompt;
-          setRawPrompt(entry.prompt);
+          const { kind, prompt } = resolveEntry(entry);
+          // A refine entry only makes sense on top of its parent spec, which isn't
+          // stored — replaying the bare instruction would be meaningless.
+          if (kind === "refine") return;
+          promptRef.current = prompt;
+          kindRef.current = "generate";
+          setRawPrompt(prompt);
           refineSpecRef.current = null;
           resetTo(null);
-          void send(entry.prompt);
+          void send(prompt);
         },
         [specs, resetTo, send]
       );
@@ -977,20 +1113,19 @@
       // "Retry with error context": when the last attempt failed with a
       // generation/validation error, feed it back to the model instead of a
       // bare resubmit (reuses the same send() call — no new backend endpoint).
-      // Always based on the untagged rawPrompt (or a selected entry's prompt) —
-      // never on promptRef.current, which carries the "Refined:"/"Recovered:"
-      // history label — so repeated retries can't pile tags onto each other or
-      // leak them into the model prompt. A refine failure's spec context
+      // Always based on the untagged rawPrompt (or a selected entry's prompt),
+      // so history labels can never leak into the model prompt. A refine failure's spec context
       // (refineSpecRef, captured at submit-time) is re-embedded so the retry
       // doesn't lose it. A transport failure (auth/network — see
       // isTransportError) isn't recoverable by feeding it back to the model, so
       // that case is just a bare resubmit, same as having no error at all.
       const retry = useCallback(() => {
-        const retryPrompt = activeEntry?.prompt ?? rawPrompt;
+        const retryPrompt = activeEntry ? resolveEntry(activeEntry).prompt : rawPrompt;
         if (!retryPrompt) return;
         const recoverableError = error && !isTransportError(error) ? error : null;
         setRawPrompt(retryPrompt);
-        promptRef.current = recoverableError ? `Recovered: ${retryPrompt}` : retryPrompt;
+        promptRef.current = retryPrompt;
+        kindRef.current = recoverableError ? "recover" : "generate";
         resetTo(null);
         if (recoverableError) {
           const promptWithContext = refineSpecRef.current
@@ -1140,10 +1275,13 @@
       rawLines: string[];
       timestamp: Date;
     }
+    export type EntryKind = "generate" | "refine" | "recover" | "failed";
     export interface StoredSpec {
       id: string;
       userId: string;
       prompt: string;
+      /** Absent on responses from a server that predates the field. */
+      kind?: EntryKind;
       spec: unknown;
       rawLines: string[];
       isFavorite: boolean;

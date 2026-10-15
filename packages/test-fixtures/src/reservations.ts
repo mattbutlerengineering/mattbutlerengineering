@@ -5,49 +5,13 @@
  * prevent accidental mutation across tests.
  */
 
-import type { TableShapeMetadata, TableStatus, Occasion, SeatingPreference } from "@mbe/types";
+import type { Reservation, Table } from "@mbe/types";
 
-export interface MockTable {
-  readonly id: string;
-  readonly name: string;
-  readonly tableNumber: string | null;
-  readonly capacity: number;
-  readonly minCovers: number;
-  readonly maxCovers: number | null;
-  readonly location: string | null;
-  readonly isActive: boolean;
-  readonly priority: number;
-  readonly status: TableStatus;
-  readonly venueId: string | null;
-  readonly floorPlanId: string | null;
-  readonly shapeMetadata: TableShapeMetadata | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
+/** The real `Table` contract — fixtures can no longer drift from it. */
+export type MockTable = Table;
 
-export interface MockReservation {
-  readonly id: string;
-  readonly date: string;
-  readonly startTime: string;
-  readonly endTime: string;
-  readonly partySize: number;
-  readonly status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
-  readonly notes: string | null;
-  readonly cancellationReason: string | null;
-  readonly cancellationNote: string | null;
-  readonly occasion: Occasion | null;
-  readonly seatingPreference: SeatingPreference | null;
-  readonly guestName: string;
-  readonly guestEmail: string | null;
-  readonly guestPhone: string | null;
-  readonly guestId: string | null;
-  readonly userId: string | null;
-  readonly tableId: string;
-  readonly table: MockTable;
-  readonly venueId: string | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
+/** The real `Reservation` contract, with `table` always populated by the factory. */
+export type MockReservation = Reservation & { readonly table: Table };
 
 export interface MockPagination {
   readonly page: number;
@@ -76,7 +40,7 @@ export function createMockTable(overrides?: Partial<MockTable>): MockTable {
     createdAt: "2026-01-25T00:00:00.000Z",
     updatedAt: "2026-01-25T00:00:00.000Z",
     ...overrides,
-  });
+  } satisfies Table);
 }
 
 export function createMockReservation(
@@ -107,7 +71,7 @@ export function createMockReservation(
     createdAt: "2026-01-25T00:00:00.000Z",
     updatedAt: "2026-01-25T00:00:00.000Z",
     ...restOverrides,
-  });
+  } satisfies MockReservation);
 }
 
 export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination {

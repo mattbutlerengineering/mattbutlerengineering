@@ -304,4 +304,69 @@ describe("useChatStream", () => {
 
     expect(result.current.isStreaming).toBe(false);
   });
+
+  it("surfaces permission_denied events and resets them on the next request", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          { type: "permission_denied", toolName: "Bash", reason: "Command is blocked" },
+          { type: "text", content: "I could not do that." },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "ok" }]));
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("run it");
+    });
+    expect(result.current.permissionDenials).toEqual([
+      { toolName: "Bash", reason: "Command is blocked" },
+    ]);
+
+    await act(async () => {
+      await result.current.send("again");
+    });
+    expect(result.current.permissionDenials).toEqual([]);
+  });
+
+  it("tracks the running tool from tool_status events and clears it when the tool completes", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    async function* stream() {
+      yield { type: "tool_status", tool: "lookup_reservation", status: "running" };
+      await gate;
+      yield { type: "tool_status", tool: "lookup_reservation", status: "complete" };
+    }
+    vi.mocked(streamNDJSON).mockReturnValueOnce(stream() as never);
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    let sendPromise: Promise<void>;
+    act(() => {
+      sendPromise = result.current.send("find it");
+    });
+    await vi.waitFor(() => expect(result.current.activeTool).toBe("lookup_reservation"));
+
+    await act(async () => {
+      release();
+      await sendPromise!;
+    });
+    expect(result.current.activeTool).toBeNull();
+  });
+
+  it("clears the running tool when the stream ends without a complete event", async () => {
+    vi.mocked(streamNDJSON).mockReturnValueOnce(
+      mockStream([{ type: "tool_status", tool: "lookup_reservation", status: "running" }])
+    );
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("find it");
+    });
+    expect(result.current.activeTool).toBeNull();
+  });
 });

@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { MOCK_JWT_PAYLOAD } from "../test/fixtures.js";
+import { ADMIN_JWT_PAYLOAD } from "../test/fixtures.js";
 
 vi.mock("../services/user.js", () => ({
   userService: {
@@ -29,7 +29,7 @@ vi.mock("../services/database.js", async () => {
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
   jwtVerify: vi.fn().mockResolvedValue({
-    payload: MOCK_JWT_PAYLOAD,
+    payload: ADMIN_JWT_PAYLOAD,
     protectedHeader: { alg: "RS256" },
   }),
 }));

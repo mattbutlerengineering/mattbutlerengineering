@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type * as VenueServiceModule from "../services/venue.js";
+import type * as AuthFastifyModule from "@mbe/auth/fastify";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 
@@ -103,7 +104,7 @@ vi.mock("../services/database.js", async () => {
 // public-venues.test.ts's identical comment. ADR-026 §3.3 item 5 / #5369
 // PR 7: GET/PATCH/DELETE /:id and GET /:id/table-statuses resolve venue ids
 // the same way. Route tests exercise application logic, not real RLS
-// resolution (that's `rls-route-sweep.integration.test.ts`) — `loadInVenueContext`
+// resolution (that's `rls-route-sweep.integration.test.ts`) — former `loadInVenueContext`
 // passes the resolved id only to `runWithVenueContext`, never to the (mocked)
 // `venueService` call the assertions below check, so any non-null value works
 // for every test in this file.
@@ -117,6 +118,15 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
+// Wraps the real requireAuth so every existing test keeps its real
+// behavior (including the AUTH_BYPASS_IN_TESTS / x-auth-bypass path), while
+// a single test can override it with mockImplementationOnce to simulate a
+// misconfigured preHandler that leaves request.user unset (#6520).
+vi.mock("@mbe/auth/fastify", async () => {
+  const actual = await vi.importActual<typeof AuthFastifyModule>("@mbe/auth/fastify");
+  return { ...actual, requireAuth: vi.fn(actual.requireAuth) };
+});
+
 import {
   venueService,
   venueGroupService,
@@ -126,6 +136,7 @@ import { VENUE_CREATE_RATE_LIMIT } from "./venues.js";
 import { tableStatusService } from "../services/table-status.js";
 import { jwtVerify } from "jose";
 import { resolveVenueId } from "../services/resolve-venue.js";
+import { requireAuth } from "@mbe/auth/fastify";
 import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
 
 const mockVenueGroup = {
@@ -530,6 +541,23 @@ describe("Venue Routes", () => {
         const response = await app.inject({ method: "GET", url: "/api/v1/venues" });
 
         expect(response.statusCode).toBe(401);
+        expect(venueService.list).not.toHaveBeenCalled();
+        expect(venueService.listForMember).not.toHaveBeenCalled();
+      });
+
+      it("fails closed with 'Authentication required' if requireAuth is ever bypassed and leaves request.user unset (#6520)", async () => {
+        vi.mocked(requireAuth).mockImplementationOnce(async () => {
+          // No-op: simulates requireAuth being removed/misconfigured — it
+          // neither sets request.user nor replies, leaving the handler's
+          // own backstop as the only thing standing between this request
+          // and an unauthenticated read.
+        });
+
+        const response = await app.inject({ method: "GET", url: "/api/v1/venues" });
+
+        expect(response.statusCode).toBe(401);
+        const body = JSON.parse(response.body);
+        expect(body.detail).toBe("Authentication required");
         expect(venueService.list).not.toHaveBeenCalled();
         expect(venueService.listForMember).not.toHaveBeenCalled();
       });

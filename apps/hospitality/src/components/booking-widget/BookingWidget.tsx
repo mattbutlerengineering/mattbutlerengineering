@@ -2,13 +2,14 @@ import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import { quoteDeposit } from "@mbe/cancellation-policy";
+import { addDays, venueDate } from "../../utils/service-day.js";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { GuestDetailsForm } from "./GuestDetailsForm";
 import { PaymentStep } from "./PaymentStep";
 import { ConfirmationView } from "./ConfirmationView";
 import { WaitlistJoinView } from "./WaitlistJoinView";
-import { WaitlistConfirmationView } from "./WaitlistConfirmationView";
+import { LiveWaitlistConfirmation } from "./LiveWaitlistConfirmation";
 import { useBookingFlow } from "./useBookingFlow.js";
 import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./BookingWidget.module.css";
@@ -43,7 +44,7 @@ export interface BookingWidgetProps {
   /** Venue contact phone, shown as a tel: link for parties above maxPartySize (#4979). */
   phone?: string;
   stripePublishableKey?: string;
-  /** Default estimated wait minutes shown when no slots are available (before API response) */
+  /** Optional server-derived wait estimate shown when no slots are available; never defaulted client-side. */
   defaultWaitMinutes?: number;
   /**
    * Whether the venue has operating hours configured. Defaults to `true`
@@ -97,7 +98,7 @@ export function BookingWidget({
   className = "",
   phone,
   stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
-  defaultWaitMinutes = 30,
+  defaultWaitMinutes,
   hasOperatingHours = true,
   audience = "guest",
   onSetHours,
@@ -125,6 +126,18 @@ export function BookingWidget({
   const bookingSteps = stepKeys.includes("payment")
     ? BOOKING_STEPS_WITH_DEPOSIT
     : BOOKING_STEPS_NO_DEPOSIT;
+
+  // The venue's own maxAdvanceBooking (days) bounds the date picker; an
+  // explicit `maxDate` prop still wins.
+  const maxAdvanceDays = data.venueConfig?.settings.maxAdvanceBooking;
+  const effectiveMaxDate =
+    maxDate ??
+    (maxAdvanceDays === undefined
+      ? undefined
+      : addDays(
+          venueDate(new Date(), venueTimezone ?? data.venueConfig?.ianaTimezone),
+          maxAdvanceDays
+        ));
 
   const isWaitlistState = state === "waitlist-join" || state === "waitlist-confirmation";
 
@@ -164,7 +177,7 @@ export function BookingWidget({
           phone={phone}
           enableDateRange={enableDateRange}
           minDate={minDate}
-          maxDate={maxDate}
+          maxDate={effectiveMaxDate}
           venueTimezone={venueTimezone}
         />
       )}
@@ -260,10 +273,11 @@ export function BookingWidget({
         />
       )}
 
-      {state === "waitlist-confirmation" && data.waitlistResult && (
-        <WaitlistConfirmationView
-          position={data.waitlistResult.position}
-          estimatedWaitMinutes={data.waitlistResult.estimatedWaitMinutes}
+      {state === "waitlist-confirmation" && data.waitlistResult && venueSlug && (
+        <LiveWaitlistConfirmation
+          api={api}
+          venueSlug={venueSlug}
+          joined={data.waitlistResult}
           onNewBooking={actions.resetFlow}
         />
       )}

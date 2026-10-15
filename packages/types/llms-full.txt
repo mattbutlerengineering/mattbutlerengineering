@@ -603,6 +603,10 @@
       "WaitlistJoinResult",
       WaitlistJoinResultSchema
     );
+    export const waitlistEstimateJsonSchema = toFastifyJsonSchema(
+      "WaitlistEstimate",
+      WaitlistEstimateSchema
+    );
     export const floorPlanLayoutJsonSchema = toFastifyJsonSchema(
       "FloorPlanLayout",
       FloorPlanLayoutSchema
@@ -1243,6 +1247,7 @@
       guestPhone: z.string(),
     });
     export const WaitlistJoinResultSchema = z.object({
+      statusToken: z.string(),
       position: z.number(),
       estimatedWaitMinutes: z.number(),
     });
@@ -1253,6 +1258,11 @@
       "expired",
       "cancelled",
     ]);
+    export const WaitlistEstimateSchema = z.object({
+      position: z.number(),
+      estimatedWaitMinutes: z.number(),
+      status: WaitlistStatusSchema,
+    });
     export const WaitlistEntrySchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -1509,6 +1519,23 @@
       positions: UpdateTablePositionRequest[];
     }
   </file>
+  <file path="src/guest-segment.ts">
+    export const VIP_TAG = "vip";
+    export const VIP_VISIT_THRESHOLD = 10;
+    export const REPEAT_VISIT_THRESHOLD = 2;
+    export type GuestSegmentName = "VIP" | "Repeat" | "New";
+    export function hasVipTag(tags: readonly string[] | null | undefined): boolean {
+      return (tags ?? []).some((tag) => tag.toLowerCase() === VIP_TAG);
+    }
+    export function classifyGuestSegment(
+      visitCount: number,
+      tags: readonly string[] | null | undefined
+    ): GuestSegmentName {
+      if (hasVipTag(tags) || visitCount >= VIP_VISIT_THRESHOLD) return "VIP";
+      if (visitCount >= REPEAT_VISIT_THRESHOLD) return "Repeat";
+      return "New";
+    }
+  </file>
   <file path="src/guest.ts">
     export type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
     export interface StaffNote {
@@ -1575,6 +1602,19 @@
       firstName: string | null;
       visitCount: number;
       hasPreferences: boolean;
+    }
+  </file>
+  <file path="src/party-fit.ts">
+    export interface PartyFitTable {
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+    }
+    export function tableMaxCovers(table: Pick<PartyFitTable, "capacity" | "maxCovers">): number {
+      return table.maxCovers ?? table.capacity;
+    }
+    export function partyFitsTable(table: PartyFitTable, partySize: number): boolean {
+      return table.minCovers <= partySize && partySize <= tableMaxCovers(table);
     }
   </file>
   <file path="src/reservation.ts">
@@ -2146,8 +2186,19 @@
       guestPhone: string;
     }
     export interface WaitlistJoinResult {
+      /**
+       * Signed, expiring capability for reading this one entry's live status
+       * (`GET .../waitlist/status?token=`). The entry id itself is a guessable cuid
+       * and is deliberately never exposed or accepted as the credential.
+       */
+      statusToken: string;
       position: number;
       estimatedWaitMinutes: number;
+    }
+    export interface WaitlistEstimate {
+      position: number;
+      estimatedWaitMinutes: number;
+      status: WaitlistStatus;
     }
     export type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
     export interface WaitlistEntry {

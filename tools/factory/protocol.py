@@ -90,7 +90,14 @@ def read_frontmatter(path):
     scalars (following indented lines joined with newlines); CRLF files
     are normalized before matching.
     """
-    text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    return parse_frontmatter(path.read_text(encoding="utf-8"))
+
+
+def parse_frontmatter(text):
+    """read_frontmatter's parse of text a caller already read (ADR-0094:
+    parse_run reads prd.md once, guarded, and parses its frontmatter
+    from that text)."""
+    text = text.replace("\r\n", "\n")
     match = _FRONTMATTER.match(text)
     if not match:
         return None

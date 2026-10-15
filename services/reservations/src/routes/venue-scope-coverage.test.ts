@@ -26,19 +26,17 @@ const FIXTURES = { ...STAFF_FIXTURES, ...PUBLIC_FIXTURES };
  * hook, so a new route that forgets to declare its scope fails here, in the
  * ordinary `test` job, instead of only in the Postgres-backed RLS job.
  *
- * `pending-migration` is allowed until the run's last PR; every route the run
- * will migrate starts there and leaves when its PR declares the scope.
+ * There is no "pending-migration" reason any more: the run that migrated the
+ * routes is over, so a route either declares its scope or has a real reason.
  */
 type UnscopedReason =
   | "cross-venue fan-out"
   | "cross-venue fan-out (admin)"
   | "venue-create"
   | "venue-group (no RLS)"
-  | "public slug"
   | "user-scoped (/me)"
   | "infra (no venue data)"
-  | "webhook (signature-verified)"
-  | "pending-migration";
+  | "webhook (signature-verified)";
 
 const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   // Not venue-addressed by design (architecture.md § Call-site fit, "Not migrated").
@@ -50,7 +48,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "GET /api/v1/venues/groups/:id": "venue-group (no RLS)",
   "PATCH /api/v1/venues/groups/:id": "venue-group (no RLS)",
   "DELETE /api/v1/venues/groups/:id": "venue-group (no RLS)",
-  "GET /api/v1/venues/by-slug/:slug": "public slug",
   "GET /api/v1/reservations/me": "user-scoped (/me)",
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
   // Matt ruling 2026-10-10: an admin with no venueId gets an unfiltered
@@ -69,12 +66,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   // express. Both keep their own requireVenueAccess guard.
   "GET /api/v1/reservations": "cross-venue fan-out (admin)",
   "POST /api/v1/reservations": "cross-venue fan-out (admin)",
-
-  // PR 2: guests, waitlist, briefing, booking-metrics, events stream.
-
-  // PR 3: tables, floor plans, venues.
-
-  // PR 4: reservations and deposits.
 };
 
 describe("venue-scope coverage (no database)", () => {
@@ -161,6 +152,13 @@ describe("venue-scope coverage (no database)", () => {
     expect(both, "a migrated route must leave UNSCOPED_ROUTES").toEqual([]);
   });
 
+  it("no unscoped entry is still marked pending-migration", () => {
+    const pending = Object.entries(UNSCOPED_ROUTES).filter(
+      ([, reason]) => (reason as string) === "pending-migration"
+    );
+    expect(pending, "declare the scope with venueScoped or give a real reason").toEqual([]);
+  });
+
   it("no unscoped entry names a route that no longer exists", () => {
     const live = new Set(registered());
     const stale = Object.keys(UNSCOPED_ROUTES).filter((route) => !live.has(route));
@@ -230,6 +228,19 @@ describe("venue-scope coverage (no database)", () => {
       "GET /api/v1/holds/:id": "resolve:hold.venueId/member",
       "DELETE /api/v1/holds/:id": "resolve:hold.venueId/member",
       "POST /api/v1/holds/:id/confirm": "resolve:hold.venueId/member",
+      // Public-slug and manage-token sources (authority is the slug / token, not membership).
+      "GET /api/v1/venues/by-slug/:slug": "slug/public",
+      "GET /public/v1/venues/:slug": "slug/public",
+      "GET /public/v1/venues/:slug/availability": "slug/public",
+      "POST /public/v1/venues/:slug/deposits/payment-intent": "slug/public",
+      "POST /public/v1/venues/:slug/holds": "slug/public",
+      "GET /public/v1/venues/:slug/holds/:holdId": "slug/public",
+      "POST /public/v1/venues/:slug/holds/:holdId/confirm": "slug/public",
+      "POST /public/v1/venues/:slug/reservations": "slug/public",
+      "GET /public/v1/reservations/manage": "token:manage/public",
+      "PATCH /public/v1/reservations/manage": "token:manage/public",
+      "DELETE /public/v1/reservations/manage": "token:manage/public",
+      "PATCH /public/v1/reservations/confirm": "token:manage/public",
     };
     const actual = Object.fromEntries(
       Object.keys(expected).map((route) => [route, app.venueScopes.get(route)])

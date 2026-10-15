@@ -99,6 +99,10 @@ describe("createMockReservation", () => {
     expect(res.guestName).toBe("John Doe");
   });
 
+  it("accepts the real contract's nullable guestName (walk-in with no name)", () => {
+    expect(createMockReservation({ guestName: null }).guestName).toBeNull();
+  });
+
   it("supports cross-domain composition: links userId from createMockUser", () => {
     const user = createMockUser({ id: "user-xyz" });
     const res = createMockReservation({ userId: user.id });
@@ -139,7 +143,14 @@ describe("createMockJWTPayload", () => {
     expect(jwt.email).toBe("test@example.com");
     expect(jwt.email_verified).toBe(true);
     expect(jwt.iss).toContain("auth0");
-    expect(jwt.permissions).toContain("admin");
+  });
+
+  it("defaults to the least-privileged role (no permissions)", () => {
+    expect(createMockJWTPayload().permissions).toEqual([]);
+  });
+
+  it("grants admin only when asked explicitly", () => {
+    expect(createMockJWTPayload({ permissions: ["admin"] }).permissions).toEqual(["admin"]);
   });
 
   it("accepts overrides", () => {

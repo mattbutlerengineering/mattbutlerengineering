@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -71,9 +71,77 @@ function makePrismaTable(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// Fixed clock: every date below is relative to this instant, not the wall clock.
+const FIXED_NOW = new Date("2026-05-01T12:00:00Z");
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(FIXED_NOW);
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("availabilityService.generateTimeSlots", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe("booking window", () => {
+    function stubVenue(settings: Record<string, unknown> | null) {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(
+        makePrismaVenue({ settings }) as never
+      );
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+    }
+
+    it("drops slots already past (now = 18:00 ET, no minAdvance)", async () => {
+      vi.setSystemTime(new Date("2026-05-05T22:00:00Z")); // 18:00 ET
+      stubVenue(null);
+
+      const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2);
+
+      expect(slots.length).toBeGreaterThan(0);
+      expect(slots.every((s) => new Date(s.time) >= new Date("2026-05-05T22:00:00Z"))).toBe(true);
+      expect(slots[0]?.time).toBe("2026-05-05T22:00:00.000Z");
+    });
+
+    it("drops slots before now + minAdvanceBooking hours", async () => {
+      vi.setSystemTime(new Date("2026-05-05T22:00:00Z"));
+      stubVenue({ minAdvanceBooking: 2 });
+
+      const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2);
+
+      expect(slots[0]?.time).toBe("2026-05-06T00:00:00.000Z"); // 20:00 ET
+    });
+
+    it("returns [] for a date beyond maxAdvanceBooking", async () => {
+      stubVenue({ maxAdvanceBooking: 3 }); // today is 2026-05-01 -> latest 05-04
+
+      const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2);
+
+      expect(slots).toEqual([]);
+    });
+
+    it("still offers the last permitted day", async () => {
+      stubVenue({ maxAdvanceBooking: 4 });
+
+      const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2);
+
+      expect(slots.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("does not offer a 2-top (null maxCovers) to a party of 12", async () => {
+    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValueOnce([
+      makePrismaTable({ capacity: 2, minCovers: 1, maxCovers: null }),
+    ] as never);
+
+    const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 12);
+
+    expect(slots).toEqual([]);
   });
 
   it("returns empty array when venue not found", async () => {

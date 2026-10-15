@@ -3,6 +3,7 @@
  *
  * Defined once here; all services import from this shared source.
  * Returns a frozen object to prevent accidental mutation across tests.
+ * Defaults to NO permissions; pass `{ permissions: ["admin"] }` to opt into admin.
  */
 
 export interface MockJWTPayload {
@@ -29,7 +30,8 @@ export function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJ
     email_verified: true,
     name: "Test User",
     picture: "https://example.com/pic.jpg",
-    permissions: ["admin"],
+    // Least privilege: tests that need admin must ask for it explicitly.
+    permissions: [],
     ...overrides,
   });
 }

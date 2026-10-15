@@ -151,9 +151,11 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
         else sections.set(key, { group: key, items: [item], best: rank });
       }
 
-      const groupOrder = groups.length
-        ? groups
-        : Array.from(sections.keys()).filter((key): key is string => key !== null);
+      // `groups` controls order only: listed groups lead, any other group that has items follows.
+      const unlisted = Array.from(sections.keys()).filter(
+        (key): key is string => key !== null && !groups.includes(key)
+      );
+      const groupOrder = [...groups, ...unlisted];
 
       const result = [null, ...groupOrder].flatMap((key) => {
         const section = sections.get(key);

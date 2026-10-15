@@ -4,6 +4,7 @@ import { useToast } from "@mattbutlerengineering/rialto";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { Spec } from "@json-render/react";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { shortcutKeys } from "../lib/shortcuts.js";
 import { downloadJson } from "../utils/downloadJson.js";
 import { usePlaygroundSession } from "../pages/usePlaygroundSession.js";
 import type { PlaygroundSession } from "../pages/usePlaygroundSession.js";
@@ -27,7 +28,7 @@ export interface UsePlaygroundResult {
 
 /**
  * Owns the gen playground's workbench behaviour: the generation session, the
- * completion/error toasts, the global keyboard shortcuts, and the shell-level
+ * completion/error toasts, and the shell-level
  * callbacks. Concentrating this here keeps PlaygroundPage a declarative view
  * and makes the choreography testable without rendering the page tree.
  *
@@ -45,7 +46,7 @@ export function usePlayground(): UsePlaygroundResult {
     onGenerationComplete: () =>
       toast({ title: "Generation complete", variant: "success", duration: 3000 }),
   });
-  const { reset, error, toggleGallery, toggleShortcuts, openGallery } = session;
+  const { reset, error, openGallery } = session;
 
   const onSignOut = useCallback(() => {
     reset();
@@ -71,32 +72,6 @@ export function usePlayground(): UsePlaygroundResult {
       });
     }
   }, [error, toast]);
-
-  // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "t") {
-        e.preventDefault();
-        toggleGallery();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [toggleGallery]);
-
-  // Keyboard shortcut: "?" to open shortcuts help (only when no input is focused)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "?") return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if ((e.target as HTMLElement)?.isContentEditable) return;
-      e.preventDefault();
-      toggleShortcuts();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [toggleShortcuts]);
 
   return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
 }
@@ -149,7 +124,7 @@ export function buildPlaygroundCommandItems({
       id: "new-generation",
       label: "New Generation",
       group: "Actions",
-      shortcut: ["⌘", "N"],
+      shortcut: shortcutKeys("newGeneration"),
       onSelect: () => {
         closePalette();
         reset();
@@ -159,7 +134,7 @@ export function buildPlaygroundCommandItems({
       id: "toggle-fullscreen",
       label: "Toggle Fullscreen",
       group: "Actions",
-      shortcut: ["⌘", "F"],
+      shortcut: shortcutKeys("fullscreen"),
       onSelect: () => {
         closePalette();
         toggleFullscreen();
@@ -171,7 +146,7 @@ export function buildPlaygroundCommandItems({
             id: "stop-generation",
             label: "Stop Generation",
             group: "Actions",
-            shortcut: ["Esc"],
+            shortcut: shortcutKeys("stop"),
             onSelect: () => {
               closePalette();
               stop();
@@ -183,7 +158,7 @@ export function buildPlaygroundCommandItems({
       id: "open-templates",
       label: "Browse Templates",
       group: "Actions",
-      shortcut: ["⌘", "T"],
+      shortcut: shortcutKeys("templates"),
       onSelect: () => {
         closePalette();
         openGallery();
@@ -215,7 +190,7 @@ export function buildPlaygroundCommandItems({
       id: "toggle-history",
       label: "Toggle History Panel",
       group: "Panels",
-      shortcut: ["⌘", "1"],
+      shortcut: shortcutKeys("history"),
       onSelect: () => {
         closePalette();
         toggleHistory();
@@ -225,7 +200,7 @@ export function buildPlaygroundCommandItems({
       id: "toggle-inspector",
       label: "Toggle JSON Inspector",
       group: "Panels",
-      shortcut: ["⌘", "2"],
+      shortcut: shortcutKeys("inspector"),
       onSelect: () => {
         closePalette();
         toggleInspector();
@@ -235,7 +210,7 @@ export function buildPlaygroundCommandItems({
       id: "keyboard-shortcuts",
       label: "Keyboard Shortcuts",
       group: "Settings",
-      shortcut: ["?"],
+      shortcut: shortcutKeys("help"),
       onSelect: () => {
         closePalette();
         openShortcuts();

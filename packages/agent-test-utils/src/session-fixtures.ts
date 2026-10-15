@@ -10,7 +10,8 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { SessionEvent, SessionEventType } from "@mbe/agent-core";
+import { buildSuccessResult, buildUsage, fixtureUuid } from "./sdk-result.js";
+import type { MappedEvent, SessionEvent, SessionEventType } from "@mbe/agent-core";
 
 // ── Built-in fixture types ────────────────────────────────────────────
 
@@ -45,78 +46,52 @@ function buildStartEvent(sessionId: string): SessionEvent {
   };
 }
 
+/**
+ * Typed observability events are emitted by agent-core's run-hardened-query as
+ * `{ message: JSON.stringify(mappedEvent) }`. Build them from the real
+ * `MappedEvent` shape so the compiler checks the payload.
+ */
+function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent {
+  return {
+    type: mapped.type,
+    timestamp: makeTimestamp(offsetMs),
+    data: { message: JSON.stringify(mapped) },
+  };
+}
+
 function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent {
-  return {
-    type: "session:assistant",
-    timestamp: makeTimestamp(offsetMs),
-    data: {
-      type: "assistant",
-      message: {
-        id: `msg_${Math.random().toString(36).slice(2, 10)}`,
-        type: "message",
-        role: "assistant",
-        content: [{ type: "text", text }],
-        model: "claude-sonnet-4-6",
-        stop_reason: null,
-        stop_sequence: null,
-        usage: { input_tokens: 100, output_tokens: 50 },
-      },
-    } as unknown as SessionEvent["data"],
-  };
+  return buildMappedEvent({ type: "session:assistant", text }, offsetMs);
 }
 
-function buildToolUseEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent {
-  return {
-    type: "session:tool_use",
-    timestamp: makeTimestamp(offsetMs),
-    data: {
-      type: "tool_use",
-      tool_use: {
-        id: `toolu_${Math.random().toString(36).slice(2, 10)}`,
-        name: call.toolName,
-        input: call.input,
-      },
-    } as unknown as SessionEvent["data"],
-  };
+/** Deterministic id so a tool_result pairs with its tool_use. */
+function toolUseIdFor(call: ToolCallRecord, index: number): string {
+  return `toolu_${index}_${call.toolName.toLowerCase()}`;
 }
 
-function buildToolResultEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent {
-  return {
-    type: "session:tool_result",
-    timestamp: makeTimestamp(offsetMs),
-    data: {
-      type: "tool_result",
-      tool_use_id: `toolu_${Math.random().toString(36).slice(2, 10)}`,
-      content: call.output ?? "Tool executed successfully",
-    } as unknown as SessionEvent["data"],
-  };
+function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent {
+  return buildMappedEvent(
+    {
+      type: "session:tool_use",
+      toolName: call.toolName,
+      toolInput: call.input,
+      toolUseId: toolUseIdFor(call, index),
+    },
+    offsetMs
+  );
+}
+
+function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent {
+  return buildMappedEvent(
+    { type: "session:tool_result", toolUseId: toolUseIdFor(call, index), isError: false },
+    offsetMs
+  );
 }
 
 function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent {
   return {
     type: "session:result",
     timestamp: makeTimestamp(opts.durationMs),
-    data: {
-      type: "result",
-      subtype: "success",
-      uuid: `uuid_${opts.sessionId}`,
-      session_id: opts.sessionId,
-      duration_ms: opts.durationMs,
-      duration_api_ms: Math.floor(opts.durationMs * 0.9),
-      is_error: false,
-      num_turns: opts.numTurns,
-      result: opts.resultText,
-      stop_reason: "end_turn",
-      total_cost_usd: opts.costUsd,
-      usage: {
-        input_tokens: opts.inputTokens,
-        output_tokens: opts.outputTokens,
-        cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 0,
-      },
-      modelUsage: {},
-      permission_denials: [],
-    } as unknown as SessionEvent["data"],
+    data: buildSuccessResult(opts, opts.resultText),
   };
 }
 
@@ -191,14 +166,14 @@ export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionE
   const events: SessionEvent[] = [buildStartEvent(o.sessionId)];
   let offset = 500;
 
-  for (const call of o.toolCalls) {
+  for (const [index, call] of o.toolCalls.entries()) {
     events.push(
       buildAssistantEvent(`Let me ${call.toolName.toLowerCase()} the relevant files.`, offset)
     );
     offset += 200;
-    events.push(buildToolUseEvent(call, offset));
+    events.push(buildToolUseEvent(call, index, offset));
     offset += 100;
-    events.push(buildToolResultEvent(call, offset));
+    events.push(buildToolResultEvent(call, index, offset));
     offset += 100;
   }
 
@@ -236,26 +211,20 @@ export function buildFailureFixture(opts: FixtureOptions = {}): readonly Session
       timestamp: makeTimestamp(o.durationMs),
       data: {
         type: "result",
-        subtype: "error_during_turn",
-        uuid: `uuid_${o.sessionId}`,
+        subtype: "error_during_execution",
+        uuid: fixtureUuid(o.sessionId),
         session_id: o.sessionId,
         duration_ms: o.durationMs,
         duration_api_ms: Math.floor(o.durationMs * 0.9),
         is_error: true,
         num_turns: o.numTurns,
-        result: "",
         stop_reason: "error",
         total_cost_usd: o.costUsd,
-        usage: {
-          input_tokens: o.inputTokens,
-          output_tokens: o.outputTokens,
-          cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 0,
-        },
+        usage: buildUsage(o.inputTokens, o.outputTokens),
         modelUsage: {},
         permission_denials: [],
         errors: ["Rate limit exceeded. Please try again later."],
-      } as unknown as SessionEvent["data"],
+      },
     },
   ];
 }
@@ -322,12 +291,21 @@ export function extractToolCalls(events: readonly SessionEvent[]): readonly Tool
   return events
     .filter((e) => e.type === "session:tool_use")
     .map((e) => {
-      const data = e.data as { tool_use?: { name: string; input: Record<string, unknown> } };
-      return {
-        toolName: data.tool_use?.name ?? "unknown",
-        input: data.tool_use?.input ?? {},
-      };
+      const mapped = parseMappedEvent(e);
+      return mapped?.type === "session:tool_use"
+        ? { toolName: mapped.toolName, input: mapped.toolInput }
+        : { toolName: "unknown", input: {} };
     });
+}
+
+function parseMappedEvent(event: SessionEvent): MappedEvent | undefined {
+  const data = event.data;
+  if (!("message" in data) || typeof data.message !== "string") return undefined;
+  try {
+    return JSON.parse(data.message) as MappedEvent;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

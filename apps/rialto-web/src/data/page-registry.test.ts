@@ -97,7 +97,6 @@ vi.mock("../pages/layout/ScrollAreaPage.js", () => ({ ScrollAreaPage: () => null
 vi.mock("../pages/layout/HeroPage.js", () => ({ HeroPage: () => null }));
 vi.mock("../pages/layout/FooterPage.js", () => ({ FooterPage: () => null }));
 vi.mock("../pages/layout/PageHeaderPage.js", () => ({ PageHeaderPage: () => null }));
-vi.mock("../pages/dashboard/Dashboard.js", () => ({ Dashboard: () => null }));
 vi.mock("../pages/examples/DashboardExamplePage.js", () => ({
   DashboardExamplePage: () => null,
 }));
@@ -202,16 +201,19 @@ describe("PageRegistry — structure", () => {
     expect(new Set(paths).size).toBe(paths.length);
   });
 
-  it("paths start with /components/, /examples/, or /dashboard", () => {
+  it("paths start with /components/ or /examples/", () => {
     for (const entry of PAGE_REGISTRY) {
       expect(
-        entry.path.startsWith("/components/") ||
-          entry.path.startsWith("/examples/") ||
-          entry.path === "/dashboard" ||
-          entry.path.startsWith("/dashboard/"),
+        entry.path.startsWith("/components/") || entry.path.startsWith("/examples/"),
         `${entry.id} has invalid path: ${entry.path}`
       ).toBe(true);
     }
+  });
+
+  it("does not serve the Pit Wall demo a second time as an 'ACMM Dashboard' showcase page", () => {
+    expect(PAGE_REGISTRY.find((e) => e.id === "acmm-dashboard")).toBeUndefined();
+    expect(PAGE_REGISTRY.some((e) => /acmm/i.test(e.label))).toBe(false);
+    expect(PAGE_REGISTRY.some((e) => e.path === "/dashboard")).toBe(false);
   });
 
   it("ids use kebab-case only", () => {
@@ -485,11 +487,13 @@ describe("PageRegistry — convention-based loader resolution", () => {
   it("honors an explicit load override for entries that don't follow the convention", async () => {
     const entries = buildPageRegistry([
       {
-        id: "acmm-dashboard",
-        label: "ACMM Dashboard",
-        category: "Dashboard",
+        id: "guest-profile-override",
+        label: "Guest Profile Override",
+        category: "Examples",
         load: () =>
-          import("../pages/dashboard/Dashboard.js").then((m) => ({ default: m.Dashboard })),
+          import("../pages/examples/DashboardExamplePage.js").then((m) => ({
+            default: m.DashboardExamplePage,
+          })),
       },
     ]);
     const mod = (await entries[0]!.load()) as { default?: unknown };

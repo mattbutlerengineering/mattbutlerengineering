@@ -4,7 +4,7 @@
     export interface SentryConfig {
       readonly dsn: string;
       readonly environment: string;
-      readonly release: string | undefined;
+      readonly release: string;
       readonly enabled: boolean;
     }
     export function resolveConfig(dsn: string | undefined): SentryConfig {
@@ -17,7 +17,7 @@
           "development",
         release:
           (typeof process !== "undefined" ? process.env.SENTRY_RELEASE : undefined) ??
-          (typeof process !== "undefined" ? process.env.npm_package_version : undefined),
+          resolveBuildInfo(typeof process !== "undefined" ? process.env : {}).version,
         enabled: resolvedDsn.length > 0,
       };
     }
@@ -224,7 +224,7 @@
         // An own `release: undefined` key would override the SDK's default, which
         // reads the SENTRY_RELEASE global that sentryVitePlugin injects into the
         // bundle — so only pass release when one was actually resolved.
-        ...(config.release !== undefined && { release: config.release }),
+        ...(config.release !== UNKNOWN_BUILD && { release: config.release }),
         replaysSessionSampleRate: 0,
         replaysOnErrorSampleRate: 0,
         integrations: [],

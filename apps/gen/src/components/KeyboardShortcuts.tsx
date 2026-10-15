@@ -1,31 +1,12 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useCallback, useMemo } from "react";
 import { Kbd, Shortcut } from "@mattbutlerengineering/rialto";
+import { SHORTCUTS, SHORTCUT_SECTIONS, displayKeys } from "../lib/shortcuts.js";
 import styles from "./KeyboardShortcuts.module.css";
-
-interface ShortcutEntry {
-  label: string;
-  keys: string[];
-}
-
-interface ShortcutSection {
-  title: string;
-  items: ShortcutEntry[];
-}
 
 export interface KeyboardShortcutsProps {
   open: boolean;
   onClose: () => void;
-}
-
-function isMac(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /mac/i.test(navigator.userAgent);
-}
-
-/** Returns the platform-appropriate modifier key symbol. */
-function modKey(): string {
-  return isMac() ? "\u2318" : "Ctrl";
 }
 
 /**
@@ -33,41 +14,16 @@ function modKey(): string {
  * Close via Escape, backdrop click, or the close button.
  */
 export function KeyboardShortcuts({ open, onClose }: KeyboardShortcutsProps) {
-  const mod = useMemo(() => modKey(), []);
-
-  const sections: ShortcutSection[] = useMemo(
-    () => [
-      {
-        title: "Navigation",
-        items: [
-          { label: "Command palette", keys: [mod, "K"] },
-          { label: "Templates gallery", keys: [mod, "T"] },
-        ],
-      },
-      {
-        title: "Editing",
-        items: [
-          { label: "Send prompt", keys: ["Enter"] },
-          { label: "New line", keys: ["Shift", "Enter"] },
-          { label: "Previous prompt", keys: ["\u2191"] },
-          { label: "Next prompt", keys: ["\u2193"] },
-          { label: "Stop generation", keys: ["Esc"] },
-        ],
-      },
-      {
-        title: "Panels",
-        items: [
-          { label: "Toggle history panel", keys: [mod, "1"] },
-          { label: "Toggle JSON inspector", keys: [mod, "2"] },
-          { label: "Toggle fullscreen", keys: [mod, "F"] },
-        ],
-      },
-      {
-        title: "General",
-        items: [{ label: "Show this help", keys: ["?"] }],
-      },
-    ],
-    [mod]
+  const sections = useMemo(
+    () =>
+      SHORTCUT_SECTIONS.map((title) => ({
+        title,
+        items: SHORTCUTS.filter((s) => s.section === title).map((s) => ({
+          label: s.label,
+          keys: displayKeys(s),
+        })),
+      })),
+    []
   );
 
   const handleKeyDown = useCallback(

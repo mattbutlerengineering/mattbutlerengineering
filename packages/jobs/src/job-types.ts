@@ -27,6 +27,18 @@ export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
 export interface ReminderPayload {
   reservationId: string;
   venueId: string;
+  /**
+   * Channels already delivered by an earlier attempt of this job. Written back
+   * via JobContext.updateData before a retry so a delivered channel is never
+   * re-sent.
+   */
+  deliveredChannels?: ("email" | "sms")[];
+}
+
+/** Per-attempt context handed to a job handler. */
+export interface JobContext {
+  /** Persist a patch of new job data (shallow-merged over the current payload) for the retry. */
+  updateData(patch: object): Promise<void>;
 }
 
 export interface PostVisitFollowupPayload {
@@ -79,5 +91,5 @@ export type JobPayloadMap = {
 };
 
 export type JobHandlerMap = Partial<{
-  [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
+  [K in JobType]: (payload: JobPayloadMap[K], ctx: JobContext) => Promise<void>;
 }>;

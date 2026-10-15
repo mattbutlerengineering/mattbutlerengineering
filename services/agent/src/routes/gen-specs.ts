@@ -4,8 +4,32 @@ import { createProblemDetails } from "@mbe/types";
 import { z } from "zod";
 import { storedSpecService, mapStoredSpec, mapStoredSpecPublic } from "../services/stored-spec.js";
 
+const GEN_SPEC_KINDS = ["generate", "refine", "recover", "failed"] as const;
+
+// Tags old clients still prepend to the prompt instead of sending `kind`.
+const LEGACY_PREFIXES: ReadonlyArray<readonly [string, (typeof GEN_SPEC_KINDS)[number]]> = [
+  ["Refined: ", "refine"],
+  ["Failed: ", "failed"],
+  ["Recovered: ", "recover"],
+];
+
+// Mirrors apps/gen resolveEntry: an explicit kind wins; otherwise strip ONE legacy prefix.
+export function normaliseKind(
+  prompt: string,
+  kind: (typeof GEN_SPEC_KINDS)[number] | undefined
+): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } {
+  if (kind) return { prompt, kind };
+  for (const [prefix, derived] of LEGACY_PREFIXES) {
+    if (prompt.startsWith(prefix) && prompt.length > prefix.length) {
+      return { prompt: prompt.slice(prefix.length), kind: derived };
+    }
+  }
+  return { prompt, kind: "generate" };
+}
+
 const CreateSpecBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
+  kind: z.enum(GEN_SPEC_KINDS).optional(),
   spec: z.unknown(),
   rawLines: z.array(z.string()),
 });
@@ -31,11 +55,13 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      const { prompt, spec, rawLines } = parseResult.data;
+      const { spec, rawLines } = parseResult.data;
+      const { prompt, kind } = normaliseKind(parseResult.data.prompt, parseResult.data.kind);
 
       const result = await storedSpecService.create({
         userId: request.user!.id,
         prompt,
+        kind,
         spec,
         rawLines,
       });

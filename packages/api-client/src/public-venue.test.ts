@@ -171,7 +171,7 @@ describe("PublicVenueClient.joinWaitlist", () => {
 
   it("sends POST /public/v1/venues/:slug/waitlist with the payload", async () => {
     mockFetch.mockResolvedValueOnce(
-      jsonResponse({ data: { position: 3, estimatedWaitMinutes: 45 } })
+      jsonResponse({ data: { statusToken: "tok-1", position: 3, estimatedWaitMinutes: 45 } })
     );
 
     await makeClient().joinWaitlist("the-oak-table", joinPayload);
@@ -184,11 +184,11 @@ describe("PublicVenueClient.joinWaitlist", () => {
 
   it("unwraps and returns the validated waitlist join result", async () => {
     mockFetch.mockResolvedValueOnce(
-      jsonResponse({ data: { position: 3, estimatedWaitMinutes: 45 } })
+      jsonResponse({ data: { statusToken: "tok-1", position: 3, estimatedWaitMinutes: 45 } })
     );
 
     const result = await makeClient().joinWaitlist("the-oak-table", joinPayload);
-    expect(result).toEqual({ position: 3, estimatedWaitMinutes: 45 });
+    expect(result).toEqual({ statusToken: "tok-1", position: 3, estimatedWaitMinutes: 45 });
   });
 
   it("throws ApiValidationError when the response is malformed", async () => {
@@ -267,5 +267,33 @@ describe("PublicVenueClient.depositIntent", () => {
     await expect(
       makeClient().depositIntent("the-oak-table", { reservationId: "res-123" }, "sess-123")
     ).rejects.toThrow();
+  });
+});
+
+describe("PublicVenueClient.waitlistEstimate", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("sends GET /public/v1/venues/:slug/waitlist/status?token= and returns the validated estimate", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { position: 1, estimatedWaitMinutes: 75, status: "waiting" } })
+    );
+
+    const result = await makeClient().waitlistEstimate("the-oak-table", "tok-1");
+
+    const [url] = mockFetch.mock.calls[0]!;
+    expect(url).toBe(
+      "https://api.test.com/public/v1/venues/the-oak-table/waitlist/status?token=tok-1"
+    );
+    expect(result).toEqual({ position: 1, estimatedWaitMinutes: 75, status: "waiting" });
+  });
+
+  it("throws ApiValidationError when the response is malformed", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { position: 1 } }));
+
+    await expect(makeClient().waitlistEstimate("the-oak-table", "tok-1")).rejects.toBeInstanceOf(
+      ApiValidationError
+    );
   });
 });

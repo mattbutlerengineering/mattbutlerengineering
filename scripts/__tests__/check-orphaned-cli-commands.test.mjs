@@ -156,7 +156,7 @@ describe("the real repo tree", () => {
     const { declarations, attachedSymbols } = scanRepo(repoRoot);
     expect(declarations.length).toBeGreaterThan(20);
     expect(attachedSymbols.length).toBeGreaterThan(20);
-    expect(declarations.map((d) => d.name)).toContain("health");
+    expect(declarations.map((d) => d.name)).toContain("check-deps");
   });
 
   it("ships with an empty allowlist — no exemption is currently claimed", () => {

@@ -161,7 +161,12 @@ describe("reservationService", () => {
     vi.mocked(assertBookable).mockReturnValue(undefined);
     // Default: every table the suite names belongs to venue-1, the venue every
     // fixture books at. The cross-venue suite below overrides this.
-    vi.mocked(prisma.table.findUnique).mockResolvedValue({ venueId: "venue-1" } as never);
+    vi.mocked(prisma.table.findUnique).mockResolvedValue({
+      venueId: "venue-1",
+      capacity: 8,
+      minCovers: 1,
+      maxCovers: null,
+    } as never);
   });
 
   describe("list", () => {
@@ -503,6 +508,32 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Pacing limit reached. Maximum 10 covers per time window.");
+    });
+
+    it("passes the named table's fit fields to assertBookable and reports a misfit", async () => {
+      vi.mocked(prisma.table.findUnique)
+        .mockResolvedValueOnce({ venueId: "venue-1" } as never)
+        .mockResolvedValueOnce({ capacity: 2, minCovers: 1, maxCovers: null } as never);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PARTY_DOES_NOT_FIT",
+        message: "Party size 12 does not fit this table",
+      });
+
+      const result = await reservationService.createWithConflictCheck({
+        date: "2026-05-05",
+        startTime: "2026-05-05T18:00:00Z",
+        endTime: "2026-05-05T19:30:00Z",
+        partySize: 12,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(assertBookable).toHaveBeenCalledWith(
+        expect.objectContaining({ table: { capacity: 2, minCovers: 1, maxCovers: null } })
+      );
+      expect(result.success).toBe(false);
+      expect(result.partyDoesNotFit).toBe(true);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("calls fetchConflictData exactly once — slices reused across the assertBookable check", async () => {
@@ -951,6 +982,39 @@ describe("reservationService", () => {
       expect(result.error).toBe("Pacing limit reached. Maximum 4 covers per time window.");
     });
 
+    it("rejects a table-only move onto a table the party does not fit", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ partySize: 12 }) as never
+      );
+      vi.mocked(prisma.table.findUnique)
+        .mockResolvedValueOnce({ venueId: "venue-1" } as never)
+        .mockResolvedValueOnce({ capacity: 2, minCovers: 1, maxCovers: null } as never);
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        tableId: "table-2",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.capacityExceeded).toBe(true);
+      expect(assertBookable).not.toHaveBeenCalled();
+    });
+
+    it("rejects a party under the target table's minCovers", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ partySize: 2 }) as never
+      );
+      vi.mocked(prisma.table.findUnique)
+        .mockResolvedValueOnce({ venueId: "venue-1" } as never)
+        .mockResolvedValueOnce({ capacity: 8, minCovers: 6, maxCovers: null } as never);
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        tableId: "table-2",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.capacityExceeded).toBe(true);
+    });
+
     it("returns failure when reservation not found", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(null as never);
 
@@ -966,7 +1030,11 @@ describe("reservationService", () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
       );
-      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({
+        capacity: 4,
+        minCovers: 1,
+        maxCovers: null,
+      } as never);
 
       const result = await reservationService.updateWithConflictCheck("res-1", {
         partySize: 10,
@@ -979,11 +1047,33 @@ describe("reservationService", () => {
       expect(assertBookable).not.toHaveBeenCalled();
     });
 
+    it("uses the table's maxCovers (not raw capacity) as the party-size ceiling", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({
+        capacity: 4,
+        minCovers: 1,
+        maxCovers: 2,
+      } as never);
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        partySize: 3,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.capacityExceeded).toBe(true);
+    });
+
     it("allows a partySize-only update within the assigned table's capacity", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
       );
-      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({
+        capacity: 4,
+        minCovers: 1,
+        maxCovers: null,
+      } as never);
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
         makePrismaReservation({ partySize: 3 }) as never
       );
@@ -1000,7 +1090,11 @@ describe("reservationService", () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
       );
-      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({
+        capacity: 4,
+        minCovers: 1,
+        maxCovers: null,
+      } as never);
 
       const result = await reservationService.updateWithConflictCheck("res-1", {
         startTime: "2026-05-05T19:00:00Z",
@@ -1043,6 +1137,29 @@ describe("reservationService", () => {
   });
 
   describe("createWalkIn", () => {
+    it("passes the table's fit fields to assertBookable and reports a misfit", async () => {
+      vi.mocked(prisma.table.findUnique)
+        .mockResolvedValueOnce({ venueId: "venue-1" } as never)
+        .mockResolvedValueOnce({ capacity: 2, minCovers: 1, maxCovers: null } as never);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PARTY_DOES_NOT_FIT",
+        message: "Party size 12 does not fit this table",
+      });
+
+      const result = await reservationService.createWalkIn({
+        partySize: 12,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(assertBookable).toHaveBeenCalledWith(
+        expect.objectContaining({ table: { capacity: 2, minCovers: 1, maxCovers: null } })
+      );
+      expect(result.success).toBe(false);
+      expect(result.partyDoesNotFit).toBe(true);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it("creates walk-in with CONFIRMED status", async () => {
       vi.mocked(checkTableConflict).mockReturnValueOnce(false);
 

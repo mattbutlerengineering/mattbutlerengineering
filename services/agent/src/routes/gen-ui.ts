@@ -1,14 +1,10 @@
 /// <reference types="@fastify/rate-limit" />
-import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { requireAuth } from "@mbe/auth/fastify";
-import { createProblemDetails } from "@mbe/types";
 // Import directly from catalog (not index) to avoid pulling in registry.tsx (browser-only)
 import { catalog } from "@mbe/rialto-catalog/catalog";
 import { VisibilityConditionStrictSchema } from "@json-render/core";
 import { tool } from "ai";
 import { z } from "zod";
-import { GEN_MODEL_ID, logGenCost, applyStreamHeaders } from "./gen-stream.js";
-import { createGenRunner } from "./gen-runner.js";
+import { createGenRoute } from "./gen-route-factory.js";
 
 // catalog.prompt() documents the components/props (kept) but also instructs
 // the model to emit raw JSONL RFC-6902 patch text (@json-render/core's
@@ -71,8 +67,6 @@ function createRenderComponentTool() {
   });
 }
 
-const encoder = new TextEncoder();
-
 /**
  * POST /api/gen/ui — the gen playground's generation endpoint
  * (apps/gen/src/pages/usePlaygroundSession.ts -> useGenStream).
@@ -82,96 +76,37 @@ const encoder = new TextEncoder();
  * streamNDJSON + flatToTree expect. This differs from gen-agent's NDJSON
  * (which wraps every event as `{type, ...}` for the chat-envelope contract
  * useChatStream/ChatPanel consume) — the two are not interchangeable.
+ *
+ * Framing, error handling (502 on runner failure) and the zero-output guard
+ * (a run that emits no elements is a failure, not an empty 200) are owned by
+ * the shared gen-route-factory.
  */
-export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post(
-    "/api/gen/ui",
+export const genUiRoutes = createGenRoute({
+  path: "/api/gen/ui",
+  costLogLabel: "gen-ui cost log",
+  // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
+  rateLimit: { max: 20, timeWindow: "1 hour" },
+  schema: GenUiBodySchema,
+  streamFormat: "ndjson",
+  maxSteps: 1,
+  systemPrompt: SYSTEM_PROMPT,
+  // Force the tool call — without this, the model may just answer with text
+  // (ignoring the tool entirely) and the route would stream zero elements.
+  toolChoice: { type: "tool", toolName: "render_component" },
+  // Safe here specifically because maxSteps is 1: there is no later step for
+  // ai@7 to retry the tool call on, so a tool-error can only ever mean the
+  // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
+  failOnToolError: true,
+  toMessages: ({ prompt, context }) => [
     {
-      preHandler: [requireAuth],
-      config: {
-        // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
-        rateLimit: {
-          max: 20,
-          timeWindow: "1 hour",
-          keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
-        },
-      },
+      role: "user",
+      content: context
+        ? `${prompt}
+
+Context: ${JSON.stringify(context)}`
+        : prompt,
     },
-    async (request, reply) => {
-      const parseResult = GenUiBodySchema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply
-          .code(400)
-          .send(
-            createProblemDetails(
-              400,
-              "Bad Request",
-              parseResult.error.issues.map((i) => i.message).join(", ")
-            )
-          );
-      }
-
-      const { prompt, context } = parseResult.data;
-      const userContent = context ? `${prompt}\n\nContext: ${JSON.stringify(context)}` : prompt;
-
-      const runner = createGenRunner({
-        systemPrompt: SYSTEM_PROMPT,
-        modelId: GEN_MODEL_ID,
-        maxSteps: 1,
-        // Force the tool call — without this, the model may just answer with
-        // text (ignoring the tool entirely) and the route would stream zero
-        // elements with no indication anything went wrong.
-        toolChoice: { type: "tool", toolName: "render_component" },
-        // Safe here specifically because maxSteps is 1: there is no later
-        // step for ai@7 to retry the tool call on, so a tool-error can only
-        // ever mean the generation failed outright. gen-agent (maxSteps 5)
-        // must NOT set this (see GenRunnerConfig.failOnToolError).
-        failOnToolError: true,
-        onFinish: async ({ usage, providerMetadata }) =>
-          logGenCost(request.log, {
-            userId: request.user?.id,
-            usage,
-            providerMetadata,
-            label: "gen-ui cost log",
-          }),
-      });
-
-      applyStreamHeaders(reply, "application/x-ndjson; charset=utf-8");
-
-      const stream = new ReadableStream({
-        async start(controller) {
-          let emittedAny = false;
-          try {
-            await runner.run(
-              [{ role: "user", content: userContent }],
-              { render_component: createRenderComponentTool() },
-              async (event) => {
-                if (event.type === "element") {
-                  emittedAny = true;
-                  controller.enqueue(encoder.encode(JSON.stringify(event.element) + "\n"));
-                }
-              }
-            );
-            if (!emittedAny) {
-              // The run completed with no error (ai@7's error/tool-error parts
-              // are already turned into a throw by gen-runner.ts) but never
-              // called render_component with a non-empty elements array — a
-              // 200 with an empty body is exactly as useless to the client as
-              // a failed generation, and both must read as failures, not as
-              // "worked, rendered nothing".
-              throw new Error("Generation completed with zero elements");
-            }
-            controller.close();
-          } catch (err) {
-            // Never silently close on failure — that turns a failed
-            // generation into what looks like a successful-but-truncated
-            // one. Erroring the stream surfaces it as a real failure instead.
-            controller.error(err instanceof Error ? err : new Error(String(err)));
-          }
-        },
-      });
-
-      return reply.send(stream);
-    }
-  );
-};
+  ],
+  serializeEvent: (event) => (event.type === "element" ? event.element : undefined),
+  getTools: () => ({ render_component: createRenderComponentTool() }),
+});

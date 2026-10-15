@@ -3,8 +3,11 @@ import { calculatePosition, estimateWaitMinutes, recalculatePositions } from "./
 import { Prisma } from "../generated/prisma/index.js";
 import type { WaitlistStatus } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import { estimateWaitFromTurnover } from "./waitlist-estimate.js";
+import type { VenueSettings } from "@mbe/types";
 
-const DEFAULT_AVG_TURN_TIME_MINUTES = 30;
+/** How long a notified party has to claim their table before the entry expires. */
+export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
 
 export interface WaitlistEntryData {
   id: string;
@@ -29,6 +32,34 @@ export interface CreateWaitlistEntryInput {
   avgTurnTimeMinutes?: number;
 }
 
+const LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Loads the venue's settings, active tables and live PENDING/CONFIRMED bookings once,
+ * and returns a pure `(position, partySize) -> minutes | null` estimator over
+ * table turnover (see waitlist-estimate.ts). Null means no table fits.
+ */
+async function loadEstimator(
+  venueId: string,
+  now: Date
+): Promise<(position: number, partySize: number) => number | null> {
+  const [venue, tables, reservations] = await Promise.all([
+    prisma.venue.findUnique({ where: { id: venueId }, select: { settings: true } }),
+    prisma.table.findMany({ where: { venueId, isActive: true } }),
+    prisma.reservation.findMany({
+      where: {
+        venueId,
+        status: { in: ["PENDING", "CONFIRMED"] },
+        endTime: { gt: now },
+        startTime: { lt: new Date(now.getTime() + LOOKAHEAD_MS) },
+      },
+    }),
+  ]);
+  const settings = venue?.settings as VenueSettings | null | undefined;
+  return (position, partySize) =>
+    estimateWaitFromTurnover({ position, partySize, now, tables, reservations, settings });
+}
+
 async function recalculateVenuePositions(venueId: string): Promise<void> {
   const waitingEntries = await prisma.waitlistEntry.findMany({
     where: { venueId, status: "waiting" },
@@ -50,7 +81,10 @@ async function recalculateVenuePositions(venueId: string): Promise<void> {
     await setVenueContext(tx, venueId);
     return tx.$executeRaw`
       UPDATE "waitlist_entries" AS w
-      SET position = v.position
+      SET position = v.position,
+          -- Estimate follows position: keep the entry's own turn time
+          -- (estimate / position at join) and re-multiply by its new position.
+          estimated_wait_minutes = (w.estimated_wait_minutes / GREATEST(w.position, 1)) * v.position
       FROM (VALUES ${rows}) AS v(id, position)
       WHERE w.id = v.id
     `;
@@ -60,14 +94,16 @@ async function recalculateVenuePositions(venueId: string): Promise<void> {
 export const waitlistService = {
   async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
     const { venueId, partySize, guestName, guestPhone, avgTurnTimeMinutes } = input;
-    const turnTime = avgTurnTimeMinutes ?? DEFAULT_AVG_TURN_TIME_MINUTES;
 
     const existingCount = await prisma.waitlistEntry.count({
       where: { venueId, status: "waiting" },
     });
 
     const position = calculatePosition(existingCount);
-    const estimatedWait = estimateWaitMinutes(position, turnTime);
+    const estimatedWait =
+      avgTurnTimeMinutes !== undefined
+        ? estimateWaitMinutes(position, avgTurnTimeMinutes)
+        : ((await loadEstimator(venueId, new Date()))(position, partySize) ?? 0);
 
     return prisma.waitlistEntry.create({
       data: {
@@ -81,9 +117,33 @@ export const waitlistService = {
     });
   },
 
+  /**
+   * Replaces each waiting entry's stored (join-time) estimate with one computed
+   * from current table turnover. Entries that no table can seat keep their
+   * stored value. Computed on every read, never persisted.
+   */
+  async withLiveEstimates<T extends WaitlistEntryData>(entries: T[]): Promise<T[]> {
+    const first = entries[0];
+    if (!first) return entries;
+    const estimate = await loadEstimator(first.venueId, new Date());
+    return entries.map((entry) => {
+      if (entry.status !== "waiting") return entry;
+      const minutes = estimate(entry.position, entry.partySize);
+      return minutes === null ? entry : { ...entry, estimatedWaitMinutes: minutes };
+    });
+  },
+
   async listWaiting(venueId: string): Promise<WaitlistEntryData[]> {
     return prisma.waitlistEntry.findMany({
       where: { venueId, status: "waiting" },
+      orderBy: { position: "asc" },
+    });
+  },
+
+  /** Staff view: parties still waiting plus notified ones holding their claim window. */
+  async listActive(venueId: string): Promise<WaitlistEntryData[]> {
+    return prisma.waitlistEntry.findMany({
+      where: { venueId, status: { in: ["waiting", "notified"] } },
       orderBy: { position: "asc" },
     });
   },
@@ -120,10 +180,53 @@ export const waitlistService = {
     return entry;
   },
 
+  /**
+   * Records the notified lifecycle state on the row. Only a `waiting` entry
+   * can be notified; anything else (seated/cancelled/already notified) -> null.
+   */
+  async markNotified(id: string): Promise<WaitlistEntryData | null> {
+    const notifiedAt = new Date();
+    let entry: WaitlistEntryData;
+    try {
+      entry = await prisma.waitlistEntry.update({
+        where: { id, status: "waiting" },
+        data: {
+          status: "notified",
+          notifiedAt,
+          expiresAt: new Date(notifiedAt.getTime() + NOTIFY_CLAIM_WINDOW_MS),
+        },
+      });
+    } catch {
+      return null;
+    }
+    // The notified party left the waiting queue: close the gap behind it.
+    await recalculateVenuePositions(entry.venueId);
+    return entry;
+  },
+
+  /**
+   * Undoes markNotified when the expiry job could not be scheduled, so the host
+   * can retry. Only a `notified` entry reverts; anything else -> null.
+   */
+  async revertNotified(id: string): Promise<WaitlistEntryData | null> {
+    let entry: WaitlistEntryData;
+    try {
+      entry = await prisma.waitlistEntry.update({
+        where: { id, status: "notified" },
+        data: { status: "waiting", notifiedAt: null, expiresAt: null },
+      });
+    } catch {
+      return null;
+    }
+    await recalculateVenuePositions(entry.venueId);
+    return entry;
+  },
+
+  /** Expires a notified entry; a no-op (null) if it was seated/cancelled meanwhile. */
   async expire(id: string): Promise<WaitlistEntryData | null> {
     try {
       return await prisma.waitlistEntry.update({
-        where: { id },
+        where: { id, status: "notified" },
         data: { status: "expired" },
       });
     } catch {

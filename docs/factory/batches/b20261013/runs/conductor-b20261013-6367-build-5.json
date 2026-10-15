@@ -1,0 +1,76 @@
+{
+  "duration_api_ms": 150093,
+  "stop_reason": "end_turn",
+  "session_id": "42eea5e1-8285-4b6e-9629-914b2d3e0fce",
+  "total_cost_usd": 1.6761858,
+  "usage": {
+    "input_tokens": 4,
+    "cache_creation_input_tokens": 907,
+    "cache_read_input_tokens": 312342,
+    "output_tokens": 404,
+    "output_tokens_details": { "thinking_tokens": 0 },
+    "server_tool_use": { "web_search_requests": 0, "web_fetch_requests": 0 },
+    "service_tier": "standard",
+    "cache_creation": { "ephemeral_1h_input_tokens": 907, "ephemeral_5m_input_tokens": 0 },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 58,
+        "cache_read_input_tokens": 156382,
+        "cache_creation_input_tokens": 485,
+        "cache_creation": { "ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 485 },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 74,
+      "outputTokens": 12647,
+      "cacheReadInputTokens": 5024779,
+      "cacheCreationInputTokens": 136153,
+      "webSearchRequests": 0,
+      "costUSD": 1.6761858,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2661,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": { "background": 0, "foreground": 0, "unset": 0 },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": { "parent": 0, "user": 0, "system": 0 },
+    "refused": { "depth_limit": 0, "concurrency_limit": 0, "budget": 0 },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 2,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Confirmed: HEAD is the WO-4 commit, working tree clean aside from the uncommitted `pr-body.md`. Nothing further needed for WO-4.",
+  "ttft_ms": 3050,
+  "type": "result",
+  "duration_ms": 5465,
+  "uuid": "b0b19ef1-7a1e-432d-adba-5ac2ed8d55e6",
+  "ttft_stream_ms": 868,
+  "time_to_request_ms": 195,
+  "first_content_frame_ms": 868,
+  "queued_turn_count": 0,
+  "result_index": 3
+}

@@ -86,7 +86,7 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
-// ADR-026 §3.3 item 2 / #5369 PR 5: `venueIdFromEntity`/`loadInVenueContext`
+// ADR-026 §3.3 item 2 / #5369 PR 5: former `venueIdFromEntity`/former `loadInVenueContext`
 // (used by entity-addressed preHandlers and handler bodies) now resolve venue
 // ids via `resolveVenueId`, a raw `$queryRaw` call this suite's plain
 // `createMockDatabaseService()` stub can't answer. Route tests exercise

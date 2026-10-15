@@ -10,6 +10,7 @@
 import { query, tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
+import { AgentSessionStatusSchema } from "@mbe/types";
 import { AgentSessionClient, ApiClientError } from "@mbe/api-client";
 import type { OrchestratorConfig, OrchestratorResult } from "./task-decomposer.js";
 import { buildOrchestratorPrompt } from "./task-decomposer.js";
@@ -20,8 +21,18 @@ import { buildOrchestratorPrompt } from "./task-decomposer.js";
 // a session or send duplicate state transitions. Reads (check/list) use default retries.
 const NO_RETRY = { maxRetries: 0 } as const;
 
+function resolveSessionClient(config: OrchestratorConfig): AgentSessionClient {
+  return (
+    config.sessionClient ??
+    new AgentSessionClient({
+      baseUrl: config.apiBaseUrl,
+      getAccessToken: config.getAccessToken,
+    })
+  );
+}
+
 function createSessionTools(config: OrchestratorConfig) {
-  const client = config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
+  const client = resolveSessionClient(config);
 
   const createSessionTool = tool(
     "create_session",
@@ -101,10 +112,7 @@ function createSessionTools(config: OrchestratorConfig) {
     "list_sessions",
     "List all sessions. Use to check overall progress.",
     {
-      status: z
-        .enum(["pending", "running", "succeeded", "failed", "cancelled"])
-        .optional()
-        .describe("Filter by status"),
+      status: AgentSessionStatusSchema.optional().describe("Filter by status"),
       page: z.number().optional().describe("Page number (default 1)"),
       limit: z.number().optional().describe("Items per page (default 20)"),
     },
@@ -233,8 +241,7 @@ export async function runOrchestrator(
   emit("orchestrator:start", `Decomposing task: ${config.taskDescription}`);
 
   // Session client for status gathering after orchestration completes (reads only — default retries are fine)
-  const sessionClient =
-    config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
+  const sessionClient = resolveSessionClient(config);
 
   // Create MCP server with session management tools
   const tools = createSessionTools(config);

@@ -35,8 +35,8 @@ hand-maintained `CURATED_COMPONENTS` set, `CHARACTER_LIMITS` table, or
 
 `registry.tsx` keeps the genuinely-irregular hand-written prop→JSX adapters
 (events, named slots, declared aliases). `drift-check.test.ts` enforces an
-adapter↔meta 1:1 parity check (Toast is the one documented exception — it uses
-the `useToast()` provider pattern and has no declarative renderer).
+adapter↔meta 1:1 parity check (components marked `include: false`, e.g. Toast, are excluded —
+Toast uses the `useToast()` provider pattern and has no declarative renderer).
 
 ## Usage
 

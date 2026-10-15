@@ -48,7 +48,7 @@ export interface TimeSlotPickerProps {
 const SKELETON_SLOT_COUNT = 8;
 
 export function TimeSlotPicker({
-  slots,
+  slots: allSlots,
   selectedSlot,
   isLoading,
   error,
@@ -64,6 +64,11 @@ export function TimeSlotPicker({
   venueTimezone,
 }: TimeSlotPickerProps) {
   const formattedDate = formatLongDate(date);
+
+  // The server owns the booking window; this only guards a slot that went
+  // stale while the picker sat open (or a cached response) from being offered.
+  const nowMs = Date.now();
+  const slots = allSlots.filter((slot) => new Date(slot.time).getTime() >= nowMs);
 
   // #4979: a wait estimate ("~30 min") only means anything for a walk-in
   // today — showing it for a date days out promised a wait time that has no

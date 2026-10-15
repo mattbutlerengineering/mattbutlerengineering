@@ -385,6 +385,8 @@ Raw body access is required for HMAC signature verification — this route must 
 | DELETE | `/public/v1/venues/:slug/holds/:holdId`           | Release hold (public)                   |
 | POST   | `/public/v1/venues/:slug/holds/:holdId/confirm`   | Confirm hold → reservation (public)     |
 | POST   | `/public/v1/venues/:slug/reservations`            | Confirm hold → reservation (public)     |
+| POST   | `/public/v1/venues/:slug/waitlist`                | Join the walk-in waitlist (public)      |
+| GET    | `/public/v1/venues/:slug/waitlist/status?token=`  | Live position + wait estimate (public)  |
 | POST   | `/public/v1/venues/:slug/deposits/payment-intent` | Create Stripe PaymentIntent for deposit |
 | GET    | `/public/v1/reservations/manage`                  | Get reservation via manage token        |
 | PATCH  | `/public/v1/reservations/manage`                  | Modify reservation via manage token     |
@@ -562,7 +564,7 @@ it("broadcasts reservation:created event", async () => {
 
   // Track SSE broadcasts
   const broadcasts: unknown[] = [];
-  app.sseBroadcaster.on("reservation:created", (data) => {
+  app.reservationEvents.on("reservation:created", (data) => {
     broadcasts.push(data);
   });
 
@@ -598,11 +600,12 @@ filter is missing or wrong — a query that forgets `venueId` now fails closed
 (returns/writes zero rows) at the database instead of leaking or corrupting
 another venue's data.
 
-**How `app.venue_id` gets set:** `venueContextPreHandler`
-(`src/middleware/venue-context.ts`) is a global Fastify preHandler
-(registered in `app.ts`) that resolves the request's venue id the same way
-`requireVenueAccess` does and stashes it in a request-scoped
-`AsyncLocalStorage` store (`src/services/venue-context-store.ts`). The
+**How `app.venue_id` gets set:** a route's venue context is entered by
+`venueScoped` (see "Venue scope" below) or, in public/token/webhook/cron/job
+paths, by an explicit `runWithVenueContext` (`src/services/venue-context-store.ts`),
+which stashes the venue id in a request-scoped `AsyncLocalStorage` store.
+There is no global hook: the ADR-026 part-6 `preHandler` that guessed a
+venue from the query/body/params is deleted. The
 actual Postgres session variable is set later, inside the transaction that
 issues the query: `src/services/venue-scoped-prisma.ts`'s
 `withVenueScopedQueries` wraps the exported `prisma` client so every
@@ -620,21 +623,12 @@ resolved (public routes, background jobs), the role is still assumed,
 not an error and not "every venue".
 
 **Venue-self-addressed routes — closed (ADR-026 §3.3 item 5 / #5369 PR 7).**
-The global resolver (`resolveGlobalVenueId` in `app.ts`) only reads a
-`venueId` key from the query, body, or route params; `GET/PATCH/DELETE
-/api/v1/venues/:id` (and `/:id/table-statuses`) address the venue by its own
-`:id` param instead, so that resolver returns `null` for these routes and
-`app.venue_id` was never set via the global preHandler for them
-(`requireVenueAccess`'s own `venueIdFromRouteId` resolver in
-`routes/venues.ts` reads `:id` correctly, but that only ever drove the
-application-layer membership check, not the RLS session variable). Fixed by
-routing each handler through `resolveVenueId("venue", id)` /
-`loadInVenueContext` (`routes/venue-access.ts`) instead — the same helpers
-item 2 uses for entity-addressed routes; `venues`' own `venue_isolation`
-policy is keyed on the row's own `id`, so `"venue"` is the correct kind.
-`PATCH /:id`'s venueGroupId-reassignment pre-check now runs inside that same
-resolved context too. Proved against a real, migrated, FORCE'd database as a
-non-superuser owner role in `src/routes/rls-route-sweep.integration.test.ts`.
+`GET/PATCH/DELETE /api/v1/venues/:id` (and `/:id/table-statuses`) address the
+venue by its own `:id`; they declare `venueScoped({ venue: { from: "params",
+field: "id" } })`, so the context is the venue itself (`venues`' own
+`venue_isolation` policy is keyed on the row's `id`). Proved against a real,
+migrated, FORCE'd database as a non-superuser owner role in
+`src/routes/rls-route-sweep.integration.test.ts`.
 
 **Current caveat:** the seven tables above carry `FORCE ROW LEVEL SECURITY`
 in `prisma/migrations/20261009000100_grant_app_reservations_and_force_rls`.
@@ -727,6 +721,69 @@ cross-venue list goes through `app_cross_venue_venues`. The seven venue tables
 are forced in `20261009000100_grant_app_reservations_and_force_rls`. The
 2026-09-21 measurement that the `/public/v1/venues/:slug/*` funnel 404'd under
 FORCE was taken while those lookups were still unscoped reads.
+
+### Venue scope
+
+Every `/api/v1` route declares its venue once, in
+`src/routes/venue-scope.ts` (ADR-020 access, ADR-026 context). Never wire
+`requireVenueAccess` plus a hand-written resolver plus a second
+`runWithVenueContext` in the handler: `venueScoped` does all three, in a
+test-pinned order (resolve once, `admitIdentity`, access decision, then
+`runWithVenueContext(load -> handler)`; a denied request never enters a
+context).
+
+```typescript
+fastify.get<{ Querystring: { venueId: string } }>(
+  "/",
+  { preHandler: requireAuth },
+  venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+    return { data: await thingService.list(venueId) };
+  })
+);
+```
+
+Pick the source (`venue:`) and access (`access:`, default `"member"`):
+
+- **Direct key:** `"query"`, `"body"` or `"params"` (the field is `venueId`), or
+  `{ from, field, missing }` for another name or message.
+- **Entity:** `{ entity, key, notFound, load? }` (for example `entity: "table"`
+  with `key: (request) => request.params.id`) resolves the owning venue through
+  `app_resolve_venue_id`. With `load`, the row is read inside the venue's
+  context and handed to the handler as `scope.entity`.
+- **Custom:** `{ resolve: (request) => venueId | null, label, notFound }` (for
+  example a hold's venue, or `reservationId | venueId`).
+- **Access:** `"member"` (admin or venue member), `"authenticated"` (any signed-in
+  caller), or `{ owner: (entity) => email }` for admin-or-owner routes.
+
+Unauthenticated routes whose authority is not membership use sibling helpers,
+which resolve the venue once and run the handler inside `runWithVenueContext`:
+
+- `publicVenueScoped` (`src/routes/public-venue-scope.ts`) for `/public/v1/venues/:slug/*`
+  and `by-slug`: the slug resolves through `app_resolve_venue_id`; an unknown slug
+  is a 404 whose title/detail each route keeps via `notFound`. Checks that must
+  answer before the slug lookup (per-IP hold cap, `x-session-id`) go in `before`.
+- `manageTokenScoped` (`src/routes/manage-token-scope.ts`) for the manage-token
+  routes: verifies the token (400/410/401), resolves the venue once, loads the
+  reservation once, checks the token email (403), and hands the handler
+  `{ venueId, reservation, token }`. `missing` is the route's own answer when the
+  venue or reservation is gone.
+
+Neither adds route-level `config.rateLimit`; the route keeps its own.
+
+If a route genuinely cannot name a venue, it does not use `venueScoped`; add it
+to `UNSCOPED_ROUTES` in `src/routes/venue-scope-coverage.test.ts` with a reason
+(`cross-venue fan-out`, `cross-venue fan-out (admin)`, `venue-create`,
+`user-scoped (/me)`, `webhook (signature-verified)`, ...).
+`pending-migration` is forbidden. An admin-fan-out route keeps its own
+`requireVenueAccess` guard and enters context itself with `inNamedVenueContext`
+(`src/routes/named-venue.ts`).
+
+Adding a route also needs an RLS sweep fixture: add an entry to
+`FIXTURES` in `src/routes/rls-route-sweep.fixtures.ts` (or
+`rls-route-sweep.fixtures-public.ts`), then run
+`pnpm exec vitest run src/routes/venue-scope-coverage.test.ts` locally. It
+fails if a route declares no scope and has no reason, or has no fixture, and
+needs no database. The Postgres-backed sweep runs in CI's `rls-integration` job.
 
 ## Commands
 

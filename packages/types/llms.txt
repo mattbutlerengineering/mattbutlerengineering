@@ -330,6 +330,9 @@
       export const waitlistJoinResultJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const waitlistEstimateJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const floorPlanLayoutJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -720,6 +723,9 @@
       export const WaitlistStatusSchema: unknown;
     </item>
     <item priority="high">
+      export const WaitlistEstimateSchema: unknown;
+    </item>
+    <item priority="high">
       export const WaitlistEntrySchema: unknown;
     </item>
   </file>
@@ -972,6 +978,29 @@
       }
     </item>
   </file>
+  <file path="src/guest-segment.ts">
+    <item priority="high">
+      export const VIP_TAG: unknown;
+    </item>
+    <item priority="high">
+      export const VIP_VISIT_THRESHOLD: unknown;
+    </item>
+    <item priority="high">
+      export const REPEAT_VISIT_THRESHOLD: unknown;
+    </item>
+    <item priority="low">
+      type GuestSegmentName = "VIP" | "Repeat" | "New";
+    </item>
+    <item priority="high">
+      export function hasVipTag(tags: readonly string[] | null | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function classifyGuestSegment(
+        visitCount: number,
+        tags: readonly string[] | null | undefined
+      ): GuestSegmentName { /* ... */ }
+    </item>
+  </file>
   <file path="src/guest.ts">
     <item priority="low">
       type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
@@ -1033,6 +1062,21 @@
         visitCount: number;
         hasPreferences: boolean;
       }
+    </item>
+  </file>
+  <file path="src/party-fit.ts">
+    <item priority="low">
+      interface PartyFitTable {
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function tableMaxCovers(table: Pick<PartyFitTable, "capacity" | "maxCovers">): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function partyFitsTable(table: PartyFitTable, partySize: number): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/reservation.ts">
@@ -1443,8 +1487,16 @@
     </item>
     <item priority="low">
       interface WaitlistJoinResult {
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistEstimate {
+        position: number;
+        estimatedWaitMinutes: number;
+        status: WaitlistStatus;
       }
     </item>
     <item priority="low">

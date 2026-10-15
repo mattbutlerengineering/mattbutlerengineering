@@ -184,8 +184,6 @@ mbe agent run "Fix the login bug"    # Run an AI agent end-to-end, get a PR
 mbe agent orchestrate "Big task"     # Decompose and run sessions in parallel
 mbe issue transition 123 --to ready  # Drive the issue coordination labels
 mbe stats                            # Agent performance metrics
-mbe health                           # Check local + deployed service health
-mbe up                               # Start dev servers
 ```
 
 The workspace bin is not linked into `node_modules/.bin`, so `pnpm exec mbe` does

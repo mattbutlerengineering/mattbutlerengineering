@@ -23,6 +23,29 @@ function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<
   });
 }
 
+/**
+ * Serves the availability-slots fixture re-dated to the next 17 May. The
+ * booking widget drops slots already past, so a fixed 2026 date would
+ * eventually be filtered out; the same month/day keeps the venue-timezone DST
+ * offset (and so every rendered time) identical to the fixture's.
+ */
+export function buildSlotsBody(now: Date): string {
+  const thisYear = new Date(Date.UTC(now.getUTCFullYear(), 4, 17, 23, 59));
+  const year =
+    thisYear.getTime() > now.getTime() + 24 * 60 * 60 * 1000
+      ? now.getUTCFullYear()
+      : now.getUTCFullYear() + 1;
+  return loadFixture("availability-slots").replaceAll("2026-05-17", `${year}-05-17`);
+}
+
+function slotsResponse(route: Route): Promise<void> {
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: buildSlotsBody(new Date()),
+  });
+}
+
 function emptyPaginated(route: Route): Promise<void> {
   return route.fulfill({
     status: 200,
@@ -125,6 +148,58 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
  */
 export function buildGuestRiskFixture(): GuestRiskResult {
   return GuestRiskResultSchema.parse({ requiresDeposit: false });
+}
+
+/** Deposits backing the dashboard's exposure stats; `nowDate` stamps every timestamp. */
+export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> {
+  const now = nowDate.toISOString();
+  return [
+    {
+      id: "dep_e2e_001",
+      reservationId: "res_e2e_001",
+      amountCents: 5000,
+      currency: "USD",
+      status: "pending",
+      stripePaymentIntentId: null,
+      stripeCustomerId: null,
+      heldAt: null,
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "dep_e2e_002",
+      reservationId: "res_e2e_002",
+      amountCents: 3000,
+      currency: "USD",
+      status: "held",
+      stripePaymentIntentId: "pi_e2e_002",
+      stripeCustomerId: "cus_e2e_002",
+      heldAt: now,
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "dep_e2e_003",
+      reservationId: "res_e2e_003",
+      amountCents: 7500,
+      currency: "USD",
+      status: "forfeited",
+      stripePaymentIntentId: "pi_e2e_003",
+      stripeCustomerId: "cus_e2e_003",
+      heldAt: now,
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
 }
 
 /**
@@ -503,57 +578,9 @@ export async function mockApi(page: Page): Promise<void> {
   // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
   // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
   // the shape computeDepositStats expects.
-  function depositsFixture(): Array<Record<string, unknown>> {
-    const now = new Date().toISOString();
-    return [
-      {
-        id: "dep_e2e_001",
-        reservationId: "res_e2e_001",
-        amountCents: 5000,
-        currency: "USD",
-        status: "pending",
-        stripePaymentIntentId: null,
-        stripeCustomerId: null,
-        heldAt: null,
-        appliedAt: null,
-        refundedAt: null,
-        forfeitedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        id: "dep_e2e_002",
-        reservationId: "res_e2e_002",
-        amountCents: 3000,
-        currency: "USD",
-        status: "held",
-        stripePaymentIntentId: "pi_e2e_002",
-        stripeCustomerId: "cus_e2e_002",
-        heldAt: now,
-        appliedAt: null,
-        refundedAt: null,
-        forfeitedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        id: "dep_e2e_003",
-        reservationId: "res_e2e_003",
-        amountCents: 7500,
-        currency: "USD",
-        status: "forfeited",
-        stripePaymentIntentId: "pi_e2e_003",
-        stripeCustomerId: "cus_e2e_003",
-        heldAt: now,
-        appliedAt: null,
-        refundedAt: null,
-        forfeitedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      },
-    ];
-  }
-  await page.route("**/api/v1/deposits?*", (route) => jsonOk(route, depositsFixture()));
+  await page.route("**/api/v1/deposits?*", (route) =>
+    jsonOk(route, buildDepositsFixture(new Date()))
+  );
 
   // Waitlist
   // Per-context stateful store, empty at session start (unlike reservations,
@@ -793,16 +820,12 @@ export async function mockApi(page: Page): Promise<void> {
       }),
     });
   });
-  await page.route("**/api/v1/availability/*", (route) =>
-    jsonResponse(route, "availability-slots")
-  );
+  await page.route("**/api/v1/availability/*", slotsResponse);
   // Public (slug-scoped) availability — the booking widget's api client is
   // tokenless, so it fetches slots from `/public/v1/venues/:slug/availability`
   // (the staff route above 401s for guests). The `**/public/v1/venues/*`
   // config glob below never reaches it (`*` never crosses `/`).
-  await page.route("**/public/v1/venues/*/availability*", (route) =>
-    jsonResponse(route, "availability-slots")
-  );
+  await page.route("**/public/v1/venues/*/availability*", slotsResponse);
 
   // Holds
   await page.route("**/api/v1/holds/*/confirm", (route) => {

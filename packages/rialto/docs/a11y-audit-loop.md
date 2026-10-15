@@ -146,12 +146,73 @@ Tooltip.tsx - the tooltip is exposed as a description only, never as the accessi
 - DropdownMenu: same keyboard fix; `aria-controls` on trigger, `aria-labelledby` and id on the menu (2 fixes)
 - Tooltip: `aria-describedby` merged with the consumer's; Fragment children skipped (2 fixes)
 
+## Iteration 4: Non-overlay interactive (Slider, Tabs, Accordion, SegmentedControl)
+
+Audit against the WAI-ARIA APG patterns (Slider, Tabs, Accordion, Radio Group), covering keyboard, roles/states/names and focus management (#6436). Accordion delegates its trigger/panel markup to Collapsible, so the Collapsible fix covers both.
+
+### Slider.tsx
+
+Slider.tsx - native `<input type="range">` with explicit `aria-valuemin/max/now/text`; Arrow keys and Home/End handled (and `preventDefault`ed), Page Up/Down left to the browser's native range handling (not observable in jsdom). Label via `aria-label`/`label`, `disabled` reaches the native input, focus ring shown on the knob via `:focus-visible`. **Not fixed** - compliant.
+Slider.tsx - Arrow keys are not mirrored in RTL (ArrowRight always increments). **Defer** - APG leaves direction handling to the platform; changing it needs a design call and the native input already follows the writing direction for pointer use.
+Slider.tsx - a slider with neither `label` nor `aria-label` is unnamed. **Defer** - enforcing a name is an API change (`label` is optional today).
+Slider.tsx - `aria-disabled` on the role-less track wrapper carries no semantics (the native input already exposes disabled). **Defer** - harmless, and removing it risks styling hooks.
+
+### Tabs.tsx
+
+Tabs.tsx - every tab carried `aria-controls` pointing at its panel, but only the active panel is rendered, so inactive tabs referenced ids that do not exist. **FIXED**: `aria-controls` only on the selected tab.
+Tabs.tsx - the `role="tablist"` had no accessible name, and a consumer `aria-label`/`aria-labelledby` landed on the wrapper div instead. **FIXED**: both are routed to the tablist (same pattern as SegmentedControl); no new props, they are already part of `HTMLAttributes`.
+Tabs.tsx - if `defaultTab` matched no tab, every tab had `tabIndex=-1` (list unreachable by Tab) and ArrowLeft jumped to the second-to-last tab. **FIXED**: the first enabled tab is the tab stop, and ArrowLeft from no selection goes to the last tab.
+Tabs.tsx - roles `tablist/tab/tabpanel`, `aria-selected`, roving `tabIndex`, `aria-labelledby` on the panel, Arrow/Home/End with wrap and disabled tabs skipped, focus follows selection. **Not fixed** - compliant.
+Tabs.tsx - the `tabpanel` is not itself focusable (APG: `tabindex=0` when it has no focusable content). **Defer** - cannot be decided from the component without inspecting arbitrary content, and an unconditional stop adds a tab stop to every consumer.
+Tabs.tsx - Arrow keys are not mirrored in RTL. **Defer** - as Slider.
+
+### Accordion.tsx / Collapsible.tsx
+
+Collapsible.tsx - trigger had `aria-controls` pointing at the content id while closed, but the content is unmounted when closed (dangling reference). **FIXED**: `aria-controls` only while open.
+Accordion.tsx - heading-wrapped `button[aria-expanded]`, region `aria-labelledby` trigger, native Enter/Space, Arrow/Home/End focus movement with wrap, `aria-disabled` triggers stay focusable and do not toggle. **Not fixed** - compliant.
+Accordion.tsx - arrow navigation queries every `button[aria-expanded]` inside the container, so a nested accordion or disclosure inside a panel joins the ring. **Defer** - needs a scoping marker on triggers; no consumer nests one today.
+
+### SegmentedControl.tsx
+
+SegmentedControl.tsx - roving `tabIndex` was only on the segment matching `value`; with an unmatched `value` (e.g. `""`) the whole group was unreachable by Tab, and ArrowLeft jumped to the second-to-last segment. **FIXED**: same fallback as Tabs (first enabled segment is the tab stop; ArrowLeft from no selection goes to last).
+SegmentedControl.tsx - model is a single-select `role=radiogroup` of `role=radio` with `aria-checked` and roving tabindex (parity with Tabs); name routed to the radiogroup; arrows select and move focus, disabled segments skipped. `aria-pressed` would be wrong here because the options are mutually exclusive. **Not fixed** - compliant.
+
+---
+
+## Fixes applied this iteration (Iteration 4)
+
+- Tabs: `aria-controls` only on the selected tab; `aria-label`/`aria-labelledby` routed to the tablist; tab-stop fallback and ArrowLeft from no selection (3 fixes)
+- Collapsible (so Accordion): `aria-controls` only while open (1 fix)
+- SegmentedControl: tab-stop fallback and ArrowLeft from no selection (1 fix)
+- Slider: no change (compliant, 3 deferrals)
+
+---
+
+## Iteration 5: Navigation (Navbar, Sidebar)
+
+### Navbar.tsx
+
+Navbar.tsx - the root `<nav>` had no accessible name, unlike Sidebar, Breadcrumb and Pagination. **FIXED**: optional `label` prop (default "Main navigation"); a consumer `aria-label`/`aria-labelledby` wins. (#6587)
+Navbar.tsx - the submenu toggle had `aria-expanded` but no `aria-controls`. **FIXED**: each (recursive) `NavbarLinkItem` gets a `useId` id on its children container; `aria-controls` only while open (no dangling reference). (#6588)
+
+### Sidebar.tsx
+
+Sidebar.tsx - section label was a bare `<span>` with no association to its items. **FIXED**: each section is now `role="group"` with `aria-labelledby` pointing at the label (`useId`); the attribute is omitted when the section has no label or the sidebar is collapsed (no dangling reference). (#6589)
+
+---
+
+## Fixes applied this iteration (Iteration 5, in progress)
+
+- Navbar: landmark named; submenu toggle linked via `aria-controls` while open (2 fixes)
+- Sidebar: sections grouped under their label (1 fix)
+- Breadcrumb, Pagination: not yet audited
+
 ---
 
 ## Queue for next iterations
 
 - ~~**Iteration 2**: Form components — Input, TextArea, Checkbox, Select, NumberInput, PinInput, Autocomplete~~ **Done** (see Iteration 2 above)
 - ~~**Iteration 3**: Invasive wrapper refactors — Popover, DropdownMenu, Tooltip (cloneElement patterns)~~ **Done** (see Iteration 3 above)
-- **Iteration 4**: Non-overlay interactive — Slider, Tabs, Accordion, SegmentedControl
+- ~~**Iteration 4**: Non-overlay interactive — Slider, Tabs, Accordion, SegmentedControl~~ **Done** (see Iteration 4 above)
 - **Iteration 5**: Navigation — Navbar, Sidebar, Breadcrumb, Pagination
 - **Iteration 6**: Verify fixes with axe-core against showcase pages

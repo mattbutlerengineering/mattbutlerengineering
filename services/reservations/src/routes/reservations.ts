@@ -27,7 +27,7 @@ import { guestService } from "../services/guest.js";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
 import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { generateManageToken } from "./public-reservations.js";
-import { venueIdFromBody } from "./venue-access.js";
+import { bodyVenueId, inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -148,15 +148,18 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, _reply) => {
       const { page, limit } = parsePaginationQuery(request.query);
-      return reservationService.list({
-        page,
-        limit,
-        date: request.query.date,
-        status: request.query.status,
-        tableId: request.query.tableId,
-        venueId: request.query.venueId,
-        guestId: request.query.guestId,
-      });
+      // Context only for a named venue; a guestId-only list runs without one.
+      return inNamedVenueContext(request.query.venueId, () =>
+        reservationService.list({
+          page,
+          limit,
+          date: request.query.date,
+          status: request.query.status,
+          tableId: request.query.tableId,
+          venueId: request.query.venueId,
+          guestId: request.query.guestId,
+        })
+      );
     }
   );
 
@@ -277,6 +280,13 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .code(403)
           .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
       }
+      if (result.partyDoesNotFit) {
+        return reply
+          .code(422)
+          .send(
+            createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+          );
+      }
       if (!result.success || !result.reservation) {
         return reply
           .code(409)
@@ -344,7 +354,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       // route-level limiter keeps the default `onRequest` hook, so it runs
       // before requireAuth and the 401 surface stays bounded
       // (gotchas § Fastify / rate limiting).
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, bodyVenueId)],
       config: {
         rateLimit: {
           max: 20,
@@ -390,65 +400,78 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const userId = request.user?.id;
+    async (request, reply) =>
+      inNamedVenueContext(request.body.venueId, async () => {
+        const userId = request.user?.id;
 
-      const useEnhancedValidation = request.features.check("enhanced-validation");
+        const useEnhancedValidation = request.features.check("enhanced-validation");
 
-      if (useEnhancedValidation && request.body.partySize > 20) {
-        return reply
-          .code(400)
-          .send(
-            createProblemDetails(
-              400,
-              "Bad Request",
-              "Party size exceeds limit for enhanced validation"
-            )
-          );
-      }
-
-      // requireVenueAccess has already admitted only a member of the body's
-      // venueId (or a platform admin), so CRM linking runs whenever a venue
-      // is named.
-      let body = request.body;
-      if (request.body.venueId) {
-        const link = await linkOrCreateGuest({
-          venueId: request.body.venueId,
-          guestId: request.body.guestId,
-          guestEmail: request.body.guestEmail,
-          guestPhone: request.body.guestPhone,
-          guestName: request.body.guestName,
-        });
-        if (!link.ok) {
+        if (useEnhancedValidation && request.body.partySize > 20) {
           return reply
             .code(400)
-            .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+            .send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                "Party size exceeds limit for enhanced validation"
+              )
+            );
         }
-        if (link.guestId) {
-          body = { ...request.body, guestId: link.guestId };
+
+        // requireVenueAccess has already admitted only a member of the body's
+        // venueId (or a platform admin), so CRM linking runs whenever a venue
+        // is named.
+        let body = request.body;
+        if (request.body.venueId) {
+          const link = await linkOrCreateGuest({
+            venueId: request.body.venueId,
+            guestId: request.body.guestId,
+            guestEmail: request.body.guestEmail,
+            guestPhone: request.body.guestPhone,
+            guestName: request.body.guestName,
+          });
+          if (!link.ok) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+          }
+          if (link.guestId) {
+            body = { ...request.body, guestId: link.guestId };
+          }
         }
-      }
 
-      const result = await fastify.transitions.createByStaff(body, userId);
+        const result = await fastify.transitions.createByStaff(body, userId);
 
-      if (result.tableNotInVenue) {
-        return reply
-          .code(403)
-          .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
-      }
+        if (result.tableNotInVenue) {
+          return reply
+            .code(403)
+            .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+        }
 
-      if (!result.success) {
-        const statusCode = result.conflict?.hasConflict ? 409 : 400;
-        const title = statusCode === 409 ? "Conflict" : "Bad Request";
-        return reply
-          .code(statusCode)
-          .send(
-            createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation")
-          );
-      }
+        if (result.partyDoesNotFit) {
+          return reply
+            .code(422)
+            .send(
+              createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+            );
+        }
 
-      return reply.code(201).send({ data: result.reservation! });
-    }
+        if (!result.success) {
+          const statusCode = result.conflict?.hasConflict ? 409 : 400;
+          const title = statusCode === 409 ? "Conflict" : "Bad Request";
+          return reply
+            .code(statusCode)
+            .send(
+              createProblemDetails(
+                statusCode,
+                title,
+                result.error ?? "Failed to create reservation"
+              )
+            );
+        }
+
+        return reply.code(201).send({ data: result.reservation! });
+      })
   );
 
   // Update reservation
@@ -622,6 +645,18 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             return reply
               .code(403)
               .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+          }
+
+          if (result.capacityExceeded) {
+            return reply
+              .code(422)
+              .send(
+                createProblemDetails(
+                  422,
+                  titleForStatus(422),
+                  result.error ?? "Party does not fit this table"
+                )
+              );
           }
 
           if (result.conflict?.hasConflict) {

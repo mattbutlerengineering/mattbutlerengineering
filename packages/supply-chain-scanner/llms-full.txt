@@ -55,6 +55,19 @@
       const dot = name.lastIndexOf(".");
       return dot === -1 ? "" : name.slice(dot).toLowerCase();
     }
+    function hasShebang(path: string): boolean {
+      const fd = openSync(path, "r");
+      try {
+        const buf = Buffer.alloc(2);
+        return readSync(fd, buf, 0, 2, 0) === 2 && buf.toString("latin1") === "#!";
+      } finally {
+        closeSync(fd);
+      }
+    }
+    function isScannable(name: string, full: string): boolean {
+      const ext = extensionOf(name);
+      return ext === "" ? hasShebang(full) : TEXT_EXTENSIONS.has(ext);
+    }
     export function collectFiles(rootDir: string): SourceFile[] {
       const out: SourceFile[] = [];
     
@@ -67,7 +80,7 @@
             continue;
           }
           if (!entry.isFile()) continue; // ignore symlinks/sockets — never follow them
-          if (!TEXT_EXTENSIONS.has(extensionOf(entry.name))) continue;
+          if (!isScannable(entry.name, full)) continue;
           if (statSync(full).size > MAX_FILE_BYTES) continue;
           const relPath = relative(rootDir, full).split(sep).join("/");
           out.push({ relPath, content: readFileSync(full, "utf8") });
@@ -80,24 +93,70 @@
   </file>
   <file path="src/rule-engine.ts">
     export interface Rule {
-      /** Non-global regex tested per line. (Global regexes carry lastIndex state — banned.) */
+      /** Non-global regex tested per line / folded continuation. (Global regexes carry lastIndex state — banned.) */
       readonly pattern: RegExp;
       readonly category: Category;
       readonly severity: Severity;
+      /** Optional file-path filter; the rule is skipped for files that match. */
+      readonly excludes?: RegExp;
+      /** Optional language filter; the rule is skipped for files detected as one of these. */
+      readonly excludeLanguages?: readonly Language[];
+    }
+    export type Language = "python" | "other";
+    export function detectLanguage(file: string, content: string): Language {
+      const base = file.slice(file.lastIndexOf("/") + 1);
+      if (base.includes(".")) return /\.py$/i.test(base) ? "python" : "other";
+      const firstLine = content.split(/\r?\n/, 1)[0] ?? "";
+      return PYTHON_SHEBANG.test(firstLine) ? "python" : "other";
+    }
+    interface Group {
+      readonly text: string;
+      /** Physical lines in the group after the first. */
+      readonly rest: readonly string[];
+    }
+    function continuationGroup(
+      lines: readonly string[],
+      start: number,
+      continues: RegExp
+    ): Group | null {
+      let text = lines[start]!;
+      const rest: string[] = [];
+      while (
+        continues.test(text) &&
+        rest.length + 1 < MAX_JOINED_LINES &&
+        start + rest.length + 1 < lines.length
+      ) {
+        const next = lines[start + rest.length + 1]!;
+        rest.push(next);
+        text = `${text.replace(/\\\s*$/, "")} ${next.trim()}`;
+      }
+      return rest.length > 0 ? { text, rest } : null;
     }
     export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
       const findings: Finding[] = [];
       const lines = content.split(/\r?\n/);
+      const prose = isProseFile(file);
+      const continues = prose ? PROSE_CONTINUES : CONTINUES;
+      const language = detectLanguage(file, content);
+      const active = rules.filter(
+        (r) => (!r.excludes || !r.excludes.test(file)) && !r.excludeLanguages?.includes(language)
+      );
+      const add = (rule: Rule, line: number, text: string): void => {
+        findings.push({
+          category: rule.category,
+          severity: rule.severity,
+          file,
+          line,
+          evidence: text.trim().slice(0, MAX_EVIDENCE),
+        });
+      };
       for (const [i, line] of lines.entries()) {
-        for (const rule of rules) {
+        const group = continuationGroup(lines, i, continues);
+        for (const rule of active) {
           if (rule.pattern.test(line)) {
-            findings.push({
-              category: rule.category,
-              severity: rule.severity,
-              file,
-              line: i + 1,
-              evidence: line.trim().slice(0, MAX_EVIDENCE),
-            });
+            add(rule, i + 1, line);
+          } else if (group && rule.pattern.test(group.text)) {
+            if (!group.rest.some((l) => rule.pattern.test(l))) add(rule, i + 1, group.text);
           }
         }
       }

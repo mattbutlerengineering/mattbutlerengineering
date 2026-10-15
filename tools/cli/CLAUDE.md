@@ -15,17 +15,13 @@ src/
 │   ├── agent-frontmatter.ts  # agent frontmatter — parse yaml agent block from issue body
 │   ├── adr.ts         # check-adr — validate Architecture Decision Records
 │   ├── check-deps.ts  # check-deps — dependency version enforcement
-│   ├── generate.ts    # generate — scaffold code from templates
-│   ├── health.ts      # health — check service/infra health endpoints
 │   ├── issue.ts       # issue transition — apply label-machine state transitions
 │   ├── login.ts       # login — authenticate with Auth0
 │   ├── logout.ts      # logout — clear local tokens
 │   ├── loop.ts        # loop — run command repeatedly on interval
 │   ├── mcp.ts         # mcp — MCP server management
-│   ├── new.ts         # new — scaffold new packages/services
 │   ├── pack.ts        # pack/pack-changed — generate llms.txt context files
 │   ├── sync-rules.ts  # sync-rules — sync Claude rules across packages
-│   ├── up.ts          # up — start dev servers
 │   ├── users.ts       # users — API user management
 │   └── whoami.ts      # whoami — show current user
 └── __tests__/         # Test files
@@ -77,9 +73,6 @@ mbe sync-rules             # Sync Claude rules across packages
 ### Development
 
 ```bash
-mbe up                     # Start dev servers
-mbe new <type> <name>      # Scaffold new package/service
-mbe generate <template>    # Generate code from templates
 mbe check-adr --staged     # Validate staged changes against ADRs
 mbe check-deps             # Enforce dependency version constraints
 mbe issue transition <n>   # Apply a label-machine state transition to a GitHub issue

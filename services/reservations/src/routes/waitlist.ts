@@ -125,7 +125,9 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
-      const entries = await waitlistService.listWaiting(venueId);
+      const entries = await waitlistService.withLiveEstimates(
+        await waitlistService.listActive(venueId)
+      );
       return reply.send({ data: entries });
     })
   );
@@ -157,7 +159,10 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
     },
     venueScoped(
       { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
-      async (_request, reply, { entity }) => reply.send({ data: entity })
+      async (_request, reply, { entity }) => {
+        const [live] = await waitlistService.withLiveEstimates([entity]);
+        return reply.send({ data: live ?? entity });
+      }
     )
   );
 
@@ -196,7 +201,9 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
           venueId: entry.venueId,
         });
 
-        return reply.send({ data: entry });
+        // Re-read so the response carries the persisted notified state.
+        const current = await waitlistService.getById(entry.id);
+        return reply.send({ data: current ?? entry });
       }
     )
   );

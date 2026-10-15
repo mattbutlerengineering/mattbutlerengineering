@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StoredSpec } from "../types.js";
+import { resolveEntry } from "../lib/entry-kind.js";
 import { relativeTime } from "../utils/relative-time.js";
 import styles from "./HistoryPanel.module.css";
 
@@ -220,12 +221,13 @@ export function HistoryPanel({
           onKeyDown={handleListKeyDown}
         >
           {filteredEntries.map((entry, index) => {
-            const isTruncated = entry.prompt.length > PROMPT_TRUNCATE_LENGTH;
+            const { kind, prompt: entryPrompt } = resolveEntry(entry);
+            const isTruncated = entryPrompt.length > PROMPT_TRUNCATE_LENGTH;
             const displayPrompt = isTruncated
-              ? `${entry.prompt.slice(0, PROMPT_TRUNCATE_LENGTH)}\u2026`
-              : entry.prompt;
-            const isRefined = entry.prompt.startsWith("Refined:");
-            const isFailed = entry.prompt.startsWith("Failed:");
+              ? `${entryPrompt.slice(0, PROMPT_TRUNCATE_LENGTH)}\u2026`
+              : entryPrompt;
+            const isRefined = kind === "refine";
+            const isFailed = kind === "failed";
             const isFocused = index === focusedIndex;
             const isConfirmingDelete = confirmingDeleteId === entry.id;
 
@@ -248,8 +250,8 @@ export function HistoryPanel({
                 >
                   <span
                     className={styles.itemPrompt}
-                    title={isTruncated ? entry.prompt : undefined}
-                    data-tooltip={isTruncated ? entry.prompt : undefined}
+                    title={isTruncated ? entryPrompt : undefined}
+                    data-tooltip={isTruncated ? entryPrompt : undefined}
                   >
                     {displayPrompt}
                   </span>
@@ -336,8 +338,13 @@ export function HistoryPanel({
                         e.stopPropagation();
                         onReplay(entry.id);
                       }}
+                      disabled={isRefined}
                       aria-label="Replay prompt"
-                      title="Replay this prompt"
+                      title={
+                        isRefined
+                          ? "Refinements can't be replayed without their original spec"
+                          : "Replay this prompt"
+                      }
                       tabIndex={-1}
                     >
                       Replay

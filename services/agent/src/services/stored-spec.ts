@@ -7,6 +7,7 @@ export interface StoredSpecResponse {
   id: string;
   userId: string;
   prompt: string;
+  kind: string;
   spec: unknown;
   rawLines: unknown;
   isFavorite: boolean;
@@ -21,6 +22,7 @@ export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
     id: s.id,
     userId: s.userId,
     prompt: s.prompt,
+    kind: s.kind,
     spec: s.spec,
     rawLines: s.rawLines,
     isFavorite: s.isFavorite,
@@ -71,6 +73,7 @@ export const storedSpecService = {
   async create(data: {
     userId: string;
     prompt: string;
+    kind: string;
     spec: unknown;
     rawLines: unknown;
   }): Promise<StoredSpec> {
@@ -80,6 +83,7 @@ export const storedSpecService = {
       data: {
         userId: data.userId,
         prompt: data.prompt,
+        kind: data.kind,
         spec: data.spec as Prisma.InputJsonValue,
         rawLines: data.rawLines as Prisma.InputJsonValue,
       },

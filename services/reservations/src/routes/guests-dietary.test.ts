@@ -82,7 +82,7 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
-// ADR-026 §3.3 item 2 / #5369 PR 5: `venueIdFromEntity`/`loadInVenueContext`
+// ADR-026 §3.3 item 2 / #5369 PR 5: former `venueIdFromEntity`/former `loadInVenueContext`
 // (used by the guest `/:id` routes) resolve venue ids via `resolveVenueId`,
 // a raw `$queryRaw` call this suite's plain `createMockDatabaseService()`
 // stub can't answer. Resolve to a constant non-null venue id here — the

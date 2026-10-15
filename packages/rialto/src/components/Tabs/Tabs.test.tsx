@@ -204,4 +204,56 @@ describe("Tabs", () => {
       expect(container.firstElementChild?.className).toMatch(/my-tabs/);
     });
   });
+
+  describe("a11y iteration 4", () => {
+    it("only the active tab references a panel that exists (no dangling aria-controls)", () => {
+      const { container } = render(<Tabs tabs={tabs} defaultTab="details" />);
+      for (const tab of screen.getAllByRole("tab")) {
+        const controls = tab.getAttribute("aria-controls");
+        if (tab.getAttribute("aria-selected") === "true") {
+          expect(controls).toBeTruthy();
+          expect(container.querySelector(`[id="${controls}"]`)).toBeInTheDocument();
+        } else {
+          expect(controls).toBeNull();
+        }
+      }
+    });
+
+    it("routes aria-label to the tablist, not the wrapper", () => {
+      const { container } = render(<Tabs tabs={tabs} aria-label="Account sections" />);
+      expect(screen.getByRole("tablist", { name: "Account sections" })).toBeInTheDocument();
+      expect(container.firstElementChild).not.toHaveAttribute("aria-label");
+    });
+
+    it("routes aria-labelledby to the tablist", () => {
+      render(
+        <>
+          <h2 id="heading">Settings</h2>
+          <Tabs tabs={tabs} aria-labelledby="heading" />
+        </>
+      );
+      expect(screen.getByRole("tablist", { name: "Settings" })).toBeInTheDocument();
+    });
+
+    it("keeps one tab reachable when defaultTab matches no tab", () => {
+      render(<Tabs tabs={tabs} defaultTab="missing" />);
+      const tabbable = screen.getAllByRole("tab").filter((t) => t.tabIndex === 0);
+      expect(tabbable).toHaveLength(1);
+      expect(tabbable[0]).toHaveTextContent("Overview");
+    });
+
+    it("ArrowRight from an unmatched selection moves past the fallback tab stop", async () => {
+      render(<Tabs tabs={tabs} defaultTab="missing" />);
+      screen.getByRole("tab", { name: "Overview" }).focus();
+      await userEvent.keyboard("{ArrowRight}");
+      expect(screen.getByRole("tab", { name: "Details" })).toHaveFocus();
+    });
+
+    it("ArrowLeft from an unmatched selection wraps to the last tab", async () => {
+      render(<Tabs tabs={tabs} defaultTab="missing" />);
+      screen.getByRole("tab", { name: "Overview" }).focus();
+      await userEvent.keyboard("{ArrowLeft}");
+      expect(screen.getByRole("tab", { name: "History" })).toHaveFocus();
+    });
+  });
 });

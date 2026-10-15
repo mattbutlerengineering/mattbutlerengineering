@@ -27,6 +27,8 @@ const RULES: readonly Rule[] = [
   // Dynamic require/import where the argument is NOT a plain string literal.
   {
     pattern: /\b(require|import)\s*\(\s*[^'"`)\s]/,
+    // Python's `from x import (A, B)` is a plain parenthesized import, not a dynamic one.
+    excludeLanguages: ["python"],
     category: "malicious-command",
     severity: "high",
   },
@@ -40,6 +42,12 @@ const RULES: readonly Rule[] = [
   // Raw child_process / spawn / exec — medium (legit tools use these too).
   {
     pattern: /\bchild_process\b/,
+    category: "malicious-command",
+    severity: "med",
+  },
+  // Python shell-out (MCP servers are often Python) — medium, same as node exec.
+  {
+    pattern: /\b(os\.(system|popen)|subprocess\.(run|call|Popen|check_call|check_output))\s*\(/,
     category: "malicious-command",
     severity: "med",
   },

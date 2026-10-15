@@ -50,4 +50,6 @@
 {"date":"2026-10-08","sensor":"queueEfficiency","available":false,"reason":"query_error"}
 {"date":"2026-10-11","sensor":"queueEfficiency","available":false,"reason":"credential_rejected"}
 {"date":"2026-10-12","sensor":"queueEfficiency","available":false,"reason":"credential_rejected"}
-{"date":"2026-10-13","sensor":"queueEfficiency","available":true,"composite":0.974,"sub_metrics":{"issues_merged":170,"first_pass_success_rate":0.935,"median_time_to_merge_hours":0.3,"median_rework_cycles":0,"cost_per_issue_usd":0,"review_coverage":0.135},"regression_count":0}
+{"date":"2026-10-13","sensor":"queueEfficiency","available":false,"reason":"query_error","error":"spawnSync gh ETIMEDOUT"}
+{"date":"2026-10-14","sensor":"queueEfficiency","available":false,"reason":"query_error","error":"spawnSync gh ETIMEDOUT"}
+{"date":"2026-10-15","sensor":"queueEfficiency","available":true,"composite":0.964,"sub_metrics":{"issues_merged":157,"first_pass_success_rate":0.911,"median_time_to_merge_hours":0.3,"median_rework_cycles":0,"cost_per_issue_usd":0,"review_coverage":0.153},"regression_count":0}

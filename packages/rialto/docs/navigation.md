@@ -68,11 +68,11 @@ Switch between related panels of content.
 
 ### Common Mistakes {#tabs-common-mistakes}
 
-| Mistake                                 | Impact                                                                 | Fix                                                                                             |
-| --------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Using tabs for page-level navigation    | Screen readers expect tabs to switch panels, not navigate to new pages | Use links or `NavigationMenu` for page navigation; reserve tabs for in-page panel switching     |
-| Missing arrow key support between tabs  | Keyboard users cannot move between tabs efficiently                    | Implement left/right arrow key handling within the `role="tablist"` container                   |
-| No `aria-controls` linking tab to panel | Assistive tech cannot associate a tab with its content                 | Add `aria-controls="panel-id"` on each `role="tab"` and matching `id` on each `role="tabpanel"` |
+| Mistake                                 | Impact                                                                 | Fix                                                                                                                                                                      |
+| --------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Using tabs for page-level navigation    | Screen readers expect tabs to switch panels, not navigate to new pages | Use links or `NavigationMenu` for page navigation; reserve tabs for in-page panel switching                                                                              |
+| Missing arrow key support between tabs  | Keyboard users cannot move between tabs efficiently                    | Implement left/right arrow key handling within the `role="tablist"` container                                                                                            |
+| No `aria-controls` linking tab to panel | Assistive tech cannot associate a tab with its content                 | Add `aria-controls="panel-id"` on the selected `role="tab"` only (inactive panels are unmounted, so other tabs would dangle) and matching `id` on each `role="tabpanel"` |
 
 ### Visual Design {#tabs-visual-design}
 

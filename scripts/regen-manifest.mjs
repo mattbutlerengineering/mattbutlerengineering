@@ -201,6 +201,19 @@ export const FAMILIES = [
     },
   },
   {
+    id: "marketing-sitemap",
+    label: "apps/marketing/public/sitemap.xml (derived from the route inventory)",
+    command: "node scripts/generate-sitemap.mjs",
+    outputs: ["apps/marketing/public/sitemap.xml"],
+    // Same inputs as the route inventory, plus the shared derivePath module.
+    changedBy(path) {
+      return ROUTER_FILES.some((file) => path === file || path.endsWith(`/${file}`)) ||
+        path.endsWith("scripts/ui-quality/derive-path.mjs")
+        ? { command: this.command, outputs: this.outputs }
+        : null;
+    },
+  },
+  {
     id: "ui-quality-ledger",
     label: "metrics/ui-quality-ledger.jsonl (route inventory identity columns)",
     command: "node scripts/ui-quality/ledger.mjs generate",

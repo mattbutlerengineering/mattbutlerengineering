@@ -56,6 +56,13 @@ describe("WaitlistJoinView", () => {
     vi.resetAllMocks();
   });
 
+  it("shows no invented wait estimate when the server has not supplied one", () => {
+    const { estimatedWaitMinutes: _omit, ...withoutEstimate } = DEFAULT_PROPS;
+    render(<WaitlistJoinView {...withoutEstimate} />);
+    expect(screen.queryByText(/Estimated wait/)).toBeNull();
+    expect(screen.queryByText(/~30 min/)).toBeNull();
+  });
+
   it("shows no-availability message with estimated wait time", () => {
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
     expect(screen.getAllByText(/No tables available/i).length).toBeGreaterThan(0);
@@ -125,7 +132,11 @@ describe("WaitlistJoinView", () => {
 
   it("calls onJoined with position and estimatedWaitMinutes after successful join", async () => {
     const onJoined = vi.fn();
-    mockApi.publicVenue.joinWaitlist.mockResolvedValue({ position: 3, estimatedWaitMinutes: 45 });
+    mockApi.publicVenue.joinWaitlist.mockResolvedValue({
+      statusToken: "tok-1",
+      position: 3,
+      estimatedWaitMinutes: 45,
+    });
 
     render(<WaitlistJoinView {...DEFAULT_PROPS} onJoined={onJoined} />);
     fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });
@@ -133,7 +144,11 @@ describe("WaitlistJoinView", () => {
     fireEvent.click(screen.getByText(/Join Waitlist/i));
 
     await waitFor(() => {
-      expect(onJoined).toHaveBeenCalledWith({ position: 3, estimatedWaitMinutes: 45 });
+      expect(onJoined).toHaveBeenCalledWith({
+        statusToken: "tok-1",
+        position: 3,
+        estimatedWaitMinutes: 45,
+      });
     });
     expect(mockApi.publicVenue.joinWaitlist).toHaveBeenCalledWith("test-venue", {
       venueId: "venue-1",

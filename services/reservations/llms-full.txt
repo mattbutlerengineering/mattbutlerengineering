@@ -382,83 +382,6 @@
       };
     }
   </file>
-  <file path="src/middleware/require-manage-token.ts">
-    function extractManageToken(request: FastifyRequest): string | undefined {
-      const authHeader = request.headers.authorization;
-      if (authHeader?.startsWith("Bearer ")) {
-        const headerToken = authHeader.slice("Bearer ".length).trim();
-        if (headerToken) {
-          return headerToken;
-        }
-      }
-      const query = request.query as { token?: string } | undefined;
-      return query?.token;
-    }
-    export async function requireManageToken(
-      request: FastifyRequest,
-      reply: FastifyReply
-    ): Promise<void> {
-      const token = extractManageToken(request);
-    
-      if (!token) {
-        await reply.status(400).send({
-          type: "about:blank",
-          title: "Missing Token",
-          status: 400,
-          detail: "Token query parameter is required",
-        });
-        return;
-      }
-    
-      const result = verifyManageToken(token);
-    
-      if (!result.valid && result.expired) {
-        await reply.status(410).send({
-          type: "about:blank",
-          title: "Token Expired",
-          status: 410,
-          detail: "This manage link has expired",
-        });
-        return;
-      }
-    
-      if (!result.valid) {
-        await reply.status(401).send({
-          type: "about:blank",
-          title: "Invalid Token",
-          status: 401,
-          detail: "Invalid or malformed token",
-        });
-        return;
-      }
-    
-      // ADR-026 §3.3 item 4: resolve the reservation's venue through the
-      // SECURITY DEFINER function (never an unscoped `reservations` read) and run
-      // this ownership check inside that venue's RLS context. A NULL resolution
-      // (reservation gone, or carries no venue per ADR-026 §2) means there is
-      // nothing to check — the route handler's own lookup below reports "not
-      // found", matching this preHandler's pre-existing tolerance for a missing
-      // reservation.
-      const venueId = await resolveVenueId("reservation", result.reservationId!);
-      if (venueId) {
-        const reservation = await runWithVenueContext(venueId, () =>
-          reservationService.getById(result.reservationId!)
-        );
-        if (reservation && reservation.guestEmail !== result.guestEmail) {
-          await reply.status(403).send({
-            type: "about:blank",
-            title: "Forbidden",
-            status: 403,
-            detail: "Token does not match reservation",
-          });
-          return;
-        }
-      }
-    
-      request.managedReservationId = result.reservationId!;
-      request.manageToken = token;
-    }
-  </file>
   <file path="src/middleware/venue-context.ts">
     export interface VenueContextClient {
       $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
@@ -496,29 +419,6 @@
         return;
       }
       await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
-    }
-    export function venueContextPreHandler(
-      resolveVenueId: VenueIdResolver
-    ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
-      return async function setVenueContextPreHandler(
-        request: FastifyRequest,
-        _reply: FastifyReply
-      ): Promise<void> {
-        const result = resolveVenueId(request);
-        if (isThenable(result)) {
-          const venueId = await result;
-          enterVenueContext(typeof venueId === "string" ? venueId : null);
-          return;
-        }
-        enterVenueContext(typeof result === "string" ? result : null);
-      };
-    }
-    function isThenable(value: unknown): value is PromiseLike<string | null | undefined> {
-      return (
-        typeof value === "object" &&
-        value !== null &&
-        typeof (value as { then?: unknown }).then === "function"
-      );
     }
   </file>
   </section>
@@ -1193,19 +1093,14 @@
               request.body = {};
             }
           },
-          preHandler: requireManageToken,
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 4: resolve the reservation's venue through the
-          // SECURITY DEFINER function, then run the whole cancel flow inside
-          // that venue's RLS context.
-          const venueId = await resolveVenueId("reservation", request.managedReservationId);
-          if (!venueId) {
-            return reply.status(404).send(reservationNotFoundProblem());
-          }
-    
-          return runWithVenueContext(venueId, async () => {
-            const preamble = await loadReservationForManage(request.managedReservationId);
+        // ADR-026 §3.3 item 4: the scope verifies the token, resolves the venue
+        // and loads the reservation once; the whole cancel flow runs inside that
+        // venue's RLS context.
+        manageTokenScoped(
+          { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
+          async (request, reply, { reservation, token }) => {
+            const preamble = guardManageState(reservation);
             if (!preamble.ok) {
               return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
             }
@@ -1213,7 +1108,7 @@
             const result = await fastify.transitions.cancel(preamble.reservation, {
               door: "guest-manage",
               initiator: "guest",
-              manageToken: request.manageToken,
+              manageToken: token,
               reason: request.body?.cancellationReason,
               note: request.body?.cancellationNote,
               log: request.log,
@@ -1228,8 +1123,8 @@
             return reply.status(200).send({
               data: { status: result.reservation.status },
             });
-          });
-        }
+          }
+        )
       );
     };
   </file>
@@ -1241,28 +1136,18 @@
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
           },
-          preHandler: requireManageToken,
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 4: resolve the reservation's venue through the
-          // SECURITY DEFINER function, then run the read + confirm inside that
-          // venue's RLS context.
-          const venueId = await resolveVenueId("reservation", request.managedReservationId);
-          if (!venueId) {
-            return reply.status(401).type("text/html").send(invalidHtml);
-          }
-    
-          return runWithVenueContext(venueId, async () => {
-            const reservation = await reservationService.getById(request.managedReservationId);
-            if (!reservation) {
-              return reply.status(401).type("text/html").send(invalidHtml);
-            }
-    
+        // ADR-026 §3.3 item 4: the scope verifies the token, resolves the venue
+        // and loads the reservation once; the confirm runs inside that venue's
+        // RLS context. A venue or reservation that is gone is this route's 401 page.
+        manageTokenScoped(
+          { missing: (reply) => reply.status(401).type("text/html").send(invalidHtml) },
+          async (_request, reply, { reservation }) => {
             await fastify.transitions.confirmAttendance(reservation);
     
             return reply.status(200).type("text/html").send(successHtml);
-          });
-        }
+          }
+        )
       );
     };
   </file>
@@ -1636,10 +1521,7 @@
       }>(
         "/stream",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, queryVenueId)],
           schema: {
             summary: "Subscribe to real-time reservation events",
             operationId: "streamEvents",
@@ -1755,10 +1637,13 @@
     
           // Platform admins are scoped to every venue (matches requireVenueAccess,
           // ADR-020); everyone else sees only floor plans for venues they belong to.
-          if (hasPermission(user, "admin")) {
-            return floorPlanService.list(page, limit, request.query.venueId);
-          }
-          return floorPlanService.listForMember(user.raw.sub, page, limit, request.query.venueId);
+          // No guard here: a named venue only scopes the RLS context, and
+          // `listForMember` filters a non-admin to their own venues.
+          return inNamedVenueContext(request.query.venueId, () =>
+            hasPermission(user, "admin")
+              ? floorPlanService.list(page, limit, request.query.venueId)
+              : floorPlanService.listForMember(user.raw.sub, page, limit, request.query.venueId)
+          );
         }
       );
     
@@ -2404,6 +2289,14 @@
               .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
           }
     
+          if (result.partyDoesNotFit) {
+            return reply
+              .code(422)
+              .send(
+                createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+              );
+          }
+    
           if (!result.success) {
             const statusCode = result.error?.includes("not found") ? 404 : 409;
             const title = statusCode === 404 ? "Not Found" : "Conflict";
@@ -2649,13 +2542,8 @@
   <file path="src/routes/load-reservation-for-manage.ts">
     export type ManagePreambleResult =
       | { ok: true; reservation: Reservation }
-      | { ok: false; status: 404; reason: "not_found" }
       | { ok: false; status: 409; reason: "cancelled" | "completed" };
-    export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> {
-      const reservation = await reservationService.getById(id);
-      if (!reservation) {
-        return { ok: false, status: 404, reason: "not_found" };
-      }
+    export function guardManageState(reservation: Reservation): ManagePreambleResult {
       if (reservation.status === "CANCELLED") {
         return { ok: false, status: 409, reason: "cancelled" };
       }
@@ -2682,9 +2570,6 @@
       preamble: Extract<ManagePreambleResult, { ok: false }>,
       action: ManageAction
     ): ReturnType<typeof createProblemDetails> {
-      if (preamble.reason === "not_found") {
-        return reservationNotFoundProblem();
-      }
       return problemFromMessage(preamble.status, ACTION_MESSAGES[action][preamble.reason]);
     }
   </file>
@@ -2696,25 +2581,12 @@
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
           },
-          preHandler: requireManageToken,
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 4: resolve the reservation's venue through the
-          // SECURITY DEFINER function rather than an unscoped `reservations`
-          // read, then run the actual lookup inside that venue's RLS context. A
-          // NULL resolution (reservation gone, or has no venue per ADR-026 §2)
-          // is reported the same way a missing reservation already was.
-          const venueId = await resolveVenueId("reservation", request.managedReservationId);
-          if (!venueId) {
-            return reply.status(404).send(reservationNotFoundProblem());
-          }
-    
-          return runWithVenueContext(venueId, async () => {
-            const reservation = await reservationService.getById(request.managedReservationId);
-            if (!reservation) {
-              return reply.status(404).send(reservationNotFoundProblem());
-            }
-    
+        // ADR-026 §3.3 item 4: the scope verifies the token, resolves the venue
+        // and loads the reservation once, inside that venue's RLS context.
+        manageTokenScoped(
+          { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
+          async (_request, reply, { venueId, reservation }) => {
             const venue = await venueService.getById(venueId);
     
             return reply.status(200).send({
@@ -2731,10 +2603,80 @@
                   : null,
               },
             });
-          });
-        }
+          }
+        )
       );
     };
+  </file>
+  <file path="src/routes/manage-token-scope.ts">
+    type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
+      RawServerDefault,
+      RawRequestDefaultExpression,
+      RawReplyDefaultExpression,
+      RG
+    >;
+    type RequestOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[0];
+    type ReplyOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[1];
+    export interface ManageTokenScope {
+      readonly venueId: string;
+      readonly reservation: Reservation;
+      readonly token: string;
+    }
+    export interface ManageTokenScopeSpec<RG extends RouteGenericInterface> {
+      /** The route's own answer when the venue or the reservation cannot be found. */
+      readonly missing: (reply: ReplyOf<RG>, request: RequestOf<RG>) => unknown;
+    }
+    export type ManageTokenHandler<RG extends RouteGenericInterface> = (
+      request: RequestOf<RG>,
+      reply: ReplyOf<RG>,
+      scope: ManageTokenScope
+    ) => ReturnType<Handler<RG>>;
+    function extractManageToken(request: FastifyRequest): string | undefined {
+      const authHeader = request.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        const headerToken = authHeader.slice("Bearer ".length).trim();
+        if (headerToken) return headerToken;
+      }
+      return (request.query as { token?: string } | undefined)?.token;
+    }
+    function deny(reply: FastifyReply, status: number, title: string, detail: string): FastifyReply {
+      return reply.status(status).send({ type: "about:blank", title, status, detail });
+    }
+    export function manageTokenScoped<RG extends RouteGenericInterface = RouteGenericInterface>(
+      spec: ManageTokenScopeSpec<RG>,
+      handler: ManageTokenHandler<RG>
+    ): Handler<RG> {
+      async function scopedHandler(request: RequestOf<RG>, reply: ReplyOf<RG>): Promise<unknown> {
+        const token = extractManageToken(request);
+        if (!token) {
+          return deny(reply, 400, "Missing Token", "Token query parameter is required");
+        }
+    
+        const result = verifyManageToken(token);
+        if (!result.valid && result.expired) {
+          return deny(reply, 410, "Token Expired", "This manage link has expired");
+        }
+        if (!result.valid) {
+          return deny(reply, 401, "Invalid Token", "Invalid or malformed token");
+        }
+    
+        const reservationId = result.reservationId!;
+        const venueId = await resolveVenueId("reservation", reservationId);
+        if (!venueId) return spec.missing(reply, request);
+    
+        return runWithVenueContext(venueId, async () => {
+          const reservation = await reservationService.getById(reservationId);
+          if (!reservation) return spec.missing(reply, request);
+          if (reservation.guestEmail !== result.guestEmail) {
+            return deny(reply, 403, "Forbidden", "Token does not match reservation");
+          }
+          return handler(request, reply, { venueId, reservation, token });
+        });
+      }
+    
+      Object.defineProperty(scopedHandler, VENUE_SCOPE, { value: "token:manage/public" });
+      return scopedHandler as unknown as Handler<RG>;
+    }
   </file>
   <file path="src/routes/modify-reservation.ts">
     interface ModifyBody {
@@ -2754,19 +2696,14 @@
           schema: {
             body: modifyReservationBodyJsonSchema,
           },
-          preHandler: requireManageToken,
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 4: resolve the reservation's venue through the
-          // SECURITY DEFINER function, then run the whole modify flow inside
-          // that venue's RLS context.
-          const venueId = await resolveVenueId("reservation", request.managedReservationId);
-          if (!venueId) {
-            return reply.status(404).send(reservationNotFoundProblem());
-          }
-    
-          return runWithVenueContext(venueId, async () => {
-            const preamble = await loadReservationForManage(request.managedReservationId);
+        // ADR-026 §3.3 item 4: the scope verifies the token, resolves the venue
+        // and loads the reservation once; the whole modify flow runs inside that
+        // venue's RLS context.
+        manageTokenScoped(
+          { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
+          async (request, reply, { reservation, token }) => {
+            const preamble = guardManageState(reservation);
             if (!preamble.ok) {
               return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
             }
@@ -2774,7 +2711,7 @@
             const result = await fastify.transitions.modifyByGuest(
               preamble.reservation,
               request.body ?? {},
-              request.manageToken
+              token
             );
     
             if (!result.success) {
@@ -2797,10 +2734,26 @@
                 reservation: serializeManagedReservation(result.reservation),
               },
             });
-          });
-        }
+          }
+        )
       );
     };
+  </file>
+  <file path="src/routes/named-venue.ts">
+    export const queryVenueId: VenueIdResolver = (request) => {
+      const query = request.query as { venueId?: unknown } | null | undefined;
+      return typeof query?.venueId === "string" ? query.venueId : null;
+    };
+    export const bodyVenueId: VenueIdResolver = (request) => {
+      const body = request.body as { venueId?: unknown } | null | undefined;
+      return typeof body?.venueId === "string" ? body.venueId : null;
+    };
+    export function inNamedVenueContext<T>(
+      venueId: string | null | undefined,
+      work: () => Promise<T>
+    ): Promise<T> {
+      return typeof venueId === "string" ? runWithVenueContext(venueId, work) : work();
+    }
   </file>
   <file path="src/routes/public-availability.ts">
     export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
@@ -2823,23 +2776,22 @@
             querystring: publicAvailabilityQueryJsonSchema,
           },
         },
-        async (request, reply) => {
-          const { slug } = request.params;
-          const { date, partySize } = request.query;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: (slug) => ({
+              title: "Venue Not Found",
+              detail: `No venue found with slug '${slug}'.`,
+            }),
+          },
+          async (request, reply) => {
+            const { slug } = request.params;
+            const { date, partySize } = request.query;
     
-          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
-          // run the rest of the lookup (venue re-fetch + slot generation) inside
-          // that venue's RLS context, never an unscoped slug read.
-          const venueId = await resolveVenueId("venue_slug", slug);
-          if (!venueId) {
-            return reply
-              .status(404)
-              .send(
-                createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
-              );
-          }
+            // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+            // run the rest of the lookup (venue re-fetch + slot generation) inside
+            // that venue's RLS context, never an unscoped slug read.
     
-          return runWithVenueContext(venueId, async () => {
             const venue = await venueService.getBySlug(slug);
             if (!venue) {
               return reply
@@ -2864,8 +2816,8 @@
             const availableOnly = slots.filter((s: TimeSlot) => s.available);
     
             return reply.send({ data: availableOnly });
-          });
-        }
+          }
+        )
       );
     };
   </file>
@@ -2922,171 +2874,159 @@
             body: publicDepositBodyJsonSchema,
           },
         },
-        async (request, reply) => {
+        publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
           const { slug } = request.params;
           const { reservationId, guestEmail, guestName } = request.body;
     
           // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
           // run the whole flow (policy lookup, reservation ownership check,
           // deposit create) inside that venue's RLS context.
-          const venueId = await resolveVenueId("venue_slug", slug);
-          if (!venueId) {
+    
+          // Typed deposit/cancellation policy for this venue — no raw Prisma row.
+          const policy = await venueService.getPolicyBySlug(slug);
+          if (!policy) {
             return reply
               .status(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          return runWithVenueContext(venueId, async () => {
-            // Typed deposit/cancellation policy for this venue — no raw Prisma row.
-            const policy = await venueService.getPolicyBySlug(slug);
-            if (!policy) {
-              return reply
-                .status(404)
-                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-            }
+          if (!policy.depositEnabled) {
+            return reply
+              .status(422)
+              .send(
+                createProblemDetails(
+                  422,
+                  "Unprocessable Entity",
+                  "Deposits are not enabled for this venue."
+                )
+              );
+          }
     
-            if (!policy.depositEnabled) {
-              return reply
-                .status(422)
-                .send(
-                  createProblemDetails(
-                    422,
-                    "Unprocessable Entity",
-                    "Deposits are not enabled for this venue."
-                  )
-                );
-            }
+          // Verify reservation belongs to this venue
+          const reservation = await reservationService.getById(reservationId);
+          if (!reservation || reservation.venueId !== policy.id) {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found for this venue."));
+          }
     
-            // Verify reservation belongs to this venue
-            const reservation = await reservationService.getById(reservationId);
-            if (!reservation || reservation.venueId !== policy.id) {
-              return reply
-                .status(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found for this venue."));
-            }
+          // Ownership proof, checked before any Stripe call (#6304). 403, not
+          // 404: the 404 above is the enumeration path, this is the auth path.
+          const originSessionId = await reservationService.getOriginSessionId(reservationId);
+          if (!ownsReservation(request, originSessionId)) {
+            return reply
+              .status(403)
+              .send(
+                createProblemDetails(
+                  403,
+                  "Forbidden",
+                  `Pass the booking session ID via the ${SESSION_ID_HEADER} header to pay a deposit for this reservation.`
+                )
+              );
+          }
     
-            // Ownership proof, checked before any Stripe call (#6304). 403, not
-            // 404: the 404 above is the enumeration path, this is the auth path.
-            const originSessionId = await reservationService.getOriginSessionId(reservationId);
-            if (!ownsReservation(request, originSessionId)) {
-              return reply
-                .status(403)
-                .send(
-                  createProblemDetails(
-                    403,
-                    "Forbidden",
-                    `Pass the booking session ID via the ${SESSION_ID_HEADER} header to pay a deposit for this reservation.`
-                  )
-                );
-            }
+          // Check no deposit already exists for this reservation
+          const existingDeposit = await depositService.getByReservationId(reservationId);
+          if (existingDeposit) {
+            return reply
+              .status(409)
+              .send(
+                createProblemDetails(409, "Conflict", "A deposit already exists for this reservation.")
+              );
+          }
     
-            // Check no deposit already exists for this reservation
-            const existingDeposit = await depositService.getByReservationId(reservationId);
-            if (existingDeposit) {
-              return reply
-                .status(409)
-                .send(
-                  createProblemDetails(
-                    409,
-                    "Conflict",
-                    "A deposit already exists for this reservation."
-                  )
-                );
-            }
+          // Calculate deposit amount
+          const depositAmountCents = calculateDepositAmount(policy, reservation.partySize);
+          const currency = policy.currencyCode.toLowerCase();
     
-            // Calculate deposit amount
-            const depositAmountCents = calculateDepositAmount(policy, reservation.partySize);
-            const currency = policy.currencyCode.toLowerCase();
-    
-            // Create Stripe PaymentIntent (manual capture = authorize-only hold)
-            let stripeCustomerId: string | undefined;
-            if (guestEmail || guestName) {
-              try {
-                const customer = await fastify.payments.createCustomer({
-                  email: guestEmail,
-                  name: guestName,
-                  // Stable key so a lost-response retry reuses the same customer
-                  // instead of minting a new one — otherwise the second attempt would
-                  // change the PaymentIntent's customer param and break its own
-                  // idempotency key, degrading a safe retry into a 502.
-                  idempotencyKey: `${reservationId}:customer`,
-                });
-                stripeCustomerId = customer.id;
-              } catch (err) {
-                // A retriable transient failure must fail-fast, not be swallowed:
-                // swallowing mints a customer-less PaymentIntent under the shared
-                // `${reservationId}:paymentIntent:${amount}` key, so a later retry that
-                // succeeds at customer-create would attach a customer and 502 on the
-                // Stripe idempotency param mismatch. Returning 502 here lets the retry
-                // re-attempt customer creation deterministically.
-                if (err instanceof StripeOperationError && err.isRetriable) {
-                  request.log.error({ err }, "Stripe customer creation failed (retriable)");
-                  return reply
-                    .status(502)
-                    .send(
-                      createProblemDetails(
-                        502,
-                        "Bad Gateway",
-                        "Failed to create payment intent with the payment provider."
-                      )
-                    );
-                }
-                // Non-retriable (permanent) customer error — degrade gracefully and
-                // take the deposit without a Stripe customer attached.
-                request.log.warn(
-                  { err },
-                  "Stripe customer creation failed (non-retriable), continuing without customer"
-                );
-              }
-            }
-    
-            // Stable idempotency key (reservationId + amount) makes a lost-response
-            // retry safe — Stripe returns the original PaymentIntent instead of
-            // minting a second hold. Matches the `${id}:${action}` key convention
-            // used by the capture/cancel/refund flows.
-            let paymentIntent;
+          // Create Stripe PaymentIntent (manual capture = authorize-only hold)
+          let stripeCustomerId: string | undefined;
+          if (guestEmail || guestName) {
             try {
-              paymentIntent = await fastify.payments.createPaymentIntent({
-                amountCents: depositAmountCents,
-                currency,
-                customerId: stripeCustomerId,
-                reservationId,
-                idempotencyKey: `${reservationId}:paymentIntent:${depositAmountCents}`,
+              const customer = await fastify.payments.createCustomer({
+                email: guestEmail,
+                name: guestName,
+                // Stable key so a lost-response retry reuses the same customer
+                // instead of minting a new one — otherwise the second attempt would
+                // change the PaymentIntent's customer param and break its own
+                // idempotency key, degrading a safe retry into a 502.
+                idempotencyKey: `${reservationId}:customer`,
               });
+              stripeCustomerId = customer.id;
             } catch (err) {
-              request.log.error({ err }, "Stripe PaymentIntent creation failed");
-              return reply
-                .status(502)
-                .send(
-                  createProblemDetails(
-                    502,
-                    "Bad Gateway",
-                    "Failed to create payment intent with the payment provider."
-                  )
-                );
+              // A retriable transient failure must fail-fast, not be swallowed:
+              // swallowing mints a customer-less PaymentIntent under the shared
+              // `${reservationId}:paymentIntent:${amount}` key, so a later retry that
+              // succeeds at customer-create would attach a customer and 502 on the
+              // Stripe idempotency param mismatch. Returning 502 here lets the retry
+              // re-attempt customer creation deterministically.
+              if (err instanceof StripeOperationError && err.isRetriable) {
+                request.log.error({ err }, "Stripe customer creation failed (retriable)");
+                return reply
+                  .status(502)
+                  .send(
+                    createProblemDetails(
+                      502,
+                      "Bad Gateway",
+                      "Failed to create payment intent with the payment provider."
+                    )
+                  );
+              }
+              // Non-retriable (permanent) customer error — degrade gracefully and
+              // take the deposit without a Stripe customer attached.
+              request.log.warn(
+                { err },
+                "Stripe customer creation failed (non-retriable), continuing without customer"
+              );
             }
+          }
     
-            // Create deposit record in pending state with the PaymentIntent id already
-            // set, in one atomic write. This guarantees the succeeded webhook can always
-            // find the row — no create → link two-write window that could strand it.
-            const deposit = await depositService.create({
-              reservationId,
+          // Stable idempotency key (reservationId + amount) makes a lost-response
+          // retry safe — Stripe returns the original PaymentIntent instead of
+          // minting a second hold. Matches the `${id}:${action}` key convention
+          // used by the capture/cancel/refund flows.
+          let paymentIntent;
+          try {
+            paymentIntent = await fastify.payments.createPaymentIntent({
               amountCents: depositAmountCents,
               currency,
-              stripePaymentIntentId: paymentIntent.id,
-              stripeCustomerId,
+              customerId: stripeCustomerId,
+              reservationId,
+              idempotencyKey: `${reservationId}:paymentIntent:${depositAmountCents}`,
             });
+          } catch (err) {
+            request.log.error({ err }, "Stripe PaymentIntent creation failed");
+            return reply
+              .status(502)
+              .send(
+                createProblemDetails(
+                  502,
+                  "Bad Gateway",
+                  "Failed to create payment intent with the payment provider."
+                )
+              );
+          }
     
-            return reply.status(201).send({
-              data: {
-                clientSecret: paymentIntent.clientSecret!,
-                depositId: deposit.id,
-                amountCents: depositAmountCents,
-                currency,
-              },
-            });
+          // Create deposit record in pending state with the PaymentIntent id already
+          // set, in one atomic write. This guarantees the succeeded webhook can always
+          // find the row — no create → link two-write window that could strand it.
+          const deposit = await depositService.create({
+            reservationId,
+            amountCents: depositAmountCents,
+            currency,
+            stripePaymentIntentId: paymentIntent.id,
+            stripeCustomerId,
           });
-        }
+    
+          return reply.status(201).send({
+            data: {
+              clientSecret: paymentIntent.clientSecret!,
+              depositId: deposit.id,
+              amountCents: depositAmountCents,
+              currency,
+            },
+          });
+        })
       );
     };
   </file>
@@ -3125,7 +3065,7 @@
             },
           },
         },
-        async (request, reply) => {
+        publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
           const { slug } = request.params;
           const { email } = request.query;
     
@@ -3137,26 +3077,18 @@
     
           // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
           // run the guest lookup inside that venue's RLS context.
-          const venueId = await resolveVenueId("venue_slug", slug);
-          if (!venueId) {
+    
+          const venue = await venueService.getBySlug(slug);
+          if (!venue) {
             return reply
               .status(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          return runWithVenueContext(venueId, async () => {
-            const venue = await venueService.getBySlug(slug);
-            if (!venue) {
-              return reply
-                .status(404)
-                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-            }
+          const recognition = await recognizeGuest(venue.id, email);
     
-            const recognition = await recognizeGuest(venue.id, email);
-    
-            return reply.send({ data: recognition });
-          });
-        }
+          return reply.send({ data: recognition });
+        })
       );
     };
   </file>
@@ -3193,28 +3125,30 @@
             },
           },
         },
-        async (request, reply) => {
-          const { slug } = request.params;
-          const { email, phone } = request.query;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            // The missing-query 400 answers before the slug lookup, as it always did.
+            before: (request, reply) =>
+              !request.query.email && !request.query.phone
+                ? reply
+                    .status(400)
+                    .send(
+                      createProblemDetails(
+                        400,
+                        "Bad Request",
+                        "email or phone query parameter is required"
+                      )
+                    )
+                : undefined,
+          },
+          async (request, reply) => {
+            const { slug } = request.params;
+            const { email, phone } = request.query;
     
-          if (!email && !phone) {
-            return reply
-              .status(400)
-              .send(
-                createProblemDetails(400, "Bad Request", "email or phone query parameter is required")
-              );
-          }
+            // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+            // run the guest lookup inside that venue's RLS context.
     
-          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
-          // run the guest lookup inside that venue's RLS context.
-          const venueId = await resolveVenueId("venue_slug", slug);
-          if (!venueId) {
-            return reply
-              .status(404)
-              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-          }
-    
-          return runWithVenueContext(venueId, async () => {
             const venue = await venueService.getBySlug(slug);
             if (!venue) {
               return reply
@@ -3242,22 +3176,12 @@
                 requiresDeposit: riskScore === "risky",
               },
             });
-          });
-        }
+          }
+        )
       );
     };
   </file>
   <file path="src/routes/public-holds.ts">
-    async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> {
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) {
-        reply
-          .status(404)
-          .send(createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`));
-        return null;
-      }
-      return venueId;
-    }
     function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null {
       const sessionId = request.headers[SESSION_ID_HEADER];
       if (typeof sessionId !== "string" || sessionId.length === 0) {
@@ -3270,6 +3194,9 @@
         return null;
       }
       return sessionId;
+    }
+    function sessionIdOf(request: FastifyRequest): string {
+      return request.headers[SESSION_ID_HEADER] as string;
     }
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{
@@ -3291,27 +3218,27 @@
             body: publicHoldBodyJsonSchema,
           },
         },
-        async (request, reply) => {
-          const { slug } = request.params;
-          const { date, startTime, partySize } = request.body;
-          const ip = request.ip;
-    
-          if (getActiveHoldCount(ip) >= MAX_ACTIVE_HOLDS) {
-            return reply
-              .status(429)
-              .send(
-                createProblemDetails(
-                  429,
-                  "Too Many Holds",
-                  `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`
-                )
-              );
-          }
-    
-          const venueId = await resolveVenueBySlug(slug, reply);
-          if (venueId === null) return reply;
-    
-          return runWithVenueContext(venueId, async () => {
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: venueNotFound,
+            // The per-IP cap answers before the slug lookup, as it always did.
+            before: (request, reply) =>
+              getActiveHoldCount(request.ip) >= MAX_ACTIVE_HOLDS
+                ? reply
+                    .status(429)
+                    .send(
+                      createProblemDetails(
+                        429,
+                        "Too Many Holds",
+                        `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`
+                      )
+                    )
+                : undefined,
+          },
+          async (request, reply, { venueId }) => {
+            const { date, startTime, partySize } = request.body;
+            const ip = request.ip;
             const sessionId = randomUUID();
             const result = await holdService.create(
               { venueId, date, time: startTime, partySize },
@@ -3332,8 +3259,8 @@
     
             incrementHoldCount(ip);
             return reply.status(201).send({ data: result.hold! });
-          });
-        }
+          }
+        )
       );
     
       fastify.delete<{
@@ -3380,16 +3307,17 @@
             tags: ["Public"],
           },
         },
-        async (request, reply) => {
-          const { slug, holdId } = request.params;
-    
-          const sessionId = readSessionId(request, reply, "read");
-          if (sessionId === null) return reply;
-    
-          const venueId = await resolveVenueBySlug(slug, reply);
-          if (venueId === null) return reply;
-    
-          return runWithVenueContext(venueId, async () => {
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: venueNotFound,
+            // The session header answers 401 before the slug lookup, as it always did.
+            before: (request, reply) =>
+              readSessionId(request, reply, "read") === null ? reply : undefined,
+          },
+          async (request, reply, { venueId }) => {
+            const { holdId } = request.params;
+            const sessionId = sessionIdOf(request);
             const hold = await holdService.getById(holdId);
             // A hold from another venue, or one this session does not own, is
             // reported as absent — never as a distinct status that would confirm it
@@ -3401,8 +3329,8 @@
             }
     
             return reply.send({ data: hold });
-          });
-        }
+          }
+        )
       );
     
       // Confirm the hold into a reservation. Mirrors the staff route's response
@@ -3429,17 +3357,18 @@
             body: publicHoldConfirmBodyJsonSchema,
           },
         },
-        async (request, reply) => {
-          const { slug, holdId } = request.params;
-          const ip = request.ip;
-    
-          const sessionId = readSessionId(request, reply, "confirm");
-          if (sessionId === null) return reply;
-    
-          const venueId = await resolveVenueBySlug(slug, reply);
-          if (venueId === null) return reply;
-    
-          return runWithVenueContext(venueId, async () => {
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: venueNotFound,
+            // The session header answers 401 before the slug lookup, as it always did.
+            before: (request, reply) =>
+              readSessionId(request, reply, "confirm") === null ? reply : undefined,
+          },
+          async (request, reply, { venueId }) => {
+            const { holdId } = request.params;
+            const ip = request.ip;
+            const sessionId = sessionIdOf(request);
             // Fields are named explicitly rather than forwarding the parsed body:
             // Fastify leaves unknown properties on `request.body`, so spreading it
             // would let an anonymous caller smuggle a `guestId` and attach its
@@ -3475,8 +3404,8 @@
               : undefined;
     
             return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
-          });
-        }
+          }
+        )
       );
     };
   </file>
@@ -3554,36 +3483,39 @@
             body: publicReservationBodyJsonSchema,
           },
         },
-        async (request, reply) => {
-          const { slug } = request.params;
-          const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
-          const ip = request.ip;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: (slug) =>
+              new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`),
+            // The high-entropy sessionId minted at hold creation is this caller's
+            // capability token and the only proof the hold is theirs — mirrors the
+            // release path in public-holds.ts. Requiring it is what makes
+            // confirmHold's SESSION_MISMATCH check run at all: calling confirmHold
+            // without a sessionId skipped ownership entirely, so anyone who guessed a
+            // live holdId could confirm another guest's hold under their own name.
+            // It answers before the slug lookup, as it always did.
+            before: (request) => {
+              const sessionId = request.headers[SESSION_ID_HEADER];
+              if (typeof sessionId !== "string" || sessionId.length === 0) {
+                throw new AppError(
+                  "SESSION_REQUIRED",
+                  401,
+                  `Pass the hold's session ID via the ${SESSION_ID_HEADER} header to confirm it.`
+                );
+              }
+            },
+          },
+          // ADR-026 §3.3 item 3: the venue is resolved through the SECURITY DEFINER
+          // function rather than an unscoped `venues` read by slug, and the rest of
+          // this booking (guest-link lookup, hold confirmation) runs inside that
+          // venue's RLS context.
+          async (request, reply, { venueId }) => {
+            const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
+            const ip = request.ip;
+            // Validated in `before`.
+            const sessionId = request.headers[SESSION_ID_HEADER] as string;
     
-          // The high-entropy sessionId minted at hold creation is this caller's
-          // capability token and the only proof the hold is theirs — mirrors the
-          // release path in public-holds.ts. Reading it here is what makes
-          // confirmHold's SESSION_MISMATCH check run at all: calling confirmHold
-          // without a sessionId skipped ownership entirely, so anyone who guessed a
-          // live holdId could confirm another guest's hold under their own name.
-          const sessionId = request.headers[SESSION_ID_HEADER];
-          if (typeof sessionId !== "string" || sessionId.length === 0) {
-            throw new AppError(
-              "SESSION_REQUIRED",
-              401,
-              `Pass the hold's session ID via the ${SESSION_ID_HEADER} header to confirm it.`
-            );
-          }
-    
-          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function rather
-          // than an unscoped `venues` read by slug, then run the rest of this
-          // booking (guest-link lookup, hold confirmation) inside that venue's
-          // RLS context.
-          const venueId = await resolveVenueId("venue_slug", slug);
-          if (!venueId) {
-            throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
-          }
-    
-          return runWithVenueContext(venueId, async () => {
             // Read-only recognition by the contact the guest typed — never by an id in the body,
             // which the schema does not declare and this handler never reads (SC12). Both lookups
             // run whenever their input is present, so a known contact costs the same as an unknown
@@ -3639,8 +3571,8 @@
                 manageToken,
               },
             });
-          });
-        }
+          }
+        )
       );
     };
   </file>
@@ -3744,6 +3676,75 @@
       );
     };
   </file>
+  <file path="src/routes/public-venue-scope.ts">
+    type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
+      RawServerDefault,
+      RawRequestDefaultExpression,
+      RawReplyDefaultExpression,
+      RG
+    >;
+    type RequestOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[0];
+    type ReplyOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[1];
+    export interface PublicNotFound {
+      readonly title: string;
+      readonly detail: string;
+    }
+    export interface PublicVenueScopeSpec<RG extends RouteGenericInterface> {
+      readonly slug: (request: RequestOf<RG>) => string;
+      /** The route's own 404 body, or an error to throw; defaults to "Not Found". */
+      readonly notFound?: (slug: string) => PublicNotFound | Error;
+      /**
+       * Checks that must answer before the slug is looked up (a per-IP cap, a
+       * required capability header), so an unknown slug cannot mask them.
+       *
+       * To stop the request, send a reply AND return it (any truthy value works);
+       * return nothing to continue. The return value is the signal: `reply.sent`
+       * alone is not, because in Fastify 5 it is `raw.writableEnded`, which only
+       * flips after every async onSend hook has run — so a `before` that sent but
+       * returned nothing could fall through into the handler.
+       */
+      readonly before?: (request: RequestOf<RG>, reply: ReplyOf<RG>) => unknown;
+    }
+    export interface PublicVenueScope {
+      readonly venueId: string;
+      readonly slug: string;
+    }
+    export type PublicScopedHandler<RG extends RouteGenericInterface> = (
+      request: RequestOf<RG>,
+      reply: ReplyOf<RG>,
+      scope: PublicVenueScope
+    ) => ReturnType<Handler<RG>>;
+    export function publicVenueScoped<RG extends RouteGenericInterface = RouteGenericInterface>(
+      spec: PublicVenueScopeSpec<RG>,
+      handler: PublicScopedHandler<RG>
+    ): Handler<RG> {
+      const notFound = spec.notFound ?? defaultNotFound;
+    
+      async function scopedHandler(request: RequestOf<RG>, reply: FastifyReply): Promise<unknown> {
+        // Only a real Promise is awaited: a FastifyReply is thenable, so awaiting
+        // a returned reply would resolve to `undefined` and lose the stop signal.
+        // An async `before` that returns its reply settles only once the response
+        // has finished, so `reply.sent` covers that case.
+        const outcome = spec.before?.(request, reply as ReplyOf<RG>);
+        const stop = outcome instanceof Promise ? await outcome : outcome;
+        if (stop || reply.sent) return reply;
+    
+        const slug = spec.slug(request);
+        const venueId = await resolveVenueId("venue_slug", slug);
+        if (!venueId) {
+          const denied = notFound(slug);
+          if (denied instanceof Error) throw denied;
+          return reply.code(404).send(createProblemDetails(404, denied.title, denied.detail));
+        }
+        return runWithVenueContext(venueId, async () =>
+          handler(request, reply as ReplyOf<RG>, { venueId, slug })
+        );
+      }
+    
+      Object.defineProperty(scopedHandler, VENUE_SCOPE, { value: "slug/public" });
+      return scopedHandler as unknown as Handler<RG>;
+    }
+  </file>
   <file path="src/routes/public-venues.ts">
     export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addSchema(publicVenueConfigJsonSchema);
@@ -3772,32 +3773,24 @@
             },
           },
         },
-        async (request, reply) => {
+        publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
           const { slug } = request.params;
     
           // ADR-026 §3.3 item 3: resolve the venue through the SECURITY DEFINER
           // `app_resolve_venue_id` (#5369 PR 3) rather than reading `venues` by
           // slug unscoped — the exact unscoped-read trap this closes — then run
           // the rest of the lookup inside that venue's RLS context.
-          const venueId = await resolveVenueId("venue_slug", slug);
-          if (!venueId) {
+    
+          const publicVenue = await venueService.getPublicConfigBySlug(slug);
+    
+          if (!publicVenue) {
             return reply
               .status(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          return runWithVenueContext(venueId, async () => {
-            const publicVenue = await venueService.getPublicConfigBySlug(slug);
-    
-            if (!publicVenue) {
-              return reply
-                .status(404)
-                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-            }
-    
-            return reply.send({ data: publicVenue });
-          });
-        }
+          return reply.send({ data: publicVenue });
+        })
       );
     };
   </file>
@@ -3810,6 +3803,7 @@
     }
     export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addSchema(waitlistJoinResultJsonSchema);
+      fastify.addSchema(waitlistEstimateJsonSchema);
     
       fastify.post<{
         Params: { slug: string };
@@ -3842,64 +3836,122 @@
             },
           },
         },
-        async (request, reply) => {
+        publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
           const { slug } = request.params;
           const { partySize, guestName, guestPhone } = request.body;
     
           // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
           // run the rest of the join inside that venue's RLS context — never the
           // client-supplied body.venueId, which could target another venue.
-          const venueId = await resolveVenueId("venue_slug", slug);
-          if (!venueId) {
+    
+          const venue = await venueService.getBySlug(slug);
+          if (!venue) {
             return reply
               .code(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          return runWithVenueContext(venueId, async () => {
-            const venue = await venueService.getBySlug(slug);
-            if (!venue) {
-              return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-            }
+          if (!validatePhone(guestPhone)) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
+          }
     
-            if (!validatePhone(guestPhone)) {
-              return reply
-                .code(400)
-                .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
-            }
+          // Always join under the venue resolved from the trusted slug — never the
+          // client-supplied body.venueId, which could target another venue.
+          const entry = await waitlistService.create({
+            venueId: venue.id,
+            partySize,
+            guestName,
+            guestPhone,
+          });
     
-            // Always join under the venue resolved from the trusted slug — never the
-            // client-supplied body.venueId, which could target another venue.
-            const entry = await waitlistService.create({
-              venueId: venue.id,
-              partySize,
-              guestName,
-              guestPhone,
+          // Fire-and-forget: SMS delivery failures must not block the response
+          fastify.waitlistNotifier
+            .notifyAdded({
+              id: entry.id,
+              guestPhone: entry.guestPhone,
+              guestName: entry.guestName,
+              position: entry.position,
+              estimatedWaitMinutes: entry.estimatedWaitMinutes,
+            })
+            .catch(() => {
+              // Already logged inside the notifier
             });
     
-            // Fire-and-forget: SMS delivery failures must not block the response
-            fastify.waitlistNotifier
-              .notifyAdded({
-                id: entry.id,
-                guestPhone: entry.guestPhone,
-                guestName: entry.guestName,
-                position: entry.position,
-                estimatedWaitMinutes: entry.estimatedWaitMinutes,
-              })
-              .catch(() => {
-                // Already logged inside the notifier
-              });
+          return reply.code(201).send({
+            data: {
+              statusToken: generateWaitlistStatusToken(entry.id, venue.id),
+              position: entry.position,
+              estimatedWaitMinutes: entry.estimatedWaitMinutes,
+            },
+          });
+        })
+      );
+      // Live read of the guest's OWN entry. The credential is the signed,
+      // expiring status token minted at join - never the guessable entry id. The
+      // response carries no PII. Rate limiting is publicRateLimitHook plus the
+      // global onRequest limiter; no route-level config.rateLimit (see gotchas §
+      // Fastify / rate limiting).
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { token: string };
+        Reply: ApiResponse<WaitlistEstimate> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:slug/waitlist/status",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "Read a waitlist entry's live position and estimate (public)",
+            description:
+              "Returns the current position and wait estimate for the guest's own waitlist entry, addressed by the status token returned when they joined.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              required: ["slug"],
+              properties: { slug: { type: "string" } },
+            },
+            querystring: {
+              type: "object",
+              required: ["token"],
+              properties: { token: { type: "string", minLength: 1, maxLength: 512 } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "WaitlistEstimate#" } },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            // One detail for every failure (bad token, wrong venue, gone entry,
+            // unknown slug) so the response is not an oracle.
+            notFound: () => ({ title: "Not Found", detail: STATUS_NOT_FOUND_DETAIL }),
+          },
+          async (request, reply, { venueId }) => {
+            const notFound = () =>
+              reply.code(404).send(createProblemDetails(404, "Not Found", STATUS_NOT_FOUND_DETAIL));
     
-            return reply.code(201).send({
+            const verified = verifyWaitlistStatusToken(request.query.token, venueId);
+            if (!verified.valid) return notFound();
+    
+            const entry = await waitlistService.getById(verified.entryId);
+            if (!entry || entry.venueId !== venueId) return notFound();
+    
+            const [live] = await waitlistService.withLiveEstimates([entry]);
+            return reply.send({
               data: {
                 position: entry.position,
-                estimatedWaitMinutes: entry.estimatedWaitMinutes,
+                estimatedWaitMinutes: (live ?? entry).estimatedWaitMinutes,
+                status: entry.status,
               },
             });
-          });
-        }
+          }
+        )
       );
     };
   </file>
@@ -3996,15 +4048,18 @@
         },
         async (request, _reply) => {
           const { page, limit } = parsePaginationQuery(request.query);
-          return reservationService.list({
-            page,
-            limit,
-            date: request.query.date,
-            status: request.query.status,
-            tableId: request.query.tableId,
-            venueId: request.query.venueId,
-            guestId: request.query.guestId,
-          });
+          // Context only for a named venue; a guestId-only list runs without one.
+          return inNamedVenueContext(request.query.venueId, () =>
+            reservationService.list({
+              page,
+              limit,
+              date: request.query.date,
+              status: request.query.status,
+              tableId: request.query.tableId,
+              venueId: request.query.venueId,
+              guestId: request.query.guestId,
+            })
+          );
         }
       );
     
@@ -4125,6 +4180,13 @@
               .code(403)
               .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
           }
+          if (result.partyDoesNotFit) {
+            return reply
+              .code(422)
+              .send(
+                createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+              );
+          }
           if (!result.success || !result.reservation) {
             return reply
               .code(409)
@@ -4192,7 +4254,7 @@
           // route-level limiter keeps the default `onRequest` hook, so it runs
           // before requireAuth and the 401 surface stays bounded
           // (gotchas § Fastify / rate limiting).
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, bodyVenueId)],
           config: {
             rateLimit: {
               max: 20,
@@ -4238,65 +4300,78 @@
             },
           },
         },
-        async (request, reply) => {
-          const userId = request.user?.id;
+        async (request, reply) =>
+          inNamedVenueContext(request.body.venueId, async () => {
+            const userId = request.user?.id;
     
-          const useEnhancedValidation = request.features.check("enhanced-validation");
+            const useEnhancedValidation = request.features.check("enhanced-validation");
     
-          if (useEnhancedValidation && request.body.partySize > 20) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "Party size exceeds limit for enhanced validation"
-                )
-              );
-          }
-    
-          // requireVenueAccess has already admitted only a member of the body's
-          // venueId (or a platform admin), so CRM linking runs whenever a venue
-          // is named.
-          let body = request.body;
-          if (request.body.venueId) {
-            const link = await linkOrCreateGuest({
-              venueId: request.body.venueId,
-              guestId: request.body.guestId,
-              guestEmail: request.body.guestEmail,
-              guestPhone: request.body.guestPhone,
-              guestName: request.body.guestName,
-            });
-            if (!link.ok) {
+            if (useEnhancedValidation && request.body.partySize > 20) {
               return reply
                 .code(400)
-                .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    "Party size exceeds limit for enhanced validation"
+                  )
+                );
             }
-            if (link.guestId) {
-              body = { ...request.body, guestId: link.guestId };
+    
+            // requireVenueAccess has already admitted only a member of the body's
+            // venueId (or a platform admin), so CRM linking runs whenever a venue
+            // is named.
+            let body = request.body;
+            if (request.body.venueId) {
+              const link = await linkOrCreateGuest({
+                venueId: request.body.venueId,
+                guestId: request.body.guestId,
+                guestEmail: request.body.guestEmail,
+                guestPhone: request.body.guestPhone,
+                guestName: request.body.guestName,
+              });
+              if (!link.ok) {
+                return reply
+                  .code(400)
+                  .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+              }
+              if (link.guestId) {
+                body = { ...request.body, guestId: link.guestId };
+              }
             }
-          }
     
-          const result = await fastify.transitions.createByStaff(body, userId);
+            const result = await fastify.transitions.createByStaff(body, userId);
     
-          if (result.tableNotInVenue) {
-            return reply
-              .code(403)
-              .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
-          }
+            if (result.tableNotInVenue) {
+              return reply
+                .code(403)
+                .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+            }
     
-          if (!result.success) {
-            const statusCode = result.conflict?.hasConflict ? 409 : 400;
-            const title = statusCode === 409 ? "Conflict" : "Bad Request";
-            return reply
-              .code(statusCode)
-              .send(
-                createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation")
-              );
-          }
+            if (result.partyDoesNotFit) {
+              return reply
+                .code(422)
+                .send(
+                  createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+                );
+            }
     
-          return reply.code(201).send({ data: result.reservation! });
-        }
+            if (!result.success) {
+              const statusCode = result.conflict?.hasConflict ? 409 : 400;
+              const title = statusCode === 409 ? "Conflict" : "Bad Request";
+              return reply
+                .code(statusCode)
+                .send(
+                  createProblemDetails(
+                    statusCode,
+                    title,
+                    result.error ?? "Failed to create reservation"
+                  )
+                );
+            }
+    
+            return reply.code(201).send({ data: result.reservation! });
+          })
       );
     
       // Update reservation
@@ -4470,6 +4545,18 @@
                 return reply
                   .code(403)
                   .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+              }
+    
+              if (result.capacityExceeded) {
+                return reply
+                  .code(422)
+                  .send(
+                    createProblemDetails(
+                      422,
+                      titleForStatus(422),
+                      result.error ?? "Party does not fit this table"
+                    )
+                  );
               }
     
               if (result.conflict?.hasConflict) {
@@ -4727,7 +4814,7 @@
        * A row dedicated to the "seat" fixture (#5369 PR 3), never read by any
        * other fixture or suite. `waitlistA` is also read by the item-7
        * WAITLIST_EXPIRY non-HTTP test (`rls-route-sweep.integration.test.ts`),
-       * which asserts it stays `"waiting"` after its own call — sharing it with
+       * which expires it (it is seeded `notified`) after its own call — sharing it with
        * a fixture that writes (even one that 404s before reaching the DB today,
        * per the tripwire) would couple the two the moment item-2's fix makes
        * `seat` actually succeed.
@@ -4760,6 +4847,9 @@
     }
     export type PayloadOrFactory =
       InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
+    export function inWindowDate(daysAhead: number): string {
+      return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
     export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
     export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
     export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
@@ -4965,6 +5055,17 @@
       });
       return extractId(res);
     }
+    async function createDisposableNotifiedWaitlistEntry(
+      ctx: SweepContext,
+      venueId: string
+    ): Promise<string> {
+      const id = await createDisposableWaitlistEntry(ctx, venueId);
+      const { waitlistService } = await import("../services/waitlist.js");
+      const { runWithVenueContext } = await import("../services/venue-context-store.js");
+      const notified = await runWithVenueContext(venueId, () => waitlistService.markNotified(id));
+      expect(notified?.status, "seed: entry should be notified").toBe("notified");
+      return id;
+    }
     async function createDisposableReservation(
       ctx: SweepContext,
       venueId: string,
@@ -4999,8 +5100,8 @@
         headers: { "x-session-id": sessionId },
         payload: {
           venueId,
-          date: "2026-10-08",
-          time: "2026-10-08T18:00:00Z",
+          date: inWindowDate(8),
+          time: `${inWindowDate(8)}T18:00:00Z`,
           partySize: 2,
           tableId,
         },
@@ -5294,10 +5395,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, queryVenueId)],
           schema: {
             summary: "List all tables",
             operationId: "listTables",
@@ -5320,7 +5418,9 @@
         async (request) => {
           const { page, limit } = parsePaginationQuery(request.query);
           const activeOnly = request.query.activeOnly === "true";
-          return tableService.list(page, limit, activeOnly, request.query.venueId);
+          return inNamedVenueContext(request.query.venueId, () =>
+            tableService.list(page, limit, activeOnly, request.query.venueId)
+          );
         }
       );
     
@@ -5380,7 +5480,7 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, bodyVenueId)],
           schema: {
             summary: "Create a new table",
             operationId: "createTable",
@@ -5411,21 +5511,22 @@
             },
           },
         },
-        async (request, reply) => {
-          try {
-            const table = await tableService.create(request.body);
-            return reply.code(201).send({ data: table });
-          } catch (error) {
-            if (error instanceof Error && error.message.includes("Unique constraint")) {
-              const err = new Error("A table with this name already exists") as Error & {
-                statusCode?: number;
-              };
-              err.statusCode = 400;
-              throw err;
+        async (request, reply) =>
+          inNamedVenueContext(request.body.venueId, async () => {
+            try {
+              const table = await tableService.create(request.body);
+              return reply.code(201).send({ data: table });
+            } catch (error) {
+              if (error instanceof Error && error.message.includes("Unique constraint")) {
+                const err = new Error("A table with this name already exists") as Error & {
+                  statusCode?: number;
+                };
+                err.statusCode = 400;
+                throw err;
+              }
+              throw error;
             }
-            throw error;
-          }
-        }
+          })
       );
     
       // Update table (requires auth)
@@ -5655,40 +5756,6 @@
         })
       );
     };
-  </file>
-  <file path="src/routes/venue-access.ts">
-    export const venueIdFromQuery: VenueIdResolver = (request) => {
-      const query = request.query as { venueId?: unknown } | null | undefined;
-      return typeof query?.venueId === "string" ? query.venueId : null;
-    };
-    export const venueIdFromBody: VenueIdResolver = (request) => {
-      const body = request.body as { venueId?: unknown } | null | undefined;
-      return typeof body?.venueId === "string" ? body.venueId : null;
-    };
-    export const venueIdFromParams: VenueIdResolver = (request) => {
-      const params = request.params as { venueId?: unknown } | null | undefined;
-      return typeof params?.venueId === "string" ? params.venueId : null;
-    };
-    export function venueIdFromEntity(
-      kind: EntityKind,
-      getKey: (request: FastifyRequest) => unknown
-    ): VenueIdResolver {
-      return async (request) => {
-        const key = getKey(request);
-        if (typeof key !== "string") return null;
-        return resolveVenueId(kind, key);
-      };
-    }
-    export async function loadInVenueContext<T>(
-      kind: EntityKind,
-      key: string,
-      load: () => Promise<T>,
-      fallback: T
-    ): Promise<T> {
-      const venueId = await resolveVenueId(kind, key);
-      if (!venueId) return fallback;
-      return runWithVenueContext(venueId, load);
-    }
   </file>
   <file path="src/routes/venue-scope.ts">
     type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
@@ -6407,26 +6474,26 @@
             },
           },
         },
-        async (request, reply) => {
-          const { slug } = request.params;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: () => ({ title: "Not Found", detail: "Venue not found" }),
+          },
+          async (request, reply) => {
+            const { slug } = request.params;
     
-          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
-          // run the actual lookup inside that venue's RLS context — this route
-          // has no `requireVenueAccess` guard (unauthenticated by design), so the
-          // slug is the only signal available.
-          const venueId = await resolveVenueId("venue_slug", slug);
-          if (!venueId) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
-          }
+            // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+            // run the actual lookup inside that venue's RLS context — this route
+            // has no `requireVenueAccess` guard (unauthenticated by design), so the
+            // slug is the only signal available.
     
-          return runWithVenueContext(venueId, async () => {
             const venue = await venueService.getPublicBySlug(slug);
             if (!venue) {
               return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
             }
             return { data: venue };
-          });
-        }
+          }
+        )
       );
     
       // Create venue (requires auth)
@@ -6761,7 +6828,9 @@
           },
         },
         venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
-          const entries = await waitlistService.listWaiting(venueId);
+          const entries = await waitlistService.withLiveEstimates(
+            await waitlistService.listActive(venueId)
+          );
           return reply.send({ data: entries });
         })
       );
@@ -6793,7 +6862,10 @@
         },
         venueScoped(
           { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
-          async (_request, reply, { entity }) => reply.send({ data: entity })
+          async (_request, reply, { entity }) => {
+            const [live] = await waitlistService.withLiveEstimates([entity]);
+            return reply.send({ data: live ?? entity });
+          }
         )
       );
     
@@ -6832,7 +6904,9 @@
               venueId: entry.venueId,
             });
     
-            return reply.send({ data: entry });
+            // Re-read so the response carries the persisted notified state.
+            const current = await waitlistService.getById(entry.id);
+            return reply.send({ data: current ?? entry });
           }
         )
       );
@@ -6991,10 +7065,19 @@
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     export type BookableError =
-      { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
+      | { code: "PARTY_DOES_NOT_FIT"; message: string }
+      | { code: "CONFLICT"; message: string }
+      | { code: "PACING_EXCEEDED"; message: string };
     export interface AssertBookableOptions {
       /** Table being checked for conflict. */
       tableId: string;
+      /**
+       * The table's party-fit fields. Pass it wherever the caller names the table
+       * (the server-picked path already filters by fit): the party must satisfy
+       * partyFitsTable. Omit only when fit was settled earlier (hold confirmation,
+       * whose hold was fit-checked at creation).
+       */
+      table?: PartyFitTable;
       /** Window to check — [startTime, endTime). */
       window: { startTime: Date; endTime: Date };
       /** Party size to add when computing pacing. */
@@ -7020,6 +7103,13 @@
         excludeHoldId,
         excludeSessionId,
       } = opts;
+    
+      if (opts.table && !partyFitsTable(opts.table, partySize)) {
+        return {
+          code: "PARTY_DOES_NOT_FIT",
+          message: `Party size ${partySize} does not fit this table`,
+        };
+      }
     
       // Filter out the excluded hold so self-conflict is not flagged during confirmation.
       const filteredHolds = holds.filter((h) => {
@@ -7139,9 +7229,11 @@
       const { reservations, holds } = await fetchConflictData(venueId, date);
     
       const slots: TimeSlot[] = [];
+      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
     
       for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
         const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
+        if (!isSlotInBookingWindow(slotStart, window)) continue;
         const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     
         // Uses the same pure predicates (checkTableConflict + checkPacingForSlot)
@@ -7276,6 +7368,7 @@
       }
     
       const results: DateAvailability[] = [];
+      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
     
       for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
         const dateStr = toDateString(d);
@@ -7297,6 +7390,7 @@
     
         for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
           const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
+          if (!isSlotInBookingWindow(slotStart, window)) continue;
           const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     
           // Applies checkPacingForSlot the same way generateTimeSlots does, so a
@@ -7342,15 +7436,14 @@
       return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
     }
     async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
-      return prisma.table.findMany({
-        where: {
-          venueId,
-          isActive: true,
-          minCovers: { lte: partySize },
-          OR: [{ maxCovers: { gte: partySize } }, { maxCovers: null }],
-        },
+      // The party-fits rule (maxCovers ?? capacity as the ceiling) lives in one
+      // place - @mbe/types' partyFitsTable - so it is applied here rather than
+      // re-expressed as a Prisma `where`, where null maxCovers meant "unlimited".
+      const tables = await prisma.table.findMany({
+        where: { venueId, isActive: true },
         orderBy: [{ priority: "desc" }, { capacity: "asc" }],
       });
+      return filterSuitableTables(tables, partySize);
     }
     export async function fetchConflictData(
       venueId: string,
@@ -9634,12 +9727,14 @@
       email: string | null;
       phone: string | null;
       dietaryRestrictions: string[] | null;
+      notes?: string | null;
     };
     type IncomingGuestData = {
       name: string;
       email?: string;
       phone?: string;
       dietaryRestrictions?: string[];
+      notes?: string;
     };
     export function applyDietaryRestrictions(
       existing: string[] | null | undefined,
@@ -9672,6 +9767,16 @@
     
       if (incoming.phone !== undefined && existing.phone !== incoming.phone) {
         updateData.phone = incoming.phone;
+      }
+    
+      // Set notes when empty, otherwise append on a new line: a typed note is never lost and
+      // an existing one never overwritten. A note already contained is not duplicated.
+      if (incoming.notes) {
+        if (!existing.notes) {
+          updateData.notes = incoming.notes;
+        } else if (!existing.notes.includes(incoming.notes)) {
+          updateData.notes = `${existing.notes}\n${incoming.notes}`;
+        }
       }
     
       if (incoming.dietaryRestrictions && incoming.dietaryRestrictions.length > 0) {
@@ -9900,6 +10005,33 @@
         updatedAt: guest.updatedAt.toISOString(),
       };
     }
+    async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> {
+      // `$queryRaw` bypasses venue-scoped-prisma's per-call wrap and `guests` is FORCE RLS, so open
+      // an explicit transaction and set app.venue_id first or the count sees 0 rows (ADR-026 part 6).
+      const rows = await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return tx.$queryRaw<{ vip: number; fresh: number }[]>`
+        SELECT
+          count(*) FILTER (WHERE is_vip)::int AS vip,
+          count(*) FILTER (WHERE NOT is_vip AND visit_count < ${REPEAT_VISIT_THRESHOLD})::int AS fresh
+        FROM (
+          SELECT
+            visit_count,
+            (
+              visit_count >= ${VIP_VISIT_THRESHOLD}
+              OR CASE
+                WHEN jsonb_typeof(tags) = 'array' THEN EXISTS (
+                  SELECT 1 FROM jsonb_array_elements_text(tags) AS tag WHERE lower(tag) = ${VIP_TAG}
+                )
+                ELSE false
+              END
+            ) AS is_vip
+          FROM guests
+          WHERE venue_id = ${venueId}
+        ) AS g`;
+      });
+      return { vip: rows[0]?.vip ?? 0, fresh: rows[0]?.fresh ?? 0 };
+    }
     export const guestService = {
       async list(venueId: string, page: number, limit: number): Promise<PaginatedResponse<Guest>> {
         const [guests, total] = await Promise.all([
@@ -9970,6 +10102,7 @@
             email: existing.email,
             phone: existing.phone,
             dietaryRestrictions: existing.dietaryRestrictions as string[] | null,
+            notes: existing.notes,
           };
           const updateData = buildGuestUpdateData(snapshot, data);
           if (Object.keys(updateData).length > 0) {
@@ -10192,10 +10325,9 @@
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     
-        const [totalGuests, vipGuests, recentVisitors, atRiskGuests, lapsedGuests, newGuests] =
+        const [totalGuests, recentVisitors, atRiskGuests, lapsedGuests, segmentCounts] =
           await Promise.all([
             prisma.guest.count({ where: { venueId } }),
-            prisma.guest.count({ where: { venueId, visitCount: { gte: 5 } } }),
             prisma.guest.count({ where: { venueId, lastVisit: { gte: thirtyDaysAgo } } }),
             prisma.guest.count({
               where: { venueId, lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo } },
@@ -10206,16 +10338,21 @@
                 OR: [{ lastVisit: { lt: ninetyDaysAgo } }, { lastVisit: null, visitCount: { gt: 0 } }],
               },
             }),
-            prisma.guest.count({ where: { venueId, visitCount: 0 } }),
+            countVipAndNew(venueId),
           ]);
+        const { vip: vipGuests, fresh: newGuests } = segmentCounts;
     
         return [
           { name: "All Guests", description: "Total guests in database", count: totalGuests },
-          { name: "VIP", description: "Guests with 5+ visits", count: vipGuests },
+          {
+            name: "VIP",
+            description: `Tagged VIP or ${VIP_VISIT_THRESHOLD}+ visits`,
+            count: vipGuests,
+          },
           { name: "Recent", description: "Visited in the last 30 days", count: recentVisitors },
           { name: "At Risk", description: "No visit in 30-90 days", count: atRiskGuests },
           { name: "Lapsed", description: "No visit in 90+ days", count: lapsedGuests },
-          { name: "New", description: "Booked but never visited", count: newGuests },
+          { name: "New", description: `Fewer than ${REPEAT_VISIT_THRESHOLD} visits`, count: newGuests },
         ];
       },
     
@@ -10254,6 +10391,7 @@
     };
   </file>
   <file path="src/services/hold.ts">
+    export const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
     function mapPrismaHold(hold: PrismaHold): ReservationHold {
       return {
         id: hold.id,
@@ -10274,6 +10412,8 @@
       error?: string;
       /** The requested table is missing or belongs to another venue (route answers 403). */
       tableNotInVenue?: boolean;
+      /** The party does not fit the caller-named table (route answers 422). */
+      partyDoesNotFit?: boolean;
     }
     export const holdService = {
       /**
@@ -10298,6 +10438,15 @@
     
         // Calculate times
         const startTime = new Date(time);
+    
+        // Guests may only hold a slot inside the venue's booking window (not in
+        // the past, within min/max advance) - the same rule generateTimeSlots
+        // applies when listing slots, so a hand-crafted request can't bypass it.
+        if (
+          !isSlotInBookingWindow(startTime, bookingWindow(settings, new Date(), venue.ianaTimezone))
+        ) {
+          return { success: false, error: BOOKING_WINDOW_ERROR };
+        }
         const duration = estimateDuration(partySize, settings);
         const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
         const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
@@ -10333,6 +10482,7 @@
           // Pre-check: verify provided table is available and pacing is not exceeded.
           const bookingError = assertBookable({
             tableId: selectedTableId,
+            table: await loadTableFit(selectedTableId),
             window: { startTime, endTime },
             partySize,
             settings,
@@ -10342,7 +10492,11 @@
           });
     
           if (bookingError) {
-            return { success: false, error: bookingError.message };
+            return {
+              success: false,
+              error: bookingError.message,
+              ...(bookingError.code === "PARTY_DOES_NOT_FIT" && { partyDoesNotFit: true }),
+            };
           }
         }
     
@@ -10481,7 +10635,8 @@
     export interface ReminderDispatcher {
       sendBookingReminder(
         input: BookingNotificationInput,
-        preference: CommunicationPreference
+        preference: CommunicationPreference,
+        options?: ReminderOptions
       ): Promise<void>;
     }
     export interface JobWorkerLogger {
@@ -10502,7 +10657,7 @@
       logger: JobWorkerLogger;
     }
     export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
-      async function deliverReminder(payload: ReminderPayload): Promise<void> {
+      async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
         return runWithVenueContext(payload.venueId, async () => {
           const reservation = await deps.getReservation(payload.reservationId);
           if (!reservation) return;
@@ -10533,7 +10688,22 @@
           };
     
           // Dispatcher failures propagate so BullMQ retries per the queue policy.
-          await deps.dispatcher.sendBookingReminder(input, preference);
+          // Channels delivered by an earlier attempt are skipped; on a partial
+          // delivery the delivered channels are persisted on the job before the
+          // rethrow, so the retry sends only what is still undelivered.
+          const alreadyDelivered: ReminderChannel[] = payload.deliveredChannels ?? [];
+          try {
+            await deps.dispatcher.sendBookingReminder(input, preference, {
+              skipChannels: alreadyDelivered,
+            });
+          } catch (err) {
+            if (err instanceof PartialDeliveryError) {
+              await ctx.updateData({
+                deliveredChannels: [...new Set([...alreadyDelivered, ...err.deliveredChannels])],
+              });
+            }
+            throw err;
+          }
         });
       }
     
@@ -10593,6 +10763,7 @@
           worker = new JobWorker({
             redisUrl: config.redisUrl,
             handlers: config.handlers,
+            logger: log,
             ...(config.queueName !== undefined ? { queueName: config.queueName } : {}),
           });
           log.info("reservations job worker started");
@@ -11412,6 +11583,24 @@
       const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
+    async function checkBookingWindow(
+      reservation: Reservation,
+      changes: ReservationChanges
+    ): Promise<ModifyReservationResult | null> {
+      if (changes.startTime === undefined && changes.date === undefined) return null;
+      if (!reservation.venueId) return null;
+    
+      const venue = await venueService.getById(reservation.venueId);
+      if (!venue) return null;
+    
+      const newStart = new Date(changes.startTime ?? reservation.startTime);
+      // The route's body schema guarantees a date-time; an unparseable value
+      // cannot be placed in the window, so leave it to the conflict check.
+      if (Number.isNaN(newStart.getTime())) return null;
+    
+      const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
+      return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
+    }
     export async function modifyReservation(
       reservation: Reservation,
       changes: ReservationChanges,
@@ -11424,6 +11613,11 @@
       const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
       if (depositGuardResult) {
         return depositGuardResult;
+      }
+    
+      const windowResult = await checkBookingWindow(reservation, changes);
+      if (windowResult) {
+        return windowResult;
       }
     
       const { date, startTime, endTime, partySize, specialRequests } = changes;
@@ -11914,6 +12108,8 @@
       pacing?: PacingCheckResult;
       /** The requested table is missing or belongs to another venue (route answers 403). */
       tableNotInVenue?: boolean;
+      /** The party does not fit the caller-named table (route answers 422). */
+      partyDoesNotFit?: boolean;
     }
     export interface UpdateReservationResult {
       success: boolean;
@@ -12112,6 +12308,7 @@
     
           const bookingError = assertBookable({
             tableId: data.tableId,
+            table: await loadTableFit(data.tableId),
             window: { startTime, endTime },
             partySize: data.partySize,
             settings,
@@ -12119,6 +12316,9 @@
             holds,
           });
     
+          if (bookingError?.code === "PARTY_DOES_NOT_FIT") {
+            return { success: false, error: bookingError.message, partyDoesNotFit: true };
+          }
           if (bookingError?.code === "CONFLICT") {
             return {
               success: false,
@@ -12300,20 +12500,22 @@
           return TABLE_NOT_IN_VENUE;
         }
     
-        // Capacity check runs whenever partySize changes, independent of
-        // timeOrTableChanged below — a partySize-only edit is not a slot move,
-        // but it still must not exceed the (possibly unchanged) assigned table's
-        // capacity (#5807).
-        if (data.partySize !== undefined) {
-          const targetTableId = data.tableId ?? existing.tableId;
-          const table = await prisma.table.findUnique({
-            where: { id: targetTableId },
-            select: { capacity: true },
-          });
-          if (table && data.partySize > table.capacity) {
+        // The shared party-fit rule runs whenever partySize OR tableId changes,
+        // independent of timeOrTableChanged below — a partySize-only edit is not a
+        // slot move, and a table-only move keeps the old party, but either must
+        // leave a party that fits the (possibly unchanged) assigned table (#5807,
+        // #6559).
+        if (data.partySize !== undefined || data.tableId !== undefined) {
+          const partySize = data.partySize ?? existing.partySize;
+          const table = await loadTableFit(data.tableId ?? existing.tableId);
+          if (table && !partyFitsTable(table, partySize)) {
+            const ceiling = tableMaxCovers(table);
             return {
               success: false,
-              error: `Party size ${data.partySize} exceeds table capacity of ${table.capacity}`,
+              error:
+                partySize > ceiling
+                  ? `Party size ${partySize} exceeds table capacity of ${ceiling}`
+                  : `Party size ${partySize} is below the table minimum of ${table.minCovers}`,
               capacityExceeded: true,
             };
           }
@@ -12468,6 +12670,7 @@
     
         const bookingError = assertBookable({
           tableId: data.tableId,
+          table: await loadTableFit(data.tableId),
           window: { startTime: now, endTime },
           partySize: data.partySize,
           settings,
@@ -12475,6 +12678,9 @@
           holds,
         });
     
+        if (bookingError?.code === "PARTY_DOES_NOT_FIT") {
+          return { success: false, error: bookingError.message, partyDoesNotFit: true };
+        }
         if (bookingError?.code === "CONFLICT") {
           return {
             success: false,
@@ -12602,7 +12808,7 @@
        * `"<HTTP method> <route>"` for the request that produced this query.
        * Always `null` in this PR: threading it through the request-scoped
        * `AsyncLocalStorage` store (`venue-context-store.ts`) touches every
-       * `enterVenueContext`/`runWithVenueContext` call site for a field this PR
+       * `runWithVenueContext` call site for a field this PR
        * doesn't yet need — deferred rather than done here, per the issue's own
        * escape hatch, until the route-sweep suite (PR 2) shows it's needed for
        * triage.
@@ -12855,10 +13061,7 @@
       return largestRule.durationMinutes + extraTime;
     }
     export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] {
-      return tables.filter(
-        (t) =>
-          t.isActive && t.minCovers <= partySize && (t.maxCovers === null || t.maxCovers >= partySize)
-      );
+      return tables.filter((t) => t.isActive && partyFitsTable(t, partySize));
     }
     export function parseOperatingHours(
       operatingHours: OperatingHours | null,
@@ -12868,6 +13071,39 @@
       // YYYY-MM-DD strings parse as UTC midnight; getUTCDay keeps weekday resolution
       // timezone-stable (same as internal getDaySchedule via getUTCDay).
       return scheduleForDay(operatingHours, new Date(date).getUTCDay());
+    }
+    export interface BookingWindow {
+      /** Earliest bookable instant (inclusive). */
+      earliest: Date;
+      /** Last bookable venue-local date (YYYY-MM-DD, inclusive); null = unbounded. */
+      latestLocalDate: string | null;
+      ianaTimezone: string;
+    }
+    function addCalendarDays(date: string, days: number): string {
+      const d = new Date(`${date}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    export function bookingWindow(
+      settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+      now: Date,
+      ianaTimezone: string
+    ): BookingWindow {
+      const minHours = settings?.minAdvanceBooking ?? 0;
+      const maxDays = settings?.maxAdvanceBooking;
+      return {
+        earliest: new Date(now.getTime() + minHours * MS_PER_HOUR),
+        latestLocalDate:
+          maxDays === undefined
+            ? null
+            : addCalendarDays(venueLocalDateString(now, ianaTimezone), maxDays),
+        ianaTimezone,
+      };
+    }
+    export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean {
+      if (slotStart < window.earliest) return false;
+      if (window.latestLocalDate === null) return true;
+      return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
@@ -13642,6 +13878,15 @@
       });
       return table?.venueId === venueId;
     }
+    export async function loadTableFit(tableId: string): Promise<PartyFitTable | undefined> {
+      const table = await prisma.table.findUnique({
+        where: { id: tableId },
+        select: { capacity: true, minCovers: true, maxCovers: true },
+      });
+      return table
+        ? { capacity: table.capacity, minCovers: table.minCovers, maxCovers: table.maxCovers }
+        : undefined;
+    }
   </file>
   <file path="src/services/table.ts">
     export function mapPrismaTable(table: {
@@ -13807,9 +14052,6 @@
     };
   </file>
   <file path="src/services/venue-context-store.ts">
-    export function enterVenueContext(venueId: string | null): void {
-      venueContextStorage.enterWith(venueId);
-    }
     export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> {
       return venueContextStorage.run(venueId, fn);
     }
@@ -14470,6 +14712,55 @@
       },
     };
   </file>
+  <file path="src/services/waitlist-estimate.ts">
+    export type EstimateTable = TableFilter;
+    export interface EstimateReservation {
+      tableId: string;
+      startTime: Date;
+      endTime: Date;
+      status: string;
+    }
+    export interface EstimateInput {
+      /** 1-based place in the waiting queue. */
+      position: number;
+      partySize: number;
+      now: Date;
+      tables: readonly EstimateTable[];
+      reservations: readonly EstimateReservation[];
+      settings?: VenueSettings | null;
+    }
+    function freeInMs(
+      tableId: string,
+      now: number,
+      durationMs: number,
+      reservations: readonly EstimateReservation[]
+    ): number | null {
+      const own = reservations.filter((r) => r.tableId === tableId && OCCUPYING_STATUSES.has(r.status));
+      const blockedByUpcoming = own.some(
+        (r) => r.startTime.getTime() > now && r.startTime.getTime() < now + durationMs
+      );
+      if (blockedByUpcoming) return null;
+    
+      const current = own.find((r) => r.startTime.getTime() <= now && r.endTime.getTime() > now);
+      return current ? current.endTime.getTime() - now : 0;
+    }
+    export function estimateWaitFromTurnover(input: EstimateInput): number | null {
+      const { position, partySize, now, tables, reservations, settings } = input;
+      const durationMs = estimateDuration(partySize, settings) * MS_PER_MINUTE;
+    
+      const freeTimes = filterSuitableTables([...tables], partySize)
+        .map((t) => freeInMs(t.id, now.getTime(), durationMs, reservations))
+        .filter((ms): ms is number => ms !== null)
+        .sort((a, b) => a - b);
+    
+      if (freeTimes.length === 0) return null;
+    
+      const index = (position - 1) % freeTimes.length;
+      const cycles = Math.floor((position - 1) / freeTimes.length);
+      const waitMs = (freeTimes[index] ?? 0) + cycles * durationMs;
+      return Math.round(waitMs / MS_PER_MINUTE);
+    }
+  </file>
   <file path="src/services/waitlist-notifier.ts">
     export interface WaitlistNotifierLogger {
       error(obj: Record<string, unknown>, msg: string): void;
@@ -14493,6 +14784,10 @@
       // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
       // the notifier's own public method, so both must accept venueId.
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
+      /** Persists notified state on the row; null if the party is no longer waiting. */
+      markNotified(id: string): Promise<{ id: string } | null>;
+      /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
+      revertNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
     }
     export interface NotifyAddedInput {
@@ -14547,6 +14842,8 @@
         expireEntry,
         listWaiting,
         notifyTableReady: notifyNextTableReady,
+        markNotified,
+        revertNotified,
         logger,
       } = deps;
     
@@ -14581,6 +14878,10 @@
       }
     
       async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
+        // Record notified state first: a party that was seated/cancelled in the
+        // meantime gets no SMS and no expiry job.
+        if (!(await markNotified(input.id))) return;
+    
         if (smsAdapter) {
           try {
             await smsAdapter.sendWaitlistTableReady({
@@ -14592,13 +14893,20 @@
           }
         }
     
-        // Always schedule expiry regardless of SMS outcome
-        await scheduler.schedule(
-          JOB_TYPES.WAITLIST_EXPIRY,
-          { waitlistEntryId: input.id, venueId: input.venueId },
-          FIVE_MINUTES_MS,
-          `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
-        );
+        // Always schedule expiry regardless of SMS outcome. If scheduling fails the
+        // row would stay notified forever (host can't retry, next guest never
+        // notified), so roll it back to waiting and surface the error.
+        try {
+          await scheduler.schedule(
+            JOB_TYPES.WAITLIST_EXPIRY,
+            { waitlistEntryId: input.id, venueId: input.venueId },
+            FIVE_MINUTES_MS,
+            `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
+          );
+        } catch (err) {
+          await revertNotified(input.id);
+          throw err;
+        }
       }
     
       async function handleExpiry(input: HandleExpiryInput): Promise<void> {
@@ -14635,11 +14943,44 @@
         expireEntry: (id) => waitlistService.expire(id),
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
+        markNotified: (id) => waitlistService.markNotified(id),
+        revertNotified: (id) => waitlistService.revertNotified(id),
         logger: consoleLogger,
       });
     
       ref.value = notifier;
       return notifier;
+    }
+  </file>
+  <file path="src/services/waitlist-status-token.ts">
+    export const WAITLIST_STATUS_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+    function sign(entryId: string, venueId: string, expiry: string): string {
+      return createHmac("sha256", TOKEN_SECRET)
+        .update(`waitlist:${entryId}:${venueId}:${expiry}`)
+        .digest("hex");
+    }
+    export function generateWaitlistStatusToken(
+      entryId: string,
+      venueId: string,
+      now: number = Date.now()
+    ): string {
+      const expiry = String(now + WAITLIST_STATUS_TOKEN_TTL_MS);
+      return Buffer.from(`${entryId}:${expiry}:${sign(entryId, venueId, expiry)}`).toString(
+        "base64url"
+      );
+    }
+    export function verifyWaitlistStatusToken(
+      token: string,
+      venueId: string,
+      now: number = Date.now()
+    ): { valid: false } | { valid: true; entryId: string } {
+      const parts = Buffer.from(token, "base64url").toString().split(":");
+      if (parts.length !== 3) return { valid: false };
+      const [entryId, expiry, signature] = parts as [string, string, string];
+    
+      if (!secureCompareHex(signature, sign(entryId, venueId, expiry))) return { valid: false };
+      if (!(Number(expiry) > now)) return { valid: false };
+      return { valid: true, entryId };
     }
   </file>
   <file path="src/services/waitlist-utils.ts">
@@ -14659,6 +15000,7 @@
     }
   </file>
   <file path="src/services/waitlist.ts">
+    export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
     export interface WaitlistEntryData {
       id: string;
       venueId: string;
@@ -14679,6 +15021,26 @@
       guestName: string;
       guestPhone: string;
       avgTurnTimeMinutes?: number;
+    }
+    async function loadEstimator(
+      venueId: string,
+      now: Date
+    ): Promise<(position: number, partySize: number) => number | null> {
+      const [venue, tables, reservations] = await Promise.all([
+        prisma.venue.findUnique({ where: { id: venueId }, select: { settings: true } }),
+        prisma.table.findMany({ where: { venueId, isActive: true } }),
+        prisma.reservation.findMany({
+          where: {
+            venueId,
+            status: { in: ["PENDING", "CONFIRMED"] },
+            endTime: { gt: now },
+            startTime: { lt: new Date(now.getTime() + LOOKAHEAD_MS) },
+          },
+        }),
+      ]);
+      const settings = venue?.settings as VenueSettings | null | undefined;
+      return (position, partySize) =>
+        estimateWaitFromTurnover({ position, partySize, now, tables, reservations, settings });
     }
     async function recalculateVenuePositions(venueId: string): Promise<void> {
       const waitingEntries = await prisma.waitlistEntry.findMany({
@@ -14701,7 +15063,10 @@
         await setVenueContext(tx, venueId);
         return tx.$executeRaw`
           UPDATE "waitlist_entries" AS w
-          SET position = v.position
+          SET position = v.position,
+              -- Estimate follows position: keep the entry's own turn time
+              -- (estimate / position at join) and re-multiply by its new position.
+              estimated_wait_minutes = (w.estimated_wait_minutes / GREATEST(w.position, 1)) * v.position
           FROM (VALUES ${rows}) AS v(id, position)
           WHERE w.id = v.id
         `;
@@ -14710,14 +15075,16 @@
     export const waitlistService = {
       async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
         const { venueId, partySize, guestName, guestPhone, avgTurnTimeMinutes } = input;
-        const turnTime = avgTurnTimeMinutes ?? DEFAULT_AVG_TURN_TIME_MINUTES;
     
         const existingCount = await prisma.waitlistEntry.count({
           where: { venueId, status: "waiting" },
         });
     
         const position = calculatePosition(existingCount);
-        const estimatedWait = estimateWaitMinutes(position, turnTime);
+        const estimatedWait =
+          avgTurnTimeMinutes !== undefined
+            ? estimateWaitMinutes(position, avgTurnTimeMinutes)
+            : ((await loadEstimator(venueId, new Date()))(position, partySize) ?? 0);
     
         return prisma.waitlistEntry.create({
           data: {
@@ -14731,9 +15098,33 @@
         });
       },
     
+      /**
+       * Replaces each waiting entry's stored (join-time) estimate with one computed
+       * from current table turnover. Entries that no table can seat keep their
+       * stored value. Computed on every read, never persisted.
+       */
+      async withLiveEstimates<T extends WaitlistEntryData>(entries: T[]): Promise<T[]> {
+        const first = entries[0];
+        if (!first) return entries;
+        const estimate = await loadEstimator(first.venueId, new Date());
+        return entries.map((entry) => {
+          if (entry.status !== "waiting") return entry;
+          const minutes = estimate(entry.position, entry.partySize);
+          return minutes === null ? entry : { ...entry, estimatedWaitMinutes: minutes };
+        });
+      },
+    
       async listWaiting(venueId: string): Promise<WaitlistEntryData[]> {
         return prisma.waitlistEntry.findMany({
           where: { venueId, status: "waiting" },
+          orderBy: { position: "asc" },
+        });
+      },
+    
+      /** Staff view: parties still waiting plus notified ones holding their claim window. */
+      async listActive(venueId: string): Promise<WaitlistEntryData[]> {
+        return prisma.waitlistEntry.findMany({
+          where: { venueId, status: { in: ["waiting", "notified"] } },
           orderBy: { position: "asc" },
         });
       },
@@ -14770,10 +15161,53 @@
         return entry;
       },
     
+      /**
+       * Records the notified lifecycle state on the row. Only a `waiting` entry
+       * can be notified; anything else (seated/cancelled/already notified) -> null.
+       */
+      async markNotified(id: string): Promise<WaitlistEntryData | null> {
+        const notifiedAt = new Date();
+        let entry: WaitlistEntryData;
+        try {
+          entry = await prisma.waitlistEntry.update({
+            where: { id, status: "waiting" },
+            data: {
+              status: "notified",
+              notifiedAt,
+              expiresAt: new Date(notifiedAt.getTime() + NOTIFY_CLAIM_WINDOW_MS),
+            },
+          });
+        } catch {
+          return null;
+        }
+        // The notified party left the waiting queue: close the gap behind it.
+        await recalculateVenuePositions(entry.venueId);
+        return entry;
+      },
+    
+      /**
+       * Undoes markNotified when the expiry job could not be scheduled, so the host
+       * can retry. Only a `notified` entry reverts; anything else -> null.
+       */
+      async revertNotified(id: string): Promise<WaitlistEntryData | null> {
+        let entry: WaitlistEntryData;
+        try {
+          entry = await prisma.waitlistEntry.update({
+            where: { id, status: "notified" },
+            data: { status: "waiting", notifiedAt: null, expiresAt: null },
+          });
+        } catch {
+          return null;
+        }
+        await recalculateVenuePositions(entry.venueId);
+        return entry;
+      },
+    
+      /** Expires a notified entry; a no-op (null) if it was seated/cancelled meanwhile. */
       async expire(id: string): Promise<WaitlistEntryData | null> {
         try {
           return await prisma.waitlistEntry.update({
-            where: { id },
+            where: { id, status: "notified" },
             data: { status: "expired" },
           });
         } catch {
@@ -15012,24 +15446,6 @@
       });
       fastify.decorate("transitions", transitions);
     
-      // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
-      // `app.venue_id` session variable for every request whose venue is
-      // resolvable from its own query/body/params, so the RLS policies already
-      // enabled on floor_plans/tables/guests/reservations/deposits/waitlist_entries
-      // (parts 2-4) see the same venue scope the application layer does.
-      //
-      // Registered as a shared `addHook`, which Fastify always runs BEFORE a
-      // route's own `preHandler` option array — so this necessarily runs before
-      // `requireAuth`/`requireVenueAccess`, not after, despite those guards
-      // being the more familiar "runs first" preHandlers. That ordering is safe:
-      // this hook never makes an authorization decision (it can only narrow
-      // which rows are visible, exactly like the app-level `where: { venueId }`
-      // filters it backstops) and `requireVenueAccess` still independently
-      // 403s a non-member on every route that has it, after this hook runs. A
-      // request with no resolvable venue id (public routes, health checks,
-      // entity-addressed routes) is a deliberate no-op — ADR-026 §4 default-deny.
-      fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
-    
       // Register routes
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
@@ -15119,7 +15535,9 @@
       const resendClient = process.env.RESEND_API_KEY
         ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
             emails: {
-              send(payload: Record<string, unknown>): Promise<{ id: string }>;
+              send(
+                payload: Record<string, unknown>
+              ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
             };
           })
         : null;

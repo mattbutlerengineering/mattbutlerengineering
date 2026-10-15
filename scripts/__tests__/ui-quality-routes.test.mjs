@@ -141,15 +141,15 @@ describe("rialto-web adapter", () => {
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
   const registryRows = rows.filter((r) => /^(components|examples)\/|^dashboard$/.test(r.route));
 
-  it("yields every PAGE_REGISTRY path plus the 17 routeTree leaves (124 today)", () => {
-    expect(registryRows).toHaveLength(107);
-    expect(rows).toHaveLength(107 + 17);
+  it("yields every PAGE_REGISTRY path plus the 17 routeTree leaves (123 today)", () => {
+    expect(registryRows).toHaveLength(106);
+    expect(rows).toHaveLength(106 + 17);
     expect(new Set(rows.map((r) => r.route)).size).toBe(rows.length);
   });
 
   it("derives registry paths by the page-registry.ts convention", () => {
     expect(byRoute["components/button"]).toBeDefined();
-    expect(byRoute["dashboard"]).toBeDefined(); // category Dashboard
+    expect(byRoute["dashboard"]).toBeUndefined(); // no Dashboard category; demo lives at demos/dashboard
     expect(byRoute["examples/guest-profile"]).toBeDefined(); // example- prefix stripped
     expect(byRoute["examples/invoice"]).toBeDefined(); // no prefix to strip
   });
@@ -200,7 +200,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(21 + 9 + 124);
+    expect(rows).toHaveLength(21 + 9 + 123);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([

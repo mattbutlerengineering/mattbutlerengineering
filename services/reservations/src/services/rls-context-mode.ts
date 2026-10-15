@@ -48,7 +48,7 @@ export interface UnscopedRlsQueryDetails {
    * `"<HTTP method> <route>"` for the request that produced this query.
    * Always `null` in this PR: threading it through the request-scoped
    * `AsyncLocalStorage` store (`venue-context-store.ts`) touches every
-   * `enterVenueContext`/`runWithVenueContext` call site for a field this PR
+   * `runWithVenueContext` call site for a field this PR
    * doesn't yet need — deferred rather than done here, per the issue's own
    * escape hatch, until the route-sweep suite (PR 2) shows it's needed for
    * triage.

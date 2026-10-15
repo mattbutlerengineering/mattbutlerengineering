@@ -21,6 +21,12 @@
     <item priority="medium">
       function extensionOf(name: string): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function hasShebang(path: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isScannable(name: string, full: string): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function collectFiles(rootDir: string): SourceFile[] { /* ... */ }
     </item>
@@ -31,7 +37,28 @@
         pattern: RegExp;
         category: Category;
         severity: Severity;
+        excludes?: RegExp;
+        excludeLanguages?: readonly Language[];
       }
+    </item>
+    <item priority="low">
+      type Language = "python" | "other";
+    </item>
+    <item priority="high">
+      export function detectLanguage(file: string, content: string): Language { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Group {
+        text: string;
+        rest: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function continuationGroup(
+        lines: readonly string[],
+        start: number,
+        continues: RegExp
+      ): Group | null { /* ... */ }
     </item>
     <item priority="high">
       export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] { /* ... */ }

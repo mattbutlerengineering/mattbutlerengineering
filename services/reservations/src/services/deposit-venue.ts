@@ -9,7 +9,7 @@ import { resolveVenueId } from "./resolve-venue.js";
  * policy's `EXISTS (... FROM reservations ...)` subquery checks (§5). The
  * admin deposit routes are addressed only by an opaque deposit/reservation
  * id, so they cannot read a venue id off the request the way every
- * `venueIdFromQuery`/`venueIdFromBody` route does; they resolve it here
+ * `venueId`-in-the-request route does; they resolve it here
  * instead, and hand it to `runWithVenueContext` so `app.venue_id` is set for
  * the work that follows.
  */

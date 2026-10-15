@@ -11,14 +11,6 @@ const __dirname = path.dirname(__filename);
 
 const packageRoot = path.resolve(__dirname, "../..");
 
-/**
- * Components that intentionally have NO registry adapter even though they are
- * cataloged. Toast uses the useToast() provider pattern and cannot be rendered
- * as a declarative element (see registry.tsx). Keep this list tiny and
- * documented — it is the only sanctioned crack in the adapter↔meta 1:1 rule.
- */
-const REGISTRY_EXCLUDED = new Set(["Toast"]);
-
 describe("drift-check: single CatalogSource is the only source of truth", () => {
   it("generate-catalog.ts sources component data from the canonical introspectComponents module (no independent TS parse)", () => {
     const scriptPath = path.join(packageRoot, "scripts/generate-catalog.ts");
@@ -35,7 +27,7 @@ describe("drift-check: single CatalogSource is the only source of truth", () => 
       .filter(([, m]) => m.include !== false)
       .map(([name]) => name);
 
-    const expectedAdapters = includedNames.filter((name) => !REGISTRY_EXCLUDED.has(name)).sort();
+    const expectedAdapters = [...includedNames].sort();
     const actualAdapters = Object.keys(registry).sort();
 
     expect(actualAdapters).toEqual(expectedAdapters);

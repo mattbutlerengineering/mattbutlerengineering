@@ -15,6 +15,8 @@ let mockHookReturn: UseChatStreamReturn = {
   isStreaming: false,
   error: null,
   pendingAction: null,
+  activeTool: null,
+  permissionDenials: [],
   send: mockSend,
   stop: mockStop,
   retry: mockRetry,
@@ -44,6 +46,8 @@ describe("ChatPanel", () => {
       isStreaming: false,
       error: null,
       pendingAction: null,
+      activeTool: null,
+      permissionDenials: [],
       send: mockSend,
       stop: mockStop,
       retry: mockRetry,
@@ -274,6 +278,32 @@ describe("ChatPanel", () => {
     expect(retryButton).toBeEnabled();
     await user.click(retryButton);
     expect(mockRetry).toHaveBeenCalledOnce();
+  });
+
+  it("announces the running tool while a tool call is in flight", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [{ role: "user", content: "find it" }],
+      activeTool: "lookup_reservation",
+    };
+
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("lookup reservation");
+  });
+
+  it("shows tool calls the server refused", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [{ role: "user", content: "run it" }],
+      permissionDenials: [{ toolName: "Bash", reason: "Command is blocked" }],
+    };
+
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Bash");
+    expect(screen.getByRole("alert")).toHaveTextContent("Command is blocked");
   });
 
   it("re-enables the composer after a send failure", () => {

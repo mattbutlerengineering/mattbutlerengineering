@@ -112,11 +112,11 @@ describe("AgentSessionClient", () => {
       mockFetch.mockResolvedValueOnce(jsonResponse(paginatedResponse));
 
       const client = new AgentSessionClient({ baseUrl: "http://localhost:3003", maxRetries: 0 });
-      await client.listSessions({ status: "running", page: 2, limit: 10 });
+      await client.listSessions({ status: "RUNNING", page: 2, limit: 10 });
 
       const [url] = mockFetch.mock.calls[0]!;
       const urlStr = String(url);
-      expect(urlStr).toContain("status=running");
+      expect(urlStr).toContain("status=RUNNING");
       expect(urlStr).toContain("page=2");
       expect(urlStr).toContain("limit=10");
     });

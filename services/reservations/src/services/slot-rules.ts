@@ -1,3 +1,4 @@
+import { partyFitsTable } from "@mbe/types";
 import type {
   VenueSettings,
   OperatingHours,
@@ -85,10 +86,7 @@ export function estimateDuration(partySize: number, venueSettings?: VenueSetting
 }
 
 export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] {
-  return tables.filter(
-    (t) =>
-      t.isActive && t.minCovers <= partySize && (t.maxCovers === null || t.maxCovers >= partySize)
-  );
+  return tables.filter((t) => t.isActive && partyFitsTable(t, partySize));
 }
 
 export function parseOperatingHours(
@@ -99,6 +97,54 @@ export function parseOperatingHours(
   // YYYY-MM-DD strings parse as UTC midnight; getUTCDay keeps weekday resolution
   // timezone-stable (same as internal getDaySchedule via getUTCDay).
   return scheduleForDay(operatingHours, new Date(date).getUTCDay());
+}
+
+// --- Booking window: single owner ---
+
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+/**
+ * The span of time a guest may book into: `now + minAdvanceBooking` hours up
+ * to the end of the venue-local day `maxAdvanceBooking` days from today.
+ * Built once by {@link bookingWindow}; slot generation, availability dates and
+ * hold creation all evaluate it through {@link isSlotInBookingWindow}.
+ */
+export interface BookingWindow {
+  /** Earliest bookable instant (inclusive). */
+  earliest: Date;
+  /** Last bookable venue-local date (YYYY-MM-DD, inclusive); null = unbounded. */
+  latestLocalDate: string | null;
+  ianaTimezone: string;
+}
+
+/** Adds whole calendar days to a YYYY-MM-DD string (UTC arithmetic: no DST drift). */
+function addCalendarDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function bookingWindow(
+  settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+  now: Date,
+  ianaTimezone: string
+): BookingWindow {
+  const minHours = settings?.minAdvanceBooking ?? 0;
+  const maxDays = settings?.maxAdvanceBooking;
+  return {
+    earliest: new Date(now.getTime() + minHours * MS_PER_HOUR),
+    latestLocalDate:
+      maxDays === undefined
+        ? null
+        : addCalendarDays(venueLocalDateString(now, ianaTimezone), maxDays),
+    ianaTimezone,
+  };
+}
+
+export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean {
+  if (slotStart < window.earliest) return false;
+  if (window.latestLocalDate === null) return true;
+  return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
 }
 
 // --- Double-booking predicate: single declaration ---

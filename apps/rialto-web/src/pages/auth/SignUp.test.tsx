@@ -179,6 +179,42 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("SignUp — enforcement and links", () => {
+  it("blocks submit when the password fails the displayed requirements", async () => {
+    renderSignUpWithRoutes();
+    setField("Full name", "Ada Lovelace");
+    setField("Email address", "ada@example.com");
+    setField("Password", "a");
+    setField("Confirm password", "a");
+    agreeToTerms();
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
+    expect(toastSpy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("dashboard-page")).not.toBeInTheDocument();
+  });
+
+  it("links the Privacy Policy to /privacy", () => {
+    renderSignUp();
+    expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute(
+      "href",
+      "/privacy"
+    );
+  });
+
+  it.each(["Google", "GitHub"])("the %s button surfaces a demo note", (name) => {
+    renderSignUp();
+    fireEvent.click(screen.getByRole("button", { name }));
+    expect(toastSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ title: expect.stringMatching(/demo/i) })
+    );
+  });
+});
+
 describe("SignUp — password strength", () => {
   it("shows no strength meter until the user starts typing a password", () => {
     renderSignUp();

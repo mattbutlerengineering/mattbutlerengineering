@@ -1,3 +1,4 @@
+import type { PartyFitTable } from "@mbe/types";
 import { prisma } from "./database.js";
 
 /** ADR-002 problem detail for a request whose table is not in its venue. */
@@ -20,4 +21,19 @@ export async function isTableInVenue(tableId: string, venueId: string): Promise<
     select: { venueId: true },
   });
   return table?.venueId === venueId;
+}
+
+/**
+ * The table's party-fit fields, for `assertBookable` on every path where the
+ * caller names the table. `undefined` when the row is missing (callers have
+ * already rejected a foreign/missing table via {@link isTableInVenue}).
+ */
+export async function loadTableFit(tableId: string): Promise<PartyFitTable | undefined> {
+  const table = await prisma.table.findUnique({
+    where: { id: tableId },
+    select: { capacity: true, minCovers: true, maxCovers: true },
+  });
+  return table
+    ? { capacity: table.capacity, minCovers: table.minCovers, maxCovers: table.maxCovers }
+    : undefined;
 }

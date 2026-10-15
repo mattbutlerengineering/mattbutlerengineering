@@ -556,15 +556,36 @@
       /** "text" → text/plain passthrough; "ndjson" → application/x-ndjson line framing */
       readonly streamFormat: "text" | "ndjson";
       readonly maxSteps: number;
+      /** Overrides the catalog prompt (default: catalog.prompt()). */
+      readonly systemPrompt?: string;
+      readonly toolChoice?: GenRunnerConfig["toolChoice"];
+      readonly failOnToolError?: boolean;
+      /** Derives the chat messages from the parsed body (default: `parsed.messages`). */
+      readonly toMessages?: (parsed: z.infer<TSchema>) => GenMessages;
+      /**
+       * ndjson only: maps an event to the value written as one JSON line.
+       * Return undefined to drop the event (default: the event itself).
+       */
+      readonly serializeEvent?: (event: GenStreamEvent) => unknown;
       readonly getTools: (
         request: FastifyRequest,
         parsed: z.infer<TSchema>
       ) => GenToolMap | Promise<GenToolMap>;
     }
+    type GenMessages = Array<{ role: "user" | "assistant"; content: string }>;
+    function emptyOutputError(): Error & { statusCode: number } {
+      return toError(new Error("Generation completed with no output"));
+    }
+    function toError(err: unknown): Error & { statusCode: number } {
+      return Object.assign(new Error("Generation failed upstream", { cause: err }), {
+        statusCode: 502,
+      });
+    }
     export function createGenRoute<TSchema extends z.ZodType>(
       config: GenRouteConfig<TSchema>
     ): FastifyPluginAsync {
       const { path, costLogLabel, rateLimit, schema, streamFormat, maxSteps, getTools } = config;
+      const serializeEvent = config.serializeEvent ?? ((event: GenStreamEvent) => event);
     
       const contentType =
         streamFormat === "text" ? "text/plain; charset=utf-8" : "application/x-ndjson; charset=utf-8";
@@ -597,15 +618,17 @@
             }
     
             const parsed = parseResult.data;
-            const { messages } = parsed as {
-              messages: Array<{ role: "user" | "assistant"; content: string }>;
-            };
+            const messages = config.toMessages
+              ? config.toMessages(parsed)
+              : (parsed as { messages: GenMessages }).messages;
     
             const tools = await getTools(request, parsed);
             const runner = createGenRunner({
-              systemPrompt: SYSTEM_PROMPT,
+              systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
               modelId: GEN_MODEL_ID,
               maxSteps,
+              toolChoice: config.toolChoice,
+              failOnToolError: config.failOnToolError,
               onFinish: async ({ usage, providerMetadata }) =>
                 logGenCost(request.log, {
                   userId: request.user?.id,
@@ -620,14 +643,20 @@
             if (streamFormat === "text") {
               const textStream = new ReadableStream<string>({
                 async start(controller) {
+                  let emitted = false;
                   try {
                     await runner.run(messages, tools, async (event) => {
-                      if (event.type === "text") {
+                      if (event.type === "text" && event.content.length > 0) {
+                        emitted = true;
                         controller.enqueue(event.content);
                       }
                     });
-                  } finally {
+                    if (!emitted) throw emptyOutputError();
                     controller.close();
+                  } catch (err) {
+                    // Error the stream — closing here would turn an upstream
+                    // failure (e.g. 529/401) into an empty-looking 200.
+                    controller.error(toError(err));
                   }
                 },
               });
@@ -637,12 +666,18 @@
             // ndjson: encode each event as a JSON line
             const ndjsonStream = new ReadableStream({
               async start(controller) {
+                let emitted = false;
                 try {
                   await runner.run(messages, tools, async (event) => {
-                    controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+                    const line = serializeEvent(event);
+                    if (line === undefined) return;
+                    emitted = true;
+                    controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
                   });
-                } finally {
+                  if (!emitted) throw emptyOutputError();
                   controller.close();
+                } catch (err) {
+                  controller.error(toError(err));
                 }
               },
             });
@@ -827,6 +862,18 @@
     }
   </file>
   <file path="src/routes/gen-specs.ts">
+    export function normaliseKind(
+      prompt: string,
+      kind: (typeof GEN_SPEC_KINDS)[number] | undefined
+    ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } {
+      if (kind) return { prompt, kind };
+      for (const [prefix, derived] of LEGACY_PREFIXES) {
+        if (prompt.startsWith(prefix) && prompt.length > prefix.length) {
+          return { prompt: prompt.slice(prefix.length), kind: derived };
+        }
+      }
+      return { prompt, kind: "generate" };
+    }
     export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
       // POST /api/gen/specs — create and persist a spec (auth required)
       fastify.post(
@@ -848,11 +895,13 @@
               );
           }
     
-          const { prompt, spec, rawLines } = parseResult.data;
+          const { spec, rawLines } = parseResult.data;
+          const { prompt, kind } = normaliseKind(parseResult.data.prompt, parseResult.data.kind);
     
           const result = await storedSpecService.create({
             userId: request.user!.id,
             prompt,
+            kind,
             spec,
             rawLines,
           });
@@ -998,98 +1047,35 @@
         execute: async () => ({ rendered: true }),
       });
     }
-    export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.post(
-        "/api/gen/ui",
+    export const genUiRoutes = createGenRoute({
+      path: "/api/gen/ui",
+      costLogLabel: "gen-ui cost log",
+      // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
+      rateLimit: { max: 20, timeWindow: "1 hour" },
+      schema: GenUiBodySchema,
+      streamFormat: "ndjson",
+      maxSteps: 1,
+      systemPrompt: SYSTEM_PROMPT,
+      // Force the tool call — without this, the model may just answer with text
+      // (ignoring the tool entirely) and the route would stream zero elements.
+      toolChoice: { type: "tool", toolName: "render_component" },
+      // Safe here specifically because maxSteps is 1: there is no later step for
+      // ai@7 to retry the tool call on, so a tool-error can only ever mean the
+      // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
+      failOnToolError: true,
+      toMessages: ({ prompt, context }) => [
         {
-          preHandler: [requireAuth],
-          config: {
-            // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
-            rateLimit: {
-              max: 20,
-              timeWindow: "1 hour",
-              keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
-            },
-          },
+          role: "user",
+          content: context
+            ? `${prompt}
+    
+    Context: ${JSON.stringify(context)}`
+            : prompt,
         },
-        async (request, reply) => {
-          const parseResult = GenUiBodySchema.safeParse(request.body);
-          if (!parseResult.success) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  parseResult.error.issues.map((i) => i.message).join(", ")
-                )
-              );
-          }
-    
-          const { prompt, context } = parseResult.data;
-          const userContent = context ? `${prompt}\n\nContext: ${JSON.stringify(context)}` : prompt;
-    
-          const runner = createGenRunner({
-            systemPrompt: SYSTEM_PROMPT,
-            modelId: GEN_MODEL_ID,
-            maxSteps: 1,
-            // Force the tool call — without this, the model may just answer with
-            // text (ignoring the tool entirely) and the route would stream zero
-            // elements with no indication anything went wrong.
-            toolChoice: { type: "tool", toolName: "render_component" },
-            // Safe here specifically because maxSteps is 1: there is no later
-            // step for ai@7 to retry the tool call on, so a tool-error can only
-            // ever mean the generation failed outright. gen-agent (maxSteps 5)
-            // must NOT set this (see GenRunnerConfig.failOnToolError).
-            failOnToolError: true,
-            onFinish: async ({ usage, providerMetadata }) =>
-              logGenCost(request.log, {
-                userId: request.user?.id,
-                usage,
-                providerMetadata,
-                label: "gen-ui cost log",
-              }),
-          });
-    
-          applyStreamHeaders(reply, "application/x-ndjson; charset=utf-8");
-    
-          const stream = new ReadableStream({
-            async start(controller) {
-              let emittedAny = false;
-              try {
-                await runner.run(
-                  [{ role: "user", content: userContent }],
-                  { render_component: createRenderComponentTool() },
-                  async (event) => {
-                    if (event.type === "element") {
-                      emittedAny = true;
-                      controller.enqueue(encoder.encode(JSON.stringify(event.element) + "\n"));
-                    }
-                  }
-                );
-                if (!emittedAny) {
-                  // The run completed with no error (ai@7's error/tool-error parts
-                  // are already turned into a throw by gen-runner.ts) but never
-                  // called render_component with a non-empty elements array — a
-                  // 200 with an empty body is exactly as useless to the client as
-                  // a failed generation, and both must read as failures, not as
-                  // "worked, rendered nothing".
-                  throw new Error("Generation completed with zero elements");
-                }
-                controller.close();
-              } catch (err) {
-                // Never silently close on failure — that turns a failed
-                // generation into what looks like a successful-but-truncated
-                // one. Erroring the stream surfaces it as a real failure instead.
-                controller.error(err instanceof Error ? err : new Error(String(err)));
-              }
-            },
-          });
-    
-          return reply.send(stream);
-        }
-      );
-    };
+      ],
+      serializeEvent: (event) => (event.type === "element" ? event.element : undefined),
+      getTools: () => ({ render_component: createRenderComponentTool() }),
+    });
   </file>
   <file path="src/routes/orchestrate.ts">
     interface OrchestrateBody {
@@ -1247,6 +1233,9 @@
               {
                 taskDescription,
                 apiBaseUrl,
+                // Sub-session calls hit this service's own requireAuth routes —
+                // forward the caller's verified bearer token or every call 401s.
+                getAccessToken: () => bearerToken(request.headers.authorization),
                 parentSessionId: parentSession.id,
                 model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
                 sessionModel: overrides.sessionModel ?? DEFAULT_ORCHESTRATOR_CONFIG.sessionModel,
@@ -1303,6 +1292,9 @@
         }
       );
     };
+    function bearerToken(header: string | undefined): string | null {
+      return header?.startsWith("Bearer ") ? header.slice(7) : null;
+    }
   </file>
   <file path="src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
@@ -2959,12 +2951,27 @@
         data: { ...event },
       };
     }
+    export const projectEvent: EventProjector = (event: SessionEvent) => {
+      const eventData = event.data as { message?: string };
+      if (typeof eventData.message === "string") {
+        try {
+          const parsed = JSON.parse(eventData.message) as MappedEvent;
+          if (parsed && typeof parsed.type === "string" && parsed.type.startsWith("session:")) {
+            return mapForStorage(parsed);
+          }
+        } catch {
+          // Not JSON — fall through to plain message storage.
+        }
+      }
+      return { type: event.type, data: event.data };
+    };
   </file>
   <file path="src/services/stored-spec.ts">
     export interface StoredSpecResponse {
       id: string;
       userId: string;
       prompt: string;
+      kind: string;
       spec: unknown;
       rawLines: unknown;
       isFavorite: boolean;
@@ -2977,6 +2984,7 @@
         id: s.id,
         userId: s.userId,
         prompt: s.prompt,
+        kind: s.kind,
         spec: s.spec,
         rawLines: s.rawLines,
         isFavorite: s.isFavorite,
@@ -3021,6 +3029,7 @@
       async create(data: {
         userId: string;
         prompt: string;
+        kind: string;
         spec: unknown;
         rawLines: unknown;
       }): Promise<StoredSpec> {
@@ -3030,6 +3039,7 @@
           data: {
             userId: data.userId,
             prompt: data.prompt,
+            kind: data.kind,
             spec: data.spec as Prisma.InputJsonValue,
             rawLines: data.rawLines as Prisma.InputJsonValue,
           },

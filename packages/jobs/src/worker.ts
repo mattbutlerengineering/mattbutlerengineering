@@ -11,6 +11,13 @@ export interface JobWorkerConfig {
   redisUrl: string;
   queueName?: string;
   handlers: JobHandlerMap;
+  /** Receives final job failures and worker-level errors. */
+  logger?: JobWorkerErrorLogger;
+}
+
+/** Narrow logger shape — satisfied by `FastifyBaseLogger`. */
+export interface JobWorkerErrorLogger {
+  error(details: object, msg: string): void;
 }
 
 export class JobWorker {
@@ -33,6 +40,19 @@ export class JobWorker {
       (job) => dispatchJob(config.handlers, job),
       { connection: this.redis }
     );
+
+    const logger = config.logger;
+    if (logger) {
+      this.worker.on("failed", (job, err) => {
+        logger.error(
+          { jobId: job?.id, jobName: job?.name, attemptsMade: job?.attemptsMade, err },
+          "job failed"
+        );
+      });
+      this.worker.on("error", (err) => {
+        logger.error({ err }, "job worker error");
+      });
+    }
   }
 
   /**

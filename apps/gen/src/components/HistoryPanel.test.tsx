@@ -207,6 +207,33 @@ describe("HistoryPanel", () => {
     expect(screen.getByText("Refined")).toBeDefined();
   });
 
+  it("shows the Refined tag from the kind field", () => {
+    const entries = [createMockEntry({ prompt: "make it blue", kind: "refine" })];
+    render(<HistoryPanel {...defaultProps} entries={entries} />);
+    expect(screen.getByText("Refined")).toBeDefined();
+    expect(screen.getByText("make it blue")).toBeDefined();
+  });
+
+  it("shows the Failed tag from the kind field", () => {
+    const entries = [createMockEntry({ prompt: "draw", kind: "failed" })];
+    render(<HistoryPanel {...defaultProps} entries={entries} />);
+    expect(screen.getByText("Failed")).toBeDefined();
+  });
+
+  it("strips the legacy prefix from the displayed prompt", () => {
+    const entries = [createMockEntry({ prompt: "Refined: make it blue" })];
+    render(<HistoryPanel {...defaultProps} entries={entries} />);
+    expect(screen.getByText("make it blue")).toBeDefined();
+  });
+
+  it("disables replay for refine entries", () => {
+    const entries = [createMockEntry({ prompt: "make it blue", kind: "refine" })];
+    render(<HistoryPanel {...defaultProps} entries={entries} />);
+    expect((screen.getByRole("button", { name: /replay/i }) as HTMLButtonElement).disabled).toBe(
+      true
+    );
+  });
+
   it("should show 'Failed' tag for recorded failed attempts", () => {
     const entries = [createMockEntry({ prompt: "Failed: Generate a spec" })];
     render(<HistoryPanel {...defaultProps} entries={entries} />);

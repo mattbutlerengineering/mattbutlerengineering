@@ -183,13 +183,19 @@
         toolInput: Record<string, unknown>;
       }
     </item>
+    <item priority="low">
+      interface PermissionDenial {
+        toolName: string;
+        reason: string;
+      }
+    </item>
     <item priority="high">
       interface NDJSONLine {
-        type: "text" | "tool_status" | "element" | "action_request";
+        type: "text" | "tool_status" | "element" | "action_request" | "...;
+        reason?: string;
         content?: string;
         tool?: string;
         status?: string;
-        element?: ChatMessageElement;
       }
     </item>
     <item priority="low">
@@ -205,7 +211,7 @@
         isStreaming: boolean;
         error: Error | null;
         pendingAction: PendingAction | null;
-        send: (content: string) => Promise<void>;
+        activeTool: string | null;
       }
     </item>
     <item priority="high">
@@ -1349,6 +1355,7 @@
     </item>
     <item priority="low">
       interface WaitlistResult {
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
       }
@@ -1576,69 +1583,6 @@
       export const checkDepsCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/generate.ts">
-    <item priority="medium">
-      function writeFile(filePath: string, content: string): void { /* ... */ }
-    </item>
-    <item priority="medium">
-      function componentTemplate(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function componentStyleTemplate(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function componentTestTemplate(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function componentIndexTemplate(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function routeTemplate(name: string): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export const generateCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/health.ts">
-    <item priority="high">
-      interface ServiceHealth {
-        status: string;
-        version?: string;
-        latency?: number;
-        checks?: Array<{ name: string; status: string; latency?: number }>;
-      }
-    </item>
-    <item priority="high">
-      interface SystemHealth {
-        status: string;
-        timestamp: string;
-        services?: Record<string, ServiceHealth>;
-        staticSites?: Record<string, { status: string }>;
-        ci?: { status: string };
-      }
-    </item>
-    <item priority="medium">
-      function colorize(text: string, status: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function statusIcon(status: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function padRight(str: string, len: number): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function formatOutput(data: SystemHealth): void { /* ... */ }
-    </item>
-    <item priority="low">
-      async function fetchHealth(): Promise<SystemHealth> { /* ... */ }
-    </item>
-    <item priority="high">
-      export const healthRun: unknown;
-    </item>
-    <item priority="high">
-      export const healthCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/issue.ts">
     <item priority="high">
       type TransitionState = "ready" | "in-progress" | "has-pr" | "agent-failed" | "agent-skip";
@@ -1680,47 +1624,6 @@
       export const mcpCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/new.ts">
-    <item priority="medium">
-      function toTitleCase(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function detectNextPort(appsDir: string): number { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generatePackageJson(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateTsConfig(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateViteConfig(name: string, port: number): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateIndexHtml(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateMainTsx(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateAppTsx(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateGlobalCss(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateExamplePage(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateFaviconSvg(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function writeFile(filePath: string, content: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export const newCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/pack.ts">
     <item priority="medium">
       function truncateType(type: string, maxLength = 60): string { /* ... */ }
@@ -1755,14 +1658,6 @@
     </item>
     <item priority="high">
       export const syncRulesCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/up.ts">
-    <item priority="medium">
-      function run(command: string, cwd: string) { /* ... */ }
-    </item>
-    <item priority="high">
-      export const upCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/users.ts">
@@ -2218,13 +2113,16 @@
         criteriaTotal: number | null;
       }
     </item>
+    <item priority="high">
+      export const AI_HEALTH_READ_FIELDS: unknown;
+    </item>
     <item priority="low">
       interface HealthMetrics {
         timestamp: string | null;
         ciPassRate: number | null;
         ciRecentRuns: number | null;
         prsMerged: number | null;
-        issuesReady: number | null;
+        prMetricsAsOf: string | null;
       }
     </item>
     <item priority="medium">
@@ -2375,9 +2273,6 @@
     <item priority="medium">
       function resolveLoad(entry: RawPageEntry): () => Promise<unknown> { /* ... */ }
     </item>
-    <item priority="medium">
-      function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string { /* ... */ }
-    </item>
     <item priority="high">
       export function buildPageRegistry(rawEntries: RawPageEntry[]): PageEntry[] { /* ... */ }
     </item>
@@ -2526,6 +2421,12 @@
     <item priority="medium">
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
+    <item priority="high">
+      export function buildSlotsBody(now: Date): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function slotsResponse(route: Route): Promise<void> { /* ... */ }
+    </item>
     <item priority="medium">
       function emptyPaginated(route: Route): Promise<void> { /* ... */ }
     </item>
@@ -2543,6 +2444,9 @@
     </item>
     <item priority="high">
       export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
@@ -3580,10 +3484,22 @@
       }: PlaygroundCommandDeps): CommandItem[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/hooks/useShortcuts.ts">
+    <item priority="low">
+      type ShortcutHandlers = Partial<Record<ShortcutAction, () => void>>;
+    </item>
+    <item priority="medium">
+      function isTypingTarget(target: EventTarget | null): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useShortcuts(handlers: ShortcutHandlers): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/hooks/useSpecsApi.ts">
     <item priority="low">
       interface SaveSpecData {
         prompt: string;
+        kind?: EntryKind;
         spec: unknown;
         rawLines: string[];
       }
@@ -4988,6 +4904,52 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/gen/src/lib/entry-kind.ts">
+    <item priority="high">
+      export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
+        kind: EntryKind;
+        prompt: string;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/gen/src/lib/shortcuts.ts">
+    <item priority="low">
+      type ShortcutAction = "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
+    </item>
+    <item priority="low">
+      type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";
+    </item>
+    <item priority="low">
+      interface ShortcutDef {
+        id: string;
+        label: string;
+        section: ShortcutSection;
+        keys: readonly string[];
+        action?: ShortcutAction;
+      }
+    </item>
+    <item priority="high">
+      export const SHORTCUTS: readonly ShortcutDef[];
+    </item>
+    <item priority="high">
+      export const SHORTCUT_SECTIONS: readonly ShortcutSection[];
+    </item>
+    <item priority="medium">
+      function isMac(): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function displayKeys(def: ShortcutDef, mac: boolean = isMac()): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shortcutKeys(id: string, mac?: boolean): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function matchShortcut(event: KeyboardEvent): ShortcutAction | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/lib/spec.ts">
     <item priority="low">
       interface SpecStats {
@@ -5268,17 +5230,6 @@
       export function createRawBodyCaptureHook(): preParsingAsyncHookHandler { /* ... */ }
     </item>
   </file>
-  <file path="services/reservations/src/middleware/require-manage-token.ts">
-    <item priority="medium">
-      function extractManageToken(request: FastifyRequest): string | undefined { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function requireManageToken(
-        request: FastifyRequest,
-        reply: FastifyReply
-      ): Promise<void> { /* ... */ }
-    </item>
-  </file>
   <file path="services/reservations/src/middleware/venue-context.ts">
     <item priority="low">
       interface VenueContextClient {
@@ -5297,14 +5248,6 @@
         venueId: string | null | undefined,
         options: SetVenueContextOptions = {}
       ): Promise<void> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function venueContextPreHandler(
-        resolveVenueId: VenueIdResolver
-      ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isThenable(value: unknown): value is PromiseLike<string | null | undefined> { /* ... */ }
     </item>
   </file>
   </section>
@@ -5975,6 +5918,15 @@
       }
     </item>
     <item priority="high">
+      type GenMessages = Array<{ role: "user" | "assistant"; content: string }>;
+    </item>
+    <item priority="medium">
+      function emptyOutputError(): Error & { statusCode: number } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toError(err: unknown): Error & { statusCode: number } { /* ... */ }
+    </item>
+    <item priority="high">
       export function createGenRoute<TSchema extends z.ZodType>(
         config: GenRouteConfig<TSchema>
       ): FastifyPluginAsync { /* ... */ }
@@ -6031,6 +5983,12 @@
   </file>
   <file path="services/agent/src/routes/gen-specs.ts">
     <item priority="high">
+      export function normaliseKind(
+        prompt: string,
+        kind: (typeof GEN_SPEC_KINDS)[number] | undefined
+      ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } { /* ... */ }
+    </item>
+    <item priority="high">
       export const genSpecsRoutes: FastifyPluginAsync;
     </item>
   </file>
@@ -6070,7 +6028,7 @@
       function createRenderComponentTool() { /* ... */ }
     </item>
     <item priority="high">
-      export const genUiRoutes: FastifyPluginAsync;
+      export const genUiRoutes: unknown;
     </item>
   </file>
   <file path="services/agent/src/routes/orchestrate.ts">
@@ -6094,6 +6052,9 @@
     </item>
     <item priority="high">
       export const orchestrateRoutes: FastifyPluginAsync;
+    </item>
+    <item priority="medium">
+      function bearerToken(header: string | undefined): string | null { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/remediation.ts">
@@ -6356,10 +6317,10 @@
   </file>
   <file path="services/reservations/src/routes/load-reservation-for-manage.ts">
     <item priority="low">
-      type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 404; reas | { ok: false; status: 409; reas;
+      type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 409; reas;
     </item>
     <item priority="high">
-      export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> { /* ... */ }
+      export function guardManageState(reservation: Reservation): ManagePreambleResult { /* ... */ }
     </item>
     <item priority="low">
       type ManageAction = "cancel" | "modify";
@@ -6389,6 +6350,49 @@
       export const manageReservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/manage-token-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      interface ManageTokenScope {
+        venueId: string;
+        reservation: Reservation;
+        token: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManageTokenScopeSpec {
+        missing: (reply: ReplyOf<RG>, request: RequestOf<RG>) => unknown;
+      }
+    </item>
+    <item priority="low">
+      type ManageTokenHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="medium">
+      function extractManageToken(request: FastifyRequest): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function deny(reply: FastifyReply, status: number, title: string, detail: string): FastifyReply { /* ... */ }
+    </item>
+    <item priority="high">
+      export function manageTokenScoped<RG extends RouteGenericInterface = RouteGenericInterface>(
+        spec: ManageTokenScopeSpec<RG>,
+        handler: ManageTokenHandler<RG>
+      ): Handler<RG> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/routes/modify-reservation.ts">
     <item priority="high">
       interface ModifyBody {
@@ -6401,6 +6405,20 @@
     </item>
     <item priority="high">
       export const modifyReservationRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/named-venue.ts">
+    <item priority="high">
+      export const queryVenueId: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export const bodyVenueId: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export function inNamedVenueContext<T>(
+        venueId: string | null | undefined,
+        work: () => Promise<T>
+      ): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/public-availability.ts">
@@ -6445,11 +6463,11 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/public-holds.ts">
-    <item priority="low">
-      async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> { /* ... */ }
-    </item>
     <item priority="medium">
       function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sessionIdOf(request: FastifyRequest): string { /* ... */ }
     </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
@@ -6486,6 +6504,50 @@
     </item>
     <item priority="high">
       export const publicUnsubscribeRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/public-venue-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      interface PublicNotFound {
+        title: string;
+        detail: string;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueScopeSpec {
+        slug: (request: RequestOf<RG>) => string;
+        notFound?: (slug: string) => PublicNotFound | Error;
+        before?: (request: RequestOf<RG>, reply: ReplyOf<RG>) => unknown;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueScope {
+        venueId: string;
+        slug: string;
+      }
+    </item>
+    <item priority="low">
+      type PublicScopedHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="high">
+      export function publicVenueScoped<RG extends RouteGenericInterface = RouteGenericInterface>(
+        spec: PublicVenueScopeSpec<RG>,
+        handler: PublicScopedHandler<RG>
+      ): Handler<RG> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/public-venues.ts">
@@ -6579,6 +6641,9 @@
       type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
     </item>
     <item priority="high">
+      export function inWindowDate(daysAhead: number): string { /* ... */ }
+    </item>
+    <item priority="high">
       export const ADMIN_HEADERS: Record<string, string>;
     </item>
     <item priority="high">
@@ -6665,6 +6730,12 @@
       async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
     </item>
     <item priority="low">
+      async function createDisposableNotifiedWaitlistEntry(
+        ctx: SweepContext,
+        venueId: string
+      ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
       async function createDisposableReservation(
         ctx: SweepContext,
         venueId: string,
@@ -6747,31 +6818,6 @@
     </item>
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
-    </item>
-  </file>
-  <file path="services/reservations/src/routes/venue-access.ts">
-    <item priority="high">
-      export const venueIdFromQuery: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export const venueIdFromBody: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export const venueIdFromParams: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export function venueIdFromEntity(
-        kind: EntityKind,
-        getKey: (request: FastifyRequest) => unknown
-      ): VenueIdResolver { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function loadInVenueContext<T>(
-        kind: EntityKind,
-        key: string,
-        load: () => Promise<T>,
-        fallback: T
-      ): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/venue-scope.ts">
@@ -7108,6 +7154,9 @@
     </item>
     <item priority="high">
       export const waitlistJoinResultJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const waitlistEstimateJsonSchema: unknown;
     </item>
     <item priority="high">
       export const floorPlanLayoutJsonSchema: unknown;
@@ -7498,6 +7547,9 @@
     </item>
     <item priority="high">
       export const WaitlistStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WaitlistEstimateSchema: unknown;
     </item>
     <item priority="high">
       export const WaitlistEntrySchema: unknown;
@@ -8167,6 +8219,9 @@
     <item priority="high">
       export function mapForStorage(event: MappedEvent): { type: string; data: Record<string, unknown> } { /* ... */ }
     </item>
+    <item priority="high">
+      export const projectEvent: EventProjector;
+    </item>
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
     <item priority="low">
@@ -8174,8 +8229,8 @@
         id: string;
         userId: string;
         prompt: string;
+        kind: string;
         spec: unknown;
-        rawLines: unknown;
       }
     </item>
     <item priority="low">
@@ -8209,15 +8264,15 @@
   </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
     <item priority="low">
-      type BookableError = { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
+      type BookableError = { code: "PARTY_DOES_NOT_FIT";  | { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
     </item>
     <item priority="low">
       interface AssertBookableOptions {
         tableId: string;
+        table?: PartyFitTable;
         window: { startTime: Date; endTime: Date };
         partySize: number;
         settings: VenueSettings | null | undefined;
-        reservations: ReservationSlim[];
       }
     </item>
     <item priority="high">
@@ -8712,11 +8767,17 @@
         updatedAt: Date;
       }): Guest { /* ... */ }
     </item>
+    <item priority="low">
+      async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> { /* ... */ }
+    </item>
     <item priority="high">
       export const guestService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/hold.ts">
+    <item priority="high">
+      export const BOOKING_WINDOW_ERROR: unknown;
+    </item>
     <item priority="medium">
       function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
     </item>
@@ -8726,6 +8787,7 @@
         hold?: ReservationHold;
         error?: string;
         tableNotInVenue?: boolean;
+        partyDoesNotFit?: boolean;
       }
     </item>
     <item priority="high">
@@ -9011,6 +9073,12 @@
         deposits: DepositService
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
+    <item priority="low">
+      async function checkBookingWindow(
+        reservation: Reservation,
+        changes: ReservationChanges
+      ): Promise<ModifyReservationResult | null> { /* ... */ }
+    </item>
     <item priority="high">
       export async function modifyReservation(
         reservation: Reservation,
@@ -9293,6 +9361,26 @@
         date: string
       ): DaySchedule | null { /* ... */ }
     </item>
+    <item priority="low">
+      interface BookingWindow {
+        earliest: Date;
+        latestLocalDate: string | null;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function addCalendarDays(date: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookingWindow(
+        settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+        now: Date,
+        ianaTimezone: string
+      ): BookingWindow { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];
     </item>
@@ -9517,6 +9605,9 @@
     <item priority="high">
       export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> { /* ... */ }
     </item>
+    <item priority="high">
+      export async function loadTableFit(tableId: string): Promise<PartyFitTable | undefined> { /* ... */ }
+    </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
     <item priority="high">
@@ -9543,9 +9634,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/venue-context-store.ts">
-    <item priority="high">
-      export function enterVenueContext(venueId: string | null): void { /* ... */ }
-    </item>
     <item priority="high">
       export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> { /* ... */ }
     </item>
@@ -9656,6 +9744,39 @@
       export const venueService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/waitlist-estimate.ts">
+    <item priority="low">
+      type EstimateTable = TableFilter;
+    </item>
+    <item priority="low">
+      interface EstimateReservation {
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        status: string;
+      }
+    </item>
+    <item priority="low">
+      interface EstimateInput {
+        position: number;
+        partySize: number;
+        now: Date;
+        tables: readonly EstimateTable[];
+        reservations: readonly EstimateReservation[];
+      }
+    </item>
+    <item priority="medium">
+      function freeInMs(
+        tableId: string,
+        now: number,
+        durationMs: number,
+        reservations: readonly EstimateReservation[]
+      ): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateWaitFromTurnover(input: EstimateInput): number | null { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/waitlist-notifier.ts">
     <item priority="low">
       interface WaitlistNotifierLogger {
@@ -9724,6 +9845,28 @@
       export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): WaitlistNotifier { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/waitlist-status-token.ts">
+    <item priority="high">
+      export const WAITLIST_STATUS_TOKEN_TTL_MS: unknown;
+    </item>
+    <item priority="medium">
+      function sign(entryId: string, venueId: string, expiry: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function generateWaitlistStatusToken(
+        entryId: string,
+        venueId: string,
+        now: number = Date.now()
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function verifyWaitlistStatusToken(
+        token: string,
+        venueId: string,
+        now: number = Date.now()
+      ): { valid: false } | { valid: true; entryId: string } { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/waitlist-utils.ts">
     <item priority="high">
       export function calculatePosition(existingCount: number): number { /* ... */ }
@@ -9738,6 +9881,9 @@
     </item>
   </file>
   <file path="services/reservations/src/services/waitlist.ts">
+    <item priority="high">
+      export const NOTIFY_CLAIM_WINDOW_MS: unknown;
+    </item>
     <item priority="low">
       interface WaitlistEntryData {
         id: string;
@@ -9755,6 +9901,12 @@
         guestPhone: string;
         avgTurnTimeMinutes?: number;
       }
+    </item>
+    <item priority="low">
+      async function loadEstimator(
+        venueId: string,
+        now: Date
+      ): Promise<(position: number, partySize: number) => number | null> { /* ... */ }
     </item>
     <item priority="low">
       async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
@@ -9904,12 +10056,15 @@
       }
     </item>
     <item priority="low">
+      type EntryKind = "generate" | "refine" | "recover" | "failed";
+    </item>
+    <item priority="low">
       interface StoredSpec {
         id: string;
         userId: string;
         prompt: string;
+        kind?: EntryKind;
         spec: unknown;
-        rawLines: string[];
       }
     </item>
   </file>
@@ -11068,6 +11223,9 @@
   </file>
   <file path="packages/agent-core/src/orchestrator.ts">
     <item priority="medium">
+      function resolveSessionClient(config: OrchestratorConfig): AgentSessionClient { /* ... */ }
+    </item>
+    <item priority="medium">
       function createSessionTools(config: OrchestratorConfig) { /* ... */ }
     </item>
     <item priority="medium">
@@ -11883,8 +12041,8 @@
         taskDescription: string;
         apiBaseUrl: string;
         sessionClient?: AgentSessionClient;
+        getAccessToken?: () => string | null | Promise<string | null>;
         model: string;
-        sessionModel: string;
       }
     </item>
     <item priority="high">
@@ -12387,15 +12545,6 @@
       }
     </item>
     <item priority="low">
-      interface MockResultMessage {
-        type: "result";
-        subtype: "success" | "error_max_turns" | "error_during_turn";
-        uuid: string;
-        session_id: string;
-        duration_ms: number;
-      }
-    </item>
-    <item priority="low">
       interface MockClientOptions {
         mode?: MockMode;
         fixtures?: readonly (readonly SDKMessage[])[];
@@ -12417,7 +12566,7 @@
         callIndex: number,
         tokens: Readonly<{ input: number; output: number }>,
         costUsd: number
-      ): MockResultMessage { /* ... */ }
+      ): SDKResultMessage { /* ... */ }
     </item>
     <item priority="low">
       interface MockClaudeClient {
@@ -12438,6 +12587,26 @@
     </item>
     <item priority="high">
       export function createMockClaudeClient(options: MockClientOptions = {}): MockClaudeClient { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-test-utils/src/sdk-result.ts">
+    <item priority="low">
+      interface ResultInputs {
+        sessionId: string;
+        numTurns: number;
+        costUsd: number;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-test-utils/src/session-fixtures.ts">
@@ -12464,13 +12633,19 @@
       function buildStartEvent(sessionId: string): SessionEvent { /* ... */ }
     </item>
     <item priority="medium">
+      function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
       function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent { /* ... */ }
     </item>
     <item priority="medium">
-      function buildToolUseEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent { /* ... */ }
+      function toolUseIdFor(call: ToolCallRecord, index: number): string { /* ... */ }
     </item>
     <item priority="medium">
-      function buildToolResultEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent { /* ... */ }
+      function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
     </item>
     <item priority="medium">
       function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent { /* ... */ }
@@ -12506,6 +12681,9 @@
     </item>
     <item priority="high">
       export function extractToolCalls(events: readonly SessionEvent[]): readonly ToolCallRecord[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseMappedEvent(event: SessionEvent): MappedEvent | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function compareToolCalls(
@@ -12619,9 +12797,12 @@
         baseBranch?: string;
       }
     </item>
+    <item priority="high">
+      type AgentSessionQueryStatus = z.infer<typeof AgentSessionStatusSchema>;
+    </item>
     <item priority="low">
       interface ListSessionsParams {
-        status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+        status?: AgentSessionQueryStatus;
         page?: number;
         limit?: number;
       }
@@ -12883,7 +13064,7 @@
         async guestRisk(): Promise<unknown>;
         async recognizeGuest(): Promise<unknown>;
         async joinWaitlist(): Promise<unknown>;
-        async depositIntent(): Promise<unknown>;
+        async waitlistEstimate(): Promise<unknown>;
       }
     </item>
   </file>
@@ -13891,7 +14072,7 @@
     <item priority="high">
       export async function dispatchJob(
         handlers: JobHandlerMap,
-        job: { name: string; data: unknown }
+        job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
       ): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -13912,6 +14093,12 @@
       interface ReminderPayload {
         reservationId: string;
         venueId: string;
+        deliveredChannels?: ("email" | "sms")[];
+      }
+    </item>
+    <item priority="low">
+      interface JobContext {
+        
       }
     </item>
     <item priority="low">
@@ -13951,7 +14138,7 @@
     </item>
     <item priority="low">
       type JobHandlerMap = Partial<{
-        [K in JobType]: (payload: JobPayloadMap[K]) =...;
+        [K in JobType]: (payload: JobPayloadMap[K], c...;
     </item>
   </file>
   <file path="packages/jobs/src/scheduler.ts">
@@ -13976,6 +14163,12 @@
         redisUrl: string;
         queueName?: string;
         handlers: JobHandlerMap;
+        logger?: JobWorkerErrorLogger;
+      }
+    </item>
+    <item priority="low">
+      interface JobWorkerErrorLogger {
+        
       }
     </item>
     <item priority="high">
@@ -14183,6 +14376,19 @@
         smsManageBaseUrl?: string;
       }
     </item>
+    <item priority="low">
+      type ReminderChannel = "email" | "sms";
+    </item>
+    <item priority="low">
+      interface ReminderOptions {
+        skipChannels?: readonly ReminderChannel[];
+      }
+    </item>
+    <item priority="high">
+      class PartialDeliveryError {
+        
+      }
+    </item>
     <item priority="high">
       class NotificationDispatcher {
         emailAdapter: NotificationPort;
@@ -14228,7 +14434,7 @@
     <item priority="high">
       interface ResendClient {
         emails: {
-          send(payload: Record<string, unknown>): Promise<{ i...;
+          // The SDK resolves `{ data, error }` on API failur...;
       }
     </item>
     <item priority="low">
@@ -14369,6 +14575,20 @@
     </item>
     <item priority="high">
       export function calendarSequence(updatedAt: string): number { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/observability/src/build-info.ts">
+    <item priority="high">
+      export const UNKNOWN_BUILD: unknown;
+    </item>
+    <item priority="low">
+      interface BuildInfo {
+        sha: string;
+        version: string;
+      }
+    </item>
+    <item priority="high">
+      export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo { /* ... */ }
     </item>
   </file>
   <file path="packages/observability/src/error-rates.ts">
@@ -14626,7 +14846,7 @@
       interface SentryConfig {
         dsn: string;
         environment: string;
-        release: string | undefined;
+        release: string;
         enabled: boolean;
       }
     </item>
@@ -14996,6 +15216,12 @@
     <item priority="medium">
       function extensionOf(name: string): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function hasShebang(path: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isScannable(name: string, full: string): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function collectFiles(rootDir: string): SourceFile[] { /* ... */ }
     </item>
@@ -15006,7 +15232,28 @@
         pattern: RegExp;
         category: Category;
         severity: Severity;
+        excludes?: RegExp;
+        excludeLanguages?: readonly Language[];
       }
+    </item>
+    <item priority="low">
+      type Language = "python" | "other";
+    </item>
+    <item priority="high">
+      export function detectLanguage(file: string, content: string): Language { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Group {
+        text: string;
+        rest: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function continuationGroup(
+        lines: readonly string[],
+        start: number,
+        continues: RegExp
+      ): Group | null { /* ... */ }
     </item>
     <item priority="high">
       export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] { /* ... */ }
@@ -15086,22 +15333,10 @@
   </file>
   <file path="packages/test-fixtures/src/reservations.ts">
     <item priority="low">
-      interface MockTable {
-        id: string;
-        name: string;
-        tableNumber: string | null;
-        capacity: number;
-        minCovers: number;
-      }
+      type MockTable = Table;
     </item>
     <item priority="low">
-      interface MockReservation {
-        id: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        partySize: number;
-      }
+      type MockReservation = Reservation & { readonly table: Table };
     </item>
     <item priority="low">
       interface MockPagination {
@@ -15254,20 +15489,10 @@
   </file>
   <file path="packages/test-fixtures/src/users.ts">
     <item priority="low">
-      interface MockUserPreferences {
-        theme: "light" | "dark" | "system";
-        emailNotifications: boolean;
-        marketingEmails: boolean;
-      }
+      type MockUserPreferences = UserPreferences;
     </item>
     <item priority="low">
-      interface MockUser {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-      }
+      type MockUser = User;
     </item>
     <item priority="high">
       export function createMockUser(overrides: Partial<MockUser> = {}): MockUser { /* ... */ }
@@ -15535,6 +15760,29 @@
       }
     </item>
   </file>
+  <file path="packages/types/src/guest-segment.ts">
+    <item priority="high">
+      export const VIP_TAG: unknown;
+    </item>
+    <item priority="high">
+      export const VIP_VISIT_THRESHOLD: unknown;
+    </item>
+    <item priority="high">
+      export const REPEAT_VISIT_THRESHOLD: unknown;
+    </item>
+    <item priority="low">
+      type GuestSegmentName = "VIP" | "Repeat" | "New";
+    </item>
+    <item priority="high">
+      export function hasVipTag(tags: readonly string[] | null | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function classifyGuestSegment(
+        visitCount: number,
+        tags: readonly string[] | null | undefined
+      ): GuestSegmentName { /* ... */ }
+    </item>
+  </file>
   <file path="packages/types/src/guest.ts">
     <item priority="low">
       type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
@@ -15596,6 +15844,21 @@
         visitCount: number;
         hasPreferences: boolean;
       }
+    </item>
+  </file>
+  <file path="packages/types/src/party-fit.ts">
+    <item priority="low">
+      interface PartyFitTable {
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function tableMaxCovers(table: Pick<PartyFitTable, "capacity" | "maxCovers">): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function partyFitsTable(table: PartyFitTable, partySize: number): boolean { /* ... */ }
     </item>
   </file>
   <file path="packages/types/src/reservation.ts">
@@ -16006,8 +16269,16 @@
     </item>
     <item priority="low">
       interface WaitlistJoinResult {
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistEstimate {
+        position: number;
+        estimatedWaitMinutes: number;
+        status: WaitlistStatus;
       }
     </item>
     <item priority="low">
@@ -16812,6 +17083,9 @@
     <item priority="high">
       export const MOCK_JWT_PAYLOAD: unknown;
     </item>
+    <item priority="high">
+      export const ADMIN_JWT_PAYLOAD: unknown;
+    </item>
   </file>
   </section>
   <section priority="medium" role="timeline">
@@ -17587,10 +17861,9 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
-        tables: readonly T[],
-        partySize: number
-      ): T[] { /* ... */ }
+      export function tablesThatFit<
+        T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
+      >(tables: readonly T[], partySize: number): T[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/service-day.ts">

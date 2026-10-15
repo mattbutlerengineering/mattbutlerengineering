@@ -3,8 +3,8 @@
 match .github/labels.json (PRD-0001; ADR-0033 lifecycle labels).
 
 A NETWORK detector: it reads the live label set through the gh CLI, so it
-runs in scheduled sweeps only and is NEVER wired into gates.py CHECKERS
-(those stay offline). Conventions match gates.py/lint.py: functions return
+runs in scheduled sweeps only and its gates.py ROSTER row carries no
+checker (run_all stays offline). Conventions match gates.py/lint.py: functions return
 L:-prefixed problem strings; the CLI prints them and exits nonzero.
 
   python3 label_sync.py           report drift (gh label list)
@@ -20,7 +20,7 @@ from pathlib import Path
 
 from cli import CLI_FAILURES as GH_FAILURES
 from cli import detail as gh_detail
-from cli import gh_read, gh_runner, report
+from cli import gh_read, gh_runner, label_names, report
 from factory_config import artifact_paths
 from knowledge_plane import repo_root
 
@@ -156,13 +156,53 @@ def sync(root, apply=False, run=gh_runner):
         drift = plan(current, [want])
         problems.extend(drift)
         if apply and drift:
-            try:
-                run(["label", "create", want["name"], "--force",
-                     "--color", want["color"],
-                     "--description", want["description"]])
-            except GH_FAILURES as err:
-                problems.append(f"L: gh label create {want['name']} failed:"
-                                f" {gh_detail(err)}")
+            problems.extend(f"L: {suffix}"
+                            for suffix in _create(want["name"], want, run))
+    return problems
+
+
+def _create(name, want, run):
+    """Create label `name` through gh: with the taxonomy entry `want`'s
+    colour and description when there is one (--force, so gh updates a
+    name that already exists), bare when there is none. The one spelling
+    of `gh label create` (issue #856). Returns problem suffixes,
+    unprefixed, like live_labels."""
+    args = ["label", "create", name]
+    if want is not None:
+        args += ["--force", "--color", want["color"],
+                 "--description", want["description"]]
+    try:
+        run(args)
+    except GH_FAILURES as err:
+        return [f"gh label create {name} failed: {gh_detail(err)}"]
+    return []
+
+
+def ensure(root, names, run=gh_runner):
+    """Create each of `names` the live repo lacks, before a tool writes
+    it: `gh issue edit --add-label X` and `gh issue create --label X`
+    abort when X does not exist. Each is created with the taxonomy's
+    colour and description where labels.json carries it, bare otherwise —
+    a tools-only stamp never installs labels.json (#726).
+
+    Absent labels only: a live label whose colour or description drifted
+    can still be written, so that drift stays sync's to report. Nothing
+    is deleted. A taxonomy that fails to load is read for whatever DID
+    parse; its problems are detector J's and L's to report, not a reason
+    to leave a label the caller is about to write uncreated.
+
+    Returns problem suffixes, unprefixed (the live_labels convention):
+    each caller owns its prefix. An unusable listing creates nothing."""
+    taxonomy = (load_labels(root)[0] if taxonomy_path(root) is not None
+                else [])
+    known = {label["name"]: label for label in taxonomy}
+    listing, problems = live_labels(run)
+    if listing is None:
+        return problems
+    live = set(label_names(listing))
+    for name in names:
+        if name not in live:
+            problems += _create(name, known.get(name), run)
     return problems
 
 

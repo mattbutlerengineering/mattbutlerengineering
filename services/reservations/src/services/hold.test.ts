@@ -158,6 +158,60 @@ describe("holdService", () => {
       });
     }
 
+    describe("booking window", () => {
+      const request = (time: string, date = "2026-05-05") => ({
+        venueId: "venue-1",
+        date,
+        time,
+        partySize: 2,
+        tableId: "table-1",
+      });
+
+      it("rejects a hold for a slot already past, before reading conflict data", async () => {
+        vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+          id: "venue-1",
+          ianaTimezone: "America/New_York",
+          settings: null,
+        } as never);
+
+        const result = await holdService.create(request("2026-05-05T17:30:00Z"), "session-abc"); // NOW - 30min
+
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/booking window/i);
+        expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it("rejects a slot inside minAdvanceBooking", async () => {
+        vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+          id: "venue-1",
+          ianaTimezone: "America/New_York",
+          settings: { minAdvanceBooking: 2 },
+        } as never);
+
+        const result = await holdService.create(request("2026-05-05T19:00:00Z"), "session-abc");
+
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/booking window/i);
+      });
+
+      it("rejects a slot beyond maxAdvanceBooking", async () => {
+        vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+          id: "venue-1",
+          ianaTimezone: "America/New_York",
+          settings: { maxAdvanceBooking: 3 },
+        } as never);
+
+        const result = await holdService.create(
+          request("2026-05-20T22:00:00Z", "2026-05-20"),
+          "session-abc"
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/booking window/i);
+      });
+    });
+
     it("returns error when venue not found", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(null as never);
 
@@ -284,6 +338,38 @@ describe("holdService", () => {
           excludeSessionId: "session-abc",
         })
       );
+    });
+
+    it("passes the named table's fit fields to assertBookable and reports a misfit", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+        id: "venue-1",
+        settings: null,
+      } as never);
+      vi.mocked(prisma.table.findUnique)
+        .mockResolvedValueOnce({ venueId: "venue-1" } as never)
+        .mockResolvedValueOnce({ capacity: 2, minCovers: 1, maxCovers: null } as never);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PARTY_DOES_NOT_FIT",
+        message: "Party size 12 does not fit this table",
+      });
+
+      const result = await holdService.create(
+        {
+          venueId: "venue-1",
+          date: "2026-05-05",
+          time: "2026-05-05T22:00:00Z",
+          partySize: 12,
+          tableId: "table-1",
+        },
+        "session-abc"
+      );
+
+      expect(assertBookable).toHaveBeenCalledWith(
+        expect.objectContaining({ table: { capacity: 2, minCovers: 1, maxCovers: null } })
+      );
+      expect(result.success).toBe(false);
+      expect(result.partyDoesNotFit).toBe(true);
     });
 
     it("returns error when specified table has conflict (assertBookable returns CONFLICT)", async () => {

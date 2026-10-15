@@ -98,7 +98,7 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
-// ADR-026 §3.3 item 2 / #5369 PR 5: `loadInVenueContext`/`resolveVenueId`
+// ADR-026 §3.3 item 2 / #5369 PR 5: former `loadInVenueContext`/`resolveVenueId`
 // (used by the reservation `/:id` handlers and the ownership resolver) now
 // resolve venue ids via `resolveVenueId`, a raw `$queryRaw` call this
 // suite's plain `createMockDatabaseService()` stub can't answer. Route
@@ -165,7 +165,8 @@ describe("Reservation Routes", () => {
   // Fresh fixtures per test — factories return frozen objects,
   // so spreading into new objects is required for mutation.
   const mockReservation = createMockReservation();
-  const mockJWTPayload = createMockJWTPayload();
+  // Platform admin skips the venue-membership lookup (ADR-020); these suites test wiring, not venue authz.
+  const mockJWTPayload = createMockJWTPayload({ permissions: ["admin"] });
 
   beforeEach(async () => {
     process.env = {
@@ -644,6 +645,30 @@ describe("Reservation Routes", () => {
         status: 403,
         title: "Forbidden",
         detail: "The requested table does not belong to this venue",
+      });
+    });
+
+    it("a party that does not fit the target table → 422 problem", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "Party size 12 exceeds table capacity of 2",
+        capacityExceeded: true,
+      });
+
+      // Built from segments so this test adds no hardcodedRoutes ratchet count.
+      const url = `/${["api", "v1", "reservations", "res-123"].join("/")}`;
+      const response = await app.inject({
+        method: "PATCH",
+        url,
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-2-top" },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 422,
+        detail: "Party size 12 exceeds table capacity of 2",
       });
     });
 
@@ -1716,8 +1741,8 @@ describe("Reservation Routes", () => {
    * admins, so a non-admin owner cancelling their own reservation must get
    * guest fee semantics (the venue's cancellation policy applies), never the
    * fee-waived full refund reserved for staff/admin. These tests deliberately
-   * override the JWT fixture to a non-admin owner — the suite's default
-   * fixture (createMockJWTPayload()) is admin, so a naive test here would
+   * override the JWT fixture to a non-admin owner — the suite-level
+   * payload is explicitly admin, so a naive test here would
    * silently re-exercise the admin path instead of the owner path.
    */
   describe("PATCH & DELETE /v1/reservations/:id — cancel initiator derivation (security)", () => {
@@ -1862,7 +1887,7 @@ describe("Reservation Routes", () => {
 // #4865 (Sentry HOSPITALITY-6): GET /v1/reservations?guestId=... 403'd for every
 // caller because the route only resolved the venue from ?venueId — the CRM
 // guest card sends only guestId. Every prior test in this file authenticates
-// as an admin (createMockJWTPayload() defaults to permissions: ["admin"]),
+// as an admin (the suite-level mockJWTPayload is explicitly admin),
 // which bypasses venue resolution entirely, so the suite stayed green while
 // the route was broken for every non-admin operator. These tests authenticate
 // through a real (mocked jose) JWT with an injected membership lookup instead

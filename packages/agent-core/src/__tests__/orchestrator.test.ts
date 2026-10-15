@@ -19,6 +19,7 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 import { query, tool } from "@anthropic-ai/claude-agent-sdk";
+import { AgentSessionStatusSchema } from "@mbe/types";
 import { runOrchestrator } from "../orchestrator.js";
 
 function createConfig(overrides: Partial<OrchestratorConfig> = {}): OrchestratorConfig {
@@ -910,12 +911,52 @@ describe("orchestrator MCP tool handlers", () => {
       }),
     });
 
-    await handlers["list_sessions"]!({ status: "running", page: 2, limit: 10 });
+    await handlers["list_sessions"]!({ status: "RUNNING", page: 2, limit: 10 });
 
     const fetchUrl = mockFetch.mock.calls[0]![0] as string;
-    expect(fetchUrl).toContain("status=running");
+    expect(fetchUrl).toContain("status=RUNNING");
     expect(fetchUrl).toContain("page=2");
     expect(fetchUrl).toContain("limit=10");
+  });
+
+  it("list_sessions status enum is the server's AgentSessionStatusSchema vocabulary", async () => {
+    await captureToolHandlers();
+
+    const listCall = vi.mocked(tool).mock.calls.find((c) => c[0] === "list_sessions")!;
+    const shape = listCall[2] as unknown as {
+      status: { unwrap(): { options: readonly string[] } };
+    };
+    expect([...shape.status.unwrap().options]).toEqual([...AgentSessionStatusSchema.options]);
+  });
+
+  it("sub-session calls carry the Authorization header from getAccessToken", async () => {
+    vi.mocked(query).mockReturnValueOnce(
+      createMockAsyncGenerator([
+        {
+          type: "result",
+          subtype: "success",
+          result: "Done",
+          total_cost_usd: 0,
+          num_turns: 1,
+          session_id: "o",
+        },
+      ])() as ReturnType<typeof query>
+    );
+    await runOrchestrator(createConfig({ getAccessToken: () => "caller-token" }));
+    const handler = vi.mocked(tool).mock.calls.find((c) => c[0] === "check_session")![3] as (
+      a: Record<string, unknown>
+    ) => Promise<unknown>;
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { id: "s1", status: "running", taskDescription: "x" } }),
+    });
+
+    await handler({ sessionId: "s1" });
+
+    const init = mockFetch.mock.calls[0]![1] as { headers: Record<string, string> | Headers };
+    const headers = new Headers(init.headers);
+    expect(headers.get("Authorization")).toBe("Bearer caller-token");
   });
 
   it("cancel_session returns success on successful cancellation", async () => {

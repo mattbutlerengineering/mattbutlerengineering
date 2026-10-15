@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { closeSync, openSync, readdirSync, readSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { SourceFile } from "./types.js";
 
@@ -22,6 +22,7 @@ const TEXT_EXTENSIONS = new Set([
   ".sh",
   ".bash",
   ".zsh",
+  ".py",
   ".yml",
   ".yaml",
   ".toml",
@@ -33,6 +34,22 @@ const MAX_FILE_BYTES = 512 * 1024;
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf(".");
   return dot === -1 ? "" : name.slice(dot).toLowerCase();
+}
+
+/** Extension-less files (bin/ scripts) are only scanned when they start with a shebang. */
+function hasShebang(path: string): boolean {
+  const fd = openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(2);
+    return readSync(fd, buf, 0, 2, 0) === 2 && buf.toString("latin1") === "#!";
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function isScannable(name: string, full: string): boolean {
+  const ext = extensionOf(name);
+  return ext === "" ? hasShebang(full) : TEXT_EXTENSIONS.has(ext);
 }
 
 /**
@@ -53,7 +70,7 @@ export function collectFiles(rootDir: string): SourceFile[] {
         continue;
       }
       if (!entry.isFile()) continue; // ignore symlinks/sockets — never follow them
-      if (!TEXT_EXTENSIONS.has(extensionOf(entry.name))) continue;
+      if (!isScannable(entry.name, full)) continue;
       if (statSync(full).size > MAX_FILE_BYTES) continue;
       const relPath = relative(rootDir, full).split(sep).join("/");
       out.push({ relPath, content: readFileSync(full, "utf8") });

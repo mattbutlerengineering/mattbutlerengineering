@@ -126,17 +126,6 @@
       export function createRawBodyCaptureHook(): preParsingAsyncHookHandler { /* ... */ }
     </item>
   </file>
-  <file path="src/middleware/require-manage-token.ts">
-    <item priority="medium">
-      function extractManageToken(request: FastifyRequest): string | undefined { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function requireManageToken(
-        request: FastifyRequest,
-        reply: FastifyReply
-      ): Promise<void> { /* ... */ }
-    </item>
-  </file>
   <file path="src/middleware/venue-context.ts">
     <item priority="low">
       interface VenueContextClient {
@@ -155,14 +144,6 @@
         venueId: string | null | undefined,
         options: SetVenueContextOptions = {}
       ): Promise<void> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function venueContextPreHandler(
-        resolveVenueId: VenueIdResolver
-      ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isThenable(value: unknown): value is PromiseLike<string | null | undefined> { /* ... */ }
     </item>
   </file>
   </section>
@@ -306,10 +287,10 @@
   </file>
   <file path="src/routes/load-reservation-for-manage.ts">
     <item priority="low">
-      type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 404; reas | { ok: false; status: 409; reas;
+      type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 409; reas;
     </item>
     <item priority="high">
-      export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> { /* ... */ }
+      export function guardManageState(reservation: Reservation): ManagePreambleResult { /* ... */ }
     </item>
     <item priority="low">
       type ManageAction = "cancel" | "modify";
@@ -339,6 +320,49 @@
       export const manageReservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/manage-token-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      interface ManageTokenScope {
+        venueId: string;
+        reservation: Reservation;
+        token: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManageTokenScopeSpec {
+        missing: (reply: ReplyOf<RG>, request: RequestOf<RG>) => unknown;
+      }
+    </item>
+    <item priority="low">
+      type ManageTokenHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="medium">
+      function extractManageToken(request: FastifyRequest): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function deny(reply: FastifyReply, status: number, title: string, detail: string): FastifyReply { /* ... */ }
+    </item>
+    <item priority="high">
+      export function manageTokenScoped<RG extends RouteGenericInterface = RouteGenericInterface>(
+        spec: ManageTokenScopeSpec<RG>,
+        handler: ManageTokenHandler<RG>
+      ): Handler<RG> { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/modify-reservation.ts">
     <item priority="high">
       interface ModifyBody {
@@ -351,6 +375,20 @@
     </item>
     <item priority="high">
       export const modifyReservationRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/named-venue.ts">
+    <item priority="high">
+      export const queryVenueId: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export const bodyVenueId: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export function inNamedVenueContext<T>(
+        venueId: string | null | undefined,
+        work: () => Promise<T>
+      ): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/public-availability.ts">
@@ -395,11 +433,11 @@
     </item>
   </file>
   <file path="src/routes/public-holds.ts">
-    <item priority="low">
-      async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> { /* ... */ }
-    </item>
     <item priority="medium">
       function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sessionIdOf(request: FastifyRequest): string { /* ... */ }
     </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
@@ -436,6 +474,50 @@
     </item>
     <item priority="high">
       export const publicUnsubscribeRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/public-venue-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      interface PublicNotFound {
+        title: string;
+        detail: string;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueScopeSpec {
+        slug: (request: RequestOf<RG>) => string;
+        notFound?: (slug: string) => PublicNotFound | Error;
+        before?: (request: RequestOf<RG>, reply: ReplyOf<RG>) => unknown;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueScope {
+        venueId: string;
+        slug: string;
+      }
+    </item>
+    <item priority="low">
+      type PublicScopedHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="high">
+      export function publicVenueScoped<RG extends RouteGenericInterface = RouteGenericInterface>(
+        spec: PublicVenueScopeSpec<RG>,
+        handler: PublicScopedHandler<RG>
+      ): Handler<RG> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/public-venues.ts">
@@ -529,6 +611,9 @@
       type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
     </item>
     <item priority="high">
+      export function inWindowDate(daysAhead: number): string { /* ... */ }
+    </item>
+    <item priority="high">
       export const ADMIN_HEADERS: Record<string, string>;
     </item>
     <item priority="high">
@@ -615,6 +700,12 @@
       async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
     </item>
     <item priority="low">
+      async function createDisposableNotifiedWaitlistEntry(
+        ctx: SweepContext,
+        venueId: string
+      ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
       async function createDisposableReservation(
         ctx: SweepContext,
         venueId: string,
@@ -697,31 +788,6 @@
     </item>
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
-    </item>
-  </file>
-  <file path="src/routes/venue-access.ts">
-    <item priority="high">
-      export const venueIdFromQuery: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export const venueIdFromBody: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export const venueIdFromParams: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export function venueIdFromEntity(
-        kind: EntityKind,
-        getKey: (request: FastifyRequest) => unknown
-      ): VenueIdResolver { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function loadInVenueContext<T>(
-        kind: EntityKind,
-        key: string,
-        load: () => Promise<T>,
-        fallback: T
-      ): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/venue-scope.ts">
@@ -889,15 +955,15 @@
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     <item priority="low">
-      type BookableError = { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
+      type BookableError = { code: "PARTY_DOES_NOT_FIT";  | { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
     </item>
     <item priority="low">
       interface AssertBookableOptions {
         tableId: string;
+        table?: PartyFitTable;
         window: { startTime: Date; endTime: Date };
         partySize: number;
         settings: VenueSettings | null | undefined;
-        reservations: ReservationSlim[];
       }
     </item>
     <item priority="high">
@@ -1392,11 +1458,17 @@
         updatedAt: Date;
       }): Guest { /* ... */ }
     </item>
+    <item priority="low">
+      async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> { /* ... */ }
+    </item>
     <item priority="high">
       export const guestService: unknown;
     </item>
   </file>
   <file path="src/services/hold.ts">
+    <item priority="high">
+      export const BOOKING_WINDOW_ERROR: unknown;
+    </item>
     <item priority="medium">
       function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
     </item>
@@ -1406,6 +1478,7 @@
         hold?: ReservationHold;
         error?: string;
         tableNotInVenue?: boolean;
+        partyDoesNotFit?: boolean;
       }
     </item>
     <item priority="high">
@@ -1691,6 +1764,12 @@
         deposits: DepositService
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
+    <item priority="low">
+      async function checkBookingWindow(
+        reservation: Reservation,
+        changes: ReservationChanges
+      ): Promise<ModifyReservationResult | null> { /* ... */ }
+    </item>
     <item priority="high">
       export async function modifyReservation(
         reservation: Reservation,
@@ -1973,6 +2052,26 @@
         date: string
       ): DaySchedule | null { /* ... */ }
     </item>
+    <item priority="low">
+      interface BookingWindow {
+        earliest: Date;
+        latestLocalDate: string | null;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function addCalendarDays(date: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookingWindow(
+        settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+        now: Date,
+        ianaTimezone: string
+      ): BookingWindow { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];
     </item>
@@ -2197,6 +2296,9 @@
     <item priority="high">
       export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> { /* ... */ }
     </item>
+    <item priority="high">
+      export async function loadTableFit(tableId: string): Promise<PartyFitTable | undefined> { /* ... */ }
+    </item>
   </file>
   <file path="src/services/table.ts">
     <item priority="high">
@@ -2223,9 +2325,6 @@
     </item>
   </file>
   <file path="src/services/venue-context-store.ts">
-    <item priority="high">
-      export function enterVenueContext(venueId: string | null): void { /* ... */ }
-    </item>
     <item priority="high">
       export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> { /* ... */ }
     </item>
@@ -2336,6 +2435,39 @@
       export const venueService: unknown;
     </item>
   </file>
+  <file path="src/services/waitlist-estimate.ts">
+    <item priority="low">
+      type EstimateTable = TableFilter;
+    </item>
+    <item priority="low">
+      interface EstimateReservation {
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        status: string;
+      }
+    </item>
+    <item priority="low">
+      interface EstimateInput {
+        position: number;
+        partySize: number;
+        now: Date;
+        tables: readonly EstimateTable[];
+        reservations: readonly EstimateReservation[];
+      }
+    </item>
+    <item priority="medium">
+      function freeInMs(
+        tableId: string,
+        now: number,
+        durationMs: number,
+        reservations: readonly EstimateReservation[]
+      ): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateWaitFromTurnover(input: EstimateInput): number | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/waitlist-notifier.ts">
     <item priority="low">
       interface WaitlistNotifierLogger {
@@ -2404,6 +2536,28 @@
       export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): WaitlistNotifier { /* ... */ }
     </item>
   </file>
+  <file path="src/services/waitlist-status-token.ts">
+    <item priority="high">
+      export const WAITLIST_STATUS_TOKEN_TTL_MS: unknown;
+    </item>
+    <item priority="medium">
+      function sign(entryId: string, venueId: string, expiry: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function generateWaitlistStatusToken(
+        entryId: string,
+        venueId: string,
+        now: number = Date.now()
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function verifyWaitlistStatusToken(
+        token: string,
+        venueId: string,
+        now: number = Date.now()
+      ): { valid: false } | { valid: true; entryId: string } { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/waitlist-utils.ts">
     <item priority="high">
       export function calculatePosition(existingCount: number): number { /* ... */ }
@@ -2418,6 +2572,9 @@
     </item>
   </file>
   <file path="src/services/waitlist.ts">
+    <item priority="high">
+      export const NOTIFY_CLAIM_WINDOW_MS: unknown;
+    </item>
     <item priority="low">
       interface WaitlistEntryData {
         id: string;
@@ -2435,6 +2592,12 @@
         guestPhone: string;
         avgTurnTimeMinutes?: number;
       }
+    </item>
+    <item priority="low">
+      async function loadEstimator(
+        venueId: string,
+        now: Date
+      ): Promise<(position: number, partySize: number) => number | null> { /* ... */ }
     </item>
     <item priority="low">
       async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }

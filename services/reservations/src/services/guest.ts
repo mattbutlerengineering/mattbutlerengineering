@@ -9,8 +9,10 @@ import type {
   GuestSegment,
   PaginatedResponse,
 } from "@mbe/types";
+import { REPEAT_VISIT_THRESHOLD, VIP_TAG, VIP_VISIT_THRESHOLD } from "@mbe/types";
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
+import { setVenueContext } from "../middleware/venue-context.js";
 import { prisma } from "./database.js";
 import { runLapsedGuestScan, type LapsedGuestScanDeps } from "./lapsed-guest-scan.js";
 import { buildGuestUpdateData } from "./guest-identity.js";
@@ -76,6 +78,40 @@ function mapPrismaGuest(guest: {
     createdAt: guest.createdAt.toISOString(),
     updatedAt: guest.updatedAt.toISOString(),
   };
+}
+
+/**
+ * VIP / New counts using the shared segment rules (`classifyGuestSegment` in @mbe/types):
+ * VIP = `vip` tag (any case) OR VIP_VISIT_THRESHOLD+ visits; New = not VIP and fewer than
+ * REPEAT_VISIT_THRESHOLD visits. Tags are a JSON array, so membership needs SQL — Prisma's
+ * `array_contains` is case-sensitive and would disagree with the client badge.
+ */
+async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> {
+  // `$queryRaw` bypasses venue-scoped-prisma's per-call wrap and `guests` is FORCE RLS, so open
+  // an explicit transaction and set app.venue_id first or the count sees 0 rows (ADR-026 part 6).
+  const rows = await prisma.$transaction(async (tx) => {
+    await setVenueContext(tx, venueId);
+    return tx.$queryRaw<{ vip: number; fresh: number }[]>`
+    SELECT
+      count(*) FILTER (WHERE is_vip)::int AS vip,
+      count(*) FILTER (WHERE NOT is_vip AND visit_count < ${REPEAT_VISIT_THRESHOLD})::int AS fresh
+    FROM (
+      SELECT
+        visit_count,
+        (
+          visit_count >= ${VIP_VISIT_THRESHOLD}
+          OR CASE
+            WHEN jsonb_typeof(tags) = 'array' THEN EXISTS (
+              SELECT 1 FROM jsonb_array_elements_text(tags) AS tag WHERE lower(tag) = ${VIP_TAG}
+            )
+            ELSE false
+          END
+        ) AS is_vip
+      FROM guests
+      WHERE venue_id = ${venueId}
+    ) AS g`;
+  });
+  return { vip: rows[0]?.vip ?? 0, fresh: rows[0]?.fresh ?? 0 };
 }
 
 export const guestService = {
@@ -148,6 +184,7 @@ export const guestService = {
         email: existing.email,
         phone: existing.phone,
         dietaryRestrictions: existing.dietaryRestrictions as string[] | null,
+        notes: existing.notes,
       };
       const updateData = buildGuestUpdateData(snapshot, data);
       if (Object.keys(updateData).length > 0) {
@@ -370,10 +407,9 @@ export const guestService = {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-    const [totalGuests, vipGuests, recentVisitors, atRiskGuests, lapsedGuests, newGuests] =
+    const [totalGuests, recentVisitors, atRiskGuests, lapsedGuests, segmentCounts] =
       await Promise.all([
         prisma.guest.count({ where: { venueId } }),
-        prisma.guest.count({ where: { venueId, visitCount: { gte: 5 } } }),
         prisma.guest.count({ where: { venueId, lastVisit: { gte: thirtyDaysAgo } } }),
         prisma.guest.count({
           where: { venueId, lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo } },
@@ -384,16 +420,21 @@ export const guestService = {
             OR: [{ lastVisit: { lt: ninetyDaysAgo } }, { lastVisit: null, visitCount: { gt: 0 } }],
           },
         }),
-        prisma.guest.count({ where: { venueId, visitCount: 0 } }),
+        countVipAndNew(venueId),
       ]);
+    const { vip: vipGuests, fresh: newGuests } = segmentCounts;
 
     return [
       { name: "All Guests", description: "Total guests in database", count: totalGuests },
-      { name: "VIP", description: "Guests with 5+ visits", count: vipGuests },
+      {
+        name: "VIP",
+        description: `Tagged VIP or ${VIP_VISIT_THRESHOLD}+ visits`,
+        count: vipGuests,
+      },
       { name: "Recent", description: "Visited in the last 30 days", count: recentVisitors },
       { name: "At Risk", description: "No visit in 30-90 days", count: atRiskGuests },
       { name: "Lapsed", description: "No visit in 90+ days", count: lapsedGuests },
-      { name: "New", description: "Booked but never visited", count: newGuests },
+      { name: "New", description: `Fewer than ${REPEAT_VISIT_THRESHOLD} visits`, count: newGuests },
     ];
   },
 

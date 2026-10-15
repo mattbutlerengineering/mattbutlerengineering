@@ -1,9 +1,11 @@
+import { resolveBuildInfo } from "@mbe/observability/build-info";
+
 declare const process: { env: Record<string, string | undefined> } | undefined;
 
 export interface SentryConfig {
   readonly dsn: string;
   readonly environment: string;
-  readonly release: string | undefined;
+  readonly release: string;
   readonly enabled: boolean;
 }
 
@@ -17,7 +19,7 @@ export function resolveConfig(dsn: string | undefined): SentryConfig {
       "development",
     release:
       (typeof process !== "undefined" ? process.env.SENTRY_RELEASE : undefined) ??
-      (typeof process !== "undefined" ? process.env.npm_package_version : undefined),
+      resolveBuildInfo(typeof process !== "undefined" ? process.env : {}).version,
     enabled: resolvedDsn.length > 0,
   };
 }

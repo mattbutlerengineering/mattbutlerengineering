@@ -221,6 +221,20 @@
       /** Base URL for manage links in SMS messages. Required when smsAdapter is non-null. */
       smsManageBaseUrl?: string;
     }
+    export type ReminderChannel = "email" | "sms";
+    export interface ReminderOptions {
+      /** Channels already delivered on an earlier attempt — not re-sent on retry. */
+      skipChannels?: readonly ReminderChannel[];
+    }
+    export class PartialDeliveryError extends Error {
+      constructor(
+        readonly deliveredChannels: readonly ReminderChannel[],
+        readonly failures: readonly unknown[]
+      ) {
+        super(`Reminder partially delivered; delivered: ${deliveredChannels.join(", ")}`);
+        this.name = "PartialDeliveryError";
+      }
+    }
     export class NotificationDispatcher {
       private readonly emailAdapter: NotificationPort;
       private readonly smsAdapter: SmsPort | null;
@@ -253,20 +267,28 @@
         );
       }
     
-      private shouldSendSms(preference: CommunicationPreference): boolean {
-        return (preference === "sms_only" || preference === "both") && this.smsAdapter !== null;
+      private shouldSendSms(preference: CommunicationPreference, guestPhone?: string | null): boolean {
+        return (
+          (preference === "sms_only" || preference === "both") &&
+          this.smsAdapter !== null &&
+          Boolean(guestPhone?.trim())
+        );
       }
     
       /**
        * Returns true when an sms_only guest must receive a message via email
-       * because no SMS adapter is configured.
+       * because SMS cannot be delivered (no SMS adapter configured, or the guest
+       * has no phone number).
        *
        * Used for messages that CAN travel via SMS (e.g. reminders) — when the
        * SMS channel is unavailable, we fall back to email rather than silently
        * dropping the notification.
        */
-      private requiresEmailFallback(preference: CommunicationPreference): boolean {
-        return preference === "sms_only" && this.smsAdapter === null;
+      private requiresEmailFallback(
+        preference: CommunicationPreference,
+        guestPhone?: string | null
+      ): boolean {
+        return preference === "sms_only" && !this.shouldSendSms(preference, guestPhone);
       }
     
       /**
@@ -282,22 +304,45 @@
         await this.emailAdapter.sendBookingConfirmation(emailInput);
       }
     
-      /** Booking reminder — transactional, sent via channel(s) matching preference. */
+      /**
+       * Booking reminder — transactional, sent via channel(s) matching preference.
+       *
+       * Channels are settled independently. If nothing delivered, the first error
+       * is rethrown (safe to retry everything). If some delivered and others
+       * failed, a PartialDeliveryError names the delivered channels so the retry
+       * can pass them back as `skipChannels` and never re-send them.
+       */
       async sendBookingReminder(
         input: BookingNotificationInput,
-        preference: CommunicationPreference
+        preference: CommunicationPreference,
+        options: ReminderOptions = {}
       ): Promise<void> {
-        const sends: Promise<void>[] = [];
+        const skip = new Set(options.skipChannels ?? []);
+        const sends: { channel: ReminderChannel; promise: Promise<void> }[] = [];
     
-        if (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference)) {
-          sends.push(this.emailAdapter.sendBookingReminder(input));
+        if (
+          !skip.has("email") &&
+          (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference, input.guestPhone))
+        ) {
+          sends.push({ channel: "email", promise: this.emailAdapter.sendBookingReminder(input) });
         }
     
-        if (this.shouldSendSms(preference)) {
-          sends.push(this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)));
+        if (!skip.has("sms") && this.shouldSendSms(preference, input.guestPhone)) {
+          sends.push({
+            channel: "sms",
+            promise: this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)),
+          });
         }
     
-        await Promise.all(sends);
+        const results = await Promise.allSettled(sends.map((s) => s.promise));
+        const failures = results.flatMap((r) => (r.status === "rejected" ? [r.reason as unknown] : []));
+        if (failures.length === 0) return;
+        if (failures.length === results.length) throw failures[0];
+    
+        const delivered = sends
+          .filter((_, i) => results[i]!.status === "fulfilled")
+          .map((s) => s.channel);
+        throw new PartialDeliveryError(delivered, failures);
       }
     
       /** Booking modified — transactional. */
@@ -385,7 +430,10 @@
   <file path="src/resend-adapter.ts">
     interface ResendClient {
       emails: {
-        send(payload: Record<string, unknown>): Promise<{ id: string }>;
+        // The SDK resolves `{ data, error }` on API failures rather than throwing.
+        send(
+          payload: Record<string, unknown>
+        ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
       };
     }
     export interface ResendAdapterConfig {
@@ -423,10 +471,24 @@
         this.publicApiBaseUrl = config.publicApiBaseUrl;
       }
     
+      /**
+       * Single send path: converts the SDK's `{ error }` result into a rejection so
+       * the dispatcher, retry policy and failure log see a failed email as failed.
+       */
+      private async send(payload: Record<string, unknown>): Promise<void> {
+        if (!this.resend) return;
+        const { error } = await this.resend.emails.send(payload);
+        if (error) {
+          throw new Error(
+            `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
+          );
+        }
+      }
+    
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
         const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
@@ -444,7 +506,7 @@
       async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
         const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
@@ -455,7 +517,7 @@
       async sendBookingModified(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
         const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
@@ -473,7 +535,7 @@
       async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
         const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
@@ -492,7 +554,7 @@
         if (!this.resend) return;
         const safeGuestName = escapeHtml(input.guestName);
         const safeVenueName = escapeHtml(input.venueName);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: `We miss you, ${input.guestName}!`,
@@ -544,7 +606,7 @@
     </body>
     </html>`;
     
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: guestEmail,
           subject: `Thank you for visiting ${venueName}!`,

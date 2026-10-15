@@ -215,4 +215,29 @@ describe("SegmentedControl", () => {
     );
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
+
+  describe("a11y iteration 4", () => {
+    it("keeps the group reachable by Tab when value matches no segment", () => {
+      render(<SegmentedControl segments={segments} value="" onChange={vi.fn()} />);
+      const tabbable = screen.getAllByRole("radio").filter((r) => r.tabIndex === 0);
+      expect(tabbable).toHaveLength(1);
+      expect(tabbable[0]).toHaveTextContent("Day");
+    });
+
+    it("ArrowLeft with no matching value selects the last segment", async () => {
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="" onChange={onChange} />);
+      screen.getByRole("radio", { name: "Day" }).focus();
+      await userEvent.keyboard("{ArrowLeft}");
+      expect(onChange).toHaveBeenCalledWith("month");
+    });
+
+    it("ArrowRight with no matching value moves past the fallback tab stop", async () => {
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="" onChange={onChange} />);
+      screen.getByRole("radio", { name: "Day" }).focus();
+      await userEvent.keyboard("{ArrowRight}");
+      expect(onChange).toHaveBeenCalledWith("week");
+    });
+  });
 });

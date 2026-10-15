@@ -7,6 +7,7 @@ on:
       - "apps/marketing/**"
       - "apps/hospitality/**"
       - "apps/rialto-web/**"
+      - "scripts/ui-quality/derive-path.*"
       - "packages/rialto/**"
       - "packages/rialto-catalog/**"
       - "packages/auth/**"
@@ -75,6 +76,7 @@ jobs:
               - 'packages/auth/**'
             rialto-web:
               - 'apps/rialto-web/**'
+              - 'scripts/ui-quality/derive-path.*'
               - 'packages/rialto/**'
       - name: Set outputs
         id: result
@@ -135,7 +137,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
           node-version: 22
           cache: "pnpm"
@@ -224,7 +226,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
           node-version: 22
           cache: "pnpm"
@@ -287,7 +289,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
           node-version: 22
           cache: "pnpm"

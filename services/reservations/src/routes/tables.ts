@@ -19,7 +19,7 @@ import {
 import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { TableTransitionError } from "../services/table.js";
-import { venueIdFromBody, venueIdFromQuery } from "./venue-access.js";
+import { bodyVenueId, inNamedVenueContext, queryVenueId } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 
 /** 404 `detail` for a table addressed by `:id`. */
@@ -59,10 +59,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-      ],
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, queryVenueId)],
       schema: {
         summary: "List all tables",
         operationId: "listTables",
@@ -85,7 +82,9 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
     async (request) => {
       const { page, limit } = parsePaginationQuery(request.query);
       const activeOnly = request.query.activeOnly === "true";
-      return tableService.list(page, limit, activeOnly, request.query.venueId);
+      return inNamedVenueContext(request.query.venueId, () =>
+        tableService.list(page, limit, activeOnly, request.query.venueId)
+      );
     }
   );
 
@@ -145,7 +144,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, bodyVenueId)],
       schema: {
         summary: "Create a new table",
         operationId: "createTable",
@@ -176,21 +175,22 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      try {
-        const table = await tableService.create(request.body);
-        return reply.code(201).send({ data: table });
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("Unique constraint")) {
-          const err = new Error("A table with this name already exists") as Error & {
-            statusCode?: number;
-          };
-          err.statusCode = 400;
-          throw err;
+    async (request, reply) =>
+      inNamedVenueContext(request.body.venueId, async () => {
+        try {
+          const table = await tableService.create(request.body);
+          return reply.code(201).send({ data: table });
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("Unique constraint")) {
+            const err = new Error("A table with this name already exists") as Error & {
+              statusCode?: number;
+            };
+            err.statusCode = 400;
+            throw err;
+          }
+          throw error;
         }
-        throw error;
-      }
-    }
+      })
   );
 
   // Update table (requires auth)

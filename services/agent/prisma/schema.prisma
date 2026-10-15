@@ -95,6 +95,7 @@ model StoredSpec {
   id         String   @id @default(cuid())
   userId     String   @map("user_id")
   prompt     String
+  kind       String   @default("generate")
   spec       Json
   rawLines   Json     @map("raw_lines")
   isFavorite Boolean  @default(false) @map("is_favorite")

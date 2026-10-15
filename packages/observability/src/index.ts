@@ -1,3 +1,6 @@
+export { resolveBuildInfo, UNKNOWN_BUILD } from "./build-info.js";
+export type { BuildInfo } from "./build-info.js";
+
 export { initTelemetry } from "./sdk.js";
 export type { OtelConfig } from "./sdk.js";
 

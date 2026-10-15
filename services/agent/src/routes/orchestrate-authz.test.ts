@@ -159,6 +159,38 @@ describe("POST /v1/orchestrate — authorization", () => {
     );
   });
 
+  it("forwards the caller's bearer token to the orchestrator for sub-session calls", async () => {
+    vi.mocked(sessionService.create).mockResolvedValueOnce({
+      ...baseParentSession,
+      userId: CALLER.id,
+    });
+    vi.mocked(sessionService.updateStatus).mockResolvedValue(null);
+    vi.mocked(sessionService.addEvent).mockResolvedValue({
+      id: "event-1",
+      sessionId: "parent-session-1",
+      type: "orchestrator:start",
+      data: {},
+      createdAt: "2026-02-27T00:00:00.000Z",
+    });
+    vi.mocked(runOrchestrator).mockResolvedValueOnce({
+      status: "succeeded",
+      childSessionIds: [],
+      summary: "Done",
+      totalCostUsd: 0,
+      durationMs: 1,
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/v1/orchestrate",
+      headers: { authorization: "Bearer caller-token" },
+      payload: { taskDescription: "Build a notification system" },
+    });
+
+    const config = vi.mocked(runOrchestrator).mock.calls[0]![0];
+    expect(await config.getAccessToken?.()).toBe("caller-token");
+  });
+
   it("lets the caller who started the orchestration read the parent session afterward", async () => {
     const parentSession = { ...baseParentSession, userId: CALLER.id };
     vi.mocked(sessionService.create).mockResolvedValueOnce(parentSession);

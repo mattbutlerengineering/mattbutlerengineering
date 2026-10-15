@@ -9,6 +9,7 @@
  */
 
 import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { buildSuccessResult } from "./sdk-result.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -19,24 +20,6 @@ export interface MockTokenUsage {
   readonly output_tokens: number;
   readonly cache_creation_input_tokens: number;
   readonly cache_read_input_tokens: number;
-}
-
-export interface MockResultMessage {
-  readonly type: "result";
-  readonly subtype: "success" | "error_max_turns" | "error_during_turn";
-  readonly uuid: string;
-  readonly session_id: string;
-  readonly duration_ms: number;
-  readonly duration_api_ms: number;
-  readonly is_error: boolean;
-  readonly num_turns: number;
-  readonly result: string;
-  readonly stop_reason: string;
-  readonly total_cost_usd: number;
-  readonly usage: MockTokenUsage;
-  readonly modelUsage: Record<string, unknown>;
-  readonly permission_denials: unknown[];
-  readonly errors?: readonly string[];
 }
 
 export interface MockClientOptions {
@@ -93,28 +76,18 @@ function buildDeterministicResult(
   callIndex: number,
   tokens: Readonly<{ input: number; output: number }>,
   costUsd: number
-): MockResultMessage {
-  return {
-    type: "result",
-    subtype: "success",
-    uuid: `mock-uuid-${callIndex}`,
-    session_id: `mock-session-${callIndex}`,
-    duration_ms: 1000,
-    duration_api_ms: 900,
-    is_error: false,
-    num_turns: 3,
-    result: `Mock task completed successfully (call ${callIndex})`,
-    stop_reason: "end_turn",
-    total_cost_usd: costUsd,
-    usage: {
-      input_tokens: tokens.input,
-      output_tokens: tokens.output,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
+): SDKResultMessage {
+  return buildSuccessResult(
+    {
+      sessionId: `mock-session-${callIndex}`,
+      numTurns: 3,
+      costUsd,
+      inputTokens: tokens.input,
+      outputTokens: tokens.output,
+      durationMs: 1000,
     },
-    modelUsage: {},
-    permission_denials: [],
-  };
+    `Mock task completed successfully (call ${callIndex})`
+  );
 }
 
 // ── Mock client factory ───────────────────────────────────────────────
@@ -242,7 +215,7 @@ export function createMockClaudeClient(options: MockClientOptions = {}): MockCla
       );
       costHistory.push(deterministicCostUsd);
       tokenHistory.push({ input: deterministicTokens.input, output: deterministicTokens.output });
-      yield result as unknown as SDKMessage;
+      yield result;
     }
   }
 

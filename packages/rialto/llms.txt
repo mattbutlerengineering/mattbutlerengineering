@@ -183,13 +183,19 @@
         toolInput: Record<string, unknown>;
       }
     </item>
+    <item priority="low">
+      interface PermissionDenial {
+        toolName: string;
+        reason: string;
+      }
+    </item>
     <item priority="high">
       interface NDJSONLine {
-        type: "text" | "tool_status" | "element" | "action_request";
+        type: "text" | "tool_status" | "element" | "action_request" | "...;
+        reason?: string;
         content?: string;
         tool?: string;
         status?: string;
-        element?: ChatMessageElement;
       }
     </item>
     <item priority="low">
@@ -205,7 +211,7 @@
         isStreaming: boolean;
         error: Error | null;
         pendingAction: PendingAction | null;
-        send: (content: string) => Promise<void>;
+        activeTool: string | null;
       }
     </item>
     <item priority="high">

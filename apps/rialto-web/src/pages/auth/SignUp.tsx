@@ -133,7 +133,7 @@ export function SignUp() {
     e.preventDefault();
     const fullNameInvalid = fullName.trim() === "";
     const emailInvalid = !isValidEmail(email);
-    const passwordInvalid = password === "";
+    const passwordInvalid = !Object.values(scorePassword(password).satisfied).every(Boolean);
     const agreedInvalid = !agreed;
 
     setFullNameError(fullNameInvalid);
@@ -217,7 +217,7 @@ export function SignUp() {
           disabled={controlsDisabled}
           value={password}
           error={passwordError}
-          hint={passwordError ? "Enter a password" : undefined}
+          hint={passwordError ? "Meet every password requirement below" : undefined}
           onChange={(e) => {
             setPassword(e.target.value);
             if (passwordError) setPasswordError(false);
@@ -254,7 +254,7 @@ export function SignUp() {
             label={
               <Text className={styles.termsText}>
                 I agree to the <Link to="#">Terms of Service</Link> and{" "}
-                <Link to="#">Privacy Policy</Link>
+                <Link to="/privacy">Privacy Policy</Link>
               </Text>
             }
             checked={agreed}
@@ -291,6 +291,7 @@ export function SignUp() {
             type="button"
             className={styles.socialButton}
             disabled={controlsDisabled}
+            onClick={() => toast({ title: "Demo: Google sign-up isn't wired up yet" })}
           >
             Google
           </Button>
@@ -299,6 +300,7 @@ export function SignUp() {
             type="button"
             className={styles.socialButton}
             disabled={controlsDisabled}
+            onClick={() => toast({ title: "Demo: GitHub sign-up isn't wired up yet" })}
           >
             GitHub
           </Button>

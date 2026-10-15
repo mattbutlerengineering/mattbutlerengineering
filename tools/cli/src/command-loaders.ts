@@ -14,16 +14,12 @@ const LOADERS: ReadonlyArray<readonly [string, CommandLoader]> = [
   ["agent", async () => (await import("./commands/agent.js")).agentCommand],
   ["check-model", async () => (await import("./commands/agent.js")).checkModelCommand],
   ["loop", async () => (await import("./commands/loop.js")).loopCommand],
-  ["new", async () => (await import("./commands/new.js")).newCommand],
-  ["up", async () => (await import("./commands/up.js")).upCommand],
-  ["generate", async () => (await import("./commands/generate.js")).generateCommand],
   ["pack", async () => (await import("./commands/pack.js")).packCommand],
   ["pack-changed", async () => (await import("./commands/pack.js")).packChangedCommand],
   ["sync-rules", async () => (await import("./commands/sync-rules.js")).syncRulesCommand],
   ["check-adr", async () => (await import("./commands/adr.js")).checkAdrCommand],
   ["check-deps", async () => (await import("./commands/check-deps.js")).checkDepsCommand],
   ["issue", async () => (await import("./commands/issue.js")).issueCommand],
-  ["health", async () => (await import("./commands/health.js")).healthCommand],
   ["mcp", async () => (await import("./commands/mcp.js")).mcpCommand],
 ];
 

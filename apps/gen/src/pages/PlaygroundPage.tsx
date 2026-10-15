@@ -7,6 +7,7 @@ import { PromptBar } from "../components/PromptBar.js";
 import { TemplateGallery } from "../components/TemplateGallery.js";
 import { KeyboardShortcuts, HelpButton } from "../components/KeyboardShortcuts.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
+import { useShortcuts } from "../hooks/useShortcuts.js";
 import { usePlayground, buildPlaygroundCommandItems } from "../hooks/usePlayground.js";
 import type { PlaygroundSession } from "./usePlaygroundSession.js";
 import styles from "./PlaygroundPage.module.css";
@@ -103,6 +104,8 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     stop,
     toggleFullscreen,
     closeGallery,
+    toggleGallery,
+    toggleShortcuts,
     openGallery,
     openShortcuts,
     closeShortcuts,
@@ -134,6 +137,18 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     toast({ title: "Generating from template...", variant: "accent", duration: 2000 });
     submit(prompt);
   }
+
+  // One global keydown listener, driven by the shared shortcut table. Stop is
+  // only wired while streaming and no dialog owns Escape.
+  useShortcuts({
+    newGeneration: reset,
+    templates: toggleGallery,
+    history: toggleHistory,
+    inspector: toggleInspector,
+    fullscreen: toggleFullscreen,
+    help: toggleShortcuts,
+    stop: isStreaming && !galleryOpen && !shortcutsOpen ? stop : undefined,
+  });
 
   // Command palette items are built by the pure buildPlaygroundCommandItems
   // helper (in usePlayground): it takes this body's session-derived state and

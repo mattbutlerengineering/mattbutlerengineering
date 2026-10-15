@@ -1,4 +1,6 @@
 import { ApiClient } from "./client.js";
+import type { AgentSessionStatusSchema } from "@mbe/types";
+import type { z } from "zod";
 import type { ClientConfig, PerRequestOptions, QueryParams } from "./client.js";
 
 export interface SessionSummary {
@@ -29,8 +31,11 @@ export interface CreateSessionRequest {
   parentId?: string;
 }
 
+type AgentSessionQueryStatus = z.infer<typeof AgentSessionStatusSchema>;
+
 export interface ListSessionsParams {
-  status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  /** Query vocabulary of GET /v1/sessions (AgentSessionStatusSchema), not the lowercase response status. */
+  status?: AgentSessionQueryStatus;
   page?: number;
   limit?: number;
 }

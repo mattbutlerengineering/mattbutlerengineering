@@ -164,6 +164,9 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
           {
             taskDescription,
             apiBaseUrl,
+            // Sub-session calls hit this service's own requireAuth routes —
+            // forward the caller's verified bearer token or every call 401s.
+            getAccessToken: () => bearerToken(request.headers.authorization),
             parentSessionId: parentSession.id,
             model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
             sessionModel: overrides.sessionModel ?? DEFAULT_ORCHESTRATOR_CONFIG.sessionModel,
@@ -220,3 +223,7 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 };
+
+function bearerToken(header: string | undefined): string | null {
+  return header?.startsWith("Bearer ") ? header.slice(7) : null;
+}

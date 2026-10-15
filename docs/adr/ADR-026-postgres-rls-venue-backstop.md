@@ -945,3 +945,49 @@ context venue is visible. This was measured on 2026-10-10: with
 still passed, and this block failed with venue A leaking into venue B's
 context. `rls-force-coverage.ts` guards the `FORCE` set in the ordinary
 `test` job, with no database.
+
+## Amendment 2026-10-12: the part-6 global hook is retired; context comes from `venueScoped`
+
+The rollout's "part 6/7" hook (§3.2 addendum and §3.3 items 4–5) was a global Fastify
+`preHandler` that resolved a `venueId` from the query, body or params and
+entered it into the request's `AsyncLocalStorage` store with `enterWith`
+(`venueContextPreHandler` and `resolveGlobalVenueId` in `app.ts`). That hook
+is **deleted** (venue-scoped-routes run PR 6), along with `enterVenueContext`,
+`routes/venue-access.ts` (`venueIdFromQuery/Body/Params/Entity`,
+`loadInVenueContext`) and the shallow tests that pinned them.
+
+What replaces it, with no change to the policies, the `app.venue_id` variable,
+`SET LOCAL ROLE app_reservations`, or default-deny (§4 "Behavior when unset"):
+
+- **Scoped routes** declare their venue once through `venueScoped`
+  (`routes/venue-scope.ts`). It resolves the venue (one `app_resolve_venue_id`
+  call for entity sources), applies the ADR-020 decision, and only then runs
+  the optional entity `load` and the handler inside `runWithVenueContext`. A
+  caller-supplied `venueId` is therefore never in context before
+  authorization, which the old hook could not guarantee because Fastify runs a
+  shared `preHandler` hook before a route's own guards. A request that is
+  denied never entered a context at all.
+  **Exception:** UNSCOPED routes do not get this guarantee. In particular
+  `GET /api/v1/floor-plans` is guard-less and enters the caller-named
+  `?venueId=` context before any authorization, so only `listForMember`'s
+  membership filter protects it (unchanged from the old hook).
+- **Unscoped routes** are listed with a reason in
+  `routes/venue-scope-coverage.test.ts`, and the `pending-migration` reason is
+  now forbidden by that test. Public, token, webhook, cron and job paths keep
+  their explicit `runWithVenueContext` (unchanged).
+- **UNSCOPED admin fan-out routes enter context explicitly (Matt, 2026-10-12).**
+  `GET`/`POST /api/v1/tables` and `GET`/`POST /api/v1/reservations` are
+  `cross-venue fan-out (admin)` because `venueId` is optional on them: an
+  admin who names no venue gets an unfiltered all-venue list or creates a
+  venue-less row, which `venueScoped` cannot express. Each keeps its own
+  `requireVenueAccess` guard and wraps its handler in `runWithVenueContext`
+  when a venue is named, via `inNamedVenueContext` (`routes/named-venue.ts`);
+  with no venue named it runs with no context, the same default-deny as
+  before. `GET /api/v1/floor-plans` (guard-less, filtered by membership) does
+  the same, and `GET /api/v1/events/stream` reads no table, so it needs no
+  context. These behaviours are pinned against a real database by "UNSCOPED
+  fan-out routes return the right rows" in
+  `rls-route-sweep.integration.test.ts`, which passed with the hook in place
+  and again after it was deleted.
+
+`enterWith` no longer appears anywhere in `services/reservations/src`.

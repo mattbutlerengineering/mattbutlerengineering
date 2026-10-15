@@ -8,7 +8,7 @@
 ```
 Tabs (div wrapper)
 +-- div.tabList (role="tablist", tabIndex=-1, onKeyDown)
-|   +-- button (role="tab", id="tab-{id}", aria-selected, aria-controls="panel-{id}")
+|   +-- button (role="tab", id="tab-{id}", aria-selected, aria-controls="panel-{id}" on the selected tab only)
 |       -- one per tab; tabIndex=0 if active, -1 otherwise
 |   +-- motion.div.indicator -- spring-animated gold underline (aria-hidden)
 +-- div.panel (role="tabpanel", id="panel-{id}", aria-labelledby="tab-{id}")
@@ -75,7 +75,7 @@ interface Tab {
 | `role`            | `"tab"`         | On each tab button                            |
 | `role`            | `"tabpanel"`    | On the active panel                           |
 | `aria-selected`   | `true \| false` | On each tab button                            |
-| `aria-controls`   | `"panel-{id}"`  | Links tab to its panel                        |
+| `aria-controls`   | `"panel-{id}"`  | Selected tab only; inactive panels unmounted  |
 | `id`              | `"tab-{id}"`    | Tab button ID (referenced by panel)           |
 | `aria-labelledby` | `"tab-{id}"`    | Panel references its controlling tab          |
 | `aria-disabled`   | `true`          | On disabled tab buttons                       |

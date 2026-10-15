@@ -1,5 +1,19 @@
 <codebase path="packages/observability">
   <section priority="medium" role="src">
+  <file path="src/build-info.ts">
+    <item priority="high">
+      export const UNKNOWN_BUILD: unknown;
+    </item>
+    <item priority="low">
+      interface BuildInfo {
+        sha: string;
+        version: string;
+      }
+    </item>
+    <item priority="high">
+      export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo { /* ... */ }
+    </item>
+  </file>
   <file path="src/error-rates.ts">
     <item priority="high">
       interface RequestRecord {

@@ -51,6 +51,7 @@
     </item>
     <item priority="low">
       interface WaitlistResult {
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
       }
@@ -262,6 +263,12 @@
     <item priority="medium">
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
+    <item priority="high">
+      export function buildSlotsBody(now: Date): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function slotsResponse(route: Route): Promise<void> { /* ... */ }
+    </item>
     <item priority="medium">
       function emptyPaginated(route: Route): Promise<void> { /* ... */ }
     </item>
@@ -279,6 +286,9 @@
     </item>
     <item priority="high">
       export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
@@ -2059,10 +2069,9 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
-        tables: readonly T[],
-        partySize: number
-      ): T[] { /* ... */ }
+      export function tablesThatFit<
+        T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
+      >(tables: readonly T[], partySize: number): T[] { /* ... */ }
     </item>
   </file>
   <file path="src/utils/service-day.ts">

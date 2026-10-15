@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type * as AuthFastifyModule from "@mbe/auth/fastify";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 
@@ -86,7 +87,7 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
-// ADR-026 §3.3 item 2 / #5369 PR 5: `venueIdFromEntity`/`loadInVenueContext`
+// ADR-026 §3.3 item 2 / #5369 PR 5: former `venueIdFromEntity`/former `loadInVenueContext`
 // (used by entity-addressed preHandlers and handler bodies) now resolve venue
 // ids via `resolveVenueId`, a raw `$queryRaw` call this suite's plain
 // `createMockDatabaseService()` stub can't answer. Route tests exercise
@@ -104,9 +105,19 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
+// Wraps the real requireAuth so every existing test keeps its real
+// behavior (including the AUTH_BYPASS_IN_TESTS / x-auth-bypass path), while
+// a single test can override it with mockImplementationOnce to simulate a
+// misconfigured preHandler that leaves request.user unset (#6520).
+vi.mock("@mbe/auth/fastify", async () => {
+  const actual = await vi.importActual<typeof AuthFastifyModule>("@mbe/auth/fastify");
+  return { ...actual, requireAuth: vi.fn(actual.requireAuth) };
+});
+
 import { floorPlanService } from "../services/floor-plan.js";
 import { tableService } from "../services/table.js";
 import { jwtVerify } from "jose";
+import { requireAuth } from "@mbe/auth/fastify";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { resolveVenueId } from "../services/resolve-venue.js";
 
@@ -245,6 +256,23 @@ describe("Floor Plan Routes", () => {
       });
 
       expect(response.statusCode).toBe(401);
+      expect(floorPlanService.list).not.toHaveBeenCalled();
+      expect(floorPlanService.listForMember).not.toHaveBeenCalled();
+    });
+
+    it("fails closed with 'Authentication required' if requireAuth is ever bypassed and leaves request.user unset (#6520)", async () => {
+      vi.mocked(requireAuth).mockImplementationOnce(async () => {
+        // No-op: simulates requireAuth being removed/misconfigured — it
+        // neither sets request.user nor replies, leaving the handler's own
+        // backstop as the only thing standing between this request and an
+        // unauthenticated read.
+      });
+
+      const response = await app.inject({ method: "GET", url: FLOOR_PLANS_URL });
+
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.detail).toBe("Authentication required");
       expect(floorPlanService.list).not.toHaveBeenCalled();
       expect(floorPlanService.listForMember).not.toHaveBeenCalled();
     });

@@ -2,6 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { JsonInspector } from "./JsonInspector.js";
 
+const mockDownloadJson = vi.fn();
+vi.mock("../utils/downloadJson.js", () => ({
+  downloadJson: (...args: unknown[]) => mockDownloadJson(...args),
+}));
+
+const mockCopy = vi.fn().mockResolvedValue(undefined);
+vi.mock("../hooks/useCopyToClipboard.js", () => ({
+  useCopyToClipboard: () => ({ copied: false, copy: mockCopy }),
+}));
+
 vi.mock("./JsonInspector.module.css", () => ({
   default: {
     inspector: "inspector",
@@ -70,6 +80,33 @@ describe("JsonInspector", () => {
     const rawLines = ['{"key": "value"}'];
     render(<JsonInspector rawLines={rawLines} isStreaming={false} />);
     expect(screen.getByText("Copy")).toBeDefined();
+  });
+
+  it("downloads the parsed lines as one JSON array for a multi-line spec", () => {
+    const rawLines = ['{"op":"add","path":"/a"}', '{"op":"add","path":"/b"}'];
+    render(<JsonInspector rawLines={rawLines} isStreaming={false} />);
+    fireEvent.click(screen.getByText("Download"));
+    expect(mockDownloadJson).toHaveBeenCalledWith([
+      { op: "add", path: "/a" },
+      { op: "add", path: "/b" },
+    ]);
+  });
+
+  it("copies the same single valid JSON document that Download exports", () => {
+    const rawLines = ['{"op":"add","path":"/a"}', '{"op":"add","path":"/b"}'];
+    render(<JsonInspector rawLines={rawLines} isStreaming={false} />);
+    fireEvent.click(screen.getByText("Copy"));
+    const copied = mockCopy.mock.calls[0]?.[0] as string;
+    expect(JSON.parse(copied)).toEqual([
+      { op: "add", path: "/a" },
+      { op: "add", path: "/b" },
+    ]);
+  });
+
+  it("keeps a non-JSON line as a string instead of throwing", () => {
+    render(<JsonInspector rawLines={['{"a":1}', "not json"]} isStreaming={false} />);
+    fireEvent.click(screen.getByText("Download"));
+    expect(mockDownloadJson).toHaveBeenCalledWith([{ a: 1 }, "not json"]);
   });
 
   it("should have download button", () => {

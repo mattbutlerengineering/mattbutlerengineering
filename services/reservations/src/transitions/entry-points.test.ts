@@ -161,7 +161,8 @@ describe("reservation transitions — effects per entry point", () => {
       AUTH_BYPASS_IN_TESTS: "true",
     };
     vi.mocked(jwtVerify).mockResolvedValue({
-      payload: createMockJWTPayload(),
+      // Platform admin skips the venue-membership lookup (ADR-020); this suite tests effects, not venue authz.
+      payload: createMockJWTPayload({ permissions: ["admin"] }),
       protectedHeader: { alg: "RS256" },
     } as never);
     vi.mocked(resolveVenueId).mockResolvedValue("venue-1");

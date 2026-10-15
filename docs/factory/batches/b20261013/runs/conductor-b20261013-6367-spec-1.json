@@ -1,0 +1,76 @@
+{
+  "duration_api_ms": 290511,
+  "stop_reason": "end_turn",
+  "session_id": "73623c77-d3bb-4393-8d60-7cb9d50465b3",
+  "total_cost_usd": 5.826494999999999,
+  "usage": {
+    "input_tokens": 38,
+    "cache_creation_input_tokens": 130272,
+    "cache_read_input_tokens": 2300575,
+    "output_tokens": 18402,
+    "output_tokens_details": { "thinking_tokens": 5435 },
+    "server_tool_use": { "web_search_requests": 0, "web_fetch_requests": 0 },
+    "service_tier": "standard",
+    "cache_creation": { "ephemeral_1h_input_tokens": 130272, "ephemeral_5m_input_tokens": 0 },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1016,
+        "cache_read_input_tokens": 141313,
+        "cache_creation_input_tokens": 1502,
+        "cache_creation": { "ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 1502 },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-fable-5": {
+      "inputTokens": 38,
+      "outputTokens": 18402,
+      "cacheReadInputTokens": 2300575,
+      "cacheCreationInputTokens": 130272,
+      "webSearchRequests": 0,
+      "costUSD": 5.826494999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 5435,
+      "canonicalModel": "claude-fable-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": { "background": 0, "foreground": 0, "unset": 0 },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": { "parent": 0, "user": 0, "system": 0 },
+    "refused": { "depth_limit": 0, "concurrency_limit": 0, "budget": 0 },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 20,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Run complete to the blueprint gate. Issue #6367 was driven as a feature run (`docs/features/hospitality-above-fold-usability/`) via the autorun skill with `stop-after: decompose`; the breakdown is committed and `pr-body.md` sits current and uncommitted at the worktree root.\n\n**Commits on `conductor/b20261013-6367`** (all docs-only):\n- `b67bc93d7` \u2014 `autorun-brief.md` (with `stop-after: decompose`) + `idea.md`\n- `bdeededb8` \u2014 `prd.md` (PRD-1)\n- `d8b1a5b34` \u2014 `architecture.md`\n- `6d8c8ece6` \u2014 `breakdown.md` \u2190 blueprint gate; loop stopped here per the brief\n\n**Stage summary**\n- **Idea** \u2014 grounded the issue in code: `DashboardLayout.module.css` `.content` pads the top at `--rialto-space-xl` (32px) vs 24px sides, under a breadcrumb bar, before every page's own title/status stack. The protocol's work-in-flight check **could not run** (no GitHub credential in this Worker) \u2014 recorded as such, with the Conductor owning batch-level duplication checks.\n- **PRD-1** \u2014 fold budget: six key pages (Home, Reservations, Guests, Timeline, Floor Plans, Waitlist) must show the start of primary content at 1280\u00d7720; audit artifact and automated guard required; `ux: not-applicable` (no new screens/flows, rubric-governed).\n- **Architect** \u2014 measure first with a Playwright content-start-Y spec; one shared lever (drop the `space-xl` top-padding override to match sides); per-page tightening only for pages the audit convicts. No ADR consumed \u2014 nothing cleared the hard-to-reverse/surprising/trade-off bar, so ADR 88-90 stay unused.\n- **Decompose** \u2014 five ordered items from the reserved block: WO-1 measurement spec + committed `audit.md`, WO-2 shared lever, WO-3 data-driven per-page fixes, WO-4 fold guard (red proven, then passing), WO-5 visual-baseline regen from the Linux CI artifact + gate sweep. WO 6-10 unused.\n\n**Aggregated assumptions** (all in artifact frontmatter): in-flight check unrunnable; stages run inline rather than one subagent each to stay inside the $6.44 ceiling (artifacts remained the only inter-stage state); `ux: not-applicable`; key-page set and 1280\u00d7720 gate viewport; `data-testid` landmark as the shared measurement/guard node; no tracker refs on work items so nothing auto-closes #6367.\n\n**Flagged for the Owner at the gate**: whether the six-page key set and the 720px budget match intent, and that WO-3's page list is deliberately left to WO-1's measurement rather than pre-named. Spend ended at ~$5.6 of $6.44.",
+  "ttft_ms": 5369,
+  "type": "result",
+  "duration_ms": 364252,
+  "uuid": "878eff8a-8f43-4cdf-aed6-d0c8ead9833a",
+  "ttft_stream_ms": 2906,
+  "time_to_request_ms": 799,
+  "first_content_frame_ms": 2907,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

@@ -159,10 +159,22 @@
       }: PlaygroundCommandDeps): CommandItem[] { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useShortcuts.ts">
+    <item priority="low">
+      type ShortcutHandlers = Partial<Record<ShortcutAction, () => void>>;
+    </item>
+    <item priority="medium">
+      function isTypingTarget(target: EventTarget | null): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useShortcuts(handlers: ShortcutHandlers): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useSpecsApi.ts">
     <item priority="low">
       interface SaveSpecData {
         prompt: string;
+        kind?: EntryKind;
         spec: unknown;
         rawLines: string[];
       }
@@ -182,6 +194,52 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/entry-kind.ts">
+    <item priority="high">
+      export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
+        kind: EntryKind;
+        prompt: string;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/lib/shortcuts.ts">
+    <item priority="low">
+      type ShortcutAction = "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
+    </item>
+    <item priority="low">
+      type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";
+    </item>
+    <item priority="low">
+      interface ShortcutDef {
+        id: string;
+        label: string;
+        section: ShortcutSection;
+        keys: readonly string[];
+        action?: ShortcutAction;
+      }
+    </item>
+    <item priority="high">
+      export const SHORTCUTS: readonly ShortcutDef[];
+    </item>
+    <item priority="high">
+      export const SHORTCUT_SECTIONS: readonly ShortcutSection[];
+    </item>
+    <item priority="medium">
+      function isMac(): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function displayKeys(def: ShortcutDef, mac: boolean = isMac()): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shortcutKeys(id: string, mac?: boolean): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function matchShortcut(event: KeyboardEvent): ShortcutAction | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/lib/spec.ts">
     <item priority="low">
       interface SpecStats {
@@ -265,12 +323,15 @@
       }
     </item>
     <item priority="low">
+      type EntryKind = "generate" | "refine" | "recover" | "failed";
+    </item>
+    <item priority="low">
       interface StoredSpec {
         id: string;
         userId: string;
         prompt: string;
+        kind?: EntryKind;
         spec: unknown;
-        rawLines: string[];
       }
     </item>
   </file>

@@ -70,7 +70,7 @@ describe("buildApp() shutdown wiring (#5469)", () => {
 
       const res = await app.inject({ method: "GET", url });
       expect(res.statusCode).toBe(200);
-      expect(JSON.parse(res.body)).toMatchObject({ version: "1.0.0" });
+      expect(JSON.parse(res.body)).toMatchObject({ version: "unknown" });
     }
   );
 });

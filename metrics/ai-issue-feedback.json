@@ -1,4 +1,65 @@
 {
-  "collected_at": "2026-10-11T18:05:08.045Z",
-  "error": "Command failed: gh issue list --state closed --limit 200 --json number,state,labels,createdAt,closedAt,stateReason --search label:audit label:ci-fix label:agent-failed label:meta-improvement label:sentry label:acmm label:feature label:dependencies\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+  "collected_at": "2026-10-15T04:00:21.509Z",
+  "period_days": 90,
+  "categories": {
+    "feature": {
+      "total": 63,
+      "accepted": 0,
+      "rejected": 5,
+      "wontfix": 58,
+      "rejection_rate": 0.07936507936507936
+    },
+    "ci-fix": {
+      "total": 51,
+      "accepted": 0,
+      "rejected": 3,
+      "wontfix": 48,
+      "rejection_rate": 0.058823529411764705
+    },
+    "audit": {
+      "total": 39,
+      "accepted": 0,
+      "rejected": 2,
+      "wontfix": 37,
+      "rejection_rate": 0.05128205128205128
+    },
+    "acmm": {
+      "total": 12,
+      "accepted": 0,
+      "rejected": 1,
+      "wontfix": 11,
+      "rejection_rate": 0.08333333333333333
+    },
+    "meta-improvement": {
+      "total": 27,
+      "accepted": 0,
+      "rejected": 3,
+      "wontfix": 24,
+      "rejection_rate": 0.1111111111111111
+    },
+    "sentry": {
+      "total": 6,
+      "accepted": 0,
+      "rejected": 0,
+      "wontfix": 6,
+      "rejection_rate": 0
+    },
+    "dependencies": {
+      "total": 1,
+      "accepted": 0,
+      "rejected": 0,
+      "wontfix": 1,
+      "rejection_rate": 0
+    }
+  },
+  "budgets": {
+    "audit": 3,
+    "ci-fix": 3,
+    "agent-failed": 3,
+    "meta-improvement": 3,
+    "sentry": 3,
+    "acmm": 3,
+    "feature": 3,
+    "dependencies": 3
+  }
 }

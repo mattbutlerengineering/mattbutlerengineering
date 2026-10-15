@@ -12,10 +12,18 @@ vi.mock("./database.js", async () => {
         delete: vi.fn(),
         count: vi.fn(),
       },
+      $queryRaw: vi.fn(),
+      $transaction: vi.fn(),
     },
   });
 });
 
+import {
+  classifyGuestSegment,
+  REPEAT_VISIT_THRESHOLD,
+  VIP_TAG,
+  VIP_VISIT_THRESHOLD,
+} from "@mbe/types";
 import { guestService } from "./guest.js";
 import { prisma } from "./database.js";
 
@@ -197,6 +205,60 @@ describe("guestService", () => {
       });
 
       expect(result.phone).toBe("+19999999999");
+    });
+
+    it("saves notes on a matched guest that has none", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: null }) as never
+      );
+      vi.mocked(prisma.guest.update).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "nut allergy" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: expect.objectContaining({ notes: "nut allergy" }),
+      });
+    });
+
+    it("appends notes to existing notes on a matched guest", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP" }) as never
+      );
+      vi.mocked(prisma.guest.update).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP\nnut allergy" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: expect.objectContaining({ notes: "VIP\nnut allergy" }),
+      });
+    });
+
+    it("does not duplicate a note the matched guest already has", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP\nnut allergy" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).not.toHaveBeenCalled();
     });
 
     it("falls back to phone lookup when email not found", async () => {
@@ -480,60 +542,96 @@ describe("guestService", () => {
   });
 
   describe("getSegments", () => {
-    it("returns all six segment categories", async () => {
+    const order: string[] = [];
+    let txQueryRaw: ReturnType<typeof vi.fn>;
+    let txExecuteRaw: ReturnType<typeof vi.fn>;
+
+    /** Mirrors a real interactive transaction: the callback receives a tx; calls are recorded in order. */
+    function mockCounts(vip: number, fresh: number) {
+      order.length = 0;
+      txQueryRaw = vi.fn(async () => {
+        order.push("queryRaw");
+        return [{ vip, fresh }];
+      });
+      txExecuteRaw = vi.fn(async () => {
+        order.push("setVenueContext");
+        return 0;
+      });
+      vi.mocked(prisma.$transaction).mockImplementation((async (fn: (tx: unknown) => unknown) =>
+        fn({
+          $queryRaw: txQueryRaw,
+          $executeRaw: txExecuteRaw,
+          $executeRawUnsafe: txExecuteRaw,
+        })) as never);
+    }
+
+    it("returns all six segment categories with the shared VIP/New counts", async () => {
       vi.mocked(prisma.guest.count)
         .mockResolvedValueOnce(100 as never) // total
-        .mockResolvedValueOnce(10 as never) // VIP
         .mockResolvedValueOnce(30 as never) // recent
         .mockResolvedValueOnce(20 as never) // at risk
-        .mockResolvedValueOnce(15 as never) // lapsed
-        .mockResolvedValueOnce(25 as never); // new
+        .mockResolvedValueOnce(15 as never); // lapsed
+      mockCounts(10, 25);
 
       const segments = await guestService.getSegments("venue-1");
 
-      expect(segments).toHaveLength(6);
-      expect(segments.map((s) => s.name)).toEqual([
-        "All Guests",
-        "VIP",
-        "Recent",
-        "At Risk",
-        "Lapsed",
-        "New",
+      expect(segments.map((s) => [s.name, s.count])).toEqual([
+        ["All Guests", 100],
+        ["VIP", 10],
+        ["Recent", 30],
+        ["At Risk", 20],
+        ["Lapsed", 15],
+        ["New", 25],
       ]);
-      const [allGuests, vip] = segments;
-      if (!allGuests || !vip) throw new Error("expected at least two segments");
-      expect(allGuests.count).toBe(100);
-      expect(vip.count).toBe(10);
     });
 
-    it("all segment count queries include venueId for index utilisation", async () => {
+    it("all prisma segment count queries include venueId for index utilisation", async () => {
       vi.mocked(prisma.guest.count).mockResolvedValue(0 as never);
+      mockCounts(0, 0);
 
       await guestService.getSegments("venue-1");
 
-      // Every count call must pass venueId so the DB uses guests_venue_id_visit_count_idx
-      // and guests_venue_id_last_visit_idx instead of sequential scans
       const calls = vi.mocked(prisma.guest.count).mock.calls;
-      expect(calls).toHaveLength(6);
+      expect(calls).toHaveLength(4);
       for (const [args] of calls) {
         expect((args as { where: { venueId: string } }).where.venueId).toBe("venue-1");
       }
     });
 
-    it("VIP segment uses visitCount filter that benefits from index", async () => {
+    it("VIP/New are counted in SQL from the shared thresholds and the vip tag, scoped to the venue", async () => {
       vi.mocked(prisma.guest.count).mockResolvedValue(0 as never);
+      mockCounts(0, 0);
 
       await guestService.getSegments("venue-1");
 
-      const calls = vi.mocked(prisma.guest.count).mock.calls;
-      // VIP = index 1, New = index 5
-      const vipCall = calls[1]?.[0] as
-        { where: { venueId: string; visitCount: { gte: number } } } | undefined;
-      const newCall = calls[5]?.[0] as
-        { where: { venueId: string; visitCount: number } } | undefined;
-      if (!vipCall || !newCall) throw new Error("expected VIP and New segment count calls");
-      expect(vipCall.where.visitCount).toEqual({ gte: 5 });
-      expect(newCall.where.visitCount).toBe(0);
+      const [strings, ...values] = txQueryRaw.mock.calls[0] as unknown as [
+        TemplateStringsArray,
+        ...unknown[],
+      ];
+      const sql = strings.join("?");
+      expect(sql).toContain("jsonb_array_elements_text");
+      expect(sql).toContain("venue_id");
+      expect(values).toEqual(
+        expect.arrayContaining([VIP_VISIT_THRESHOLD, REPEAT_VISIT_THRESHOLD, VIP_TAG, "venue-1"])
+      );
+    });
+
+    it("sets the venue RLS context in the same transaction before the raw count (guests is FORCE RLS)", async () => {
+      vi.mocked(prisma.guest.count).mockResolvedValue(0 as never);
+      mockCounts(2, 5);
+
+      const segments = await guestService.getSegments("venue-1");
+
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(order.at(-1)).toBe("queryRaw");
+      expect(order.length).toBeGreaterThan(1);
+      expect(order.slice(0, -1).every((c) => c === "setVenueContext")).toBe(true);
+      expect(segments.find((x) => x.name === "VIP")?.count).toBe(2);
+    });
+
+    it("a 7-visit untagged guest is Repeat, so neither VIP nor New (shared predicate)", () => {
+      expect(classifyGuestSegment(7, null)).toBe("Repeat");
+      expect(classifyGuestSegment(2, ["vip"])).toBe("VIP");
     });
   });
 });

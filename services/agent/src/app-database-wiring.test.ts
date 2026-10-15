@@ -42,7 +42,7 @@ describe("agent database wiring", () => {
     async (url) => {
       const res = await app!.inject({ method: "GET", url });
       expect(res.statusCode).toBe(200);
-      expect(JSON.parse(res.body)).toMatchObject({ status: "ok", version: "1.0.0" });
+      expect(JSON.parse(res.body)).toMatchObject({ status: "ok", version: "unknown" });
     }
   );
 
