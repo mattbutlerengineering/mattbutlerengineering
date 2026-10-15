@@ -3,7 +3,7 @@ import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "../routes/public-reservations.js";
 
-// Minimal app-level integration test for the requireManageToken preHandler.
+// Minimal app-level integration test for the manage-token scope (token + ownership checks).
 // We test via the manage-reservation GET route (simplest passthrough).
 
 vi.mock("../services/reservation.js", () => ({
@@ -71,7 +71,7 @@ const mockVenue = {
   ianaTimezone: "America/Los_Angeles",
 };
 
-describe("requireManageToken preHandler", () => {
+describe("manage-token scope (token + ownership checks)", () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
@@ -131,11 +131,10 @@ describe("requireManageToken preHandler", () => {
     expect(body.status).toBe(401);
   });
 
-  it("decorates request.managedReservationId and passes through for valid token", async () => {
+  it("passes through for valid token", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
@@ -166,10 +165,9 @@ describe("requireManageToken preHandler", () => {
     expect(body.status).toBe(403);
   });
 
-  it("decorates request.managedReservationId and passes through when token is sent as an Authorization: Bearer header", async () => {
+  it("passes through when token is sent as an Authorization: Bearer header", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
@@ -187,7 +185,6 @@ describe("requireManageToken preHandler", () => {
     const headerToken = generateManageToken("res_1", "jane@example.com");
     const bogusQueryToken = "not-a-real-token";
 
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 

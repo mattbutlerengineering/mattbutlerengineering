@@ -755,10 +755,25 @@ Pick the source (`venue:`) and access (`access:`, default `"member"`):
 - **Access:** `"member"` (admin or venue member), `"authenticated"` (any signed-in
   caller), or `{ owner: (entity) => email }` for admin-or-owner routes.
 
+Unauthenticated routes whose authority is not membership use sibling helpers,
+which resolve the venue once and run the handler inside `runWithVenueContext`:
+
+- `publicVenueScoped` (`src/routes/public-venue-scope.ts`) for `/public/v1/venues/:slug/*`
+  and `by-slug`: the slug resolves through `app_resolve_venue_id`; an unknown slug
+  is a 404 whose title/detail each route keeps via `notFound`. Checks that must
+  answer before the slug lookup (per-IP hold cap, `x-session-id`) go in `before`.
+- `manageTokenScoped` (`src/routes/manage-token-scope.ts`) for the manage-token
+  routes: verifies the token (400/410/401), resolves the venue once, loads the
+  reservation once, checks the token email (403), and hands the handler
+  `{ venueId, reservation, token }`. `missing` is the route's own answer when the
+  venue or reservation is gone.
+
+Neither adds route-level `config.rateLimit`; the route keeps its own.
+
 If a route genuinely cannot name a venue, it does not use `venueScoped`; add it
 to `UNSCOPED_ROUTES` in `src/routes/venue-scope-coverage.test.ts` with a reason
 (`cross-venue fan-out`, `cross-venue fan-out (admin)`, `venue-create`,
-`user-scoped (/me)`, `public slug`, `webhook (signature-verified)`, ...).
+`user-scoped (/me)`, `webhook (signature-verified)`, ...).
 `pending-migration` is forbidden. An admin-fan-out route keeps its own
 `requireVenueAccess` guard and enters context itself with `inNamedVenueContext`
 (`src/routes/named-venue.ts`).

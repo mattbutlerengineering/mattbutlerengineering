@@ -35,9 +35,8 @@ import {
   VenueBootstrapForbiddenError,
 } from "../services/venue.js";
 import { tableStatusService } from "../services/table-status.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
 import { venueScoped } from "./venue-scope.js";
+import { publicVenueScoped } from "./public-venue-scope.js";
 
 /**
  * The venue self-routes address the venue by its own `:id`. Membership is
@@ -573,26 +572,26 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const { slug } = request.params;
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: () => ({ title: "Not Found", detail: "Venue not found" }),
+      },
+      async (request, reply) => {
+        const { slug } = request.params;
 
-      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
-      // run the actual lookup inside that venue's RLS context — this route
-      // has no `requireVenueAccess` guard (unauthenticated by design), so the
-      // slug is the only signal available.
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
-      }
+        // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+        // run the actual lookup inside that venue's RLS context — this route
+        // has no `requireVenueAccess` guard (unauthenticated by design), so the
+        // slug is the only signal available.
 
-      return runWithVenueContext(venueId, async () => {
         const venue = await venueService.getPublicBySlug(slug);
         if (!venue) {
           return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
         }
         return { data: venue };
-      });
-    }
+      }
+    )
   );
 
   // Create venue (requires auth)
