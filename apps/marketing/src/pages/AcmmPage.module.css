@@ -30,11 +30,7 @@
 }
 
 .jsonLink {
-  color: var(--rialto-link-color);
-  text-decoration: none;
-}
-
-.jsonLink:hover {
+  color: var(--rialto-text-primary);
   text-decoration: underline;
 }
 

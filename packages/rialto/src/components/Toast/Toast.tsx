@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, useEffect, lazy, Suspense, type ReactNode } from "react";
 import { ToastContext, type ToastData, type ToastInput } from "./ToastContext";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./Toast.module.css";
 
 const ToastAnimated = lazy(() =>
@@ -8,6 +9,7 @@ const ToastAnimated = lazy(() =>
 
 /* ── Provider ────────────────────────────────── */
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { messages } = useRialtoLocale();
   const [toasts, setToasts] = useState<ToastData[]>([]);
   // Once true, keeps ToastAnimated mounted so exit animations play correctly.
   const [everHadToasts, setEverHadToasts] = useState(false);
@@ -57,7 +59,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast, dismiss }}>
       {children}
-      <div className={styles.container} role="region" aria-label="Notifications">
+      <div className={styles.container} role="region" aria-label={messages.notifications}>
         {/* Polite region — info, success, accent, default (non-critical) */}
         <div aria-live="polite" aria-atomic="false">
           {everHadToasts && (

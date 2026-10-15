@@ -6,7 +6,9 @@ import type { RialtoMessages } from "@mattbutlerengineering/rialto/providers";
 import { createLocaleRuntime, LocaleBridge, browserStorage, type RuntimeDeps } from "./runtime.js";
 import type { LocaleTag } from "./locales.js";
 
-const rialtoES: RialtoMessages = { dismiss: "Descartar", close: "Cerrar" };
+import { esMX } from "@mattbutlerengineering/rialto/locales/es-MX";
+
+const rialtoES: RialtoMessages = { ...esMX };
 
 function fakeDeps(overrides: Partial<RuntimeDeps> = {}) {
   const store = new Map<string, string>();

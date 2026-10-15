@@ -18,6 +18,11 @@ const VIEWPORTS = [
 ] as const;
 
 const FOLD_BUDGET_PX = 720;
+// A start under 720 only proves the content is not entirely below the fold; it
+// cannot catch a page regressing by a few dozen pixels (measured: every key
+// page starts at 187-297px). This ratchet sits ~15px above the tallest
+// measured key page (TimelinePage, 297px) so adding header/padding spend fails.
+const CONTENT_START_RATCHET_PX = 312;
 const GUARD_VIEWPORT_LABEL = "1280x720";
 
 // Route path (relative to baseURL) per page. Six are the PRD-1 key pages;
@@ -42,6 +47,9 @@ test.describe("Fold budget measurement", () => {
 
         const primaryContent = mockedPage.getByTestId("primary-content");
         await expect(primaryContent).toBeVisible();
+        // Settle: loading skeletons / late status banners above the landmark
+        // shift it, so a reading taken the moment it appears is not stable.
+        await mockedPage.waitForLoadState("networkidle");
 
         const contentStartY = await primaryContent.evaluate((el) => el.getBoundingClientRect().top);
 
@@ -57,6 +65,7 @@ test.describe("Fold budget measurement", () => {
         // routes and the 1366×768 reading stay report-only (see header note).
         if (guarded && viewport.label === GUARD_VIEWPORT_LABEL) {
           expect(contentStartY).toBeLessThan(FOLD_BUDGET_PX);
+          expect(contentStartY).toBeLessThan(CONTENT_START_RATCHET_PX);
         }
       });
     }

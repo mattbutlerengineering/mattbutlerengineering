@@ -1,9 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
-import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
+import { getSessionLapseCopy } from "../constants/session-lapse-copy.js";
 import styles from "./SessionExpiredGate.module.css";
-
-const STATIONS = ["Browser", "Identity"] as const;
 
 /**
  * Rendered in place of the dashboard once the access token has lapsed
@@ -16,8 +15,11 @@ const STATIONS = ["Browser", "Identity"] as const;
  * after the round-trip.
  */
 export function SessionExpiredGate() {
+  const { t } = useTranslation();
   const { signIn, activeNavigator } = useAuth();
   const inFlight = activeNavigator === "signinRedirect";
+  const copy = getSessionLapseCopy(t);
+  const stations = [t("auth.stations.browser"), t("auth.stations.identity")] as const;
 
   return (
     <div className={styles.gate} data-testid="session-expired">
@@ -28,18 +30,18 @@ export function SessionExpiredGate() {
         <Stack gap="lg" align="center">
           <Handshake
             className={styles.handshake}
-            aria-label="Session with Identity has lapsed"
-            stations={STATIONS}
+            aria-label={t("auth.sessionLapse.label")}
+            stations={stations}
             state={inFlight ? "negotiating" : "idle"}
             size="lg"
           />
 
           <Stack gap="sm" align="center">
             <Text as="h1" variant="display" color="primary">
-              {SESSION_LAPSE_COPY.heading}
+              {copy.heading}
             </Text>
             <Text variant="body" color="secondary">
-              {SESSION_LAPSE_COPY.body}
+              {copy.body}
             </Text>
           </Stack>
 
@@ -48,9 +50,9 @@ export function SessionExpiredGate() {
             size="lg"
             onClick={() => signIn()}
             isLoading={inFlight}
-            loadingText={SESSION_LAPSE_COPY.actionBusy}
+            loadingText={copy.actionBusy}
           >
-            {SESSION_LAPSE_COPY.action}
+            {copy.action}
           </Button>
         </Stack>
       </div>

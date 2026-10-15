@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import React from "react";
@@ -90,5 +93,21 @@ describe("PageHeader", () => {
 
     h1.focus();
     expect(document.activeElement).toBe(h1);
+  });
+});
+
+describe("vertical spend above content (#6367 WO-3)", () => {
+  const css = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), "PageHeader.module.css"),
+    "utf-8"
+  );
+  const headerRule = css.match(/\.header\s*\{([^}]*)\}/)?.[1] ?? "";
+
+  it("adds no top margin: DashboardLayout's content padding already spaces the title", () => {
+    expect(headerRule).not.toMatch(/margin-block-start/);
+  });
+
+  it("separates the title block from content with --rialto-space-md", () => {
+    expect(headerRule).toMatch(/margin-block-end:\s*var\(--rialto-space-md\)/);
   });
 });

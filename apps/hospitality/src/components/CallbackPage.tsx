@@ -1,8 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
 import styles from "./CallbackPage.module.css";
-
-/** The parties to an OIDC sign-in, in the order the credential travels. */
-const STATIONS = ["Browser", "Identity", "API"] as const;
 
 /**
  * Shown on `/callback` while react-oidc-context exchanges the authorization
@@ -14,20 +12,26 @@ const STATIONS = ["Browser", "Identity", "API"] as const;
  * screen reader hears the step once, not twice.
  */
 export function CallbackPage() {
+  const { t } = useTranslation();
+  const stations = [
+    t("auth.stations.browser"),
+    t("auth.stations.identity"),
+    t("auth.stations.api"),
+  ] as const;
   return (
     <div className={styles.container} data-testid="callback-page">
       <Stack gap="lg" align="center">
         <Handshake
           className={styles.handshake}
-          aria-label="Verifying your sign-in"
-          stations={STATIONS}
+          aria-label={t("auth.callback.label")}
+          stations={stations}
           state="negotiating"
           lane={1}
           size="lg"
         />
         <div role="status" aria-live="polite">
           <Text variant="caption" color="tertiary">
-            Exchanging your code for a session
+            {t("auth.callback.status")}
           </Text>
         </div>
       </Stack>

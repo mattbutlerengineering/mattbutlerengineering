@@ -9,7 +9,14 @@ import {
   Stack,
   Divider,
 } from "@mattbutlerengineering/rialto";
-import type { Reservation, Table, UpdateReservationRequest } from "@mbe/types";
+import type {
+  Occasion,
+  Reservation,
+  SeatingPreference,
+  Table,
+  UpdateReservationRequest,
+} from "@mbe/types";
+import { OccasionSeatingFields } from "../reservations/OccasionSeatingFields.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { useFocusAfter } from "../../hooks/useFocusAfter.js";
@@ -50,6 +57,10 @@ export function EditReservationDrawer({
   onClose,
 }: EditReservationDrawerProps) {
   const [tableId, setTableId] = useState(reservation.tableId);
+  const [occasion, setOccasion] = useState<Occasion>(reservation.occasion ?? "none");
+  const [seatingPreference, setSeatingPreference] = useState<SeatingPreference>(
+    reservation.seatingPreference ?? "no_preference"
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
   const saveRef = useRef<HTMLButtonElement>(null);
@@ -87,6 +98,8 @@ export function EditReservationDrawer({
       partySize: parsedPartySize,
       tableId,
       notes: data.notes.trim() || undefined,
+      occasion,
+      seatingPreference,
     };
 
     setIsLoading(true);
@@ -167,6 +180,14 @@ export function EditReservationDrawer({
                 onChange={setTableId}
                 disabled={isLoading}
                 options={tableOptions}
+              />
+
+              <OccasionSeatingFields
+                occasion={occasion}
+                seatingPreference={seatingPreference}
+                onOccasionChange={setOccasion}
+                onSeatingPreferenceChange={setSeatingPreference}
+                disabled={isLoading}
               />
 
               <TextArea label="Notes" rows={4} disabled={isLoading} {...register("notes")} />
