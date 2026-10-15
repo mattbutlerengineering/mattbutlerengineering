@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button, EmptyState, Input, Text } from "@mattbutlerengineering/rialto";
 import styles from "../../pages/GuestsPage.module.css";
 
@@ -27,40 +28,39 @@ export function SearchOrchestrator({
   isEmpty,
   isLoading = false,
 }: SearchOrchestratorProps) {
+  const { t } = useTranslation();
   return (
     <>
       <div className={styles.headerControls}>
         <Input
           type="text"
-          aria-label="Search guests"
-          placeholder="Search guests..."
+          aria-label={t("guests.search.label")}
+          placeholder={t("guests.search.placeholder")}
           value={searchQuery}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value)}
         />
         <Button variant="primary" onClick={onAddGuest}>
-          Add Guest
+          {t("guests.addGuest")}
         </Button>
       </div>
 
       {!isLoading && !isEmpty && (
         <Text variant="caption" color="secondary" className={styles.resultCount}>
-          Showing {guestCount} of {totalCount} guests
+          {t("guests.search.showing", { shown: guestCount, total: totalCount })}
         </Text>
       )}
 
       {!isLoading && isEmpty && (
         <div aria-live="polite" role="status">
           <EmptyState
-            heading={isSearchActive ? "No guests found" : "No guests yet"}
+            heading={isSearchActive ? t("guests.search.noneFound") : t("guests.search.noneYet")}
             description={
-              isSearchActive
-                ? "Try adjusting your search query."
-                : "Get started by adding your first guest."
+              isSearchActive ? t("guests.search.tryAdjusting") : t("guests.search.getStarted")
             }
             action={
               !isSearchActive && (
                 <Button variant="primary" onClick={onAddGuest}>
-                  Add a Guest
+                  {t("guests.addAGuest")}
                 </Button>
               )
             }

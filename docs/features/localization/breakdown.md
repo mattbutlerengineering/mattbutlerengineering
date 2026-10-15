@@ -127,7 +127,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 
 ## Milestone 3: Staff dashboard — every hospitality screen in 4 locales, gates strict
 
-- [ ] **Staff switcher placement** — `footerSlot` on `DashboardSidebar` with sidebar
+- [x] **Staff switcher placement** — `footerSlot` on `DashboardSidebar` with sidebar
       LocalePicker (icon-only when collapsed), Settings "Language & region" row with format
       preview and MT line. (tracker: #6621)
   - Accept: switching from either placement updates the UI in place without losing form
@@ -149,12 +149,12 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       `constants/session-lapse-copy.ts`, `lib/describe-auth-error.ts`. (tracker: #6623)
   - Accept: paths in lint scope, catalogs parity-green, render tests in es-MX.
   - Blocked by: i18n runtime
-- [ ] **Translate Home & Timeline** — `HomePage`, `TimelinePage`, `components/timeline/**`,
+- [x] **Translate Home & Timeline** — `HomePage`, `TimelinePage`, `components/timeline/**`,
       `components/dashboard/**`; status badges use short-form keys; ellipsis cells marked
       `data-truncate`. (tracker: #6624)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth, Staff time & money onto venue formatting
-- [ ] **Translate Reservations & Guests** — `ReservationsPage`, `GuestsPage`,
+- [x] **Translate Reservations & Guests** — `ReservationsPage`, `GuestsPage`,
       `components/crm/**`, walk-in/new-reservation dialogs, waitlist, toasts. (tracker: #6625)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth, Staff time & money onto venue formatting

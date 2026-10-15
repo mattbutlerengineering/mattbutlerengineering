@@ -125,6 +125,8 @@ export interface DashboardSidebarProps {
   onMobileClose?: () => void;
   /** Optional slot rendered above all nav sections (e.g. VenueSwitcher) */
   headerSlot?: ReactNode;
+  /** Optional slot pinned below all nav sections (e.g. the locale picker) */
+  footerSlot?: ReactNode;
 }
 
 /* ── Component ───────────────────────────────── */
@@ -136,6 +138,7 @@ export function DashboardSidebar({
   isMobileOpen = false,
   onMobileClose,
   headerSlot,
+  footerSlot,
 }: DashboardSidebarProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
@@ -290,6 +293,7 @@ export function DashboardSidebar({
             );
           })}
         </div>
+        {footerSlot && <div className={styles.footer}>{footerSlot}</div>}
       </nav>
     </>
   );

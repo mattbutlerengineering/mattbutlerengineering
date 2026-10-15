@@ -1,5 +1,6 @@
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   Badge,
@@ -20,20 +21,25 @@ import {
   isAllergyTag,
   getSegmentLabel,
   getSegmentVariant,
-  getRiskLabel,
+  riskText,
+  segmentText,
   getRiskVariant,
 } from "./guest-signals.js";
 import styles from "./GuestCard.module.css";
 
 /* ── Constants ───────────────────────────────────────── */
 
-const OCCASION_LABELS: Record<string, string> = {
-  birthday: "Birthday",
-  anniversary: "Anniversary",
-  business: "Business",
-  date_night: "Date Night",
-  other: "Special Occasion",
-};
+const OCCASION_KEYS = {
+  birthday: "reservations.occasion.birthday",
+  anniversary: "reservations.occasion.anniversary",
+  business: "reservations.occasion.business",
+  date_night: "reservations.occasion.date_night",
+  other: "crm.card.specialOccasion",
+} as const;
+
+function isOccasionKey(value: string): value is keyof typeof OCCASION_KEYS {
+  return value in OCCASION_KEYS;
+}
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -48,6 +54,7 @@ export interface GuestCardProps {
 /* ── Component ───────────────────────────────────────── */
 
 export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
+  const { t } = useTranslation();
   const fmt = useVenueFormat();
   const { data: guest, isLoading, error, refetch } = useGuest(guestId);
 
@@ -96,9 +103,9 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
     return (
       <Card data-testid="guest-card-error">
         <Stack gap="md">
-          <Alert variant="error">Failed to load guest profile.</Alert>
+          <Alert variant="error">{t("crm.card.loadFailed")}</Alert>
           <Button variant="secondary" onClick={() => refetch()}>
-            Retry
+            {t("crm.card.retry")}
           </Button>
         </Stack>
       </Card>
@@ -131,10 +138,10 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
         <Stack gap="xs">
           <Stack direction="row" gap="sm" align="center" wrap>
             <Text variant="display">{guest.name}</Text>
-            <Badge variant={segmentVariant}>{segmentLabel}</Badge>
+            <Badge variant={segmentVariant}>{segmentText(segmentLabel, t)}</Badge>
           </Stack>
           <Text variant="caption" color="secondary">
-            {guest.visitCount} {guest.visitCount === 1 ? "visit" : "visits"}
+            {t("crm.visit", { count: guest.visitCount })}
           </Text>
         </Stack>
 
@@ -143,10 +150,10 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
           <div data-testid="no-show-risk">
             <Stack direction="row" gap="sm" align="center">
               <Text variant="caption" color="secondary">
-                {guest.noShowCount} no-show{guest.noShowCount === 1 ? "" : "s"}
+                {t("crm.noShow", { count: guest.noShowCount })}
               </Text>
               <Badge variant={getRiskVariant(guest.riskScore)}>
-                {getRiskLabel(guest.riskScore)}
+                {riskText(guest.riskScore, t)}
               </Badge>
             </Stack>
           </div>
@@ -155,7 +162,7 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
         {/* Allergy warning banner */}
         {allergyRestrictions.length > 0 && (
           <div data-testid="allergy-warning-banner">
-            <Alert variant="warning" title="Allergy Alert">
+            <Alert variant="warning" title={t("crm.card.allergyAlert")}>
               {allergyRestrictions.join(", ")}
             </Alert>
           </div>
@@ -167,7 +174,7 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
             <Divider />
             <Stack gap="xs" data-testid="dietary-restrictions">
               <Text variant="label" color="secondary">
-                Dietary Restrictions
+                {t("crm.card.dietary")}
               </Text>
               <Stack direction="row" gap="xs" wrap>
                 {guest.dietaryRestrictions.map((restriction) => (
@@ -182,7 +189,7 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
         <Divider />
         <Stack gap="xs">
           <Text variant="label" color="secondary">
-            Contact
+            {t("crm.card.contact")}
           </Text>
           {/* mailto/tel anchors — no Rialto equivalent */}
           {guest.email && (
@@ -203,11 +210,11 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
             <Divider />
             <Stack gap="xs" data-testid="occasion-history">
               <Text variant="label" color="secondary">
-                Occasion History
+                {t("crm.card.occasionHistory")}
               </Text>
               {occasionReservations.map((r) => (
                 <Text key={r.id} variant="caption" color="secondary">
-                  {OCCASION_LABELS[r.occasion!] ?? r.occasion} &mdash;{" "}
+                  {isOccasionKey(r.occasion!) ? t(OCCASION_KEYS[r.occasion!]) : r.occasion} &mdash;{" "}
                   {fmt.formatCalendarDate(r.date, { month: "short", day: "numeric" })}
                 </Text>
               ))}
@@ -221,7 +228,7 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
             <Divider />
             <Stack gap="sm" data-testid="staff-notes">
               <Text variant="label" color="secondary">
-                Staff Notes
+                {t("crm.card.staffNotes")}
               </Text>
               {visibleNotes.map((note, idx) => (
                 <Stack key={idx} gap="xs" className={styles.noteItem}>
@@ -237,7 +244,7 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
               ))}
               {hasMoreNotes && !showAllNotes && (
                 <Button variant="ghost" onClick={() => setShowAllNotes(true)}>
-                  Show All ({sortedNotes.length})
+                  {t("crm.card.showAll", { count: sortedNotes.length })}
                 </Button>
               )}
             </Stack>
@@ -249,8 +256,8 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
         {addingNote ? (
           <Stack gap="sm">
             <TextArea
-              label="New Staff Note"
-              placeholder="Type a note..."
+              label={t("crm.card.newNote")}
+              placeholder={t("crm.card.notePlaceholder")}
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               rows={3}
@@ -262,27 +269,27 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
                 onClick={handleCancelNote}
                 disabled={addNoteMutation.isPending}
               >
-                Cancel
+                {t("crm.card.cancel")}
               </Button>
               <Button
                 variant="primary"
                 onClick={handleSaveNote}
                 disabled={!noteText.trim() || addNoteMutation.isPending}
                 isLoading={addNoteMutation.isPending}
-                loadingText="Saving..."
+                loadingText={t("crm.card.saving")}
               >
-                Save Note
+                {t("crm.card.saveNote")}
               </Button>
             </Stack>
           </Stack>
         ) : (
           <Stack direction="row" gap="sm" wrap>
             <Button variant="secondary" onClick={() => setAddingNote(true)}>
-              Add Note
+              {t("crm.card.addNote")}
             </Button>
             {onEditProfile && (
               <Button variant="ghost" onClick={onEditProfile}>
-                Edit Profile
+                {t("crm.card.editProfile")}
               </Button>
             )}
           </Stack>

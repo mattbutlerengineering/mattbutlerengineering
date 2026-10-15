@@ -46,6 +46,10 @@ function serverError(method: string, path: string): ApiClientError {
   );
 }
 
+vi.mock("../components/LanguageRegionCard.js", () => ({
+  LanguageRegionCard: () => <div data-testid="language-region-card" />,
+}));
+
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="page-header">

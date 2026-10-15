@@ -1850,23 +1850,24 @@
     <item priority="low">
       type GuestLookupMode = "linked" | "recognised";
     </item>
-    <item priority="medium">
-      function plural(count: number, noun: string): string { /* ... */ }
+    <item priority="high">
+      export function visitsSentence(visitCount: number, t: TFunction = defaultT): string { /* ... */ }
     </item>
     <item priority="high">
-      export function visitsSentence(visitCount: number): string { /* ... */ }
+      export function noShowsSentence(noShowCount: number, t: TFunction = defaultT): string | null { /* ... */ }
     </item>
     <item priority="high">
-      export function noShowsSentence(noShowCount: number): string | null { /* ... */ }
+      export function formatGuestRowDetail(guest: Guest, t: TFunction = defaultT): string { /* ... */ }
     </item>
     <item priority="high">
-      export function formatGuestRowDetail(guest: Guest): string { /* ... */ }
+      export function stripTitle(mode: GuestLookupMode, name: string, t: TFunction = defaultT): string { /* ... */ }
     </item>
     <item priority="high">
-      export function stripTitle(mode: GuestLookupMode, name: string): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function pickAnnouncement(mode: GuestLookupMode, guest: Guest): string { /* ... */ }
+      export function pickAnnouncement(
+        mode: GuestLookupMode,
+        guest: Guest,
+        t: TFunction = defaultT
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/crm/guest-prefill.ts">
@@ -1928,6 +1929,12 @@
     </item>
     <item priority="high">
       export function getRiskLabel(score: GuestRiskScore): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function segmentText(label: string, t: TFunction = defaultT): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function riskText(score: GuestRiskScore, t: TFunction = defaultT): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -3655,6 +3662,19 @@
       export function draftReducer(state: DraftState, action: DraftAction): DraftState { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/live-reservation-toast.ts">
+    <item priority="low">
+      type LiveToastEvent = "reservation:created" | "reservation:cancelled";
+    </item>
+    <item priority="high">
+      export function liveReservationToast(
+        type: LiveToastEvent,
+        reservation: Reservation,
+        t: TFunction,
+        formatTime: (iso: string) => string
+      ): { title: string; description: string } { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
     <item priority="high">
       export const SSE_INVALIDATION_QUERY_KEYS: unknown;
@@ -4845,6 +4865,11 @@
   </file>
   </section>
   <section priority="medium" role="i18n">
+  <file path="apps/hospitality/src/i18n/default-t.ts">
+    <item priority="high">
+      export const defaultT: TFunction;
+    </item>
+  </file>
   <file path="apps/hospitality/src/i18n/locales.ts">
     <item priority="low">
       type LocaleTag = "en-US" | "en-GB" | "es-MX" | "fr-CA";
@@ -4879,6 +4904,17 @@
         stored: string | null;
         browser: readonly string[];
       }): LocaleTag { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/i18n/ordinal-visit.ts">
+    <item priority="high">
+      type OrdinalCategory = "one" | "two" | "few" | "other";
+    </item>
+    <item priority="medium">
+      function ordinalCategory(language: string, n: number): OrdinalCategory { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ordinalVisitLabel(t: TFunction, language: string, n: number): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/i18n/typed-keys.typecheck.ts">
@@ -17326,7 +17362,7 @@
       ): Table | undefined { /* ... */ }
     </item>
     <item priority="high">
-      export function statusWord(reservation: Reservation, seated: boolean): string { /* ... */ }
+      export function statusWord(reservation: Reservation, seated: boolean, t: TFunction): string { /* ... */ }
     </item>
     <item priority="medium">
       function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
@@ -17335,7 +17371,8 @@
       export function occupiedCaption(
         reservation: Reservation,
         table: Table | undefined,
-        now: Date
+        now: Date,
+        t: TFunction
       ): string | null { /* ... */ }
     </item>
     <item priority="low">
@@ -17364,6 +17401,11 @@
       export const SHEET_BLOCK_SIZE: Readonly<Record<ReservationSheetSize, string>>;
     </item>
   </file>
+  <file path="apps/hospitality/src/components/timeline/status-keys.ts">
+    <item priority="high">
+      export const RESERVATION_STATUS_KEYS: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/timeline/table-status-menu.ts">
     <item priority="low">
       interface TableStatusMenuItem {
@@ -17372,10 +17414,17 @@
       }
     </item>
     <item priority="high">
-      export function tableStatusMenuItems(status: TableStatus): TableStatusMenuItem[] { /* ... */ }
+      export function tableStatusWord(status: TableStatus, t: TFunction): string { /* ... */ }
     </item>
     <item priority="high">
-      export function tableStatusWord(status: TableStatus): string { /* ... */ }
+      export function tableStatusInline(status: TableStatus, t: TFunction, locale: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tableStatusMenuItems(
+        status: TableStatus,
+        t: TFunction,
+        locale: string
+      ): TableStatusMenuItem[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/timeline/useGridFocus.ts">
@@ -17422,6 +17471,11 @@
         currentTimeOffset: number | null,
         tableColumnWidth: number
       ): void { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/timeline/visit-label.ts">
+    <item priority="high">
+      export function visitLabel(visitCount: number, t: TFunction, locale: string): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -18013,6 +18067,9 @@
     </item>
     <item priority="high">
       export function formatShortDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatHourLabel(hour: number, locale: string, compact: boolean): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">
