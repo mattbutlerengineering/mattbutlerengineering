@@ -48,4 +48,3 @@ export default [
     },
   },
 ];
-// TEMP cache-bust for #6664 WO-0060 measurement (reverted in the same PR)
