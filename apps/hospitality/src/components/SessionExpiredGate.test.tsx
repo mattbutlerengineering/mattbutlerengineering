@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useAuth } from "@mbe/auth/react";
-import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
+import { getSessionLapseCopy } from "../constants/session-lapse-copy.js";
+import { localeRuntime } from "../i18n/runtime.js";
+
+const SESSION_LAPSE_COPY = getSessionLapseCopy(localeRuntime.i18n.t);
 import { SessionExpiredGate } from "./SessionExpiredGate.js";
 import React from "react";
 

@@ -38,7 +38,7 @@ function UnauthenticatedShell({
         {children}
       </main>
       <Footer variant="minimal" className={styles.footer}>
-        <Text>&copy; {new Date().getFullYear()} Matt Butler</Text>
+        <Text>{t("shell.copyright", { year: new Date().getFullYear() })}</Text>
       </Footer>
     </div>
   );

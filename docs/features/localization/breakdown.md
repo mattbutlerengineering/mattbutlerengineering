@@ -143,7 +143,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     `service-day.ts` device-clock policy comments replaced; no display `Intl` call in
     hospitality `src` outside `format.ts` (grep check in test).
   - Blocked by: Venue formatting
-- [ ] **Translate shell & pre-auth** — `UnauthenticatedShell`, LoginGate, CallbackPage,
+- [x] **Translate shell & pre-auth** — `UnauthenticatedShell`, LoginGate, CallbackPage,
       SessionExpiredGate, AuthFailurePage, SignOutPage, LoadingPage, AuthConfigError,
       `DashboardLayout` (breadcrumbs), `DashboardSidebar` nav labels,
       `constants/session-lapse-copy.ts`, `lib/describe-auth-error.ts`. (tracker: #6623)

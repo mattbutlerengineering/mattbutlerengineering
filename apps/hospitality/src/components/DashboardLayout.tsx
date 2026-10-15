@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Navigate, Outlet } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useAuth, useAccessToken } from "@mbe/auth/react";
 import {
   Banner,
@@ -16,12 +18,12 @@ import {
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
-import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
+import { getSessionLapseCopy } from "../constants/session-lapse-copy.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useTheme } from "../hooks/use-theme.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
-import { buildNavSections } from "../nav-sections.js";
+import { buildNavSections, ACCOUNT_SECTION_ID } from "../nav-sections.js";
 import { runNavAction } from "../nav-actions.js";
 import type { NavAction } from "../nav-actions.js";
 import { VenueProvider, useVenue } from "../contexts/VenueContext.js";
@@ -35,23 +37,34 @@ import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
 import styles from "./DashboardLayout.module.css";
 
-const ROUTE_LABELS: Record<string, string> = {
-  "": "Timeline",
-  timeline: "Timeline",
-  reservations: "Reservations",
-  guests: "Guests",
-  waitlist: "Waitlist",
-  briefing: "Tonight's Service",
-  "floor-plans": "Floor Plans",
-  "booking-widget": "Booking Widget",
-  onboarding: "New Venue",
-  profile: "Profile",
-  settings: "Settings",
-  admin: "Admin",
-  dashboard: "Dashboard",
-  setup: "Setup",
-  hours: "Operating Hours",
-};
+/** Route segment -> catalog key for its breadcrumb / document-title label. */
+const ROUTE_LABEL_KEYS = {
+  "": "layout.routes.timeline",
+  timeline: "layout.routes.timeline",
+  reservations: "layout.routes.reservations",
+  guests: "layout.routes.guests",
+  waitlist: "layout.routes.waitlist",
+  briefing: "layout.routes.briefing",
+  "floor-plans": "layout.routes.floorPlans",
+  "booking-widget": "layout.routes.bookingWidget",
+  onboarding: "layout.routes.onboarding",
+  profile: "layout.routes.profile",
+  settings: "layout.routes.settings",
+  admin: "layout.routes.admin",
+  dashboard: "layout.routes.dashboard",
+  setup: "layout.routes.setup",
+  hours: "layout.routes.hours",
+} as const;
+
+function routeLabel(t: TFunction, segment: string): string {
+  const key = (
+    ROUTE_LABEL_KEYS as Record<string, (typeof ROUTE_LABEL_KEYS)[keyof typeof ROUTE_LABEL_KEYS]>
+  )[segment];
+  return key ? t(key) : t("layout.details");
+}
+
+/** The search-hint key cap; a key name, not translatable text. */
+const SEARCH_KEY = "K";
 
 /** Operational pages that should redirect to /setup when not yet ready */
 const OPERATIONAL_ONLY_PATHS = ["/timeline", "/reservations", "/guests"];
@@ -61,6 +74,8 @@ const OPERATIONAL_ONLY_PATHS = ["/timeline", "/reservations", "/guests"];
  * Uses useVenueReadiness to build dynamic nav sections and enforce redirects.
  */
 function DashboardLayoutInner() {
+  const { t } = useTranslation();
+  const sessionCopy = getSessionLapseCopy(t);
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, signOut, accessToken } = useAuth();
@@ -90,8 +105,13 @@ function DashboardLayoutInner() {
   // last-segment -> ROUTE_LABELS lookup as the breadcrumbs below, so the two
   // can't silently diverge.
   const pageSegments = path.replace(/^\//, "").split("/").filter(Boolean);
-  const pageLabel = ROUTE_LABELS[pageSegments[pageSegments.length - 1] ?? ""] ?? "Details";
-  useDocumentTitle(`${pageLabel} · ${selectedVenue?.name ?? "Hospitality"}`);
+  const pageLabel = routeLabel(t, pageSegments[pageSegments.length - 1] ?? "");
+  useDocumentTitle(
+    t("layout.documentTitle", {
+      page: pageLabel,
+      venue: selectedVenue?.name ?? t("layout.venueFallback"),
+    })
+  );
 
   // Single source of truth for the two render-time-gate branches below —
   // computed once and reused by the instrumentation effect so the two can't
@@ -183,29 +203,34 @@ function DashboardLayoutInner() {
 
   const sections = useMemo(
     () => [
-      ...buildNavSections(readiness, isAdmin).map((section) =>
-        section.label === "Account"
+      ...buildNavSections(readiness, isAdmin, t).map((section) =>
+        section.id === ACCOUNT_SECTION_ID
           ? {
               ...section,
               items: [
                 ...section.items,
-                { id: "signout", label: "Sign Out", action: { type: "signout" } as const },
+                {
+                  id: "signout",
+                  label: t("nav.items.signOut"),
+                  action: { type: "signout" } as const,
+                },
               ],
             }
           : section
       ),
       {
-        label: "Tools" as const,
+        id: "Tools",
+        label: t("nav.sections.tools"),
         items: [
           {
             id: "chat",
-            label: "Chat",
+            label: t("nav.items.chat"),
             action: { type: "chat" } as const,
           },
         ],
       },
     ],
-    [readiness, isAdmin]
+    [readiness, isAdmin, t]
   );
 
   // Command palette state — receives dynamic sections so items stay in sync
@@ -227,18 +252,20 @@ function DashboardLayoutInner() {
 
     // On root or timeline page, show "Home" as the sole current-page crumb
     if (segments.length === 0 || (segments.length === 1 && segments[0] === "timeline")) {
-      return [{ label: "Home" }];
+      return [{ label: t("layout.home") }];
     }
 
     // Always start with a clickable "Home" linking to /timeline
-    const items: BreadcrumbItem[] = [{ label: "Home", onClick: () => navigate("/timeline") }];
+    const items: BreadcrumbItem[] = [
+      { label: t("layout.home"), onClick: () => navigate("/timeline") },
+    ];
 
     // Build intermediate + final crumbs
     let accumulated = "";
     for (let i = 0; i < segments.length; i++) {
       accumulated += `/${segments[i]}`;
       const isLast = i === segments.length - 1;
-      const label = ROUTE_LABELS[segments[i]!] ?? "Details";
+      const label = routeLabel(t, segments[i]!);
 
       if (isLast) {
         items.push({ label });
@@ -249,7 +276,7 @@ function DashboardLayoutInner() {
     }
 
     return items;
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, t]);
 
   // Render-time gate: decide before painting any dashboard chrome, instead of
   // in a post-commit effect (#3889). All hooks above must still run
@@ -260,7 +287,7 @@ function DashboardLayoutInner() {
     const { detail, raw } = describeApiError(venuesError);
     return (
       <ErrorRetryBanner
-        title="Venues not loaded."
+        title={t("layout.venuesNotLoaded")}
         error={detail}
         details={raw}
         onRetry={() => void refetchVenues()}
@@ -279,7 +306,7 @@ function DashboardLayoutInner() {
   return (
     <div className={styles.root} data-testid="dashboard-layout">
       <a href="#main-content" className={styles.skipLink}>
-        Skip to content
+        {t("shell.skipToContent")}
       </a>
 
       {/* ── Command palette ── */}
@@ -288,14 +315,14 @@ function DashboardLayoutInner() {
         onOpenChange={setPaletteOpen}
         items={paletteItems}
         groups={paletteGroups}
-        placeholder="Search pages and actions..."
+        placeholder={t("layout.searchPlaceholder")}
       />
 
       {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
       <Button
         className={styles.mobileSidebarToggle}
         onClick={handleMobileToggle}
-        aria-label={isMobileMenuOpen ? "Close sidebar" : "Open sidebar"}
+        aria-label={isMobileMenuOpen ? t("layout.closeSidebar") : t("layout.openSidebar")}
         aria-expanded={isMobileMenuOpen}
         type="button"
       >
@@ -330,11 +357,11 @@ function DashboardLayoutInner() {
             type="button"
             className={styles.commandHint}
             onClick={() => setPaletteOpen(true)}
-            aria-label="Open command palette"
+            aria-label={t("layout.openPalette")}
           >
             <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</Kbd>
-            <Kbd>K</Kbd>
-            <Text className={styles.commandHintLabel}>Search</Text>
+            <Kbd>{SEARCH_KEY}</Kbd>
+            <Text className={styles.commandHintLabel}>{t("layout.search")}</Text>
           </Button>
         </div>
 
@@ -346,11 +373,11 @@ function DashboardLayoutInner() {
               onDismiss={() => setDismissedRefreshError(refreshError)}
               action={
                 <Button variant="secondary" onClick={handleSignInAgain}>
-                  {SESSION_LAPSE_COPY.action}
+                  {sessionCopy.action}
                 </Button>
               }
             >
-              {SESSION_LAPSE_COPY.refreshFailedLead} {SESSION_LAPSE_COPY.body}
+              {sessionCopy.refreshFailedLead} {sessionCopy.body}
             </Banner>
           )}
           <div className={styles.breadcrumbBar}>
@@ -369,10 +396,10 @@ function DashboardLayoutInner() {
                   minHeight: "400px",
                 }}
               >
-                <Heading level={2}>Something went wrong</Heading>
-                <Text color="secondary">An unexpected error occurred in this page.</Text>
+                <Heading level={2}>{t("layout.errorHeading")}</Heading>
+                <Text color="secondary">{t("layout.errorBody")}</Text>
                 <Button variant="secondary" onClick={() => window.location.reload()}>
-                  Reload
+                  {t("layout.reload")}
                 </Button>
               </Stack>
             }
