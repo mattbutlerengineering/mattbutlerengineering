@@ -1,4 +1,7 @@
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Stack, Text, Input, Button } from "@mattbutlerengineering/rialto";
+import { localeRuntime } from "../../i18n/runtime.js";
 import styles from "./venue-onboarding.module.css";
 
 export interface SettingsData {
@@ -35,27 +38,30 @@ interface SettingsStepProps {
 }
 
 /** Validate settings step data. All fields are optional; only rejects invalid non-blank values. */
-export function validateSettings(data: SettingsData): Partial<Record<keyof SettingsData, string>> {
+export function validateSettings(
+  data: SettingsData,
+  t: TFunction = localeRuntime.i18n.t
+): Partial<Record<keyof SettingsData, string>> {
   const errors: Partial<Record<keyof SettingsData, string>> = {};
 
   if (data.defaultReservationDuration !== "") {
     const val = Number(data.defaultReservationDuration);
     if (isNaN(val) || val <= 0) {
-      errors.defaultReservationDuration = "Duration must be a positive number";
+      errors.defaultReservationDuration = t("onboarding.settings.errors.durationInvalid");
     }
   }
 
   if (data.maxPartySize !== "") {
     const val = Number(data.maxPartySize);
     if (isNaN(val) || val <= 0) {
-      errors.maxPartySize = "Party size must be a positive number";
+      errors.maxPartySize = t("onboarding.settings.errors.maxPartyInvalid");
     }
   }
 
   if (data.advanceBookingDays !== "") {
     const val = Number(data.advanceBookingDays);
     if (isNaN(val) || val <= 0) {
-      errors.advanceBookingDays = "Advance days must be a positive number";
+      errors.advanceBookingDays = t("onboarding.settings.errors.advanceInvalid");
     }
   }
 
@@ -63,6 +69,7 @@ export function validateSettings(data: SettingsData): Partial<Record<keyof Setti
 }
 
 export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: SettingsStepProps) {
+  const { t } = useTranslation();
   const handleUseRecommended = () => {
     onChange(RECOMMENDED_SETTINGS);
     onAdvance();
@@ -71,52 +78,61 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
   return (
     <div className={styles.stepContainer}>
       <Text variant="caption" color="secondary">
-        Customize how bookings work — or skip with our recommended defaults.
+        {t("onboarding.settings.stepIntro")}
       </Text>
 
       <Button variant="primary" onClick={handleUseRecommended}>
-        Use recommended settings
+        {t("onboarding.settings.useRecommended")}
       </Button>
 
       <Stack gap="md">
         <Input
-          label="Default Reservation Duration (minutes)"
+          label={t("onboarding.settings.durationLabel")}
           type="number"
           value={data.defaultReservationDuration}
           onChange={(e) => onChange({ ...data, defaultReservationDuration: e.target.value })}
           onBlur={onValidate}
-          placeholder={`Default: ${DEFAULTS.defaultReservationDuration}`}
+          placeholder={t("onboarding.settings.defaultPlaceholder", {
+            value: DEFAULTS.defaultReservationDuration,
+          })}
           error={errors.defaultReservationDuration !== undefined}
           hint={
             errors.defaultReservationDuration ??
-            `If left blank, defaults to ${DEFAULTS.defaultReservationDuration} minutes`
+            t("onboarding.settings.durationHint", { value: DEFAULTS.defaultReservationDuration })
           }
           showOptional
         />
 
         <Input
-          label="Maximum Party Size"
+          label={t("onboarding.settings.maxPartyLabel")}
           type="number"
           value={data.maxPartySize}
           onChange={(e) => onChange({ ...data, maxPartySize: e.target.value })}
           onBlur={onValidate}
-          placeholder={`Default: ${DEFAULTS.maxPartySize}`}
+          placeholder={t("onboarding.settings.defaultPlaceholder", {
+            value: DEFAULTS.maxPartySize,
+          })}
           error={errors.maxPartySize !== undefined}
-          hint={errors.maxPartySize ?? `If left blank, defaults to ${DEFAULTS.maxPartySize} guests`}
+          hint={
+            errors.maxPartySize ??
+            t("onboarding.settings.maxPartyHint", { value: DEFAULTS.maxPartySize })
+          }
           showOptional
         />
 
         <Input
-          label="Advance Booking Window (days)"
+          label={t("onboarding.settings.advanceLabel")}
           type="number"
           value={data.advanceBookingDays}
           onChange={(e) => onChange({ ...data, advanceBookingDays: e.target.value })}
           onBlur={onValidate}
-          placeholder={`Default: ${DEFAULTS.advanceBookingDays}`}
+          placeholder={t("onboarding.settings.defaultPlaceholder", {
+            value: DEFAULTS.advanceBookingDays,
+          })}
           error={errors.advanceBookingDays !== undefined}
           hint={
             errors.advanceBookingDays ??
-            `If left blank, guests can book up to ${DEFAULTS.advanceBookingDays} days ahead`
+            t("onboarding.settings.advanceHint", { value: DEFAULTS.advanceBookingDays })
           }
           showOptional
         />

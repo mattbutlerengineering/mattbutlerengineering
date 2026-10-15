@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { VerticalStepRail } from "./VerticalStepRail";
+import { localeRuntime } from "../../i18n/runtime.js";
 import { ONBOARDING_STEPS } from "./onboarding-steps";
 
 describe("VerticalStepRail", () => {
@@ -8,8 +9,12 @@ describe("VerticalStepRail", () => {
     render(<VerticalStepRail currentStep={1} highestStepReached={1} />);
 
     for (const step of ONBOARDING_STEPS) {
-      expect(screen.getByText(step.label)).toBeInTheDocument();
-      expect(screen.getByText(step.description)).toBeInTheDocument();
+      expect(
+        screen.getByText(localeRuntime.i18n.t(`onboarding.steps.${step.id}.label`))
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(localeRuntime.i18n.t(`onboarding.steps.${step.id}.description`))
+      ).toBeInTheDocument();
     }
   });
 

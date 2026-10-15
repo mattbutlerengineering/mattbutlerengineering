@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Stack, Text } from "@mattbutlerengineering/rialto";
 import { BasicInfoStep, type BasicInfoData, type SlugStatus } from "./BasicInfoStep.js";
 
@@ -15,13 +16,14 @@ interface WelcomeStepProps {
  * UI are reused wholesale from {@link BasicInfoStep}.
  */
 export function WelcomeStep({ data, errors, onChange, onValidate, slugStatus }: WelcomeStepProps) {
+  const { t } = useTranslation();
   return (
     <Stack gap="md">
       <Text variant="display" as="h2">
-        Let&apos;s give your venue a home on the platform
+        {t("onboarding.welcome.heading")}
       </Text>
       <Text variant="body" color="secondary">
-        Choose a name your guests will recognize and a web address for your booking page.
+        {t("onboarding.welcome.intro")}
       </Text>
 
       <BasicInfoStep

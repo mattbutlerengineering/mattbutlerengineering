@@ -1,7 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { ONBOARDING_STEPS } from "./onboarding-steps";
 import styles from "./venue-onboarding.module.css";
-
-const STEP_LABELS = ONBOARDING_STEPS.map((step) => step.label);
 
 interface StepIndicatorProps {
   currentStep: number;
@@ -17,8 +16,13 @@ export function StepIndicator({
   highestStepReached = currentStep,
   onStepClick,
 }: StepIndicatorProps) {
+  const { t } = useTranslation();
   return (
-    <div className={styles.stepIndicator} role="navigation" aria-label="Wizard progress">
+    <div
+      className={styles.stepIndicator}
+      role="navigation"
+      aria-label={t("onboarding.progress.wizard")}
+    >
       {Array.from({ length: totalSteps }, (_, i) => {
         const stepNumber = i + 1;
         const isActive = stepNumber === currentStep;
@@ -49,15 +53,19 @@ export function StepIndicator({
             }
           : {};
 
-        const label = STEP_LABELS[i] ?? "";
-        const clickHint = isClickable ? " (click to navigate)" : "";
+        const stepId = ONBOARDING_STEPS[i]?.id;
+        const label = stepId ? t(`onboarding.steps.${stepId}.label`) : "";
+        const ariaLabel = t(
+          isClickable ? "onboarding.progress.stepLabelNavigable" : "onboarding.progress.stepLabel",
+          { step: stepNumber, label }
+        );
 
         return (
           <span key={stepNumber} style={{ display: "contents" }}>
             <span
               className={`${styles.stepDot} ${dotClass}`}
               aria-current={isActive ? "step" : undefined}
-              aria-label={`Step ${stepNumber}: ${label}${clickHint}`}
+              aria-label={ariaLabel}
               {...dotProps}
             >
               {isCompleted ? "\u2713" : stepNumber}

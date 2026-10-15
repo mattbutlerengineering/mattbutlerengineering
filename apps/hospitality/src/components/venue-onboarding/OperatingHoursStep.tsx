@@ -1,6 +1,9 @@
 import { useState, useCallback, useRef } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Text, Checkbox, ConfirmDialog } from "@mattbutlerengineering/rialto";
 import type { OperatingHours, DaySchedule } from "@mbe/types";
+import { localeRuntime } from "../../i18n/runtime.js";
 import styles from "./venue-onboarding.module.css";
 
 const DAYS_OF_WEEK = [
@@ -34,6 +37,7 @@ function isCloseBeforeOpen(open: string, close: string): boolean {
 }
 
 export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursStepProps) {
+  const { t } = useTranslation();
   const [confirmDay, setConfirmDay] = useState<DayOfWeek | null>(null);
 
   // Keep a cache of previously-set schedules so re-enabling restores times
@@ -97,13 +101,13 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
   return (
     <div className={styles.stepContainer}>
       <Text variant="caption" color="secondary">
-        Toggle each day to set opening and closing times. Days left off will be marked as closed.
+        {t("onboarding.hours.instructions")}
       </Text>
 
       {errors?.global && (
-        <span className={styles.errorText} role="alert">
+        <Text className={styles.errorText} role="alert">
           {errors.global}
-        </span>
+        </Text>
       )}
 
       <div>
@@ -112,11 +116,12 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
           const schedule = getSchedule(day);
           const dayError = errors?.days?.[day];
           const hasTimeError = enabled && isCloseBeforeOpen(schedule.open, schedule.close);
+          const dayName = t(`onboarding.days.${day}`);
 
           return (
             <div key={day} className={styles.dayRow}>
               <Checkbox
-                label={day}
+                label={dayName}
                 checked={enabled}
                 onCheckedChange={() => handleToggle(day)}
                 className={styles.dayCheckbox}
@@ -129,32 +134,32 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
                       className={`${styles.timeInput} ${hasTimeError ? styles.timeInputError : ""}`}
                       value={schedule.open}
                       onChange={(e) => handleTimeChange(day, "open", e.target.value)}
-                      aria-label={`${day} opening time`}
+                      aria-label={t("onboarding.hours.openingTime", { day: dayName })}
                     />
                     <Text variant="caption" color="secondary">
-                      to
+                      {t("onboarding.hours.to")}
                     </Text>
                     <input
                       type="time"
                       className={`${styles.timeInput} ${hasTimeError ? styles.timeInputError : ""}`}
                       value={schedule.close}
                       onChange={(e) => handleTimeChange(day, "close", e.target.value)}
-                      aria-label={`${day} closing time`}
+                      aria-label={t("onboarding.hours.closingTime", { day: dayName })}
                     />
                   </div>
                   {hasTimeError && (
-                    <span className={styles.errorText} role="alert">
-                      Closing time must be after opening time
-                    </span>
+                    <Text className={styles.errorText} role="alert">
+                      {t("onboarding.hours.closeAfterOpen")}
+                    </Text>
                   )}
                   {dayError && !hasTimeError && (
-                    <span className={styles.errorText} role="alert">
+                    <Text className={styles.errorText} role="alert">
                       {dayError}
-                    </span>
+                    </Text>
                   )}
                 </div>
               ) : (
-                <span className={styles.closedText}>Closed</span>
+                <Text className={styles.closedText}>{t("onboarding.hours.closed")}</Text>
               )}
             </div>
           );
@@ -163,10 +168,12 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
 
       <ConfirmDialog
         open={confirmDay !== null}
-        title={`Close ${confirmDay ?? ""}?`}
-        description="This will clear the custom opening and closing times you set for this day."
-        confirmLabel="Close Day"
-        cancelLabel="Keep Open"
+        title={t("onboarding.hours.closeDayTitle", {
+          day: confirmDay ? t(`onboarding.days.${confirmDay}`) : "",
+        })}
+        description={t("onboarding.hours.closeDayDescription")}
+        confirmLabel={t("onboarding.hours.closeDayConfirm")}
+        cancelLabel={t("onboarding.hours.closeDayCancel")}
         variant="destructive"
         onConfirm={() => {
           if (confirmDay) {
@@ -182,7 +189,8 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
 
 /** Validate operating hours data. Returns errors or null if valid. */
 export function validateOperatingHours(
-  data: OperatingHours
+  data: OperatingHours,
+  t: TFunction = localeRuntime.i18n.t
 ): OperatingHoursValidationErrors | null {
   const dayErrors: Partial<Record<DayOfWeek, string>> = {};
   let hasError = false;
@@ -190,7 +198,7 @@ export function validateOperatingHours(
   for (const day of DAYS_OF_WEEK) {
     const schedule = data[day];
     if (schedule && isCloseBeforeOpen(schedule.open, schedule.close)) {
-      dayErrors[day] = "Closing time must be after opening time";
+      dayErrors[day] = t("onboarding.hours.closeAfterOpen");
       hasError = true;
     }
   }
@@ -199,7 +207,7 @@ export function validateOperatingHours(
 
   if (enabledDays.length === 0) {
     return {
-      global: "At least one day must be open",
+      global: t("onboarding.hours.atLeastOne"),
       ...(hasError ? { days: dayErrors } : {}),
     };
   }

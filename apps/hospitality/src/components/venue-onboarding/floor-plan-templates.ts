@@ -35,14 +35,13 @@ export interface Zone {
 
 export interface FloorPlanTemplate {
   id: TemplateId;
-  /** Picker card label. */
-  name: string;
-  /** The floor plan's name once created — fixed per template, not editable in the wizard. */
+  /**
+   * The floor plan's name once created — fixed per template, not editable in the wizard. It is
+   * saved data (the plan's name on the server), so it stays the same in every locale; the
+   * picker's own copy (card name, zone line) lives in the catalog under
+   * `onboarding.floorPlan.templates.<id>`.
+   */
   planName: string;
-  /** Card summary line, e.g. "14 tables · 48 seats". */
-  summary: string;
-  /** Card zone line, e.g. "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats". */
-  zoneLine: string;
   zones: readonly Zone[];
 }
 
@@ -80,10 +79,7 @@ export function tablesForTemplate(template: FloorPlanTemplate): DraftTable[] {
 export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
   {
     id: "restaurant",
-    name: "Restaurant",
     planName: "Main Dining Room",
-    summary: "14 tables · 48 seats",
-    zoneLine: "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats",
     zones: [
       {
         prefix: "W",
@@ -130,10 +126,7 @@ export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
   },
   {
     id: "cafe",
-    name: "Cafe",
     planName: "Main Floor",
-    summary: "10 tables · 24 seats",
-    zoneLine: "5 window 2-tops · 3 café rounds · 2 four-tops",
     zones: [
       {
         prefix: "W",
@@ -169,10 +162,7 @@ export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
   },
   {
     id: "bar",
-    name: "Bar",
     planName: "Bar Floor",
-    summary: "12 tables · 40 seats",
-    zoneLine: "6 high-tops · 4 standing rounds · 2 booths",
     zones: [
       {
         prefix: "H",
@@ -208,10 +198,7 @@ export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
   },
   {
     id: "patio",
-    name: "Patio",
     planName: "Patio",
-    summary: "8 tables · 36 seats",
-    zoneLine: "6 umbrella rounds · 2 long tables",
     zones: [
       {
         prefix: "P",
@@ -238,10 +225,7 @@ export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
   },
   {
     id: "blank",
-    name: "Blank",
     planName: "Main Floor",
-    summary: "No tables",
-    zoneLine: "Start empty — add tables yourself",
     zones: [],
   },
 ] as const;

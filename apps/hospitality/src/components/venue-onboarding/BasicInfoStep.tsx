@@ -1,4 +1,7 @@
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Stack, Input } from "@mattbutlerengineering/rialto";
+import { localeRuntime } from "../../i18n/runtime.js";
 import { generateSlug } from "./generate-slug.js";
 import styles from "./venue-onboarding.module.css";
 
@@ -24,24 +27,28 @@ export function isValidSlug(slug: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
 }
 
-/** Validate basic info step data. Pure — takes the current slug-check result as input. */
+/**
+ * Validate basic info step data. Pure — takes the current slug-check result as input. Messages
+ * come from the active locale (callers inside React may pass their own `t`).
+ */
 export function validateBasicInfo(
   data: BasicInfoData,
-  slugStatus: SlugStatus
+  slugStatus: SlugStatus,
+  t: TFunction = localeRuntime.i18n.t
 ): Partial<Record<keyof BasicInfoData, string>> {
   const errors: Partial<Record<keyof BasicInfoData, string>> = {};
 
   if (data.name.trim().length < 2) {
-    errors.name = "Name must be at least 2 characters";
+    errors.name = t("onboarding.basicInfo.errors.nameTooShort");
   }
 
   const slug = data.slug.trim();
   if (!slug) {
-    errors.slug = "Slug is required";
+    errors.slug = t("onboarding.basicInfo.errors.slugRequired");
   } else if (!isValidSlug(slug)) {
-    errors.slug = "Slug must be URL-safe (lowercase letters, numbers, hyphens)";
+    errors.slug = t("onboarding.basicInfo.errors.slugInvalid");
   } else if (slugStatus === "taken") {
-    errors.slug = "A venue with this slug already exists";
+    errors.slug = t("onboarding.basicInfo.errors.slugTaken");
   }
 
   return errors;
@@ -54,6 +61,7 @@ export function BasicInfoStep({
   onValidate,
   slugStatus,
 }: BasicInfoStepProps) {
+  const { t } = useTranslation();
   const handleNameChange = (value: string) => {
     const currentSlugIsAuto = data.slug === generateSlug(data.name);
     const newSlug = currentSlugIsAuto || data.slug === "" ? generateSlug(value) : data.slug;
@@ -66,12 +74,12 @@ export function BasicInfoStep({
 
   const slugHint =
     slugStatus === "checking"
-      ? "Checking availability..."
+      ? t("onboarding.basicInfo.slugChecking")
       : slugStatus === "available"
-        ? "Slug is available"
+        ? t("onboarding.basicInfo.slugAvailable")
         : slugStatus === "taken"
           ? undefined // shown as error instead
-          : "URL-friendly identifier (auto-generated from name)";
+          : t("onboarding.basicInfo.slugHint");
 
   const slugError = errors.slug !== undefined;
 
@@ -79,8 +87,8 @@ export function BasicInfoStep({
     <div className={styles.stepContainer}>
       <Stack gap="md">
         <Input
-          label="Venue Name"
-          placeholder="e.g. The Grand Ballroom"
+          label={t("onboarding.basicInfo.nameLabel")}
+          placeholder={t("onboarding.basicInfo.namePlaceholder")}
           value={data.name}
           onChange={(e) => handleNameChange(e.target.value)}
           onBlur={onValidate}
@@ -89,8 +97,8 @@ export function BasicInfoStep({
         />
 
         <Input
-          label="Slug"
-          placeholder="e.g. the-grand-ballroom"
+          label={t("onboarding.basicInfo.slugLabel")}
+          placeholder={t("onboarding.basicInfo.slugPlaceholder")}
           value={data.slug}
           onChange={(e) => handleSlugChange(e.target.value)}
           onBlur={onValidate}

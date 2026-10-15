@@ -5571,6 +5571,10 @@
         currency: currency.toUpperCase(),
       }).format(amountCents / 100);
     }
+    export function formatCurrencyName(currency: string, locale: string = LOCALE): string {
+      const code = currency.toUpperCase();
+      return new Intl.DisplayNames(locale, { type: "currency" }).of(code) ?? code;
+    }
     export function formatShortDate(dateStr: string, locale: string = LOCALE): string {
       return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         year: "numeric",
@@ -5994,6 +5998,23 @@
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
+  <file path="src/components/venue-onboarding/floor-plan-copy.ts">
+    export function layoutCounts(
+      t: TFunction,
+      tables: readonly DraftTable[]
+    ): { tables: string; seats: string } {
+      const seats = tables.reduce((sum, table) => sum + table.capacity, 0);
+      return {
+        tables: t("onboarding.floorPlan.tableCount", { count: tables.length }),
+        seats: t("onboarding.floorPlan.seatCount", { count: seats }),
+      };
+    }
+    export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string {
+      return tables.length === 0
+        ? t("onboarding.floorPlan.summaryBlank")
+        : t("onboarding.floorPlan.summary", layoutCounts(t, tables));
+    }
+  </file>
   <file path="src/components/venue-onboarding/floor-plan-draft.ts">
     export type DraftTableShape = TableShapeMetadata["shape"];
     export interface DraftTable {
@@ -6135,14 +6156,13 @@
     }
     export interface FloorPlanTemplate {
       id: TemplateId;
-      /** Picker card label. */
-      name: string;
-      /** The floor plan's name once created — fixed per template, not editable in the wizard. */
+      /**
+       * The floor plan's name once created — fixed per template, not editable in the wizard. It is
+       * saved data (the plan's name on the server), so it stays the same in every locale; the
+       * picker's own copy (card name, zone line) lives in the catalog under
+       * `onboarding.floorPlan.templates.<id>`.
+       */
       planName: string;
-      /** Card summary line, e.g. "14 tables · 48 seats". */
-      summary: string;
-      /** Card zone line, e.g. "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats". */
-      zoneLine: string;
       zones: readonly Zone[];
     }
     function tablesForZone(zone: Zone): DraftTable[] {
@@ -6170,10 +6190,7 @@
     export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
       {
         id: "restaurant",
-        name: "Restaurant",
         planName: "Main Dining Room",
-        summary: "14 tables · 48 seats",
-        zoneLine: "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats",
         zones: [
           {
             prefix: "W",
@@ -6220,10 +6237,7 @@
       },
       {
         id: "cafe",
-        name: "Cafe",
         planName: "Main Floor",
-        summary: "10 tables · 24 seats",
-        zoneLine: "5 window 2-tops · 3 café rounds · 2 four-tops",
         zones: [
           {
             prefix: "W",
@@ -6259,10 +6273,7 @@
       },
       {
         id: "bar",
-        name: "Bar",
         planName: "Bar Floor",
-        summary: "12 tables · 40 seats",
-        zoneLine: "6 high-tops · 4 standing rounds · 2 booths",
         zones: [
           {
             prefix: "H",
@@ -6298,10 +6309,7 @@
       },
       {
         id: "patio",
-        name: "Patio",
         planName: "Patio",
-        summary: "8 tables · 36 seats",
-        zoneLine: "6 umbrella rounds · 2 long tables",
         zones: [
           {
             prefix: "P",
@@ -6328,10 +6336,7 @@
       },
       {
         id: "blank",
-        name: "Blank",
         planName: "Main Floor",
-        summary: "No tables",
-        zoneLine: "Start empty — add tables yourself",
         zones: [],
       },
     ] as const;
@@ -6455,7 +6460,7 @@
       try {
         venue = await api.venues.create(venuePayload);
       } catch (err) {
-        throw withFallback(err, "Couldn't create the venue");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.venueFailed"));
       }
       const next: LaunchProgress = { ...progress, venueId: venue.id, inFlightStage: null };
       onProgress(next);
@@ -6482,7 +6487,7 @@
           layoutJson: DEFAULT_LAYOUT,
         });
       } catch (err) {
-        throw withFallback(err, "Couldn't create the floor plan");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
       }
       const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
       onProgress(next);
@@ -6523,7 +6528,10 @@
           await api.tables.create(draftTableToCreateRequest(table, venueId, floorPlanId));
         } catch (err) {
           if (!isAlreadyCreatedError(err)) {
-            const fallback = `Stopped at table ${index + 1} of ${total}`;
+            const fallback = localeRuntime.i18n.t("onboarding.errors.stoppedAtTable", {
+              index: index + 1,
+              total,
+            });
             throw new LaunchStageError(withFallback(err, fallback).message, current);
           }
           // A duplicate-name rejection means the table already exists —
@@ -6553,7 +6561,7 @@
       try {
         await api.floorPlans.setActive(floorPlanId);
       } catch (err) {
-        throw withFallback(err, "Couldn't make the plan live");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.activateFailed"));
       }
       const next: LaunchProgress = { ...progress, activated: true, inFlightStage: null };
       onProgress(next);
@@ -6610,7 +6618,8 @@
             ...base,
             inFlightStage: null,
             failedStage: stage,
-            errorMessage: err instanceof Error ? err.message : "Something went wrong",
+            errorMessage:
+              err instanceof Error ? err.message : localeRuntime.i18n.t("onboarding.errors.generic"),
           };
           onProgress(current);
           return current;
@@ -6619,19 +6628,18 @@
     }
   </file>
   <file path="src/components/venue-onboarding/onboarding-steps.ts">
+    export type OnboardingStepId =
+      "welcome" | "location" | "hours" | "settings" | "floorPlan" | "launch";
     export interface OnboardingStep {
-      /** Short step name shown as the rail heading. */
-      label: string;
-      /** One-line description of what the step captures. */
-      description: string;
+      readonly id: OnboardingStepId;
     }
     export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
-      { label: "Welcome", description: "Name your venue" },
-      { label: "Location", description: "Timezone & currency" },
-      { label: "Hours", description: "When you're open" },
-      { label: "Settings", description: "Reservation defaults" },
-      { label: "Floor plan", description: "Lay out your tables" },
-      { label: "Launch", description: "Review & go live" },
+      { id: "welcome" },
+      { id: "location" },
+      { id: "hours" },
+      { id: "settings" },
+      { id: "floorPlan" },
+      { id: "launch" },
     ];
   </file>
   <file path="src/components/venue-onboarding/useOnboardingWizard.ts">
@@ -6712,7 +6720,10 @@
           return {
             state: {
               ...state,
-              errors: { ...state.errors, floorPlan: valid ? null : FLOOR_PLAN_REQUIRED_MESSAGE },
+              errors: {
+                ...state.errors,
+                floorPlan: valid ? null : localeRuntime.i18n.t("onboarding.floorPlan.required"),
+              },
             },
             valid,
           };

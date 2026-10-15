@@ -1,6 +1,10 @@
 import { useState, useMemo } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Stack, Text, Autocomplete, Select } from "@mattbutlerengineering/rialto";
 import type { AutocompleteOption } from "@mattbutlerengineering/rialto";
+import { localeRuntime } from "../../i18n/runtime.js";
+import { formatCurrencyName } from "../../utils/format.js";
 import styles from "./venue-onboarding.module.css";
 
 export interface LocationTimeData {
@@ -124,24 +128,25 @@ export const TIMEZONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
   { value: "Pacific/Guam", label: "Chamorro Time (Pacific/Guam)" },
 ];
 
-const CURRENCY_OPTIONS = [
-  { value: "USD", label: "USD - US Dollar" },
-  { value: "EUR", label: "EUR - Euro" },
-  { value: "GBP", label: "GBP - British Pound" },
-  { value: "CAD", label: "CAD - Canadian Dollar" },
-  { value: "AUD", label: "AUD - Australian Dollar" },
-  { value: "JPY", label: "JPY - Japanese Yen" },
-  { value: "CHF", label: "CHF - Swiss Franc" },
-  { value: "AED", label: "AED - UAE Dirham" },
-  { value: "SGD", label: "SGD - Singapore Dollar" },
-  { value: "INR", label: "INR - Indian Rupee" },
-  { value: "BRL", label: "BRL - Brazilian Real" },
-  { value: "MXN", label: "MXN - Mexican Peso" },
-  { value: "NZD", label: "NZD - New Zealand Dollar" },
-  { value: "ZAR", label: "ZAR - South African Rand" },
-  { value: "KRW", label: "KRW - South Korean Won" },
-  { value: "HKD", label: "HKD - Hong Kong Dollar" },
-];
+/** ISO 4217 codes offered in the currency picker; names come from the locale (`formatCurrencyName`). */
+const CURRENCY_CODES = [
+  "USD",
+  "EUR",
+  "GBP",
+  "CAD",
+  "AUD",
+  "JPY",
+  "CHF",
+  "AED",
+  "SGD",
+  "INR",
+  "BRL",
+  "MXN",
+  "NZD",
+  "ZAR",
+  "KRW",
+  "HKD",
+] as const;
 
 /** Try to detect the user's IANA timezone from the browser. */
 export function detectTimezone(): string {
@@ -156,22 +161,25 @@ export function detectTimezone(): string {
 
 /** Validate location & time step data. Pure. */
 export function validateLocationTime(
-  data: LocationTimeData
+  data: LocationTimeData,
+  t: TFunction = localeRuntime.i18n.t
 ): Partial<Record<keyof LocationTimeData, string>> {
   const errors: Partial<Record<keyof LocationTimeData, string>> = {};
 
   if (!data.ianaTimezone) {
-    errors.ianaTimezone = "Timezone is required";
+    errors.ianaTimezone = t("onboarding.locationTime.errors.timezoneRequired");
   }
 
   if (!data.currencyCode) {
-    errors.currencyCode = "Currency is required";
+    errors.currencyCode = t("onboarding.locationTime.errors.currencyRequired");
   }
 
   return errors;
 }
 
 export function LocationTimeStep({ data, errors, onChange, onValidate }: LocationTimeStepProps) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language;
   // Track the text shown in the Autocomplete input
   const selectedTzLabel = TIMEZONE_OPTIONS.find((o) => o.value === data.ianaTimezone)?.label ?? "";
   const [tzSearch, setTzSearch] = useState(selectedTzLabel);
@@ -181,9 +189,17 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
     []
   );
 
+  // Names via Intl.DisplayNames (through utils/format.ts) so they follow the active locale.
   const currencySelectOptions = useMemo(
-    () => CURRENCY_OPTIONS.map((c) => ({ value: c.value, label: c.label })),
-    []
+    () =>
+      CURRENCY_CODES.map((code) => ({
+        value: code,
+        label: t("onboarding.locationTime.currencyOption", {
+          code,
+          name: formatCurrencyName(code, locale),
+        }),
+      })),
+    [t, locale]
   );
 
   return (
@@ -191,8 +207,8 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
       <Stack gap="md">
         <div className={styles.fieldGroup}>
           <Autocomplete
-            label="Timezone"
-            placeholder="Search timezones..."
+            label={t("onboarding.locationTime.timezoneLabel")}
+            placeholder={t("onboarding.locationTime.timezonePlaceholder")}
             options={autocompleteOptions}
             value={tzSearch}
             onChange={(val) => {
@@ -207,24 +223,24 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
               onChange({ ...data, ianaTimezone: option.value });
               onValidate?.();
             }}
-            emptyText="No matching timezones"
+            emptyText={t("onboarding.locationTime.timezoneEmpty")}
           />
           {errors.ianaTimezone && <Text className={styles.errorText}>{errors.ianaTimezone}</Text>}
           <Text variant="caption" color="secondary">
-            IANA timezone used for scheduling and availability
+            {t("onboarding.locationTime.timezoneHint")}
           </Text>
         </div>
 
         <div className={styles.fieldGroup}>
           <Select
-            label="Currency"
+            label={t("onboarding.locationTime.currencyLabel")}
             options={currencySelectOptions}
             value={data.currencyCode}
             onChange={(val) => {
               onChange({ ...data, currencyCode: val });
               onValidate?.();
             }}
-            placeholder="Select a currency..."
+            placeholder={t("onboarding.locationTime.currencyPlaceholder")}
           />
           {errors.currencyCode && <Text className={styles.errorText}>{errors.currencyCode}</Text>}
         </div>

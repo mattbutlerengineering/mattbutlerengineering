@@ -4,6 +4,7 @@ import {
   formatTimeIn,
   formatLocalTime,
   formatCurrencyFromCents,
+  formatCurrencyName,
   formatLongDate,
   formatShortDate,
   resolveTimeZone,
@@ -112,5 +113,18 @@ describe("invalid IANA zone", () => {
   it("formatTimeIn does not throw on a bad zone", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(() => formatTimeIn("2024-03-15T21:30:00Z", "Bad/Zone")).not.toThrow();
+  });
+});
+
+describe("formatCurrencyName", () => {
+  it("names a currency in the given locale", () => {
+    expect(formatCurrencyName("USD", "en-US")).toBe("US Dollar");
+    expect(formatCurrencyName("MXN", "es-MX")).toBe("peso mexicano");
+    expect(formatCurrencyName("CAD", "fr-CA")).toBe("dollar canadien");
+  });
+
+  it("is case-insensitive and falls back to the code for an unknown one", () => {
+    expect(formatCurrencyName("eur", "en-US")).toBe("Euro");
+    expect(formatCurrencyName("ZZZ", "en-US")).toBe("ZZZ");
   });
 });
