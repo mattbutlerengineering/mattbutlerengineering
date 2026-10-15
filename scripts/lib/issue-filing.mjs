@@ -53,11 +53,11 @@ export function parseIssueNumberFromUrl(url) {
  * @property {string} dedupeKey    stable key identifying "the same issue" across runs
  *
  * @typedef {Object} IssueFilingDeps
- * @property {(issueNumber: number) => "open"|"closed"|"missing"|"error"} getIssueState
+ * @property {(issueNumber: number) => "open"|"closed"|"vetoed"|"missing"|"error"} getIssueState
  * @property {(title: string, body: string, labels: string[]) => number} createIssue   returns the new issue number
  * @property {(issueNumber: number) => void} reopenIssue
  *
- * @typedef {"skip"|"create"|"reopen"|"skipped-error"} IssueFilingAction
+ * @typedef {"skip"|"create"|"reopen"|"skip-vetoed"|"skipped-error"} IssueFilingAction
  *
  * @typedef {Object} IssueFilingResult
  * @property {IssueFilingAction} action
@@ -73,7 +73,9 @@ export function parseIssueNumberFromUrl(url) {
  *   2. Ledger entry, issue currently open      → skip (don't spam).
  *   3. Ledger entry, issue currently closed    → reopen the existing issue (no dupe).
  *   4. Ledger entry, issue missing (deleted)   → create fresh, overwrite ledger entry.
- *   5. Ledger entry, state lookup errored      → "skipped-error": neither create nor
+ *   5. Ledger entry, state "vetoed" (Owner closed it as not planned, supplied by
+ *      producers that can read stateReason) → "skip-vetoed": never reopen, never create.
+ *   6. Ledger entry, state lookup errored      → "skipped-error": neither create nor
  *      reopen (the issue may well exist; creating would duplicate it), logged.
  *
  * @param {IssueFilingRequest} request
@@ -89,6 +91,10 @@ export function fileIssue(request, ledger, deps) {
 
     if (state === "open") {
       return { action: "skip", issueNumber: prior, ledger };
+    }
+
+    if (state === "vetoed") {
+      return { action: "skip-vetoed", issueNumber: prior, ledger };
     }
 
     if (state === "closed") {

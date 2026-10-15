@@ -96,6 +96,38 @@ describe("shouldActOnResult", () => {
 // ---------------------------------------------------------------------------
 
 describe("verifyCiFix", () => {
+  // #6659: cancelled/skipped runs are not outcomes and must not enter the rate.
+  it("ignores cancelled runs: 7 success + 3 cancelled verifies at 100%", () => {
+    const runs = [
+      ...Array(7).fill({ status: "completed", conclusion: "success" }),
+      ...Array(3).fill({ status: "completed", conclusion: "cancelled" }),
+    ];
+    const result = verifyCiFix(depsWithRuns(runs));
+
+    expect(result.verified).toBe(true);
+    expect(result.reason).toContain("100%");
+  });
+
+  it("abstains when every completed run was cancelled", () => {
+    const runs = Array(3).fill({ status: "completed", conclusion: "cancelled" });
+    const result = verifyCiFix(depsWithRuns(runs));
+
+    expect(result.verified).toBe(false);
+    expect(result.confidence).toBe("skip");
+  });
+
+  it("still reports not verified for 6 success + 4 failure", () => {
+    const runs = [
+      ...Array(6).fill({ status: "completed", conclusion: "success" }),
+      ...Array(4).fill({ status: "completed", conclusion: "failure" }),
+    ];
+    const result = verifyCiFix(depsWithRuns(runs));
+
+    expect(result.verified).toBe(false);
+    expect(result.confidence).toBeUndefined();
+    expect(result.reason).toContain("60%");
+  });
+
   it("verifies when CI pass rate is above the 90% threshold", () => {
     const runs = [
       ...Array(9).fill({ status: "completed", conclusion: "success" }),
