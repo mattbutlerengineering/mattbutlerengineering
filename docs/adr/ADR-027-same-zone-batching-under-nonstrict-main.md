@@ -1,11 +1,11 @@
 ---
-id: ADR-095
+id: ADR-027
 title: Same-Zone Batching Under Non-Strict Main
 status: active
 date: 2026-10-14
 ---
 
-# ADR-095: Same-Zone Batching Under Non-Strict Main
+# ADR-027: Same-Zone Batching Under Non-Strict Main
 
 > **Amends [ADR-023](ADR-023-merge-train-batch-composition.md)**: adds a
 > conditional exception to its one-issue-per-zone rule. ADR-023's Decision

@@ -27,7 +27,7 @@ idle.
 
 **In**
 
-1. **Policy record.** ADR-095 amending ADR-023 (status line only on
+1. **Policy record.** ADR-027 amending ADR-023 (status line only on
    ADR-023; Decision section untouched), stating the new rule and the
    stale-base mitigation (main's push CI + `revert-watchdog`; the real
    per-zone merge-train lock still serializes the merges themselves).
@@ -62,8 +62,8 @@ strictMain = true })`. Default reproduces today's output exactly.
   do two same-zone issues when either has no extractable paths.
 - **SC-4 (fail closed):** an API error reading branch protection yields
   `strictMain: true` at the compose call site.
-- **SC-5 (record):** ADR-095 exists and is indexed in
-  `docs/adr/README.md`; ADR-023's status line reads amended-by-ADR-095
+- **SC-5 (record):** ADR-027 exists and is indexed in
+  `docs/adr/README.md`; ADR-023's status line reads amended-by-ADR-027
   and its Decision section is byte-identical.
 - **SC-6 (gates):** `pnpm lint`, `pnpm typecheck`, and the affected
   test suites green (`scripts/__tests__/issue-zone.test.mjs`,

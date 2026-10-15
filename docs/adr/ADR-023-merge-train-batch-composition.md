@@ -2,13 +2,13 @@
 id: ADR-023
 title: Zone-Spread Merge-Train Batch Composition
 status: active
-amended_by: ADR-095
+amended_by: ADR-027
 date: 2026-07-11
 ---
 
 # ADR-023: Zone-Spread Merge-Train Batch Composition
 
-> **Amended by [ADR-095](ADR-095-same-zone-batching-under-nonstrict-main.md)**, which relaxes the one-issue-per-zone rule below — conditionally, and only while `main`'s branch protection measures non-strict — without changing the Decision stated here.
+> **Amended by [ADR-027](ADR-027-same-zone-batching-under-nonstrict-main.md)**, which relaxes the one-issue-per-zone rule below — conditionally, and only while `main`'s branch protection measures non-strict — without changing the Decision stated here.
 
 ## Context
 

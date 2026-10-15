@@ -16,12 +16,12 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
 
 ## Work items
 
-- [x] **WO-26: ADR-095 amending ADR-023** — Write
-      `docs/adr/ADR-095-same-zone-batching-under-nonstrict-main.md`
+- [x] **WO-26: ADR-027 amending ADR-023** — Write
+      `docs/adr/ADR-027-same-zone-batching-under-nonstrict-main.md`
       (status `provisional`, repo ADR shape; see ADR-025 for an
       amendment example): the conditional rule, the fail-closed probe,
       and the stale-base mitigation per `architecture.md` § Design 4.
-      Set ADR-023's status line to `amended by ADR-095` — its Decision
+      Set ADR-023's status line to `amended by ADR-027` — its Decision
       section stays byte-identical. Add the README.md index row.
       Acceptance: SC-5; `check-adr` green.
 - [ ] **WO-27: selector `strictMain` option** — In
@@ -48,15 +48,15 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
       mode, spread-with-disjoint-scopes the measured-non-strict mode).
       Acceptance: SC-6 full-gate sweep (`pnpm lint`, `pnpm typecheck`,
       `pnpm exec vitest run --config scripts/vitest.config.mjs
-  scripts/__tests__/issue-zone.test.mjs
-  scripts/__tests__/zone-vocabulary.test.mjs
-  scripts/__tests__/main-strictness.test.mjs`); docs name
-      `main-strictness.mjs` and ADR-095 consistently.
+scripts/__tests__/issue-zone.test.mjs
+scripts/__tests__/zone-vocabulary.test.mjs
+scripts/__tests__/main-strictness.test.mjs`); docs name
+      `main-strictness.mjs` and ADR-027 consistently.
 
 ## Notes
 
 - Blueprint gate: this run stops here (`stop-after: decompose`).
   Implement is dispatched by the Conductor only after Matt approves the
   policy change (issue filed without `ready` on purpose).
-- Reserved ids spent: ADR-095, WO-26..29. Unspent: ADR 96-97, WO 30-35,
+- Reserved ids spent: ADR-027, WO-26..29. Unspent: ADR 96-97, WO 30-35,
   returned to the block.

@@ -3,7 +3,7 @@ stage: architect
 run: feature:zone-batch-nonstrict-main
 date: 2026-10-14
 ux: skipped — no user-facing surface (per prd.md)
-adr: ADR-095 (reserved; written provisional by the build step, WO-26)
+adr: ADR-027 (reserved as ADR-095; renumbered at merge because check-adr requires gap-free ids)
 assumptions:
   - "Disjointness is computed over extractPathsFromBody()'s path sets with prefix-aware comparison (a path and any of its ancestors/descendants overlap), reusing the module's existing extraction rather than a second parser."
   - "The strict probe is a small pure-classifier script (scripts/main-strictness.mjs) wrapping `gh api`, mirroring the repo's pure-decision + thin-wrapper pattern (ci-gate-status, merge-queue-eligibility), rather than inline jq in the skill doc — testable fail-closed behaviour needs a unit seam."
@@ -37,8 +37,8 @@ required_status_checks` response whose parsed `strict` is literally
 3. **Compose hook** (`.claude/implement-queue.md` § compose). Runs the
    probe each iteration (branch protection is repo _state_, not code —
    gotchas § CI), passes `{ maxWorkers, strictMain }` to the selector.
-4. **Policy record.** ADR-095 amends ADR-023: Decision = the rule in (1)
-   gated by (2)/(3); ADR-023 status line → `amended by ADR-095`, Decision
+4. **Policy record.** ADR-027 amends ADR-023: Decision = the rule in (1)
+   gated by (2)/(3); ADR-023 status line → `amended by ADR-027`, Decision
    section untouched. Stale-base mitigation stated: the exposure exists
    today for any concurrent PRs under non-strict main regardless of
    batching; the standing mitigations are main's push CI,
@@ -52,7 +52,7 @@ required_status_checks` response whose parsed `strict` is literally
 - Reuse `extractPathsFromBody` — no second parser to drift (same rule
   that put `issueZone` on `zone-vocabulary.mjs`).
 - Probe lives at the call site; selector stays pure (PRD non-goal).
-- Issue text's "ADR-028" superseded by the reserved block → ADR-095.
+- Reserved ADR-095 renumbered to ADR-027 at merge: `check-adr` rejects gaps in ADR ids.
 
 ## Risks
 

@@ -95,4 +95,4 @@ after Matt's go-ahead on the policy change.
 
 PRD 3; ADR 95-97; WO 26-35. If exhausted, stop and surface. (The issue
 text's "ADR-028" was a decompose-time guess; the reserved block is
-authoritative, so the amending ADR is ADR-095.)
+authoritative, so the amending ADR is ADR-027.)
