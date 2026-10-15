@@ -7,8 +7,7 @@ import {
 } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { recognizeGuest } from "../services/guest-recognition.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
+import { publicVenueScoped } from "./public-venue-scope.js";
 
 export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(guestRecognitionJsonSchema);
@@ -44,7 +43,7 @@ export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) 
         },
       },
     },
-    async (request, reply) => {
+    publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
       const { slug } = request.params;
       const { email } = request.query;
 
@@ -56,25 +55,17 @@ export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) 
 
       // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
       // run the guest lookup inside that venue's RLS context.
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) {
+
+      const venue = await venueService.getBySlug(slug);
+      if (!venue) {
         return reply
           .status(404)
           .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
-      return runWithVenueContext(venueId, async () => {
-        const venue = await venueService.getBySlug(slug);
-        if (!venue) {
-          return reply
-            .status(404)
-            .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-        }
+      const recognition = await recognizeGuest(venue.id, email);
 
-        const recognition = await recognizeGuest(venue.id, email);
-
-        return reply.send({ data: recognition });
-      });
-    }
+      return reply.send({ data: recognition });
+    })
   );
 };

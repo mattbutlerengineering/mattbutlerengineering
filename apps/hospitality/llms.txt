@@ -263,6 +263,9 @@
     <item priority="medium">
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
+    <item priority="high">
+      export function buildSlotsBody(now: Date): string { /* ... */ }
+    </item>
     <item priority="medium">
       function slotsResponse(route: Route): Promise<void> { /* ... */ }
     </item>
@@ -283,6 +286,9 @@
     </item>
     <item priority="high">
       export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }

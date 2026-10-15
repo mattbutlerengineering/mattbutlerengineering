@@ -3549,3 +3549,12 @@ Claimed 3 `ready` issues across 3 distinct merge-train zones (`apps/marketing`, 
 ### Skipped Issues
 
 None — 0 `agent-skip`.
+
+## 2026-10-15
+
+**Sensors:** 12/17 available (flakyTests: no GH token in env on first pass; queueEfficiency: `gh` ETIMEDOUT; ccusageCost/lighthouse/mutationScore unavailable)
+**Regressions:** 1 detected (codeChurn.churn_rate 0.443 → 0.445, +0.002) — 0 issues created; a 0.2pp move is noise, not a regression
+**Verifications:** 5 checked, 3 verified, 2 failed → both reopens (#6648, #6607) were FALSE POSITIVES: `verifyCiFix` counted 3 concurrency-`cancelled` runs as failures while main CI was 7/7 green. Re-closed both; filed #6659 (same class as ciHealth #4687)
+**Skill proposals:** n/a (not Friday)
+**Threshold notes:** auto-tuner moved acmm 1.15 → 1.167. Step 0's `scripts/collect-domain-metrics.mjs` no longer exists — SKILL.md is stale
+**Other:** e2eStability reports 8 consecutive non-frontend failures; cold/full PR CI runs take 19-23m with `Test (Node 22)` at ~889s (normal affected-only PR runs 1-4m)
