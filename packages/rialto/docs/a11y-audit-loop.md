@@ -188,6 +188,12 @@ SegmentedControl.tsx - model is a single-select `role=radiogroup` of `role=radio
 
 ---
 
+## Iteration 5: Navigation (Sidebar)
+
+- Sidebar: section label was a bare `<span>` with no association to its items. Each section is now `role="group"` with `aria-labelledby` pointing at the label (`useId`); the attribute is omitted when the section has no label or the sidebar is collapsed (no dangling reference). **FIXED** (#6589)
+
+---
+
 ## Queue for next iterations
 
 - ~~**Iteration 2**: Form components — Input, TextArea, Checkbox, Select, NumberInput, PinInput, Autocomplete~~ **Done** (see Iteration 2 above)

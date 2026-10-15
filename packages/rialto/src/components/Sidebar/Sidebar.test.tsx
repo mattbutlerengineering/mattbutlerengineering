@@ -135,6 +135,39 @@ describe("Sidebar", () => {
     expect(screen.queryByText("Main")).not.toBeInTheDocument();
   });
 
+  it("groups section items under their label via aria-labelledby", () => {
+    render(
+      <Sidebar
+        items={[
+          { label: "Main", items: [{ id: "home", label: "Home", href: "/" }] },
+          { label: "Admin", items: [{ id: "users", label: "Users", href: "/users" }] },
+        ]}
+      />
+    );
+    const main = screen.getByRole("group", { name: "Main" });
+    expect(main).toContainElement(screen.getByRole("link", { name: "Home" }));
+    expect(main).not.toContainElement(screen.getByRole("link", { name: "Users" }));
+    const labelId = main.getAttribute("aria-labelledby");
+    expect(labelId).toBeTruthy();
+    expect(document.getElementById(labelId as string)).toHaveTextContent("Main");
+    expect(screen.getByRole("group", { name: "Admin" })).toBeInTheDocument();
+  });
+
+  it("omits aria-labelledby for unlabeled and collapsed sections", () => {
+    const { rerender } = render(
+      <Sidebar items={[{ items: [{ id: "home", label: "Home", href: "/" }] }]} />
+    );
+    expect(screen.getByRole("group")).not.toHaveAttribute("aria-labelledby");
+
+    rerender(
+      <Sidebar
+        collapsed
+        items={[{ label: "Main", items: [{ id: "home", label: "Home", href: "/" }] }]}
+      />
+    );
+    expect(screen.getByRole("group")).not.toHaveAttribute("aria-labelledby");
+  });
+
   it("marks disabled items", () => {
     render(<Sidebar items={[{ id: "disabled", label: "Disabled Item", disabled: true }]} />);
     expect(screen.getByRole("button", { name: /disabled item/i })).toBeDisabled();
