@@ -201,10 +201,9 @@ describe("FloorPlansPage", () => {
     });
 
     expect(screen.getByText("2 tables")).toBeDefined();
-    expect(screen.getByText("1 tables")).toBeDefined();
+    expect(screen.getByText("1 table")).toBeDefined();
 
-    const formattedDate = new Date("2026-01-15T10:00:00Z").toLocaleDateString();
-    expect(screen.getByText(`Updated ${formattedDate}`)).toBeDefined();
+    expect(screen.getByText("Updated 01/15/2026")).toBeDefined();
   });
 
   it("active floor plan shows Active badge", async () => {
