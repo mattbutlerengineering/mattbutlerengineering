@@ -3,7 +3,7 @@ import "./index.css";
 import { StrictMode, Suspense, lazy, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
-import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
+import { RialtoProvider, ErrorBoundary } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
@@ -15,6 +15,7 @@ import { RequireAdmin } from "./components/RequireAdmin";
 import { validateAuthConfig } from "./constants/auth";
 import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
+import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
 
 initSentry({
   appName: "hospitality",
@@ -355,7 +356,7 @@ function Root() {
     <RialtoProvider persistTheme>
       <LocaleProviders>
         <ThemeBridge>
-          <ToastProvider>
+          <ToastLocaleOverride>
             <ErrorBoundary onError={handleErrorBoundary}>
               <AuthProvider config={authConfigResult.config}>
                 <QueryProvider>
@@ -363,7 +364,7 @@ function Root() {
                 </QueryProvider>
               </AuthProvider>
             </ErrorBoundary>
-          </ToastProvider>
+          </ToastLocaleOverride>
         </ThemeBridge>
       </LocaleProviders>
     </RialtoProvider>

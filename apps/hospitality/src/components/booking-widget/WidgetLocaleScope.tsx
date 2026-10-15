@@ -6,6 +6,7 @@ import {
   LocaleBridge,
   type LocaleRuntime,
 } from "../../i18n/runtime.js";
+import { PublishGuestToastLocale } from "./ToastLocaleOverride.js";
 import { DEFAULT_LOCALE, type LocaleTag } from "../../i18n/locales.js";
 
 export const WIDGET_LOCALE_STORAGE_KEY = "mbe-booking-widget-locale";
@@ -83,6 +84,8 @@ export function WidgetLocaleScope({
     <WidgetLocaleContext.Provider value={runtime}>
       <I18nextProvider i18n={runtime.i18n}>
         <LocaleBridge runtime={runtime}>
+          {/* The staff demo page is a dashboard route: its toasts stay in the dashboard locale. */}
+          {!followDashboardOnce && <PublishGuestToastLocale />}
           <WidgetLang>{children}</WidgetLang>
         </LocaleBridge>
       </I18nextProvider>
