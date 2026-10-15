@@ -38735,8 +38735,15 @@
       // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
       // the notifier's own public method, so both must accept venueId.
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
-      /** Persists notified state on the row; null if the party is no longer waiting. */
-      markNotified(id: string): Promise<{ id: string } | null>;
+      /**
+       * Persists notified state on the row; null if the party is no longer waiting.
+       * `positionChanges` are the parties behind it that moved up; the notifier texts
+       * them only once the expiry job is scheduled, because a failed schedule reverts
+       * the party and moves everyone back down.
+       */
+      markNotified(
+        id: string
+      ): Promise<{ id: string; positionChanges?: readonly NotifyPositionUpdateInput[] } | null>;
       /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
       revertNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
@@ -38831,7 +38838,8 @@
       async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
         // Record notified state first: a party that was seated/cancelled in the
         // meantime gets no SMS and no expiry job.
-        if (!(await markNotified(input.id))) return;
+        const marked = await markNotified(input.id);
+        if (!marked) return;
     
         if (smsAdapter) {
           try {
@@ -38857,6 +38865,13 @@
         } catch (err) {
           await revertNotified(input.id);
           throw err;
+        }
+    
+        // Queue positions are final only now that the notified state stuck.
+        for (const change of marked.positionChanges ?? []) {
+          notifyPositionUpdate(change).catch(() => {
+            // Already logged inside notifyPositionUpdate
+          });
         }
       }
     
@@ -38894,14 +38909,13 @@
         expireEntry: (id) => waitlistService.expire(id),
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-        markNotified: (id) =>
-          waitlistService.markNotified(id, (changes) => {
-            for (const change of changes) {
-              ref.value?.notifyPositionUpdate(change).catch(() => {
-                // Already logged inside the notifier
-              });
-            }
-          }),
+        markNotified: async (id) => {
+          const positionChanges: NotifyPositionUpdateInput[] = [];
+          const entry = await waitlistService.markNotified(id, (changes) => {
+            positionChanges.push(...changes);
+          });
+          return entry ? { id: entry.id, positionChanges } : null;
+        },
         revertNotified: (id) => waitlistService.revertNotified(id),
         logger: consoleLogger,
       });
