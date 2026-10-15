@@ -81,7 +81,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
   - Accept: existing English-sentence tests pass unchanged; new tests cover every
     description kind.
   - Blocked by: —
-- [ ] **LocalePicker** — `apps/hospitality/src/components/LocalePicker/` with `sidebar`,
+- [x] **LocalePicker** — `apps/hospitality/src/components/LocalePicker/` with `sidebar`,
       `settings`, `compact` variants. (tracker: #6614)
   - Accept: tests: endonyms listed, MT tag on es-MX/fr-CA only, spinner while
     `onChange` pending with current text retained, rejection shows Retry and keeps value,

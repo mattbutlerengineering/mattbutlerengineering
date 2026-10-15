@@ -488,5 +488,13 @@
       "dirty": "Dirty",
       "ready": "Ready"
     }
+  },
+  "localePicker": {
+    "label": "Language",
+    "triggerName": "Language: {{locale}}",
+    "loading": "Loading {{locale}}…",
+    "loadError": "Couldn't load {{locale}}",
+    "retry": "Retry",
+    "machineTranslated": "Translations are machine-generated."
   }
 }

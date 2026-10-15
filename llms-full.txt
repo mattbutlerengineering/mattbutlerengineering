@@ -1235,6 +1235,14 @@
     }
   </file>
   </section>
+  <section priority="medium" role="LocalePicker">
+  <file path="apps/hospitality/src/components/LocalePicker/machine-translation-tags.ts">
+    export const MACHINE_TRANSLATION_TAGS: Readonly<Partial<Record<LocaleTag, string>>> = {
+      "es-MX": "Traducción autom.",
+      "fr-CA": "Traduction autom.",
+    };
+  </file>
+  </section>
   <section priority="medium" role="NavigationMenu">
   <file path="packages/rialto/src/components/NavigationMenu/NavigationMenu.catalog.ts">
     export const navigationMenuCatalogMeta = {

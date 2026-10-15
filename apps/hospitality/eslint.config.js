@@ -8,6 +8,7 @@ const LOCALIZED_FILES = [
   "src/components/TableStatusBadge.tsx",
   "src/components/floor-plan/**/*.{ts,tsx}",
   "src/components/venue-onboarding/**/*.{ts,tsx}",
+  "src/components/LocalePicker/**/*.{ts,tsx}",
 ];
 
 export default [
