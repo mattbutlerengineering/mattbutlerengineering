@@ -51,6 +51,19 @@ Build-time env vars (set in CI and `.env`):
 - `useReservationEvents` hook for real-time reservation updates
 - Vite base path: `base: "/hospitality/"` in `vite.config.ts`
 
+## Localization
+
+Staff and guest UI ships in en-US, en-GB, es-MX and fr-CA ([ADR-028](../../docs/adr/ADR-028-rialto-localization-through-context.md), feature docs in [`docs/features/localization/`](../../docs/features/localization/)).
+
+- **Catalogs:** `src/i18n/catalogs/<tag>.json` (i18next JSON, nested keys, `_one`/`_other` plural suffixes, `{{name}}` placeholders). en-US is the source. es-MX and fr-CA must carry every key; en-GB holds only keys whose wording differs, because it falls back to en-US.
+- **Parity check:** `pnpm check:i18n-catalogs` (repo root, `scripts/check-i18n-catalogs.mjs`) fails on a missing key, placeholder or plural form. Add every new en-US key with its es-MX and fr-CA values in the same PR.
+- **Lint rule:** `mbe-local/no-literal-ui-strings` is an error across `src/**` (`LOCALIZED_FILES` in `eslint.config.js`). UI text goes through `useTranslation().t`; pure helpers called outside React use `defaultT` (`src/i18n/default-t.ts`).
+- **Runtime:** `src/i18n/runtime.tsx` owns the dashboard locale (`localeRuntime`, persisted under `mbe-hospitality-locale`) and bridges it to rialto through `LocaleBridge`. Supported tags and the fallback rule live in `src/i18n/locales.ts`.
+- **Guest surfaces** (booking widget, `book/:venueSlug`, `reservations/manage`) run their own locale inside `WidgetLocaleScope` (`src/components/booking-widget/`), independent of the dashboard. `ToastLocaleOverride` labels the root toast region in the guest locale while a guest scope is mounted.
+- **Formatting:** dates, times, numbers and money go through `useVenueFormat` (`src/hooks/useVenueFormat.ts`). Currency and timezone always come from the venue; the locale only picks the format.
+- **Persisted text stays en-US.** Anything written to a record (e.g. the cancellation audit note in `hooks/useCancellationQuote.ts`) is a record, not UI copy.
+- **E2E:** `e2e/locale-sweep.spec.ts` walks the public and Auth0-gated routes in en-GB, es-MX and fr-CA, and fails on leftover en-US text or clipping that isn't marked `data-truncate`.
+
 ## E2E Testing
 
 Uses Playwright with programmatic Auth0 login (Resource Owner Password Grant). No browser login flow needed.

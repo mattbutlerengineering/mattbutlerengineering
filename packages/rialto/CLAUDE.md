@@ -193,6 +193,17 @@ Before writing any page UI, read `.claude/rules/ui-quality.md` — the tells the
 - `pnpm test` — Run unit tests
 - `pnpm typecheck` — Type-check without emitting
 
+## Localization
+
+Every string rialto renders on its own (accessible names, default button labels, live-region announcements) comes from one typed dictionary, provided through context ([ADR-028](../../docs/adr/ADR-028-rialto-localization-through-context.md)).
+
+- **Dictionary:** `RialtoMessages` in `src/i18n/messages.ts`, with the en-US values inline as the default. Other locales are `src/i18n/locales/{en-GB,es-MX,fr-CA}.ts`, published as `@mattbutlerengineering/rialto/locales/<tag>` subpaths and typed `RialtoMessages`, so a missing key fails typecheck. Interpolated entries are functions, e.g. `pageNumber: (page: number) => string`.
+- **Provider:** `RialtoLocaleProvider` / `useRialtoLocale()` (`src/i18n/RialtoLocaleProvider.tsx`, exported from `@mattbutlerengineering/rialto/providers`). Components read `useRialtoLocale().messages`; with no provider they fall back to en-US.
+- **Adding a key:** add it to `RialtoMessages` and give it a value in every locale module in the same change. Text a consumer owns (e.g. `GlobalNav` link names) comes in as an optional prop that defaults to the built-in label, not as a dictionary key.
+- **Lint rule:** `mbe-local/no-literal-ui-strings` is an error across `src/**` (`LOCALIZED_FILES` in `eslint.config.js`).
+- **Tests:** per-family locale tests (`src/components/*-locale.test.tsx`) render components under es-MX/fr-CA providers.
+- **Changesets:** any change to rialto source, a new message key or locale API included, needs a **patch** changeset (`.changeset/*.md`).
+
 ## Exports Map
 
 The `exports` field in `package.json` is auto-generated. `pnpm build` runs `vite build && tsx scripts/generate-all.ts` — the latter parses components once and writes `registry.json`, `dist/manifest.json`, and the `package.json` exports map in a single pass. After adding a new component:
