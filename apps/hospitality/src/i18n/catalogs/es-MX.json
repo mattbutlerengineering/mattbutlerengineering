@@ -1,5 +1,13 @@
 {
   "shell": {
     "skipToMain": "Saltar al contenido principal"
+  },
+  "localePicker": {
+    "label": "Idioma",
+    "triggerName": "Idioma: {{locale}}",
+    "loading": "Cargando {{locale}}…",
+    "loadError": "No se pudo cargar {{locale}}",
+    "retry": "Reintentar",
+    "machineTranslated": "Las traducciones son automáticas."
   }
 }
