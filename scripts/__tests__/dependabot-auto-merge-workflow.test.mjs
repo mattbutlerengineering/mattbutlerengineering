@@ -74,6 +74,14 @@ describe("dependabot.yml grouping (#6650)", () => {
     expect(text).toMatch(/\n {6}types:\n {8}patterns: \["@types\/\*"\]\n(?! {8}dependency-type)/);
   });
 
+  it("playwright and @playwright/* bump together in dev-deps, not production-deps", () => {
+    const devDeps = text.match(/dev-deps:\n(?: {8}.*\n)+/)[0];
+    expect(devDeps).toContain('"playwright*"');
+    expect(devDeps).toContain('"@playwright/*"');
+    const exclude = text.match(/exclude-patterns:\n([\s\S]*?\])/)[1];
+    expect(exclude).toContain('"@playwright/*"');
+  });
+
   it("dev-deps no longer lists @types/*", () => {
     const devDeps = text.match(/dev-deps:\n(?: {8}.*\n)+/)[0];
     expect(devDeps).not.toContain("@types/*");
