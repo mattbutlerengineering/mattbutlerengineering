@@ -1,8 +1,9 @@
 import { memo, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, Text, Badge, Skeleton } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
+import { RESERVATION_STATUS_KEYS } from "../timeline/status-keys.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
-import { STATUS_LABEL } from "../../utils/reservation-display.js";
 import styles from "../../pages/HomePage.module.css";
 
 const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "error"> = {
@@ -19,11 +20,7 @@ function formatTime(time: string, fmt: VenueFormat): string {
     return fmt.formatTime(time);
   }
   // Fallback for plain HH:mm strings
-  const [hours, minutes] = time.split(":");
-  const h = parseInt(hours ?? "0", 10);
-  const suffix = h >= 12 ? "pm" : "am";
-  const display = h > 12 ? h - 12 : h === 0 ? 12 : h;
-  return `${display}:${minutes ?? "00"}${suffix}`;
+  return fmt.formatLocalTime(time);
 }
 
 interface ReservationListProps {
@@ -36,6 +33,8 @@ export const ReservationList = memo(function ReservationList({
   isLoading,
 }: ReservationListProps) {
   const fmt = useVenueFormat();
+  const { t } = useTranslation();
+  const title = t("home.reservations.title");
   const sorted = useMemo(() => {
     const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
     return [...active].sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -43,7 +42,7 @@ export const ReservationList = memo(function ReservationList({
 
   if (isLoading) {
     return (
-      <Card title="Today's Reservations">
+      <Card title={title}>
         <Skeleton variant="rect" height={120} width="100%" />
       </Card>
     );
@@ -51,29 +50,36 @@ export const ReservationList = memo(function ReservationList({
 
   if (sorted.length === 0) {
     return (
-      <Card title="Today's Reservations">
+      <Card title={title}>
         <Text variant="body" color="secondary">
-          No reservations today
+          {t("home.reservations.empty")}
         </Text>
       </Card>
     );
   }
 
   return (
-    <Card title="Today's Reservations">
+    <Card title={title}>
       <ul className={styles.reservationList}>
-        {sorted.map((r) => (
-          <li key={r.id} className={styles.reservationItem}>
-            <Text className={styles.reservationTime}>{formatTime(r.startTime, fmt)}</Text>
-            <div className={styles.reservationDetails}>
-              <div className={styles.reservationGuest}>{r.guestName ?? "Walk-in"}</div>
-              <div className={styles.reservationMeta}>Party of {r.partySize}</div>
-            </div>
-            <Badge variant={STATUS_VARIANT[r.status] ?? "neutral"} size="sm">
-              {STATUS_LABEL[r.status]}
-            </Badge>
-          </li>
-        ))}
+        {sorted.map((r) => {
+          const guest = r.guestName ?? t("home.reservations.walkIn");
+          return (
+            <li key={r.id} className={styles.reservationItem}>
+              <Text className={styles.reservationTime}>{formatTime(r.startTime, fmt)}</Text>
+              <div className={styles.reservationDetails}>
+                <div className={styles.reservationGuest} data-truncate title={guest}>
+                  {guest}
+                </div>
+                <div className={styles.reservationMeta}>
+                  {t("home.reservations.partyOf", { count: r.partySize })}
+                </div>
+              </div>
+              <Badge variant={STATUS_VARIANT[r.status] ?? "neutral"} size="sm">
+                {t(RESERVATION_STATUS_KEYS[r.status])}
+              </Badge>
+            </li>
+          );
+        })}
       </ul>
     </Card>
   );

@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Button, DropdownMenu, StatusLED, Text } from "@mattbutlerengineering/rialto";
 import type { TableStatus } from "@mbe/types";
 import { tableStatusMenuItems, tableStatusWord } from "./table-status-menu.js";
@@ -44,8 +45,9 @@ export function TableStatusMenu({
   pending = false,
   onChange,
 }: TableStatusMenuProps) {
-  const items = tableStatusMenuItems(status);
-  const word = tableStatusWord(status);
+  const { t, i18n } = useTranslation();
+  const items = tableStatusMenuItems(status, t, i18n.language);
+  const word = tableStatusWord(status, t);
 
   return (
     <DropdownMenu
@@ -54,7 +56,7 @@ export function TableStatusMenu({
           variant="ghost"
           size="sm"
           className={`${styles.trigger} ${pending ? styles.pending : ""}`}
-          aria-label={`${tableName}: ${word}. Change status`}
+          aria-label={t("timeline.tableMenu.trigger", { table: tableName, status: word })}
           data-testid={`table-status-${tableId}`}
           disabled={pending || items.length === 0}
           onKeyDown={openOnArrowDown}

@@ -85,10 +85,10 @@ describe("ReservationList", () => {
 
     const items = screen.getAllByRole("listitem");
     expect(items.length).toBe(3);
-    // Check first item is 5:00pm (17:00)
-    expect(items[0]!.textContent).toContain("5:00pm");
-    // Check last item is 7:00pm (19:00)
-    expect(items[2]!.textContent).toContain("7:00pm");
+    // Check first item is 5:00 PM (17:00)
+    expect(items[0]!.textContent).toMatch(/5:00\sPM/);
+    // Check last item is 7:00 PM (19:00)
+    expect(items[2]!.textContent).toMatch(/7:00\sPM/);
   });
 
   it("should display guest name or 'Walk-in'", () => {

@@ -9,6 +9,9 @@ const LOCALIZED_FILES = [
   "src/components/floor-plan/**/*.{ts,tsx}",
   "src/components/venue-onboarding/**/*.{ts,tsx}",
   "src/components/LocalePicker/**/*.{ts,tsx}",
+  "src/pages/{HomePage,TimelinePage}.tsx",
+  "src/components/timeline/**/*.{ts,tsx}",
+  "src/components/dashboard/**/*.{ts,tsx}",
 ];
 
 export default [

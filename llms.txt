@@ -17320,7 +17320,7 @@
       ): Table | undefined { /* ... */ }
     </item>
     <item priority="high">
-      export function statusWord(reservation: Reservation, seated: boolean): string { /* ... */ }
+      export function statusWord(reservation: Reservation, seated: boolean, t: TFunction): string { /* ... */ }
     </item>
     <item priority="medium">
       function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
@@ -17329,7 +17329,8 @@
       export function occupiedCaption(
         reservation: Reservation,
         table: Table | undefined,
-        now: Date
+        now: Date,
+        t: TFunction
       ): string | null { /* ... */ }
     </item>
     <item priority="low">
@@ -17358,6 +17359,11 @@
       export const SHEET_BLOCK_SIZE: Readonly<Record<ReservationSheetSize, string>>;
     </item>
   </file>
+  <file path="apps/hospitality/src/components/timeline/status-keys.ts">
+    <item priority="high">
+      export const RESERVATION_STATUS_KEYS: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/timeline/table-status-menu.ts">
     <item priority="low">
       interface TableStatusMenuItem {
@@ -17366,10 +17372,17 @@
       }
     </item>
     <item priority="high">
-      export function tableStatusMenuItems(status: TableStatus): TableStatusMenuItem[] { /* ... */ }
+      export function tableStatusWord(status: TableStatus, t: TFunction): string { /* ... */ }
     </item>
     <item priority="high">
-      export function tableStatusWord(status: TableStatus): string { /* ... */ }
+      export function tableStatusInline(status: TableStatus, t: TFunction, locale: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tableStatusMenuItems(
+        status: TableStatus,
+        t: TFunction,
+        locale: string
+      ): TableStatusMenuItem[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/timeline/useGridFocus.ts">
@@ -17416,6 +17429,11 @@
         currentTimeOffset: number | null,
         tableColumnWidth: number
       ): void { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/timeline/visit-label.ts">
+    <item priority="high">
+      export function visitLabel(visitCount: number, t: TFunction, locale: string): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -18007,6 +18025,9 @@
     </item>
     <item priority="high">
       export function formatShortDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatHourLabel(hour: number, locale: string, compact: boolean): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

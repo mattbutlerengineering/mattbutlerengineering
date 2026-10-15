@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Meter, Odometer, Text } from "@mattbutlerengineering/rialto";
 import type { DashboardStats } from "../../hooks/useDashboardStatsQuery.js";
 import styles from "./StatRow.module.css";
@@ -28,12 +29,13 @@ const CANCELLATION_MAX = 100;
  * value as accessible text and honour `prefers-reduced-motion` internally.
  */
 export function StatRow({ stats }: StatRowProps) {
+  const { t } = useTranslation();
   const counts: readonly CountMetric[] = [
-    { label: "Today's Reservations", value: stats.totalReservations },
-    { label: "Expected Covers", value: stats.expectedCovers },
-    { label: "Upcoming (2 hrs)", value: stats.upcomingCount },
-    { label: "Waitlist", value: stats.waitlistCount },
-    { label: "Longest Wait (min)", value: stats.longestWaitMinutes },
+    { label: t("home.stats.reservations"), value: stats.totalReservations },
+    { label: t("home.stats.covers"), value: stats.expectedCovers },
+    { label: t("home.stats.upcoming"), value: stats.upcomingCount },
+    { label: t("home.stats.waitlist"), value: stats.waitlistCount },
+    { label: t("home.stats.longestWait"), value: stats.longestWaitMinutes },
   ];
 
   return (
@@ -47,7 +49,7 @@ export function StatRow({ stats }: StatRowProps) {
 
       <div className={styles.tile}>
         <Meter
-          label="Cancellation Rate"
+          label={t("home.stats.cancellationRate")}
           value={stats.cancellationRate}
           min={CANCELLATION_MIN}
           max={CANCELLATION_MAX}
