@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { evaluateCancellationFee, formatCancellationTerms } from "./cancellation-policy.js";
+import {
+  describeCancellationPolicy,
+  evaluateCancellationFee,
+  formatCancellationTerms,
+} from "./cancellation-policy.js";
 import type { CancellationPolicy } from "./cancellation-policy.js";
 
 const BASE_DEPOSIT_CENTS = 10000; // $100.00
@@ -238,5 +242,68 @@ describe("formatCancellationTerms", () => {
     expect(result).toContain("no-show");
     expect(result).toContain("100%");
     expect(result).toContain("$100.00");
+  });
+});
+
+describe("describeCancellationPolicy", () => {
+  it("describes a missing policy as no-fees", () => {
+    expect(describeCancellationPolicy(null)).toEqual({ kind: "no-fees" });
+  });
+
+  it("describes a policy without a free window as no-fees", () => {
+    expect(
+      describeCancellationPolicy({
+        depositAmountCents: 10000,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 100,
+      })
+    ).toEqual({ kind: "no-fees" });
+  });
+
+  it("describes a full policy with fee percents and integer-cent amounts", () => {
+    expect(
+      describeCancellationPolicy({
+        depositAmountCents: 10000,
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 100,
+      })
+    ).toEqual({
+      kind: "free-window",
+      freeHours: 24,
+      lateFeePercent: 50,
+      lateFeeAmountCents: 5000,
+      noShowFeePercent: 100,
+      noShowFeeAmountCents: 10000,
+    });
+  });
+
+  it("defaults a null late fee to 0% and a null no-show fee to 100%", () => {
+    expect(
+      describeCancellationPolicy({
+        depositAmountCents: 999,
+        freeCancellationHours: 2,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      })
+    ).toEqual({
+      kind: "free-window",
+      freeHours: 2,
+      lateFeePercent: 0,
+      lateFeeAmountCents: 0,
+      noShowFeePercent: 100,
+      noShowFeeAmountCents: 999,
+    });
+  });
+
+  it("floors fractional cents", () => {
+    const d = describeCancellationPolicy({
+      depositAmountCents: 1001,
+      freeCancellationHours: 1,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 100,
+    });
+    expect(d).toMatchObject({ lateFeeAmountCents: 500 });
   });
 });

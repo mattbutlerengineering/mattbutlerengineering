@@ -75,7 +75,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     shows `US$40.00`, 24h time, `dd/mm/yyyy` for a USD / America/Los_Angeles venue;
     invalid IANA zone falls back to device zone and reports once.
   - Blocked by: i18n runtime
-- [ ] **Cancellation-policy description** — `describeCancellationPolicy()` discriminated
+- [x] **Cancellation-policy description** — `describeCancellationPolicy()` discriminated
       union in `packages/cancellation-policy`; English sentence function re-implemented
       over it. (tracker: #6613)
   - Accept: existing English-sentence tests pass unchanged; new tests cover every

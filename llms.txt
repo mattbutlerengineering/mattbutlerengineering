@@ -13331,6 +13331,16 @@
         cancellationTime: Date
       ): CancellationFeeResult { /* ... */ }
     </item>
+    <item priority="low">
+      type CancellationPolicyDescription = { kind: "no-fees" } | {
+            kind: "free-window";
+       ;
+    </item>
+    <item priority="high">
+      export function describeCancellationPolicy(
+        policy: CancellationPolicy | null
+      ): CancellationPolicyDescription { /* ... */ }
+    </item>
     <item priority="high">
       export function formatCancellationTerms(
         policy: CancellationPolicy | null,
