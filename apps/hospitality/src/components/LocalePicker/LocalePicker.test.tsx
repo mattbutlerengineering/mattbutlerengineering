@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
+import { esMX as rialtoESMX } from "@mattbutlerengineering/rialto/locales/es-MX";
 import { createLocaleRuntime, type RuntimeDeps } from "../../i18n/runtime.js";
 import type { LocaleTag } from "../../i18n/locales.js";
 import esMX from "../../i18n/catalogs/es-MX.json";
@@ -10,7 +11,7 @@ function makeRuntime(overrides: Partial<RuntimeDeps> = {}) {
   const store = new Map<string, string>();
   const deps: RuntimeDeps = {
     loadAppCatalog: vi.fn(async (tag: LocaleTag) => (tag === "es-MX" ? esMX : {})),
-    loadRialtoMessages: vi.fn(async () => ({ dismiss: "Descartar", close: "Cerrar" })),
+    loadRialtoMessages: vi.fn(async () => ({ ...rialtoESMX })),
     storage: {
       get: (key) => store.get(key) ?? null,
       set: (key, value) => {

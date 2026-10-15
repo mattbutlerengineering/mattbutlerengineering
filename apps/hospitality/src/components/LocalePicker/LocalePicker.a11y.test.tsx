@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { axe } from "vitest-axe";
+import { enUS as rialtoEnUS } from "@mattbutlerengineering/rialto/providers";
 import { createLocaleRuntime, type RuntimeDeps } from "../../i18n/runtime.js";
 import { LocalePicker, type LocalePickerProps } from "./LocalePicker.js";
 
@@ -11,7 +12,7 @@ const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 function makeRuntime(overrides: Partial<RuntimeDeps> = {}) {
   return createLocaleRuntime({
     loadAppCatalog: async () => ({}),
-    loadRialtoMessages: async () => ({ dismiss: "Dismiss", close: "Close" }),
+    loadRialtoMessages: async () => ({ ...rialtoEnUS }),
     storage: { get: () => null, set: () => true },
     browserLanguages: () => [],
     setDocumentLang: () => {},
