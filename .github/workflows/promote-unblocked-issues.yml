@@ -1,0 +1,47 @@
+name: Promote Unblocked Issues
+
+# Event-driven complement to scheduled-issue-completion.yml's 12 h "promote"
+# mode (#6635): the moment every `Depends on: #N` blocker on an open issue
+# closes, promote that issue to `ready` instead of waiting for the next
+# 12 h tick — or indefinitely, while other work stays `ready`.
+#
+# Measured during the localization feature run (2026-10-13/14, PR #6591):
+# the breakdown became 19 issues (#6612-#6630) chained by `Depends on: #N`,
+# and a dependent item could sit blocked for hours after its blocker merged
+# with nothing promoting it.
+#
+# See scripts/promote-unblocked-issues.mjs for the selection/promotion logic
+# (pure, unit-tested) — this workflow is deliberately mechanical, wiring
+# `gh api` REST calls to it.
+#
+# No PR is ever opened here (only an `issues:write` label call), so there is
+# nothing to dispatch CI on — the GITHUB_TOKEN anti-recursion trap
+# (.claude/rules/gotchas.md § CI) only bites workflows that create a PR or
+# push a commit.
+
+on:
+  issues:
+    types: [closed]
+  pull_request:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  promote:
+    name: Promote issues whose blockers are closed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Promote unblocked issues
+        run: node scripts/promote-unblocked-issues.mjs
