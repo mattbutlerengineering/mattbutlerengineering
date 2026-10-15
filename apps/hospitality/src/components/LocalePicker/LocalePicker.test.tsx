@@ -109,6 +109,10 @@ describe("LocalePicker", () => {
         await gate;
         return esMX;
       },
+      // The load is held open on purpose until release(); the 50 ms default
+      // would time the switch out first on a loaded CI runner (coverage on),
+      // leaving the language at en-US.
+      timeoutMs: 10_000,
     });
     const { container } = renderPicker(runtime);
     const trigger = screen.getByRole("button", { name: /Language/ });
