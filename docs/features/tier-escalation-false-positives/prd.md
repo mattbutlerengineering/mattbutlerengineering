@@ -61,7 +61,7 @@ a test.
       size escalation.
 - [ ] `tier-classifier-workflow.test.mjs`, `tier-classifier-dispatch.test.mjs`,
       `merge-queue-tier-race.test.mjs` stay green; `pnpm lint && pnpm
-  typecheck && pnpm test` pass for affected packages.
+typecheck && pnpm test` pass for affected packages.
 
 ## Out of scope
 
