@@ -28,11 +28,12 @@
  * mocked below, and `unmocked` fails the test on any request no mock answered.
  */
 import type { Page } from "@playwright/test";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { enUS as rialtoEnUS, type RialtoMessages } from "@mattbutlerengineering/rialto/providers";
 import { enGB as rialtoEnGB } from "@mattbutlerengineering/rialto/locales/en-GB";
 import { esMX as rialtoEsMX } from "@mattbutlerengineering/rialto/locales/es-MX";
 import { frCA as rialtoFrCA } from "@mattbutlerengineering/rialto/locales/fr-CA";
+import { atLocal, localDay } from "./local-day.js";
 import { test, expect } from "./fixtures.js";
 
 const VENUE_SLUG = "e2e-test-bistro";
@@ -227,7 +228,7 @@ async function sweep(
   await page.waitForLoadState("networkidle");
   const forbidden = forbiddenEnglish(locale, revertScope);
   const untranslated = (await visibleStrings(page))
-    .map((text) => userData.reduce((rest, value) => rest.split(value).join(" "), text))
+    .flatMap((text) => appWords(text, userData))
     .map(normalize)
     .filter(Boolean)
     .flatMap((text) =>
@@ -397,22 +398,55 @@ for (const locale of LOCALES) {
  */
 
 /**
- * Text a person typed, not UI copy: the names and notes in the mock data. A table called
- * "Table 1" is the venue's own word and stays as entered in every locale, even though
- * the catalog also has a "Table {{name}}" label.
+ * Text a person typed, not UI copy: guest names and notes, and the venue, table and
+ * floor-plan names, in the mock data. A table called "Table 1" is the venue's own word and
+ * stays as entered in every locale, even though the catalog also has a "Table {{name}}"
+ * label. guest-segments.json is deliberately absent: its "New" / "VIP" are server labels
+ * a locale may translate, and listing them would excuse an untranslated "New reservation".
  */
+const USER_TEXT_FIELDS: Record<string, RegExp> = {
+  "guests-list.json": /^(name|notes)$/,
+  "reservations-list.json": /^(name|guestName|notes)$/,
+  "tables-list.json": /^name$/,
+  "floor-plans-list.json": /^name$/,
+  "venues-list.json": /^name$/,
+  "user-me.json": /^name$/,
+};
+
 function userEnteredText(): string[] {
-  const dir = new URL("./fixtures/", import.meta.url);
-  const collect = (node: unknown, key = ""): string[] => {
-    if (typeof node === "string") return /name$|^notes$/i.test(key) ? [node] : [];
+  const collect = (node: unknown, fields: RegExp, key = ""): string[] => {
+    if (typeof node === "string") return fields.test(key) ? [node] : [];
     if (node === null || typeof node !== "object") return [];
-    return Object.entries(node).flatMap(([k, v]) => collect(v, k));
+    return Object.entries(node).flatMap(([k, v]) => collect(v, fields, k));
   };
-  const values = readdirSync(dir)
-    .filter((file) => file.endsWith(".json"))
-    .flatMap((file) => collect(JSON.parse(readFileSync(new URL(file, dir), "utf8"))));
-  // Longest first, so "Table 12" is removed whole before "Table 1".
-  return Array.from(new Set(values)).sort((a, b) => b.length - a.length);
+  const values = Object.entries(USER_TEXT_FIELDS).flatMap(([file, fields]) =>
+    collect(
+      JSON.parse(readFileSync(new URL(`./fixtures/${file}`, import.meta.url), "utf8")),
+      fields
+    )
+  );
+  return Array.from(new Set(values.map(normalize)));
+}
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Where a UI template joins a typed value to its words ("Table 4: Disponible. ..."). */
+const DATA_SEPARATOR = /\s*[:,·•|–—]\s*/;
+
+/**
+ * The parts of a visible string that are the app's own words. A segment that is exactly a
+ * typed value is dropped; nothing is ever cut out of the inside of a segment, so "New
+ * reservation" or "e.g. Table 1" is still judged whole.
+ */
+function appWords(text: string, userData: readonly string[]): string[] {
+  // A typed value that opens a template ("Table 1 (capacidad: 4)") is the template's argument.
+  const lead = userData.find((value) => new RegExp(`^${escapeRegExp(value)}\\s*[(:,]`).test(text));
+  const rest = lead ? text.slice(lead.length) : text;
+  const segments = rest.split(DATA_SEPARATOR).map(normalize);
+  const typed = (segment: string) => userData.includes(segment);
+  return segments.some(typed) || lead
+    ? segments.filter((segment) => segment && !typed(segment))
+    : [text];
 }
 
 /** The dashboard's own key (LOCALE_STORAGE_KEY in src/i18n/runtime.tsx) — never the widget's. */
@@ -470,12 +504,12 @@ const USER_TEXT = userEnteredText();
  * after mockApi, so these win.
  */
 async function mockGatedRoutes(page: Page, route: string): Promise<void> {
-  const day = new Date().toISOString().slice(0, 10);
+  const day = localDay();
   const entry = (id: string, start: string, end: string, guestName: string, partySize: number) => ({
     id,
     date: day,
-    startTime: `${day}T${start}:00.000Z`,
-    endTime: `${day}T${end}:00.000Z`,
+    startTime: atLocal(start, day),
+    endTime: atLocal(end, day),
     partySize,
     status: "CONFIRMED",
     notes: null,
@@ -503,6 +537,26 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
       tags: [],
     },
   });
+  const waiting = (
+    id: string,
+    guestName: string,
+    partySize: number,
+    position: number,
+    wait: number
+  ) => ({
+    id,
+    venueId: VENUE_ID,
+    partySize,
+    guestName,
+    guestPhone: "555-0100",
+    position,
+    estimatedWaitMinutes: wait,
+    status: "waiting",
+    notifiedAt: null,
+    expiresAt: null,
+    createdAt: atLocal("17:00", day),
+    updatedAt: atLocal("17:00", day),
+  });
   const answers: ReadonlyArray<readonly [RegExp, unknown]> = [
     [
       /\/api\/v1\/briefing\?/,
@@ -524,6 +578,14 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
           daysSinceLastVisit: 49,
           daysOverdue: 28,
         },
+      ],
+    ],
+    [
+      /\/api\/v1\/waitlist\?/,
+      [
+        waiting("wl_sweep_1", "Priya Shah", 4, 1, 15),
+        waiting("wl_sweep_2", "Jordan Lee", 2, 2, 30),
+        waiting("wl_sweep_3", "Morgan Reyes", 6, 3, 45),
       ],
     ],
     [
@@ -598,6 +660,18 @@ for (const locale of LOCALES) {
               (url) => trim(url.pathname) === trim(requested)
             );
             await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
+            // DashboardLayout's ErrorBoundary fallback is translated, so look for it in the locale.
+            await expect(
+              page.getByText(label(locale, "layout.errorHeading"), { exact: true }),
+              `${route} crashed into the error boundary`
+            ).toHaveCount(0);
+            // A blank, skeleton-only or crashed page has no heading to find.
+            await expect(page.getByRole("main")).toBeVisible();
+            await expect(page.getByRole("heading").first()).toBeVisible();
+            if (route === "waitlist") {
+              await expect(page.getByTestId("waitlist-empty")).toHaveCount(0);
+              await expect(page.getByText("Priya Shah")).toBeVisible();
+            }
             await expect(page.locator("html")).toHaveAttribute("lang", locale);
             await sweep(page, locale, route, null, USER_TEXT);
             expect(unmocked, `${route}: requests no mock answered`).toEqual([]);
