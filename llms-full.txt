@@ -6827,6 +6827,25 @@
     }
   </file>
   </section>
+  <section priority="medium" role="contexts">
+  <file path="apps/hospitality/src/contexts/venue-context-object.ts">
+    export interface VenueContextValue {
+      venues: readonly Venue[];
+      selectedVenueId: string | null;
+      selectedVenue: Venue | null;
+      setVenueId: (id: string) => void;
+      isLoading: boolean;
+      /** Set when the venues fetch failed — distinct from an operator who genuinely has no venues. */
+      venuesError: Error | null;
+      isMultiVenue: boolean;
+      refetchVenues: () => Promise<void>;
+    }
+    export const VenueContext = createContext<VenueContextValue | null>(null);
+    export function useOptionalVenue(): VenueContextValue | null {
+      return useContext(VenueContext);
+    }
+  </file>
+  </section>
   <section priority="medium" role="crm">
   <file path="apps/hospitality/src/components/crm/guest-lookup-rows.ts">
     export type GuestLookupMode = "linked" | "recognised";
@@ -13807,11 +13826,18 @@
       formatLongDateWithYear(dateStr: string): string;
       formatServiceDate(dateStr: string): string;
       formatShortDate(dateStr: string): string;
+      /** Any instant with caller-chosen `Intl` fields, on the venue clock. */
+      formatInstant(value: string | number | Date, options: Intl.DateTimeFormatOptions): string;
+      /** A calendar date (`YYYY-MM-DD`) with caller-chosen fields, never zone-shifted. */
+      formatCalendarDate(dateStr: string, options: Intl.DateTimeFormatOptions): string;
+      /** Venue-local "HH:MM" wall-clock string (an opening hour, not an instant). */
+      formatLocalTime(hhmm: string): string;
     }
-    export function useVenueFormat(venue: VenueFormatSource): VenueFormat {
+    export function useVenueFormat(venue?: VenueFormatSource | null): VenueFormat {
       const { i18n } = useTranslation();
+      const selected = useOptionalVenue()?.selectedVenue;
       const locale = i18n.language;
-      const { ianaTimezone: timeZone, currencyCode: currency } = venue;
+      const { ianaTimezone: timeZone, currencyCode: currency } = venue ?? selected ?? NO_VENUE;
     
       return useMemo(
         () => ({
@@ -13824,6 +13850,9 @@
           formatLongDateWithYear: (d) => formatLongDateWithYear(d, locale),
           formatServiceDate: (d) => formatServiceDate(d, locale),
           formatShortDate: (d) => formatShortDate(d, locale),
+          formatInstant: (value, options) => formatInstant(value, options, locale, timeZone),
+          formatCalendarDate: (dateStr, options) => formatCalendarDate(dateStr, options, locale),
+          formatLocalTime: (hhmm) => formatLocalTime(hhmm, locale),
         }),
         [locale, timeZone, currency]
       );
@@ -21162,11 +21191,35 @@
               notFound: "Reservation not found",
             },
           },
-          async (request, reply) => {
+          async (request, reply, { venueId }) => {
+            // The venue owns the currency (same rule as public-deposits.ts): a client
+            // may echo it but never choose it, since `amountCents` is only meaningful
+            // in the venue's minor unit.
+            const venueCurrency = await venueService.getCurrencyCode(venueId);
+            if (venueCurrency === null) {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            }
+            const currency = venueCurrency.toLowerCase();
+            if (
+              request.body.currency !== undefined &&
+              request.body.currency.toLowerCase() !== currency
+            ) {
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    `Deposit currency must match the venue currency (${currency}).`
+                  )
+                );
+            }
             const deposit = await depositService.create({
               reservationId: request.body.reservationId,
               amountCents: request.body.amountCents,
-              currency: request.body.currency,
+              currency,
             });
             return reply.code(201).send({ data: deposit });
           }
@@ -28061,7 +28114,10 @@
     export const CreateDepositBodySchema = z.object({
       reservationId: z.string().describe("ID of the reservation"),
       amountCents: z.number().int().min(1).describe("Deposit amount in cents"),
-      currency: z.string().default("usd").describe("ISO currency code"),
+      currency: z
+        .string()
+        .optional()
+        .describe("ISO currency code; must match the venue's currency, which is used when omitted"),
     });
     export const ListTablesQuerySchema = z.object({
       page: z.string().default("1").describe("Page number (1-indexed)"),
@@ -28122,7 +28178,11 @@
         name: z.string().describe("Venue name"),
         slug: z.string().describe("URL-friendly identifier for public booking URLs (must be unique)"),
         ianaTimezone: z.string().describe("IANA timezone identifier (e.g., 'America/Los_Angeles')"),
-        currencyCode: z.string().default("USD").describe("ISO 4217 currency code"),
+        currencyCode: z
+          .string()
+          .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
+          .default("USD")
+          .describe("ISO 4217 currency code"),
         operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
         settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
       })
@@ -28133,7 +28193,10 @@
         name: z.string().optional(),
         slug: z.string().optional(),
         ianaTimezone: z.string().optional(),
-        currencyCode: z.string().optional(),
+        currencyCode: z
+          .string()
+          .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
+          .optional(),
         operatingHours: JsonObjectSchema.nullable().optional(),
         settings: JsonObjectSchema.nullable().optional(),
       })
@@ -38759,6 +38822,12 @@
           select: venuePolicySelect,
         });
         return venue ? mapVenuePolicy(venue) : null;
+      },
+    
+      /** The venue's ISO currency code (as stored), or `null` when the venue does not exist. */
+      async getCurrencyCode(id: string): Promise<string | null> {
+        const venue = await prisma.venue.findUnique({ where: { id }, select: { currencyCode: true } });
+        return venue?.currencyCode ?? null;
       },
     
       /**
@@ -59949,6 +60018,8 @@
       startHour: number;
       hourWidth: number;
       isMobile: boolean;
+      /** The venue's IANA zone; positions are venue wall-clock. Omitted: the device clock. */
+      timeZone?: string;
     }
     export interface ReservationLayoutResult {
       left: number;
@@ -59957,13 +60028,13 @@
     export function computeReservationLayout(
       startTime: string,
       endTime: string,
-      { startHour, hourWidth, isMobile }: ReservationLayoutParams
+      { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
     ): ReservationLayoutResult {
       const start = new Date(startTime);
       const end = new Date(endTime);
     
-      const startMinutes = start.getHours() * 60 + start.getMinutes();
-      const endMinutes = end.getHours() * 60 + end.getMinutes();
+      const startMinutes = minutesOfDayIn(start, timeZone);
+      const endMinutes = minutesOfDayIn(end, timeZone);
       const startOffset = startMinutes - startHour * 60;
       const duration = endMinutes - startMinutes;
     
@@ -61834,6 +61905,28 @@
         day: "numeric",
       });
     }
+    export function formatInstant(
+      value: string | number | Date,
+      options: Intl.DateTimeFormatOptions,
+      locale: string = LOCALE,
+      timeZone?: string
+    ): string {
+      const date = new Date(value);
+      // `Intl` throws on an invalid date where `toLocale*String` printed "Invalid Date"; a
+      // malformed SSE/API timestamp must degrade to a bad label, not crash the handler.
+      if (Number.isNaN(date.getTime())) return "Invalid Date";
+      return new Intl.DateTimeFormat(locale, {
+        ...options,
+        timeZone: resolveTimeZone(timeZone),
+      }).format(date);
+    }
+    export function formatCalendarDate(
+      dateStr: string,
+      options: Intl.DateTimeFormatOptions,
+      locale: string = LOCALE
+    ): string {
+      return formatInstant(`${dateStr.slice(0, 10)}T00:00:00Z`, options, locale, "UTC");
+    }
     export function formatTime(isoString: string, locale: string = LOCALE): string {
       return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
@@ -61865,15 +61958,32 @@
         timeZone: "UTC",
       });
     }
+    export function currencyMinorUnits(currency: string): number {
+      return new Intl.NumberFormat(LOCALE, {
+        style: "currency",
+        currency: currency.toUpperCase(),
+      }).resolvedOptions().maximumFractionDigits as number;
+    }
+    export function currencySymbol(currency: string, locale: string = LOCALE): string {
+      const parts = new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: currency.toUpperCase(),
+        currencyDisplay: "narrowSymbol",
+      }).formatToParts(0);
+      return parts.find((part) => part.type === "currency")?.value ?? currency.toUpperCase();
+    }
+    export function majorToMinorUnits(amount: number, currency: string): number {
+      return Math.round(amount * 10 ** currencyMinorUnits(currency));
+    }
     export function formatCurrencyFromCents(
-      amountCents: number,
+      amountMinor: number,
       currency: string,
       locale: string = LOCALE
     ): string {
       return new Intl.NumberFormat(locale, {
         style: "currency",
         currency: currency.toUpperCase(),
-      }).format(amountCents / 100);
+      }).format(amountMinor / 10 ** currencyMinorUnits(currency));
     }
     export function formatCurrencyName(currency: string, locale: string = LOCALE): string {
       const code = currency.toUpperCase();
@@ -62018,11 +62128,12 @@
       COMPLETED: "Completed",
       NO_SHOW: "No Show",
     };
-    export function formatReservationTime(isoString: string): string {
-      return new Date(isoString).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    export function formatReservationTime(
+      isoString: string,
+      locale?: string,
+      timeZone?: string
+    ): string {
+      return formatInstant(isoString, { hour: "2-digit", minute: "2-digit" }, locale, timeZone);
     }
     export function specialRequestsText(notes: string | null | undefined): string | null {
       const text = notes?.trim() ?? "";
@@ -62109,6 +62220,10 @@
       /** Minutes since venue-local midnight. */
       readonly nowMin: number;
     }
+    export function minutesOfDayIn(instant: Date, timeZone?: string): number {
+      const clock = timeZone ? venueWallClock(timeZone, instant) : null;
+      return clock ? clock.nowMin : instant.getHours() * 60 + instant.getMinutes();
+    }
     export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
       try {
         const parts = new Intl.DateTimeFormat("en-US", {
@@ -62166,6 +62281,44 @@
       return next;
     }
   </file>
+  <file path="apps/hospitality/src/utils/venue-wall-time.ts">
+    function zoneOffsetMs(instantMs: number, timeZone: string): number {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hourCycle: "h23",
+      }).formatToParts(new Date(instantMs));
+      const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value);
+      const wallAsUtc = Date.UTC(
+        get("year"),
+        get("month") - 1,
+        get("day"),
+        get("hour"),
+        get("minute"),
+        get("second")
+      );
+      return wallAsUtc - Math.floor(instantMs / 1000) * 1000;
+    }
+    export function venueWallTimeToInstant(date: string, hhmm: string, timeZone?: string): Date {
+      const zone = resolveTimeZone(timeZone);
+      if (!zone) return new Date(`${date}T${hhmm}:00`);
+      const wallAsUtc = Date.parse(`${date}T${hhmm}:00Z`);
+      // One pass lands within an hour of the answer; the second corrects across a DST edge.
+      const first = wallAsUtc - zoneOffsetMs(wallAsUtc, zone);
+      return new Date(wallAsUtc - zoneOffsetMs(first, zone));
+    }
+    export function wallTimeInputValue(isoString: string, timeZone?: string): string {
+      const minutes = minutesOfDayIn(new Date(isoString), resolveTimeZone(timeZone));
+      const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
+      const mm = String(minutes % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+  </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
     export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
       monday: "Monday",
@@ -62176,16 +62329,19 @@
       saturday: "Saturday",
       sunday: "Sunday",
     };
-    export function formatVenueOpenLabel(s: VenueOpenState): string {
+    export function formatVenueOpenLabel(
+      s: VenueOpenState,
+      formatClock: (hhmm: string) => string = formatLocalTime
+    ): string {
       switch (s.state) {
         case "open":
-          return `Open until ${formatLocalTime(s.closesAt)}`;
+          return `Open until ${formatClock(s.closesAt)}`;
         case "opening-soon":
-          return `Opens at ${formatLocalTime(s.opensAt)}`;
+          return `Opens at ${formatClock(s.opensAt)}`;
         case "closed":
           return s.opensOn === null
-            ? `Closed, opens at ${formatLocalTime(s.opensAt)}`
-            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatLocalTime(s.opensAt)}`;
+            ? `Closed, opens at ${formatClock(s.opensAt)}`
+            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatClock(s.opensAt)}`;
         case "unset":
           return UNSET_LABEL;
       }

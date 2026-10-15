@@ -169,6 +169,25 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="contexts">
+  <file path="src/contexts/venue-context-object.ts">
+    <item priority="low">
+      interface VenueContextValue {
+        venues: readonly Venue[];
+        selectedVenueId: string | null;
+        selectedVenue: Venue | null;
+        setVenueId: (id: string) => void;
+        isLoading: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const VenueContext: unknown;
+    </item>
+    <item priority="high">
+      export function useOptionalVenue(): VenueContextValue | null { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="crm">
   <file path="src/components/crm/guest-lookup-rows.ts">
     <item priority="low">
@@ -1313,7 +1332,7 @@
       }
     </item>
     <item priority="high">
-      export function useVenueFormat(venue: VenueFormatSource): VenueFormat { /* ... */ }
+      export function useVenueFormat(venue?: VenueFormatSource | null): VenueFormat { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
@@ -1862,6 +1881,7 @@
         startHour: number;
         hourWidth: number;
         isMobile: boolean;
+        timeZone?: string;
       }
     </item>
     <item priority="low">
@@ -1874,7 +1894,7 @@
       export function computeReservationLayout(
         startTime: string,
         endTime: string,
-        { startHour, hourWidth, isMobile }: ReservationLayoutParams
+        { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
       ): ReservationLayoutResult { /* ... */ }
     </item>
   </file>
@@ -2045,6 +2065,21 @@
       export function formatServiceDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
+      export function formatInstant(
+        value: string | number | Date,
+        options: Intl.DateTimeFormatOptions,
+        locale: string = LOCALE,
+        timeZone?: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCalendarDate(
+        dateStr: string,
+        options: Intl.DateTimeFormatOptions,
+        locale: string = LOCALE
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function formatTime(isoString: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
@@ -2057,8 +2092,17 @@
       export function formatLocalTime(hhmm: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
+      export function currencyMinorUnits(currency: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currencySymbol(currency: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function majorToMinorUnits(amount: number, currency: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function formatCurrencyFromCents(
-        amountCents: number,
+        amountMinor: number,
         currency: string,
         locale: string = LOCALE
       ): string { /* ... */ }
@@ -2128,7 +2172,11 @@
       export const STATUS_LABEL: Record<ReservationStatus, string>;
     </item>
     <item priority="high">
-      export function formatReservationTime(isoString: string): string { /* ... */ }
+      export function formatReservationTime(
+        isoString: string,
+        locale?: string,
+        timeZone?: string
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function specialRequestsText(notes: string | null | undefined): string | null { /* ... */ }
@@ -2198,6 +2246,9 @@
       }
     </item>
     <item priority="high">
+      export function minutesOfDayIn(instant: Date, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }
     </item>
   </file>
@@ -2235,12 +2286,26 @@
       export function stripReservationsIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
     </item>
   </file>
+  <file path="src/utils/venue-wall-time.ts">
+    <item priority="medium">
+      function zoneOffsetMs(instantMs: number, timeZone: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueWallTimeToInstant(date: string, hhmm: string, timeZone?: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function wallTimeInputValue(isoString: string, timeZone?: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/venueOpenLabel.ts">
     <item priority="high">
       export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
     </item>
     <item priority="high">
-      export function formatVenueOpenLabel(s: VenueOpenState): string { /* ... */ }
+      export function formatVenueOpenLabel(
+        s: VenueOpenState,
+        formatClock: (hhmm: string) => string = formatLocalTime
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="src/utils/venueOpenState.ts">

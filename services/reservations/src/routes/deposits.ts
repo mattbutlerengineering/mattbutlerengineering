@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { requireAuth, requireAdmin } from "@mbe/auth/fastify";
 import { createProblemDetails, createDepositBodyJsonSchema } from "@mbe/types";
 import { DepositNotFoundError } from "../services/deposit.js";
+import { venueService } from "../services/venue.js";
 import { resolveReservationVenueId } from "../services/deposit-venue.js";
 import { venueScoped } from "./venue-scope.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
@@ -130,11 +131,35 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
           notFound: "Reservation not found",
         },
       },
-      async (request, reply) => {
+      async (request, reply, { venueId }) => {
+        // The venue owns the currency (same rule as public-deposits.ts): a client
+        // may echo it but never choose it, since `amountCents` is only meaningful
+        // in the venue's minor unit.
+        const venueCurrency = await venueService.getCurrencyCode(venueId);
+        if (venueCurrency === null) {
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+        }
+        const currency = venueCurrency.toLowerCase();
+        if (
+          request.body.currency !== undefined &&
+          request.body.currency.toLowerCase() !== currency
+        ) {
+          return reply
+            .code(400)
+            .send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                `Deposit currency must match the venue currency (${currency}).`
+              )
+            );
+        }
         const deposit = await depositService.create({
           reservationId: request.body.reservationId,
           amountCents: request.body.amountCents,
-          currency: request.body.currency,
+          currency,
         });
         return reply.code(201).send({ data: deposit });
       }

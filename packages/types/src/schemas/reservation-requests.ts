@@ -270,11 +270,17 @@ export const ConfirmHoldBodySchema = z.object({
   seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
 });
 
+/** ISO 4217 alphabetic code, e.g. "USD" / "cad" (case-insensitive; stored as given). */
+const ISO_CURRENCY_PATTERN = /^[A-Za-z]{3}$/;
+
 // ── Deposits (routes/deposits.ts) ─────────────────────────────
 export const CreateDepositBodySchema = z.object({
   reservationId: z.string().describe("ID of the reservation"),
   amountCents: z.number().int().min(1).describe("Deposit amount in cents"),
-  currency: z.string().default("usd").describe("ISO currency code"),
+  currency: z
+    .string()
+    .optional()
+    .describe("ISO currency code; must match the venue's currency, which is used when omitted"),
 });
 
 // ── Tables (routes/tables.ts) ─────────────────────────────────
@@ -346,7 +352,11 @@ export const CreateVenueBodySchema = z
     name: z.string().describe("Venue name"),
     slug: z.string().describe("URL-friendly identifier for public booking URLs (must be unique)"),
     ianaTimezone: z.string().describe("IANA timezone identifier (e.g., 'America/Los_Angeles')"),
-    currencyCode: z.string().default("USD").describe("ISO 4217 currency code"),
+    currencyCode: z
+      .string()
+      .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
+      .default("USD")
+      .describe("ISO 4217 currency code"),
     operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
     settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
   })
@@ -358,7 +368,10 @@ export const UpdateVenueBodySchema = z
     name: z.string().optional(),
     slug: z.string().optional(),
     ianaTimezone: z.string().optional(),
-    currencyCode: z.string().optional(),
+    currencyCode: z
+      .string()
+      .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
+      .optional(),
     operatingHours: JsonObjectSchema.nullable().optional(),
     settings: JsonObjectSchema.nullable().optional(),
   })

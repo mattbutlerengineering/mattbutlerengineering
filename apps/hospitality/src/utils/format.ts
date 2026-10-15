@@ -87,7 +87,44 @@ export function formatServiceDate(dateStr: string, locale: string = LOCALE): str
 }
 
 /**
- * Format an ISO datetime string as 12-hour time with minutes (e.g. "2:30 PM").
+ * Format any instant with caller-chosen `Intl` fields. `timeZone` (a venue's IANA zone)
+ * pins the clock; absent or invalid falls back to the device zone. The one door for
+ * display dates/times outside the fixed shapes above — components never call `Intl` or
+ * `toLocale*String` themselves.
+ */
+export function formatInstant(
+  value: string | number | Date,
+  options: Intl.DateTimeFormatOptions,
+  locale: string = LOCALE,
+  timeZone?: string
+): string {
+  const date = new Date(value);
+  // `Intl` throws on an invalid date where `toLocale*String` printed "Invalid Date"; a
+  // malformed SSE/API timestamp must degrade to a bad label, not crash the handler.
+  if (Number.isNaN(date.getTime())) return "Invalid Date";
+  return new Intl.DateTimeFormat(locale, {
+    ...options,
+    timeZone: resolveTimeZone(timeZone),
+  }).format(date);
+}
+
+/**
+ * Format a calendar date (`YYYY-MM-DD`, or an ISO string for that day's UTC midnight) with
+ * caller-chosen fields. A date is not an instant, so it is pinned to UTC and prints the
+ * same day in every device and venue zone.
+ */
+export function formatCalendarDate(
+  dateStr: string,
+  options: Intl.DateTimeFormatOptions,
+  locale: string = LOCALE
+): string {
+  return formatInstant(`${dateStr.slice(0, 10)}T00:00:00Z`, options, locale, "UTC");
+}
+
+/**
+ * Format an ISO datetime string as time with minutes (e.g. "2:30 PM" in en-US), in the
+ * viewer's device timezone. Staff screens use the venue-zone `formatTimeIn` (via
+ * `useVenueFormat`) instead; this is the fallback when no venue zone is known.
  *
  * Used by: TimeSlotPicker, GuestDetailsForm, ConfirmationView,
  *          TimelineMobileView, ReservationBlock
@@ -103,9 +140,7 @@ export function formatTime(isoString: string, locale: string = LOCALE): string {
  * Format an ISO datetime string as 12-hour time with minutes, in the given
  * IANA timezone (e.g. "2:30 PM"). Sibling to `formatTime`, which uses the
  * viewer's device timezone — use this wherever the *venue's* clock is what
- * matters, e.g. guest-facing booking flows (#4976), never mutating
- * `formatTime` itself since Timeline/ReservationBlock intentionally want
- * device-local.
+ * matters: booking flows (#4976) and, through `useVenueFormat`, staff screens.
  *
  * Used by: TimeSlotPicker, TimeSlotListbox, GuestDetailsForm, ConfirmationView
  */
@@ -152,20 +187,47 @@ export function formatLocalTime(hhmm: string, locale: string = LOCALE): string {
 }
 
 /**
- * Format an amount in cents as a localized currency string (e.g. "$10.00").
- * Currency code is case-insensitive; it will be uppercased internally.
+ * Digits after the decimal point for a currency's minor unit (USD/CAD 2, JPY/KRW 0,
+ * KWD 3), from the runtime's ISO 4217 data. Stripe amounts are in this minor unit.
+ */
+export function currencyMinorUnits(currency: string): number {
+  return new Intl.NumberFormat(LOCALE, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).resolvedOptions().maximumFractionDigits as number;
+}
+
+/** The currency's narrow symbol in `locale` ("$", "¥"). */
+export function currencySymbol(currency: string, locale: string = LOCALE): string {
+  const parts = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    currencyDisplay: "narrowSymbol",
+  }).formatToParts(0);
+  return parts.find((part) => part.type === "currency")?.value ?? currency.toUpperCase();
+}
+
+/** A major-unit amount typed by staff ("25", "2500") as the currency's integer minor units. */
+export function majorToMinorUnits(amount: number, currency: string): number {
+  return Math.round(amount * 10 ** currencyMinorUnits(currency));
+}
+
+/**
+ * Format an amount in a currency's minor units (cents for USD, yen for JPY) as a
+ * localized currency string (e.g. "$10.00", "¥2,500"). Currency code is
+ * case-insensitive; it will be uppercased internally.
  *
  * Used by: PaymentStep, StaffDepositSection, ConfirmationView
  */
 export function formatCurrencyFromCents(
-  amountCents: number,
+  amountMinor: number,
   currency: string,
   locale: string = LOCALE
 ): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: currency.toUpperCase(),
-  }).format(amountCents / 100);
+  }).format(amountMinor / 10 ** currencyMinorUnits(currency));
 }
 
 /**

@@ -3,6 +3,7 @@ import { Badge, Button, Popover, Text } from "@mattbutlerengineering/rialto";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
 import type { SystemHealth } from "@mbe/api-client";
 import { useApiClient } from "../hooks/useApiClient.js";
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import styles from "./SystemHealthBadge.module.css";
 
 const POLL_INTERVAL_MS = 60_000;
@@ -42,6 +43,7 @@ function StatusDot({ status }: { readonly status: string }) {
 }
 
 export function SystemHealthBadge() {
+  const fmt = useVenueFormat();
   const api = useApiClient();
   const [health, setHealth] = useState<SystemHealth | null>(null);
 
@@ -110,7 +112,12 @@ export function SystemHealthBadge() {
 
         <div className={styles.footer}>
           <Text className={styles.meta}>
-            Updated {new Date(health.timestamp).toLocaleTimeString()}
+            Updated{" "}
+            {fmt.formatInstant(health.timestamp, {
+              hour: "numeric",
+              minute: "numeric",
+              second: "numeric",
+            })}
           </Text>
         </div>
       </div>

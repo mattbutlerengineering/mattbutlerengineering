@@ -1,3 +1,4 @@
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useState, useCallback } from "react";
 import {
   Alert,
@@ -36,10 +37,6 @@ const OCCASION_LABELS: Record<string, string> = {
 
 /* ── Helpers ─────────────────────────────────────────── */
 
-function formatShortDate(isoString: string): string {
-  return new Date(isoString).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 /* ── Props ───────────────────────────────────────────── */
 
 export interface GuestCardProps {
@@ -51,6 +48,7 @@ export interface GuestCardProps {
 /* ── Component ───────────────────────────────────────── */
 
 export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
+  const fmt = useVenueFormat();
   const { data: guest, isLoading, error, refetch } = useGuest(guestId);
 
   const { data: reservations = [] } = useReservations({
@@ -209,7 +207,8 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
               </Text>
               {occasionReservations.map((r) => (
                 <Text key={r.id} variant="caption" color="secondary">
-                  {OCCASION_LABELS[r.occasion!] ?? r.occasion} &mdash; {formatShortDate(r.date)}
+                  {OCCASION_LABELS[r.occasion!] ?? r.occasion} &mdash;{" "}
+                  {fmt.formatCalendarDate(r.date, { month: "short", day: "numeric" })}
                 </Text>
               ))}
             </Stack>
@@ -227,7 +226,7 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
               {visibleNotes.map((note, idx) => (
                 <Stack key={idx} gap="xs" className={styles.noteItem}>
                   <Text variant="caption" color="secondary">
-                    {new Date(note.createdAt).toLocaleDateString(undefined, {
+                    {fmt.formatInstant(note.createdAt, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",

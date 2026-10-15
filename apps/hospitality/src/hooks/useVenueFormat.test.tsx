@@ -41,4 +41,26 @@ describe("useVenueFormat", () => {
     );
     expect(() => result.current.formatTime("2024-03-15T21:30:00Z")).not.toThrow();
   });
+
+  it("formatInstant renders caller-chosen fields on the venue clock", async () => {
+    const { result } = renderHook(() => useVenueFormat(VENUE), {
+      wrapper: await wrapperFor("en-US"),
+    });
+    expect(
+      result.current.formatInstant("2024-03-15T03:30:00Z", { month: "short", day: "numeric" })
+    ).toBe("Mar 14"); // 8:30 PM the evening before in Los Angeles
+  });
+
+  it("formatLocalTime formats a wall-clock hour in the active locale", async () => {
+    const { result } = renderHook(() => useVenueFormat(VENUE), {
+      wrapper: await wrapperFor("en-GB"),
+    });
+    expect(result.current.formatLocalTime("17:00")).toBe("17:00");
+  });
+
+  it("with no venue argument or provider: device zone, USD", async () => {
+    const { result } = renderHook(() => useVenueFormat(), { wrapper: await wrapperFor("en-US") });
+    expect(result.current.currency).toBe("USD");
+    expect(result.current.formatMoney(4000)).toBe("$40.00");
+  });
 });

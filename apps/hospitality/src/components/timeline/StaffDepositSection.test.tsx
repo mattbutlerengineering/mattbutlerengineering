@@ -20,6 +20,18 @@ vi.mock("../../hooks/useApiClient.js", () => ({
   useApiClient: () => createApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 }),
 }));
 
+const venueState = vi.hoisted(() => ({
+  venue: null as { ianaTimezone: string; currencyCode: string } | null,
+}));
+
+vi.mock("../../contexts/venue-context-object.js", () => ({
+  useOptionalVenue: () => (venueState.venue ? { selectedVenue: venueState.venue } : null),
+}));
+
+beforeEach(() => {
+  venueState.venue = null;
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -222,6 +234,60 @@ describe("StaffDepositSection", () => {
       currency: "usd",
     });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [RESERVATIONS_QUERY_KEY] });
+  });
+
+  it("creates the deposit in the selected venue's currency (CAD venue)", async () => {
+    venueState.venue = { ianaTimezone: "America/Toronto", currencyCode: "CAD" };
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...mockDeposit, currency: "cad", status: "pending", heldAt: null } })
+    );
+
+    renderSection();
+    fireEvent.click(screen.getByText("+ Collect Deposit"));
+    fireEvent.change(screen.getByTestId("amount-input"), { target: { value: "25" } });
+    fireEvent.click(screen.getByText("Create Deposit"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("amount-input")).toBeNull();
+    });
+    const [, options] = mockFetch.mock.calls[0]!;
+    expect(JSON.parse(options?.body as string)).toMatchObject({
+      amountCents: 2500,
+      currency: "cad",
+    });
+  });
+
+  it("sends zero-decimal minor units for a JPY venue (2500 yen is 2500, not 250000)", async () => {
+    venueState.venue = { ianaTimezone: "Asia/Tokyo", currencyCode: "JPY" };
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...mockDeposit, currency: "jpy", status: "pending", heldAt: null } })
+    );
+
+    renderSection();
+    fireEvent.click(screen.getByText("+ Collect Deposit"));
+    fireEvent.change(screen.getByTestId("amount-input"), { target: { value: "2500" } });
+    fireEvent.click(screen.getByText("Create Deposit"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("amount-input")).toBeNull();
+    });
+    const [, options] = mockFetch.mock.calls[0]!;
+    expect(JSON.parse(options?.body as string)).toMatchObject({
+      amountCents: 2500,
+      currency: "jpy",
+    });
+  });
+
+  it("shows an existing JPY deposit in yen, not divided by 100", () => {
+    renderSection({ existingDeposit: { ...mockDeposit, amountCents: 2500, currency: "jpy" } });
+    expect(screen.getByText(/¥2,500/)).toBeDefined();
+  });
+
+  it("labels the amount field with the venue currency symbol", () => {
+    venueState.venue = { ianaTimezone: "Asia/Tokyo", currencyCode: "JPY" };
+    renderSection();
+    fireEvent.click(screen.getByText("+ Collect Deposit"));
+    expect(screen.getByText("Amount (¥)")).toBeDefined();
   });
 
   it("shows error when the deposit create fails", async () => {

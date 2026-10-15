@@ -1,3 +1,4 @@
+import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { Badge, Button, Card, Tag, Text } from "@mattbutlerengineering/rialto";
 import type { Guest } from "@mbe/types";
 import styles from "../../pages/GuestsPage.module.css";
@@ -12,9 +13,9 @@ export interface GuestTableProps {
 
 /* ── Helpers ────────────────────────────────── */
 
-function formatDate(isoString: string | null): string {
+function formatDate(isoString: string | null, fmt: VenueFormat): string {
   if (!isoString) return "Never";
-  return new Date(isoString).toLocaleDateString();
+  return fmt.formatInstant(isoString, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
 /* ── Mobile guest card ──────────────────────── */
@@ -56,6 +57,7 @@ function MobileGuestCard({ guest, onClick }: { guest: Guest; onClick: () => void
 /* ── GuestTable ─────────────────────────────── */
 
 export function GuestTable({ guests, selectedGuestId, onRowClick }: GuestTableProps) {
+  const fmt = useVenueFormat();
   const handleRowKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, guestId: string) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -120,7 +122,7 @@ export function GuestTable({ guests, selectedGuestId, onRowClick }: GuestTablePr
                     )}
                   </td>
                   <td className={styles.td}>{guest.visitCount}</td>
-                  <td className={styles.tdMuted}>{formatDate(guest.lastVisit)}</td>
+                  <td className={styles.tdMuted}>{formatDate(guest.lastVisit, fmt)}</td>
                   <td className={styles.tdTags}>
                     <div className={styles.tagList}>
                       {guest.tags?.map((tag) => (

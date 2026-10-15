@@ -6,7 +6,7 @@ import { GuestCard } from "../crm/GuestCard.js";
 import { getSegmentLabel, getSegmentVariant, isAllergyTag } from "../crm/guest-signals.js";
 import { useGuest } from "../../hooks/useGuests.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
-import { formatTime } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
@@ -56,6 +56,7 @@ export function ReservationSheet({
   expanded,
   onToggleExpanded,
 }: ReservationSheetProps) {
+  const fmt = useVenueFormat();
   const detailId = useId();
 
   const table = findReservationTable(reservation, tables);
@@ -88,7 +89,7 @@ export function ReservationSheet({
             ·
           </Text>
           <Text as="span" variant="caption" color="secondary">
-            {formatTime(reservation.startTime)}
+            {fmt.formatTime(reservation.startTime)}
           </Text>
           <Text as="span" variant="caption" color="tertiary" aria-hidden="true">
             ·

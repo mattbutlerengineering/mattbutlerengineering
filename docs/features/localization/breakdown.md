@@ -133,7 +133,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
   - Accept: switching from either placement updates the UI in place without losing form
     input and persists across reload (component + e2e test).
   - Blocked by: LocalePicker
-- [ ] **Staff time & money onto venue formatting** — move the ad-hoc `Intl` display call
+- [x] **Staff time & money onto venue formatting** — move the ad-hoc `Intl` display call
       sites (OfflineBanner, ReservationList, ProfilePage, TimelinePage, ReservationBlock,
       TimelineMobileView, GuestCard, GuestTable, ActivityFeed, AdminPage, FloorPlansPage,
       useSSESync, reservation-display, venueOpenLabel, HomePage `?? "USD"`) onto

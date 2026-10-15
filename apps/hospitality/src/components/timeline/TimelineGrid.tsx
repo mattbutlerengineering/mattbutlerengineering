@@ -7,8 +7,8 @@ import { useScrollToNow } from "./useScrollToNow.js";
 import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
 import { useGridFocus } from "./useGridFocus.js";
 import { computeReservationLayout, type ReservationLayoutResult } from "./reservationLayout.js";
-import { formatTime } from "../../utils/format.js";
-import { deviceDate } from "../../utils/service-day.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import styles from "./TimelineGrid.module.css";
 
 const HOUR_WIDTH = 120;
@@ -87,6 +87,8 @@ export function TimelineGrid({
   emptyNight,
   pendingTableId,
 }: TimelineGridProps) {
+  const fmt = useVenueFormat();
+  const timeZone = fmt.timeZone;
   const isMobile = useIsMobile();
   const scrollRef = useRef<HTMLDivElement>(null);
   const hourWidth = isMobile ? MOBILE_HOUR_WIDTH : HOUR_WIDTH;
@@ -162,11 +164,12 @@ export function TimelineGrid({
           startHour,
           hourWidth,
           isMobile,
+          timeZone,
         })
       );
     }
     return map;
-  }, [reservations, startHour, hourWidth, isMobile]);
+  }, [reservations, startHour, hourWidth, isMobile, timeZone]);
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const lastMinuteRef = useRef(currentTime.getMinutes());
@@ -182,16 +185,17 @@ export function TimelineGrid({
     return () => clearInterval(interval);
   }, []);
 
-  // Browser-local day (ux.md decision (a)): the UTC-keyed toDateString emptied the grid at 17:00 Pacific.
-  const isToday = date === deviceDate(currentTime);
+  // The grid is the venue's night: today and the now-line are read on the venue clock, the same
+  // clock the blocks and labels use. (The UTC-keyed toDateString emptied the grid at 17:00 Pacific.)
+  const isToday = date === venueDate(currentTime, timeZone);
   const currentTimeOffset = useMemo(() => {
     if (!isToday) return null;
-    const minutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const minutes = minutesOfDayIn(currentTime, timeZone);
     const offset = minutes - startHour * 60;
     // The endHour column is drawn (endHour:00–endHour:59), so the line runs through it too.
     if (offset < 0 || offset >= hours.length * 60) return null;
     return (offset / 60) * hourWidth;
-  }, [isToday, startHour, hours.length, currentTime, hourWidth]);
+  }, [isToday, startHour, hours.length, currentTime, hourWidth, timeZone]);
 
   const totalWidth = tableColumnWidth + hours.length * hourWidth;
   const totalHeight = HEADER_HEIGHT + tables.length * ROW_HEIGHT;
@@ -317,7 +321,7 @@ export function TimelineGrid({
             >
               <div className={styles.currentTimeDot} />
               <div className={styles.currentTimeLabel} aria-hidden="true">
-                {formatTime(currentTime.toISOString())}
+                {fmt.formatTime(currentTime.toISOString())}
               </div>
             </div>
           )}

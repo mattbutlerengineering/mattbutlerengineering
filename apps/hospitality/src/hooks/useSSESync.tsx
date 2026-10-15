@@ -37,6 +37,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useVenueFormat } from "./useVenueFormat.js";
 import { useApiClient } from "./useApiClient.js";
 import { SseClient } from "../lib/sse-client.js";
 import { getCachedFloorPlanSnapshot, setCachedFloorPlanSnapshot } from "../lib/offline-cache.js";
@@ -152,11 +153,13 @@ export function useSSESync(): { reconnect: () => void } {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { selectedVenueId } = useVenue();
+  const fmt = useVenueFormat();
   const { accessToken } = useAuth();
 
   // Keep refs to avoid recreating SseClient on closure changes
   const queryClientRef = useRef(queryClient);
   const toastRef = useRef(toast);
+  const fmtRef = useRef(fmt);
   const dispatchRef = useRef(dispatchConnection);
   const selectedVenueIdRef = useRef(selectedVenueId);
   const accessTokenRef = useRef(accessToken);
@@ -164,6 +167,7 @@ export function useSSESync(): { reconnect: () => void } {
   useEffect(() => {
     queryClientRef.current = queryClient;
     toastRef.current = toast;
+    fmtRef.current = fmt;
     dispatchRef.current = dispatchConnection;
     selectedVenueIdRef.current = selectedVenueId;
     accessTokenRef.current = accessToken;
@@ -215,7 +219,7 @@ export function useSSESync(): { reconnect: () => void } {
           if (canShowToastRef.current()) {
             toastRef.current({
               title: "New reservation",
-              description: `${reservation.guestName ?? "Guest"} — ${new Date(reservation.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+              description: `${reservation.guestName ?? "Guest"} — ${fmtRef.current.formatInstant(reservation.startTime, { hour: "2-digit", minute: "2-digit" })}`,
               variant: "accent",
               duration: 5000,
             });

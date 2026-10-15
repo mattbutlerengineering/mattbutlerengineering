@@ -1,4 +1,5 @@
 import { Text } from "@mattbutlerengineering/rialto";
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import styles from "./OfflineBanner.module.css";
 
 export interface OfflineBannerProps {
@@ -11,13 +12,6 @@ export interface OfflineBannerProps {
   lastSyncedAt: number | undefined;
 }
 
-function formatLastSynced(lastSyncedAt: number): string {
-  return new Date(lastSyncedAt).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 /**
  * Warning-styled banner shown on `TimelinePage` when reservation data is
  * offline/cached (`useReservations().isFromCache`) or the SSE connection is
@@ -28,12 +22,14 @@ function formatLastSynced(lastSyncedAt: number): string {
  * its content — mounting it *is* "visible".
  */
 export function OfflineBanner({ lastSyncedAt }: OfflineBannerProps) {
+  const fmt = useVenueFormat();
   return (
     <div className={styles.offlineBanner} role="status" data-testid="offline-banner">
       <Text variant="label" className={styles.pulseDot} />
       <Text className={styles.label}>
         Showing cached data from last sync
-        {lastSyncedAt !== undefined && ` — last synced ${formatLastSynced(lastSyncedAt)}`}
+        {lastSyncedAt !== undefined &&
+          ` — last synced ${fmt.formatInstant(lastSyncedAt, { hour: "numeric", minute: "2-digit" })}`}
       </Text>
     </div>
   );

@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { Card, Text, Badge, Skeleton } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
+import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { STATUS_LABEL } from "../../utils/reservation-display.js";
 import styles from "../../pages/HomePage.module.css";
 
@@ -12,10 +13,10 @@ const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "error"
   NO_SHOW: "error",
 };
 
-function formatTime(time: string): string {
+function formatTime(time: string, fmt: VenueFormat): string {
   const date = new Date(time);
   if (!isNaN(date.getTime())) {
-    return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return fmt.formatTime(time);
   }
   // Fallback for plain HH:mm strings
   const [hours, minutes] = time.split(":");
@@ -34,6 +35,7 @@ export const ReservationList = memo(function ReservationList({
   reservations,
   isLoading,
 }: ReservationListProps) {
+  const fmt = useVenueFormat();
   const sorted = useMemo(() => {
     const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
     return [...active].sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -62,7 +64,7 @@ export const ReservationList = memo(function ReservationList({
       <ul className={styles.reservationList}>
         {sorted.map((r) => (
           <li key={r.id} className={styles.reservationItem}>
-            <Text className={styles.reservationTime}>{formatTime(r.startTime)}</Text>
+            <Text className={styles.reservationTime}>{formatTime(r.startTime, fmt)}</Text>
             <div className={styles.reservationDetails}>
               <div className={styles.reservationGuest}>{r.guestName ?? "Walk-in"}</div>
               <div className={styles.reservationMeta}>Party of {r.partySize}</div>
