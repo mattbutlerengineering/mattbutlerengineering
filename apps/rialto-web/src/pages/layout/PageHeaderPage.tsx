@@ -49,6 +49,7 @@ function PageHeaderPlayground() {
         <PageHeader
           title="Account Settings"
           breadcrumbs={showBreadcrumbs ? BREADCRUMBS_SHORT : undefined}
+          breadcrumbLabel="Playground breadcrumb"
           actions={
             showActions ? (
               <>
@@ -103,7 +104,11 @@ export function PageHeaderPage() {
             overflow: "hidden",
           }}
         >
-          <PageHeader title="Account Settings" breadcrumbs={BREADCRUMBS_SHORT} />
+          <PageHeader
+            title="Account Settings"
+            breadcrumbs={BREADCRUMBS_SHORT}
+            breadcrumbLabel="Basic usage breadcrumb"
+          />
         </div>
       </Section>
 
@@ -119,6 +124,7 @@ export function PageHeaderPage() {
           <PageHeader
             title="Session Configuration"
             breadcrumbs={BREADCRUMBS_SHORT}
+            breadcrumbLabel="With actions breadcrumb"
             actions={
               <>
                 <Button variant="ghost" size="sm">
@@ -146,6 +152,7 @@ export function PageHeaderPage() {
             <PageHeader
               title="Monza 2026 — Lap Analysis"
               breadcrumbs={BREADCRUMBS_LONG}
+              breadcrumbLabel="With meta breadcrumb"
               meta={
                 <Stack direction="row" gap="xs">
                   <Badge variant="accent">Qualifying</Badge>
@@ -174,7 +181,11 @@ export function PageHeaderPage() {
             overflow: "hidden",
           }}
         >
-          <PageHeader title="Lap Analysis" breadcrumbs={BREADCRUMBS_LONG} />
+          <PageHeader
+            title="Lap Analysis"
+            breadcrumbs={BREADCRUMBS_LONG}
+            breadcrumbLabel="Long trail breadcrumb"
+          />
         </div>
       </Section>
 
@@ -190,6 +201,7 @@ export function PageHeaderPage() {
           <PageHeader
             title="Driver Overview"
             breadcrumbs={[{ label: "Sessions", href: "#" }, { label: "Driver Overview" }]}
+            breadcrumbLabel="With children breadcrumb"
             actions={
               <Button variant="secondary" size="sm">
                 Export CSV

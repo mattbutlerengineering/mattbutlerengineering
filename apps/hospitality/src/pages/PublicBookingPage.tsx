@@ -2,7 +2,11 @@ import { useRef, useEffect } from "react";
 import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, Button, Text } from "@mattbutlerengineering/rialto";
-import { BookingWidget, hasOperatingHours } from "../components/booking-widget/index.js";
+import {
+  BookingWidget,
+  WidgetLocaleScope,
+  hasOperatingHours,
+} from "../components/booking-widget/index.js";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import styles from "./PublicBookingPage.module.css";
@@ -26,7 +30,16 @@ const NOT_FOUND_DESCRIPTION =
 // marketing root is the only guest-readable destination this product has.
 const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/";
 
+/** The guest's page locale is the widget's own (stored choice, else browser) — never the dashboard's. */
 export function PublicBookingPage() {
+  return (
+    <WidgetLocaleScope>
+      <PublicBookingPageContent />
+    </WidgetLocaleScope>
+  );
+}
+
+function PublicBookingPageContent() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
   // Guests resolve the venue through the unauthenticated by-slug read
   // (getBySlug -> /api/v1/venues/by-slug/:slug), the endpoint dedicated to
