@@ -430,7 +430,10 @@
   <file path="src/resend-adapter.ts">
     interface ResendClient {
       emails: {
-        send(payload: Record<string, unknown>): Promise<{ id: string }>;
+        // The SDK resolves `{ data, error }` on API failures rather than throwing.
+        send(
+          payload: Record<string, unknown>
+        ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
       };
     }
     export interface ResendAdapterConfig {
@@ -468,10 +471,24 @@
         this.publicApiBaseUrl = config.publicApiBaseUrl;
       }
     
+      /**
+       * Single send path: converts the SDK's `{ error }` result into a rejection so
+       * the dispatcher, retry policy and failure log see a failed email as failed.
+       */
+      private async send(payload: Record<string, unknown>): Promise<void> {
+        if (!this.resend) return;
+        const { error } = await this.resend.emails.send(payload);
+        if (error) {
+          throw new Error(
+            `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
+          );
+        }
+      }
+    
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
         const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
@@ -489,7 +506,7 @@
       async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
         const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
@@ -500,7 +517,7 @@
       async sendBookingModified(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
         const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
@@ -518,7 +535,7 @@
       async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
         const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
@@ -537,7 +554,7 @@
         if (!this.resend) return;
         const safeGuestName = escapeHtml(input.guestName);
         const safeVenueName = escapeHtml(input.venueName);
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: input.guestEmail,
           subject: `We miss you, ${input.guestName}!`,
@@ -589,7 +606,7 @@
     </body>
     </html>`;
     
-        await this.resend.emails.send({
+        await this.send({
           from: this.fromAddress,
           to: guestEmail,
           subject: `Thank you for visiting ${venueName}!`,
@@ -650,13 +667,13 @@
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistPositionUpdateInput {
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistTableReadyInput {
       guestPhone: string;
@@ -762,7 +779,11 @@
         if (!this.client) return;
     
         const name = input.guestName ?? "Guest";
-        const body = `${name}, you're #${input.position}, est. ${input.estimatedWaitMinutes} min wait. We'll text when your table is ready.`;
+        const wait =
+          input.estimatedWaitMinutes === null
+            ? "estimate unavailable"
+            : `est. ${input.estimatedWaitMinutes} min wait`;
+        const body = `${name}, you're #${input.position}, ${wait}. We'll text when your table is ready.`;
         const trimmed = body.length > 160 ? body.slice(0, 160) : body;
     
         await this.sendWithRetry(input.guestPhone, trimmed);
@@ -772,7 +793,9 @@
         if (!this.client) return;
     
         const name = input.guestName ?? "Guest";
-        const body = `${name}, update: you're now #${input.position}, est. ${input.estimatedWaitMinutes} min.`;
+        const wait =
+          input.estimatedWaitMinutes === null ? "" : `, est. ${input.estimatedWaitMinutes} min`;
+        const body = `${name}, update: you're now #${input.position}${wait}.`;
         const trimmed = body.length > 160 ? body.slice(0, 160) : body;
     
         await this.sendWithRetry(input.guestPhone, trimmed);

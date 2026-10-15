@@ -49,6 +49,21 @@ function listComponentEntries(): LibEntry[] {
 
 const componentEntries = listComponentEntries();
 
+/**
+ * Non-default locales Rialto ships messages for, one subpath each
+ * (`@mattbutlerengineering/rialto/locales/<tag>`, ADR-028). en-US is inlined
+ * as the default and has no subpath. Read by generate-exports.ts too.
+ */
+export const RIALTO_LOCALE_TAGS = ["en-GB", "es-MX", "fr-CA"] as const;
+
+// chunkName mirrors the source path so the emitted JS sits beside
+// vite-plugin-dts's d.ts (dist/lib/i18n/locales/<tag>.{js,d.ts}).
+const localeEntries: LibEntry[] = RIALTO_LOCALE_TAGS.map((tag) => ({
+  subpath: `locales/${tag}`,
+  source: path.join(repoRoot, `src/i18n/locales/${tag}.ts`),
+  chunkName: `i18n/locales/${tag}`,
+}));
+
 /** All entries emitted by the library build, including root and side modules. */
 export const libEntries: LibEntry[] = [
   // Root barrel — preserved for back-compat with `import { x } from "@.../rialto"`.
@@ -78,6 +93,7 @@ export const libEntries: LibEntry[] = [
     source: path.join(repoRoot, "src/hooks/index.ts"),
     chunkName: "hooks/index",
   },
+  ...localeEntries,
   ...componentEntries,
 ];
 

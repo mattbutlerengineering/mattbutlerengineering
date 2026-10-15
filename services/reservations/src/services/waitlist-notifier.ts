@@ -14,7 +14,7 @@ export interface WaitlistEntryRef {
   guestPhone: string;
   guestName: string | null;
   position?: number;
-  estimatedWaitMinutes?: number;
+  estimatedWaitMinutes?: number | null;
   status?: string;
 }
 
@@ -29,6 +29,8 @@ export interface WaitlistNotifierDeps {
   notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
   /** Persists notified state on the row; null if the party is no longer waiting. */
   markNotified(id: string): Promise<{ id: string } | null>;
+  /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
+  revertNotified(id: string): Promise<{ id: string } | null>;
   logger: WaitlistNotifierLogger;
 }
 
@@ -37,7 +39,7 @@ export interface NotifyAddedInput {
   guestPhone: string;
   guestName: string | null;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface NotifyPositionUpdateInput {
@@ -46,7 +48,7 @@ export interface NotifyPositionUpdateInput {
   guestName: string | null;
   previousPosition: number;
   newPosition: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface NotifyTableReadyInput {
@@ -79,7 +81,9 @@ export interface WaitlistNotifier {
 }
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
-const POSITION_UPDATE_THRESHOLD = 2;
+// Any move up the queue is worth a text: renumbering closes the gap, so a seat,
+// cancel or notify moves each party behind it up by exactly one.
+const POSITION_UPDATE_THRESHOLD = 1;
 
 /**
  * Validates that a phone string contains at least 7 digits.
@@ -98,6 +102,7 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
     listWaiting,
     notifyTableReady: notifyNextTableReady,
     markNotified,
+    revertNotified,
     logger,
   } = deps;
 
@@ -147,13 +152,20 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
       }
     }
 
-    // Always schedule expiry regardless of SMS outcome
-    await scheduler.schedule(
-      JOB_TYPES.WAITLIST_EXPIRY,
-      { waitlistEntryId: input.id, venueId: input.venueId },
-      FIVE_MINUTES_MS,
-      `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
-    );
+    // Always schedule expiry regardless of SMS outcome. If scheduling fails the
+    // row would stay notified forever (host can't retry, next guest never
+    // notified), so roll it back to waiting and surface the error.
+    try {
+      await scheduler.schedule(
+        JOB_TYPES.WAITLIST_EXPIRY,
+        { waitlistEntryId: input.id, venueId: input.venueId },
+        FIVE_MINUTES_MS,
+        `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
+      );
+    } catch (err) {
+      await revertNotified(input.id);
+      throw err;
+    }
   }
 
   async function handleExpiry(input: HandleExpiryInput): Promise<void> {
@@ -201,7 +213,15 @@ export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): Waitlis
     expireEntry: (id) => waitlistService.expire(id),
     listWaiting: (venueId) => waitlistService.listWaiting(venueId),
     notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-    markNotified: (id) => waitlistService.markNotified(id),
+    markNotified: (id) =>
+      waitlistService.markNotified(id, (changes) => {
+        for (const change of changes) {
+          ref.value?.notifyPositionUpdate(change).catch(() => {
+            // Already logged inside the notifier
+          });
+        }
+      }),
+    revertNotified: (id) => waitlistService.revertNotified(id),
     logger: consoleLogger,
   });
 

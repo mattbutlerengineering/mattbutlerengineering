@@ -532,7 +532,7 @@ export function TimelinePage() {
       {(isFromCache || !isConnected) && <OfflineBanner lastSyncedAt={lastSyncedAt} />}
 
       {/* Main content */}
-      <div className={styles.content}>
+      <div className={styles.content} data-testid="primary-content">
         {/* Timeline */}
         <div className={styles.timelineArea}>
           {showLoadBanner && loadFailure && (

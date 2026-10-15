@@ -39,9 +39,8 @@ from datetime import datetime, timezone
 import cost_ledger
 from cli import CLI_FAILURES as GH_FAILURES
 from cli import detail as gh_detail
-from cli import gh_read, label_names, report, write_outputs
-from human_gates import (GATES, gate_passages, label_events,
-                         refused_timestamps, waited_seconds, waiting_since)
+from cli import gh_read, report, write_outputs
+from human_gates import gate_passages, open_queues, read_timelines
 from knowledge_plane import mirror_map, repo_root
 from cli import gh_runner
 
@@ -125,90 +124,31 @@ LIST_ARGS = ("issue", "list", "--state", "all", "--json",
              "number,title,state,labels,body")
 
 
-def _timelines(mirrored, run, problems):
-    """{issue number: label events} for every mirrored issue gh can
-    answer for; a failed fetch is a problem, never a lost queue item
-    (the digest still lists the issue, just without an age, and the next
-    daily run re-scans — dedup makes the catch-up safe).
-
-    A fetch that succeeds can still carry an event label_events refuses
-    for a malformed timestamp — a different failure, reported here
-    rather than swallowed with the fetch's own problems (#491): the
-    read succeeded, so read.problems says nothing about it."""
-    events = {}
-    for number in mirrored:
-        path = f"repos/{{owner}}/{{repo}}/issues/{number}/timeline"
-        read = gh_read(["api", path, "--paginate", "--slurp"],
-                       f"gh api timeline for #{number}", label="gd",
-                       run=run)
-        problems.extend(read.problems)
-        if read.value is None:
-            continue
-        raw = [event for page in read.value for event in page]
-        refused = refused_timestamps(raw)
-        if refused:
-            problems.append(f"gd: timeline for #{number} refused"
-                            f" {refused} malformed timestamp(s)")
-        events[number] = label_events(raw)
-    return events
-
-
 def _capture_latency(root, mirror, events_by_issue, problems):
     """Append every not-yet-recorded gate passage to the cost ledger and
     return the new rows. The dedup identity is cost_ledger.row_key
     (ADR-0041): gate_entry keys run_id on the passage timestamp, so a
-    daily re-scan of the same history appends nothing. A ledger that
+    daily re-scan of the same history appends nothing — the skip is
+    cost_ledger.record_new's, in one ledger read (#772). A ledger that
     cannot be read stops the capture (#736): with no recorded set to
     dedup against, every past passage would be re-appended."""
-    existing, ledger_problems = cost_ledger.read(root)
-    if ledger_problems:
-        problems.extend(ledger_problems)
-        return []
-    recorded = {cost_ledger.row_key(entry) for entry in existing}
-    new_rows = []
-    for number, events in sorted(events_by_issue.items()):
-        for gate, waited, passed_at in gate_passages(events):
-            row = cost_ledger.gate_entry(mirror[number], gate, waited,
-                                         passed_at)
-            if cost_ledger.row_key(row) not in recorded:
-                new_rows.append(row)
-    landed = []
-    for row in new_rows:
-        refused = cost_ledger.record(root, row)
-        problems.extend(f"gd: refusing to record {row['wo']}: {problem}"
-                        for problem in refused)
-        if not refused:
-            landed.append(row)
+    rows = [cost_ledger.gate_entry(mirror[number], gate, waited, passed_at)
+            for number, events in sorted(events_by_issue.items())
+            for gate, waited, passed_at in gate_passages(events)]
+    landed, refused = cost_ledger.record_new(root, rows)
+    problems.extend(refused)
     return landed
 
 
 def _queues(mirror, open_issues, events_by_issue, now):
-    """[(heading, queue label, items)] for compose_digest: the open
-    mirrored issues currently carrying each gate's queue label, oldest
-    issue first, aged from the current stay's labeled event when the
-    timeline yielded one — and carrying whether the timeline could be
-    read at all, which is the difference between an unknown age and an
-    unreadable one."""
-    queues = []
-    for _, queue_label, _, heading in GATES:
-        items = []
-        for entry in sorted(open_issues, key=lambda e: e["number"]):
-            number = entry["number"]
-            if number not in mirror or \
-                    queue_label not in label_names(entry):
-                continue
-            # absent means _timelines could not read this issue's
-            # history; present-and-empty means it read one that held no
-            # arrival at this gate. The old .get(number, []) default
-            # collapsed the two, and the digest inherited the collapse.
-            events = events_by_issue.get(number)
-            since = waiting_since(events or [], queue_label)
-            waited = (waited_seconds(since, now.isoformat())
-                      if since else None)
-            items.append(Item(number, entry.get("title") or "", waited,
-                              events is not None))
-        queues.append((heading, queue_label, items))
-    return queues
+    """[(heading, queue label, items)] for compose_digest: the gate
+    queues human_gates.open_queues builds (ADR-0090), respelled as the
+    digest's own Item rows."""
+    return [(gate.heading, gate.queue,
+             [Item(wait.issue["number"], wait.issue.get("title") or "",
+                   wait.waited, wait.aged) for wait in waiting])
+            for gate, waiting in open_queues(open_issues, mirror,
+                                             events_by_issue, now)]
 
 
 def _post_digest(digest, body, run, problems):
@@ -264,7 +204,11 @@ def run_daily(root, run=gh_runner, clock=None):
     listing, problems = read.value, list(read.problems)
     mirrored = sorted(entry["number"] for entry in listing
                       if entry.get("number") in mirror)
-    events_by_issue = _timelines(mirrored, run, problems)
+    # A failed read is a problem, never a lost queue item: the digest
+    # still lists the issue, marked unaged, and the next daily run
+    # re-scans — dedup makes the catch-up safe.
+    events_by_issue, read_problems = read_timelines(mirrored, run, "gd")
+    problems.extend(read_problems)
     new_rows = _capture_latency(root, mirror, events_by_issue, problems)
 
     open_issues = [entry for entry in listing

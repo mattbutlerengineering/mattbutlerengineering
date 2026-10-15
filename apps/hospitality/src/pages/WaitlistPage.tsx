@@ -81,8 +81,8 @@ function WaitlistLoadingSkeleton() {
 
 /* ── Wait time formatter ─────────────────────────── */
 
-function formatWait(minutes: number): string {
-  return `~${minutes} min`;
+function formatWait(minutes: number | null): string {
+  return minutes === null ? "Estimate unavailable" : `~${minutes} min`;
 }
 
 /**
@@ -527,53 +527,59 @@ export function WaitlistPage() {
       <PageHeader title="Waitlist" description="Guests waiting for a table" />
       <LiveStatus status={status} />
 
-      {loadFailure && (
-        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <ErrorRetryBanner
-            title="Couldn't load the waitlist."
-            error={loadFailure.detail}
-            details={loadFailure.raw}
-            onRetry={refetch}
-          />
-        </div>
-      )}
-
-      {selectedVenueId && (
-        <div ref={addToWaitlistFormRef} style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <AddToWaitlistForm venueId={selectedVenueId} onAdded={handleAdded} announce={announce} />
-        </div>
-      )}
-
-      {!isLoading && !loadFailure && displayEntries.length === 0 && (
-        // tabIndex={-1}: the focus target after the last entry is seated or removed (rule (d)).
-        <div tabIndex={-1} data-testid="waitlist-empty">
-          <EmptyState
-            heading="No one waiting"
-            description="The waitlist is currently empty."
-            action={
-              <Button variant="primary" onClick={focusAddToWaitlistForm}>
-                Add a Guest
-              </Button>
-            }
-          />
-        </div>
-      )}
-
-      {!isLoading && !loadFailure && displayEntries.length > 0 && (
-        <div className={styles.cards}>
-          {displayEntries.map((entry) => (
-            <WaitlistRow
-              key={entry.id}
-              entry={entry}
-              tables={tables ?? []}
-              venueId={selectedVenueId ?? ""}
-              onNotified={handleNotified}
-              onCancelled={handleCancelled}
-              onSeated={handleSeated}
+      <div data-testid="primary-content">
+        {loadFailure && (
+          <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+            <ErrorRetryBanner
+              title="Couldn't load the waitlist."
+              error={loadFailure.detail}
+              details={loadFailure.raw}
+              onRetry={refetch}
             />
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+
+        {selectedVenueId && (
+          <div ref={addToWaitlistFormRef} style={{ marginBlock: "var(--rialto-space-md)" }}>
+            <AddToWaitlistForm
+              venueId={selectedVenueId}
+              onAdded={handleAdded}
+              announce={announce}
+            />
+          </div>
+        )}
+
+        {!isLoading && !loadFailure && displayEntries.length === 0 && (
+          // tabIndex={-1}: the focus target after the last entry is seated or removed (rule (d)).
+          <div tabIndex={-1} data-testid="waitlist-empty">
+            <EmptyState
+              heading="No one waiting"
+              description="The waitlist is currently empty."
+              action={
+                <Button variant="primary" onClick={focusAddToWaitlistForm}>
+                  Add a Guest
+                </Button>
+              }
+            />
+          </div>
+        )}
+
+        {!isLoading && !loadFailure && displayEntries.length > 0 && (
+          <div className={styles.cards}>
+            {displayEntries.map((entry) => (
+              <WaitlistRow
+                key={entry.id}
+                entry={entry}
+                tables={tables ?? []}
+                venueId={selectedVenueId ?? ""}
+                onNotified={handleNotified}
+                onCancelled={handleCancelled}
+                onSeated={handleSeated}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

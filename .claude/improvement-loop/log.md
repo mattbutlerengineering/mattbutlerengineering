@@ -3482,3 +3482,79 @@ None (`agent-skip` count is 0). All 6 `ready` issues were left untouched this it
 - **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
 - **Coverage before this fire:** 100% (provisional, 131/131 covered, 0 uncovered, 18 `unreachable:auth`), first run 2026-10-01.
 - **Blockers / pipeline bugs:** none. Browser resolved (`/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). No stopped filing. A clean fire with nothing new to file.
+
+## 2026-10-14 — mbe-learning-loop
+
+**Sensors:** 13/17 available — acmm L5 (73/84 criteria), prMetrics (13 entries), metricsFreshness (1 unhealthy: review-burden fresh 0.09d, queue-telemetry fresh 0.14d, queueEfficiency **stale** 20.75d, ai-issue-feedback fresh 0.09d), reviewBurden (1 reviewer, 1 review, 0% rubber-stamped), prCategoryMetrics (84/87 merged by category), agentCost ($26.1 7d / $0 today, 33 attributed sessions; 30 queue-worker sessions, 3,794,415 tokens, cost unknown for 108 rows), ccusageCost ($0 30d/7d/today, 93% cache hit), ciHealth (100% pass rate, 0/0 — no runs in window), issues (166 created, 200 closed, 7 ready), issueFeedback (7 categories, 0 unhealthy), sessionLogs (0 sessions 7d, 0 commits), codeChurn (1% churn rate), queueEfficiency (composite 0.964, fps 0.91, ttm 0.3h, no baseline yet). Unavailable: lighthouse, mutationScore, flakyTests, e2eStability.
+
+**Regressions:** 1 detected — `metricsFreshness.queueEfficiency: 2026-09-24 → stale (+20.75d) [medium]`. Checked `metrics/process-metrics.jsonl`: last healthy (`available: true`) row is 2026-09-24; every row since (09-30 through today) is `available: false` with `reason: credential_rejected` or `query_error` (two rows dated 10-13/10-14 carry `spawnSync gh ETIMEDOUT`). Searched open issues (`search_issues`) and found this already tracked by **#6549** ("Metrics collection is stale or empty", filed 2026-10-13 by the `metrics-collectors.yml` workflow, labeled `ci-fix`), which already has an **open fix PR, #6570** ("fix(metrics): batch queueEfficiency commit fetch, raise list timeout"). No new issue filed — this is a confirmed duplicate, not a novel regression. Did not touch #6549 or #6570: the loop's remit is detect-and-file, not drive PRs.
+
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` ran successfully via the REST fallback (same GraphQL-403-then-REST-retry pattern as prior runs). All 7 categories well under the 40% rejection threshold: ci-fix 12%, meta-improvement 12%, feature 7%, acmm 8%, audit 5%, dependencies 0%, sentry 0%. All budgets remain at the default 3/category — no throttling needed, and none would have mattered this run since 0 new issues were filed.
+
+**Verifications:** 5 checked (issues closed in the last 48h: #6567, #6565, #6564, #6560, #6559), 0 verified, 0 failed, 5 skipped — all "no completed CI runs found to verify against" (this cloud session has no CI-run/GraphQL access). No reopens. Threshold auto-tuner applied 1 adjustment: `acmm` headroom 1.12 → 1.15.
+
+**Skill proposals:** 0 — today is Wednesday, not the configured Friday extraction day; Step 4 skipped per schedule.
+
+**Threshold notes:** Fix-effectiveness rate from `metrics/verifications.jsonl`'s 30-day window: 93 rows, 82 skipped (no verifier data reachable from this session — CI/Lighthouse/Sentry access gaps), 11 non-skip and **all 11 verified true** (0 failed) — 100% effectiveness among the checked subset, well above the 50% concern threshold. The naive whole-sample rate (11/93 ≈ 12%) would misread as a strategy failure; it is purely the skip-heavy denominator, not unsuccessful fixes, so no fix-strategy review is warranted. False-positive rate proxy (`ai-issue-feedback` per-category rejection rates): 0–12% across all categories, well under the 30% loosen-threshold trigger. No threshold changes indicated beyond the auto-tuner's routine ACMM headroom adjustment above.
+
+**Sentry triage (Step 1b):** Skipped — `mcp__sentry__find_organizations` returned "Authorization Expired" (stored access token rejected). Needs re-authorization outside this session; not retried.
+
+**Environment setup:** Fresh cloud checkout needed `pnpm install --frozen-lockfile` (no `node_modules`) plus `pnpm build --filter @mbe/gh-client...` (`ERR_MODULE_NOT_FOUND @mbe/gh-client`, missing `dist/`) before `sensor-report.mjs` would run — same standard fresh-checkout gotcha as prior runs.
+
+## 2026-10-15
+
+**queueEfficiency:** composite 0.964 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:41, size:xs:43, size:l:16, size:s:45, size:xl:12
+**Issues filed:** 0
+
+## 2026-10-15 — mbe-evening (progress-tracker)
+
+### Metrics (7d window, since 2026-10-08)
+
+| Metric        | Value                                                                                   | Status |
+| ------------- | --------------------------------------------------------------------------------------- | ------ |
+| Created       | 43 (16 audit + 27 ci-fix)                                                               | -      |
+| Closed        | 54 (21 audit + 33 ci-fix)                                                               | -      |
+| Closure Rate  | 126% (54/43)                                                                            | Green  |
+| Time-to-Close | 65.8h mean (n=54, audit+ci-fix closed in window)                                        | Yellow |
+| Agent Success | N/A — 0 has-pr, 0 agent-failed open right now                                           | -      |
+| CI Pass       | 2/2 completed `CI` workflow runs on main (small sample)                                 | Green  |
+| Queue         | 10 ready                                                                                | Yellow |
+| Stale (>7d)   | 0 — newest ready issue 2026-10-12, none older                                           | Green  |
+| Blocked       | 0 agent-failed                                                                          | Green  |
+| Skipped       | 0 agent-skip                                                                            | Green  |
+| Daily Spend   | $0 attributed (agent-core); queue-worker cost **unknown** — do not read as $0           | N/A    |
+| 7d Spend      | $0 attributed; 30 queue-worker sessions, 3,691,979 tokens, `cost_usd` null for 108 rows | N/A    |
+| Cost/Issue    | Unknown (denominator unaffected, numerator unknown)                                     | N/A    |
+
+### This iteration's own implement-queue run (mbe-evening Step 1, same session)
+
+Claimed 3 `ready` issues across 3 distinct merge-train zones (`apps/marketing`, `root`×2 via the zone-spread selector), one `ci-fix` (#6607) and two `feature` (#6633, #6635) from the `sdlc-speed` tracking batch. All 3 produced PRs, all 3 reviewed (universal reviewer + the diff-matched `e2e-selector-drift-reviewer` specialist on #6644), all 4 PRs merged (3 feature/fix + the queue-telemetry PR #6643). 0 circuit-breaker failures.
+
+**One real defect caught and fixed in-session, not by a retry worker:** PR #6644 (issue #6607, marketing `ai-health` visual baseline) was regenerated by its worker from a **local** Ubuntu/Chromium render. CI's own run on that commit still failed `Visual Regression (marketing)` with large, deterministic pixel diffs (45981px / 45081px) — the local render was not byte-equivalent to CI's actual render (confirmed independently by two dispatched reviewer subagents, both flag/block, plus a manual sha256 comparison). Fixed by replacing the baselines with the exact `*-actual.png` bytes CI itself produced on the failing run, per the repo's existing visual-baseline gotcha (never regenerate from a local render). Re-review after the fix: pass, score 9, byte-identical confirmed via sha256. This is the **same root-cause class** already documented for `rialto-web` visual baselines in `.claude/rules/gotchas.md` § CI — worth promoting that gotcha's wording to cover `apps/marketing` explicitly too, since a worker again tried a local-Ubuntu-render shortcut despite the issue text itself warning against it.
+
+**Environment note:** this CCR session's `gh pr merge`/branch-ref-delete calls hit the `[Merge Without Review]` runtime classifier once (on a post-merge branch-ref-delete for #6642, after the merge call itself had already succeeded) — per `.claude/rules/gotchas.md` § Claude Code Remote (#6125), subsequent merge calls this session were still attempted and succeeded for #6644/#6645, so the denial appears to have been scoped to that one ref-delete action rather than merges generally this time; worth re-measuring if it recurs.
+
+### Patterns
+
+- Queue sits at 10 `ready` (Yellow, target <5): 6 of those are `audit`-sourced (3 rialto a11y findings, 3 ACMM L6 findings) and 1 (`#6367`, "Hospitality - UX") carries `needs-human` with vague, non-actionable acceptance criteria ("improve usability") — not a good `/implement-queue` candidate as written. Recommend a human either sharpens #6367's AC or closes it as a `/decompose` candidate instead.
+- Time-to-close (65.8h, Yellow) is pulled up by the `audit`/`ci-fix` label population generally, not by anything from today's batch (today's 3 issues closed same-session, well under 1h each).
+- `queue-telemetry.jsonl`'s `cost_usd` gap (108 rows with no usage data) is unchanged from yesterday's `mbe-learning-loop` entry (same figure) — this is accumulated historical debt, not a new or worsening regression, so not filed as a fresh meta-improvement.
+
+### Recommendations
+
+- Promote the visual-baseline-provenance lesson (local render ≠ CI render) from the rialto-web-specific gotcha to explicitly cover `apps/marketing` too, since it just recurred there despite the issue text warning against it — candidate for the next `/idea-to-prod:knowledge-base` harvest rather than a hand-edit here.
+- #6367 needs human attention on its acceptance criteria before another `/implement-queue` iteration claims it.
+
+### Skipped Issues
+
+None — 0 `agent-skip`.
+
+## 2026-10-15
+
+**Sensors:** 12/17 available (flakyTests: no GH token in env on first pass; queueEfficiency: `gh` ETIMEDOUT; ccusageCost/lighthouse/mutationScore unavailable)
+**Regressions:** 1 detected (codeChurn.churn_rate 0.443 → 0.445, +0.002) — 0 issues created; a 0.2pp move is noise, not a regression
+**Verifications:** 5 checked, 3 verified, 2 failed → both reopens (#6648, #6607) were FALSE POSITIVES: `verifyCiFix` counted 3 concurrency-`cancelled` runs as failures while main CI was 7/7 green. Re-closed both; filed #6659 (same class as ciHealth #4687)
+**Skill proposals:** n/a (not Friday)
+**Threshold notes:** auto-tuner moved acmm 1.15 → 1.167. Step 0's `scripts/collect-domain-metrics.mjs` no longer exists — SKILL.md is stale
+**Other:** e2eStability reports 8 consecutive non-frontend failures; cold/full PR CI runs take 19-23m with `Test (Node 22)` at ~889s (normal affected-only PR runs 1-4m)

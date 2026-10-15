@@ -1249,7 +1249,7 @@
     export const WaitlistJoinResultSchema = z.object({
       statusToken: z.string(),
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
     });
     export const WaitlistStatusSchema = z.enum([
       "waiting",
@@ -1260,7 +1260,7 @@
     ]);
     export const WaitlistEstimateSchema = z.object({
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
       status: WaitlistStatusSchema,
     });
     export const WaitlistEntrySchema = z.object({
@@ -1270,7 +1270,7 @@
       guestName: z.string(),
       guestPhone: z.string(),
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
       status: WaitlistStatusSchema,
       notifiedAt: z.string().nullable(),
       expiresAt: z.string().nullable(),
@@ -2193,11 +2193,11 @@
        */
       statusToken: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistEstimate {
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
     }
     export type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
@@ -2208,7 +2208,7 @@
       guestName: string;
       guestPhone: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
       notifiedAt: string | null;
       expiresAt: string | null;

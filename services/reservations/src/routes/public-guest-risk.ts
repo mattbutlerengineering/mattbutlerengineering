@@ -8,8 +8,7 @@ import {
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { assessGuestReliability } from "../services/guest-reliability.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
+import { publicVenueScoped } from "./public-venue-scope.js";
 
 export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(guestRiskResultJsonSchema);
@@ -43,28 +42,30 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const { slug } = request.params;
-      const { email, phone } = request.query;
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        // The missing-query 400 answers before the slug lookup, as it always did.
+        before: (request, reply) =>
+          !request.query.email && !request.query.phone
+            ? reply
+                .status(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    "email or phone query parameter is required"
+                  )
+                )
+            : undefined,
+      },
+      async (request, reply) => {
+        const { slug } = request.params;
+        const { email, phone } = request.query;
 
-      if (!email && !phone) {
-        return reply
-          .status(400)
-          .send(
-            createProblemDetails(400, "Bad Request", "email or phone query parameter is required")
-          );
-      }
+        // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+        // run the guest lookup inside that venue's RLS context.
 
-      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
-      // run the guest lookup inside that venue's RLS context.
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) {
-        return reply
-          .status(404)
-          .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-      }
-
-      return runWithVenueContext(venueId, async () => {
         const venue = await venueService.getBySlug(slug);
         if (!venue) {
           return reply
@@ -92,7 +93,7 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
             requiresDeposit: riskScore === "risky",
           },
         });
-      });
-    }
+      }
+    )
   );
 };

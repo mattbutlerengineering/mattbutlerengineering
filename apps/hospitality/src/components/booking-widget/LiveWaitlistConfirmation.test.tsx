@@ -35,7 +35,29 @@ async function advancePoll() {
   });
 }
 
+function renderLiveWithNullSnapshot() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <LiveWaitlistConfirmation
+        api={api}
+        venueSlug="the-oak-table"
+        joined={{ statusToken: "tok-1", position: 3, estimatedWaitMinutes: null }}
+        onNewBooking={vi.fn()}
+      />
+    </QueryClientProvider>
+  );
+}
+
 describe("LiveWaitlistConfirmation", () => {
+  it("renders 'estimate unavailable' for a null join-time estimate", () => {
+    renderLiveWithNullSnapshot();
+    expect(screen.getByText(/estimate unavailable/i)).toBeDefined();
+    expect(screen.queryByText(/\d+ min/)).toBeNull();
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     waitlistEstimate.mockReset();

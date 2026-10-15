@@ -24,7 +24,7 @@ export interface EstimateInput {
   settings?: VenueSettings | null;
 }
 
-/** When one table next frees, in ms from `now`; null if an upcoming booking blocks it. */
+/** When one table next frees, in ms from `now`; null if a booking starts in [freeAt, freeAt + duration). */
 function freeInMs(
   tableId: string,
   now: number,
@@ -32,13 +32,12 @@ function freeInMs(
   reservations: readonly EstimateReservation[]
 ): number | null {
   const own = reservations.filter((r) => r.tableId === tableId && OCCUPYING_STATUSES.has(r.status));
-  const blockedByUpcoming = own.some(
-    (r) => r.startTime.getTime() > now && r.startTime.getTime() < now + durationMs
-  );
-  if (blockedByUpcoming) return null;
-
   const current = own.find((r) => r.startTime.getTime() <= now && r.endTime.getTime() > now);
-  return current ? current.endTime.getTime() - now : 0;
+  const freeAt = current ? current.endTime.getTime() : now;
+  const blocked = own.some(
+    (r) => r.startTime.getTime() >= freeAt && r.startTime.getTime() < freeAt + durationMs
+  );
+  return blocked ? null : freeAt - now;
 }
 
 /**

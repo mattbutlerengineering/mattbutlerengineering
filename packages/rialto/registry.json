@@ -1,5 +1,5 @@
 {
-  "version": "0.5.1",
+  "version": "0.6.1",
   "components": [
     {
       "name": "Accordion",
@@ -2774,6 +2774,12 @@
           "type": "ReactNode",
           "required": false,
           "description": "Content rendered at the bottom of the navbar (e.g., version info, logout button)."
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name for the nav landmark. A consumer `aria-label` / `aria-labelledby` takes precedence."
         }
       ],
       "slots": [
@@ -3345,6 +3351,40 @@
       ]
     },
     {
+      "name": "RialtoLocale",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "RialtoLocaleProvider",
+      "description": "Sets the locale and messages Rialto components render with (ADR-028).",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "locale",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "messages",
+          "type": "RialtoMessages | undefined",
+          "required": false,
+          "description": "Defaults to en-US. Import other locales from `@mattbutlerengineering/rialto/locales/<tag>`."
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
+      "name": "RialtoMessages",
+      "description": "Every user-visible string Rialto renders by itself, as one typed dictionary\n(ADR-028). en-US is the inline default; other locales ship as their own\nsubpath modules typed `RialtoMessages`, so a missing key fails typecheck.\n\nKeys are added as components migrate onto `useRialtoLocale()` — each new key\nlands with its value in every locale module. Interpolated entries are\nfunctions, e.g. `removeItem: (label: string) => string`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "RialtoProvider",
       "description": "Root provider for the Rialto design system.\n\nRenders a wrapper `<div>` that applies:\n- `data-theme` attribute for light/dark token cascading\n- CSS custom property overrides composed from three adapters behind one\n  interface: the active `vibe` preset, a reduced-data adapter driven by\n  `device.saveData` (tightens spacing when the user prefers reduced data),\n  and a reduced-motion adapter driven by `device.reducedMotion` (collapses\n  the duration scale when the user prefers reduced motion)\n\nAlso provides React context with device signals, active vibe, and resolved theme.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -3372,6 +3412,18 @@
           "type": "boolean | undefined",
           "required": false,
           "description": "Own theme persistence: read the stored preference (localStorage, shared\nacross tabs, `\"system\"` following the OS live) instead of `theme`, and\nexpose it to descendants through `useTheme()`. Use once at the app root."
+        },
+        {
+          "name": "locale",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Locale for Rialto's built-in text and `Intl` formatting (ADR-028). Omit\nboth `locale` and `messages` to keep today's English and runtime-default\nformatting."
+        },
+        {
+          "name": "messages",
+          "type": "RialtoMessages | undefined",
+          "required": false,
+          "description": "Messages for `locale`, from `@mattbutlerengineering/rialto/locales/<tag>`. Defaults to en-US."
         }
       ],
       "slots": [

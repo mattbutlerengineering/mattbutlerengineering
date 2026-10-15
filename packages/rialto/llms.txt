@@ -1173,6 +1173,19 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="i18n">
+  <file path="src/i18n/messages.ts">
+    <item priority="low">
+      interface RialtoMessages {
+        dismiss: string;
+        close: string;
+      }
+    </item>
+    <item priority="high">
+      export const enUS: RialtoMessages;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="lib">
   <file path="scripts/lib/color-tokens.ts">
     <item priority="low">
@@ -1204,6 +1217,23 @@
     </item>
     <item priority="high">
       export function assertTokenParity(light: TokenGroup, dark: TokenGroup): void { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="locales">
+  <file path="src/i18n/locales/en-GB.ts">
+    <item priority="high">
+      export const enGB: RialtoMessages;
+    </item>
+  </file>
+  <file path="src/i18n/locales/es-MX.ts">
+    <item priority="high">
+      export const esMX: RialtoMessages;
+    </item>
+  </file>
+  <file path="src/i18n/locales/fr-CA.ts">
+    <item priority="high">
+      export const frCA: RialtoMessages;
     </item>
   </file>
   </section>
@@ -1622,6 +1652,9 @@
     </item>
     <item priority="medium">
       function listComponentEntries(): LibEntry[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const RIALTO_LOCALE_TAGS: unknown;
     </item>
     <item priority="high">
       export const libEntries: LibEntry[];

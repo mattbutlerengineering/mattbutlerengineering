@@ -10,8 +10,8 @@ file past the 800-line ceiling live in sibling modules that import its
 row grammar (breakdown assumption 6): conductor_plan (plan, open),
 conductor_flow (the item state machine and the stall rule in next),
 conductor_run (the Worker runner), conductor_merge (the merge
-precondition and the merge turn) and conductor_close (the scorecard and
-closing a batch).
+precondition and the merge turn), conductor_close (the scorecard and
+closing a batch) and conductor_calibrate (calibrate).
 
   python3 conductor.py plan [--agents DIR] <#N>...
         Price and order a batch of issues and show each item's reserved
@@ -47,6 +47,15 @@ closing a batch).
         and docs/factory/costs.jsonl alone; appends nothing. A malformed
         ledger line, a run with no spend row or a missing plan row fails
         with a problem and no number.
+  python3 conductor.py calibrate
+        Join every closed batch's ledger with docs/factory/costs.jsonl
+        into one actuals row per run, and print as JSON the suggested
+        step weights and size budgets with their sample sizes; below
+        the floor it suggests nothing. Writes nothing (#799).
+  python3 conductor.py scorecards [N]
+        Print each metric of the last N (default 5) scorecards in
+        docs/factory/scorecards.jsonl, oldest first, with its change
+        from the batch before; appends nothing.
   python3 conductor.py close <batch>
         Once every item is merged or blocked: merge origin/main into
         conductor/<batch>, carry blocked items' spend rows over, append
@@ -96,6 +105,7 @@ from pathlib import Path
 # refused. The .gitignore the payload ships covers the untracked case.
 sys.dont_write_bytecode = True
 
+import factory_config  # noqa: E402
 from cli import gh_runner, report, runner  # noqa: E402
 from cost_ledger import ISSUE_KEY
 from knowledge_plane import repo_root
@@ -125,7 +135,7 @@ ROW_FIELDS = {
     "reserve": (("what", "values"), ("renumbered_from",)),
     "state": (("from", "to", "reason"),
               ("verdict", "author_runs", "reviewer_run", "reviewed_head",
-               "pr", "sha", "checks", "run_id", "pid")),
+               "pr", "sha", "checks", "run_id", "pid", "cause")),
     "run": (("step", "charter", "band", "model", "models_reported",
              "effort", "run_id", "pid", "outcome"), ()),
     "ask": (("id", "ask_kind", "question", "options", "recommended",
@@ -142,6 +152,12 @@ COMMON_FIELDS = ("at", "kind", "item")
 STATE_FIELDS = {"reviewed": ("author_runs", "reviewer_run", "verdict"),
                 "merged": ("checks", "pr", "sha")}
 ASK_KINDS = ("spend", "gate", "merge", "stall", "clarify")
+# Why an item stalled or blocked (#819): a state row into either may
+# carry one, so the scorecard counts causes, not reasons. A block that
+# ends a stall carries the stall's; owner-block blocks an unstalled item.
+CAUSES = ("ceiling", "timeout", "agent-failed", "delivery-failed",
+          "runner-lost", "changes-again", "merge-drift", "merge-failed",
+          "owner-block", "setup-failed")
 TERMINAL = ("merged", "blocked")
 # An answer with this choice blocks the ask's item (Owner, 2026-10-10):
 # the one path into `blocked`.
@@ -267,6 +283,14 @@ def _consent_row_problems(row):
     return problems
 
 
+def _cause_problems(row):
+    if row["to"] not in ("stalled", "blocked"):
+        return ["cause is only for a state row to stalled or blocked"]
+    if row["cause"] not in CAUSES:
+        return [f"cause {row['cause']!r} is not one of {', '.join(CAUSES)}"]
+    return []
+
+
 def _at_problems(value):
     valid = isinstance(value, str) and AT.fullmatch(value)
     if valid:
@@ -309,6 +333,8 @@ def row_problems(row):
         if absent:
             problems.append(f"state row to {row['to']} is missing"
                             f" field(s): {', '.join(absent)}")
+    if kind == "state" and "cause" in row:
+        problems += _cause_problems(row)
     if kind == "ask":
         problems += _ask_problems(row)
     if kind == "answer":
@@ -458,9 +484,34 @@ def _live_block(reserves):
     return {what: values for what, values in live.items() if values}
 
 
-def _item(item, entry, grouped, answered):
+def _steps(entry, policy, last, resumed):
+    """{step: {charter, band, model, effort, ceiling_usd, bumped}}: the
+    policy each of the plan entry's steps runs under — the plan row's
+    snapshot, and the step a retry-up answer resumed one band up, its
+    model and effort re-resolved through the plan row's `policy` (the
+    top band has none above it)."""
+    bands = factory_config.BANDS
+    up = last["from"] if resumed is not None \
+        and resumed["choice"] == "retry-up" else None
+    steps = {}
+    for planned in entry["steps"] if entry is not None else ():
+        band = planned["band"]
+        bumped = planned["step"] == up and band in bands[:-1]
+        if bumped:
+            band = bands[bands.index(band) + 1]
+        steps[planned["step"]] = {
+            "charter": planned["charter"], "band": band,
+            "model": (factory_config.resolve_model(band, policy)[0]
+                      if bumped else planned["model"]),
+            "effort": (factory_config.resolve_effort(band, policy)[0]
+                       if bumped else planned["effort"]),
+            "ceiling_usd": planned["ceiling_usd"], "bumped": bumped}
+    return steps
+
+
+def _item(item, entry, grouped, answered, policy):
     """One item's read-only view from its rows, grouped as
-    {field: ((position, row), ...)}."""
+    {field: ((position, row), ...)}, under the plan row's `policy`."""
     states = grouped.get("states", ())
     rows_of = {field: tuple(row for _, row in grouped.get(field, ()))
                for field in _ITEM_KINDS.values()}
@@ -490,7 +541,8 @@ def _item(item, entry, grouped, answered):
         "gate": _latest(answered, asks, "gate", -1),
         "author_runs": tuple(row["run_id"] for row in runs
                              if row["step"] != "review"),
-        "reserved": _live_block(rows_of["reserves"])}
+        "reserved": _live_block(rows_of["reserves"]),
+        "steps": _steps(entry, policy, last, resumed)}
 
 
 def view(rows):
@@ -503,7 +555,10 @@ def view(rows):
     `last` state row and `states`, `runs`, `asks`, `pending` ask, the
     `finishing` run of its last launch, `in_flight`, `completed`, the
     stall answer that `resumed` it, `retry`, its latest `gate` answer,
-    its `author_runs` and its live `reserved` block."""
+    its `author_runs`, its live `reserved` block and the policy each of
+    its `steps` runs under ({step: {charter, band, model, effort,
+    ceiling_usd, bumped}}, retry-up's one-band bump applied; a step off
+    the plan is absent)."""
     plan, answered, grouped = None, {}, {}
     for position, row in enumerate(rows):
         kind = row["kind"]
@@ -516,8 +571,9 @@ def view(rows):
                 _ITEM_KINDS[kind], []).append((position, row))
     entries = {entry["item"]: entry for entry in (plan or {}).get("items",
                                                                    [])}
+    policy = (plan or {}).get("policy", {})
     items = {item: _item(item, entries.get(item), grouped.get(item, {}),
-                         answered)
+                         answered, policy)
              for item in [*entries, *(i for i in grouped
                                       if i not in entries)]}
     asks = (row for row in rows if row["kind"] == "ask")
@@ -532,7 +588,7 @@ def item_view(rows, item):
     """One item's view (see view): an item with no rows and off the plan
     reads as `planned`, with `unknown` set."""
     found = view(rows)["items"].get(item)
-    return found if found is not None else _item(item, None, {}, {})
+    return found if found is not None else _item(item, None, {}, {}, {})
 
 
 def answers(rows):
@@ -610,9 +666,12 @@ def answer(root, batch, now, ask_id, choice, note, env):
             return row, []
         reason = f"answer to {ask_id}: {BLOCK}" + (f" ({note})" if note
                                                     else "")
+        last = item_view(rows, asked["item"])["last"]
+        cause = ({"cause": "owner-block"} if state != "stalled"
+                 else {"cause": last["cause"]} if "cause" in last else {})
         return [row, {"at": row["at"], "kind": "state",
                       "item": asked["item"], "from": state,
-                      "to": "blocked", "reason": reason}], []
+                      "to": "blocked", "reason": reason, **cause}], []
     written, problems = append(root, batch, build)
     if isinstance(written, list):
         written = written[0]
@@ -663,15 +722,28 @@ def _answer_cli(root, batch, args, now, env):
     return problems
 
 
+# Every git call the Conductor makes itself skips the repo's hooks (#833):
+# it commits only generated evidence (ledger, spend rows, scorecards, a
+# merge of a checked main, a mechanical renumber), and land_branch waits
+# for green CI on the pushed head. The Worker's item commits run in its
+# harness, a separate process, and still meet the hooks.
+NO_HOOKS = ("-c", f"core.hooksPath={os.devnull}")
+
+
+def _skip_hooks(run):
+    return lambda args, **kwargs: run([*NO_HOOKS, *args], **kwargs)
+
+
 def main(argv, env=None, clock=None, root=None, run=gh_runner, git=None,
          alive=None, harness=None, tool=None, sleep=None, netrc=None):
     env = os.environ if env is None else env
     clock = clock or (lambda: datetime.now(timezone.utc))
     now = clock()
     root = root or repo_root()
-    git = git or runner("git")
+    git = git or _skip_hooks(runner("git"))
     # The capability siblings import this module's row grammar, so they
     # are imported here, not at the top: one owner, no import cycle.
+    import conductor_calibrate
     import conductor_close
     import conductor_flow
     import conductor_merge
@@ -680,6 +752,10 @@ def main(argv, env=None, clock=None, root=None, run=gh_runner, git=None,
     problems = None
     if argv[:1] == ["plan"]:
         problems = conductor_plan.plan_cli(root, argv[1:], now, run, git)
+    elif argv[:1] == ["calibrate"]:
+        problems = conductor_calibrate.calibrate_cli(root, argv[1:])
+    elif argv[:1] == ["scorecards"]:
+        problems = conductor_close.scorecards_cli(root, argv[1:])
     elif argv[:1] == ["open"] and len(argv) >= 3:
         problems = conductor_plan.open_cli(root, argv[1:], now, run, git,
                                            netrc)

@@ -206,7 +206,7 @@ export function SettingsPage() {
         )}
       </Stack>
 
-      <div className={styles.layout}>
+      <div className={styles.layout} data-testid="primary-content">
         {/* ── Main column ─────────────────────── */}
         <div className={styles.main}>
           <Stack gap="lg">

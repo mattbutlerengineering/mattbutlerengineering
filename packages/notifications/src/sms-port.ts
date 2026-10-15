@@ -33,14 +33,14 @@ export interface WaitlistAddedInput {
   guestPhone: string;
   guestName: string | null;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface WaitlistPositionUpdateInput {
   guestPhone: string;
   guestName: string | null;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface WaitlistTableReadyInput {

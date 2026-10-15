@@ -6,6 +6,8 @@ import { vibes, type VibeName, type VibeOverrides } from "./vibes";
 import { UIEnvironmentContext, type UIEnvironment } from "./useUIEnvironment";
 import { ThemeStateContext } from "./useTheme";
 import { useThemeState } from "../hooks/useThemeState";
+import { RialtoLocaleProvider } from "../i18n/RialtoLocaleProvider";
+import type { RialtoMessages } from "../i18n/messages";
 
 /**
  * `<meta name="theme-color">` content, mirroring the `--rialto-surface`
@@ -33,6 +35,14 @@ export interface RialtoProviderProps {
    * expose it to descendants through `useTheme()`. Use once at the app root.
    */
   persistTheme?: boolean;
+  /**
+   * Locale for Rialto's built-in text and `Intl` formatting (ADR-028). Omit
+   * both `locale` and `messages` to keep today's English and runtime-default
+   * formatting.
+   */
+  locale?: string;
+  /** Messages for `locale`, from `@mattbutlerengineering/rialto/locales/<tag>`. Defaults to en-US. */
+  messages?: RialtoMessages;
   children: ReactNode;
 }
 
@@ -51,11 +61,26 @@ export interface RialtoProviderProps {
  *
  * Also provides React context with device signals, active vibe, and resolved theme.
  */
-export function RialtoProvider({ persistTheme = false, ...props }: RialtoProviderProps) {
-  return persistTheme ? <PersistedRialtoProvider {...props} /> : <BaseRialtoProvider {...props} />;
+export function RialtoProvider({
+  persistTheme = false,
+  locale,
+  messages,
+  ...props
+}: RialtoProviderProps) {
+  const provider = persistTheme ? (
+    <PersistedRialtoProvider {...props} />
+  ) : (
+    <BaseRialtoProvider {...props} />
+  );
+  if (locale === undefined && messages === undefined) return provider;
+  return (
+    <RialtoLocaleProvider locale={locale} messages={messages}>
+      {provider}
+    </RialtoLocaleProvider>
+  );
 }
 
-type BaseProps = Omit<RialtoProviderProps, "persistTheme">;
+type BaseProps = Omit<RialtoProviderProps, "persistTheme" | "locale" | "messages">;
 
 function PersistedRialtoProvider(props: BaseProps) {
   const themeState = useThemeState();

@@ -16,7 +16,7 @@ export interface WaitlistEntryData {
   guestName: string;
   guestPhone: string;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
   status: WaitlistStatus;
   notifiedAt: Date | null;
   expiresAt: Date | null;
@@ -60,11 +60,36 @@ async function loadEstimator(
     estimateWaitFromTurnover({ position, partySize, now, tables, reservations, settings });
 }
 
-async function recalculateVenuePositions(venueId: string): Promise<void> {
+/** A waiting party that moved up the queue, with everything needed to tell them. */
+export interface ImprovedPosition {
+  id: string;
+  venueId: string;
+  guestPhone: string;
+  guestName: string | null;
+  previousPosition: number;
+  newPosition: number;
+  /** Live estimate at the new position; null when no table can seat the party. */
+  estimatedWaitMinutes: number | null;
+}
+
+/** Called after a queue shuffle with the parties that moved up (never with an empty list). */
+export type OnPositionsImproved = (changes: ImprovedPosition[]) => void;
+
+async function recalculateVenuePositions(
+  venueId: string,
+  onImproved?: OnPositionsImproved
+): Promise<void> {
   const waitingEntries = await prisma.waitlistEntry.findMany({
     where: { venueId, status: "waiting" },
     orderBy: { position: "asc" },
-    select: { id: true, position: true },
+    select: {
+      id: true,
+      venueId: true,
+      partySize: true,
+      guestName: true,
+      guestPhone: true,
+      position: true,
+    },
   });
 
   const updated = recalculatePositions(waitingEntries);
@@ -89,6 +114,54 @@ async function recalculateVenuePositions(venueId: string): Promise<void> {
       WHERE w.id = v.id
     `;
   });
+
+  if (onImproved) await reportImproved(venueId, waitingEntries, updated, onImproved);
+}
+
+type WaitingRow = Pick<
+  WaitlistEntryData,
+  "id" | "venueId" | "partySize" | "guestName" | "guestPhone" | "position"
+>;
+
+async function reportImproved(
+  venueId: string,
+  before: readonly WaitingRow[],
+  after: readonly { id: string; position: number }[],
+  onImproved: OnPositionsImproved
+): Promise<void> {
+  const newPositions = new Map(after.map((e) => [e.id, e.position]));
+  const moved = before.filter((e) => (newPositions.get(e.id) ?? e.position) < e.position);
+  if (moved.length === 0) return;
+
+  // The position change is already saved; an estimator failure (e.g. a venue with
+  // no duration rules) must not turn that successful mutation into a 500.
+  let estimate: (position: number, partySize: number) => number | null;
+  try {
+    estimate = await loadEstimator(venueId, new Date());
+  } catch (err) {
+    process.stderr.write(
+      JSON.stringify({
+        venueId,
+        err: String(err),
+        msg: "waitlist position-update estimate failed",
+      }) + "\n"
+    );
+    return;
+  }
+  onImproved(
+    moved.map((e) => {
+      const newPosition = newPositions.get(e.id) ?? e.position;
+      return {
+        id: e.id,
+        venueId: e.venueId,
+        guestPhone: e.guestPhone,
+        guestName: e.guestName,
+        previousPosition: e.position,
+        newPosition,
+        estimatedWaitMinutes: estimate(newPosition, e.partySize),
+      };
+    })
+  );
 }
 
 export const waitlistService = {
@@ -103,7 +176,7 @@ export const waitlistService = {
     const estimatedWait =
       avgTurnTimeMinutes !== undefined
         ? estimateWaitMinutes(position, avgTurnTimeMinutes)
-        : ((await loadEstimator(venueId, new Date()))(position, partySize) ?? 0);
+        : (await loadEstimator(venueId, new Date()))(position, partySize);
 
     return prisma.waitlistEntry.create({
       data: {
@@ -119,8 +192,9 @@ export const waitlistService = {
 
   /**
    * Replaces each waiting entry's stored (join-time) estimate with one computed
-   * from current table turnover. Entries that no table can seat keep their
-   * stored value. Computed on every read, never persisted.
+   * from current table turnover. Entries that no table can seat get null
+   * ("estimate unavailable"), never a stale or zero value. Computed on every
+   * read, never persisted.
    */
   async withLiveEstimates<T extends WaitlistEntryData>(entries: T[]): Promise<T[]> {
     const first = entries[0];
@@ -129,7 +203,7 @@ export const waitlistService = {
     return entries.map((entry) => {
       if (entry.status !== "waiting") return entry;
       const minutes = estimate(entry.position, entry.partySize);
-      return minutes === null ? entry : { ...entry, estimatedWaitMinutes: minutes };
+      return { ...entry, estimatedWaitMinutes: minutes };
     });
   },
 
@@ -152,7 +226,7 @@ export const waitlistService = {
     return prisma.waitlistEntry.findUnique({ where: { id } });
   },
 
-  async seat(id: string): Promise<WaitlistEntryData | null> {
+  async seat(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
     let entry: WaitlistEntryData;
     try {
       entry = await prisma.waitlistEntry.update({
@@ -162,11 +236,11 @@ export const waitlistService = {
     } catch {
       return null;
     }
-    await recalculateVenuePositions(entry.venueId);
+    await recalculateVenuePositions(entry.venueId, onImproved);
     return entry;
   },
 
-  async cancel(id: string): Promise<WaitlistEntryData | null> {
+  async cancel(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
     let entry: WaitlistEntryData;
     try {
       entry = await prisma.waitlistEntry.update({
@@ -176,7 +250,7 @@ export const waitlistService = {
     } catch {
       return null;
     }
-    await recalculateVenuePositions(entry.venueId);
+    await recalculateVenuePositions(entry.venueId, onImproved);
     return entry;
   },
 
@@ -184,7 +258,10 @@ export const waitlistService = {
    * Records the notified lifecycle state on the row. Only a `waiting` entry
    * can be notified; anything else (seated/cancelled/already notified) -> null.
    */
-  async markNotified(id: string): Promise<WaitlistEntryData | null> {
+  async markNotified(
+    id: string,
+    onImproved?: OnPositionsImproved
+  ): Promise<WaitlistEntryData | null> {
     const notifiedAt = new Date();
     let entry: WaitlistEntryData;
     try {
@@ -200,6 +277,24 @@ export const waitlistService = {
       return null;
     }
     // The notified party left the waiting queue: close the gap behind it.
+    await recalculateVenuePositions(entry.venueId, onImproved);
+    return entry;
+  },
+
+  /**
+   * Undoes markNotified when the expiry job could not be scheduled, so the host
+   * can retry. Only a `notified` entry reverts; anything else -> null.
+   */
+  async revertNotified(id: string): Promise<WaitlistEntryData | null> {
+    let entry: WaitlistEntryData;
+    try {
+      entry = await prisma.waitlistEntry.update({
+        where: { id, status: "notified" },
+        data: { status: "waiting", notifiedAt: null, expiresAt: null },
+      });
+    } catch {
+      return null;
+    }
     await recalculateVenuePositions(entry.venueId);
     return entry;
   },

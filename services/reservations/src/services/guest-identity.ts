@@ -14,6 +14,7 @@ type GuestSnapshot = {
   email: string | null;
   phone: string | null;
   dietaryRestrictions: string[] | null;
+  notes?: string | null;
 };
 
 type IncomingGuestData = {
@@ -21,6 +22,7 @@ type IncomingGuestData = {
   email?: string;
   phone?: string;
   dietaryRestrictions?: string[];
+  notes?: string;
 };
 
 /**
@@ -63,6 +65,16 @@ export function buildGuestUpdateData(
 
   if (incoming.phone !== undefined && existing.phone !== incoming.phone) {
     updateData.phone = incoming.phone;
+  }
+
+  // Set notes when empty, otherwise append on a new line: a typed note is never lost and
+  // an existing one never overwritten. A note already contained is not duplicated.
+  if (incoming.notes) {
+    if (!existing.notes) {
+      updateData.notes = incoming.notes;
+    } else if (!existing.notes.includes(incoming.notes)) {
+      updateData.notes = `${existing.notes}\n${incoming.notes}`;
+    }
   }
 
   if (incoming.dietaryRestrictions && incoming.dietaryRestrictions.length > 0) {

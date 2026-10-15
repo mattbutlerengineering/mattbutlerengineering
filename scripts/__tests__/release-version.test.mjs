@@ -130,12 +130,41 @@ exit 1`
     );
     writeFileSync(
       join(dir, "packages/rialto/package.json"),
-      JSON.stringify({ name: "@mattbutlerengineering/rialto", version: "0.3.0" })
+      JSON.stringify({ name: "@mattbutlerengineering/rialto", version: "0.2.0" })
     );
     // Simulates the real bug this branch guards: `changeset version` ran
-    // (bumped package.json, which the script doesn't touch here) but
-    // prettier silently skipped the CHANGELOG.md write, so its content
-    // (and hash) is identical before and after.
+    // and bumped rialto's package.json, but prettier silently skipped the
+    // CHANGELOG.md write, so its content (and hash) is identical before
+    // and after.
+    writeStub(
+      "pnpm",
+      `if [ "$1" = "version-packages" ]; then
+  echo '{"name":"@mattbutlerengineering/rialto","version":"0.3.0"}' > packages/rialto/package.json
+  exit 0
+fi
+${REGISTRY_REGEN_STUB}
+exit 1`
+    );
+
+    const { exitCode, output } = runScript();
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("::warning::packages/rialto/CHANGELOG.md was not updated");
+    const changelog = readChangelog();
+    expect(changelog).toBe(
+      "# @mattbutlerengineering/rialto\n\n## 0.3.0\n\n### Changes\n\nSee changeset details in git history.\n\n## 0.2.0\n\nold entry\n"
+    );
+  });
+
+  it("leaves the CHANGELOG alone when the release does not bump rialto (only other packages changed)", () => {
+    const original = "# @mattbutlerengineering/rialto\n\n## 0.6.1\n\nold entry\n";
+    writeFileSync(join(dir, "packages/rialto/CHANGELOG.md"), original);
+    writeFileSync(
+      join(dir, "packages/rialto/package.json"),
+      JSON.stringify({ name: "@mattbutlerengineering/rialto", version: "0.6.1" })
+    );
+    // e.g. a changeset for @mbe/rialto-plugin only: rialto's version and
+    // CHANGELOG are both untouched, which is correct, not a silent skip.
     writeStub(
       "pnpm",
       `if [ "$1" = "version-packages" ]; then exit 0; fi
@@ -146,10 +175,8 @@ exit 1`
     const { exitCode, output } = runScript();
 
     expect(exitCode).toBe(0);
-    expect(output).toContain("::warning::packages/rialto/CHANGELOG.md was not updated");
-    const changelog = readChangelog();
-    expect(changelog).toContain("## 0.3.0");
-    expect(changelog).toContain("old entry");
+    expect(output).not.toContain("::warning::");
+    expect(readChangelog()).toBe(original);
   });
 
   it("exits non-zero when pnpm version-packages fails, per set -e", () => {

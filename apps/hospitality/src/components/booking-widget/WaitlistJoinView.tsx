@@ -8,7 +8,7 @@ import styles from "./WaitlistJoinView.module.css";
 export interface WaitlistJoinedResult {
   statusToken: string;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface WaitlistJoinViewProps {

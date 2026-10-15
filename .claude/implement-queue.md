@@ -39,15 +39,19 @@ State transitions (`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip`) a
 
 ## compose
 
-**Compose the batch — spread across zones (ADR-023).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones instead of stacking same-zone PRs. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > ci-fix > feature > audit), takes at most one issue per zone (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch:
+**Compose the batch — spread across zones (ADR-023, amended by ADR-027).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > ci-fix > feature > audit), takes at most one issue per zone when main is strict (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch.
+
+**Probe main's strictness every iteration** (branch protection is repo state, not code) with `scripts/main-strictness.mjs` and pass the result as `strictMain`. The probe fails closed: only a successfully parsed literal `strict: false` yields `strictMain: false`; an error, non-JSON, or missing field yields `true`. When `strictMain` is `false`, a zone may admit further issues whose extracted file paths are non-empty and prefix-aware disjoint from those already admitted in that zone; the per-zone merge-train lock still serializes the merges themselves.
 
 ```js
 import { selectZoneSpreadBatch } from "./scripts/issue-zone.mjs";
+import { probeMainStrictness } from "./scripts/main-strictness.mjs";
 
 // `ready` = candidates already priority-sorted (Sort above) and
 // independence-filtered, each { number, title, labels, body }.
-const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3 });
-// → ≤3 issues in distinct zones, priority order preserved.
+const { strictMain } = probeMainStrictness(); // CLI: node scripts/main-strictness.mjs
+const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3, strictMain });
+// → ≤3 issues, priority order preserved; distinct zones when strict.
 ```
 
 Each issue's zone is estimated from its conventional-commit scope via `issueZone(issue)`, which reuses the shared zone vocabulary (`scripts/zone-vocabulary.mjs`, `WORKSPACE_ROOTS` + `zoneForPath`) — there is no second, divergent zone list.

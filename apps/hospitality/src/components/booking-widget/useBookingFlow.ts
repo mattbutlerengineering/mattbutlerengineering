@@ -28,7 +28,7 @@ export type BookingStep =
 export interface WaitlistResult {
   statusToken: string;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface BookingFlowData {

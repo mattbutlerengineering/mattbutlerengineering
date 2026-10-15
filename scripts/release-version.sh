@@ -22,17 +22,24 @@ set -euo pipefail
 # Detect whether changeset version skips CHANGELOG.md write silently. This
 # happens when prettier cannot resolve @mbe/config (see gotchas.md).
 PREV_HASH=$(sha256sum packages/rialto/CHANGELOG.md 2>/dev/null | cut -d' ' -f1 || echo "absent")
+rialto_version() { node -p "require('./packages/rialto/package.json').version"; }
+PREV_VER=$(rialto_version)
 
 pnpm version-packages
 
-# If the CHANGELOG hash is unchanged, prettier silently skipped the write.
-# Prepend the version block manually so the file stays accurate.
+# If rialto was bumped but the CHANGELOG hash is unchanged, prettier
+# silently skipped the write. Prepend the version block manually so the
+# file stays accurate. A release that bumps only other packages (e.g. a
+# lone @mbe/rialto-plugin changeset) leaves both untouched -- that is not
+# a skip, and prepending there wrote a duplicate version block (#6671).
 CURR_HASH=$(sha256sum packages/rialto/CHANGELOG.md 2>/dev/null | cut -d' ' -f1 || echo "absent")
-if [ "$PREV_HASH" = "$CURR_HASH" ]; then
+NEW_VER=$(rialto_version)
+if [ "$PREV_VER" != "$NEW_VER" ] && [ "$PREV_HASH" = "$CURR_HASH" ]; then
   echo "::warning::packages/rialto/CHANGELOG.md was not updated — prepending manually"
-  NEW_VER=$(node -p "require('./packages/rialto/package.json').version")
   EXISTING=$(cat packages/rialto/CHANGELOG.md 2>/dev/null || echo "# @mattbutlerengineering/rialto")
-  BODY=$(printf '%s' "$EXISTING" | sed -e '1{/^#[[:space:]]/d;}')
+  # Drop the title and the blank lines after it; the printf below supplies
+  # its own separator (a leftover blank line fails prettier).
+  BODY=$(printf '%s' "$EXISTING" | sed -e '1{/^#[[:space:]]/d;}' | sed -e '/./,$!d')
   printf '# @mattbutlerengineering/rialto\n\n## %s\n\n### Changes\n\nSee changeset details in git history.\n\n%s\n' \
     "$NEW_VER" "$BODY" > packages/rialto/CHANGELOG.md
 fi

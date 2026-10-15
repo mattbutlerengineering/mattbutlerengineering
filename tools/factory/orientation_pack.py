@@ -24,8 +24,7 @@ import ast
 import re
 from pathlib import Path
 
-from knowledge_plane import (ADR_TOKEN, adr_paths, breakdown_files,
-                             row_work_order)
+from knowledge_plane import ADR_TOKEN, adr_paths
 
 # Bare filenames a breakdown row names in prose ("assembler.yml + guards",
 # "budget_guard.py + handoff.py + cost ledger") — a best-effort scan of the
@@ -33,45 +32,14 @@ from knowledge_plane import (ADR_TOKEN, adr_paths, breakdown_files,
 # real repo path.
 FILENAME_TOKEN = re.compile(r"\b[\w-]+\.(?:py|yml|yaml|md|json)\b")
 
-# The row grammar is knowledge_plane.row_work_order — the WO a row's FIRST
-# token names owns the block that follows until the next work-order row.
-# The Accept:/Notes sub-bullets under a row are NOT checkbox rows, so they
-# belong to their work order's block, which is where this repo's rows
-# actually cite ADRs (the bullet line cites only the PRD section).
-
-
-def wo_block(root, wo):
-    """The full breakdown block a work order owns — its checkbox bullet PLUS
-    the indented Accept:/Notes sub-bullets beneath it, up to the next
-    work-order bullet or heading — or None when no row names it.
-
-    This is why ADR-bundling actually fires: in this repo's row grammar the
-    bullet line cites only `PRD-#### §section`; the ADRs a work order builds
-    on are named in the sub-bullets below it (or nowhere). Scanning only the
-    bullet, as an earlier cut did, bundled zero ADRs for every real row.
-    Still repo-file-sourced (the knowledge plane), never an issue body — the
-    ADR-0032 boundary holds: a broader slice of the SAME breakdown.md, not a
-    new, attacker-reachable input."""
-    for _, lines in breakdown_files(root):
-        for index, line in enumerate(lines):
-            if row_work_order(line) != wo:
-                continue
-            block = [line]
-            for nxt in lines[index + 1:]:
-                if row_work_order(nxt) or nxt.startswith("#"):
-                    break
-                block.append(nxt)
-            return "\n".join(block).strip()
-    return None
-
-
 def cited_adrs(text):
     """ADR numbers a breakdown block cites, in citation order, deduplicated.
     Same grammar knowledge_plane.ADR_TOKEN reads elsewhere in the knowledge
     plane (detector C's link integrity, detector D's blueprint drift) — a
     block that names no ADR cites none; that is a fact about the block, not
-    a gap here. Callers pass the work order's full block (see wo_block), not
-    just its bullet line, because that is where the citations live."""
+    a gap here. Callers pass the work order's full block (a
+    knowledge_plane.work_orders row's `block`), not just its bullet line,
+    because that is where the citations live."""
     return list(dict.fromkeys(ADR_TOKEN.findall(text)))
 
 
@@ -191,13 +159,14 @@ def orientation_pack(root, wo, row):
     (ADR-0032's prompt-injection boundary — this function does not even
     accept one).
 
-    The ADR/codegraph scan reads the work order's full block (bullet PLUS
-    its Accept:/Notes sub-bullets, via wo_block) rather than the bullet
-    `row` alone, because that block is where this repo's rows cite ADRs. The
-    bullet `row` remains the fallback when no breakdown names this WO (e.g.
-    a hand call), so the pack still degrades cleanly."""
+    `row` is the work order's block as the caller already resolved it —
+    a knowledge_plane.work_orders row's `block`: the bullet PLUS its
+    Accept:/Notes sub-bullets, where this repo's rows cite ADRs (issue
+    #857: one block rule, so the prompt and the pack see the same lines).
+    In this repo's row grammar the bullet line cites only `PRD-####
+    §section`, so a bare bullet bundles no ADR."""
     root = Path(root)
-    block = wo_block(root, wo) or row
+    block = row
     context_path = root / "CONTEXT.md"
     context = (_read_or_note(context_path, "CONTEXT.md")
                if context_path.is_file() else "(no CONTEXT.md at repo root)")

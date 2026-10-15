@@ -6,6 +6,7 @@ import {
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { waitlistService } from "../services/waitlist.js";
+import type { OnPositionsImproved } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -33,7 +34,7 @@ const WaitlistEntrySchema = {
     guestName: { type: "string" },
     guestPhone: { type: "string" },
     position: { type: "integer" },
-    estimatedWaitMinutes: { type: "integer" },
+    estimatedWaitMinutes: { type: ["integer", "null"] },
     status: {
       type: "string",
       enum: ["waiting", "notified", "seated", "expired", "cancelled"],
@@ -46,6 +47,16 @@ const WaitlistEntrySchema = {
 };
 
 export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+  // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
+  // the seat/cancel that triggered it, and runs after the queue is recalculated.
+  const notifyImproved: OnPositionsImproved = (changes) => {
+    for (const change of changes) {
+      fastify.waitlistNotifier.notifyPositionUpdate(change).catch(() => {
+        // Already logged inside the notifier
+      });
+    }
+  };
+
   // POST / — create waitlist entry
   fastify.post<{
     Body: {
@@ -234,7 +245,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped({ venue: entryVenue }, async (request, reply) => {
-      const entry = await waitlistService.seat(request.params.id);
+      const entry = await waitlistService.seat(request.params.id, notifyImproved);
       if (!entry) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
       }
@@ -268,7 +279,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped({ venue: entryVenue }, async (request, reply) => {
-      const entry = await waitlistService.cancel(request.params.id);
+      const entry = await waitlistService.cancel(request.params.id, notifyImproved);
       if (!entry) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
       }

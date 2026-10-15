@@ -9,7 +9,10 @@ import { escapeHtml, sanitizeUrl } from "./email-content.js";
 
 interface ResendClient {
   emails: {
-    send(payload: Record<string, unknown>): Promise<{ id: string }>;
+    // The SDK resolves `{ data, error }` on API failures rather than throwing.
+    send(
+      payload: Record<string, unknown>
+    ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
   };
 }
 
@@ -49,10 +52,24 @@ export class ResendNotificationAdapter implements NotificationPort {
     this.publicApiBaseUrl = config.publicApiBaseUrl;
   }
 
+  /**
+   * Single send path: converts the SDK's `{ error }` result into a rejection so
+   * the dispatcher, retry policy and failure log see a failed email as failed.
+   */
+  private async send(payload: Record<string, unknown>): Promise<void> {
+    if (!this.resend) return;
+    const { error } = await this.resend.emails.send(payload);
+    if (error) {
+      throw new Error(
+        `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
+      );
+    }
+  }
+
   async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
     const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
-    await this.resend.emails.send({
+    await this.send({
       from: this.fromAddress,
       to: input.guestEmail,
       subject: content.subject,
@@ -70,7 +87,7 @@ export class ResendNotificationAdapter implements NotificationPort {
   async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
     const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
-    await this.resend.emails.send({
+    await this.send({
       from: this.fromAddress,
       to: input.guestEmail,
       subject: content.subject,
@@ -81,7 +98,7 @@ export class ResendNotificationAdapter implements NotificationPort {
   async sendBookingModified(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
     const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
-    await this.resend.emails.send({
+    await this.send({
       from: this.fromAddress,
       to: input.guestEmail,
       subject: content.subject,
@@ -99,7 +116,7 @@ export class ResendNotificationAdapter implements NotificationPort {
   async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
     const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
-    await this.resend.emails.send({
+    await this.send({
       from: this.fromAddress,
       to: input.guestEmail,
       subject: content.subject,
@@ -118,7 +135,7 @@ export class ResendNotificationAdapter implements NotificationPort {
     if (!this.resend) return;
     const safeGuestName = escapeHtml(input.guestName);
     const safeVenueName = escapeHtml(input.venueName);
-    await this.resend.emails.send({
+    await this.send({
       from: this.fromAddress,
       to: input.guestEmail,
       subject: `We miss you, ${input.guestName}!`,
@@ -170,7 +187,7 @@ export class ResendNotificationAdapter implements NotificationPort {
 </body>
 </html>`;
 
-    await this.resend.emails.send({
+    await this.send({
       from: this.fromAddress,
       to: guestEmail,
       subject: `Thank you for visiting ${venueName}!`,

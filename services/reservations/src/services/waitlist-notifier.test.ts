@@ -12,6 +12,7 @@ const mockExpire = vi.fn().mockResolvedValue(null);
 const mockListWaiting = vi.fn().mockResolvedValue([]);
 const mockNotifyTableReady = vi.fn().mockResolvedValue(undefined);
 const mockMarkNotified = vi.fn().mockResolvedValue({ id: "entry-1", venueId: "venue-1" });
+const mockRevertNotified = vi.fn().mockResolvedValue({ id: "entry-1" });
 
 function buildDeps(overrides: Partial<WaitlistNotifierDeps> = {}): WaitlistNotifierDeps {
   return {
@@ -30,6 +31,7 @@ function buildDeps(overrides: Partial<WaitlistNotifierDeps> = {}): WaitlistNotif
     listWaiting: mockListWaiting,
     notifyTableReady: mockNotifyTableReady,
     markNotified: mockMarkNotified,
+    revertNotified: mockRevertNotified,
     logger: { error: vi.fn(), info: vi.fn() },
     ...overrides,
   };
@@ -123,7 +125,7 @@ describe("WaitlistNotifier.notifyAdded", () => {
 // ─── notifyPositionUpdate ─────────────────────────────────────────────────
 
 describe("WaitlistNotifier.notifyPositionUpdate", () => {
-  it("sends position-update SMS when position improved by >= 2 spots", async () => {
+  it("sends position-update SMS when position improved by several spots", async () => {
     const notifier = createWaitlistNotifier(buildDeps());
 
     await notifier.notifyPositionUpdate({
@@ -144,7 +146,7 @@ describe("WaitlistNotifier.notifyPositionUpdate", () => {
     });
   });
 
-  it("does NOT send SMS when position improved by only 1 spot", async () => {
+  it("sends SMS when position improved by a single spot (a real queue move is always 1)", async () => {
     const notifier = createWaitlistNotifier(buildDeps());
 
     await notifier.notifyPositionUpdate({
@@ -156,7 +158,7 @@ describe("WaitlistNotifier.notifyPositionUpdate", () => {
       estimatedWaitMinutes: 30,
     });
 
-    expect(mockSendWaitlistPositionUpdate).not.toHaveBeenCalled();
+    expect(mockSendWaitlistPositionUpdate).toHaveBeenCalledOnce();
   });
 
   it("does NOT send SMS when position did not improve", async () => {
@@ -351,6 +353,19 @@ describe("WaitlistNotifier.notifyTableReady records notified state", () => {
     await notifier.notifyTableReady(input);
     expect(mockSendWaitlistTableReady).not.toHaveBeenCalled();
     expect(mockSchedule).not.toHaveBeenCalled();
+  });
+
+  it("reverts the row to waiting and rethrows when scheduling the expiry fails", async () => {
+    mockSchedule.mockRejectedValueOnce(new Error("redis down"));
+    const notifier = createWaitlistNotifier(buildDeps());
+    await expect(notifier.notifyTableReady(input)).rejects.toThrow("redis down");
+    expect(mockRevertNotified).toHaveBeenCalledWith("entry-1");
+  });
+
+  it("does not revert when scheduling succeeds", async () => {
+    const notifier = createWaitlistNotifier(buildDeps());
+    await notifier.notifyTableReady(input);
+    expect(mockRevertNotified).not.toHaveBeenCalled();
   });
 
   it("expiry after the party was seated texts nobody (expireEntry no-ops)", async () => {

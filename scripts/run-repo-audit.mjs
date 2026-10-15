@@ -122,6 +122,7 @@ export const REPO_AUDIT_CHECKS = [
     command: "node",
     args: ["scripts/check-skill-references.mjs"],
   },
+  { name: "check-i18n-catalogs", command: "node", args: ["scripts/check-i18n-catalogs.mjs"] },
   { name: "boundaries", command: "pnpm", args: ["check:boundaries"] },
   {
     name: "check-boundaries-coverage",
