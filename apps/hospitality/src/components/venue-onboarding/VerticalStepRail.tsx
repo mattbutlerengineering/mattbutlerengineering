@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { ONBOARDING_STEPS } from "./onboarding-steps";
 import styles from "./venue-onboarding.module.css";
 
@@ -28,8 +29,9 @@ export function VerticalStepRail({
   highestStepReached = currentStep,
   onStepClick,
 }: VerticalStepRailProps) {
+  const { t } = useTranslation();
   return (
-    <nav className={styles.rail} aria-label="Onboarding progress">
+    <nav className={styles.rail} aria-label={t("onboarding.progress.rail")}>
       <ol className={styles.railList}>
         {ONBOARDING_STEPS.map((step, i) => {
           const stepNumber = i + 1;
@@ -53,8 +55,10 @@ export function VerticalStepRail({
           );
           const body = (
             <span className={styles.railBody}>
-              <span className={styles.railLabel}>{step.label}</span>
-              <span className={styles.railDescription}>{step.description}</span>
+              <span className={styles.railLabel}>{t(`onboarding.steps.${step.id}.label`)}</span>
+              <span className={styles.railDescription}>
+                {t(`onboarding.steps.${step.id}.description`)}
+              </span>
             </span>
           );
 

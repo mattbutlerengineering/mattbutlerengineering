@@ -92,7 +92,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
   - Accept: each component renders es-MX text under a provider and byte-identical English
     with none; those component directories added to rialto lint scope.
   - Blocked by: Rialto locale subpaths
-- [ ] **Rialto migration — navigation & data** — Pagination, Calendar, DateRange,
+- [x] **Rialto migration — navigation & data** — Pagination, Calendar, DateRange,
       DatePicker, DateRangePicker, TimePicker, NumberInput, Breadcrumb, Steps, Timeline,
       Sidebar, NavigationMenu, GlobalNav, Navbar, Skeleton, ScrollArea, ImageUpload,
       Odometer; context locale becomes the `Intl` fallback. (tracker: #6616)
@@ -158,11 +158,11 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       `components/crm/**`, walk-in/new-reservation dialogs, waitlist, toasts. (tracker: #6625)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth, Staff time & money onto venue formatting
-- [ ] **Translate Floor plans** — `FloorPlansPage`, `FloorPlanEditorPage`,
+- [x] **Translate Floor plans** — `FloorPlansPage`, `FloorPlanEditorPage`,
       `components/floor-plan/**`, `TableStatusBadge`. (tracker: #6626)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth
-- [ ] **Translate Onboarding** — `VenueOnboardingPage`, `components/venue-onboarding/**`
+- [x] **Translate Onboarding** — `VenueOnboardingPage`, `components/venue-onboarding/**`
       (incl. `LocationTimeStep` currency option labels via `Intl.DisplayNames`). (tracker: #6627)
   - Accept: paths in lint scope, parity-green, wizard render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth

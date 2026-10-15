@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useId } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Stage, Layer } from "react-konva";
+import { useTranslation } from "react-i18next";
 import { Text } from "@mattbutlerengineering/rialto";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan } from "@mbe/types";
@@ -87,6 +88,7 @@ export function FloorPlanCanvas({
   onDeleteRequest,
   onAnnounce,
 }: FloorPlanCanvasProps) {
+  const { t } = useTranslation();
   const instructionsId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
@@ -184,9 +186,9 @@ export function FloorPlanCanvas({
           ? curY
           : clamp(snapToGrid(curY + delta[1]), height / 2, CANVAS_HEIGHT - height / 2);
       onTableMove(table.id, x, y);
-      onAnnounce?.(`${table.name} moved to ${x}, ${y}`);
+      onAnnounce?.(t("floorPlan.canvas.moved", { name: table.name, x, y }));
     },
-    [readOnly, selectedTableId, tables, onDeleteRequest, onTableMove, onAnnounce]
+    [readOnly, selectedTableId, tables, onDeleteRequest, onTableMove, onAnnounce, t]
   );
 
   return (
@@ -197,7 +199,7 @@ export function FloorPlanCanvas({
     <div
       ref={containerRef}
       role="group"
-      aria-label="Floor plan canvas"
+      aria-label={t("floorPlan.canvas.label")}
       aria-describedby={instructionsId}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
@@ -209,14 +211,17 @@ export function FloorPlanCanvas({
       }}
     >
       <Text id={instructionsId} className={styles.srOnly}>
-        With a table selected, use the arrow keys to move it by one grid step
-        {onDeleteRequest ? " and Delete to remove it" : ""}.
+        {onDeleteRequest
+          ? t("floorPlan.canvas.instructionsWithDelete")
+          : t("floorPlan.canvas.instructions")}
       </Text>
 
       {/* Floor plan name overlay */}
       <div className={styles.nameOverlay}>
         {floorPlan.name}
-        {floorPlan.isActive && <Text className={styles.activeLabel}>(Active)</Text>}
+        {floorPlan.isActive && (
+          <Text className={styles.activeLabel}>{t("floorPlan.canvas.active")}</Text>
+        )}
       </div>
 
       {/* Zoom indicator */}
@@ -227,7 +232,7 @@ export function FloorPlanCanvas({
       {isStale && (
         <div className={styles.staleOverlay} role="status" data-testid="floor-plan-stale-indicator">
           <Text variant="label" className={styles.staleDot} />
-          <Text className={styles.staleLabel}>Reconnecting — showing last known status</Text>
+          <Text className={styles.staleLabel}>{t("floorPlan.canvas.stale")}</Text>
         </div>
       )}
 
@@ -269,8 +274,8 @@ export function FloorPlanCanvas({
       {tables.length === 0 && (
         <div className={styles.emptyState}>
           <div className={styles.emptyStateContent}>
-            <Text className={styles.emptyStateTitle}>No tables on this floor plan</Text>
-            <Text className={styles.emptyStateNote}>Add tables from the sidebar</Text>
+            <Text className={styles.emptyStateTitle}>{t("floorPlan.canvas.emptyTitle")}</Text>
+            <Text className={styles.emptyStateNote}>{t("floorPlan.canvas.emptyNote")}</Text>
           </div>
         </div>
       )}

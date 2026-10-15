@@ -15087,6 +15087,76 @@
       readonly confirm: string;
       /** Default ConfirmDialog cancel button label. */
       readonly cancel: string;
+      /** Accessible name of the Pagination nav. */
+      readonly pagination: string;
+      /** Pagination previous-page button. */
+      readonly previousPage: string;
+      /** Pagination next-page button. */
+      readonly nextPage: string;
+      /** Accessible name of a Pagination page button. */
+      readonly pageNumber: (page: number) => string;
+      /** Polite live-region announcement after a Pagination page change. */
+      readonly pageStatus: (page: number, total: number) => string;
+      /** Calendar and DateRange previous-month button. */
+      readonly previousMonth: string;
+      /** Calendar and DateRange next-month button. */
+      readonly nextMonth: string;
+      /** Accessible name of a DatePicker with no label. */
+      readonly chooseDate: string;
+      /** Accessible name of a DateRangePicker with no label. */
+      readonly chooseDateRange: string;
+      /** Accessible name of a TimePicker with no label. */
+      readonly chooseTime: string;
+      /** NumberInput decrement button. */
+      readonly decrease: string;
+      /** NumberInput increment button. */
+      readonly increase: string;
+      /** Marker after the label of an optional NumberInput. */
+      readonly optional: string;
+      /** Accessible name of the Breadcrumb nav. */
+      readonly breadcrumb: string;
+      /** Accessible name of the Steps list. */
+      readonly progressSteps: string;
+      /** Accessible name of the Timeline list. */
+      readonly timeline: string;
+      /** Accessible name of the Sidebar nav. */
+      readonly sidebarNavigation: string;
+      /** Sidebar toggle while collapsed. */
+      readonly expandSidebar: string;
+      /** Sidebar toggle while expanded. */
+      readonly collapseSidebar: string;
+      /** Default accessible name of Navbar and NavigationMenu. */
+      readonly mainNavigation: string;
+      /** Navbar submenu chevron button. */
+      readonly toggleSubmenu: string;
+      /** Default Navbar search placeholder. */
+      readonly searchPlaceholder: string;
+      /** Accessible name of the GlobalNav. */
+      readonly globalNavigation: string;
+      /** GlobalNav mobile menu button while closed. */
+      readonly openMenu: string;
+      /** GlobalNav mobile menu button while open. */
+      readonly closeMenu: string;
+      /** Accessible name of a ScrollArea region. */
+      readonly scrollableContent: string;
+      /** Accessible name of a SkeletonGroup. */
+      readonly loadingContent: string;
+      /** Fallback accessible name of the ImageUpload tile. */
+      readonly uploadImage: string;
+      /** Fallback alt text of an uploaded ImageUpload preview. */
+      readonly uploadedImage: string;
+      /** ImageUpload progress bar name. */
+      readonly uploadProgress: string;
+      /** ImageUpload completion status. */
+      readonly uploadComplete: string;
+      /** ImageUpload replace button. */
+      readonly replaceImage: string;
+      /** ImageUpload empty-tile label. */
+      readonly addImage: string;
+      /** ImageUpload validation message: file larger than `maxSize`. */
+      readonly fileTooLarge: (max: string, actual: string) => string;
+      /** ImageUpload validation message: file type outside `accept`. */
+      readonly fileTypeNotAccepted: (accept: string) => string;
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
@@ -15099,6 +15169,41 @@
       notifications: "Notifications",
       confirm: "Confirm",
       cancel: "Cancel",
+      pagination: "Pagination",
+      previousPage: "Previous page",
+      nextPage: "Next page",
+      pageNumber: (page) => `Page ${page}`,
+      pageStatus: (page, total) => `Page ${page} of ${total}`,
+      previousMonth: "Previous month",
+      nextMonth: "Next month",
+      chooseDate: "Choose date",
+      chooseDateRange: "Choose date range",
+      chooseTime: "Choose time",
+      decrease: "Decrease",
+      increase: "Increase",
+      optional: "(optional)",
+      breadcrumb: "Breadcrumb",
+      progressSteps: "Progress steps",
+      timeline: "Timeline",
+      sidebarNavigation: "Sidebar navigation",
+      expandSidebar: "Expand sidebar",
+      collapseSidebar: "Collapse sidebar",
+      mainNavigation: "Main navigation",
+      toggleSubmenu: "Toggle submenu",
+      searchPlaceholder: "Search...",
+      globalNavigation: "Global navigation",
+      openMenu: "Open menu",
+      closeMenu: "Close menu",
+      scrollableContent: "Scrollable content",
+      loadingContent: "Loading content",
+      uploadImage: "Upload image",
+      uploadedImage: "Uploaded image",
+      uploadProgress: "Upload progress",
+      uploadComplete: "Upload complete",
+      replaceImage: "Replace",
+      addImage: "Add image",
+      fileTooLarge: (max, actual) => `File exceeds maximum size of ${max} — this file is ${actual}`,
+      fileTypeNotAccepted: (accept) => `File type not accepted. Accepted: ${accept}`,
     };
   </file>
   </section>
@@ -16098,6 +16203,42 @@
       notifications: "Notificaciones",
       confirm: "Confirmar",
       cancel: "Cancelar",
+      pagination: "Paginación",
+      previousPage: "Página anterior",
+      nextPage: "Página siguiente",
+      pageNumber: (page) => `Página ${page}`,
+      pageStatus: (page, total) => `Página ${page} de ${total}`,
+      previousMonth: "Mes anterior",
+      nextMonth: "Mes siguiente",
+      chooseDate: "Elegir fecha",
+      chooseDateRange: "Elegir rango de fechas",
+      chooseTime: "Elegir hora",
+      decrease: "Disminuir",
+      increase: "Aumentar",
+      optional: "(opcional)",
+      breadcrumb: "Ruta de navegación",
+      progressSteps: "Pasos del progreso",
+      timeline: "Cronología",
+      sidebarNavigation: "Navegación lateral",
+      expandSidebar: "Expandir barra lateral",
+      collapseSidebar: "Contraer barra lateral",
+      mainNavigation: "Navegación principal",
+      toggleSubmenu: "Alternar submenú",
+      searchPlaceholder: "Buscar...",
+      globalNavigation: "Navegación global",
+      openMenu: "Abrir menú",
+      closeMenu: "Cerrar menú",
+      scrollableContent: "Contenido desplazable",
+      loadingContent: "Cargando contenido",
+      uploadImage: "Subir imagen",
+      uploadedImage: "Imagen subida",
+      uploadProgress: "Progreso de carga",
+      uploadComplete: "Carga completa",
+      replaceImage: "Reemplazar",
+      addImage: "Agregar imagen",
+      fileTooLarge: (max, actual) =>
+        `El archivo supera el tamaño máximo de ${max}: este archivo pesa ${actual}`,
+      fileTypeNotAccepted: (accept) => `Tipo de archivo no aceptado. Se aceptan: ${accept}`,
     };
   </file>
   <file path="packages/rialto/src/i18n/locales/fr-CA.ts">
@@ -16112,6 +16253,42 @@
       notifications: "Avis",
       confirm: "Confirmer",
       cancel: "Annuler",
+      pagination: "Navigation par pages",
+      previousPage: "Page précédente",
+      nextPage: "Page suivante",
+      pageNumber: (page) => `Page ${page}`,
+      pageStatus: (page, total) => `Page ${page} de ${total}`,
+      previousMonth: "Mois précédent",
+      nextMonth: "Mois suivant",
+      chooseDate: "Choisir une date",
+      chooseDateRange: "Choisir une plage de dates",
+      chooseTime: "Choisir une heure",
+      decrease: "Diminuer",
+      increase: "Augmenter",
+      optional: "(facultatif)",
+      breadcrumb: "Fil d'Ariane",
+      progressSteps: "Étapes de progression",
+      timeline: "Chronologie",
+      sidebarNavigation: "Navigation latérale",
+      expandSidebar: "Développer la barre latérale",
+      collapseSidebar: "Réduire la barre latérale",
+      mainNavigation: "Navigation principale",
+      toggleSubmenu: "Basculer le sous-menu",
+      searchPlaceholder: "Rechercher...",
+      globalNavigation: "Navigation globale",
+      openMenu: "Ouvrir le menu",
+      closeMenu: "Fermer le menu",
+      scrollableContent: "Contenu défilable",
+      loadingContent: "Chargement du contenu",
+      uploadImage: "Téléverser une image",
+      uploadedImage: "Image téléversée",
+      uploadProgress: "Progression du téléversement",
+      uploadComplete: "Téléversement terminé",
+      replaceImage: "Remplacer",
+      addImage: "Ajouter une image",
+      fileTooLarge: (max, actual) =>
+        `Le fichier dépasse la taille maximale de ${max} : ce fichier fait ${actual}`,
+      fileTypeNotAccepted: (accept) => `Type de fichier non accepté. Types acceptés : ${accept}`,
     };
   </file>
   </section>
@@ -61706,6 +61883,10 @@
         currency: currency.toUpperCase(),
       }).format(amountCents / 100);
     }
+    export function formatCurrencyName(currency: string, locale: string = LOCALE): string {
+      const code = currency.toUpperCase();
+      return new Intl.DisplayNames(locale, { type: "currency" }).of(code) ?? code;
+    }
     export function formatShortDate(dateStr: string, locale: string = LOCALE): string {
       return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         year: "numeric",
@@ -62310,6 +62491,23 @@
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
+  <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-copy.ts">
+    export function layoutCounts(
+      t: TFunction,
+      tables: readonly DraftTable[]
+    ): { tables: string; seats: string } {
+      const seats = tables.reduce((sum, table) => sum + table.capacity, 0);
+      return {
+        tables: t("onboarding.floorPlan.tableCount", { count: tables.length }),
+        seats: t("onboarding.floorPlan.seatCount", { count: seats }),
+      };
+    }
+    export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string {
+      return tables.length === 0
+        ? t("onboarding.floorPlan.summaryBlank")
+        : t("onboarding.floorPlan.summary", layoutCounts(t, tables));
+    }
+  </file>
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-draft.ts">
     export type DraftTableShape = TableShapeMetadata["shape"];
     export interface DraftTable {
@@ -62451,14 +62649,13 @@
     }
     export interface FloorPlanTemplate {
       id: TemplateId;
-      /** Picker card label. */
-      name: string;
-      /** The floor plan's name once created — fixed per template, not editable in the wizard. */
+      /**
+       * The floor plan's name once created — fixed per template, not editable in the wizard. It is
+       * saved data (the plan's name on the server), so it stays the same in every locale; the
+       * picker's own copy (card name, zone line) lives in the catalog under
+       * `onboarding.floorPlan.templates.<id>`.
+       */
       planName: string;
-      /** Card summary line, e.g. "14 tables · 48 seats". */
-      summary: string;
-      /** Card zone line, e.g. "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats". */
-      zoneLine: string;
       zones: readonly Zone[];
     }
     function tablesForZone(zone: Zone): DraftTable[] {
@@ -62486,10 +62683,7 @@
     export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
       {
         id: "restaurant",
-        name: "Restaurant",
         planName: "Main Dining Room",
-        summary: "14 tables · 48 seats",
-        zoneLine: "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats",
         zones: [
           {
             prefix: "W",
@@ -62536,10 +62730,7 @@
       },
       {
         id: "cafe",
-        name: "Cafe",
         planName: "Main Floor",
-        summary: "10 tables · 24 seats",
-        zoneLine: "5 window 2-tops · 3 café rounds · 2 four-tops",
         zones: [
           {
             prefix: "W",
@@ -62575,10 +62766,7 @@
       },
       {
         id: "bar",
-        name: "Bar",
         planName: "Bar Floor",
-        summary: "12 tables · 40 seats",
-        zoneLine: "6 high-tops · 4 standing rounds · 2 booths",
         zones: [
           {
             prefix: "H",
@@ -62614,10 +62802,7 @@
       },
       {
         id: "patio",
-        name: "Patio",
         planName: "Patio",
-        summary: "8 tables · 36 seats",
-        zoneLine: "6 umbrella rounds · 2 long tables",
         zones: [
           {
             prefix: "P",
@@ -62644,10 +62829,7 @@
       },
       {
         id: "blank",
-        name: "Blank",
         planName: "Main Floor",
-        summary: "No tables",
-        zoneLine: "Start empty — add tables yourself",
         zones: [],
       },
     ] as const;
@@ -62771,7 +62953,7 @@
       try {
         venue = await api.venues.create(venuePayload);
       } catch (err) {
-        throw withFallback(err, "Couldn't create the venue");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.venueFailed"));
       }
       const next: LaunchProgress = { ...progress, venueId: venue.id, inFlightStage: null };
       onProgress(next);
@@ -62798,7 +62980,7 @@
           layoutJson: DEFAULT_LAYOUT,
         });
       } catch (err) {
-        throw withFallback(err, "Couldn't create the floor plan");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
       }
       const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
       onProgress(next);
@@ -62839,7 +63021,10 @@
           await api.tables.create(draftTableToCreateRequest(table, venueId, floorPlanId));
         } catch (err) {
           if (!isAlreadyCreatedError(err)) {
-            const fallback = `Stopped at table ${index + 1} of ${total}`;
+            const fallback = localeRuntime.i18n.t("onboarding.errors.stoppedAtTable", {
+              index: index + 1,
+              total,
+            });
             throw new LaunchStageError(withFallback(err, fallback).message, current);
           }
           // A duplicate-name rejection means the table already exists —
@@ -62869,7 +63054,7 @@
       try {
         await api.floorPlans.setActive(floorPlanId);
       } catch (err) {
-        throw withFallback(err, "Couldn't make the plan live");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.activateFailed"));
       }
       const next: LaunchProgress = { ...progress, activated: true, inFlightStage: null };
       onProgress(next);
@@ -62926,7 +63111,8 @@
             ...base,
             inFlightStage: null,
             failedStage: stage,
-            errorMessage: err instanceof Error ? err.message : "Something went wrong",
+            errorMessage:
+              err instanceof Error ? err.message : localeRuntime.i18n.t("onboarding.errors.generic"),
           };
           onProgress(current);
           return current;
@@ -62935,19 +63121,18 @@
     }
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/onboarding-steps.ts">
+    export type OnboardingStepId =
+      "welcome" | "location" | "hours" | "settings" | "floorPlan" | "launch";
     export interface OnboardingStep {
-      /** Short step name shown as the rail heading. */
-      label: string;
-      /** One-line description of what the step captures. */
-      description: string;
+      readonly id: OnboardingStepId;
     }
     export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
-      { label: "Welcome", description: "Name your venue" },
-      { label: "Location", description: "Timezone & currency" },
-      { label: "Hours", description: "When you're open" },
-      { label: "Settings", description: "Reservation defaults" },
-      { label: "Floor plan", description: "Lay out your tables" },
-      { label: "Launch", description: "Review & go live" },
+      { id: "welcome" },
+      { id: "location" },
+      { id: "hours" },
+      { id: "settings" },
+      { id: "floorPlan" },
+      { id: "launch" },
     ];
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/useOnboardingWizard.ts">
@@ -63028,7 +63213,10 @@
           return {
             state: {
               ...state,
-              errors: { ...state.errors, floorPlan: valid ? null : FLOOR_PLAN_REQUIRED_MESSAGE },
+              errors: {
+                ...state.errors,
+                floorPlan: valid ? null : localeRuntime.i18n.t("onboarding.floorPlan.required"),
+              },
             },
             valid,
           };

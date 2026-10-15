@@ -1,5 +1,6 @@
 import { forwardRef, useState, useRef, useEffect, useCallback, type HTMLAttributes } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useDismiss } from "../../hooks/useDismiss";
@@ -198,6 +199,7 @@ function NavTrigger({
 
 export const NavigationMenu = forwardRef<HTMLElement, NavigationMenuProps>(
   ({ items, className, ...props }, ref) => {
+    const { messages } = useRialtoLocale();
     const [openId, setOpenId] = useState<string | null>(null);
 
     const navRef = useRef<HTMLElement>(null);
@@ -213,7 +215,7 @@ export const NavigationMenu = forwardRef<HTMLElement, NavigationMenuProps>(
           else if (ref) ref.current = node;
         }}
         className={cn(styles.nav, className)}
-        aria-label="Main navigation"
+        aria-label={messages.mainNavigation}
         {...props}
       >
         {items.map((item) => (

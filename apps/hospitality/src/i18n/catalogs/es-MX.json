@@ -5,6 +5,251 @@
     "copyright": "© {{year}} Matt Butler",
     "dashboardDocumentTitle": "Panel - Matt Butler Engineering"
   },
+  "onboarding": {
+    "steps": {
+      "welcome": {
+        "label": "Bienvenida",
+        "description": "Nombra tu local"
+      },
+      "location": {
+        "label": "Ubicación",
+        "description": "Zona horaria y moneda"
+      },
+      "hours": {
+        "label": "Horario",
+        "description": "Cuándo abres"
+      },
+      "settings": {
+        "label": "Ajustes",
+        "description": "Valores predeterminados de reservas"
+      },
+      "floorPlan": {
+        "label": "Plano",
+        "description": "Distribuye tus mesas"
+      },
+      "launch": {
+        "label": "Lanzamiento",
+        "description": "Revisa y sal en vivo"
+      }
+    },
+    "progress": {
+      "wizard": "Progreso del asistente",
+      "rail": "Progreso de la configuración inicial",
+      "stepLabel": "Paso {{step}}: {{label}}",
+      "stepLabelNavigable": "Paso {{step}}: {{label}} (haz clic para ir)"
+    },
+    "actions": {
+      "back": "Atrás",
+      "next": "Siguiente"
+    },
+    "welcome": {
+      "heading": "Démosle a tu local un hogar en la plataforma",
+      "intro": "Elige un nombre que tus invitados reconozcan y una dirección web para tu página de reservas."
+    },
+    "basicInfo": {
+      "nameLabel": "Nombre del local",
+      "namePlaceholder": "p. ej. El Gran Salón",
+      "slugLabel": "Identificador (slug)",
+      "slugPlaceholder": "p. ej. el-gran-salon",
+      "slugChecking": "Comprobando disponibilidad...",
+      "slugAvailable": "El identificador está disponible",
+      "slugHint": "Identificador apto para URL (se genera automáticamente a partir del nombre)",
+      "errors": {
+        "nameTooShort": "El nombre debe tener al menos 2 caracteres",
+        "slugRequired": "El identificador es obligatorio",
+        "slugInvalid": "El identificador debe ser apto para URL (letras minúsculas, números y guiones)",
+        "slugTaken": "Ya existe un local con este identificador"
+      }
+    },
+    "locationTime": {
+      "heading": "Ubicación y hora",
+      "intro": "Para mostrar la hora y la moneda correctas.",
+      "timezoneLabel": "Zona horaria",
+      "timezonePlaceholder": "Buscar zonas horarias...",
+      "timezoneEmpty": "No hay zonas horarias que coincidan",
+      "timezoneHint": "Zona horaria IANA usada para la programación y la disponibilidad",
+      "currencyLabel": "Moneda",
+      "currencyPlaceholder": "Selecciona una moneda...",
+      "currencyOption": "{{code}} - {{name}}",
+      "errors": {
+        "timezoneRequired": "La zona horaria es obligatoria",
+        "currencyRequired": "La moneda es obligatoria"
+      }
+    },
+    "hours": {
+      "heading": "Horario de atención",
+      "intro": "Para que tus invitados sepan cuándo abres.",
+      "instructions": "Activa cada día para fijar la hora de apertura y cierre. Los días sin activar se marcarán como cerrados.",
+      "closed": "Cerrado",
+      "to": "a",
+      "openingTime": "Hora de apertura del {{day}}",
+      "closingTime": "Hora de cierre del {{day}}",
+      "closeAfterOpen": "La hora de cierre debe ser posterior a la de apertura",
+      "atLeastOne": "Al menos un día debe estar abierto",
+      "closeDayTitle": "¿Cerrar el {{day}}?",
+      "closeDayDescription": "Esto borrará los horarios de apertura y cierre personalizados que fijaste para este día.",
+      "closeDayConfirm": "Cerrar día",
+      "closeDayCancel": "Mantener abierto"
+    },
+    "days": {
+      "monday": "lunes",
+      "tuesday": "martes",
+      "wednesday": "miércoles",
+      "thursday": "jueves",
+      "friday": "viernes",
+      "saturday": "sábado",
+      "sunday": "domingo"
+    },
+    "settings": {
+      "heading": "Ajustes del local",
+      "intro": "Personaliza cómo funcionan las reservas, o usa nuestros valores recomendados.",
+      "stepIntro": "Personaliza cómo funcionan las reservas, o sáltate este paso con nuestros valores recomendados.",
+      "useRecommended": "Usar ajustes recomendados",
+      "durationLabel": "Duración predeterminada de la reserva (minutos)",
+      "maxPartyLabel": "Tamaño máximo del grupo",
+      "advanceLabel": "Anticipación de reserva (días)",
+      "defaultPlaceholder": "Predeterminado: {{value}}",
+      "durationHint": "Si lo dejas en blanco, se usan {{value}} minutos",
+      "maxPartyHint": "Si lo dejas en blanco, se usan {{value}} invitados",
+      "advanceHint": "Si lo dejas en blanco, los invitados pueden reservar hasta con {{value}} días de anticipación",
+      "errors": {
+        "durationInvalid": "La duración debe ser un número positivo",
+        "maxPartyInvalid": "El tamaño del grupo debe ser un número positivo",
+        "advanceInvalid": "Los días de anticipación deben ser un número positivo"
+      }
+    },
+    "floorPlan": {
+      "heading": "Plano del salón",
+      "intro": "Parte de una distribución como la tuya y luego acomódala.",
+      "required": "Elige una distribución para continuar; elige En blanco para empezar con el salón vacío.",
+      "locked": "Tu local ya se está creando, así que esta distribución está bloqueada. Termina la configuración y luego reacomoda las mesas en el editor de planos.",
+      "layoutLabel": "Distribución del plano",
+      "tableCount_one": "{{count}} mesa",
+      "tableCount_many": "{{count}} de mesas",
+      "tableCount_other": "{{count}} mesas",
+      "seatCount_one": "{{count}} lugar",
+      "seatCount_many": "{{count}} de lugares",
+      "seatCount_other": "{{count}} lugares",
+      "summary": "{{tables}} · {{seats}}",
+      "summaryBlank": "Sin mesas",
+      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
+      "cardLabelBlank": "{{name}} — sin mesas",
+      "layoutApplied": "Distribución {{name}} aplicada — {{tables}}",
+      "tableAdded": "{{name}} agregada",
+      "tableRemoved": "{{name}} eliminada",
+      "addTable": "Agregar mesa",
+      "emptyHeading": "Aquí aparecerá tu plano",
+      "emptyBody": "Elige una distribución arriba para empezar a acomodar mesas.",
+      "emptyFloorHeading": "Un salón vacío",
+      "emptyFloorBody": "Agrega mesas con el botón de arriba, o elige una distribución para partir de ella.",
+      "selected": "{{name}} · {{seats}} · {{shape}}",
+      "removeTable": "Eliminar mesa",
+      "selectHintReadOnly": "Selecciona una mesa para ver sus detalles.",
+      "selectHint": "Selecciona una mesa para moverla o eliminarla.",
+      "narrowViewport": "Acomodar mesas requiere una pantalla más ancha. Tu distribución está guardada; ábrela en una computadora para moverlas.",
+      "replaceTitle": "¿Reemplazar tu distribución?",
+      "replaceDescription": "Cambiaste este plano. Si eliges {{name}}, tus mesas se reemplazarán con la distribución {{name}}.",
+      "replaceConfirm": "Reemplazar distribución",
+      "replaceCancel": "Conservar la mía",
+      "shapes": {
+        "square": "Cuadrada",
+        "rectangle": "Rectangular",
+        "circle": "Circular"
+      },
+      "templates": {
+        "restaurant": {
+          "name": "Restaurante",
+          "zoneLine": "4 mesas de 2 junto a la ventana · 6 mesas de 4 · 2 mesas redondas de 6 · 2 lugares en barra"
+        },
+        "cafe": {
+          "name": "Cafetería",
+          "zoneLine": "5 mesas de 2 junto a la ventana · 3 mesas redondas · 2 mesas de 4"
+        },
+        "bar": {
+          "name": "Bar",
+          "zoneLine": "6 mesas altas · 4 mesas redondas de pie · 2 gabinetes"
+        },
+        "patio": {
+          "name": "Patio",
+          "zoneLine": "6 mesas redondas con sombrilla · 2 mesas largas"
+        },
+        "blank": {
+          "name": "En blanco",
+          "zoneLine": "Empieza vacío: agrega las mesas tú mismo"
+        }
+      }
+    },
+    "launch": {
+      "intro": "Revisa los datos de tu local: ya estás listo para recibir reservas.",
+      "launching": "Lanzando \"{{name}}\"",
+      "basicInfoCard": "Información básica",
+      "name": "Nombre",
+      "slug": "Identificador (slug)",
+      "timezone": "Zona horaria",
+      "currency": "Moneda",
+      "noHours": "No hay horario de atención definido",
+      "settingsCard": "Ajustes",
+      "defaultDuration": "Duración predeterminada",
+      "maxPartySize": "Tamaño máximo del grupo",
+      "advanceBooking": "Anticipación de reserva",
+      "minutes_one": "{{count}} minuto",
+      "minutes_many": "{{count}} de minutos",
+      "minutes_other": "{{count}} minutos",
+      "guests_one": "{{count}} invitado",
+      "guests_many": "{{count}} de invitados",
+      "guests_other": "{{count}} invitados",
+      "days_one": "{{count}} día",
+      "days_many": "{{count}} de días",
+      "days_other": "{{count}} días",
+      "defaultTag": "(predeterminado)",
+      "floorPlanCard": "Plano del salón",
+      "layout": "Distribución",
+      "tables": "Mesas",
+      "noTables": "Sin mesas: tu cronograma seguirá vacío hasta que agregues algunas",
+      "resumeSaved": "Tu local está guardado. Al reintentar se continúa en {{stage}}.",
+      "resumeNoVenue": "Al reintentar se continúa en {{stage}}.",
+      "launchButton": "Lanzar local",
+      "celebrationTables_one": "Tu local está en vivo con {{count}} mesa",
+      "celebrationTables_many": "Tu local está en vivo con {{count}} de mesas",
+      "celebrationTables_other": "Tu local está en vivo con {{count}} mesas",
+      "celebrationEmpty": "Tu local está en vivo: agrega mesas a continuación",
+      "stages": {
+        "venue": "Local",
+        "floorPlan": "Plano",
+        "tables": "Mesas",
+        "activate": "Activación"
+      }
+    },
+    "stagePanel": {
+      "label": "Progreso del lanzamiento",
+      "progress": "Progreso: {{stage}}",
+      "creating": "Creando {{name}}",
+      "created": "{{name}} creado",
+      "venueFailed": "No se pudo crear el local",
+      "planFailed": "No se pudo crear el plano",
+      "toPlace": "{{count}} por colocar",
+      "placed_one": "{{count}} mesa colocada",
+      "placed_many": "{{count}} de mesas colocadas",
+      "placed_other": "{{count}} mesas colocadas",
+      "placing": "Colocando mesa",
+      "stoppedAt": "Se detuvo en la mesa",
+      "counter": "{{current}} de {{total}}",
+      "activating": "Activando el plano",
+      "live": "En vivo",
+      "activateFailed": "No se pudo activar el plano",
+      "announcePlacing": "Colocando mesas",
+      "announceStopped": "Se detuvo la colocación de mesas"
+    },
+    "errors": {
+      "stoppedAtTable": "Se detuvo en la mesa {{index}} de {{total}}",
+      "generic": "Algo salió mal"
+    },
+    "page": {
+      "toastTitle": "El local está en vivo",
+      "toastReady": "\"{{name}}\" está listo con {{tables}} en {{plan}}.",
+      "toastReadyEmpty": "\"{{name}}\" está listo. Agrega mesas a {{plan}} para empezar a recibir reservas."
+    }
+  },
   "auth": {
     "stations": {
       "browser": "Navegador",
@@ -142,6 +387,115 @@
     "errorHeading": "Algo salió mal",
     "errorBody": "Ocurrió un error inesperado en esta página.",
     "reload": "Recargar"
+  },
+  "floorPlan": {
+    "list": {
+      "title": "Planos de sala",
+      "description": "Diseña y administra la distribución de tu local",
+      "newButton": "Nuevo plano",
+      "createButton": "Crear plano",
+      "loadFailed": "No se pudieron cargar los planos de sala.",
+      "cloneFailed": "No se clonó el plano de sala.",
+      "cloned": "Plano de sala \"{{name}}\" clonado correctamente",
+      "emptyHeading": "Aún no hay planos de sala",
+      "emptyDescription": "Crea un plano de sala para empezar a acomodar las mesas de tu local.",
+      "active": "Activo",
+      "tableCount_one": "{{count}} mesa",
+      "tableCount_many": "{{count}} de mesas",
+      "tableCount_other": "{{count}} mesas",
+      "updated": "Actualizado {{date}}",
+      "clone": "Clonar",
+      "openAria": "Abrir plano de sala: {{name}}",
+      "cloneAria": "Clonar plano de sala: {{name}}"
+    },
+    "editor": {
+      "loading": "Cargando",
+      "notFound": "No se encontró el plano de sala",
+      "notLoaded": "El plano de sala no está cargado",
+      "backToList": "Volver a planos de sala",
+      "backAria": "Volver a planos de sala",
+      "active": "Activo",
+      "setActive": "Establecer como activo",
+      "addTable": "+ Agregar mesa",
+      "saving": "Guardando...",
+      "saveChanges": "Guardar cambios",
+      "saved": "Guardado",
+      "saveFailed": "No se pudieron guardar los cambios; se revirtieron las posiciones",
+      "deleteFailed": "No se pudo eliminar la mesa",
+      "activateFailed": "No se pudo activar el plano de sala",
+      "detailsTitle": "Detalles de la mesa",
+      "name": "Nombre",
+      "tableNumber": "Número de mesa",
+      "capacity": "Capacidad",
+      "guests": "{{min}} - {{max}} comensales",
+      "location": "Ubicación",
+      "notSet": "Sin definir",
+      "status": "Estado",
+      "statusActive": "Activa",
+      "statusInactive": "Inactiva",
+      "position": "Posición",
+      "positionValue": "x: {{x}}, y: {{y}}",
+      "deleteTable": "Eliminar mesa",
+      "noSelection": "Selecciona una mesa para ver sus detalles",
+      "allTables": "Todas las mesas ({{n}})",
+      "unsavedTitle": "Cambios sin guardar",
+      "unsavedDescription": "Tienes cambios sin guardar en este plano de sala. ¿Seguro que quieres salir?",
+      "leave": "Salir",
+      "stay": "Quedarme",
+      "deleteTitle": "¿Eliminar esta mesa?",
+      "deleteDescription": "Esta acción no se puede deshacer.",
+      "delete": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "newDialog": {
+      "title": "Nuevo plano de sala",
+      "close": "Cerrar diálogo",
+      "name": "Nombre",
+      "placeholder": "p. ej., Comedor principal",
+      "nameRequired": "El nombre del plano de sala es obligatorio.",
+      "createFailed": "No se pudo crear el plano de sala.",
+      "cancel": "Cancelar",
+      "create": "Crear",
+      "creating": "Creando..."
+    },
+    "addTableDialog": {
+      "title": "Agregar mesa",
+      "close": "Cerrar diálogo",
+      "name": "Nombre de la mesa",
+      "placeholder": "p. ej., Mesa 1",
+      "nameRequired": "El nombre de la mesa es obligatorio.",
+      "capacity": "Capacidad",
+      "capacityMin": "La capacidad debe ser de al menos 1.",
+      "minCovers": "Mínimo de comensales",
+      "minCoversMin": "El mínimo de comensales debe ser de al menos 1.",
+      "shape": "Forma",
+      "shapes": {
+        "rectangle": "Rectángulo",
+        "square": "Cuadrado",
+        "circle": "Círculo"
+      },
+      "cancel": "Cancelar",
+      "submit": "Agregar mesa",
+      "adding": "Agregando...",
+      "createFailed": "No se pudo crear la mesa."
+    },
+    "canvas": {
+      "label": "Lienzo del plano de sala",
+      "instructions": "Con una mesa seleccionada, usa las flechas para moverla un paso de la cuadrícula.",
+      "instructionsWithDelete": "Con una mesa seleccionada, usa las flechas para moverla un paso de la cuadrícula y Suprimir para eliminarla.",
+      "active": "(Activo)",
+      "stale": "Reconectando: mostrando el último estado conocido",
+      "emptyTitle": "No hay mesas en este plano de sala",
+      "emptyNote": "Agrega mesas desde la barra lateral",
+      "moved": "{{name}} se movió a {{x}}, {{y}}",
+      "tableAria": "Mesa {{label}}"
+    },
+    "tableStatus": {
+      "available": "Disponible",
+      "occupied": "Ocupada",
+      "dirty": "Sucia",
+      "ready": "Lista"
+    }
   },
   "localePicker": {
     "label": "Idioma",

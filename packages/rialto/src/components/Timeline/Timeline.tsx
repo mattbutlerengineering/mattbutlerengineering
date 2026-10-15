@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
 import styles from "./Timeline.module.css";
 
@@ -43,10 +44,11 @@ export interface TimelineProps {
 /* ── Component ──────────────────────────────── */
 export const Timeline = forwardRef<HTMLDivElement, TimelineProps>(
   ({ events, compact = false, className = "" }, ref) => {
+    const { messages } = useRialtoLocale();
     const containerClass = cn(styles.timeline, compact && styles.compact, className);
 
     return (
-      <div ref={ref} className={containerClass} role="list" aria-label="Timeline">
+      <div ref={ref} className={containerClass} role="list" aria-label={messages.timeline}>
         {events.map((event, i) => {
           const status = event.status ?? "upcoming";
 

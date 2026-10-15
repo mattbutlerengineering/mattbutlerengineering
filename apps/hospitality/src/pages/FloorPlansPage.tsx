@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   Badge,
   Button,
@@ -16,14 +18,16 @@ import { describeApiError } from "../lib/describe-api-error.js";
 import { NewFloorPlanDialog } from "../components/floor-plan";
 import { useFloorPlans, useCloneFloorPlan } from "../hooks/useFloorPlans.js";
 import { useApiClient } from "../hooks/useApiClient.js";
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import styles from "./FloorPlansPage.module.css";
 
 /* ── Loading skeleton ───────────────────────── */
 
 function FloorPlansLoadingSkeleton() {
+  const { t } = useTranslation();
   return (
     <div className={styles.container}>
-      <PageHeader title="Floor Plans" description="Design and manage your venue layouts" />
+      <PageHeader title={t("floorPlan.list.title")} description={t("floorPlan.list.description")} />
       <SkeletonGroup>
         <div className={styles.cardGrid}>
           {Array.from({ length: 3 }, (_, i) => (
@@ -43,16 +47,25 @@ interface CloneFailure {
   raw?: string;
 }
 
-function cloneFailureFrom(err: unknown): CloneFailure {
+function cloneFailureFrom(err: unknown, t: TFunction): CloneFailure {
   const description = describeApiError(err);
-  return { title: "Floor plan not cloned.", detail: description.detail, raw: description.raw };
+  return {
+    title: t("floorPlan.list.cloneFailed"),
+    detail: description.detail,
+    raw: description.raw,
+  };
 }
 
 /* ── Main component ─────────────────────────── */
 
 export function FloorPlansPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { selectedVenueId } = useVenue();
+  const { selectedVenueId, selectedVenue } = useVenue();
+  const fmt = useVenueFormat({
+    ianaTimezone: selectedVenue?.ianaTimezone ?? "UTC",
+    currencyCode: selectedVenue?.currencyCode ?? "USD",
+  });
   const api = useApiClient();
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
@@ -80,13 +93,13 @@ export function FloorPlansPage() {
       setCloneFailure(null);
       try {
         const cloned = await cloneMutation.mutateAsync(id);
-        setLiveMessage(`Floor plan "${cloned.name}" cloned successfully`);
+        setLiveMessage(t("floorPlan.list.cloned", { name: cloned.name }));
         navigate(`/floor-plans/${cloned.id}`);
       } catch (err) {
-        setCloneFailure(cloneFailureFrom(err));
+        setCloneFailure(cloneFailureFrom(err, t));
       }
     },
-    [cloneMutation, navigate]
+    [cloneMutation, navigate, t]
   );
 
   const handleCreated = useCallback(
@@ -95,10 +108,6 @@ export function FloorPlansPage() {
     },
     [navigate]
   );
-
-  const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleDateString();
-  };
 
   if (isLoading && floorPlans.length === 0) {
     return <FloorPlansLoadingSkeleton />;
@@ -126,13 +135,16 @@ export function FloorPlansPage() {
       </div>
 
       <div className={styles.header}>
-        <PageHeader title="Floor Plans" description="Design and manage your venue layouts" />
+        <PageHeader
+          title={t("floorPlan.list.title")}
+          description={t("floorPlan.list.description")}
+        />
         <Button
           variant="primary"
           onClick={() => setShowNewDialog(true)}
           disabled={!selectedVenueId}
         >
-          New Floor Plan
+          {t("floorPlan.list.newButton")}
         </Button>
       </div>
 
@@ -148,7 +160,7 @@ export function FloorPlansPage() {
 
         {loadFailure && (
           <ErrorRetryBanner
-            title="Couldn't load floor plans."
+            title={t("floorPlan.list.loadFailed")}
             error={loadFailure.detail}
             details={loadFailure.raw}
             onRetry={refetch}
@@ -167,15 +179,15 @@ export function FloorPlansPage() {
 
         {!isLoading && !error && floorPlans.length === 0 && (
           <EmptyState
-            heading="No floor plans yet"
-            description="Create a floor plan to start arranging tables for your venue."
+            heading={t("floorPlan.list.emptyHeading")}
+            description={t("floorPlan.list.emptyDescription")}
             action={
               <Button
                 variant="primary"
                 onClick={() => setShowNewDialog(true)}
                 disabled={!selectedVenueId}
               >
-                Create Floor Plan
+                {t("floorPlan.list.createButton")}
               </Button>
             }
           />
@@ -190,7 +202,7 @@ export function FloorPlansPage() {
                   onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
                   className={styles.cardOpenButton}
                   type="button"
-                  aria-label={`Open floor plan: ${floorPlan.name}`}
+                  aria-label={t("floorPlan.list.openAria", { name: floorPlan.name })}
                 >
                   {/* Placeholder for floor plan preview */}
                   <div className={styles.cardPreview}>
@@ -216,16 +228,18 @@ export function FloorPlansPage() {
                       </Text>
                       {floorPlan.isActive && (
                         <Badge variant="success" size="sm">
-                          Active
+                          {t("floorPlan.list.active")}
                         </Badge>
                       )}
                     </div>
                     <div className={styles.cardDetails}>
                       <Text variant="caption" color="secondary">
-                        {floorPlan.tables?.length ?? 0} tables
+                        {t("floorPlan.list.tableCount", { count: floorPlan.tables?.length ?? 0 })}
                       </Text>
                       <Text variant="caption" color="secondary">
-                        Updated {formatDate(floorPlan.updatedAt)}
+                        {t("floorPlan.list.updated", {
+                          date: fmt.formatShortDate(floorPlan.updatedAt.slice(0, 10)),
+                        })}
                       </Text>
                     </div>
                   </div>
@@ -235,9 +249,9 @@ export function FloorPlansPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleClone(floorPlan.id)}
-                    aria-label={`Clone floor plan: ${floorPlan.name}`}
+                    aria-label={t("floorPlan.list.cloneAria", { name: floorPlan.name })}
                   >
-                    Clone
+                    {t("floorPlan.list.clone")}
                   </Button>
                 </div>
               </article>

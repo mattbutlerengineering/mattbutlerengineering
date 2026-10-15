@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router";
+import { useTranslation } from "react-i18next";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
@@ -16,6 +17,7 @@ import { useTableStatuses } from "../hooks/useSSESync.js";
 import styles from "./FloorPlanEditorPage.module.css";
 
 export function FloorPlanEditorPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -35,10 +37,10 @@ export function FloorPlanEditorPage() {
   const floorPlanId = floorPlan?.id;
   const persist = useCallback(
     (positions: PositionUpdate[]) => {
-      if (!floorPlanId) return Promise.reject(new Error("Floor plan not loaded"));
+      if (!floorPlanId) return Promise.reject(new Error(t("floorPlan.editor.notLoaded")));
       return bulkUpdateMutation.mutateAsync({ floorPlanId, positions });
     },
-    [bulkUpdateMutation, floorPlanId]
+    [bulkUpdateMutation, floorPlanId, t]
   );
 
   const {
@@ -55,7 +57,7 @@ export function FloorPlanEditorPage() {
   const draftSaveError = saveFailure
     ? saveFailure.error instanceof Error
       ? saveFailure.error.message
-      : "Failed to save changes — positions reverted"
+      : t("floorPlan.editor.saveFailed")
     : null;
   const saveError = draftSaveError ?? actionError;
 
@@ -97,9 +99,9 @@ export function FloorPlanEditorPage() {
       removeTable(tableId);
       setSelectedTableId((prev) => (prev === tableId ? null : prev));
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to delete table");
+      setActionError(err instanceof Error ? err.message : t("floorPlan.editor.deleteFailed"));
     }
-  }, [pendingDeleteId, deleteTableMutation, removeTable]);
+  }, [pendingDeleteId, deleteTableMutation, removeTable, t]);
 
   // Auto-save with 1s debounce after changes.
   // Skip when the draft save failed — user must retry manually to avoid an infinite retry loop.
@@ -141,7 +143,7 @@ export function FloorPlanEditorPage() {
     try {
       await activateMutation.mutateAsync(floorPlan.id);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to activate floor plan");
+      setActionError(err instanceof Error ? err.message : t("floorPlan.editor.activateFailed"));
     }
   };
 
@@ -159,7 +161,7 @@ export function FloorPlanEditorPage() {
   if (isLoading) {
     return (
       <div className={styles.loadingWrapper} aria-busy="true">
-        <div className={styles.spinner} aria-label="Loading" role="status" />
+        <div className={styles.spinner} aria-label={t("floorPlan.editor.loading")} role="status" />
       </div>
     );
   }
@@ -167,9 +169,12 @@ export function FloorPlanEditorPage() {
   if (displayError || !floorPlan) {
     return (
       <div className={styles.errorContainer}>
-        <ErrorRetryBanner error={displayError ?? "Floor plan not found"} onRetry={refetch} />
+        <ErrorRetryBanner
+          error={displayError ?? t("floorPlan.editor.notFound")}
+          onRetry={refetch}
+        />
         <Button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
-          Back to Floor Plans
+          {t("floorPlan.editor.backToList")}
         </Button>
       </div>
     );
@@ -183,7 +188,7 @@ export function FloorPlanEditorPage() {
           <Button
             onClick={() => navigate("/floor-plans")}
             className={styles.backButton}
-            aria-label="Back to floor plans"
+            aria-label={t("floorPlan.editor.backAria")}
           >
             <svg className={styles.backIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -195,24 +200,30 @@ export function FloorPlanEditorPage() {
             </svg>
           </Button>
           <Heading className={styles.floorPlanTitle}>{floorPlan.name}</Heading>
-          {floorPlan.isActive && <Text className={styles.activeBadge}>Active</Text>}
+          {floorPlan.isActive && (
+            <Text className={styles.activeBadge}>{t("floorPlan.editor.active")}</Text>
+          )}
         </div>
 
         <div className={styles.headerRight}>
           {!floorPlan.isActive && (
             <Button onClick={handleActivate} className={styles.activateButton}>
-              Set as Active
+              {t("floorPlan.editor.setActive")}
             </Button>
           )}
           <Button onClick={() => setShowAddDialog(true)} className={styles.addTableButton}>
-            + Add Table
+            {t("floorPlan.editor.addTable")}
           </Button>
           <Button
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
             className={`${styles.saveButton} ${hasChanges ? styles.saveButtonActive : styles.saveButtonDisabled}`}
           >
-            {isSaving ? "Saving..." : hasChanges ? "Save Changes" : "Saved"}
+            {isSaving
+              ? t("floorPlan.editor.saving")
+              : hasChanges
+                ? t("floorPlan.editor.saveChanges")
+                : t("floorPlan.editor.saved")}
           </Button>
         </div>
       </div>
@@ -248,59 +259,70 @@ export function FloorPlanEditorPage() {
 
         {/* Sidebar - Table details */}
         <div className={styles.sidebar}>
-          <Heading className={styles.sidebarTitle}>Table Details</Heading>
+          <Heading className={styles.sidebarTitle}>{t("floorPlan.editor.detailsTitle")}</Heading>
 
           {selectedTable ? (
             <div className={styles.detailsStack}>
               <div>
-                <Text className={styles.detailLabel}>Name</Text>
+                <Text className={styles.detailLabel}>{t("floorPlan.editor.name")}</Text>
                 <div className={styles.detailValue}>{selectedTable.name}</div>
               </div>
               <div>
-                <Text className={styles.detailLabel}>Table Number</Text>
+                <Text className={styles.detailLabel}>{t("floorPlan.editor.tableNumber")}</Text>
                 <div className={styles.detailValue}>{selectedTable.tableNumber}</div>
               </div>
               <div>
-                <Text className={styles.detailLabel}>Capacity</Text>
+                <Text className={styles.detailLabel}>{t("floorPlan.editor.capacity")}</Text>
                 <div className={styles.detailValue}>
-                  {selectedTable.minCovers} - {selectedTable.maxCovers ?? selectedTable.capacity}{" "}
-                  guests
+                  {t("floorPlan.editor.guests", {
+                    min: selectedTable.minCovers,
+                    max: selectedTable.maxCovers ?? selectedTable.capacity,
+                  })}
                 </div>
               </div>
               <div>
-                <Text className={styles.detailLabel}>Location</Text>
-                <div className={styles.detailValue}>{selectedTable.location ?? "Not set"}</div>
+                <Text className={styles.detailLabel}>{t("floorPlan.editor.location")}</Text>
+                <div className={styles.detailValue}>
+                  {selectedTable.location ?? t("floorPlan.editor.notSet")}
+                </div>
               </div>
               <div>
-                <Text className={styles.detailLabel}>Status</Text>
+                <Text className={styles.detailLabel}>{t("floorPlan.editor.status")}</Text>
                 <div
                   className={
                     selectedTable.isActive ? styles.detailValueActive : styles.detailValueInactive
                   }
                 >
-                  {selectedTable.isActive ? "Active" : "Inactive"}
+                  {selectedTable.isActive
+                    ? t("floorPlan.editor.statusActive")
+                    : t("floorPlan.editor.statusInactive")}
                 </div>
               </div>
               <div>
-                <Text className={styles.detailLabel}>Position</Text>
+                <Text className={styles.detailLabel}>{t("floorPlan.editor.position")}</Text>
                 <div className={styles.detailValueMono}>
-                  x: {selectedTable.shapeMetadata?.x ?? 0}, y: {selectedTable.shapeMetadata?.y ?? 0}
+                  {t("floorPlan.editor.positionValue", {
+                    x: selectedTable.shapeMetadata?.x ?? 0,
+                    y: selectedTable.shapeMetadata?.y ?? 0,
+                  })}
                 </div>
               </div>
               <Button
                 className={styles.deleteTableButton}
                 onClick={() => requestDeleteTable(selectedTable.id)}
               >
-                Delete Table
+                {t("floorPlan.editor.deleteTable")}
               </Button>
             </div>
           ) : (
-            <div className={styles.noSelection}>Select a table to view details</div>
+            <div className={styles.noSelection}>{t("floorPlan.editor.noSelection")}</div>
           )}
 
           {/* Table list */}
           <div className={styles.tableListSection}>
-            <Heading className={styles.tableListTitle}>All Tables ({tables.length})</Heading>
+            <Heading className={styles.tableListTitle}>
+              {t("floorPlan.editor.allTables", { n: tables.length })}
+            </Heading>
             <div className={styles.tableListStack}>
               {tables.map((table) => (
                 <Button
@@ -322,10 +344,10 @@ export function FloorPlanEditorPage() {
       {blocker.state === "blocked" && (
         <ConfirmDialog
           open
-          title="Unsaved Changes"
-          description="You have unsaved changes to this floor plan. Are you sure you want to leave?"
-          confirmLabel="Leave"
-          cancelLabel="Stay"
+          title={t("floorPlan.editor.unsavedTitle")}
+          description={t("floorPlan.editor.unsavedDescription")}
+          confirmLabel={t("floorPlan.editor.leave")}
+          cancelLabel={t("floorPlan.editor.stay")}
           variant="destructive"
           onConfirm={() => blocker.proceed()}
           onCancel={() => blocker.reset()}
@@ -336,10 +358,10 @@ export function FloorPlanEditorPage() {
       {pendingDeleteId && (
         <ConfirmDialog
           open
-          title="Delete this table?"
-          description="This action cannot be undone."
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          title={t("floorPlan.editor.deleteTitle")}
+          description={t("floorPlan.editor.deleteDescription")}
+          confirmLabel={t("floorPlan.editor.delete")}
+          cancelLabel={t("floorPlan.editor.cancel")}
           variant="destructive"
           onConfirm={confirmDeleteTable}
           onCancel={() => setPendingDeleteId(null)}

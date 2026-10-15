@@ -1,5 +1,6 @@
 import { forwardRef, useRef, useCallback, useEffect, type InputHTMLAttributes } from "react";
 import { Lock } from "lucide-react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn, variantClass } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useField } from "../../hooks/useField";
@@ -66,6 +67,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
     },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
     const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -147,7 +149,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
             <label {...field.labelProps} className={styles.label}>
               {label}
               {field.requiredMarker}
-              {field.showOptional && <span className={styles.optional}> (optional)</span>}
+              {field.showOptional && <span className={styles.optional}> {messages.optional}</span>}
               {disabled && disabledReason && (
                 <Lock size={12} aria-hidden className={styles.lockIcon} />
               )}
@@ -159,7 +161,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               className={cn(styles.stepper, styles.decrement)}
               disabled={disabled || rest.readOnly || atMin}
               tabIndex={-1}
-              aria-label="Decrease"
+              aria-label={messages.decrease}
               onPointerDown={() => startRepeat(decrement)}
               onPointerUp={stopRepeat}
               onPointerLeave={stopRepeat}
@@ -187,7 +189,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               className={cn(styles.stepper, styles.increment)}
               disabled={disabled || rest.readOnly || atMax}
               tabIndex={-1}
-              aria-label="Increase"
+              aria-label={messages.increase}
               onPointerDown={() => startRepeat(increment)}
               onPointerUp={stopRepeat}
               onPointerLeave={stopRepeat}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Text, Button, ConfirmDialog } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest } from "@mbe/types";
 import { FloorPlanCanvas, AddTableDialog } from "../floor-plan/index.js";
@@ -8,16 +9,15 @@ import {
   draftToCanvasFloorPlan,
   draftToCanvasTables,
   findDuplicateName,
-  type DraftTable,
   type FloorPlanDraft,
 } from "./floor-plan-draft.js";
 import {
   FLOOR_PLAN_TEMPLATES,
   tablesForTemplate,
   templateById,
-  type FloorPlanTemplate,
   type TemplateId,
 } from "./floor-plan-templates.js";
+import { layoutCounts, layoutSummary } from "./floor-plan-copy.js";
 import { TemplatePreview } from "./TemplatePreview.js";
 import styles from "./FloorPlanStep.module.css";
 
@@ -42,9 +42,6 @@ export interface FloorPlanStepProps {
 
 const WIDE_VIEWPORT_QUERY = "(min-width: 1024px)";
 
-const LOCKED_MESSAGE =
-  "Your venue is already being created, so this layout is locked. Finish setting up, then rearrange tables in the floor plan editor.";
-
 /** True at >= 1024px, where the desktop canvas is editable. Below it, M13's read-only preview band renders instead. */
 function useIsWideViewport(): boolean {
   const [isWide, setIsWide] = useState(() =>
@@ -61,16 +58,6 @@ function useIsWideViewport(): boolean {
   return isWide;
 }
 
-function pickerCardAriaLabel(template: FloorPlanTemplate, tables: readonly DraftTable[]): string {
-  if (template.id === "blank") return "Blank — no tables";
-  const seats = tables.reduce((sum, table) => sum + table.capacity, 0);
-  return `${template.name} — ${tables.length} tables, ${seats} seats`;
-}
-
-function capitalizeShape(shape: DraftTable["shape"]): string {
-  return shape.charAt(0).toUpperCase() + shape.slice(1);
-}
-
 export function FloorPlanStep({
   draft,
   error,
@@ -80,6 +67,7 @@ export function FloorPlanStep({
   onRemoveTable,
   readOnly = false,
 }: FloorPlanStepProps): JSX.Element {
+  const { t } = useTranslation();
   const isWideViewport = useIsWideViewport();
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -90,12 +78,16 @@ export function FloorPlanStep({
   const applyTemplate = useCallback(
     (templateId: TemplateId) => {
       onSelectTemplate(templateId);
-      const template = templateById(templateId);
       setAnnouncement(
-        `${template.name} layout applied — ${tablesForTemplate(template).length} tables`
+        t("onboarding.floorPlan.layoutApplied", {
+          name: t(`onboarding.floorPlan.templates.${templateId}.name`),
+          tables: t("onboarding.floorPlan.tableCount", {
+            count: tablesForTemplate(templateById(templateId)).length,
+          }),
+        })
       );
     },
-    [onSelectTemplate]
+    [onSelectTemplate, t]
   );
 
   const handleSelectTemplate = useCallback(
@@ -159,9 +151,9 @@ export function FloorPlanStep({
       }
       onAddTable(request);
       setAddDialogOpen(false);
-      setAnnouncement(`${request.name} added`);
+      setAnnouncement(t("onboarding.floorPlan.tableAdded", { name: request.name }));
     },
-    [draft.tables, onAddTable]
+    [draft.tables, onAddTable, t]
   );
 
   const selectedTable = draft.tables.find((t) => t.localId === selectedTableId) ?? null;
@@ -169,35 +161,36 @@ export function FloorPlanStep({
   const handleRemoveSelected = useCallback(() => {
     if (!selectedTable) return;
     onRemoveTable(selectedTable.localId);
-    setAnnouncement(`${selectedTable.name} removed`);
-  }, [selectedTable, onRemoveTable]);
+    setAnnouncement(t("onboarding.floorPlan.tableRemoved", { name: selectedTable.name }));
+  }, [selectedTable, onRemoveTable, t]);
 
   const pendingTemplate = pendingTemplateId ? templateById(pendingTemplateId) : null;
 
   return (
     <div className={styles.stepContainer}>
-      <Text variant="label">Floor Plan</Text>
+      <Text variant="label">{t("onboarding.floorPlan.heading")}</Text>
       <Text variant="body" color="secondary">
-        Start from a layout like yours, then arrange it.
+        {t("onboarding.floorPlan.intro")}
       </Text>
 
       {readOnly && (
         <div className={styles.lockedBanner}>
           <Text variant="body" color="secondary">
-            {LOCKED_MESSAGE}
+            {t("onboarding.floorPlan.locked")}
           </Text>
         </div>
       )}
 
       <div
         role="radiogroup"
-        aria-label="Floor plan layout"
+        aria-label={t("onboarding.floorPlan.layoutLabel")}
         tabIndex={-1}
         className={styles.pickerGroup}
         onKeyDown={handlePickerKeyDown}
       >
         {FLOOR_PLAN_TEMPLATES.map((template) => {
           const tables = tablesForTemplate(template);
+          const templateName = t(`onboarding.floorPlan.templates.${template.id}.name`);
           const isSelected = template.id === draft.templateId;
           const isRovingFocus = template.id === (draft.templateId ?? FLOOR_PLAN_TEMPLATES[0]!.id);
 
@@ -212,17 +205,24 @@ export function FloorPlanStep({
               aria-checked={isSelected}
               tabIndex={isRovingFocus ? 0 : -1}
               disabled={readOnly}
-              aria-label={pickerCardAriaLabel(template, tables)}
+              aria-label={
+                template.id === "blank"
+                  ? t("onboarding.floorPlan.cardLabelBlank", { name: templateName })
+                  : t("onboarding.floorPlan.cardLabel", {
+                      name: templateName,
+                      ...layoutCounts(t, tables),
+                    })
+              }
               className={`${styles.pickerCard} ${isSelected ? styles.pickerCardSelected : ""}`}
               onClick={() => handleSelectTemplate(template.id)}
             >
               <TemplatePreview tables={tables} className={styles.pickerPreview} />
-              <Text variant="label">{template.name}</Text>
+              <Text variant="label">{templateName}</Text>
               <Text variant="caption" color="secondary">
-                {template.zoneLine}
+                {t(`onboarding.floorPlan.templates.${template.id}.zoneLine`)}
               </Text>
               <Text variant="caption" color="secondary">
-                {template.summary}
+                {layoutSummary(t, tables)}
               </Text>
             </Button>
           );
@@ -241,22 +241,22 @@ export function FloorPlanStep({
         <div className={styles.canvasArea}>
           {!readOnly && (
             <Button variant="primary" onClick={() => setAddDialogOpen(true)}>
-              Add table
+              {t("onboarding.floorPlan.addTable")}
             </Button>
           )}
 
           {draft.templateId === null ? (
             <div className={styles.emptyState}>
-              <Text variant="label">Your floor plan appears here</Text>
+              <Text variant="label">{t("onboarding.floorPlan.emptyHeading")}</Text>
               <Text variant="body" color="secondary">
-                Pick a layout above to start arranging tables.
+                {t("onboarding.floorPlan.emptyBody")}
               </Text>
             </div>
           ) : draft.tables.length === 0 ? (
             <div className={styles.emptyState}>
-              <Text variant="label">An empty floor</Text>
+              <Text variant="label">{t("onboarding.floorPlan.emptyFloorHeading")}</Text>
               <Text variant="body" color="secondary">
-                Add tables with the button above, or pick a layout to start from one.
+                {t("onboarding.floorPlan.emptyFloorBody")}
               </Text>
             </div>
           ) : (
@@ -275,20 +275,23 @@ export function FloorPlanStep({
             {selectedTable ? (
               <>
                 <Text>
-                  {selectedTable.name} · {selectedTable.capacity} seats ·{" "}
-                  {capitalizeShape(selectedTable.shape)}
+                  {t("onboarding.floorPlan.selected", {
+                    name: selectedTable.name,
+                    seats: t("onboarding.floorPlan.seatCount", { count: selectedTable.capacity }),
+                    shape: t(`onboarding.floorPlan.shapes.${selectedTable.shape}`),
+                  })}
                 </Text>
                 {!readOnly && (
                   <Button variant="secondary" onClick={handleRemoveSelected}>
-                    Remove table
+                    {t("onboarding.floorPlan.removeTable")}
                   </Button>
                 )}
               </>
             ) : (
               <Text variant="caption" color="tertiary">
                 {readOnly
-                  ? "Select a table to see its details."
-                  : "Select a table to move or remove it."}
+                  ? t("onboarding.floorPlan.selectHintReadOnly")
+                  : t("onboarding.floorPlan.selectHint")}
               </Text>
             )}
           </div>
@@ -297,8 +300,7 @@ export function FloorPlanStep({
         <div className={styles.previewBand}>
           <TemplatePreview tables={draft.tables} className={styles.previewSvg} />
           <Text variant="body" color="secondary">
-            Arranging tables needs a wider screen. Your layout is saved — open it on a desktop to
-            move things around.
+            {t("onboarding.floorPlan.narrowViewport")}
           </Text>
         </div>
       )}
@@ -314,14 +316,16 @@ export function FloorPlanStep({
 
       <ConfirmDialog
         open={pendingTemplate !== null}
-        title="Replace your layout?"
+        title={t("onboarding.floorPlan.replaceTitle")}
         description={
           pendingTemplate
-            ? `You've changed this floor plan. Choosing ${pendingTemplate.name} replaces your tables with the ${pendingTemplate.name} layout.`
+            ? t("onboarding.floorPlan.replaceDescription", {
+                name: t(`onboarding.floorPlan.templates.${pendingTemplate.id}.name`),
+              })
             : undefined
         }
-        confirmLabel="Replace layout"
-        cancelLabel="Keep mine"
+        confirmLabel={t("onboarding.floorPlan.replaceConfirm")}
+        cancelLabel={t("onboarding.floorPlan.replaceCancel")}
         variant="destructive"
         onConfirm={handleConfirmReplace}
         onCancel={() => setPendingTemplateId(null)}

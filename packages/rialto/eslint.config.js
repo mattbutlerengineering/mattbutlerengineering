@@ -5,7 +5,7 @@ import reactConfig from "@mbe/config/eslint/react";
 
 const LOCALIZED_FILES = [
   "src/i18n/**/*.{ts,tsx}",
-  "src/components/{Alert,Banner,Toast,Dialog,Drawer,Popover,HoverCard,ConfirmDialog}/**/*.{ts,tsx}",
+  "src/components/{Alert,Banner,Toast,Dialog,Drawer,Popover,HoverCard,ConfirmDialog,Pagination,Calendar,DateRange,DatePicker,DateRangePicker,TimePicker,NumberInput,Breadcrumb,Steps,Timeline,Sidebar,NavigationMenu,GlobalNav,Navbar,Skeleton,ScrollArea,ImageUpload,Odometer}/**/*.{ts,tsx}",
 ];
 
 export default [

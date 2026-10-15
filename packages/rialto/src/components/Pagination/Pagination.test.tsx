@@ -103,6 +103,19 @@ describe("Pagination", () => {
     }
   });
 
+  it("uses a custom ariaLabel on the nav landmark when supplied", () => {
+    render(
+      <Pagination page={1} totalPages={5} onChange={vi.fn()} ariaLabel="Guest list pagination" />
+    );
+    expect(screen.getByRole("navigation", { name: /guest list pagination/i })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: /^pagination$/i })).not.toBeInTheDocument();
+  });
+
+  it("defaults to aria-label='Pagination' when ariaLabel is not supplied", () => {
+    render(<Pagination page={1} totalPages={5} onChange={vi.fn()} />);
+    expect(screen.getByRole("navigation", { name: /^pagination$/i })).toBeInTheDocument();
+  });
+
   it("lists the controls and page buttons inside the nav", () => {
     render(<Pagination page={1} totalPages={3} onChange={vi.fn()} />);
     const nav = screen.getByRole("navigation", { name: /pagination/i });

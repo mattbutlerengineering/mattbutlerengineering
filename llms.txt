@@ -17959,6 +17959,9 @@
       ): string { /* ... */ }
     </item>
     <item priority="high">
+      export function formatCurrencyName(currency: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function formatShortDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
     </item>
   </file>
@@ -18274,6 +18277,17 @@
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
+  <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-copy.ts">
+    <item priority="high">
+      export function layoutCounts(
+        t: TFunction,
+        tables: readonly DraftTable[]
+      ): { tables: string; seats: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-draft.ts">
     <item priority="low">
       type DraftTableShape = TableShapeMetadata["shape"];
@@ -18347,10 +18361,8 @@
     <item priority="low">
       interface FloorPlanTemplate {
         id: TemplateId;
-        name: string;
         planName: string;
-        summary: string;
-        zoneLine: string;
+        zones: readonly Zone[];
       }
     </item>
     <item priority="medium">
@@ -18487,9 +18499,11 @@
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/onboarding-steps.ts">
     <item priority="low">
+      type OnboardingStepId = "welcome" | "location" | "hours" | "settings" | "floorPlan" | "launch";
+    </item>
+    <item priority="low">
       interface OnboardingStep {
-        label: string;
-        description: string;
+        id: OnboardingStepId;
       }
     </item>
     <item priority="high">

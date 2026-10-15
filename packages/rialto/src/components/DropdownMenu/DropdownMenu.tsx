@@ -27,7 +27,8 @@ import styles from "./DropdownMenu.module.css";
 interface MenuItemDef {
   type?: "item";
   id: string;
-  label: string;
+  /** A string, or any node (e.g. text wrapped in `<span lang>`). */
+  label: ReactNode;
   icon?: ReactNode;
   /** Keyboard shortcut hint displayed on the right side of the item */
   shortcut?: string;

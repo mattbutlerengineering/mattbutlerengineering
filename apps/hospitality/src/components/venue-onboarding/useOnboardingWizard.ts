@@ -5,6 +5,7 @@ import type {
   VenueSettings,
   CreateTableRequest,
 } from "@mbe/types";
+import { localeRuntime } from "../../i18n/runtime.js";
 import { validateBasicInfo, type BasicInfoData, type SlugStatus } from "./BasicInfoStep.js";
 import { validateLocationTime, detectTimezone, type LocationTimeData } from "./LocationTimeStep.js";
 import {
@@ -37,9 +38,6 @@ export interface OnboardingWizardErrors {
   settings: Partial<Record<keyof SettingsData, string>>;
   floorPlan: string | null;
 }
-
-const FLOOR_PLAN_REQUIRED_MESSAGE =
-  "Choose a layout to continue — pick Blank to start with an empty floor.";
 
 interface OnboardingWizardState {
   step: number;
@@ -141,7 +139,10 @@ function runStepValidation(state: OnboardingWizardState): {
       return {
         state: {
           ...state,
-          errors: { ...state.errors, floorPlan: valid ? null : FLOOR_PLAN_REQUIRED_MESSAGE },
+          errors: {
+            ...state.errors,
+            floorPlan: valid ? null : localeRuntime.i18n.t("onboarding.floorPlan.required"),
+          },
         },
         valid,
       };

@@ -169,6 +169,15 @@ export function formatCurrencyFromCents(
 }
 
 /**
+ * A currency's display name in `locale` ("US Dollar", "peso mexicano"). Falls back to the ISO code
+ * when the runtime has no name for it. Display-only — never use it for amounts.
+ */
+export function formatCurrencyName(currency: string, locale: string = LOCALE): string {
+  const code = currency.toUpperCase();
+  return new Intl.DisplayNames(locale, { type: "currency" }).of(code) ?? code;
+}
+
+/**
  * Format a YYYY-MM-DD date string in the locale's numeric short form
  * (en-US "03/15/2024", en-GB "15/03/2024").
  */

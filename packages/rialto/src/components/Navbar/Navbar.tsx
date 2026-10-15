@@ -1,5 +1,6 @@
 import { forwardRef, useId, useState, type HTMLAttributes, type ReactNode } from "react";
 import { motion } from "framer-motion";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Navbar.module.css";
@@ -73,6 +74,7 @@ interface NavbarLinkItemProps {
 }
 
 function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
+  const { messages } = useRialtoLocale();
   const motionPreset = useMotionPreset();
   const [isOpen, setIsOpen] = useState(false);
   const childrenId = useId();
@@ -97,7 +99,7 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
             onClick={() => setIsOpen(!isOpen)}
             aria-expanded={isOpen}
             aria-controls={isOpen ? childrenId : undefined}
-            aria-label="Toggle submenu"
+            aria-label={messages.toggleSubmenu}
           >
             <motion.svg
               width="12"
@@ -128,8 +130,12 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
   );
 }
 
+/** Keyboard shortcut hint; key names are not translated. */
+const SEARCH_SHORTCUT = "Ctrl K";
+
 export const Navbar = forwardRef<HTMLElement, NavbarProps>(
-  ({ logo, user, search, links, footer, label = "Main navigation", className, ...props }, ref) => {
+  ({ logo, user, search, links, footer, label, className, ...props }, ref) => {
+    const { messages } = useRialtoLocale();
     const [searchValue, setSearchValue] = useState("");
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,7 +146,7 @@ export const Navbar = forwardRef<HTMLElement, NavbarProps>(
     return (
       <nav
         ref={ref}
-        aria-label={props["aria-labelledby"] ? undefined : label}
+        aria-label={props["aria-labelledby"] ? undefined : (label ?? messages.mainNavigation)}
         className={cn(styles.navbar, className)}
         {...props}
       >
@@ -167,11 +173,11 @@ export const Navbar = forwardRef<HTMLElement, NavbarProps>(
               <input
                 type="text"
                 className={styles.searchInput}
-                placeholder={search.placeholder || "Search..."}
+                placeholder={search.placeholder || messages.searchPlaceholder}
                 value={searchValue}
                 onChange={handleSearchChange}
               />
-              <kbd className={styles.searchKbd}>Ctrl K</kbd>
+              <kbd className={styles.searchKbd}>{SEARCH_SHORTCUT}</kbd>
             </div>
           )}
 

@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useRef, type ForwardedRef } from "react";
 import { motion } from "framer-motion";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Pagination.module.css";
@@ -32,6 +33,13 @@ export interface PaginationProps {
    */
   siblingCount?: number;
   className?: string;
+  /**
+   * Accessible name for the nav landmark. Defaults to the locale's "Pagination" label — override
+   * this when a page renders more than one Pagination instance, since axe's
+   * landmark-unique rule requires each nav landmark on a page to have a
+   * distinct accessible name.
+   */
+  ariaLabel?: string;
 }
 
 /* ── Range helper ────────────────────────────── */
@@ -121,7 +129,8 @@ function assignRef<T>(ref: ForwardedRef<T>, node: T | null) {
 }
 
 export const Pagination = forwardRef<HTMLElement, PaginationProps>(
-  ({ page, totalPages, onChange, siblingCount = 1, className = "" }, ref) => {
+  ({ page, totalPages, onChange, siblingCount = 1, className = "", ariaLabel }, ref) => {
+    const { messages } = useRialtoLocale();
     const pages = buildPages(page, totalPages, siblingCount);
     const motionPreset = useMotionPreset();
     const boopHover = motionPreset.boop;
@@ -161,7 +170,11 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
     };
 
     return (
-      <nav ref={setNavRef} aria-label="Pagination" className={cn(styles.pagination, className)}>
+      <nav
+        ref={setNavRef}
+        aria-label={ariaLabel ?? messages.pagination}
+        className={cn(styles.pagination, className)}
+      >
         <ul className={styles.list}>
           {/* Previous */}
           <li className={styles.listItem}>
@@ -170,7 +183,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
               className={styles.arrow}
               onClick={() => goTo(page - 1, "prev")}
               disabled={page <= 1}
-              aria-label="Previous page"
+              aria-label={messages.previousPage}
               whileHover={page <= 1 ? undefined : boopHover}
             >
               {ChevronLeft}
@@ -189,7 +202,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
                   type="button"
                   className={cn(styles.page, item === page && styles.active)}
                   onClick={() => goTo(item, null)}
-                  aria-label={`Page ${item}`}
+                  aria-label={messages.pageNumber(item)}
                   aria-current={item === page ? "page" : undefined}
                   whileHover={boopHover}
                 >
@@ -206,13 +219,17 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
               className={styles.arrow}
               onClick={() => goTo(page + 1, "next")}
               disabled={page >= totalPages}
-              aria-label="Next page"
+              aria-label={messages.nextPage}
               whileHover={page >= totalPages ? undefined : boopHover}
             >
               {ChevronRight}
             </motion.button>
           </li>
         </ul>
+        {/* Announces the new page to screen readers; the text changes, never mounts late. */}
+        <span role="status" aria-live="polite" className={styles.srOnly}>
+          {messages.pageStatus(page, totalPages)}
+        </span>
       </nav>
     );
   }
