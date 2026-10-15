@@ -95,8 +95,50 @@ export function evaluateCancellationFee(
 }
 
 /**
- * Returns a plain-language summary of cancellation terms for display in the
- * booking widget and cancellation dialog.
+ * Structured, locale-free description of a cancellation policy. Carries no
+ * prose and no currency formatting: callers render it through their own
+ * message catalog and venue formatters.
+ */
+export type CancellationPolicyDescription =
+  | { kind: "no-fees" }
+  | {
+      kind: "free-window";
+      freeHours: number;
+      lateFeePercent: number;
+      lateFeeAmountCents: number;
+      noShowFeePercent: number;
+      noShowFeeAmountCents: number;
+    };
+
+/**
+ * Describes the policy's terms as data. Defaults mirror evaluateCancellationFee:
+ * a null late fee is 0%, a null no-show fee is a full 100% forfeit — the
+ * disclosure must reflect that or guests authorize a hold without seeing the
+ * real term. Fractional cents are floored.
+ */
+export function describeCancellationPolicy(
+  policy: CancellationPolicy | null
+): CancellationPolicyDescription {
+  if (policy === null || policy.freeCancellationHours === null) {
+    return { kind: "no-fees" };
+  }
+
+  const lateFeePercent = policy.lateCancellationFeePercent ?? 0;
+  const noShowFeePercent = policy.noShowFeePercent ?? 100;
+  return {
+    kind: "free-window",
+    freeHours: policy.freeCancellationHours,
+    lateFeePercent,
+    lateFeeAmountCents: Math.floor((policy.depositAmountCents * lateFeePercent) / 100),
+    noShowFeePercent,
+    noShowFeeAmountCents: Math.floor((policy.depositAmountCents * noShowFeePercent) / 100),
+  };
+}
+
+/**
+ * Returns an English plain-language summary of cancellation terms, for server
+ * callers (SMS) until Phase 2 localizes them. UI callers should render
+ * describeCancellationPolicy() through the message catalog instead.
  *
  * Example: "Free cancellation until 24 hours before your reservation.
  *           After that, a 50% fee ($50.00) applies. If you don't show up
@@ -106,26 +148,16 @@ export function formatCancellationTerms(
   policy: CancellationPolicy | null,
   currency: string
 ): string {
-  if (policy === null || policy.freeCancellationHours === null) {
+  const d = describeCancellationPolicy(policy);
+  if (d.kind === "no-fees") {
     return "No cancellation fees apply.";
   }
 
-  const feePercent = policy.lateCancellationFeePercent ?? 0;
-  const feeAmount = Math.floor((policy.depositAmountCents * feePercent) / 100);
-  const formattedFee = formatCents(feeAmount, currency);
-
-  // Mirrors evaluateCancellationFee's own default: no noShowFeePercent on
-  // record means a full 100% forfeit, not "no fee" — the disclosure must
-  // reflect that or guests authorize a hold without seeing the real term.
-  const noShowFeePercent = policy.noShowFeePercent ?? 100;
-  const noShowFeeAmount = Math.floor((policy.depositAmountCents * noShowFeePercent) / 100);
-  const formattedNoShowFee = formatCents(noShowFeeAmount, currency);
-
   return (
-    `Free cancellation up to ${policy.freeCancellationHours} hours before your reservation. ` +
-    `After that, a ${feePercent}% fee (${formattedFee}) applies. ` +
-    `If you don't show up for your reservation, a ${noShowFeePercent}% no-show fee ` +
-    `(${formattedNoShowFee}) applies.`
+    `Free cancellation up to ${d.freeHours} hours before your reservation. ` +
+    `After that, a ${d.lateFeePercent}% fee (${formatCents(d.lateFeeAmountCents, currency)}) applies. ` +
+    `If you don't show up for your reservation, a ${d.noShowFeePercent}% no-show fee ` +
+    `(${formatCents(d.noShowFeeAmountCents, currency)}) applies.`
   );
 }
 

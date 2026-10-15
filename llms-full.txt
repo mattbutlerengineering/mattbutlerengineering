@@ -50423,30 +50423,48 @@
         depositAction: "refund_partial",
       };
     }
+    export type CancellationPolicyDescription =
+      | { kind: "no-fees" }
+      | {
+          kind: "free-window";
+          freeHours: number;
+          lateFeePercent: number;
+          lateFeeAmountCents: number;
+          noShowFeePercent: number;
+          noShowFeeAmountCents: number;
+        };
+    export function describeCancellationPolicy(
+      policy: CancellationPolicy | null
+    ): CancellationPolicyDescription {
+      if (policy === null || policy.freeCancellationHours === null) {
+        return { kind: "no-fees" };
+      }
+    
+      const lateFeePercent = policy.lateCancellationFeePercent ?? 0;
+      const noShowFeePercent = policy.noShowFeePercent ?? 100;
+      return {
+        kind: "free-window",
+        freeHours: policy.freeCancellationHours,
+        lateFeePercent,
+        lateFeeAmountCents: Math.floor((policy.depositAmountCents * lateFeePercent) / 100),
+        noShowFeePercent,
+        noShowFeeAmountCents: Math.floor((policy.depositAmountCents * noShowFeePercent) / 100),
+      };
+    }
     export function formatCancellationTerms(
       policy: CancellationPolicy | null,
       currency: string
     ): string {
-      if (policy === null || policy.freeCancellationHours === null) {
+      const d = describeCancellationPolicy(policy);
+      if (d.kind === "no-fees") {
         return "No cancellation fees apply.";
       }
     
-      const feePercent = policy.lateCancellationFeePercent ?? 0;
-      const feeAmount = Math.floor((policy.depositAmountCents * feePercent) / 100);
-      const formattedFee = formatCents(feeAmount, currency);
-    
-      // Mirrors evaluateCancellationFee's own default: no noShowFeePercent on
-      // record means a full 100% forfeit, not "no fee" — the disclosure must
-      // reflect that or guests authorize a hold without seeing the real term.
-      const noShowFeePercent = policy.noShowFeePercent ?? 100;
-      const noShowFeeAmount = Math.floor((policy.depositAmountCents * noShowFeePercent) / 100);
-      const formattedNoShowFee = formatCents(noShowFeeAmount, currency);
-    
       return (
-        `Free cancellation up to ${policy.freeCancellationHours} hours before your reservation. ` +
-        `After that, a ${feePercent}% fee (${formattedFee}) applies. ` +
-        `If you don't show up for your reservation, a ${noShowFeePercent}% no-show fee ` +
-        `(${formattedNoShowFee}) applies.`
+        `Free cancellation up to ${d.freeHours} hours before your reservation. ` +
+        `After that, a ${d.lateFeePercent}% fee (${formatCents(d.lateFeeAmountCents, currency)}) applies. ` +
+        `If you don't show up for your reservation, a ${d.noShowFeePercent}% no-show fee ` +
+        `(${formatCents(d.noShowFeeAmountCents, currency)}) applies.`
       );
     }
     function formatCents(cents: number, currency: string): string {
