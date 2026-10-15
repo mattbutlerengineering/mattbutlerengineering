@@ -9,6 +9,10 @@ const LOCALIZED_FILES = [
   "src/components/floor-plan/**/*.{ts,tsx}",
   "src/components/venue-onboarding/**/*.{ts,tsx}",
   "src/components/LocalePicker/**/*.{ts,tsx}",
+  "src/pages/{ReservationsPage,GuestsPage,WaitlistPage}.tsx",
+  "src/components/crm/**/*.{ts,tsx}",
+  "src/components/reservations/**/*.{ts,tsx}",
+  "src/components/{ErrorRetryBanner,KpiStat}.tsx",
 ];
 
 export default [

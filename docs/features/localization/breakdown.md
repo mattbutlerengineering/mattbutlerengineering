@@ -154,7 +154,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       `data-truncate`. (tracker: #6624)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth, Staff time & money onto venue formatting
-- [ ] **Translate Reservations & Guests** — `ReservationsPage`, `GuestsPage`,
+- [x] **Translate Reservations & Guests** — `ReservationsPage`, `GuestsPage`,
       `components/crm/**`, walk-in/new-reservation dialogs, waitlist, toasts. (tracker: #6625)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth, Staff time & money onto venue formatting

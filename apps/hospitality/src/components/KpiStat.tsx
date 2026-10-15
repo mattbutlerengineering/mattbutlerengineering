@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Stat } from "@mattbutlerengineering/rialto";
 
 export interface KpiStatProps {
@@ -14,13 +15,14 @@ export interface KpiStatProps {
  * `undefined` would erase `Stat`'s own label.
  */
 export function KpiStat({ label, value, size = "sm" }: KpiStatProps) {
+  const { t } = useTranslation();
   const unavailable = value === null || value === undefined;
   return (
     <Stat
       label={label}
       value={unavailable ? "—" : value}
       size={size}
-      {...(unavailable ? { "aria-label": `${label}, unavailable` } : {})}
+      {...(unavailable ? { "aria-label": t("kpi.unavailable", { label }) } : {})}
     />
   );
 }
