@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { Button, Heading, Input, Text } from "@mattbutlerengineering/rialto";
 import { useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CreateTableRequest } from "@mbe/types";
@@ -22,6 +23,7 @@ export interface AddTableDialogProps {
 }
 
 export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddTableDialogProps) {
+  const { t } = useTranslation();
   const [shape, setShape] = useState<TableShape>("rectangle");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
     try {
       await onSubmit(request);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create table.");
+      setError(err instanceof Error ? err.message : t("floorPlan.addTableDialog.createFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -104,9 +106,13 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
       >
         <div className={styles.dialogHeader}>
           <Heading id="add-table-dialog-title" className={styles.dialogTitle}>
-            Add Table
+            {t("floorPlan.addTableDialog.title")}
           </Heading>
-          <Button className={styles.closeButton} onClick={handleClose} aria-label="Close dialog">
+          <Button
+            className={styles.closeButton}
+            onClick={handleClose}
+            aria-label={t("floorPlan.addTableDialog.close")}
+          >
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -127,16 +133,17 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
         <form noValidate onSubmit={handleSubmit(onFormSubmit)} className={styles.form}>
           <div className={styles.fieldGroup}>
             <label htmlFor="table-name" className={styles.label}>
-              Table Name <Text className={styles.required}>*</Text>
+              {t("floorPlan.addTableDialog.name")} <Text className={styles.required}>*</Text>
             </label>
             <Input
               id="table-name"
               type="text"
               className={styles.input}
-              placeholder="e.g. Table 1"
+              placeholder={t("floorPlan.addTableDialog.placeholder")}
               disabled={isSubmitting}
               {...register("name", {
-                validate: (value) => value.trim().length > 0 || "Table name is required.",
+                validate: (value) =>
+                  value.trim().length > 0 || t("floorPlan.addTableDialog.nameRequired"),
               })}
             />
           </div>
@@ -144,7 +151,7 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
           <div className={styles.row}>
             <div className={styles.fieldGroup}>
               <label htmlFor="table-capacity" className={styles.label}>
-                Capacity
+                {t("floorPlan.addTableDialog.capacity")}
               </label>
               <Input
                 id="table-capacity"
@@ -154,14 +161,14 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
                 disabled={isSubmitting}
                 {...register("capacity", {
                   valueAsNumber: true,
-                  min: { value: 1, message: "Capacity must be at least 1." },
+                  min: { value: 1, message: t("floorPlan.addTableDialog.capacityMin") },
                 })}
               />
             </div>
 
             <div className={styles.fieldGroup}>
               <label htmlFor="table-min-covers" className={styles.label}>
-                Min Covers
+                {t("floorPlan.addTableDialog.minCovers")}
               </label>
               <Input
                 id="table-min-covers"
@@ -171,14 +178,14 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
                 disabled={isSubmitting}
                 {...register("minCovers", {
                   valueAsNumber: true,
-                  min: { value: 1, message: "Min covers must be at least 1." },
+                  min: { value: 1, message: t("floorPlan.addTableDialog.minCoversMin") },
                 })}
               />
             </div>
           </div>
 
           <div className={styles.fieldGroup}>
-            <Text className={styles.label}>Shape</Text>
+            <Text className={styles.label}>{t("floorPlan.addTableDialog.shape")}</Text>
             <div className={styles.shapeSelector}>
               {(["rectangle", "square", "circle"] as TableShape[]).map((s) => (
                 <Button
@@ -194,7 +201,9 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
                     {s === "square" && <SquareIcon />}
                     {s === "circle" && <CircleIcon />}
                   </Text>
-                  <Text className={styles.shapeLabel}>{capitalize(s)}</Text>
+                  <Text className={styles.shapeLabel}>
+                    {t(`floorPlan.addTableDialog.shapes.${s}`)}
+                  </Text>
                 </Button>
               ))}
             </div>
@@ -207,20 +216,18 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
               onClick={handleClose}
               disabled={isSubmitting}
             >
-              Cancel
+              {t("floorPlan.addTableDialog.cancel")}
             </Button>
             <Button type="submit" className={styles.submitButton} disabled={isSubmitting}>
-              {isSubmitting ? "Adding..." : "Add Table"}
+              {isSubmitting
+                ? t("floorPlan.addTableDialog.adding")
+                : t("floorPlan.addTableDialog.submit")}
             </Button>
           </div>
         </form>
       </div>
     </div>
   );
-}
-
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function RectangleIcon() {

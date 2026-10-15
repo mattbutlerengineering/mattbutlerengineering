@@ -32,6 +32,13 @@ export interface PaginationProps {
    */
   siblingCount?: number;
   className?: string;
+  /**
+   * Accessible name for the nav landmark. Defaults to "Pagination" — override
+   * this when a page renders more than one Pagination instance, since axe's
+   * landmark-unique rule requires each nav landmark on a page to have a
+   * distinct accessible name.
+   */
+  ariaLabel?: string;
 }
 
 /* ── Range helper ────────────────────────────── */
@@ -121,7 +128,10 @@ function assignRef<T>(ref: ForwardedRef<T>, node: T | null) {
 }
 
 export const Pagination = forwardRef<HTMLElement, PaginationProps>(
-  ({ page, totalPages, onChange, siblingCount = 1, className = "" }, ref) => {
+  (
+    { page, totalPages, onChange, siblingCount = 1, className = "", ariaLabel = "Pagination" },
+    ref
+  ) => {
     const pages = buildPages(page, totalPages, siblingCount);
     const motionPreset = useMotionPreset();
     const boopHover = motionPreset.boop;
@@ -161,7 +171,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
     };
 
     return (
-      <nav ref={setNavRef} aria-label="Pagination" className={cn(styles.pagination, className)}>
+      <nav ref={setNavRef} aria-label={ariaLabel} className={cn(styles.pagination, className)}>
         <ul className={styles.list}>
           {/* Previous */}
           <li className={styles.listItem}>
