@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import config from "../../lint-staged.config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -43,6 +44,29 @@ describe("lint-staged formats every staged file it claims to handle", () => {
   it("emits nothing when only generated files are staged", () => {
     expect(commandsFor(TS_GLOB, ["services/users/src/generated/client.ts"])).toEqual([]);
   });
+
+  it("lets a package's own file-scoped rules apply at commit time", () => {
+    // lint-staged runs from the repo root. With `--config <pkg>/eslint.config.js`
+    // ESLint resolves that config's `files` globs against the cwd, so a
+    // package-relative glob like `src/**` matched nothing, the rule was off,
+    // and `eslint --fix` deleted its disable comments as unused (PR #6724).
+    const file = "apps/hospitality/src/i18n/runtime.tsx";
+    const eslintCmd = commandsFor(TS_GLOB, [file]).find((c) => c.startsWith("eslint"));
+    const args = eslintCmd
+      .replace(/^eslint --fix\s*/, "")
+      .replace(/"[^"]*\.tsx?"/g, "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((a) => a.replace(/^"|"$/g, ""));
+    const printed = execFileSync(
+      resolve(ROOT, "node_modules/.bin/eslint"),
+      [...args, "--print-config", abs(file)],
+      { cwd: ROOT, encoding: "utf8" }
+    );
+    const rule = JSON.parse(printed).rules["mbe-local/no-literal-ui-strings"];
+    expect(rule?.[0] ?? rule).toBe(2);
+  }, 30_000);
 
   it("covers the non-ts file types ESLint never sees", () => {
     for (const file of ["docs/readme.md", ".github/workflows/ci.yml"]) {

@@ -31,6 +31,8 @@ export interface RuntimeDeps {
   browserLanguages: () => readonly string[];
   setDocumentLang: (tag: LocaleTag) => void;
   timeoutMs: number;
+  /** Where the explicit choice is persisted. Defaults to the dashboard's key. */
+  storageKey?: string;
 }
 
 const APP_CATALOGS: Record<Exclude<LocaleTag, "en-US">, () => Promise<{ default: Catalog }>> = {
@@ -64,7 +66,7 @@ export const browserStorage: RuntimeDeps["storage"] = {
   },
 };
 
-const browserDeps: RuntimeDeps = {
+export const browserDeps: RuntimeDeps = {
   loadAppCatalog: async (tag) => (tag === "en-US" ? enUS : (await APP_CATALOGS[tag]()).default),
   loadRialtoMessages: async (tag) => (tag === "en-US" ? rialtoEnUS : RIALTO_MESSAGES[tag]()),
   storage: browserStorage,
@@ -83,8 +85,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number, tag: LocaleTag): Promis
 
 export interface LocaleRuntime {
   readonly i18n: i18n;
-  /** Pick the starting locale (stored, else browser, else en-US). Never rejects; never persists. */
-  bootLocale(): Promise<void>;
+  /**
+   * The locale `bootLocale` will start in: stored, else `preferred`, else browser, else en-US.
+   * Synchronous, so a caller can tell whether anything must load before first paint.
+   */
+  bootTarget(preferred?: LocaleTag): LocaleTag;
+  /** Switch to `bootTarget(preferred)`. Never rejects; never persists. */
+  bootLocale(preferred?: LocaleTag): Promise<void>;
   /** Explicit user choice: load, switch, set `<html lang>`, persist. Rejects with nothing changed. */
   changeLocale(tag: LocaleTag): Promise<void>;
   /** Rialto messages for a loaded locale. */
@@ -92,6 +99,7 @@ export interface LocaleRuntime {
 }
 
 export function createLocaleRuntime(deps: RuntimeDeps = browserDeps): LocaleRuntime {
+  const storageKey = deps.storageKey ?? LOCALE_STORAGE_KEY;
   const instance = i18next.createInstance();
   void instance.use(initReactI18next).init({
     lng: DEFAULT_LOCALE,
@@ -119,11 +127,14 @@ export function createLocaleRuntime(deps: RuntimeDeps = browserDeps): LocaleRunt
 
   return {
     i18n: instance,
-    async bootLocale() {
-      const tag = resolveLocale({
-        stored: deps.storage.get(LOCALE_STORAGE_KEY),
-        browser: deps.browserLanguages(),
+    bootTarget(preferred) {
+      return resolveLocale({
+        stored: deps.storage.get(storageKey),
+        browser: preferred ? [preferred, ...deps.browserLanguages()] : deps.browserLanguages(),
       });
+    },
+    async bootLocale(preferred) {
+      const tag = this.bootTarget(preferred);
       try {
         await apply(tag);
       } catch {
@@ -134,7 +145,7 @@ export function createLocaleRuntime(deps: RuntimeDeps = browserDeps): LocaleRunt
     async changeLocale(tag) {
       await apply(tag);
       // A refused write still leaves the switch applied for this session.
-      deps.storage.set(LOCALE_STORAGE_KEY, tag);
+      deps.storage.set(storageKey, tag);
     },
     rialtoMessages(tag) {
       return rialtoCache.get(tag) ?? rialtoEnUS;
