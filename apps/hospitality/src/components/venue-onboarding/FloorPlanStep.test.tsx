@@ -10,6 +10,14 @@ import {
 } from "./floor-plan-draft.js";
 import { FLOOR_PLAN_TEMPLATES, tablesForTemplate, templateById } from "./floor-plan-templates.js";
 
+const TEMPLATE_NAMES = {
+  restaurant: "Restaurant",
+  cafe: "Cafe",
+  bar: "Bar",
+  patio: "Patio",
+  blank: "Blank",
+} as const;
+
 /* ── Mock react-konva + TableShape so FloorPlanCanvas can render under jsdom ── */
 
 vi.mock("react-konva", () => ({
@@ -206,7 +214,7 @@ describe("FloorPlanStep", () => {
         const name =
           template.id === "blank"
             ? "Blank — no tables"
-            : `${template.name} — ${tables.length} tables, ${seats} seats`;
+            : `${TEMPLATE_NAMES[template.id]} — ${tables.length} tables, ${seats} seats`;
         await user.click(screen.getByRole("radio", { name }));
         expect(onSelectTemplate).toHaveBeenCalledWith(templateId);
         expect(onSelectTemplate).toHaveBeenCalledTimes(1);

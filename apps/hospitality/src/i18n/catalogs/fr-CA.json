@@ -5,6 +5,251 @@
     "copyright": "© {{year}} Matt Butler",
     "dashboardDocumentTitle": "Tableau de bord - Matt Butler Engineering"
   },
+  "onboarding": {
+    "steps": {
+      "welcome": {
+        "label": "Bienvenue",
+        "description": "Nommez votre établissement"
+      },
+      "location": {
+        "label": "Emplacement",
+        "description": "Fuseau horaire et devise"
+      },
+      "hours": {
+        "label": "Heures",
+        "description": "Vos heures d’ouverture"
+      },
+      "settings": {
+        "label": "Paramètres",
+        "description": "Valeurs par défaut des réservations"
+      },
+      "floorPlan": {
+        "label": "Plan de salle",
+        "description": "Disposez vos tables"
+      },
+      "launch": {
+        "label": "Lancement",
+        "description": "Vérifier et ouvrir"
+      }
+    },
+    "progress": {
+      "wizard": "Progression de l’assistant",
+      "rail": "Progression de la configuration",
+      "stepLabel": "Étape {{step}} : {{label}}",
+      "stepLabelNavigable": "Étape {{step}} : {{label}} (cliquez pour y aller)"
+    },
+    "actions": {
+      "back": "Retour",
+      "next": "Suivant"
+    },
+    "welcome": {
+      "heading": "Donnons à votre établissement une place sur la plateforme",
+      "intro": "Choisissez un nom que vos clients reconnaîtront et une adresse Web pour votre page de réservation."
+    },
+    "basicInfo": {
+      "nameLabel": "Nom de l’établissement",
+      "namePlaceholder": "p. ex. Le Grand Salon",
+      "slugLabel": "Identifiant (slug)",
+      "slugPlaceholder": "p. ex. le-grand-salon",
+      "slugChecking": "Vérification de la disponibilité...",
+      "slugAvailable": "L’identifiant est disponible",
+      "slugHint": "Identifiant compatible avec les URL (généré automatiquement à partir du nom)",
+      "errors": {
+        "nameTooShort": "Le nom doit comporter au moins 2 caractères",
+        "slugRequired": "L’identifiant est obligatoire",
+        "slugInvalid": "L’identifiant doit être compatible avec les URL (lettres minuscules, chiffres, traits d’union)",
+        "slugTaken": "Un établissement avec cet identifiant existe déjà"
+      }
+    },
+    "locationTime": {
+      "heading": "Emplacement et heure",
+      "intro": "Pour afficher la bonne heure et la bonne devise.",
+      "timezoneLabel": "Fuseau horaire",
+      "timezonePlaceholder": "Rechercher un fuseau horaire...",
+      "timezoneEmpty": "Aucun fuseau horaire correspondant",
+      "timezoneHint": "Fuseau horaire IANA utilisé pour la planification et les disponibilités",
+      "currencyLabel": "Devise",
+      "currencyPlaceholder": "Sélectionnez une devise...",
+      "currencyOption": "{{code}} - {{name}}",
+      "errors": {
+        "timezoneRequired": "Le fuseau horaire est obligatoire",
+        "currencyRequired": "La devise est obligatoire"
+      }
+    },
+    "hours": {
+      "heading": "Heures d’ouverture",
+      "intro": "Pour que vos clients sachent quand vous êtes ouvert.",
+      "instructions": "Activez chaque jour pour fixer les heures d’ouverture et de fermeture. Les jours non activés seront marqués comme fermés.",
+      "closed": "Fermé",
+      "to": "à",
+      "openingTime": "Heure d’ouverture du {{day}}",
+      "closingTime": "Heure de fermeture du {{day}}",
+      "closeAfterOpen": "L’heure de fermeture doit être postérieure à l’heure d’ouverture",
+      "atLeastOne": "Au moins un jour doit être ouvert",
+      "closeDayTitle": "Fermer le {{day}} ?",
+      "closeDayDescription": "Cela effacera les heures d’ouverture et de fermeture personnalisées que vous avez définies pour ce jour.",
+      "closeDayConfirm": "Fermer le jour",
+      "closeDayCancel": "Garder ouvert"
+    },
+    "days": {
+      "monday": "lundi",
+      "tuesday": "mardi",
+      "wednesday": "mercredi",
+      "thursday": "jeudi",
+      "friday": "vendredi",
+      "saturday": "samedi",
+      "sunday": "dimanche"
+    },
+    "settings": {
+      "heading": "Paramètres de l’établissement",
+      "intro": "Personnalisez le fonctionnement des réservations, ou utilisez nos valeurs par défaut recommandées.",
+      "stepIntro": "Personnalisez le fonctionnement des réservations, ou passez avec nos valeurs par défaut recommandées.",
+      "useRecommended": "Utiliser les paramètres recommandés",
+      "durationLabel": "Durée de réservation par défaut (minutes)",
+      "maxPartyLabel": "Taille maximale du groupe",
+      "advanceLabel": "Délai de réservation à l’avance (jours)",
+      "defaultPlaceholder": "Par défaut : {{value}}",
+      "durationHint": "Si laissé vide, la valeur par défaut est de {{value}} minutes",
+      "maxPartyHint": "Si laissé vide, la valeur par défaut est de {{value}} convives",
+      "advanceHint": "Si laissé vide, les clients peuvent réserver jusqu’à {{value}} jours à l’avance",
+      "errors": {
+        "durationInvalid": "La durée doit être un nombre positif",
+        "maxPartyInvalid": "La taille du groupe doit être un nombre positif",
+        "advanceInvalid": "Le nombre de jours à l’avance doit être un nombre positif"
+      }
+    },
+    "floorPlan": {
+      "heading": "Plan de salle",
+      "intro": "Partez d’une disposition semblable à la vôtre, puis ajustez-la.",
+      "required": "Choisissez une disposition pour continuer — choisissez Vide pour commencer avec une salle vide.",
+      "locked": "Votre établissement est déjà en cours de création; cette disposition est donc verrouillée. Terminez la configuration, puis réorganisez les tables dans l’éditeur de plan de salle.",
+      "layoutLabel": "Disposition du plan de salle",
+      "tableCount_one": "{{count}} table",
+      "tableCount_many": "{{count}} de tables",
+      "tableCount_other": "{{count}} tables",
+      "seatCount_one": "{{count}} place",
+      "seatCount_many": "{{count}} de places",
+      "seatCount_other": "{{count}} places",
+      "summary": "{{tables}} · {{seats}}",
+      "summaryBlank": "Aucune table",
+      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
+      "cardLabelBlank": "{{name}} — aucune table",
+      "layoutApplied": "Disposition {{name}} appliquée — {{tables}}",
+      "tableAdded": "{{name}} ajoutée",
+      "tableRemoved": "{{name}} supprimée",
+      "addTable": "Ajouter une table",
+      "emptyHeading": "Votre plan de salle s’affichera ici",
+      "emptyBody": "Choisissez une disposition ci-dessus pour commencer à placer des tables.",
+      "emptyFloorHeading": "Une salle vide",
+      "emptyFloorBody": "Ajoutez des tables avec le bouton ci-dessus, ou choisissez une disposition pour partir de celle-ci.",
+      "selected": "{{name}} · {{seats}} · {{shape}}",
+      "removeTable": "Supprimer la table",
+      "selectHintReadOnly": "Sélectionnez une table pour voir ses détails.",
+      "selectHint": "Sélectionnez une table pour la déplacer ou la supprimer.",
+      "narrowViewport": "Le placement des tables nécessite un écran plus large. Votre disposition est enregistrée — ouvrez-la sur un ordinateur pour déplacer les éléments.",
+      "replaceTitle": "Remplacer votre disposition ?",
+      "replaceDescription": "Vous avez modifié ce plan de salle. Choisir {{name}} remplace vos tables par la disposition {{name}}.",
+      "replaceConfirm": "Remplacer la disposition",
+      "replaceCancel": "Garder la mienne",
+      "shapes": {
+        "square": "Carrée",
+        "rectangle": "Rectangulaire",
+        "circle": "Ronde"
+      },
+      "templates": {
+        "restaurant": {
+          "name": "Restaurant",
+          "zoneLine": "4 tables de 2 près des fenêtres · 6 tables de 4 · 2 tables rondes de 6 · 2 places au comptoir"
+        },
+        "cafe": {
+          "name": "Café",
+          "zoneLine": "5 tables de 2 près des fenêtres · 3 tables rondes de café · 2 tables de 4"
+        },
+        "bar": {
+          "name": "Bar",
+          "zoneLine": "6 tables hautes · 4 tables rondes debout · 2 banquettes"
+        },
+        "patio": {
+          "name": "Terrasse",
+          "zoneLine": "6 tables rondes avec parasol · 2 tables longues"
+        },
+        "blank": {
+          "name": "Vide",
+          "zoneLine": "Partez de zéro — ajoutez les tables vous-même"
+        }
+      }
+    },
+    "launch": {
+      "intro": "Vérifiez les détails de votre établissement — vous êtes prêt à prendre des réservations.",
+      "launching": "Lancement de « {{name}} »",
+      "basicInfoCard": "Renseignements de base",
+      "name": "Nom",
+      "slug": "Identifiant (slug)",
+      "timezone": "Fuseau horaire",
+      "currency": "Devise",
+      "noHours": "Aucune heure d’ouverture définie",
+      "settingsCard": "Paramètres",
+      "defaultDuration": "Durée par défaut",
+      "maxPartySize": "Taille maximale du groupe",
+      "advanceBooking": "Réservation à l’avance",
+      "minutes_one": "{{count}} minute",
+      "minutes_many": "{{count}} de minutes",
+      "minutes_other": "{{count}} minutes",
+      "guests_one": "{{count}} convive",
+      "guests_many": "{{count}} de convives",
+      "guests_other": "{{count}} convives",
+      "days_one": "{{count}} jour",
+      "days_many": "{{count}} de jours",
+      "days_other": "{{count}} jours",
+      "defaultTag": "(par défaut)",
+      "floorPlanCard": "Plan de salle",
+      "layout": "Disposition",
+      "tables": "Tables",
+      "noTables": "Aucune table — votre chronologie restera vide tant que vous n’en ajoutez pas",
+      "resumeSaved": "Votre établissement est enregistré. Une nouvelle tentative reprend à l’étape {{stage}}.",
+      "resumeNoVenue": "Une nouvelle tentative reprend à l’étape {{stage}}.",
+      "launchButton": "Lancer l’établissement",
+      "celebrationTables_one": "Votre établissement est en ligne avec {{count}} table",
+      "celebrationTables_many": "Votre établissement est en ligne avec {{count}} de tables",
+      "celebrationTables_other": "Votre établissement est en ligne avec {{count}} tables",
+      "celebrationEmpty": "Votre établissement est en ligne — ajoutez des tables ensuite",
+      "stages": {
+        "venue": "Établissement",
+        "floorPlan": "Plan de salle",
+        "tables": "Tables",
+        "activate": "Activation"
+      }
+    },
+    "stagePanel": {
+      "label": "Progression du lancement",
+      "progress": "Progression : {{stage}}",
+      "creating": "Création de {{name}}",
+      "created": "{{name}} créé",
+      "venueFailed": "Impossible de créer l’établissement",
+      "planFailed": "Impossible de créer le plan de salle",
+      "toPlace": "{{count}} à placer",
+      "placed_one": "{{count}} table placée",
+      "placed_many": "{{count}} de tables placées",
+      "placed_other": "{{count}} tables placées",
+      "placing": "Placement de la table",
+      "stoppedAt": "Arrêt à la table",
+      "counter": "{{current}} sur {{total}}",
+      "activating": "Mise en ligne du plan",
+      "live": "En ligne",
+      "activateFailed": "Impossible de mettre le plan en ligne",
+      "announcePlacing": "Placement des tables",
+      "announceStopped": "Placement des tables interrompu"
+    },
+    "errors": {
+      "stoppedAtTable": "Arrêt à la table {{index}} sur {{total}}",
+      "generic": "Une erreur s’est produite"
+    },
+    "page": {
+      "toastTitle": "L’établissement est en ligne",
+      "toastReady": "« {{name}} » est prêt avec {{tables}} sur {{plan}}.",
+      "toastReadyEmpty": "« {{name}} » est prêt. Ajoutez des tables à {{plan}} pour commencer à prendre des réservations."
+    }
+  },
   "auth": {
     "stations": {
       "browser": "Navigateur",

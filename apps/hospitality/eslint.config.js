@@ -4,9 +4,10 @@ const LOCALIZED_FILES = [
   "src/i18n/**/*.{ts,tsx}",
   "src/App.tsx",
   "src/components/{LoginGate,CallbackPage,SessionExpiredGate,AuthConfigError,DashboardLayout,DashboardSidebar}.tsx",
-  "src/pages/{AuthFailurePage,SignOutPage,LoadingPage,FloorPlansPage,FloorPlanEditorPage}.tsx",
+  "src/pages/{AuthFailurePage,SignOutPage,LoadingPage,FloorPlansPage,FloorPlanEditorPage,VenueOnboardingPage}.tsx",
   "src/components/TableStatusBadge.tsx",
   "src/components/floor-plan/**/*.{ts,tsx}",
+  "src/components/venue-onboarding/**/*.{ts,tsx}",
 ];
 
 export default [

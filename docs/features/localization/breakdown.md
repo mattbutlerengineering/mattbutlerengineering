@@ -162,7 +162,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       `components/floor-plan/**`, `TableStatusBadge`. (tracker: #6626)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth
-- [ ] **Translate Onboarding** — `VenueOnboardingPage`, `components/venue-onboarding/**`
+- [x] **Translate Onboarding** — `VenueOnboardingPage`, `components/venue-onboarding/**`
       (incl. `LocationTimeStep` currency option labels via `Intl.DisplayNames`). (tracker: #6627)
   - Accept: paths in lint scope, parity-green, wizard render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth

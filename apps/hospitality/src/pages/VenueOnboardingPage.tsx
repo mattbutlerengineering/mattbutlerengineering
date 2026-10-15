@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
@@ -12,6 +13,7 @@ import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHour
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { FloorPlanStep } from "../components/venue-onboarding/FloorPlanStep";
 import { LaunchStep } from "../components/venue-onboarding/LaunchStep";
+import { layoutCounts } from "../components/venue-onboarding/floor-plan-copy.js";
 import { runLaunchSequence } from "../components/venue-onboarding/launch-sequence.js";
 import {
   buildOnboardingPayload,
@@ -21,6 +23,7 @@ import { useOnboardingWizardContext } from "../components/venue-onboarding/Onboa
 import styles from "./VenueOnboardingPage.module.css";
 
 export function VenueOnboardingPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { accessToken } = useAuth();
   const api = useApiClient();
@@ -71,7 +74,7 @@ export function VenueOnboardingPage() {
     );
 
     if (result.failedStage !== null) {
-      throw new Error(result.errorMessage ?? "Something went wrong");
+      throw new Error(result.errorMessage ?? t("onboarding.errors.generic"));
     }
 
     await refetchVenues();
@@ -81,11 +84,15 @@ export function VenueOnboardingPage() {
     const tableCount = data.floorPlan.tables.length;
     const description =
       tableCount > 0
-        ? `"${venueName}" is ready with ${tableCount} tables on ${planName}.`
-        : `"${venueName}" is ready. Add tables to ${planName} to start taking reservations.`;
+        ? t("onboarding.page.toastReady", {
+            name: venueName,
+            tables: layoutCounts(t, data.floorPlan.tables).tables,
+            plan: planName,
+          })
+        : t("onboarding.page.toastReadyEmpty", { name: venueName, plan: planName });
 
     toast({
-      title: "Venue is live",
+      title: t("onboarding.page.toastTitle"),
       description,
       variant: "success",
       duration: 5000,
@@ -171,9 +178,9 @@ export function VenueOnboardingPage() {
 
           {step === 2 && (
             <>
-              <Text variant="label">Location & Time</Text>
+              <Text variant="label">{t("onboarding.locationTime.heading")}</Text>
               <Text variant="caption" color="secondary">
-                So we show the right time and currency.
+                {t("onboarding.locationTime.intro")}
               </Text>
               <LocationTimeStep
                 data={data.locationTime}
@@ -186,9 +193,9 @@ export function VenueOnboardingPage() {
 
           {step === 3 && (
             <>
-              <Text variant="label">Operating Hours</Text>
+              <Text variant="label">{t("onboarding.hours.heading")}</Text>
               <Text variant="caption" color="secondary">
-                So guests know when you&apos;re open.
+                {t("onboarding.hours.intro")}
               </Text>
               <OperatingHoursStep
                 data={data.operatingHours}
@@ -200,9 +207,9 @@ export function VenueOnboardingPage() {
 
           {step === 4 && (
             <>
-              <Text variant="label">Venue Settings</Text>
+              <Text variant="label">{t("onboarding.settings.heading")}</Text>
               <Text variant="caption" color="secondary">
-                Customize how bookings work — or use our recommended defaults.
+                {t("onboarding.settings.intro")}
               </Text>
               <SettingsStep
                 data={data.settings}
@@ -246,12 +253,12 @@ export function VenueOnboardingPage() {
               onClick={actions.back}
               disabled={step === 1 || launchInFlight}
             >
-              Back
+              {t("onboarding.actions.back")}
             </Button>
 
             {step < TOTAL_STEPS && (
               <Button variant="primary" onClick={actions.next}>
-                Next
+                {t("onboarding.actions.next")}
               </Button>
             )}
           </Stack>

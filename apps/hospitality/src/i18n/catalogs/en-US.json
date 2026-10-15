@@ -5,6 +5,244 @@
     "copyright": "© {{year}} Matt Butler",
     "dashboardDocumentTitle": "Dashboard - Matt Butler Engineering"
   },
+  "onboarding": {
+    "steps": {
+      "welcome": {
+        "label": "Welcome",
+        "description": "Name your venue"
+      },
+      "location": {
+        "label": "Location",
+        "description": "Timezone & currency"
+      },
+      "hours": {
+        "label": "Hours",
+        "description": "When you're open"
+      },
+      "settings": {
+        "label": "Settings",
+        "description": "Reservation defaults"
+      },
+      "floorPlan": {
+        "label": "Floor plan",
+        "description": "Lay out your tables"
+      },
+      "launch": {
+        "label": "Launch",
+        "description": "Review & go live"
+      }
+    },
+    "progress": {
+      "wizard": "Wizard progress",
+      "rail": "Onboarding progress",
+      "stepLabel": "Step {{step}}: {{label}}",
+      "stepLabelNavigable": "Step {{step}}: {{label}} (click to navigate)"
+    },
+    "actions": {
+      "back": "Back",
+      "next": "Next"
+    },
+    "welcome": {
+      "heading": "Let's give your venue a home on the platform",
+      "intro": "Choose a name your guests will recognize and a web address for your booking page."
+    },
+    "basicInfo": {
+      "nameLabel": "Venue Name",
+      "namePlaceholder": "e.g. The Grand Ballroom",
+      "slugLabel": "Slug",
+      "slugPlaceholder": "e.g. the-grand-ballroom",
+      "slugChecking": "Checking availability...",
+      "slugAvailable": "Slug is available",
+      "slugHint": "URL-friendly identifier (auto-generated from name)",
+      "errors": {
+        "nameTooShort": "Name must be at least 2 characters",
+        "slugRequired": "Slug is required",
+        "slugInvalid": "Slug must be URL-safe (lowercase letters, numbers, hyphens)",
+        "slugTaken": "A venue with this slug already exists"
+      }
+    },
+    "locationTime": {
+      "heading": "Location & Time",
+      "intro": "So we show the right time and currency.",
+      "timezoneLabel": "Timezone",
+      "timezonePlaceholder": "Search timezones...",
+      "timezoneEmpty": "No matching timezones",
+      "timezoneHint": "IANA timezone used for scheduling and availability",
+      "currencyLabel": "Currency",
+      "currencyPlaceholder": "Select a currency...",
+      "currencyOption": "{{code}} - {{name}}",
+      "errors": {
+        "timezoneRequired": "Timezone is required",
+        "currencyRequired": "Currency is required"
+      }
+    },
+    "hours": {
+      "heading": "Operating Hours",
+      "intro": "So guests know when you're open.",
+      "instructions": "Toggle each day to set opening and closing times. Days left off will be marked as closed.",
+      "closed": "Closed",
+      "to": "to",
+      "openingTime": "{{day}} opening time",
+      "closingTime": "{{day}} closing time",
+      "closeAfterOpen": "Closing time must be after opening time",
+      "atLeastOne": "At least one day must be open",
+      "closeDayTitle": "Close {{day}}?",
+      "closeDayDescription": "This will clear the custom opening and closing times you set for this day.",
+      "closeDayConfirm": "Close Day",
+      "closeDayCancel": "Keep Open"
+    },
+    "days": {
+      "monday": "monday",
+      "tuesday": "tuesday",
+      "wednesday": "wednesday",
+      "thursday": "thursday",
+      "friday": "friday",
+      "saturday": "saturday",
+      "sunday": "sunday"
+    },
+    "settings": {
+      "heading": "Venue Settings",
+      "intro": "Customize how bookings work — or use our recommended defaults.",
+      "stepIntro": "Customize how bookings work — or skip with our recommended defaults.",
+      "useRecommended": "Use recommended settings",
+      "durationLabel": "Default Reservation Duration (minutes)",
+      "maxPartyLabel": "Maximum Party Size",
+      "advanceLabel": "Advance Booking Window (days)",
+      "defaultPlaceholder": "Default: {{value}}",
+      "durationHint": "If left blank, defaults to {{value}} minutes",
+      "maxPartyHint": "If left blank, defaults to {{value}} guests",
+      "advanceHint": "If left blank, guests can book up to {{value}} days ahead",
+      "errors": {
+        "durationInvalid": "Duration must be a positive number",
+        "maxPartyInvalid": "Party size must be a positive number",
+        "advanceInvalid": "Advance days must be a positive number"
+      }
+    },
+    "floorPlan": {
+      "heading": "Floor Plan",
+      "intro": "Start from a layout like yours, then arrange it.",
+      "required": "Choose a layout to continue — pick Blank to start with an empty floor.",
+      "locked": "Your venue is already being created, so this layout is locked. Finish setting up, then rearrange tables in the floor plan editor.",
+      "layoutLabel": "Floor plan layout",
+      "tableCount_one": "{{count}} table",
+      "tableCount_other": "{{count}} tables",
+      "seatCount_one": "{{count}} seat",
+      "seatCount_other": "{{count}} seats",
+      "summary": "{{tables}} · {{seats}}",
+      "summaryBlank": "No tables",
+      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
+      "cardLabelBlank": "{{name}} — no tables",
+      "layoutApplied": "{{name}} layout applied — {{tables}}",
+      "tableAdded": "{{name}} added",
+      "tableRemoved": "{{name}} removed",
+      "addTable": "Add table",
+      "emptyHeading": "Your floor plan appears here",
+      "emptyBody": "Pick a layout above to start arranging tables.",
+      "emptyFloorHeading": "An empty floor",
+      "emptyFloorBody": "Add tables with the button above, or pick a layout to start from one.",
+      "selected": "{{name}} · {{seats}} · {{shape}}",
+      "removeTable": "Remove table",
+      "selectHintReadOnly": "Select a table to see its details.",
+      "selectHint": "Select a table to move or remove it.",
+      "narrowViewport": "Arranging tables needs a wider screen. Your layout is saved — open it on a desktop to move things around.",
+      "replaceTitle": "Replace your layout?",
+      "replaceDescription": "You've changed this floor plan. Choosing {{name}} replaces your tables with the {{name}} layout.",
+      "replaceConfirm": "Replace layout",
+      "replaceCancel": "Keep mine",
+      "shapes": {
+        "square": "Square",
+        "rectangle": "Rectangle",
+        "circle": "Circle"
+      },
+      "templates": {
+        "restaurant": {
+          "name": "Restaurant",
+          "zoneLine": "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats"
+        },
+        "cafe": {
+          "name": "Cafe",
+          "zoneLine": "5 window 2-tops · 3 café rounds · 2 four-tops"
+        },
+        "bar": {
+          "name": "Bar",
+          "zoneLine": "6 high-tops · 4 standing rounds · 2 booths"
+        },
+        "patio": {
+          "name": "Patio",
+          "zoneLine": "6 umbrella rounds · 2 long tables"
+        },
+        "blank": {
+          "name": "Blank",
+          "zoneLine": "Start empty — add tables yourself"
+        }
+      }
+    },
+    "launch": {
+      "intro": "Review your venue details — you're ready to take reservations.",
+      "launching": "Launching \"{{name}}\"",
+      "basicInfoCard": "Basic Information",
+      "name": "Name",
+      "slug": "Slug",
+      "timezone": "Timezone",
+      "currency": "Currency",
+      "noHours": "No operating hours set",
+      "settingsCard": "Settings",
+      "defaultDuration": "Default Duration",
+      "maxPartySize": "Max Party Size",
+      "advanceBooking": "Advance Booking",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "guests_one": "{{count}} guest",
+      "guests_other": "{{count}} guests",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "defaultTag": "(default)",
+      "floorPlanCard": "Floor Plan",
+      "layout": "Layout",
+      "tables": "Tables",
+      "noTables": "No tables — your Timeline stays empty until you add some",
+      "resumeSaved": "Your venue is saved. Retry picks up at {{stage}}.",
+      "resumeNoVenue": "Retry picks up at {{stage}}.",
+      "launchButton": "Launch Venue",
+      "celebrationTables_one": "Your venue is live with {{count}} table",
+      "celebrationTables_other": "Your venue is live with {{count}} tables",
+      "celebrationEmpty": "Your venue is live — add tables next",
+      "stages": {
+        "venue": "Venue",
+        "floorPlan": "Floor plan",
+        "tables": "Tables",
+        "activate": "Activate"
+      }
+    },
+    "stagePanel": {
+      "label": "Launch progress",
+      "progress": "{{stage}} progress",
+      "creating": "Creating {{name}}",
+      "created": "{{name}} created",
+      "venueFailed": "Couldn't create the venue",
+      "planFailed": "Couldn't create the floor plan",
+      "toPlace": "{{count}} to place",
+      "placed_one": "{{count}} table placed",
+      "placed_other": "{{count}} tables placed",
+      "placing": "Placing table",
+      "stoppedAt": "Stopped at table",
+      "counter": "{{current}} of {{total}}",
+      "activating": "Making the plan live",
+      "live": "Live",
+      "activateFailed": "Couldn't make the plan live",
+      "announcePlacing": "Placing tables",
+      "announceStopped": "Stopped placing tables"
+    },
+    "errors": {
+      "stoppedAtTable": "Stopped at table {{index}} of {{total}}",
+      "generic": "Something went wrong"
+    },
+    "page": {
+      "toastTitle": "Venue is live",
+      "toastReady": "\"{{name}}\" is ready with {{tables}} on {{plan}}.",
+      "toastReadyEmpty": "\"{{name}}\" is ready. Add tables to {{plan}} to start taking reservations."
+    }
+  },
   "auth": {
     "stations": {
       "browser": "Browser",

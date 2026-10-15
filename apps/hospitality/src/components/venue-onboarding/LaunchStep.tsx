@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Stack, Text, Card, Button } from "@mattbutlerengineering/rialto";
 import type { OperatingHours } from "@mbe/types";
 import type { BasicInfoData } from "./BasicInfoStep.js";
@@ -6,12 +7,9 @@ import type { LocationTimeData } from "./LocationTimeStep.js";
 import type { SettingsData } from "./SettingsStep.js";
 import { EMPTY_FLOOR_PLAN_DRAFT, type FloorPlanDraft } from "./floor-plan-draft.js";
 import { templateById, type TemplateId } from "./floor-plan-templates.js";
+import { layoutCounts } from "./floor-plan-copy.js";
 import { TemplatePreview } from "./TemplatePreview.js";
-import {
-  INITIAL_LAUNCH_PROGRESS,
-  type LaunchProgress,
-  type LaunchStageId,
-} from "./launch-sequence.js";
+import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
 import { LaunchStagePanel } from "./LaunchStagePanel.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import styles from "./LaunchStep.module.css";
@@ -40,24 +38,6 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-/** Title Case stage label for the resume lead sentence (ux.md § Copy → Launch review card). */
-const RESUME_STAGE_LABEL: Record<LaunchStageId, string> = {
-  venue: "Venue",
-  floorPlan: "Floor plan",
-  tables: "Tables",
-  activate: "Activate",
-};
-
-/**
- * "Your venue is saved. Retry picks up at {Stage}." — except a venue-stage
- * failure, where no venue exists yet, so the saved-venue sentence is dropped.
- */
-function resumeLeadFor(failedStage: LaunchStageId): string {
-  const stage = RESUME_STAGE_LABEL[failedStage];
-  if (failedStage === "venue") return `Retry picks up at ${stage}.`;
-  return `Your venue is saved. Retry picks up at ${stage}.`;
-}
-
 interface LaunchStepProps {
   basicInfo: BasicInfoData;
   locationTime: LocationTimeData;
@@ -81,6 +61,7 @@ export function LaunchStep({
   launch = INITIAL_LAUNCH_PROGRESS,
   onRetry,
 }: LaunchStepProps) {
+  const { t } = useTranslation();
   const [celebrating, setCelebrating] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
@@ -121,8 +102,8 @@ export function LaunchStep({
     const tableCount = floorPlan.tables.length;
     const celebrationCopy =
       tableCount > 0
-        ? `Your venue is live with ${tableCount} tables`
-        : "Your venue is live — add tables next";
+        ? t("onboarding.launch.celebrationTables", { count: tableCount })
+        : t("onboarding.launch.celebrationEmpty");
 
     return (
       <div className={styles.celebration} role="status" aria-live="polite">
@@ -156,97 +137,102 @@ export function LaunchStep({
   const template =
     floorPlan.templateId !== null ? templateById(floorPlan.templateId as TemplateId) : null;
   const tableCount = floorPlan.tables.length;
-  const totalSeats = floorPlan.tables.reduce((sum, table) => sum + table.capacity, 0);
   const launchStarted =
     launch.inFlightStage !== null || launch.failedStage !== null || launch.venueId !== null;
 
   return (
     <div className={styles.stepContainer}>
       <Text variant="caption" color="secondary">
-        Review your venue details — you&apos;re ready to take reservations.
+        {t("onboarding.launch.intro")}
       </Text>
 
       {launchStarted ? (
         <Text variant="caption" color="secondary">
-          Launching &quot;{basicInfo.name}&quot;
+          {t("onboarding.launch.launching", { name: basicInfo.name })}
         </Text>
       ) : (
         <Stack gap="md">
-          <Card title="Basic Information" variant="flat">
+          <Card title={t("onboarding.launch.basicInfoCard")} variant="flat">
             <div className={styles.reviewSection}>
-              <Text className={styles.reviewLabel}>Name</Text>
+              <Text className={styles.reviewLabel}>{t("onboarding.launch.name")}</Text>
               <Text className={styles.reviewValue}>{basicInfo.name}</Text>
             </div>
             <div className={styles.reviewSection}>
-              <Text className={styles.reviewLabel}>Slug</Text>
+              <Text className={styles.reviewLabel}>{t("onboarding.launch.slug")}</Text>
               <Text className={styles.reviewValue}>{basicInfo.slug}</Text>
             </div>
           </Card>
 
-          <Card title="Location & Time" variant="flat">
+          <Card title={t("onboarding.locationTime.heading")} variant="flat">
             <div className={styles.reviewSection}>
-              <Text className={styles.reviewLabel}>Timezone</Text>
+              <Text className={styles.reviewLabel}>{t("onboarding.launch.timezone")}</Text>
               <Text className={styles.reviewValue}>{locationTime.ianaTimezone}</Text>
             </div>
             <div className={styles.reviewSection}>
-              <Text className={styles.reviewLabel}>Currency</Text>
+              <Text className={styles.reviewLabel}>{t("onboarding.launch.currency")}</Text>
               <Text className={styles.reviewValue}>{locationTime.currencyCode}</Text>
             </div>
           </Card>
 
-          <Card title="Operating Hours" variant="flat">
+          <Card title={t("onboarding.hours.heading")} variant="flat">
             {hasOperatingHours ? (
               DAYS_OF_WEEK.map((day) => {
                 const schedule = operatingHours[day];
                 return (
                   <div key={day} className={styles.reviewSection}>
-                    <Text className={styles.reviewLabel}>{day}</Text>
+                    <Text className={styles.reviewLabel}>{t(`onboarding.days.${day}`)}</Text>
                     <Text className={styles.reviewValue}>
-                      {schedule ? `${schedule.open} - ${schedule.close}` : "Closed"}
+                      {schedule
+                        ? `${schedule.open} - ${schedule.close}`
+                        : t("onboarding.hours.closed")}
                     </Text>
                   </div>
                 );
               })
             ) : (
               <Text variant="caption" color="secondary">
-                No operating hours set
+                {t("onboarding.launch.noHours")}
               </Text>
             )}
           </Card>
 
-          <Card title="Settings" variant="flat">
+          <Card title={t("onboarding.launch.settingsCard")} variant="flat">
             <div className={styles.reviewSection}>
-              <Text className={styles.reviewLabel}>Default Duration</Text>
+              <Text className={styles.reviewLabel}>{t("onboarding.launch.defaultDuration")}</Text>
               <Text className={styles.reviewValue}>
-                {settings.defaultReservationDuration || "90"} minutes
+                {t("onboarding.launch.minutes", {
+                  count: Number(settings.defaultReservationDuration || "90"),
+                })}
                 {!settings.defaultReservationDuration && (
                   <Text variant="caption" color="secondary">
                     {" "}
-                    (default)
+                    {t("onboarding.launch.defaultTag")}
                   </Text>
                 )}
               </Text>
             </div>
             <div className={styles.reviewSection}>
-              <Text className={styles.reviewLabel}>Max Party Size</Text>
+              <Text className={styles.reviewLabel}>{t("onboarding.launch.maxPartySize")}</Text>
               <Text className={styles.reviewValue}>
-                {settings.maxPartySize || "12"} guests
+                {t("onboarding.launch.guests", { count: Number(settings.maxPartySize || "12") })}
                 {!settings.maxPartySize && (
                   <Text variant="caption" color="secondary">
                     {" "}
-                    (default)
+                    {t("onboarding.launch.defaultTag")}
                   </Text>
                 )}
               </Text>
             </div>
             <div className={styles.reviewSection}>
-              <Text className={styles.reviewLabel}>Advance Booking</Text>
+              <Text className={styles.reviewLabel}>{t("onboarding.launch.advanceBooking")}</Text>
               <Text className={styles.reviewValue}>
-                {settings.advanceBookingDays || "30"} days
+                {t("onboarding.launch.days", {
+                  count: Number(settings.advanceBookingDays || "30"),
+                })}
                 {!settings.advanceBookingDays && (
                   <Text variant="caption" color="secondary">
                     {" "}
-                    (default)
+                    {t("onboarding.launch.defaultTag")}
                   </Text>
                 )}
               </Text>
@@ -254,21 +240,23 @@ export function LaunchStep({
           </Card>
 
           {template && (
-            <Card title="Floor Plan" variant="flat">
+            <Card title={t("onboarding.launch.floorPlanCard")} variant="flat">
               <div className={styles.reviewSection}>
-                <Text className={styles.reviewLabel}>Layout</Text>
-                <Text className={styles.reviewValue}>{template.name}</Text>
+                <Text className={styles.reviewLabel}>{t("onboarding.launch.layout")}</Text>
+                <Text className={styles.reviewValue}>
+                  {t(`onboarding.floorPlan.templates.${template.id}.name`)}
+                </Text>
               </div>
               <div className={styles.reviewSection}>
-                <Text className={styles.reviewLabel}>Name</Text>
+                <Text className={styles.reviewLabel}>{t("onboarding.launch.name")}</Text>
                 <Text className={styles.reviewValue}>{floorPlan.planName}</Text>
               </div>
               <div className={styles.reviewSection}>
-                <Text className={styles.reviewLabel}>Tables</Text>
+                <Text className={styles.reviewLabel}>{t("onboarding.launch.tables")}</Text>
                 <Text className={styles.reviewValue}>
                   {tableCount === 0
-                    ? "No tables — your Timeline stays empty until you add some"
-                    : `${tableCount} tables · ${totalSeats} seats`}
+                    ? t("onboarding.launch.noTables")
+                    : t("onboarding.floorPlan.summary", layoutCounts(t, floorPlan.tables))}
                 </Text>
               </div>
               <TemplatePreview tables={floorPlan.tables} className={styles.templatePreview} />
@@ -284,7 +272,12 @@ export function LaunchStep({
       {launch.failedStage !== null && onRetry && (
         <>
           <Text variant="caption" color="secondary">
-            {resumeLeadFor(launch.failedStage)}
+            {t(
+              launch.failedStage === "venue"
+                ? "onboarding.launch.resumeNoVenue"
+                : "onboarding.launch.resumeSaved",
+              { stage: t(`onboarding.launch.stages.${launch.failedStage}`) }
+            )}
           </Text>
           <ErrorRetryBanner error={launch.errorMessage ?? ""} onRetry={onRetry} />
         </>
@@ -292,7 +285,7 @@ export function LaunchStep({
 
       {launch.failedStage === null && (
         <Button variant="primary" onClick={handleLaunch} disabled={launchStarted}>
-          Launch Venue
+          {t("onboarding.launch.launchButton")}
         </Button>
       )}
     </div>
