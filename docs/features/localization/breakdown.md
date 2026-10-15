@@ -158,7 +158,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       `components/crm/**`, walk-in/new-reservation dialogs, waitlist, toasts. (tracker: #6625)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth, Staff time & money onto venue formatting
-- [ ] **Translate Floor plans** — `FloorPlansPage`, `FloorPlanEditorPage`,
+- [x] **Translate Floor plans** — `FloorPlansPage`, `FloorPlanEditorPage`,
       `components/floor-plan/**`, `TableStatusBadge`. (tracker: #6626)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth

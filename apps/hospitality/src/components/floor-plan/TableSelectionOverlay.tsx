@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "./floor-plan-geometry.js";
 import styles from "./TableSelectionOverlay.module.css";
@@ -27,6 +28,7 @@ export function TableSelectionOverlay({
   selectedTableId,
   onSelect,
 }: TableSelectionOverlayProps) {
+  const { t } = useTranslation();
   return (
     <div className={styles.overlay}>
       {tables.map((table) => {
@@ -49,7 +51,7 @@ export function TableSelectionOverlay({
               height: height * scale,
             }}
             aria-pressed={isSelected}
-            aria-label={`Table ${table.tableNumber || table.name}`}
+            aria-label={t("floorPlan.canvas.tableAria", { label: table.tableNumber || table.name })}
             onClick={() => onSelect(table.id)}
           />
         );
