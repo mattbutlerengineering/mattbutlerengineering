@@ -750,5 +750,9 @@
       "seatNow": "Seat now",
       "seating": "Seating…"
     }
+  },
+  "staffLocaleSwitcher": {
+    "title": "Language & region",
+    "previewLabel": "Preview"
   }
 }

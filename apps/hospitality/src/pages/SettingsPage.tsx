@@ -18,6 +18,7 @@ import { useCurrentUser, useUpdatePreferences } from "../hooks/useUsers.js";
 import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { LanguageRegionCard } from "../components/LanguageRegionCard.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import styles from "./SettingsPage.module.css";
 
@@ -266,6 +267,8 @@ export function SettingsPage() {
                 </div>
               </Stack>
             </Card>
+
+            <LanguageRegionCard />
 
             {/* Venue Defaults */}
             <Card title="Venue Defaults">

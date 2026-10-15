@@ -127,7 +127,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 
 ## Milestone 3: Staff dashboard — every hospitality screen in 4 locales, gates strict
 
-- [ ] **Staff switcher placement** — `footerSlot` on `DashboardSidebar` with sidebar
+- [x] **Staff switcher placement** — `footerSlot` on `DashboardSidebar` with sidebar
       LocalePicker (icon-only when collapsed), Settings "Language & region" row with format
       preview and MT line. (tracker: #6621)
   - Accept: switching from either placement updates the UI in place without losing form

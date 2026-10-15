@@ -12,6 +12,7 @@ const LOCALIZED_FILES = [
   "src/pages/{HomePage,TimelinePage}.tsx",
   "src/components/timeline/**/*.{ts,tsx}",
   "src/components/dashboard/**/*.{ts,tsx}",
+  "src/components/LanguageRegionCard.tsx",
 ];
 
 export default [
