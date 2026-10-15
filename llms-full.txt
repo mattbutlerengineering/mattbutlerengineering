@@ -6857,36 +6857,34 @@
   <section priority="medium" role="crm">
   <file path="apps/hospitality/src/components/crm/guest-lookup-rows.ts">
     export type GuestLookupMode = "linked" | "recognised";
-    export function visitsSentence(visitCount: number, t: TFunction = defaultT): string {
-      return visitCount > 0 ? t("crm.visit", { count: visitCount }) : t("crm.noVisits");
+    function plural(count: number, noun: string): string {
+      return `${count} ${noun}${count === 1 ? "" : "s"}`;
     }
-    export function noShowsSentence(noShowCount: number, t: TFunction = defaultT): string | null {
-      return noShowCount > 0 ? t("crm.noShow", { count: noShowCount }) : null;
+    export function visitsSentence(visitCount: number): string {
+      return visitCount > 0 ? plural(visitCount, "visit") : ZERO_VISITS;
     }
-    export function formatGuestRowDetail(guest: Guest, t: TFunction = defaultT): string {
+    export function noShowsSentence(noShowCount: number): string | null {
+      return noShowCount > 0 ? plural(noShowCount, "no-show") : null;
+    }
+    export function formatGuestRowDetail(guest: Guest): string {
       const contacts = [guest.phone, guest.email].filter((part): part is string => Boolean(part));
-      if (contacts.length === 0 && guest.visitCount === 0) return t("crm.noContact");
-      const visits = guest.visitCount > 0 ? [t("crm.visit", { count: guest.visitCount })] : [];
+      if (contacts.length === 0 && guest.visitCount === 0) return "no contact on file";
+      const visits = guest.visitCount > 0 ? [plural(guest.visitCount, "visit")] : [];
       return [...contacts, ...visits].join(" · ");
     }
-    export function stripTitle(mode: GuestLookupMode, name: string, t: TFunction = defaultT): string {
-      return mode === "linked" ? t("crm.stripLinked", { name }) : t("crm.stripRecognised", { name });
+    export function stripTitle(mode: GuestLookupMode, name: string): string {
+      return mode === "linked" ? `Using ${name}'s profile` : `Recognised ${name}`;
     }
-    export function pickAnnouncement(
-      mode: GuestLookupMode,
-      guest: Guest,
-      t: TFunction = defaultT
-    ): string {
+    export function pickAnnouncement(mode: GuestLookupMode, guest: Guest): string {
       const history = [
-        guest.visitCount > 0 ? t("crm.visit", { count: guest.visitCount }) : t("crm.noVisitsInline"),
-        noShowsSentence(guest.noShowCount, t),
+        guest.visitCount > 0 ? plural(guest.visitCount, "visit") : ZERO_VISITS.toLowerCase(),
+        noShowsSentence(guest.noShowCount),
       ]
         .filter((part) => part !== null)
         .join(", ");
       const allergies = (guest.dietaryRestrictions ?? []).filter(isAllergyTag);
-      const allergyClause =
-        allergies.length > 0 ? ` ${t("crm.allergyList", { list: allergies.join(", ") })}` : "";
-      return `${stripTitle(mode, guest.name, t)} — ${history}.${allergyClause}`;
+      const allergyClause = allergies.length > 0 ? ` Allergy: ${allergies.join(", ")}.` : "";
+      return `${stripTitle(mode, guest.name)} — ${history}.${allergyClause}`;
     }
   </file>
   <file path="apps/hospitality/src/components/crm/guest-prefill.ts">
@@ -6952,17 +6950,6 @@
       if (score === "risky") return "Risky";
       if (score === "standard") return "Standard";
       return "Trusted";
-    }
-    export function segmentText(label: string, t: TFunction = defaultT): string {
-      if (label === "VIP") return t("crm.segment.VIP");
-      if (label === "Repeat") return t("crm.segment.Repeat");
-      if (label === "New") return t("crm.segment.New");
-      return label;
-    }
-    export function riskText(score: GuestRiskScore, t: TFunction = defaultT): string {
-      if (score === "risky") return t("crm.risk.risky");
-      if (score === "standard") return t("crm.risk.standard");
-      return t("crm.risk.trusted");
     }
   </file>
   </section>
@@ -12095,30 +12082,6 @@
       }
     }
   </file>
-  <file path="apps/hospitality/src/hooks/live-reservation-toast.ts">
-    export type LiveToastEvent = "reservation:created" | "reservation:cancelled";
-    export function liveReservationToast(
-      type: LiveToastEvent,
-      reservation: Reservation,
-      t: TFunction,
-      formatTime: (iso: string) => string
-    ): { title: string; description: string } {
-      const name = reservation.guestName ?? t("reservations.guestFallback");
-      if (type === "reservation:created") {
-        return {
-          title: t("reservations.live.createdTitle"),
-          description: t("reservations.live.createdDescription", {
-            name,
-            time: formatTime(reservation.startTime),
-          }),
-        };
-      }
-      return {
-        title: t("reservations.live.cancelledTitle"),
-        description: t("reservations.live.cancelledDescription", { name }),
-      };
-    }
-  </file>
   <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
     export const SSE_INVALIDATION_QUERY_KEYS = [
       RESERVATIONS_QUERY_KEY,
@@ -15071,9 +15034,6 @@
   </file>
   </section>
   <section priority="medium" role="i18n">
-  <file path="apps/hospitality/src/i18n/default-t.ts">
-    export const defaultT: TFunction = localeRuntime.i18n.t.bind(localeRuntime.i18n);
-  </file>
   <file path="apps/hospitality/src/i18n/locales.ts">
     export type LocaleTag = "en-US" | "en-GB" | "es-MX" | "fr-CA";
     export interface SupportedLocale {
@@ -15123,16 +15083,6 @@
         if (match) return match;
       }
       return DEFAULT_LOCALE;
-    }
-  </file>
-  <file path="apps/hospitality/src/i18n/ordinal-visit.ts">
-    type OrdinalCategory = "one" | "two" | "few" | "other";
-    function ordinalCategory(language: string, n: number): OrdinalCategory {
-      const category = new Intl.PluralRules(language, { type: "ordinal" }).select(n);
-      return category === "one" || category === "two" || category === "few" ? category : "other";
-    }
-    export function ordinalVisitLabel(t: TFunction, language: string, n: number): string {
-      return t(`reservations.visitOrdinal.${ordinalCategory(language, n)}`, { count: n });
     }
   </file>
   <file path="apps/hospitality/src/i18n/typed-keys.typecheck.ts">

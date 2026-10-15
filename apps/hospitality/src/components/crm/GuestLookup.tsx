@@ -18,7 +18,6 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { useTranslation } from "react-i18next";
 import type { ChangeHandler, RefCallBack } from "react-hook-form";
 import { Input, Text } from "@mattbutlerengineering/rialto";
 import { useCombobox } from "@mattbutlerengineering/rialto/hooks";
@@ -27,6 +26,11 @@ import { useGuestLookup } from "../../hooks/useGuestLookup.js";
 import { formatGuestRowDetail } from "./guest-lookup-rows.js";
 import styles from "./GuestLookup.module.css";
 
+export const LOOKUP_FAILURE_COPY = "Can't look up guests right now — type the details as usual.";
+const LOADING_COPY = "Looking up guests…";
+const NO_MATCH_COPY = "No returning guest matches. Carry on as usual.";
+const MORE_COPY = "More matches — keep typing to narrow.";
+const LISTBOX_LABEL = "Guest suggestions";
 const LISTBOX_GAP_PX = 4;
 
 export interface GuestLookupProps {
@@ -52,6 +56,10 @@ export interface GuestLookupProps {
   "data-testid"?: string;
 }
 
+function resultsSentence(count: number): string {
+  return `${count} result${count === 1 ? "" : "s"} available`;
+}
+
 export function GuestLookup({
   venueId,
   label,
@@ -70,7 +78,6 @@ export function GuestLookup({
   required,
   "data-testid": testId,
 }: GuestLookupProps) {
-  const { t } = useTranslation();
   const inputId = useId();
   const listboxId = `${inputId}-listbox`;
   const captionId = `${inputId}-failure`;
@@ -121,8 +128,8 @@ export function GuestLookup({
   }
 
   useEffect(() => {
-    if (failureShown) announce(t("crm.lookup.failure"));
-  }, [failureShown, announce, t]);
+    if (failureShown) announce(LOOKUP_FAILURE_COPY);
+  }, [failureShown, announce]);
 
   // Position the portaled list under the input (rialto Select precedent).
   useLayoutEffect(() => {
@@ -176,10 +183,10 @@ export function GuestLookup({
   const liveMessage = !visible
     ? ""
     : isLoading
-      ? t("crm.lookup.loading")
+      ? LOADING_COPY
       : rows.length === 0
-        ? t("crm.lookup.noMatch")
-        : t("crm.lookup.results", { count: rows.length });
+        ? NO_MATCH_COPY
+        : resultsSentence(rows.length);
 
   const describedBy = failureShown
     ? [hint ? `${inputId}-hint` : undefined, captionId].filter(Boolean).join(" ")
@@ -215,7 +222,7 @@ export function GuestLookup({
       />
       {failureShown && (
         <Text id={captionId} variant="caption" color="secondary" className={styles.caption}>
-          {t("crm.lookup.failure")}
+          {LOOKUP_FAILURE_COPY}
         </Text>
       )}
       <div role="status" aria-live="polite" className={styles.srOnly}>
@@ -228,7 +235,7 @@ export function GuestLookup({
             id={listboxId}
             className={styles.listbox}
             role="listbox"
-            aria-label={t("crm.lookup.listboxLabel")}
+            aria-label={LISTBOX_LABEL}
           >
             {isLoading && (
               <li
@@ -237,7 +244,7 @@ export function GuestLookup({
                 aria-selected={false}
                 aria-disabled="true"
               >
-                {t("crm.lookup.loading")}
+                {LOADING_COPY}
               </li>
             )}
             {!isLoading && rows.length === 0 && (
@@ -247,7 +254,7 @@ export function GuestLookup({
                 aria-selected={false}
                 aria-disabled="true"
               >
-                {t("crm.lookup.noMatch")}
+                {NO_MATCH_COPY}
               </li>
             )}
             {rows.map((guest, index) => (
@@ -270,7 +277,7 @@ export function GuestLookup({
                   {guest.name}
                 </Text>
                 <Text as="span" variant="detail" color="secondary">
-                  {formatGuestRowDetail(guest, t)}
+                  {formatGuestRowDetail(guest)}
                 </Text>
               </li>
             ))}
@@ -281,7 +288,7 @@ export function GuestLookup({
                 aria-selected={false}
                 aria-disabled="true"
               >
-                {t("crm.lookup.more")}
+                {MORE_COPY}
               </li>
             )}
           </ul>,

@@ -1,6 +1,4 @@
-import { useReducer, useEffect, useCallback, useMemo, type ChangeEvent } from "react";
-import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
+import { useReducer, useEffect, useCallback, type ChangeEvent } from "react";
 import { z } from "zod";
 import {
   Alert,
@@ -21,17 +19,15 @@ import { GuestCard } from "./GuestCard.js";
 
 /* ── Schema ─────────────────────────────────── */
 
-function createGuestFormSchema(t: TFunction) {
-  return z.object({
-    name: z.string().min(1, t("crm.drawer.nameRequired")),
-    email: z.string().email(t("crm.drawer.invalidEmail")).or(z.literal("")),
-    phone: z
-      .string()
-      .regex(/^[+\d\s\-().]{7,}$/, t("crm.drawer.invalidPhone"))
-      .or(z.literal("")),
-    notes: z.string(),
-  });
-}
+const guestFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Please enter a valid email address").or(z.literal("")),
+  phone: z
+    .string()
+    .regex(/^[+\d\s\-().]{7,}$/, "Please enter a valid phone number")
+    .or(z.literal("")),
+  notes: z.string(),
+});
 
 /* ── Constants ──────────────────────────────── */
 
@@ -146,8 +142,6 @@ export function GuestDrawer({
   guestReservations,
   isLoadingHistory,
 }: GuestDrawerProps) {
-  const { t } = useTranslation();
-  const guestFormSchema = useMemo(() => createGuestFormSchema(t), [t]);
   const [state, dispatch] = useReducer(drawerReducer, INITIAL_DRAWER_STATE);
   const { isEditing, extras } = state;
   const { toast } = useToast();
@@ -177,7 +171,7 @@ export function GuestDrawer({
         dietaryRestrictions: extras.dietaryRestrictions,
       });
       dispatch({ type: "set_editing", isEditing: false });
-      toast({ title: t("crm.drawer.updated"), variant: "success" });
+      toast({ title: "Guest updated", variant: "success" });
     },
     guestFormSchema
   );
@@ -224,29 +218,29 @@ export function GuestDrawer({
     <Drawer
       open={open}
       onClose={onClose}
-      title={isEditing ? t("crm.drawer.editTitle", { name: guest.name }) : guest.name}
+      title={isEditing ? `Edit ${guest.name}` : guest.name}
       side="right"
       size="default"
       footer={
         isEditing ? (
           <Stack direction="row" gap="sm" justify="end">
             <Button variant="ghost" onClick={handleCancelEdit} disabled={isPending}>
-              {t("crm.drawer.cancel")}
+              Cancel
             </Button>
             <Button variant="primary" onClick={handleSubmit} disabled={isPending || !isFormValid}>
-              {isPending ? t("crm.drawer.saving") : t("crm.drawer.save")}
+              {isPending ? "Saving..." : "Save"}
             </Button>
           </Stack>
         ) : (
           <Stack direction="row" gap="sm" justify="end">
             <Button variant="ghost" onClick={onClose}>
-              {t("crm.drawer.close")}
+              Close
             </Button>
             <Button
               variant="secondary"
               onClick={() => dispatch({ type: "set_editing", isEditing: true })}
             >
-              {t("crm.drawer.editGuest")}
+              Edit Guest
             </Button>
           </Stack>
         )
@@ -256,33 +250,33 @@ export function GuestDrawer({
         <Stack gap="md">
           {error && <Alert variant="error">{error}</Alert>}
           <Input
-            label={t("crm.drawer.name")}
+            label="Name"
             type="text"
-            placeholder={t("crm.drawer.namePlaceholder")}
+            placeholder="Full name"
             value={fields.name}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setField("name", e.target.value)}
           />
           <Input
-            label={t("crm.drawer.email")}
+            label="Email"
             type="email"
-            placeholder={t("crm.drawer.emailPlaceholder")}
+            placeholder="guest@example.com"
             value={fields.email}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setField("email", e.target.value)}
             error={!isEmailValid}
-            hint={!isEmailValid ? t("crm.drawer.invalidEmail") : undefined}
+            hint={!isEmailValid ? "Please enter a valid email address" : undefined}
           />
           <Input
-            label={t("crm.drawer.phone")}
+            label="Phone"
             type="tel"
             placeholder="+1 (555) 000-0000"
             value={fields.phone}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setField("phone", e.target.value)}
             error={!isPhoneValid}
-            hint={!isPhoneValid ? t("crm.drawer.invalidPhone") : undefined}
+            hint={!isPhoneValid ? "Please enter a valid phone number" : undefined}
           />
           <TextArea
-            label={t("crm.drawer.notes")}
-            placeholder={t("crm.drawer.notesPlaceholder")}
+            label="Notes"
+            placeholder="Preferences, allergies, etc."
             value={fields.notes}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setField("notes", e.target.value)}
             rows={4}
@@ -291,7 +285,7 @@ export function GuestDrawer({
 
           <Stack gap="xs">
             <Text variant="label" color="secondary">
-              {t("crm.drawer.tags")}
+              Tags
             </Text>
             <Stack direction="row" gap="xs" wrap>
               {extras.tags.map((tag) => (
@@ -299,7 +293,7 @@ export function GuestDrawer({
                   key={tag}
                   variant="ghost"
                   onClick={() => dispatch({ type: "remove_tag", tag })}
-                  aria-label={t("crm.drawer.removeTag", { tag })}
+                  aria-label={`Remove tag ${tag}`}
                 >
                   {tag} ×
                 </Button>
@@ -308,7 +302,7 @@ export function GuestDrawer({
             <Input
               label=""
               type="text"
-              placeholder={t("crm.drawer.addTag")}
+              placeholder="Add tag (press Enter)"
               value={extras.tagInput}
               onChange={(e: ChangeEvent<HTMLInputElement>) =>
                 dispatch({ type: "update_tag_input", value: e.target.value })
@@ -319,13 +313,13 @@ export function GuestDrawer({
 
           <Stack gap="xs">
             <Text variant="label" color="secondary">
-              {t("crm.card.dietary")}
+              Dietary Restrictions
             </Text>
             <Stack gap="xs">
               {DIETARY_RESTRICTION_OPTIONS.map((restriction) => (
                 <Checkbox
                   key={restriction}
-                  label={t(`crm.drawer.dietaryOption.${restriction}`)}
+                  label={restriction}
                   checked={extras.dietaryRestrictions.includes(restriction)}
                   onCheckedChange={() => dispatch({ type: "toggle_dietary", restriction })}
                 />
@@ -345,7 +339,7 @@ export function GuestDrawer({
               <Divider />
               <Stack gap="xs">
                 <Text variant="label" color="secondary">
-                  {t("crm.drawer.tags")}
+                  Tags
                 </Text>
                 <Stack direction="row" gap="xs" wrap>
                   {guest.tags.map((tag) => (
@@ -358,7 +352,7 @@ export function GuestDrawer({
 
           {isLoadingHistory && (
             <Text variant="caption" color="secondary">
-              {t("crm.drawer.loadingHistory")}
+              Loading reservation history...
             </Text>
           )}
 
@@ -367,11 +361,11 @@ export function GuestDrawer({
               <Divider />
               <Stack gap="xs">
                 <Text variant="label" color="secondary">
-                  {t("crm.drawer.recent")}
+                  Recent Reservations
                 </Text>
                 {guestReservations.slice(0, 5).map((r: Reservation) => (
                   <Text key={r.id} variant="caption" color="secondary">
-                    {r.date} &middot; {t("crm.drawer.partyGuests", { count: r.partySize })}
+                    {r.date} &middot; {r.partySize} guests
                   </Text>
                 ))}
               </Stack>

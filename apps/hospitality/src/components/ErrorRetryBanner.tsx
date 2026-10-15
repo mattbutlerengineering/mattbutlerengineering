@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import { Alert, Button, Collapsible, Text } from "@mattbutlerengineering/rialto";
 import styles from "./ErrorRetryBanner.module.css";
 
@@ -29,7 +28,6 @@ export function ErrorRetryBanner({
   onRetry,
   onDismiss,
 }: ErrorRetryBannerProps) {
-  const { t } = useTranslation();
   const hasDetails = details !== undefined && details.trim() !== "";
 
   return (
@@ -42,14 +40,14 @@ export function ErrorRetryBanner({
         actions={
           onRetry ? (
             <Button variant="secondary" size="md" onClick={onRetry} className={styles.retry}>
-              {t("errorBanner.retry")}
+              Retry
             </Button>
           ) : undefined
         }
       >
         {error}
         {hasDetails && (
-          <Collapsible trigger={t("errorBanner.showDetails")} className={styles.details}>
+          <Collapsible trigger="Show details" className={styles.details}>
             <Text variant="caption" color="secondary">
               {details}
             </Text>

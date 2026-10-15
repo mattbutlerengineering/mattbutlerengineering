@@ -12,10 +12,6 @@ const LOCALIZED_FILES = [
   "src/pages/{HomePage,TimelinePage}.tsx",
   "src/components/timeline/**/*.{ts,tsx}",
   "src/components/dashboard/**/*.{ts,tsx}",
-  "src/pages/{ReservationsPage,GuestsPage,WaitlistPage}.tsx",
-  "src/components/crm/**/*.{ts,tsx}",
-  "src/components/reservations/**/*.{ts,tsx}",
-  "src/components/{ErrorRetryBanner,KpiStat}.tsx",
   "src/components/LanguageRegionCard.tsx",
 ];
 

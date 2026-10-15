@@ -4,9 +4,7 @@
  * (ux.md decision (g)).
  */
 
-import type { TFunction } from "i18next";
 import { classifyGuestSegment, type GuestRiskScore } from "@mbe/types";
-import { defaultT } from "../../i18n/default-t.js";
 
 /** Substrings that mark a dietary restriction as an allergy (ux.md Screen 1). */
 export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
@@ -43,19 +41,4 @@ export function getRiskLabel(score: GuestRiskScore): string {
   if (score === "risky") return "Risky";
   if (score === "standard") return "Standard";
   return "Trusted";
-}
-
-/** The displayed words for a segment label (the label itself stays the stable id `getSegmentVariant` reads). */
-export function segmentText(label: string, t: TFunction = defaultT): string {
-  if (label === "VIP") return t("crm.segment.VIP");
-  if (label === "Repeat") return t("crm.segment.Repeat");
-  if (label === "New") return t("crm.segment.New");
-  return label;
-}
-
-/** The displayed words for a risk score. */
-export function riskText(score: GuestRiskScore, t: TFunction = defaultT): string {
-  if (score === "risky") return t("crm.risk.risky");
-  if (score === "standard") return t("crm.risk.standard");
-  return t("crm.risk.trusted");
 }

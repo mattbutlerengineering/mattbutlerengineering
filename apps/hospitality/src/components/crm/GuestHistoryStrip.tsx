@@ -4,12 +4,10 @@
  * marked (ux.md § Strip). Fed by the `Guest` from the search row; owns no state.
  */
 import { useId } from "react";
-import { useTranslation } from "react-i18next";
 import { Badge, Button, Stack, Tag, Text } from "@mattbutlerengineering/rialto";
 import type { Guest } from "@mbe/types";
 import {
-  riskText,
-  segmentText,
+  getRiskLabel,
   getRiskVariant,
   getSegmentLabel,
   getSegmentVariant,
@@ -32,10 +30,9 @@ export interface GuestHistoryStripProps {
 }
 
 export function GuestHistoryStrip({ guest, mode, caption, onClear }: GuestHistoryStripProps) {
-  const { t } = useTranslation();
   const titleId = useId();
   const segmentLabel = getSegmentLabel(guest.visitCount, guest.tags);
-  const noShows = noShowsSentence(guest.noShowCount, t);
+  const noShows = noShowsSentence(guest.noShowCount);
   const restrictions = guest.dietaryRestrictions ?? [];
 
   return (
@@ -43,22 +40,18 @@ export function GuestHistoryStrip({ guest, mode, caption, onClear }: GuestHistor
       <Stack gap="xs">
         <Stack direction="row" gap="sm" align="center" justify="between">
           <Text id={titleId} variant="caption" color="primary">
-            {stripTitle(mode, guest.name, t)}
+            {stripTitle(mode, guest.name)}
           </Text>
-          <Button
-            variant="ghost"
-            aria-label={t("crm.clearAria", { name: guest.name })}
-            onClick={onClear}
-          >
-            {t("crm.clear")}
+          <Button variant="ghost" aria-label={`Clear ${guest.name}`} onClick={onClear}>
+            Clear
           </Button>
         </Stack>
         <Stack direction="row" gap="xs" align="center" wrap>
           {segmentLabel !== "New" && (
-            <Badge variant={getSegmentVariant(segmentLabel)}>{segmentText(segmentLabel, t)}</Badge>
+            <Badge variant={getSegmentVariant(segmentLabel)}>{segmentLabel}</Badge>
           )}
           <Text variant="caption" color="secondary">
-            {visitsSentence(guest.visitCount, t)}
+            {visitsSentence(guest.visitCount)}
           </Text>
           {noShows && (
             <>
@@ -66,7 +59,7 @@ export function GuestHistoryStrip({ guest, mode, caption, onClear }: GuestHistor
                 {noShows}
               </Text>
               <Badge variant={getRiskVariant(guest.riskScore)}>
-                {riskText(guest.riskScore, t)}
+                {getRiskLabel(guest.riskScore)}
               </Badge>
             </>
           )}
@@ -76,7 +69,7 @@ export function GuestHistoryStrip({ guest, mode, caption, onClear }: GuestHistor
             {restrictions.map((restriction) =>
               isAllergyTag(restriction) ? (
                 <Tag key={restriction} variant="error">
-                  {t("crm.allergy", { restriction })}
+                  {`Allergy: ${restriction}`}
                 </Tag>
               ) : (
                 <Tag key={restriction}>{restriction}</Tag>
