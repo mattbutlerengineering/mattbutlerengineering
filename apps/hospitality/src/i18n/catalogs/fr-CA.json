@@ -2,6 +2,11 @@
   "shell": {
     "skipToMain": "Passer au contenu principal",
     "skipToContent": "Passer au contenu",
+    "globalNav": {
+      "marketing": "Accueil",
+      "hospitality": "Hôtellerie",
+      "rialto": "Système de design"
+    },
     "copyright": "© {{year}} Matt Butler",
     "dashboardDocumentTitle": "Tableau de bord - Matt Butler Engineering"
   },

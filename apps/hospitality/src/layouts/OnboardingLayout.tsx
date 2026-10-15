@@ -1,4 +1,5 @@
 import { Outlet } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Heading, Text, Stack } from "@mattbutlerengineering/rialto";
 import { VenueProvider } from "../contexts/VenueContext.js";
 import {
@@ -9,10 +10,10 @@ import { VerticalStepRail } from "../components/venue-onboarding/VerticalStepRai
 import styles from "./OnboardingLayout.module.css";
 
 const PRODUCT_NAME = "Hospitality";
-const TAGLINE = "Restaurant management, simplified.";
 
 /** Brand panel: product identity plus the live vertical progress rail (desktop). */
 function OnboardingBrandPanel() {
+  const { t } = useTranslation();
   const { step, highestStepReached, launch, actions } = useOnboardingWizardContext();
   // isSubmitting was retired (#4824) — it was permanently false, so this
   // guard never actually blocked navigation while a launch was in flight.
@@ -25,7 +26,7 @@ function OnboardingBrandPanel() {
           {PRODUCT_NAME}
         </Heading>
         <Text variant="body" color="secondary">
-          {TAGLINE}
+          {t("auth.login.taglineDefault")}
         </Text>
       </Stack>
       <div className={styles.stepContext}>

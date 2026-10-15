@@ -60,7 +60,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   ),
-  GlobalNav: () => <nav data-testid="global-nav" />,
+  GlobalNav: ({ labels }: { labels?: Record<string, string> }) => (
+    <nav data-testid="global-nav" data-labels={JSON.stringify(labels)} />
+  ),
   Footer: ({ children }: { children: React.ReactNode }) => <footer>{children}</footer>,
   DepartureBoard: ({
     phrases,
@@ -158,6 +160,15 @@ describe("App", () => {
     renderAt({ phase: "expired" });
     expect(screen.getByTestId("session-expired")).toBeDefined();
     expect(screen.queryByTestId("auth-layout")).toBeNull();
+  });
+
+  it("hands the global nav its link labels from the active locale's catalog", () => {
+    renderAt({ phase: "ready" });
+    expect(JSON.parse(screen.getByTestId("global-nav").dataset["labels"] ?? "{}")).toEqual({
+      marketing: "Home",
+      hospitality: "Hospitality",
+      rialto: "Design System",
+    });
   });
 
   it("renders Outlet in a flex column layout when ready", () => {

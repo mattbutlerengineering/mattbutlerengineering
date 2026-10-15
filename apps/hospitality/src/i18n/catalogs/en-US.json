@@ -2,6 +2,11 @@
   "shell": {
     "skipToMain": "Skip to main content",
     "skipToContent": "Skip to content",
+    "globalNav": {
+      "marketing": "Home",
+      "hospitality": "Hospitality",
+      "rialto": "Design System"
+    },
     "copyright": "© {{year}} Matt Butler",
     "dashboardDocumentTitle": "Dashboard - Matt Butler Engineering"
   },

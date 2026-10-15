@@ -2,6 +2,11 @@
   "shell": {
     "skipToMain": "Saltar al contenido principal",
     "skipToContent": "Saltar al contenido",
+    "globalNav": {
+      "marketing": "Inicio",
+      "hospitality": "Hospitalidad",
+      "rialto": "Sistema de diseño"
+    },
     "copyright": "© {{year}} Matt Butler",
     "dashboardDocumentTitle": "Panel - Matt Butler Engineering"
   },

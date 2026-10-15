@@ -20,6 +20,9 @@
   font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
   z-index: 10;
+  /* The canvas can be narrower than the name plus a longer-locale "(Active)": wrap, never clip. */
+  max-inline-size: calc(100% - 2 * var(--rialto-space-xs));
+  overflow-wrap: anywhere;
 }
 
 .activeLabel {
