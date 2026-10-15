@@ -3501,6 +3501,12 @@ None (`agent-skip` count is 0). All 6 `ready` issues were left untouched this it
 
 **Environment setup:** Fresh cloud checkout needed `pnpm install --frozen-lockfile` (no `node_modules`) plus `pnpm build --filter @mbe/gh-client...` (`ERR_MODULE_NOT_FOUND @mbe/gh-client`, missing `dist/`) before `sensor-report.mjs` would run — same standard fresh-checkout gotcha as prior runs.
 
+## 2026-10-15
+
+**queueEfficiency:** composite 0.964 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:41, size:xs:43, size:l:16, size:s:45, size:xl:12
+**Issues filed:** 0
+
 ## 2026-10-15 — mbe-evening (progress-tracker)
 
 ### Metrics (7d window, since 2026-10-08)
