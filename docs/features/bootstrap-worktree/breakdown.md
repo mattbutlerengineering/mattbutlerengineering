@@ -33,7 +33,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 2: the command works end to end (SC-1, SC-2)
 
-- [ ] **WO-7. Probes + CLI + `bootstrap:worktree` script** — fs probe layer
+- [x] **WO-7. Probes + CLI + `bootstrap:worktree` script** — fs probe layer
       (workspace globs, mtime staleness via `.modules.yaml` receipt, dist
       existence), `--check` mode, step execution via `execFileSync`
       (`pnpm install --frozen-lockfile`; `pnpm exec turbo run build` with one
@@ -49,7 +49,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 3: sessions discover it (SC-4)
 
-- [ ] **WO-8. SessionStart hint hook** —
+- [x] **WO-8. SessionStart hint hook** —
       `.claude/hooks/worktree-bootstrap-hint.sh` (linked-worktree test,
       `--check` probe, one-line hint, unconditional `exit 0`) wired in
       `.claude/settings.json` beside `session-log-rotate.sh` with the same
@@ -64,7 +64,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 4: docs follow the tool (R4)
 
-- [ ] **WO-9. Re-point gotchas + worker step 0** — edit the
+- [x] **WO-9. Re-point gotchas + worker step 0** — edit the
       `.claude/rules/gotchas.md` § Build / pnpm / turbo worktree-install
       bullet (and the pre-push/typecheck worktree bullet) and
       `.claude/agents/implement-queue-worker.md` step 0 to name
@@ -78,7 +78,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 5: acceptance sweep (SC-5)
 
-- [ ] **WO-10. Gates + issue verification commands** — run the issue's
+- [x] **WO-10. Gates + issue verification commands** — run the issue's
       verification block verbatim (`pnpm install --frozen-lockfile`; the
       vitest run of `bootstrap-worktree.test.mjs`;
       `node scripts/check-hook-wiring.mjs`) plus
