@@ -18141,6 +18141,17 @@
       export function stripReservationsIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/venue-wall-time.ts">
+    <item priority="medium">
+      function zoneOffsetMs(instantMs: number, timeZone: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueWallTimeToInstant(date: string, hhmm: string, timeZone?: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function wallTimeInputValue(isoString: string, timeZone?: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
     <item priority="high">
       export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;

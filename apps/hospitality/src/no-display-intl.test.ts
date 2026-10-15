@@ -13,6 +13,7 @@ const ALLOWED = new Map<string, string>([
   ["utils/format.ts", "the formatting module itself"],
   ["utils/ics.ts", "formatToParts('en-US') for iCalendar computation"],
   ["utils/service-day.ts", "en-CA date-key computation"],
+  ["utils/venue-wall-time.ts", "zone-offset computation for wall-clock to instant"],
   ["i18n/locales.ts", "Intl.Locale parsing, not display"],
   ["components/venue-onboarding/LocationTimeStep.tsx", "resolvedOptions() zone detection"],
 ]);

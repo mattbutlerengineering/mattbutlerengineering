@@ -14,6 +14,8 @@ import { GuestCard } from "../crm/GuestCard.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { venueWallTimeToInstant, wallTimeInputValue } from "../../utils/venue-wall-time.js";
 import styles from "./EditReservationDrawer.module.css";
 
 interface EditReservationDrawerProps {
@@ -31,13 +33,6 @@ interface EditReservationFormData {
   notes: string;
 }
 
-function toTimeInputValue(isoString: string): string {
-  const date = new Date(isoString);
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
 /**
  * The drawer owns its failure and nothing else: a rejected `onSave` becomes an `ErrorRetryBanner`
  * above the actions, Save Changes returns to rest, the edited values stay, and focus lands back on
@@ -49,6 +44,7 @@ export function EditReservationDrawer({
   onSave,
   onClose,
 }: EditReservationDrawerProps) {
+  const { timeZone } = useVenueFormat();
   const [tableId, setTableId] = useState(reservation.tableId);
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
@@ -62,8 +58,8 @@ export function EditReservationDrawer({
     watch,
   } = useForm<EditReservationFormData>({
     defaultValues: {
-      startTime: toTimeInputValue(reservation.startTime),
-      endTime: toTimeInputValue(reservation.endTime),
+      startTime: wallTimeInputValue(reservation.startTime, timeZone),
+      endTime: wallTimeInputValue(reservation.endTime, timeZone),
       partySize: String(reservation.partySize),
       notes: reservation.notes ?? "",
     },
@@ -82,8 +78,8 @@ export function EditReservationDrawer({
 
     const date = reservation.date.split("T")[0];
     const payload: UpdateReservationRequest = {
-      startTime: `${date}T${data.startTime}:00`,
-      endTime: `${date}T${data.endTime}:00`,
+      startTime: venueWallTimeToInstant(date!, data.startTime, timeZone).toISOString(),
+      endTime: venueWallTimeToInstant(date!, data.endTime, timeZone).toISOString(),
       partySize: parsedPartySize,
       tableId,
       notes: data.notes.trim() || undefined,

@@ -62001,6 +62001,44 @@
       return next;
     }
   </file>
+  <file path="apps/hospitality/src/utils/venue-wall-time.ts">
+    function zoneOffsetMs(instantMs: number, timeZone: string): number {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hourCycle: "h23",
+      }).formatToParts(new Date(instantMs));
+      const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value);
+      const wallAsUtc = Date.UTC(
+        get("year"),
+        get("month") - 1,
+        get("day"),
+        get("hour"),
+        get("minute"),
+        get("second")
+      );
+      return wallAsUtc - Math.floor(instantMs / 1000) * 1000;
+    }
+    export function venueWallTimeToInstant(date: string, hhmm: string, timeZone?: string): Date {
+      const zone = resolveTimeZone(timeZone);
+      if (!zone) return new Date(`${date}T${hhmm}:00`);
+      const wallAsUtc = Date.parse(`${date}T${hhmm}:00Z`);
+      // One pass lands within an hour of the answer; the second corrects across a DST edge.
+      const first = wallAsUtc - zoneOffsetMs(wallAsUtc, zone);
+      return new Date(wallAsUtc - zoneOffsetMs(first, zone));
+    }
+    export function wallTimeInputValue(isoString: string, timeZone?: string): string {
+      const minutes = minutesOfDayIn(new Date(isoString), resolveTimeZone(timeZone));
+      const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
+      const mm = String(minutes % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+  </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
     export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
       monday: "Monday",

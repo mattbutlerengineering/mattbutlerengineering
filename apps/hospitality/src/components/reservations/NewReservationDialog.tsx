@@ -10,6 +10,8 @@ import { GuestLookup } from "../crm/GuestLookup.js";
 import { GuestHistoryStrip } from "../crm/GuestHistoryStrip.js";
 import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { applyClear, applyPick, type PrefillSnapshot } from "../crm/guest-prefill.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { venueWallTimeToInstant } from "../../utils/venue-wall-time.js";
 import styles from "./NewReservationDialog.module.css";
 
 interface NewReservationDialogProps {
@@ -53,18 +55,6 @@ function findBestTable(tables: Table[], partySize: number): string {
   return eligible[0]?.id ?? "";
 }
 
-// Formats a Date using its local components (not toISOString, which is UTC)
-// so the result stays in the `YYYY-MM-DDTHH:mm:ss` shape the create payload expects.
-function formatLocalDateTime(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-}
-
 export function NewReservationDialog({
   tables,
   venueId,
@@ -72,6 +62,7 @@ export function NewReservationDialog({
   onConfirm,
   onClose,
 }: NewReservationDialogProps) {
+  const { timeZone } = useVenueFormat();
   const [partySize, setPartySize] = useState(2);
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
   const [isLoading, setIsLoading] = useState(false);
@@ -169,10 +160,11 @@ export function NewReservationDialog({
       return;
     }
 
-    const startDate = new Date(`${data.date}T${data.startTime}:00`);
+    // The picked date and time are the venue's wall clock; the API takes the UTC instant.
+    const startDate = venueWallTimeToInstant(data.date, data.startTime, timeZone);
     const endDate = new Date(startDate.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
-    const startTime = formatLocalDateTime(startDate);
-    const endTime = formatLocalDateTime(endDate);
+    const startTime = startDate.toISOString();
+    const endTime = endDate.toISOString();
 
     setIsLoading(true);
     setError(null);
