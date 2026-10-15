@@ -89,7 +89,11 @@ export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
             const isLast = i === displayItems.length - 1;
 
             return (
-              <li key={i} className={styles.item}>
+              <li
+                key={i}
+                className={styles.item}
+                aria-hidden={item === "ellipsis" ? true : undefined}
+              >
                 {/* Separator (not before first item) */}
                 {i > 0 && (
                   <span className={styles.separator} aria-hidden="true">

@@ -188,7 +188,7 @@ SegmentedControl.tsx - model is a single-select `role=radiogroup` of `role=radio
 
 ---
 
-## Iteration 5: Navigation (Navbar, Sidebar)
+## Iteration 5: Navigation (Navbar, Sidebar, Breadcrumb, Pagination)
 
 ### Navbar.tsx
 
@@ -199,13 +199,30 @@ Navbar.tsx - the submenu toggle had `aria-expanded` but no `aria-controls`. **FI
 
 Sidebar.tsx - section label was a bare `<span>` with no association to its items. **FIXED**: each section is now `role="group"` with `aria-labelledby` pointing at the label (`useId`); the attribute is omitted when the section has no label or the sidebar is collapsed (no dangling reference). (#6589)
 
+### Breadcrumb.tsx
+
+Breadcrumb.tsx - when `maxItems` collapsed the trail, the "…" placeholder was an `<li>` whose only content was `aria-hidden`, so AT announced a list with an empty entry (one more item than real crumbs). **FIXED**: the placeholder `<li>` is `aria-hidden` (its separator already was), so the list count matches the visible links.
+Breadcrumb.tsx - `nav[aria-label="Breadcrumb"]`, `ol` of `li`, the last item as `aria-current="page"`, decorative separators `aria-hidden`, native links and buttons. **Not fixed** - compliant with the APG breadcrumb pattern.
+Breadcrumb.tsx - the collapsed middle items cannot be revealed (APG's expandable variant). **Defer** - needs new interaction and API.
+Breadcrumb.tsx - the `nav` name is fixed to "Breadcrumb" and `HTMLAttributes` are not forwarded, so a page with two trails cannot tell them apart. **Defer** - passthrough/label prop is an API change (and a localisation string, #6616).
+Breadcrumb.tsx - a non-last item with neither `href` nor `onClick` renders an inert button. **Defer** - a type-level contract decision.
+Breadcrumb.tsx - `maxItems={1}` makes `slice(-0)` return every item (not an a11y defect). **Defer** - noted for a separate fix.
+
+### Pagination.tsx
+
+Pagination.tsx - `nav[aria-label="Pagination"]`, native buttons, `aria-label="Page N"` (contains the visible number, so label-in-name holds), `aria-current="page"` on the active page, ellipsis `aria-hidden`, arrows named and natively disabled at the bounds. **Not fixed** - compliant.
+Pagination.tsx - activating Next/Previous onto the last/first page disables the focused button, so focus falls to `body`. **Defer** - the fix (`aria-disabled` or moving focus) changes the disabled contract consumers and tests rely on.
+Pagination.tsx - page changes are not announced and the nav lacks a "page X of Y" description. **Defer** - needs a live region and new visible/spoken strings, which belong with the localisation work (#6616).
+Pagination.tsx - the buttons are flat children of the `nav`, not a list. **Defer** - APG does not require it; a markup change risks styling and queries.
+
 ---
 
-## Fixes applied this iteration (Iteration 5, in progress)
+## Fixes applied this iteration (Iteration 5)
 
 - Navbar: landmark named; submenu toggle linked via `aria-controls` while open (2 fixes)
 - Sidebar: sections grouped under their label (1 fix)
-- Breadcrumb, Pagination: not yet audited
+- Breadcrumb: collapsed-items placeholder hidden from the list (1 fix)
+- Pagination: no change (compliant, 3 deferrals)
 
 ---
 
@@ -214,5 +231,5 @@ Sidebar.tsx - section label was a bare `<span>` with no association to its items
 - ~~**Iteration 2**: Form components — Input, TextArea, Checkbox, Select, NumberInput, PinInput, Autocomplete~~ **Done** (see Iteration 2 above)
 - ~~**Iteration 3**: Invasive wrapper refactors — Popover, DropdownMenu, Tooltip (cloneElement patterns)~~ **Done** (see Iteration 3 above)
 - ~~**Iteration 4**: Non-overlay interactive — Slider, Tabs, Accordion, SegmentedControl~~ **Done** (see Iteration 4 above)
-- **Iteration 5**: Navigation — Navbar, Sidebar, Breadcrumb, Pagination
+- ~~**Iteration 5**: Navigation — Navbar, Sidebar, Breadcrumb, Pagination~~ **Done** (see Iteration 5 above)
 - **Iteration 6**: Verify fixes with axe-core against showcase pages

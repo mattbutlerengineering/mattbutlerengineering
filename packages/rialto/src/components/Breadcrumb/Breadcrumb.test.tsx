@@ -88,6 +88,18 @@ describe("Breadcrumb", () => {
     expect(screen.getByText("Current")).toBeInTheDocument();
   });
 
+  it("hides the collapsed-items placeholder from the list so AT counts only real crumbs", () => {
+    const manyItems = [
+      { label: "Home", href: "/" },
+      { label: "Category", href: "/cat" },
+      { label: "Product", href: "/cat/prod" },
+      { label: "Current" },
+    ];
+    render(<Breadcrumb items={manyItems} maxItems={3} />);
+    // Home, Product, Current — the "…" item is not an empty list entry
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
   it("shows all items when count <= maxItems", () => {
     render(<Breadcrumb items={items} maxItems={5} />);
     expect(screen.queryByText("…")).not.toBeInTheDocument();
