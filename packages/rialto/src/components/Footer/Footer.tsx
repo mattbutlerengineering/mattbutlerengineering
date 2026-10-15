@@ -74,9 +74,11 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
         <footer ref={ref} className={classes} {...props}>
           <div className={styles.logo}>
             {logo ?? (
+              /* eslint-disable mbe-local/no-literal-ui-strings -- brand wordmark, not translated */
               <>
                 Ri<span className={styles.logoAccent}>a</span>lto
               </>
+              /* eslint-enable mbe-local/no-literal-ui-strings */
             )}
           </div>
 

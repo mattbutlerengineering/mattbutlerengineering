@@ -372,7 +372,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                   <kbd>↵</kbd> {messages.selectHint}
                 </span>
                 <span className={styles.footerHint}>
-                  {}
+                  {/* eslint-disable-next-line mbe-local/no-literal-ui-strings -- physical key legend, same in every locale */}
                   <kbd>esc</kbd> {messages.closeHint}
                 </span>
               </div>
