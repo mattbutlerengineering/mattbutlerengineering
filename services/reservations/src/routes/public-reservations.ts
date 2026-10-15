@@ -7,8 +7,7 @@ import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { decrementHoldCount } from "../middleware/public-rate-limit.js";
 import { getManageTokenConfig } from "../config/manage-token.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
+import { publicVenueScoped } from "./public-venue-scope.js";
 
 const TOKEN_SECRET = getManageTokenConfig({
   nodeEnv: process.env.NODE_ENV,
@@ -105,36 +104,39 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
         body: publicReservationBodyJsonSchema,
       },
     },
-    async (request, reply) => {
-      const { slug } = request.params;
-      const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
-      const ip = request.ip;
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: (slug) =>
+          new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`),
+        // The high-entropy sessionId minted at hold creation is this caller's
+        // capability token and the only proof the hold is theirs — mirrors the
+        // release path in public-holds.ts. Requiring it is what makes
+        // confirmHold's SESSION_MISMATCH check run at all: calling confirmHold
+        // without a sessionId skipped ownership entirely, so anyone who guessed a
+        // live holdId could confirm another guest's hold under their own name.
+        // It answers before the slug lookup, as it always did.
+        before: (request) => {
+          const sessionId = request.headers[SESSION_ID_HEADER];
+          if (typeof sessionId !== "string" || sessionId.length === 0) {
+            throw new AppError(
+              "SESSION_REQUIRED",
+              401,
+              `Pass the hold's session ID via the ${SESSION_ID_HEADER} header to confirm it.`
+            );
+          }
+        },
+      },
+      // ADR-026 §3.3 item 3: the venue is resolved through the SECURITY DEFINER
+      // function rather than an unscoped `venues` read by slug, and the rest of
+      // this booking (guest-link lookup, hold confirmation) runs inside that
+      // venue's RLS context.
+      async (request, reply, { venueId }) => {
+        const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
+        const ip = request.ip;
+        // Validated in `before`.
+        const sessionId = request.headers[SESSION_ID_HEADER] as string;
 
-      // The high-entropy sessionId minted at hold creation is this caller's
-      // capability token and the only proof the hold is theirs — mirrors the
-      // release path in public-holds.ts. Reading it here is what makes
-      // confirmHold's SESSION_MISMATCH check run at all: calling confirmHold
-      // without a sessionId skipped ownership entirely, so anyone who guessed a
-      // live holdId could confirm another guest's hold under their own name.
-      const sessionId = request.headers[SESSION_ID_HEADER];
-      if (typeof sessionId !== "string" || sessionId.length === 0) {
-        throw new AppError(
-          "SESSION_REQUIRED",
-          401,
-          `Pass the hold's session ID via the ${SESSION_ID_HEADER} header to confirm it.`
-        );
-      }
-
-      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function rather
-      // than an unscoped `venues` read by slug, then run the rest of this
-      // booking (guest-link lookup, hold confirmation) inside that venue's
-      // RLS context.
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) {
-        throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
-      }
-
-      return runWithVenueContext(venueId, async () => {
         // Read-only recognition by the contact the guest typed — never by an id in the body,
         // which the schema does not declare and this handler never reads (SC12). Both lookups
         // run whenever their input is present, so a known contact costs the same as an unknown
@@ -190,7 +192,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
             manageToken,
           },
         });
-      });
-    }
+      }
+    )
   );
 };

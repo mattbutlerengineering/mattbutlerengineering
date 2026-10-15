@@ -10,8 +10,7 @@ import { holdService } from "../services/hold.js";
 import { generateManageToken } from "./public-reservations.js";
 import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
+import { publicVenueScoped } from "./public-venue-scope.js";
 import {
   getActiveHoldCount,
   incrementHoldCount,
@@ -39,26 +38,14 @@ const CONFIRM_ERROR_TITLE: Record<string, string> = {
 };
 
 /**
- * Server-side venue resolution: every public hold route names its venue by
- * slug and looks it up here, never trusting a client-supplied `venueId`.
- *
- * Resolves through `resolveVenueId("venue_slug", ...)` (ADR-026 §3.3 item 3)
- * rather than a plain `venueService.getBySlug` — that would be an unscoped
- * read of an RLS-protected table, exactly the trap this closes under
- * `FORCE ROW LEVEL SECURITY`.
- *
- * Returns the resolved venue id, or `null` having already replied 404.
+ * Every public hold route names its venue by slug (resolved server-side by
+ * `publicVenueScoped`, ADR-026 §3.3 item 3), never a client-supplied
+ * `venueId`. An unknown slug keeps this route family's own 404 bytes.
  */
-async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> {
-  const venueId = await resolveVenueId("venue_slug", slug);
-  if (!venueId) {
-    reply
-      .status(404)
-      .send(createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`));
-    return null;
-  }
-  return venueId;
-}
+const venueNotFound = (slug: string) => ({
+  title: "Venue Not Found",
+  detail: `No venue found with slug '${slug}'.`,
+});
 
 /**
  * The high-entropy sessionId returned at hold creation is the caller's
@@ -82,6 +69,11 @@ function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: strin
   return sessionId;
 }
 
+/** The session id `readSessionId` already validated in `before`. */
+function sessionIdOf(request: FastifyRequest): string {
+  return request.headers[SESSION_ID_HEADER] as string;
+}
+
 export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { slug: string };
@@ -102,27 +94,27 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         body: publicHoldBodyJsonSchema,
       },
     },
-    async (request, reply) => {
-      const { slug } = request.params;
-      const { date, startTime, partySize } = request.body;
-      const ip = request.ip;
-
-      if (getActiveHoldCount(ip) >= MAX_ACTIVE_HOLDS) {
-        return reply
-          .status(429)
-          .send(
-            createProblemDetails(
-              429,
-              "Too Many Holds",
-              `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`
-            )
-          );
-      }
-
-      const venueId = await resolveVenueBySlug(slug, reply);
-      if (venueId === null) return reply;
-
-      return runWithVenueContext(venueId, async () => {
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: venueNotFound,
+        // The per-IP cap answers before the slug lookup, as it always did.
+        before: (request, reply) =>
+          getActiveHoldCount(request.ip) >= MAX_ACTIVE_HOLDS
+            ? reply
+                .status(429)
+                .send(
+                  createProblemDetails(
+                    429,
+                    "Too Many Holds",
+                    `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`
+                  )
+                )
+            : undefined,
+      },
+      async (request, reply, { venueId }) => {
+        const { date, startTime, partySize } = request.body;
+        const ip = request.ip;
         const sessionId = randomUUID();
         const result = await holdService.create(
           { venueId, date, time: startTime, partySize },
@@ -143,8 +135,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
 
         incrementHoldCount(ip);
         return reply.status(201).send({ data: result.hold! });
-      });
-    }
+      }
+    )
   );
 
   fastify.delete<{
@@ -191,16 +183,17 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Public"],
       },
     },
-    async (request, reply) => {
-      const { slug, holdId } = request.params;
-
-      const sessionId = readSessionId(request, reply, "read");
-      if (sessionId === null) return reply;
-
-      const venueId = await resolveVenueBySlug(slug, reply);
-      if (venueId === null) return reply;
-
-      return runWithVenueContext(venueId, async () => {
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: venueNotFound,
+        // The session header answers 401 before the slug lookup, as it always did.
+        before: (request, reply) =>
+          readSessionId(request, reply, "read") === null ? reply : undefined,
+      },
+      async (request, reply, { venueId }) => {
+        const { holdId } = request.params;
+        const sessionId = sessionIdOf(request);
         const hold = await holdService.getById(holdId);
         // A hold from another venue, or one this session does not own, is
         // reported as absent — never as a distinct status that would confirm it
@@ -212,8 +205,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         return reply.send({ data: hold });
-      });
-    }
+      }
+    )
   );
 
   // Confirm the hold into a reservation. Mirrors the staff route's response
@@ -240,17 +233,18 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         body: publicHoldConfirmBodyJsonSchema,
       },
     },
-    async (request, reply) => {
-      const { slug, holdId } = request.params;
-      const ip = request.ip;
-
-      const sessionId = readSessionId(request, reply, "confirm");
-      if (sessionId === null) return reply;
-
-      const venueId = await resolveVenueBySlug(slug, reply);
-      if (venueId === null) return reply;
-
-      return runWithVenueContext(venueId, async () => {
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: venueNotFound,
+        // The session header answers 401 before the slug lookup, as it always did.
+        before: (request, reply) =>
+          readSessionId(request, reply, "confirm") === null ? reply : undefined,
+      },
+      async (request, reply, { venueId }) => {
+        const { holdId } = request.params;
+        const ip = request.ip;
+        const sessionId = sessionIdOf(request);
         // Fields are named explicitly rather than forwarding the parsed body:
         // Fastify leaves unknown properties on `request.body`, so spreading it
         // would let an anonymous caller smuggle a `guestId` and attach its
@@ -286,7 +280,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
           : undefined;
 
         return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
-      });
-    }
+      }
+    )
   );
 };
