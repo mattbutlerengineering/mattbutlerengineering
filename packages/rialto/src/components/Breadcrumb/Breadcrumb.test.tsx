@@ -100,6 +100,40 @@ describe("Breadcrumb", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
 
+  it("maxItems=1 shows only the current page, not every item", () => {
+    const trail = [
+      { label: "Home", href: "/" },
+      { label: "Category", href: "/cat" },
+      { label: "Current" },
+    ];
+    render(<Breadcrumb items={trail} maxItems={1} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByText("Current")).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Home")).not.toBeInTheDocument();
+  });
+
+  it("lets the consumer override the nav label", () => {
+    render(<Breadcrumb items={items} aria-label="Product trail" />);
+    expect(screen.getByRole("navigation", { name: "Product trail" })).toBeInTheDocument();
+  });
+
+  it("drops the default label when aria-labelledby is supplied", () => {
+    render(
+      <>
+        <h2 id="trail-title">Where you are</h2>
+        <Breadcrumb items={items} aria-labelledby="trail-title" />
+      </>
+    );
+    const nav = screen.getByRole("navigation", { name: "Where you are" });
+    expect(nav).not.toHaveAttribute("aria-label");
+  });
+
+  it("forwards rest props to the nav", () => {
+    render(<Breadcrumb items={items} data-testid="trail" id="bc" />);
+    expect(screen.getByTestId("trail")).toHaveAttribute("id", "bc");
+    expect(screen.getByTestId("trail").tagName).toBe("NAV");
+  });
+
   it("shows all items when count <= maxItems", () => {
     render(<Breadcrumb items={items} maxItems={5} />);
     expect(screen.queryByText("…")).not.toBeInTheDocument();

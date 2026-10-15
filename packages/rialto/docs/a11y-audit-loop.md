@@ -204,16 +204,16 @@ Sidebar.tsx - section label was a bare `<span>` with no association to its items
 Breadcrumb.tsx - when `maxItems` collapsed the trail, the "…" placeholder was an `<li>` whose only content was `aria-hidden`, so AT announced a list with an empty entry (one more item than real crumbs). **FIXED**: the placeholder `<li>` is `aria-hidden` (its separator already was), so the list count matches the visible links.
 Breadcrumb.tsx - `nav[aria-label="Breadcrumb"]`, `ol` of `li`, the last item as `aria-current="page"`, decorative separators `aria-hidden`, native links and buttons. **Not fixed** - compliant with the APG breadcrumb pattern.
 Breadcrumb.tsx - the collapsed middle items cannot be revealed (APG's expandable variant). **Defer** - needs new interaction and API.
-Breadcrumb.tsx - the `nav` name is fixed to "Breadcrumb" and `HTMLAttributes` are not forwarded, so a page with two trails cannot tell them apart. **Defer** - passthrough/label prop is an API change (and a localisation string, #6616).
+Breadcrumb.tsx - the `nav` name was fixed to "Breadcrumb" and `HTMLAttributes` were not forwarded, so a page with two trails could not tell them apart. **FIXED**: `BreadcrumbProps` extends `HTMLAttributes<HTMLElement>` (minus `children`) and spreads onto the `nav`; the default `aria-label="Breadcrumb"` is kept (no new message key) and a consumer `aria-label` wins, while `aria-labelledby` replaces the default so the two never compete.
 Breadcrumb.tsx - a non-last item with neither `href` nor `onClick` renders an inert button. **Defer** - a type-level contract decision.
-Breadcrumb.tsx - `maxItems={1}` makes `slice(-0)` return every item (not an a11y defect). **Defer** - noted for a separate fix.
+Breadcrumb.tsx - `maxItems={1}` made `slice(-0)` return every item (the trail did not collapse at all). **FIXED**: with room for one entry only the current page is shown; `maxItems >= 2` is unchanged.
 
 ### Pagination.tsx
 
 Pagination.tsx - `nav[aria-label="Pagination"]`, native buttons, `aria-label="Page N"` (contains the visible number, so label-in-name holds), `aria-current="page"` on the active page, ellipsis `aria-hidden`, arrows named and natively disabled at the bounds. **Not fixed** - compliant.
-Pagination.tsx - activating Next/Previous onto the last/first page disables the focused button, so focus falls to `body`. **Defer** - the fix (`aria-disabled` or moving focus) changes the disabled contract consumers and tests rely on.
+Pagination.tsx - activating Next/Previous onto the last/first page disabled the focused button, so focus fell to `body`. **FIXED**: when an arrow click lands on its bound, focus moves to the current-page button (it stays enabled and in the tab order); the native `disabled` contract is unchanged, and focus is left alone while the arrow is still enabled.
 Pagination.tsx - page changes are not announced and the nav lacks a "page X of Y" description. **Defer** - needs a live region and new visible/spoken strings, which belong with the localisation work (#6616).
-Pagination.tsx - the buttons are flat children of the `nav`, not a list. **Defer** - APG does not require it; a markup change risks styling and queries.
+Pagination.tsx - the controls were flat children of the `nav`, not a list. **FIXED**: a `ul` of `li` inside the `nav` (list semantics, so AT announces "list, N items"); the ellipsis `li` is `aria-hidden`. CSS resets the list and keeps the same flex/gap layout, so there is no visual change.
 
 ---
 
@@ -221,8 +221,8 @@ Pagination.tsx - the buttons are flat children of the `nav`, not a list. **Defer
 
 - Navbar: landmark named; submenu toggle linked via `aria-controls` while open (2 fixes)
 - Sidebar: sections grouped under their label (1 fix)
-- Breadcrumb: collapsed-items placeholder hidden from the list (1 fix)
-- Pagination: no change (compliant, 3 deferrals)
+- Breadcrumb: collapsed-items placeholder hidden from the list; `maxItems={1}` collapses; rest props and a `nav` label override (3 fixes)
+- Pagination: focus handed to the current page when an arrow disables; controls are a list (2 fixes); page-change announcement deferred to #6616
 
 ---
 

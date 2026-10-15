@@ -1,4 +1,4 @@
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "../../utils/class-composer";
 import styles from "./Breadcrumb.module.css";
 
@@ -38,7 +38,7 @@ export interface BreadcrumbItem {
  *   maxItems={3}
  * />
  */
-export interface BreadcrumbProps {
+export interface BreadcrumbProps extends Omit<HTMLAttributes<HTMLElement>, "children"> {
   items: BreadcrumbItem[];
   /**
    * Max visible items before collapsing middle items with ellipsis.
@@ -68,13 +68,16 @@ const ChevronSeparator = (
 
 /* ── Component ──────────────────────────────── */
 export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
-  ({ items, maxItems = 0, separator, className = "" }, ref) => {
+  ({ items, maxItems = 0, separator, className = "", ...rest }, ref) => {
     const sep = separator ?? ChevronSeparator;
 
     // Determine which items to display
     let displayItems: (BreadcrumbItem | "ellipsis")[];
 
-    if (maxItems > 0 && items.length > maxItems) {
+    if (maxItems === 1 && items.length > 1) {
+      // Only room for one entry: keep the current page
+      displayItems = [items[items.length - 1]!];
+    } else if (maxItems > 1 && items.length > maxItems) {
       // Show first item, ellipsis, then last (maxItems - 1) items
       const tail = maxItems - 1;
       displayItems = [items[0]!, "ellipsis" as const, ...items.slice(-tail)];
@@ -83,7 +86,12 @@ export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
     }
 
     return (
-      <nav ref={ref} aria-label="Breadcrumb" className={cn(styles.nav, className)}>
+      <nav
+        ref={ref}
+        aria-label={rest["aria-labelledby"] ? undefined : "Breadcrumb"}
+        {...rest}
+        className={cn(styles.nav, className)}
+      >
         <ol className={styles.list}>
           {displayItems.map((item, i) => {
             const isLast = i === displayItems.length - 1;

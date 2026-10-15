@@ -1,8 +1,9 @@
 /**
  * Unit tests for the Pagination component.
  */
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Pagination } from "./Pagination";
 
@@ -100,5 +101,46 @@ describe("Pagination", () => {
     for (let i = 1; i <= 7; i++) {
       expect(screen.getByRole("button", { name: `Page ${i}` })).toBeInTheDocument();
     }
+  });
+
+  it("lists the controls and page buttons inside the nav", () => {
+    render(<Pagination page={1} totalPages={3} onChange={vi.fn()} />);
+    const nav = screen.getByRole("navigation", { name: /pagination/i });
+    // previous + 3 pages + next
+    expect(within(nav).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(nav).getByRole("list")).toBeInTheDocument();
+  });
+
+  it("hides the ellipsis from the list so AT counts only real controls", () => {
+    render(<Pagination page={1} totalPages={20} onChange={vi.fn()} />);
+    const nav = screen.getByRole("navigation", { name: /pagination/i });
+    // previous + pages 1-5 + 20 + next; the ellipsis entry is aria-hidden
+    expect(within(nav).getAllByRole("listitem")).toHaveLength(8);
+  });
+
+  describe("focus when a control becomes disabled", () => {
+    function Controlled({ start, total }: { start: number; total: number }) {
+      const [page, setPage] = useState(start);
+      return <Pagination page={page} totalPages={total} onChange={setPage} />;
+    }
+
+    it("moves focus to the current page when Next reaches the last page", async () => {
+      render(<Controlled start={4} total={5} />);
+      await user.click(screen.getByRole("button", { name: /next page/i }));
+      expect(screen.getByRole("button", { name: /page 5/i })).toHaveFocus();
+    });
+
+    it("moves focus to the current page when Previous reaches the first page", async () => {
+      render(<Controlled start={2} total={5} />);
+      await user.click(screen.getByRole("button", { name: /previous page/i }));
+      expect(screen.getByRole("button", { name: /page 1/i })).toHaveFocus();
+    });
+
+    it("leaves focus on Next while it is still enabled", async () => {
+      render(<Controlled start={2} total={5} />);
+      const next = screen.getByRole("button", { name: /next page/i });
+      await user.click(next);
+      expect(next).toHaveFocus();
+    });
   });
 });
