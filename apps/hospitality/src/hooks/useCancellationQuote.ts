@@ -10,6 +10,8 @@
  */
 import { evaluateCancellationFee } from "@mbe/cancellation-policy";
 import type { CancellationPolicy, CancellationFeeResult } from "@mbe/cancellation-policy";
+import { defaultT } from "../i18n/default-t.js";
+import { localeRuntime } from "../i18n/runtime.js";
 import { formatCurrencyFromCents } from "../utils/format.js";
 import { useIsAdmin } from "./useIsAdmin.js";
 import { useVenuePolicy } from "./useVenuePolicy.js";
@@ -23,17 +25,21 @@ export interface CancellationQuote {
   currency: string;
 }
 
-/** Builds the plain-language fee label shown to staff before they confirm. */
+/**
+ * Builds the plain-language fee label shown to staff before they confirm, in the dashboard
+ * locale (this module is pure, so it reads the runtime's language rather than a hook).
+ */
 function buildFeeLabel(fee: CancellationFeeResult, currency: string): string {
-  const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency);
-  const refundAmount = formatCurrencyFromCents(fee.refundAmountCents, currency);
+  const locale = localeRuntime.i18n.language;
+  const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency, locale);
+  const refund = formatCurrencyFromCents(fee.refundAmountCents, currency, locale);
   switch (fee.feeType) {
     case "none":
-      return `No cancellation fee — full refund of ${refundAmount}`;
+      return defaultT("timeline.cancel.fee.none", { refund });
     case "late":
-      return `Late cancellation fee: ${feeAmount} — refund ${refundAmount}`;
+      return defaultT("timeline.cancel.fee.late", { fee: feeAmount, refund });
     case "noshow":
-      return `No-show fee: ${feeAmount} forfeited — refund ${refundAmount}`;
+      return defaultT("timeline.cancel.fee.noshow", { fee: feeAmount, refund });
   }
 }
 

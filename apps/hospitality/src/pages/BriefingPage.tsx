@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback, useId } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   Badge,
   Button,
@@ -18,16 +20,16 @@ import { useBriefing, type BriefingEntry } from "../hooks/useBriefing.js";
 import { useSSEEventFeed } from "../hooks/useSSESync.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { describeApiError } from "../lib/describe-api-error.js";
-import { ordinalVisit } from "../utils/ordinal.js";
-import { formatServiceDate } from "../utils/format.js";
+import { formatWallHour, formatWallHourRange } from "../utils/format.js";
+import { ordinalVisitLabel } from "../i18n/ordinal-visit.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { deviceDate, deviceHour } from "../utils/service-day.js";
 import { specialRequestsText } from "../utils/reservation-display.js";
-import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
 import {
   getSegmentLabel,
   getSegmentVariant,
   isAllergyTag,
+  segmentText,
 } from "../components/crm/guest-signals.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { LiveStatus } from "../components/LiveStatus.js";
@@ -47,29 +49,27 @@ import styles from "./BriefingPage.module.css";
 const EARLY_END_HOUR = 18;
 const LATE_START_HOUR = 21;
 
-const meridiem = (hour24: number): string => (hour24 < 12 ? "AM" : "PM");
-const clockHour = (hour24: number): number => (hour24 % 12 === 0 ? 12 : hour24 % 12);
-
-/** 18 -> "6 PM". Whole hours only; these boundaries are never fractional. */
-function hourLabel(hour24: number): string {
-  return `${clockHour(hour24)} ${meridiem(hour24)}`;
+function timeSegments(t: TFunction, locale: string) {
+  return [
+    { id: "all", label: t("briefing.segments.all") },
+    {
+      id: "early",
+      label: t("briefing.segments.early", { hour: formatWallHour(EARLY_END_HOUR, locale) }),
+    },
+    {
+      id: "dinner",
+      label: t("briefing.segments.dinner", {
+        range: formatWallHourRange(EARLY_END_HOUR, LATE_START_HOUR, locale),
+      }),
+    },
+    {
+      id: "late",
+      label: t("briefing.segments.late", { hour: formatWallHour(LATE_START_HOUR, locale) }),
+    },
+  ] as const;
 }
 
-/** (18, 21) -> "6–9 PM"; collapses a shared meridiem the way the door says it. */
-function hourRangeLabel(from24: number, to24: number): string {
-  return meridiem(from24) === meridiem(to24)
-    ? `${clockHour(from24)}–${clockHour(to24)} ${meridiem(to24)}`
-    : `${hourLabel(from24)}–${hourLabel(to24)}`;
-}
-
-const TIME_SEGMENTS = [
-  { id: "all", label: "All" },
-  { id: "early", label: `Early (before ${hourLabel(EARLY_END_HOUR)})` },
-  { id: "dinner", label: `Dinner (${hourRangeLabel(EARLY_END_HOUR, LATE_START_HOUR)})` },
-  { id: "late", label: `Late (from ${hourLabel(LATE_START_HOUR)})` },
-] as const;
-
-type TimeSegmentId = (typeof TIME_SEGMENTS)[number]["id"];
+type TimeSegmentId = "all" | "early" | "dinner" | "late";
 
 export type BriefingSegment = "early" | "dinner" | "late";
 
@@ -91,10 +91,11 @@ function segmentForEntry(entry: BriefingEntry): BriefingSegment {
 /* ── Loading skeleton ────────────────────────────── */
 
 function BriefingLoadingSkeleton() {
+  const { t } = useTranslation();
   return (
     <div role="status" aria-busy="true">
       <Text as="span" className={styles.srOnly}>
-        Loading tonight&apos;s briefing…
+        {t("briefing.loading")}
       </Text>
       <SkeletonGroup>
         <Skeleton variant="card" width="100%" height={120} />
@@ -107,8 +108,22 @@ function BriefingLoadingSkeleton() {
 
 /* ── Reservation card ────────────────────────────── */
 
+const OCCASIONS = ["birthday", "anniversary", "business", "date_night", "other"] as const;
+const SEATINGS = ["booth", "patio", "bar", "window", "quiet"] as const;
+
+function occasionText(t: TFunction, value: string): string {
+  const known = OCCASIONS.find((o) => o === value);
+  return known ? t(`reservations.occasion.${known}`) : value.replace(/_/g, " ");
+}
+
+function seatingText(t: TFunction, value: string): string {
+  const known = SEATINGS.find((o) => o === value);
+  return known ? t(`reservations.seating.${known}`) : value.replace(/_/g, " ");
+}
+
 function BriefingCard({ entry }: { entry: BriefingEntry }) {
   const fmt = useVenueFormat();
+  const { t, i18n } = useTranslation();
   const requestsLabelId = useId();
   const { guest } = entry;
   const requests = specialRequestsText(entry.notes);
@@ -122,7 +137,7 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
             {fmt.formatTime(entry.startTime)}
           </Text>
           <Badge variant="neutral" size="sm">
-            {entry.partySize} {entry.partySize === 1 ? "cover" : "covers"}
+            {t("briefing.covers", { count: entry.partySize })}
           </Badge>
           {entry.table && (
             <Badge variant="neutral" size="sm">
@@ -131,7 +146,7 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
           )}
           {entry.occasion && entry.occasion !== "none" && (
             <Badge variant="accent" size="sm">
-              {entry.occasion.replace(/_/g, " ")}
+              {occasionText(t, entry.occasion)}
             </Badge>
           )}
         </div>
@@ -139,22 +154,22 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
         <div className={styles.cardBody}>
           <div className={styles.cardHeader}>
             <Text variant="body" color="primary">
-              {entry.guestName ?? guest?.name ?? "Guest"}
+              {entry.guestName ?? guest?.name ?? t("briefing.guest")}
             </Text>
             {segmentLabel && (
               <Badge variant={getSegmentVariant(segmentLabel)} size="sm">
-                {segmentLabel}
+                {segmentText(segmentLabel, t)}
               </Badge>
             )}
           </div>
           {guest && guest.visitCount > 1 && (
             <Text variant="caption" color="secondary">
-              {ordinalVisit(guest.visitCount)}
+              {ordinalVisitLabel(t, i18n.language, guest.visitCount)}
             </Text>
           )}
           {entry.seatingPreference && entry.seatingPreference !== "no_preference" && (
             <Text variant="caption" color="secondary">
-              Prefers: {entry.seatingPreference.replace(/_/g, " ")}
+              {t("briefing.prefers", { seating: seatingText(t, entry.seatingPreference) })}
             </Text>
           )}
         </div>
@@ -165,7 +180,7 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
               {guest.dietaryRestrictions.map((restriction) =>
                 isAllergyTag(restriction) ? (
                   <Tag key={restriction} variant="error">
-                    {`Allergy: ${restriction}`}
+                    {t("briefing.allergy", { restriction })}
                   </Tag>
                 ) : (
                   <Tag key={restriction} variant="default">
@@ -180,7 +195,7 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
         {requests !== null && (
           <Stack gap="2xs" role="group" aria-labelledby={requestsLabelId}>
             <Text id={requestsLabelId} variant="label" color="secondary">
-              {CONFIRMATION_COPY.specialRequestsLabel}
+              {t("bookingWidget.specialRequests.label")}
             </Text>
             <Text variant="caption" color="primary" dir="auto" className={styles.requests}>
               {requests}
@@ -202,6 +217,8 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
 
 export function BriefingPage() {
   const { selectedVenueId } = useVenue();
+  const { t } = useTranslation();
+  const fmt = useVenueFormat();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDate = searchParams.get("date") ?? deviceDate(new Date());
@@ -223,12 +240,12 @@ export function BriefingPage() {
   });
 
   const errorDescription = queryError ? describeApiError(queryError) : null;
-  const dateLabel = formatServiceDate(selectedDate);
+  const dateLabel = fmt.formatServiceDate(selectedDate);
 
   const handleRetry = useCallback(async () => {
     const result = await refetch();
-    if (!result.error) announce(`Briefing for ${dateLabel} loaded.`);
-  }, [refetch, announce, dateLabel]);
+    if (!result.error) announce(t("briefing.loaded", { date: dateLabel }));
+  }, [refetch, announce, dateLabel, t]);
 
   const displayEntries = entries ?? [];
 
@@ -242,18 +259,18 @@ export function BriefingPage() {
 
   return (
     <div className={styles.container}>
-      <PageHeader title="Tonight's Service" description="Service briefing for your team" />
+      <PageHeader title={t("briefing.title")} description={t("briefing.description")} />
       <LiveStatus status={status} />
 
       <div className={styles.toolbar}>
         <SegmentedControl
-          segments={[...TIME_SEGMENTS]}
+          segments={[...timeSegments(t, fmt.locale)]}
           value={timeSlot}
           onChange={(value) => setTimeSlot(value as TimeSegmentId)}
           size="sm"
         />
         <Input
-          aria-label="Service date"
+          aria-label={t("briefing.serviceDate")}
           type="date"
           value={selectedDate}
           onChange={(e) => {
@@ -269,7 +286,7 @@ export function BriefingPage() {
       {errorDescription && (
         <div className={styles.banner}>
           <ErrorRetryBanner
-            title="Couldn't load tonight's briefing."
+            title={t("briefing.loadError")}
             error={errorDescription.detail}
             details={errorDescription.raw}
             onRetry={handleRetry}
@@ -282,18 +299,18 @@ export function BriefingPage() {
       {loaded && displayEntries.length === 0 && (
         <EmptyState
           variant="flat"
-          heading={`Nothing on the book for ${dateLabel}.`}
-          description="Change the date, or seat walk-ins from the Timeline."
+          heading={t("briefing.empty.heading", { date: dateLabel })}
+          description={t("briefing.empty.description")}
           action={
             <Button variant="secondary" onClick={() => navigate("/timeline")}>
-              Open Timeline
+              {t("briefing.empty.action")}
             </Button>
           }
         />
       )}
 
       {loaded && displayEntries.length > 0 && filtered.length === 0 && timeSlot !== "all" && (
-        <EmptyState size="sm" variant="flat" heading={`No ${timeSlot} seatings tonight.`} />
+        <EmptyState size="sm" variant="flat" heading={t(`briefing.noSeatings.${timeSlot}`)} />
       )}
 
       {loaded && filtered.length > 0 && (

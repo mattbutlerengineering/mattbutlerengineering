@@ -1,25 +1,6 @@
 import reactConfig from "@mbe/config/eslint/react";
 
-const LOCALIZED_FILES = [
-  "src/i18n/**/*.{ts,tsx}",
-  "src/App.tsx",
-  "src/components/{LoginGate,CallbackPage,SessionExpiredGate,AuthConfigError,DashboardLayout,DashboardSidebar}.tsx",
-  "src/pages/{AuthFailurePage,SignOutPage,LoadingPage,FloorPlansPage,FloorPlanEditorPage,VenueOnboardingPage}.tsx",
-  "src/components/TableStatusBadge.tsx",
-  "src/components/floor-plan/**/*.{ts,tsx}",
-  "src/components/venue-onboarding/**/*.{ts,tsx}",
-  "src/components/LocalePicker/**/*.{ts,tsx}",
-  "src/components/booking-widget/**/*.{ts,tsx}",
-  "src/pages/{PublicBookingPage,ManageReservationPage}.tsx",
-  "src/pages/{HomePage,TimelinePage}.tsx",
-  "src/components/timeline/**/*.{ts,tsx}",
-  "src/components/dashboard/**/*.{ts,tsx}",
-  "src/pages/{ReservationsPage,GuestsPage,WaitlistPage}.tsx",
-  "src/components/crm/**/*.{ts,tsx}",
-  "src/components/reservations/**/*.{ts,tsx}",
-  "src/components/{ErrorRetryBanner,KpiStat}.tsx",
-  "src/components/LanguageRegionCard.tsx",
-];
+const LOCALIZED_FILES = ["src/**/*.{ts,tsx}"];
 
 export default [
   ...reactConfig,

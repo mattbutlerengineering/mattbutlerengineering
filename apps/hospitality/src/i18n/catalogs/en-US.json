@@ -709,7 +709,12 @@
       "failed": "Reservation not cancelled.",
       "keep": "Keep Reservation",
       "confirm": "Cancel Reservation",
-      "cancelling": "Cancelling…"
+      "cancelling": "Cancelling…",
+      "fee": {
+        "none": "No cancellation fee — full refund of {{refund}}",
+        "late": "Late cancellation fee: {{fee}} — refund {{refund}}",
+        "noshow": "No-show fee: {{fee}} forfeited — refund {{refund}}"
+      }
     },
     "noShowDialog": {
       "title": "Mark No-Show",
@@ -1263,5 +1268,313 @@
     "call": "Call {{venue}}",
     "cancel": "Cancel Reservation",
     "cancelled": "This reservation has been cancelled."
+  },
+  "offlineBanner": {
+    "cached": "Showing cached data from last sync",
+    "cachedWithTime": "Showing cached data from last sync — last synced {{time}}"
+  },
+  "health": {
+    "title": "System Health",
+    "services": "Services",
+    "ci": "CI",
+    "deploys": "Deploys",
+    "updated": "Updated {{time}}",
+    "dotLabel": "System {{status}}",
+    "triggerLabel": "System health: {{status}}",
+    "status": {
+      "healthy": "healthy",
+      "ok": "ok",
+      "degraded": "degraded",
+      "unhealthy": "unhealthy",
+      "error": "error"
+    },
+    "latency": "{{ms}}ms"
+  },
+  "venueSwitcher": {
+    "currentVenue": "Current venue: {{name}}. Click to switch",
+    "selectVenue": "Select venue",
+    "addVenue": "Add Venue"
+  },
+  "notFound": {
+    "message": "This table's not on tonight's floor plan. That page never made the reservation book.",
+    "back": "Back to tonight's service"
+  },
+  "chat": {
+    "title": "Chat"
+  },
+  "setupHours": {
+    "title": "Operating Hours",
+    "description": "Set the days and times your venue is open for reservations.",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "save": "Save Hours"
+  },
+  "setup": {
+    "yourVenue": "your venue",
+    "welcome": "Welcome to {{venueName}}",
+    "intro": "Complete a few setup steps to start taking reservations.",
+    "progress": "{{percent}}% complete",
+    "stepsLabel": "Setup steps",
+    "stepAria": "{{label}} — {{status}}",
+    "review": "Review",
+    "done": "Done — {{venueName}}",
+    "status": {
+      "completed": "Completed",
+      "current": "Current step",
+      "locked": "Not yet available"
+    },
+    "steps": {
+      "onboarding": {
+        "label": "Venue Basics",
+        "description": "Set up your venue name, timezone, and currency.",
+        "cta": "Review Venue Details"
+      },
+      "hours": {
+        "label": "Set Operating Hours",
+        "description": "Configure which days and hours your venue is open.",
+        "cta": "Set Operating Hours"
+      },
+      "floorPlan": {
+        "label": "Create Floor Plan",
+        "description": "Add a floor plan with at least one table to enable reservations.",
+        "cta": "Create Floor Plan"
+      }
+    }
+  },
+  "briefing": {
+    "title": "Tonight's Service",
+    "description": "Service briefing for your team",
+    "loading": "Loading tonight's briefing…",
+    "guest": "Guest",
+    "covers_one": "{{count}} cover",
+    "covers_other": "{{count}} covers",
+    "prefers": "Prefers: {{seating}}",
+    "allergy": "Allergy: {{restriction}}",
+    "loaded": "Briefing for {{date}} loaded.",
+    "serviceDate": "Service date",
+    "loadError": "Couldn't load tonight's briefing.",
+    "segments": {
+      "all": "All",
+      "early": "Early (before {{hour}})",
+      "dinner": "Dinner ({{range}})",
+      "late": "Late (from {{hour}})"
+    },
+    "noSeatings": {
+      "early": "No early seatings tonight.",
+      "dinner": "No dinner seatings tonight.",
+      "late": "No late seatings tonight."
+    },
+    "empty": {
+      "heading": "Nothing on the book for {{date}}.",
+      "description": "Change the date, or seat walk-ins from the Timeline.",
+      "action": "Open Timeline"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "loading": "Loading your profile...",
+    "manage": "Manage your profile",
+    "description": "View and manage your profile information",
+    "loadError": "Couldn't load your profile.",
+    "fallbackName": "User",
+    "unknown": "Unknown",
+    "verified": "Verified",
+    "notVerified": "Not verified",
+    "memberSince": "Member Since",
+    "lastUpdated": "Last Updated",
+    "edit": "Edit Profile",
+    "saveError": "Changes not saved.",
+    "relative": {
+      "justNow": "Just now",
+      "minutes": "{{count}}m ago",
+      "hours": "{{count}}h ago",
+      "days": "{{count}}d ago"
+    },
+    "session": {
+      "title": "Session",
+      "active": "Session active",
+      "refreshing": "Refreshing soon",
+      "expired": "Session expired",
+      "none": "No active session token to read.",
+      "timerLabel": "Time until the session token expires",
+      "minutesRemaining": "Minutes remaining",
+      "secondsRemaining": "Seconds remaining",
+      "lifetimeElapsed": "Token lifetime elapsed"
+    },
+    "saved": {
+      "title": "Profile updated",
+      "body": "Your changes have been saved successfully."
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Your name",
+      "nameRequired": "Name is required",
+      "pictureUrl": "Picture URL",
+      "saving": "Saving...",
+      "save": "Save Changes",
+      "cancel": "Cancel",
+      "picturePlaceholder": "https://example.com/photo.jpg"
+    },
+    "account": {
+      "title": "Account Details",
+      "userId": "User ID",
+      "emailVerified": "Email Verified"
+    },
+    "activity": {
+      "title": "Activity Summary",
+      "emailStatus": "Email Status"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage your account settings and preferences",
+    "saved": "Settings saved",
+    "loadError": "Couldn't load settings.",
+    "partySize_one": "{{count}} guest",
+    "partySize_other": "{{count}} guests",
+    "theme": {
+      "label": "Theme",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "duration": {
+      "m30": "30 minutes",
+      "m45": "45 minutes",
+      "m60": "1 hour",
+      "m90": "1.5 hours",
+      "m120": "2 hours"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Control how the application looks and feels."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Choose which updates you want to receive.",
+      "email": "Email notifications",
+      "emailHint": "Receive important updates and alerts via email",
+      "marketing": "Marketing emails",
+      "marketingHint": "Receive news, updates, and promotional content"
+    },
+    "defaults": {
+      "title": "Venue Defaults",
+      "description": "Set default values for new reservations. These are stored locally on this device.",
+      "duration": "Default reservation duration",
+      "partySize": "Default party size",
+      "autoConfirm": "Auto-confirm reservations",
+      "autoConfirmHint": "Automatically confirm new reservations without manual review"
+    },
+    "privacy": {
+      "title": "Data & Privacy",
+      "description": "Manage your data and account privacy settings.",
+      "exportTitle": "Export my data",
+      "exportHint": "Download a copy of all your data",
+      "export": "Export",
+      "deleteTitle": "Delete my account",
+      "deleteHint": "Contact support to delete your account",
+      "delete": "Delete"
+    },
+    "venue": {
+      "title": "Venue",
+      "description": "Manage the days and times your venue is open for reservations.",
+      "operatingHours": "Operating Hours"
+    },
+    "account": {
+      "title": "Account",
+      "signedInAs": "Signed in as",
+      "signOut": "Sign Out"
+    }
+  },
+  "admin": {
+    "title": "Admin",
+    "loading": "Loading users...",
+    "management": "User management",
+    "description": "Manage users and system settings",
+    "loadError": "Couldn't load users.",
+    "shown_one": "{{count}} user shown",
+    "shown_other": "{{count}} users shown",
+    "filter": {
+      "all": "All",
+      "verified": "Verified",
+      "unverified": "Unverified"
+    },
+    "detail": {
+      "userId": "User ID",
+      "created": "Created",
+      "updated": "Updated",
+      "theme": "Theme"
+    },
+    "stats": {
+      "total": "Total Users",
+      "verified": "Verified",
+      "newThisMonth": "New This Month"
+    },
+    "search": {
+      "label": "Search by name or email",
+      "placeholder": "Search by name or email..."
+    },
+    "col": {
+      "user": "User",
+      "email": "Email",
+      "status": "Status",
+      "joined": "Joined"
+    },
+    "row": {
+      "collapse": "Collapse details for {{name}}",
+      "expand": "Expand details for {{name}}"
+    },
+    "empty": {
+      "filtered": "No users match your filters",
+      "none": "No users found"
+    }
+  },
+  "widgetDemo": {
+    "title": "Booking Widget",
+    "loading": "Preview the embeddable booking widget",
+    "description": "A design preview of the embeddable booking widget. Embedding it on your own site is coming soon.",
+    "comingSoon": "Coming soon",
+    "banner": "Preview only — the embeddable booking widget is not live yet. Everything on this page is a design preview of what is coming; it cannot be added to your website today.",
+    "loadError": "Couldn't load venues.",
+    "selectVenue": "Select Venue",
+    "venue": "Venue",
+    "venuePlaceholder": "Choose a venue...",
+    "noVenues": "No venues found. Create a venue in the onboarding flow first.",
+    "device": {
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Mobile",
+      "fullWidth": "Full width"
+    },
+    "preview": {
+      "title": "Widget Preview",
+      "badge": "Preview",
+      "selectVenue": "Select a venue above to preview the widget.",
+      "note": "This is how the widget looks and behaves for guests. Embedding it on your own site is coming soon."
+    },
+    "embed": {
+      "title": "Embed Code",
+      "alert": "Embedding the booking widget is coming soon. The snippet below is an example of what you will add to your site once the widget launches — it is not functional yet.",
+      "example": "Example snippet (not functional yet)",
+      "note": "The embeddable widget will allow guests to book directly from your website. Styles will be self-contained and will not conflict with your existing CSS."
+    },
+    "features": {
+      "title": "Widget Features",
+      "availability": {
+        "title": "Real-time Availability",
+        "description": "Shows only available time slots based on current reservations and capacity.",
+        "badge": "Core"
+      },
+      "hold": {
+        "title": "10-Minute Hold",
+        "description": "Selected times are held for 10 minutes while guests complete their booking.",
+        "badge": "Smart"
+      },
+      "confirmation": {
+        "title": "Instant Confirmation",
+        "description": "Guests receive immediate confirmation with their reservation details.",
+        "badge": "UX"
+      }
+    }
   }
 }

@@ -4,7 +4,12 @@ import { Badge, Button, Drawer, Stack, Tag, Text } from "@mattbutlerengineering/
 import type { Reservation, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
-import { getSegmentLabel, getSegmentVariant, isAllergyTag } from "../crm/guest-signals.js";
+import {
+  getSegmentLabel,
+  getSegmentVariant,
+  isAllergyTag,
+  segmentText,
+} from "../crm/guest-signals.js";
 import { useGuest } from "../../hooks/useGuests.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -127,7 +132,7 @@ export function ReservationSheet({
         {segmentLabel && (
           <Stack direction="row" gap="xs" wrap>
             <Badge variant={getSegmentVariant(segmentLabel)} size="sm">
-              {segmentLabel}
+              {segmentText(segmentLabel, t)}
             </Badge>
             {allergies.map((restriction) => (
               <Tag key={restriction} variant="error">

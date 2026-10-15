@@ -284,9 +284,6 @@
       export function getRiskVariant(score: GuestRiskScore): GuestRiskVariant { /* ... */ }
     </item>
     <item priority="high">
-      export function getRiskLabel(score: GuestRiskScore): string { /* ... */ }
-    </item>
-    <item priority="high">
       export function segmentText(label: string, t: TFunction = defaultT): string { /* ... */ }
     </item>
     <item priority="high">
@@ -2159,6 +2156,16 @@
       export function formatLocalTime(hhmm: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
+      export function formatWallHour(hour24: number, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatWallHourRange(
+        fromHour24: number,
+        toHour24: number,
+        locale: string = LOCALE
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function currencyMinorUnits(currency: string): number { /* ... */ }
     </item>
     <item priority="high">
@@ -2237,9 +2244,6 @@
       export const STATUS_BADGE_VARIANT: Record<
         ReservationStatus,
         "warning" | "success" | "e...;
-    </item>
-    <item priority="high">
-      export const STATUS_LABEL: Record<ReservationStatus, string>;
     </item>
     <item priority="high">
       export function formatReservationTime(

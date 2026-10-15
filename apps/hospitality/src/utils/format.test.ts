@@ -4,6 +4,8 @@ import {
   formatLongDateWithYear,
   formatTime,
   formatLocalTime,
+  formatWallHour,
+  formatWallHourRange,
   formatCurrencyFromCents,
   formatServiceDate,
   formatInstant,
@@ -189,5 +191,18 @@ describe("formatCalendarDate", () => {
     } finally {
       process.env.TZ = previousTz;
     }
+  });
+});
+
+describe("formatWallHour", () => {
+  it("prints a whole hour in the locale's clock convention", () => {
+    expect(formatWallHour(18)).toBe("6 PM");
+    expect(formatWallHour(18, "fr-CA")).toMatch(/^18\s?h$/);
+  });
+});
+
+describe("formatWallHourRange", () => {
+  it("collapses a shared day period", () => {
+    expect(formatWallHourRange(18, 21).replace(/\s/g, "")).toBe("6–9PM");
   });
 });

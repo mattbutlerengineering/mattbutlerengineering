@@ -720,7 +720,12 @@
       "failed": "No se canceló la reservación.",
       "keep": "Conservar reservación",
       "confirm": "Cancelar reservación",
-      "cancelling": "Cancelando…"
+      "cancelling": "Cancelando…",
+      "fee": {
+        "none": "Sin cargo por cancelación — reembolso total de {{refund}}",
+        "late": "Cargo por cancelación tardía: {{fee}} — reembolso de {{refund}}",
+        "noshow": "Cargo por inasistencia: {{fee}} retenido — reembolso de {{refund}}"
+      }
     },
     "noShowDialog": {
       "title": "Marcar inasistencia",
@@ -1284,5 +1289,316 @@
     "call": "Llamar a {{venue}}",
     "cancel": "Cancelar reserva",
     "cancelled": "Esta reserva se canceló."
+  },
+  "offlineBanner": {
+    "cached": "Mostrando datos en caché de la última sincronización",
+    "cachedWithTime": "Mostrando datos en caché de la última sincronización — última sincronización: {{time}}"
+  },
+  "health": {
+    "title": "Estado del sistema",
+    "services": "Servicios",
+    "ci": "CI",
+    "deploys": "Despliegues",
+    "updated": "Actualizado {{time}}",
+    "dotLabel": "Sistema: {{status}}",
+    "triggerLabel": "Estado del sistema: {{status}}",
+    "status": {
+      "healthy": "saludable",
+      "ok": "correcto",
+      "degraded": "degradado",
+      "unhealthy": "con fallas",
+      "error": "error"
+    },
+    "latency": "{{ms}} ms"
+  },
+  "venueSwitcher": {
+    "currentVenue": "Local actual: {{name}}. Haz clic para cambiar",
+    "selectVenue": "Seleccionar local",
+    "addVenue": "Agregar local"
+  },
+  "notFound": {
+    "message": "Esta mesa no está en el plano de esta noche. Esa página nunca llegó al libro de reservas.",
+    "back": "Volver al servicio de esta noche"
+  },
+  "chat": {
+    "title": "Chat"
+  },
+  "setupHours": {
+    "title": "Horario de atención",
+    "description": "Define los días y horas en que tu local acepta reservas.",
+    "cancel": "Cancelar",
+    "saving": "Guardando...",
+    "save": "Guardar horario"
+  },
+  "setup": {
+    "yourVenue": "tu local",
+    "welcome": "Te damos la bienvenida a {{venueName}}",
+    "intro": "Completa unos pasos de configuración para empezar a recibir reservas.",
+    "progress": "{{percent}}% completado",
+    "stepsLabel": "Pasos de configuración",
+    "stepAria": "{{label}} — {{status}}",
+    "review": "Revisar",
+    "done": "Listo — {{venueName}}",
+    "status": {
+      "completed": "Completado",
+      "current": "Paso actual",
+      "locked": "Aún no disponible"
+    },
+    "steps": {
+      "onboarding": {
+        "label": "Datos básicos del local",
+        "description": "Configura el nombre, la zona horaria y la moneda de tu local.",
+        "cta": "Revisar datos del local"
+      },
+      "hours": {
+        "label": "Definir horario de atención",
+        "description": "Configura qué días y en qué horarios abre tu local.",
+        "cta": "Definir horario de atención"
+      },
+      "floorPlan": {
+        "label": "Crear plano del salón",
+        "description": "Agrega un plano con al menos una mesa para habilitar las reservas.",
+        "cta": "Crear plano del salón"
+      }
+    }
+  },
+  "briefing": {
+    "title": "Servicio de esta noche",
+    "description": "Resumen del servicio para tu equipo",
+    "loading": "Cargando el resumen de esta noche…",
+    "guest": "Invitado",
+    "covers_one": "{{count}} cubierto",
+    "covers_many": "{{count}} de cubiertos",
+    "covers_other": "{{count}} cubiertos",
+    "prefers": "Prefiere: {{seating}}",
+    "allergy": "Alergia: {{restriction}}",
+    "loaded": "Se cargó el resumen del {{date}}.",
+    "serviceDate": "Fecha del servicio",
+    "loadError": "No se pudo cargar el resumen de esta noche.",
+    "segments": {
+      "all": "Todos",
+      "early": "Temprano (antes de {{hour}})",
+      "dinner": "Cena ({{range}})",
+      "late": "Tarde (desde las {{hour}})"
+    },
+    "noSeatings": {
+      "early": "No hay turnos tempranos esta noche.",
+      "dinner": "No hay turnos de cena esta noche.",
+      "late": "No hay turnos tardíos esta noche."
+    },
+    "empty": {
+      "heading": "No hay nada en el libro para {{date}}.",
+      "description": "Cambia la fecha o asigna mesa a clientes sin reserva desde la Línea de tiempo.",
+      "action": "Abrir Línea de tiempo"
+    }
+  },
+  "profile": {
+    "title": "Perfil",
+    "loading": "Cargando tu perfil...",
+    "manage": "Administra tu perfil",
+    "description": "Consulta y administra la información de tu perfil",
+    "loadError": "No se pudo cargar tu perfil.",
+    "fallbackName": "Usuario",
+    "unknown": "Desconocido",
+    "verified": "Verificado",
+    "notVerified": "Sin verificar",
+    "memberSince": "Miembro desde",
+    "lastUpdated": "Última actualización",
+    "edit": "Editar perfil",
+    "saveError": "No se guardaron los cambios.",
+    "relative": {
+      "justNow": "Justo ahora",
+      "minutes": "hace {{count}} min",
+      "hours": "hace {{count}} h",
+      "days": "hace {{count}} d"
+    },
+    "session": {
+      "title": "Sesión",
+      "active": "Sesión activa",
+      "refreshing": "Se renovará pronto",
+      "expired": "Sesión vencida",
+      "none": "No hay un token de sesión activo para leer.",
+      "timerLabel": "Tiempo hasta que venza el token de sesión",
+      "minutesRemaining": "Minutos restantes",
+      "secondsRemaining": "Segundos restantes",
+      "lifetimeElapsed": "Vida útil del token transcurrida"
+    },
+    "saved": {
+      "title": "Perfil actualizado",
+      "body": "Tus cambios se guardaron correctamente."
+    },
+    "form": {
+      "name": "Nombre",
+      "namePlaceholder": "Tu nombre",
+      "nameRequired": "El nombre es obligatorio",
+      "pictureUrl": "URL de la foto",
+      "saving": "Guardando...",
+      "save": "Guardar cambios",
+      "cancel": "Cancelar",
+      "picturePlaceholder": "https://example.com/foto.jpg"
+    },
+    "account": {
+      "title": "Detalles de la cuenta",
+      "userId": "ID de usuario",
+      "emailVerified": "Correo verificado"
+    },
+    "activity": {
+      "title": "Resumen de actividad",
+      "emailStatus": "Estado del correo"
+    }
+  },
+  "settings": {
+    "title": "Configuración",
+    "description": "Administra los ajustes y las preferencias de tu cuenta",
+    "saved": "Configuración guardada",
+    "loadError": "No se pudo cargar la configuración.",
+    "partySize_one": "{{count}} persona",
+    "partySize_many": "{{count}} de personas",
+    "partySize_other": "{{count}} personas",
+    "theme": {
+      "label": "Tema",
+      "system": "Sistema",
+      "light": "Claro",
+      "dark": "Oscuro"
+    },
+    "duration": {
+      "m30": "30 minutos",
+      "m45": "45 minutos",
+      "m60": "1 hora",
+      "m90": "1.5 horas",
+      "m120": "2 horas"
+    },
+    "appearance": {
+      "title": "Apariencia",
+      "description": "Controla el aspecto de la aplicación."
+    },
+    "notifications": {
+      "title": "Notificaciones",
+      "description": "Elige qué actualizaciones quieres recibir.",
+      "email": "Notificaciones por correo",
+      "emailHint": "Recibe actualizaciones y alertas importantes por correo",
+      "marketing": "Correos de marketing",
+      "marketingHint": "Recibe noticias, novedades y contenido promocional"
+    },
+    "defaults": {
+      "title": "Valores predeterminados del local",
+      "description": "Define los valores predeterminados de las reservas nuevas. Se guardan localmente en este dispositivo.",
+      "duration": "Duración predeterminada de la reserva",
+      "partySize": "Tamaño de grupo predeterminado",
+      "autoConfirm": "Confirmar reservas automáticamente",
+      "autoConfirmHint": "Confirma las reservas nuevas sin revisión manual"
+    },
+    "privacy": {
+      "title": "Datos y privacidad",
+      "description": "Administra tus datos y la privacidad de tu cuenta.",
+      "exportTitle": "Exportar mis datos",
+      "exportHint": "Descarga una copia de todos tus datos",
+      "export": "Exportar",
+      "deleteTitle": "Eliminar mi cuenta",
+      "deleteHint": "Comunícate con soporte para eliminar tu cuenta",
+      "delete": "Eliminar"
+    },
+    "venue": {
+      "title": "Local",
+      "description": "Administra los días y horarios en que tu local acepta reservas.",
+      "operatingHours": "Horario de atención"
+    },
+    "account": {
+      "title": "Cuenta",
+      "signedInAs": "Sesión iniciada como",
+      "signOut": "Cerrar sesión"
+    }
+  },
+  "admin": {
+    "title": "Administración",
+    "loading": "Cargando usuarios...",
+    "management": "Administración de usuarios",
+    "description": "Administra los usuarios y la configuración del sistema",
+    "loadError": "No se pudieron cargar los usuarios.",
+    "shown_one": "{{count}} usuario mostrado",
+    "shown_many": "{{count}} de usuarios mostrados",
+    "shown_other": "{{count}} usuarios mostrados",
+    "filter": {
+      "all": "Todos",
+      "verified": "Verificados",
+      "unverified": "Sin verificar"
+    },
+    "detail": {
+      "userId": "ID de usuario",
+      "created": "Creado",
+      "updated": "Actualizado",
+      "theme": "Tema"
+    },
+    "stats": {
+      "total": "Usuarios totales",
+      "verified": "Verificados",
+      "newThisMonth": "Nuevos este mes"
+    },
+    "search": {
+      "label": "Buscar por nombre o correo",
+      "placeholder": "Buscar por nombre o correo..."
+    },
+    "col": {
+      "user": "Usuario",
+      "email": "Correo",
+      "status": "Estado",
+      "joined": "Se unió"
+    },
+    "row": {
+      "collapse": "Contraer detalles de {{name}}",
+      "expand": "Expandir detalles de {{name}}"
+    },
+    "empty": {
+      "filtered": "Ningún usuario coincide con tus filtros",
+      "none": "No se encontraron usuarios"
+    }
+  },
+  "widgetDemo": {
+    "title": "Widget de reservas",
+    "loading": "Vista previa del widget de reservas integrable",
+    "description": "Una vista previa de diseño del widget de reservas integrable. Podrás integrarlo en tu propio sitio muy pronto.",
+    "comingSoon": "Próximamente",
+    "banner": "Solo vista previa: el widget de reservas integrable aún no está disponible. Todo lo que ves en esta página es una vista previa de diseño de lo que viene; hoy no se puede agregar a tu sitio web.",
+    "loadError": "No se pudieron cargar los locales.",
+    "selectVenue": "Seleccionar local",
+    "venue": "Local",
+    "venuePlaceholder": "Elige un local...",
+    "noVenues": "No se encontraron locales. Primero crea un local en el flujo de configuración inicial.",
+    "device": {
+      "desktop": "Escritorio",
+      "tablet": "Tableta",
+      "mobile": "Móvil",
+      "fullWidth": "Ancho completo"
+    },
+    "preview": {
+      "title": "Vista previa del widget",
+      "badge": "Vista previa",
+      "selectVenue": "Selecciona un local arriba para ver la vista previa del widget.",
+      "note": "Así se ve y se comporta el widget para tus clientes. Podrás integrarlo en tu propio sitio muy pronto."
+    },
+    "embed": {
+      "title": "Código para integrar",
+      "alert": "La integración del widget de reservas llegará pronto. El fragmento de abajo es un ejemplo de lo que agregarás a tu sitio cuando se lance el widget; todavía no funciona.",
+      "example": "Fragmento de ejemplo (aún no funciona)",
+      "note": "El widget integrable permitirá que tus clientes reserven directamente desde tu sitio web. Sus estilos serán independientes y no entrarán en conflicto con tu CSS."
+    },
+    "features": {
+      "title": "Funciones del widget",
+      "availability": {
+        "title": "Disponibilidad en tiempo real",
+        "description": "Muestra solo los horarios disponibles según las reservas actuales y la capacidad.",
+        "badge": "Base"
+      },
+      "hold": {
+        "title": "Reserva temporal de 10 minutos",
+        "description": "Los horarios elegidos se reservan 10 minutos mientras el cliente completa su reserva.",
+        "badge": "Inteligente"
+      },
+      "confirmation": {
+        "title": "Confirmación instantánea",
+        "description": "Los clientes reciben de inmediato la confirmación con los detalles de su reserva.",
+        "badge": "UX"
+      }
+    }
   }
 }

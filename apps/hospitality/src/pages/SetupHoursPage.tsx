@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { OperatingHours } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
@@ -15,6 +16,7 @@ import styles from "./SetupHoursPage.module.css";
 
 export function SetupHoursPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { selectedVenue, selectedVenueId } = useVenue();
   const updateVenueMutation = useUpdateVenue();
 
@@ -63,10 +65,7 @@ export function SetupHoursPage() {
 
   return (
     <div className={styles.root}>
-      <PageHeader
-        title="Operating Hours"
-        description="Set the days and times your venue is open for reservations."
-      />
+      <PageHeader title={t("setupHours.title")} description={t("setupHours.description")} />
 
       {error && (
         <div className={styles.errorBanner} role="alert">
@@ -89,10 +88,10 @@ export function SetupHoursPage() {
 
       <Stack direction="row" gap="sm" justify="end">
         <Button variant="secondary" onClick={() => navigate("/setup")} disabled={isSaving}>
-          Cancel
+          {t("setupHours.cancel")}
         </Button>
         <Button variant="primary" onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save Hours"}
+          {isSaving ? t("setupHours.saving") : t("setupHours.save")}
         </Button>
       </Stack>
     </div>

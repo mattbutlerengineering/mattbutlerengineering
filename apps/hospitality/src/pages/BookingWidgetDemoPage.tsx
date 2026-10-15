@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   Alert,
   Badge,
@@ -23,11 +25,11 @@ import styles from "./BookingWidgetDemoPage.module.css";
 
 /* ── Constants ─────────────────────────────── */
 
-const DEVICE_SEGMENTS = [
-  { id: "desktop", label: "Desktop" },
-  { id: "tablet", label: "Tablet" },
-  { id: "mobile", label: "Mobile" },
-] as const;
+const deviceSegments = (t: TFunction) => [
+  { id: "desktop", label: t("widgetDemo.device.desktop") },
+  { id: "tablet", label: t("widgetDemo.device.tablet") },
+  { id: "mobile", label: t("widgetDemo.device.mobile") },
+];
 
 const DEVICE_WIDTHS: Record<string, string> = {
   desktop: "100%",
@@ -35,52 +37,41 @@ const DEVICE_WIDTHS: Record<string, string> = {
   mobile: "375px",
 };
 
-const DEVICE_LABELS: Record<string, string> = {
-  desktop: "Full width",
-  tablet: "768px",
-  mobile: "375px",
-};
+const deviceLabel = (t: TFunction, frame: string): string =>
+  frame === "desktop" ? t("widgetDemo.device.fullWidth") : (DEVICE_WIDTHS[frame] ?? "");
 
 /* ── Feature data ──────────────────────────── */
 
 interface Feature {
-  title: string;
-  description: string;
+  id: "availability" | "hold" | "confirmation";
   colorClass: string;
   iconColorClass: string;
   badgeVariant: "accent" | "success" | "neutral";
-  badgeLabel: string;
   svgPath: string;
 }
 
 const FEATURES: readonly Feature[] = [
   {
-    title: "Real-time Availability",
-    description: "Shows only available time slots based on current reservations and capacity.",
+    id: "availability",
     colorClass: "featureIconAccent",
     iconColorClass: "featureIconColorAccent",
     badgeVariant: "accent",
-    badgeLabel: "Core",
     svgPath:
       "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
   },
   {
-    title: "10-Minute Hold",
-    description: "Selected times are held for 10 minutes while guests complete their booking.",
+    id: "hold",
     colorClass: "featureIconSuccess",
     iconColorClass: "featureIconColorSuccess",
     badgeVariant: "success",
-    badgeLabel: "Smart",
     svgPath:
       "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
   },
   {
-    title: "Instant Confirmation",
-    description: "Guests receive immediate confirmation with their reservation details.",
+    id: "confirmation",
     colorClass: "featureIconMixed",
     iconColorClass: "featureIconColorMixed",
     badgeVariant: "neutral",
-    badgeLabel: "UX",
     svgPath: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
   },
 ] as const;
@@ -88,9 +79,10 @@ const FEATURES: readonly Feature[] = [
 /* ── Loading skeleton ──────────────────────── */
 
 function BookingWidgetDemoSkeleton() {
+  const { t } = useTranslation();
   return (
     <div className={styles.container}>
-      <PageHeader title="Booking Widget" description="Preview the embeddable booking widget" />
+      <PageHeader title={t("widgetDemo.title")} description={t("widgetDemo.loading")} />
       <SkeletonGroup>
         <Skeleton variant="card" width="100%" height={80} />
         <Skeleton variant="card" width="100%" height={400} />
@@ -104,6 +96,7 @@ function BookingWidgetDemoSkeleton() {
 
 export function BookingWidgetDemoPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { data: venues = [], isLoading, error, refetch } = useVenues({ limit: 50 });
   const loadFailure = error ? describeApiError(error) : null;
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
@@ -144,26 +137,22 @@ export function BookingWidgetDemoPage() {
 
   return (
     <div className={styles.container}>
-      <PageHeader
-        title="Booking Widget"
-        description="A design preview of the embeddable booking widget. Embedding it on your own site is coming soon."
-      />
+      <PageHeader title={t("widgetDemo.title")} description={t("widgetDemo.description")} />
 
       <Banner
         variant="accent"
         action={
           <Badge variant="accent" size="sm">
-            Coming soon
+            {t("widgetDemo.comingSoon")}
           </Badge>
         }
       >
-        Preview only — the embeddable booking widget is not live yet. Everything on this page is a
-        design preview of what is coming; it cannot be added to your website today.
+        {t("widgetDemo.banner")}
       </Banner>
 
       {loadFailure && (
         <ErrorRetryBanner
-          title="Couldn't load venues."
+          title={t("widgetDemo.loadError")}
           error={loadFailure.detail}
           details={loadFailure.raw}
           onRetry={refetch}
@@ -174,20 +163,18 @@ export function BookingWidgetDemoPage() {
       <Card variant="flat" className={styles.venueSection}>
         <Stack gap="sm">
           <Text variant="label" color="primary">
-            Select Venue
+            {t("widgetDemo.selectVenue")}
           </Text>
           {venueOptions.length > 0 ? (
             <Select
-              label="Venue"
+              label={t("widgetDemo.venue")}
               options={venueOptions}
               value={effectiveVenueId ?? ""}
               onChange={(value) => setSelectedVenueId(value)}
-              placeholder="Choose a venue..."
+              placeholder={t("widgetDemo.venuePlaceholder")}
             />
           ) : (
-            <Alert variant="info">
-              No venues found. Create a venue in the onboarding flow first.
-            </Alert>
+            <Alert variant="info">{t("widgetDemo.noVenues")}</Alert>
           )}
         </Stack>
       </Card>
@@ -200,14 +187,14 @@ export function BookingWidgetDemoPage() {
           <div className={styles.previewHeader}>
             <div className={styles.sectionHeading}>
               <Text variant="label" color="primary">
-                Widget Preview
+                {t("widgetDemo.preview.title")}
               </Text>
               <Badge variant="accent" size="sm">
-                Preview
+                {t("widgetDemo.preview.badge")}
               </Badge>
             </div>
             <SegmentedControl
-              segments={[...DEVICE_SEGMENTS]}
+              segments={deviceSegments(t)}
               value={deviceFrame}
               onChange={setDeviceFrame}
               size="sm"
@@ -235,17 +222,16 @@ export function BookingWidgetDemoPage() {
                     />
                   </WidgetLocaleScope>
                 ) : (
-                  <Alert variant="info">Select a venue above to preview the widget.</Alert>
+                  <Alert variant="info">{t("widgetDemo.preview.selectVenue")}</Alert>
                 )}
               </div>
               <Text variant="caption" color="tertiary" className={styles.frameSizeLabel}>
-                {DEVICE_LABELS[deviceFrame]}
+                {deviceLabel(t, deviceFrame)}
               </Text>
             </div>
           </Card>
           <Text variant="caption" color="secondary">
-            This is how the widget looks and behaves for guests. Embedding it on your own site is
-            coming soon.
+            {t("widgetDemo.preview.note")}
           </Text>
         </Stack>
       </section>
@@ -257,22 +243,19 @@ export function BookingWidgetDemoPage() {
         <Stack gap="md">
           <div className={styles.sectionHeading}>
             <Text variant="label" color="primary">
-              Embed Code
+              {t("widgetDemo.embed.title")}
             </Text>
             <Badge variant="accent" size="sm">
-              Coming soon
+              {t("widgetDemo.comingSoon")}
             </Badge>
           </div>
 
           <Card variant="flat" className={styles.codeCard} data-testid="embed-coming-soon">
             <Stack gap="md">
-              <Alert variant="info">
-                Embedding the booking widget is coming soon. The snippet below is an example of what
-                you will add to your site once the widget launches — it is not functional yet.
-              </Alert>
+              <Alert variant="info">{t("widgetDemo.embed.alert")}</Alert>
               <div className={styles.codeHeader}>
                 <Text variant="caption" color="tertiary">
-                  Example snippet (not functional yet)
+                  {t("widgetDemo.embed.example")}
                 </Text>
               </div>
               <div className={styles.codeBlock}>
@@ -284,8 +267,7 @@ export function BookingWidgetDemoPage() {
           </Card>
 
           <Text variant="caption" color="secondary">
-            The embeddable widget will allow guests to book directly from your website. Styles will
-            be self-contained and will not conflict with your existing CSS.
+            {t("widgetDemo.embed.note")}
           </Text>
         </Stack>
       </section>
@@ -296,11 +278,11 @@ export function BookingWidgetDemoPage() {
       <section>
         <Stack gap="md">
           <Text variant="label" color="primary">
-            Widget Features
+            {t("widgetDemo.features.title")}
           </Text>
           <div className={styles.featuresGrid}>
             {FEATURES.map((feature) => (
-              <Card key={feature.title} variant="flat" className={styles.featureCard}>
+              <Card key={feature.id} variant="flat" className={styles.featureCard}>
                 <Stack gap="sm">
                   <div className={styles.featureTop}>
                     <div className={`${styles.featureIconWrapper} ${styles[feature.colorClass]}`}>
@@ -320,14 +302,14 @@ export function BookingWidgetDemoPage() {
                       </svg>
                     </div>
                     <Badge variant={feature.badgeVariant} size="sm">
-                      {feature.badgeLabel}
+                      {t(`widgetDemo.features.${feature.id}.badge`)}
                     </Badge>
                   </div>
                   <Text variant="body" color="primary" className={styles.featureTitle}>
-                    {feature.title}
+                    {t(`widgetDemo.features.${feature.id}.title`)}
                   </Text>
                   <Text variant="caption" color="secondary">
-                    {feature.description}
+                    {t(`widgetDemo.features.${feature.id}.description`)}
                   </Text>
                 </Stack>
               </Card>
