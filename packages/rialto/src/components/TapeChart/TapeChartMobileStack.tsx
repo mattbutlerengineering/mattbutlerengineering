@@ -4,6 +4,7 @@ import { addDays, daysBetween } from "./dateMath";
 import type { TapeChartReservation, TapeChartRoom } from "./types";
 import type { TapeChartFormatters } from "./useTapeChartI18n";
 import type { ResolvedStrings } from "./defaultStrings";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 export interface TapeChartMobileStackProps {
   reservations: TapeChartReservation[];
@@ -30,6 +31,7 @@ export function TapeChartMobileStack(props: TapeChartMobileStackProps) {
     onReservationSelect,
   } = props;
 
+  const { messages } = useRialtoLocale();
   const roomNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of rooms) m.set(r.id, r.name);
@@ -93,7 +95,7 @@ export function TapeChartMobileStack(props: TapeChartMobileStackProps) {
                   className={styles.listRow}
                   data-selected={selectedReservationId === r.id ? "true" : undefined}
                   aria-pressed={selectedReservationId === r.id}
-                  aria-label={`${r.guestName ?? "Reservation"}, ${room}, ${formatters.dayLong(r.start)} to ${formatters.dayLong(r.end)}, ${strings.nightsLabel(nights)}, ${status}`}
+                  aria-label={`${r.guestName ?? messages.reservation}, ${room}, ${messages.dateSpan(formatters.dayLong(r.start), formatters.dayLong(r.end))}, ${strings.nightsLabel(nights)}, ${status}`}
                   onClick={() => onReservationSelect(r)}
                   onKeyDown={(e) => onKey(e, r)}
                 >

@@ -15,6 +15,7 @@ import styles from "./MasterOverride.module.css";
 import { SplitFlap } from "../SplitFlap";
 import { StatusLED } from "../StatusLED";
 import { playClickSound, triggerHapticFeedback } from "../../utils/feedback";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /**
  * A safety-cover toggle: a hinged protective cover flips up to reveal a
@@ -85,9 +86,9 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       onChange,
       label,
       description,
-      idleLabel = "STANDBY",
-      activeLabel = "ENGAGED",
-      coverLabel = "LIFT TO ARM",
+      idleLabel: idleLabelProp,
+      activeLabel: activeLabelProp,
+      coverLabel: coverLabelProp,
       size = "md",
       variant = "warning",
       disabled = false,
@@ -101,6 +102,10 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
+    const idleLabel = idleLabelProp ?? messages.standby;
+    const activeLabel = activeLabelProp ?? messages.engaged;
+    const coverLabel = coverLabelProp ?? messages.liftToArm;
     const [armed, setArmed] = useState(false);
     const switchRef = useRef<HTMLButtonElement>(null);
     const coverRef = useRef<HTMLButtonElement>(null);
@@ -137,7 +142,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       if (!armed || disabled || on || holdThresholdMs === 0) return;
       if (holdTimerRef.current) return;
       setIsHolding(true);
-      setHoldAnnouncement({ text: `Hold to arm ${label}`, armed: true, on: false });
+      setHoldAnnouncement({ text: messages.holdToArm(label), armed: true, on: false });
       holdAnimationRef.current = animate(holdProgress, 1, {
         duration: shouldReduceMotion ? 0 : holdThresholdMs / 1000,
         ease: "linear",
@@ -147,7 +152,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         holdAnimationRef.current?.stop();
         holdAnimationRef.current = null;
         setIsHolding(false);
-        setHoldAnnouncement({ text: `${label} engaged`, armed: true, on: false });
+        setHoldAnnouncement({ text: messages.switchEngaged(label), armed: true, on: false });
         holdProgress.set(0);
         triggerFeedback();
         onChange(true);
@@ -161,6 +166,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       holdProgress,
       onChange,
       label,
+      messages,
       triggerFeedback,
     ]);
 
@@ -174,9 +180,10 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       holdAnimationRef.current?.stop();
       holdAnimationRef.current = null;
       setIsHolding(false);
-      if (wasActive) setHoldAnnouncement({ text: "Arming cancelled", armed: true, on: false });
+      if (wasActive)
+        setHoldAnnouncement({ text: messages.armingCancelled, armed: true, on: false });
       animate(holdProgress, 0, { duration: shouldReduceMotion ? 0 : 0.2 });
-    }, [isHolding, shouldReduceMotion, holdProgress]);
+    }, [isHolding, shouldReduceMotion, holdProgress, messages]);
 
     useMotionValueEvent(holdProgress, "change", (v) => {
       wrapperRef.current?.style.setProperty("--mo-hold-progress", String(v));
@@ -269,8 +276,8 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     );
 
     const statusMessage = !armed
-      ? `${label} safety cover closed. Switch is ${on ? activeLabel : idleLabel}.`
-      : `${label} safety cover open. Switch is ${on ? activeLabel : idleLabel}.`;
+      ? messages.coverClosedStatus(label, on ? activeLabel : idleLabel)
+      : messages.coverOpenStatus(label, on ? activeLabel : idleLabel);
 
     const liveRegionText =
       holdAnnouncement !== null && holdAnnouncement.armed === armed && holdAnnouncement.on === on
@@ -299,9 +306,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             className={styles.cover}
             aria-expanded={armed}
             aria-controls={switchId}
-            aria-label={
-              armed ? `Close safety cover for ${label}` : `Lift safety cover for ${label}`
-            }
+            aria-label={armed ? messages.closeSafetyCover(label) : messages.liftSafetyCover(label)}
             disabled={disabled}
             onClick={handleCoverToggle}
             animate={{
