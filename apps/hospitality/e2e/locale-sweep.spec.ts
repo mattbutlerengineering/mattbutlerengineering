@@ -506,6 +506,39 @@ const VENUE_ID = "ven_e2e_001";
 const USER_TEXT = userEnteredText();
 
 /**
+ * The editor route's floor plan. The shared fixture names its tables "Table 1"/"Table 2",
+ * which is byte-for-byte the untranslated en-US canvas aria-label "Table {{label}}" — masking
+ * those names as typed data would hide that key. Names that can't collide keep
+ * floorPlan.canvas.tableAria checked on this route.
+ */
+const SHARED_PLAN = JSON.parse(
+  readFileSync(new URL("./fixtures/floor-plans-list.json", import.meta.url), "utf8")
+).data[0] as { tables: { name: string; tableNumber: string }[] };
+const EDITOR_PLAN = {
+  ...SHARED_PLAN,
+  tables: SHARED_PLAN.tables.map((table) => ({ ...table, name: `Patio ${table.tableNumber}` })),
+};
+const SHARED_TABLE_NAMES = new Set(
+  [
+    ...SHARED_PLAN.tables,
+    ...(
+      JSON.parse(readFileSync(new URL("./fixtures/tables-list.json", import.meta.url), "utf8")) as {
+        data: { name: string }[];
+      }
+    ).data,
+  ].map((table) => normalize(table.name))
+);
+
+/** Typed values to mask on a route: the editor shows only EDITOR_PLAN's tables. */
+function userTextFor(route: string): readonly string[] {
+  if (route !== "floor-plans/:id") return USER_TEXT;
+  return [
+    ...USER_TEXT.filter((value) => !SHARED_TABLE_NAMES.has(value)),
+    ...EDITOR_PLAN.tables.map((table) => normalize(table.name)),
+  ];
+}
+
+/**
  * Endpoints the gated routes reach that `mockApi` leaves to each spec
  * (briefing.spec.ts, floor-plan-status.spec.ts mount their own). Registered
  * after mockApi, so these win.
@@ -603,6 +636,9 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
   for (const [pattern, data] of answers) {
     await page.route(pattern, (r) => r.fulfill(ok(data)));
   }
+  if (route === "floor-plans/:id") {
+    await page.route(/\/api\/v1\/floor-plans\/[^/?]+(\?.*)?$/, (r) => r.fulfill(ok(EDITOR_PLAN)));
+  }
   if (route === "setup") {
     // An operational venue is bounced off the /setup checklist; with no floor plan it is still in setup.
     await page.route(/\/api\/v1\/floor-plans\?/, (r) =>
@@ -680,7 +716,7 @@ for (const locale of LOCALES) {
               await expect(page.getByText("Priya Shah")).toBeVisible();
             }
             await expect(page.locator("html")).toHaveAttribute("lang", locale);
-            await sweep(page, locale, route, null, USER_TEXT);
+            await sweep(page, locale, route, null, userTextFor(route));
             expect(unmocked, `${route}: requests no mock answered`).toEqual([]);
           }
         );
