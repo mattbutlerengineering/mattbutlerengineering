@@ -117,13 +117,7 @@ The `useReservationEvents` hook manages a persistent SSE connection:
 
 ```
 Browser ──EventSource──→ /api/v1/events/stream?venueId=X
-  ← reservation:created { ...reservation }
-  ← reservation:updated { ...reservation }
-  ← reservation:cancelled { ...reservation }
-  ← table:updated { ...table }
-  ← hold:created { ...hold }
-  ← hold:released { ...hold }
-  ← hold:confirmed { ...reservation }
+  ← <event name> { ...payload }   (names and payloads: Event Types Reference below)
 ```
 
 **Reconnection:** Exponential backoff, max 30 seconds. Uses `useRef` for stable callbacks.
@@ -225,15 +219,29 @@ const heartbeatTimeout = 60000;
 
 ### Event Types Reference
 
-| Event Type              | Payload           | Client Action          |
-| ----------------------- | ----------------- | ---------------------- |
-| `reservation:created`   | `Reservation`     | Add to list            |
-| `reservation:updated`   | `Reservation`     | Update in list         |
-| `reservation:cancelled` | `Reservation`     | Remove from list       |
-| `table:updated`         | `Table`           | Update table state     |
-| `hold:created`          | `ReservationHold` | Add hold indicator     |
-| `hold:released`         | `ReservationHold` | Remove hold indicator  |
-| `hold:confirmed`        | `Reservation`     | Convert to reservation |
+The vocabulary is owned by `SSE_EVENT_CATALOG` in `packages/types/src/sse-events.ts` (name, payload type, and the query keys each event invalidates). `SseEvent` is a discriminated union derived from it. The "Event" column below must list exactly the catalog's names; `apps/hospitality/src/sse-events-docs.test.ts` fails if either side drifts.
+
+| Event                   | Payload              | Client Action                                      |
+| ----------------------- | -------------------- | -------------------------------------------------- |
+| `reservation:created`   | `Reservation`        | Add to list                                        |
+| `reservation:updated`   | `Reservation`        | Update in list                                     |
+| `reservation:cancelled` | `Reservation`        | Remove from list                                   |
+| `table:updated`         | `Table`              | Update table state                                 |
+| `hold:created`          | `ReservationHold`    | Add hold indicator                                 |
+| `hold:released`         | `ReservationHold`    | Remove hold indicator                              |
+| `hold:confirmed`        | `Reservation`        | Convert to reservation                             |
+| `floor-plan:created`    | `FloorPlan`          | Refetch the floor-plan list                        |
+| `guest:lapsing`         | `LapsingGuest[]`     | Refetch the lapsing-guests widget                  |
+| `table-status:changed`  | `TableStatusDelta[]` | Merge deltas into live table statuses (no refetch) |
+
+----------------------- | ----------------- | ---------------------- |
+| `reservation:created` | `Reservation` | Add to list |
+| `reservation:updated` | `Reservation` | Update in list |
+| `reservation:cancelled` | `Reservation` | Remove from list |
+| `table:updated` | `Table` | Update table state |
+| `hold:created` | `ReservationHold` | Add hold indicator |
+| `hold:released` | `ReservationHold` | Remove hold indicator |
+| `hold:confirmed` | `Reservation` | Convert to reservation |
 
 ---
 

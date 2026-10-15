@@ -15992,7 +15992,7 @@
       type SseEventName = keyof SsePayloadMap;
     </item>
     <item priority="low">
-      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
     </item>
     <item priority="low">
       interface SseEventDefinition {
@@ -16006,12 +16006,11 @@
       export const SSE_EVENT_NAMES: unknown;
     </item>
     <item priority="low">
-      interface SseEvent {
-        type: SseEventName;
-        venueId: string;
-        timestamp: string;
-        data: SsePayloadMap[SseEventName];
-      }
+      type SseEvent = {
+        [N in K]: {
+          type: N;
+          venueId: string;
+          tim...;
     </item>
   </file>
   <file path="packages/types/src/table-status.ts">
@@ -17579,7 +17578,8 @@
             op: "replace-if-presen;
     </item>
     <item priority="low">
-      type LiveEvent = Omit<ReservationEvent, "timestamp">;
+      type LiveEvent = ReservationEvent extends infer E
+        ? E extends Reservatio...;
     </item>
     <item priority="low">
       interface EventsPort {
