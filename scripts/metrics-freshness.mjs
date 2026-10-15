@@ -102,6 +102,17 @@ export const FRESHNESS_POLICY = [
     producer: "scripts/optimize-implement-queue.mjs (collect-queue-efficiency.mjs)",
   },
   {
+    // Weekly (metrics-collectors.yml records it on Mondays, #6654). 14 days =
+    // two missed weekly runs; one dropped scheduled run is not an alert.
+    metric: "process-metrics",
+    label: "sdlcSpeed",
+    select: (row) => row?.sensor === "sdlcSpeed",
+    isHealthy: (row) => row?.available === true,
+    timestampField: "date",
+    maxAgeDays: 14,
+    producer: "scripts/collect-sdlc-speed.mjs",
+  },
+  {
     // A single-object file: the collector rewrites it, and on failure writes
     // `{ collected_at, error }` — a fresh timestamp with no data (#6312).
     metric: "ai-issue-feedback",

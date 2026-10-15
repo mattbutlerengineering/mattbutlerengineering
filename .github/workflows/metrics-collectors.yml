@@ -77,6 +77,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/record-queue-efficiency.mjs
 
+      # Weekly SDLC-speed sensor (#6654): PR open->merge by author class and
+      # ci.yml wall time, appended to process-metrics.jsonl for mbe-weekly-retro.
+      # The workflow is daily; gate to Mondays (UTC) or a manual dispatch so the
+      # series stays one row a week. Needs `gh` + API access, which only this
+      # runner has (not a Claude Code Remote session). Staleness is watched by
+      # the `sdlcSpeed` entry in scripts/metrics-freshness.mjs.
+      - name: Collect SDLC speed sensor row
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$(date -u +%u)" != "1" ]; then
+            echo "Not Monday and not a manual dispatch; skipping the weekly sdlcSpeed row."
+            exit 0
+          fi
+          node scripts/collect-sdlc-speed.mjs --days 7 --record | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Collect AI issue feedback
         continue-on-error: true
         env:
@@ -156,6 +174,7 @@ jobs:
               echo "2. **\`queueEfficiency\` stale/unhealthy** — only \`available: false\` rows are landing;"
               echo "   read the \`reason\`/\`error\` on the latest \`metrics/process-metrics.jsonl\` row."
               echo "   \`credential_rejected\` means the session token is refused by api.github.com."
+              echo "   Same for \`sdlcSpeed\` (weekly, Mondays): no healthy row for 14 days."
               echo "3. **\`ai-issue-feedback\` unhealthy** — \`metrics/ai-issue-feedback.json\` holds only"
               echo "   an \`error\` object; the collector's GitHub query is failing."
               echo "4. **\`undated\`/\`unreadable\`** — the file exists but its timestamp field"

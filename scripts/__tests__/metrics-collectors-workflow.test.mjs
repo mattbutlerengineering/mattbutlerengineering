@@ -127,6 +127,7 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
       "Collect queue telemetry from merged agent PRs",
       "Collect queueEfficiency sensor row",
       "Collect AI issue feedback",
+      "Collect SDLC speed sensor row",
     ];
     const swallowing = getJob(loadWorkflow(WORKFLOW_PATH), "collect")
       .steps.filter((s) => s["continue-on-error"] === true)
