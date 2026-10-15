@@ -217,6 +217,8 @@ export const reservationService = {
         partySize: data.partySize,
         tableId: data.tableId,
         notes: data.notes ?? null,
+        occasion: data.occasion ?? null,
+        seatingPreference: data.seatingPreference ?? null,
         guestName: data.guestName ?? null,
         guestEmail: data.guestEmail ?? null,
         guestPhone: data.guestPhone ?? null,
@@ -318,6 +320,8 @@ export const reservationService = {
             partySize: data.partySize,
             tableId: data.tableId,
             notes: data.notes ?? null,
+            occasion: data.occasion ?? null,
+            seatingPreference: data.seatingPreference ?? null,
             guestName: data.guestName ?? null,
             guestEmail: data.guestEmail ?? null,
             guestPhone: data.guestPhone ?? null,
@@ -357,6 +361,8 @@ export const reservationService = {
         ...(data.tableId !== undefined && { tableId: data.tableId }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.occasion !== undefined && { occasion: data.occasion }),
+        ...(data.seatingPreference !== undefined && { seatingPreference: data.seatingPreference }),
         ...(data.cancellationReason !== undefined && {
           cancellationReason: data.cancellationReason,
         }),
@@ -563,6 +569,8 @@ export const reservationService = {
       ...(data.partySize !== undefined && { partySize: data.partySize }),
       ...(data.tableId !== undefined && { tableId: data.tableId }),
       ...(data.notes !== undefined && { notes: data.notes }),
+      ...(data.occasion !== undefined && { occasion: data.occasion }),
+      ...(data.seatingPreference !== undefined && { seatingPreference: data.seatingPreference }),
     };
 
     const result = await bookSlot({
@@ -687,6 +695,8 @@ export const reservationService = {
             userId: userId ?? null,
             venueId: data.venueId ?? null,
             notes: null,
+            occasion: data.occasion ?? null,
+            seatingPreference: data.seatingPreference ?? null,
           },
           include: {
             table: true,

@@ -1,46 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { Button, DepartureBoard, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
 import styles from "./LoginGate.module.css";
 
-/** Default title, matching the static default in index.html — restored on unmount so the authenticated dashboard keeps its own title. */
-const DASHBOARD_TITLE = "Dashboard - Matt Butler Engineering";
-
-/** Title for the unauthenticated landing, in the app's existing " - " convention. */
-const LANDING_TITLE = "Hospitality - Matt Butler Engineering";
-
-/** Ordered domains the split-flap board cycles through — the product, in the system's mechanical voice. */
-const BOARD_PHRASES = ["RESERVATIONS", "GUESTS", "FLOOR PLANS", "WAITLIST", "TIMELINE"];
-
-/**
- * Stable accessible name for the board. Passing role="img" + aria-label through
- * to DepartureBoard's root makes the whole board one named image, so assistive
- * tech gets a single calm description instead of a live announcement every flip.
- */
-const BOARD_LABEL = "Reservations, guests, floor plans, waitlist, and timeline";
-
-/** The two parties to the redirect leg of sign-in. */
-const HANDSHAKE_STATIONS = ["Browser", "Identity"] as const;
-
-/** Tagline shown after a sign-out round-trip lands back on this gate with no OIDC params. */
-const SIGNED_OUT_TAGLINE = "You're signed out. Sign in again whenever you're ready.";
-
-/** Default tagline shown on a first-visit (never-authenticated) sign-in. */
-const DEFAULT_TAGLINE = "Restaurant management, simplified.";
-
-/** Tagline shown when the marketing homepage's project card sent the visitor here. */
-const REFERRED_TAGLINE = "You came from the portfolio site — take a look inside.";
-
 /** Query param + value the marketing homepage's Hospitality project link appends (`?ref=marketing`). */
 const REFERRER_PARAM = "ref";
 const REFERRER_MARKETING = "marketing";
-
-/** Resolves which tagline to show, in priority order: signed-out > referred-from > default. */
-function resolveTagline(signedOut: boolean, referredFromMarketing: boolean): string {
-  if (signedOut) return SIGNED_OUT_TAGLINE;
-  if (referredFromMarketing) return REFERRED_TAGLINE;
-  return DEFAULT_TAGLINE;
-}
 
 /**
  * Branded sign-in gate for the unauthenticated shell. Atmosphere + grain
@@ -48,14 +14,17 @@ function resolveTagline(signedOut: boolean, referredFromMarketing: boolean): str
  * departure board cycling the product's domains.
  *
  * E2E contract (auth.spec.ts / auth.setup.ts): data-testid="login-prompt" on a
- * visible element, and a button whose accessible name is exactly "Sign In".
+ * visible element, and a button whose accessible name is exactly "Sign In"
+ * (en-US; the e2e suite runs in en-US).
  * DepartureBoard handles prefers-reduced-motion internally (static phrase,
- * no cycling) — no extra handling needed here.
+ * no cycling) — no extra handling needed here. The board's charset is
+ * A-Z/0-9 plus a little punctuation, so its phrases are unaccented in every
+ * locale; the accessible label carries the properly accented text.
  *
  * Once `signIn()` starts the redirect (`activeNavigator === "signinRedirect"`)
  * the board gives way to a Handshake in flight and the button goes busy, so
  * the second or two before the browser leaves reads as progress, not a dead
- * click. The button's resting name stays exactly "Sign In".
+ * click. The button's resting name stays exactly "Sign In" in en-US.
  */
 export interface LoginGateProps {
   /** When true, swaps in the signed-out tagline (a sign-out round-trip landed back here). */
@@ -63,17 +32,40 @@ export interface LoginGateProps {
 }
 
 export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
+  const { t } = useTranslation();
   const { signIn, activeNavigator } = useAuth();
   const inFlight = activeNavigator === "signinRedirect";
   const referredFromMarketing =
     new URLSearchParams(window.location.search).get(REFERRER_PARAM) === REFERRER_MARKETING;
 
+  // Tagline priority: signed-out > referred-from > default.
+  const tagline = signedOut
+    ? t("auth.login.taglineSignedOut")
+    : referredFromMarketing
+      ? t("auth.login.taglineReferred")
+      : t("auth.login.taglineDefault");
+
+  // Stable identity per language so the board's cycle isn't reset by re-renders.
+  const boardPhrases = useMemo(
+    () => [
+      t("auth.login.boardPhrases.reservations"),
+      t("auth.login.boardPhrases.guests"),
+      t("auth.login.boardPhrases.floorPlans"),
+      t("auth.login.boardPhrases.waitlist"),
+      t("auth.login.boardPhrases.timeline"),
+    ],
+    [t]
+  );
+  const stations = [t("auth.stations.browser"), t("auth.stations.identity")] as const;
+
+  // The landing title replaces the dashboard's; restored on unmount so the
+  // authenticated dashboard keeps its own title.
   useEffect(() => {
-    document.title = LANDING_TITLE;
+    document.title = t("auth.login.documentTitle");
     return () => {
-      document.title = DASHBOARD_TITLE;
+      document.title = t("shell.dashboardDocumentTitle");
     };
-  }, []);
+  }, [t]);
 
   return (
     <div className={styles.gate} data-testid="login-prompt">
@@ -84,29 +76,29 @@ export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
         <Stack gap="lg" align="center">
           <Stack gap="sm" align="center">
             <Text as="h1" variant="display" color="primary">
-              Hospitality
+              {t("auth.login.title")}
             </Text>
             <Text variant="body" color="secondary">
-              {resolveTagline(signedOut, referredFromMarketing)}
+              {tagline}
             </Text>
           </Stack>
 
           {inFlight ? (
             <Handshake
               className={styles.handshake}
-              aria-label="Connecting your browser to Identity"
-              stations={HANDSHAKE_STATIONS}
+              aria-label={t("auth.login.connecting")}
+              stations={stations}
               state="negotiating"
               size="lg"
             />
           ) : (
             <DepartureBoard
               className={styles.board}
-              phrases={BOARD_PHRASES}
+              phrases={boardPhrases}
               holdMs={2800}
               size="sm"
               role="img"
-              aria-label={BOARD_LABEL}
+              aria-label={t("auth.login.boardLabel")}
             />
           )}
 
@@ -115,13 +107,13 @@ export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
             size="lg"
             onClick={() => signIn()}
             isLoading={inFlight}
-            loadingText="Heading to sign-in"
+            loadingText={t("auth.login.busy")}
           >
-            Sign In
+            {t("auth.login.signIn")}
           </Button>
 
           <Text variant="caption" color="tertiary">
-            Manage reservations, guests, and floor plans
+            {t("auth.login.caption")}
           </Text>
         </Stack>
       </div>

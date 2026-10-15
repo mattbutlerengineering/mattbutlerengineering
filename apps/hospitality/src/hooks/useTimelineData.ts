@@ -1,6 +1,12 @@
 import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "@mbe/types";
+import type {
+  Reservation,
+  Table,
+  TableStatus,
+  UpdateReservationRequest,
+  WalkInRequest,
+} from "@mbe/types";
 import { useReservations, RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { useTables, TABLES_QUERY_KEY } from "./useTables.js";
 import { useApiClient } from "./useApiClient.js";
@@ -52,13 +58,7 @@ export interface UseTimelineDataResult {
   cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
   updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
   markNoShow: (id: string) => Promise<{ reservation: Reservation; warning?: string }>;
-  createWalkIn: (data: {
-    partySize: number;
-    tableId: string;
-    venueId: string;
-    guestName?: string;
-    guestId?: string;
-  }) => Promise<Reservation>;
+  createWalkIn: (data: WalkInRequest) => Promise<Reservation>;
   updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
 }
 
@@ -176,13 +176,7 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     return result;
   };
 
-  const createWalkIn = async (data: {
-    partySize: number;
-    tableId: string;
-    venueId: string;
-    guestName?: string;
-    guestId?: string;
-  }): Promise<Reservation> => {
+  const createWalkIn = async (data: WalkInRequest): Promise<Reservation> => {
     const created = await api.reservations.walkIn(data);
     invalidateAll();
     return created;

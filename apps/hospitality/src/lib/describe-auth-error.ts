@@ -1,9 +1,13 @@
+import type { TFunction } from "i18next";
+import { localeRuntime } from "../i18n/runtime.js";
+
 /**
  * Maps a raw OIDC/auth error to user-facing language.
  *
  * The auth provider surfaces `Error` instances whose messages are written for
  * developers ("No matching state found in storage"). This module owns the
- * translation to guest-friendly copy so the JSX never has to.
+ * translation to guest-friendly copy so the JSX never has to. Copy comes from
+ * the active locale's catalog; callers inside React pass their own `t`.
  */
 export interface AuthErrorDescription {
   /** Short, human headline for the error screen. */
@@ -24,36 +28,39 @@ function oidcErrorCode(error: Error): string {
   return typeof code === "string" ? code : "";
 }
 
-export function describeAuthError(error: Error): AuthErrorDescription {
+export function describeAuthError(
+  error: Error,
+  t: TFunction = localeRuntime.i18n.t
+): AuthErrorDescription {
   const haystack = `${oidcErrorCode(error)} ${error.message}`;
 
   if (ACCESS_DENIED_PATTERN.test(haystack)) {
     return {
-      title: "Access denied",
-      body: "Your account doesn't have access to Hospitality. Contact your administrator if you think this is a mistake.",
+      title: t("auth.error.accessDenied.title"),
+      body: t("auth.error.accessDenied.body"),
       canRetry: false,
     };
   }
 
   if (EXPIRED_FLOW_PATTERN.test(haystack)) {
     return {
-      title: "That sign-in link expired",
-      body: "Sign-in links are single-use. Start again and it should go through.",
+      title: t("auth.error.expiredLink.title"),
+      body: t("auth.error.expiredLink.body"),
       canRetry: true,
     };
   }
 
   if (NETWORK_PATTERN.test(haystack)) {
     return {
-      title: "Can't reach the sign-in service",
-      body: "Check your connection and try again in a moment.",
+      title: t("auth.error.network.title"),
+      body: t("auth.error.network.body"),
       canRetry: true,
     };
   }
 
   return {
-    title: "Sign-in hit a snag",
-    body: "Something unexpected happened during sign-in. Trying again usually clears it up.",
+    title: t("auth.error.generic.title"),
+    body: t("auth.error.generic.body"),
     canRetry: true,
   };
 }

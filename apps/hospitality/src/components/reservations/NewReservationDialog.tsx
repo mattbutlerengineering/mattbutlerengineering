@@ -2,7 +2,13 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
-import type { CreateReservationRequest, Guest, Table } from "@mbe/types";
+import type {
+  CreateReservationRequest,
+  Guest,
+  Occasion,
+  SeatingPreference,
+  Table,
+} from "@mbe/types";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { useStatusMessage } from "../../hooks/useStatusMessage.js";
 import { LiveStatus } from "../LiveStatus.js";
@@ -12,6 +18,7 @@ import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { applyClear, applyPick, type PrefillSnapshot } from "../crm/guest-prefill.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { venueWallTimeToInstant } from "../../utils/venue-wall-time.js";
+import { OccasionSeatingFields } from "./OccasionSeatingFields.js";
 import styles from "./NewReservationDialog.module.css";
 
 interface NewReservationDialogProps {
@@ -65,6 +72,8 @@ export function NewReservationDialog({
   const { timeZone } = useVenueFormat();
   const [partySize, setPartySize] = useState(2);
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
+  const [occasion, setOccasion] = useState<Occasion>("none");
+  const [seatingPreference, setSeatingPreference] = useState<SeatingPreference>("no_preference");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<GuestLink | null>(null);
@@ -181,6 +190,8 @@ export function NewReservationDialog({
         guestPhone: guestPhone || undefined,
         // Only a picked guest links the booking; an ignored lookup leaves today's payload as is.
         ...(link ? { guestId: link.guest.id } : {}),
+        ...(occasion !== "none" ? { occasion } : {}),
+        ...(seatingPreference !== "no_preference" ? { seatingPreference } : {}),
       });
     } catch (err) {
       setError(describeApiError(err).detail);
@@ -312,6 +323,14 @@ export function NewReservationDialog({
                   options={tableOptions}
                 />
               )}
+
+              <OccasionSeatingFields
+                occasion={occasion}
+                seatingPreference={seatingPreference}
+                onOccasionChange={setOccasion}
+                onSeatingPreferenceChange={setSeatingPreference}
+                disabled={isLoading}
+              />
             </Stack>
 
             <div className={styles.actions}>

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { Button, Heading, Input, Text } from "@mattbutlerengineering/rialto";
 import { useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CreateFloorPlanRequest, FloorPlan } from "@mbe/types";
@@ -30,6 +31,7 @@ export function NewFloorPlanDialog({
   onClose,
   onCreate,
 }: NewFloorPlanDialogProps) {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +81,7 @@ export function NewFloorPlanDialog({
       });
       onCreated(floorPlan);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create floor plan.");
+      setError(err instanceof Error ? err.message : t("floorPlan.newDialog.createFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -99,9 +101,13 @@ export function NewFloorPlanDialog({
       >
         <div className={styles.dialogHeader}>
           <Heading id="new-floor-plan-dialog-title" className={styles.dialogTitle}>
-            New Floor Plan
+            {t("floorPlan.newDialog.title")}
           </Heading>
-          <Button className={styles.closeButton} onClick={handleClose} aria-label="Close dialog">
+          <Button
+            className={styles.closeButton}
+            onClick={handleClose}
+            aria-label={t("floorPlan.newDialog.close")}
+          >
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -122,16 +128,17 @@ export function NewFloorPlanDialog({
         <form noValidate onSubmit={handleSubmit(onSubmit)} className={styles.form}>
           <div className={styles.fieldGroup}>
             <label htmlFor="floor-plan-name" className={styles.label}>
-              Name <Text className={styles.required}>*</Text>
+              {t("floorPlan.newDialog.name")} <Text className={styles.required}>*</Text>
             </label>
             <Input
               id="floor-plan-name"
               type="text"
               className={styles.input}
-              placeholder="e.g. Main Dining Room"
+              placeholder={t("floorPlan.newDialog.placeholder")}
               disabled={isSubmitting}
               {...register("name", {
-                validate: (value) => value.trim().length > 0 || "Floor plan name is required.",
+                validate: (value) =>
+                  value.trim().length > 0 || t("floorPlan.newDialog.nameRequired"),
               })}
             />
           </div>
@@ -143,10 +150,10 @@ export function NewFloorPlanDialog({
               onClick={handleClose}
               disabled={isSubmitting}
             >
-              Cancel
+              {t("floorPlan.newDialog.cancel")}
             </Button>
             <Button type="submit" className={styles.submitButton} disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create"}
+              {isSubmitting ? t("floorPlan.newDialog.creating") : t("floorPlan.newDialog.create")}
             </Button>
           </div>
         </form>

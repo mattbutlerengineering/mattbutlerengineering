@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
-import type { Guest, Table } from "@mbe/types";
+import type { Guest, Occasion, SeatingPreference, Table, WalkInRequest } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { LiveStatus } from "../LiveStatus.js";
 import { GuestLookup } from "../crm/GuestLookup.js";
@@ -12,20 +12,14 @@ import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { useStatusMessage } from "../../hooks/useStatusMessage.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { tablesThatFit } from "../../utils/seating.js";
+import { OccasionSeatingFields } from "../reservations/OccasionSeatingFields.js";
 import styles from "./WalkInDialog.module.css";
 
 interface WalkInDialogProps {
   tables: Table[];
   venueId: string;
   /** Rejects on failure — the dialog owns showing it (architecture § Dialog contracts). */
-  onConfirm: (data: {
-    partySize: number;
-    tableId: string;
-    venueId: string;
-    guestName?: string;
-    /** Present only when the Host picked a returning guest from the lookup (SC7/SC8). */
-    guestId?: string;
-  }) => Promise<void>;
+  onConfirm: (data: WalkInRequest) => Promise<void>;
   onClose: () => void;
 }
 
@@ -54,6 +48,8 @@ function findBestTable(tables: Table[], partySize: number): string {
 export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDialogProps) {
   const [partySize, setPartySize] = useState(2);
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
+  const [occasion, setOccasion] = useState<Occasion>("none");
+  const [seatingPreference, setSeatingPreference] = useState<SeatingPreference>("no_preference");
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
   // The picked returning guest. Nothing here gates seating: no pick, no `guestId`, same payload
@@ -123,6 +119,8 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
         venueId,
         guestName: data.guestName.trim() || undefined,
         ...(pickedGuest ? { guestId: pickedGuest.id } : {}),
+        ...(occasion !== "none" ? { occasion } : {}),
+        ...(seatingPreference !== "no_preference" ? { seatingPreference } : {}),
       });
     } catch (err) {
       const description = describeApiError(err);
@@ -230,6 +228,14 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
               {pickedGuest && (
                 <GuestHistoryStrip guest={pickedGuest} mode="linked" onClear={handleClear} />
               )}
+
+              <OccasionSeatingFields
+                occasion={occasion}
+                seatingPreference={seatingPreference}
+                onOccasionChange={setOccasion}
+                onSeatingPreferenceChange={setSeatingPreference}
+                disabled={isLoading}
+              />
             </Stack>
 
             {failure && (

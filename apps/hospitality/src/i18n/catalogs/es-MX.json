@@ -1,5 +1,255 @@
 {
   "shell": {
-    "skipToMain": "Saltar al contenido principal"
+    "skipToMain": "Saltar al contenido principal",
+    "skipToContent": "Saltar al contenido",
+    "copyright": "© {{year}} Matt Butler",
+    "dashboardDocumentTitle": "Panel - Matt Butler Engineering"
+  },
+  "auth": {
+    "stations": {
+      "browser": "Navegador",
+      "identity": "Identidad",
+      "api": "API",
+      "hospitality": "Hospitality"
+    },
+    "login": {
+      "title": "Hospitality",
+      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "boardPhrases": {
+        "reservations": "RESERVAS",
+        "guests": "CLIENTES",
+        "floorPlans": "PLANOS DE SALA",
+        "waitlist": "LISTA DE ESPERA",
+        "timeline": "CRONOLOGIA"
+      },
+      "boardLabel": "Reservas, clientes, planos de sala, lista de espera y cronología",
+      "taglineDefault": "Gestión de restaurantes, simplificada.",
+      "taglineSignedOut": "Cerraste sesión. Inicia sesión de nuevo cuando quieras.",
+      "taglineReferred": "Llegaste desde el sitio del portafolio — echa un vistazo por dentro.",
+      "connecting": "Conectando tu navegador con Identidad",
+      "signIn": "Iniciar sesión",
+      "busy": "Yendo al inicio de sesión",
+      "caption": "Administra reservas, clientes y planos de sala"
+    },
+    "callback": {
+      "label": "Verificando tu inicio de sesión",
+      "status": "Intercambiando tu código por una sesión"
+    },
+    "signOut": {
+      "label": "Finalizando tu sesión con Identidad",
+      "status": "Cerrando tu sesión"
+    },
+    "loading": {
+      "label": "Cargando",
+      "status": "Poniendo la mesa"
+    },
+    "sessionLapse": {
+      "label": "La sesión con Identidad ha caducado",
+      "heading": "Tu sesión terminó",
+      "body": "Inicia sesión de nuevo para continuar donde te quedaste — esta página se conserva.",
+      "refreshFailedLead": "Tu sesión no se pudo renovar y terminará pronto.",
+      "action": "Volver a iniciar sesión",
+      "actionBusy": "Yendo al inicio de sesión"
+    },
+    "failure": {
+      "connecting": "Conectando tu navegador con Identidad",
+      "failedLabel": "No se pudo verificar tu inicio de sesión",
+      "statusRetrying": "Iniciando una sesión nueva",
+      "statusFailed": "El intercambio no se completó",
+      "retry": "Intentar de nuevo",
+      "technicalDetails": "Detalles técnicos"
+    },
+    "error": {
+      "accessDenied": {
+        "title": "Acceso denegado",
+        "body": "Tu cuenta no tiene acceso a Hospitality. Comunícate con tu administrador si crees que es un error."
+      },
+      "expiredLink": {
+        "title": "Ese enlace de inicio de sesión caducó",
+        "body": "Los enlaces de inicio de sesión son de un solo uso. Empieza de nuevo y debería funcionar."
+      },
+      "network": {
+        "title": "No se puede acceder al servicio de inicio de sesión",
+        "body": "Revisa tu conexión e inténtalo de nuevo en un momento."
+      },
+      "generic": {
+        "title": "El inicio de sesión tuvo un problema",
+        "body": "Ocurrió algo inesperado al iniciar sesión. Volver a intentarlo suele resolverlo."
+      }
+    },
+    "config": {
+      "title": "Error de configuración",
+      "body": "A la aplicación le falta la configuración de autenticación requerida. Comunícate con el administrador del sitio.",
+      "missing": "Variables de entorno faltantes: {{list}}",
+      "returnHome": "Volver al inicio"
+    }
+  },
+  "nav": {
+    "label": "Navegación del panel",
+    "sections": {
+      "account": "Cuenta",
+      "admin": "Administración",
+      "getStarted": "Primeros pasos",
+      "manage": "Gestionar",
+      "tools": "Herramientas"
+    },
+    "items": {
+      "profile": "Perfil",
+      "settings": "Configuración",
+      "users": "Usuarios",
+      "venueBasics": "Datos del local",
+      "setOperatingHours": "Definir horario",
+      "createFloorPlan": "Crear plano de sala",
+      "tonightsService": "Servicio de esta noche",
+      "timeline": "Cronología",
+      "reservations": "Reservas",
+      "waitlist": "Lista de espera",
+      "guests": "Clientes",
+      "dashboard": "Panel",
+      "floorPlans": "Planos de sala",
+      "bookingWidget": "Widget de reservas",
+      "signOut": "Cerrar sesión",
+      "chat": "Chat"
+    }
+  },
+  "layout": {
+    "home": "Inicio",
+    "details": "Detalles",
+    "venueFallback": "Hospitality",
+    "documentTitle": "{{page}} · {{venue}}",
+    "routes": {
+      "timeline": "Cronología",
+      "reservations": "Reservas",
+      "guests": "Clientes",
+      "waitlist": "Lista de espera",
+      "briefing": "Servicio de esta noche",
+      "floorPlans": "Planos de sala",
+      "bookingWidget": "Widget de reservas",
+      "onboarding": "Nuevo local",
+      "profile": "Perfil",
+      "settings": "Configuración",
+      "admin": "Administración",
+      "dashboard": "Panel",
+      "setup": "Configuración inicial",
+      "hours": "Horario de operación"
+    },
+    "venuesNotLoaded": "No se cargaron los locales.",
+    "searchPlaceholder": "Buscar páginas y acciones...",
+    "openSidebar": "Abrir barra lateral",
+    "closeSidebar": "Cerrar barra lateral",
+    "openPalette": "Abrir paleta de comandos",
+    "search": "Buscar",
+    "errorHeading": "Algo salió mal",
+    "errorBody": "Ocurrió un error inesperado en esta página.",
+    "reload": "Recargar"
+  },
+  "floorPlan": {
+    "list": {
+      "title": "Planos de sala",
+      "description": "Diseña y administra la distribución de tu local",
+      "newButton": "Nuevo plano",
+      "createButton": "Crear plano",
+      "loadFailed": "No se pudieron cargar los planos de sala.",
+      "cloneFailed": "No se clonó el plano de sala.",
+      "cloned": "Plano de sala \"{{name}}\" clonado correctamente",
+      "emptyHeading": "Aún no hay planos de sala",
+      "emptyDescription": "Crea un plano de sala para empezar a acomodar las mesas de tu local.",
+      "active": "Activo",
+      "tableCount_one": "{{count}} mesa",
+      "tableCount_many": "{{count}} de mesas",
+      "tableCount_other": "{{count}} mesas",
+      "updated": "Actualizado {{date}}",
+      "clone": "Clonar",
+      "openAria": "Abrir plano de sala: {{name}}",
+      "cloneAria": "Clonar plano de sala: {{name}}"
+    },
+    "editor": {
+      "loading": "Cargando",
+      "notFound": "No se encontró el plano de sala",
+      "notLoaded": "El plano de sala no está cargado",
+      "backToList": "Volver a planos de sala",
+      "backAria": "Volver a planos de sala",
+      "active": "Activo",
+      "setActive": "Establecer como activo",
+      "addTable": "+ Agregar mesa",
+      "saving": "Guardando...",
+      "saveChanges": "Guardar cambios",
+      "saved": "Guardado",
+      "saveFailed": "No se pudieron guardar los cambios; se revirtieron las posiciones",
+      "deleteFailed": "No se pudo eliminar la mesa",
+      "activateFailed": "No se pudo activar el plano de sala",
+      "detailsTitle": "Detalles de la mesa",
+      "name": "Nombre",
+      "tableNumber": "Número de mesa",
+      "capacity": "Capacidad",
+      "guests": "{{min}} - {{max}} comensales",
+      "location": "Ubicación",
+      "notSet": "Sin definir",
+      "status": "Estado",
+      "statusActive": "Activa",
+      "statusInactive": "Inactiva",
+      "position": "Posición",
+      "positionValue": "x: {{x}}, y: {{y}}",
+      "deleteTable": "Eliminar mesa",
+      "noSelection": "Selecciona una mesa para ver sus detalles",
+      "allTables": "Todas las mesas ({{n}})",
+      "unsavedTitle": "Cambios sin guardar",
+      "unsavedDescription": "Tienes cambios sin guardar en este plano de sala. ¿Seguro que quieres salir?",
+      "leave": "Salir",
+      "stay": "Quedarme",
+      "deleteTitle": "¿Eliminar esta mesa?",
+      "deleteDescription": "Esta acción no se puede deshacer.",
+      "delete": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "newDialog": {
+      "title": "Nuevo plano de sala",
+      "close": "Cerrar diálogo",
+      "name": "Nombre",
+      "placeholder": "p. ej., Comedor principal",
+      "nameRequired": "El nombre del plano de sala es obligatorio.",
+      "createFailed": "No se pudo crear el plano de sala.",
+      "cancel": "Cancelar",
+      "create": "Crear",
+      "creating": "Creando..."
+    },
+    "addTableDialog": {
+      "title": "Agregar mesa",
+      "close": "Cerrar diálogo",
+      "name": "Nombre de la mesa",
+      "placeholder": "p. ej., Mesa 1",
+      "nameRequired": "El nombre de la mesa es obligatorio.",
+      "capacity": "Capacidad",
+      "capacityMin": "La capacidad debe ser de al menos 1.",
+      "minCovers": "Mínimo de comensales",
+      "minCoversMin": "El mínimo de comensales debe ser de al menos 1.",
+      "shape": "Forma",
+      "shapes": {
+        "rectangle": "Rectángulo",
+        "square": "Cuadrado",
+        "circle": "Círculo"
+      },
+      "cancel": "Cancelar",
+      "submit": "Agregar mesa",
+      "adding": "Agregando...",
+      "createFailed": "No se pudo crear la mesa."
+    },
+    "canvas": {
+      "label": "Lienzo del plano de sala",
+      "instructions": "Con una mesa seleccionada, usa las flechas para moverla un paso de la cuadrícula.",
+      "instructionsWithDelete": "Con una mesa seleccionada, usa las flechas para moverla un paso de la cuadrícula y Suprimir para eliminarla.",
+      "active": "(Activo)",
+      "stale": "Reconectando: mostrando el último estado conocido",
+      "emptyTitle": "No hay mesas en este plano de sala",
+      "emptyNote": "Agrega mesas desde la barra lateral",
+      "moved": "{{name}} se movió a {{x}}, {{y}}",
+      "tableAria": "Mesa {{label}}"
+    },
+    "tableStatus": {
+      "available": "Disponible",
+      "occupied": "Ocupada",
+      "dirty": "Sucia",
+      "ready": "Lista"
+    }
   }
 }

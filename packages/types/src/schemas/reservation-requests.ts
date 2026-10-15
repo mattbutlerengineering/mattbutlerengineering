@@ -266,6 +266,8 @@ export const ConfirmHoldBodySchema = z.object({
   guestPhone: z.string().describe("Guest phone number").optional(),
   guestId: z.string().describe("ID of existing guest record").optional(),
   notes: z.string().describe("Special requests or notes").optional(),
+  occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+  seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
 });
 
 /** ISO 4217 alphabetic code, e.g. "USD" / "cad" (case-insensitive; stored as given). */
@@ -432,6 +434,8 @@ export const PublicHoldConfirmBodySchema = z.object({
   guestEmail: z.email().describe("Guest email").optional(),
   guestPhone: z.string().describe("Guest phone number").optional(),
   notes: z.string().describe("Special requests or notes").optional(),
+  occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+  seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
 });
 
 export const PublicReservationBodySchema = z.object({

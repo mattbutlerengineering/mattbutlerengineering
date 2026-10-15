@@ -5,6 +5,7 @@ import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { Heading } from "../Heading/Heading";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./Dialog.module.css";
 
 /**
@@ -29,6 +30,7 @@ export interface DialogProps {
 
 export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
   ({ open, onClose, title, description, children, footer }, ref) => {
+    const { messages } = useRialtoLocale();
     const motionPreset = useMotionPreset();
     const shouldReduceMotion = motionPreset.reduced;
     const panelRef = useRef<HTMLDivElement>(null);
@@ -70,7 +72,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
               role="dialog"
               aria-modal
               aria-labelledby={title ? titleId : undefined}
-              aria-label={title ? undefined : "Dialog"}
+              aria-label={title ? undefined : messages.dialog}
               aria-describedby={description ? descriptionId : undefined}
               transition={motionPreset.springGentle}
               {...motionProps}
@@ -85,7 +87,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   type="button"
                   className={styles.close}
                   onClick={onClose}
-                  aria-label="Close dialog"
+                  aria-label={messages.closeDialog}
                   data-focus-trap-skip-initial="true"
                 >
                   <svg

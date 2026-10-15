@@ -3,7 +3,10 @@ import storybook from "eslint-plugin-storybook";
 
 import reactConfig from "@mbe/config/eslint/react";
 
-const LOCALIZED_FILES = ["src/i18n/**/*.{ts,tsx}"];
+const LOCALIZED_FILES = [
+  "src/i18n/**/*.{ts,tsx}",
+  "src/components/{Alert,Banner,Toast,Dialog,Drawer,Popover,HoverCard,ConfirmDialog}/**/*.{ts,tsx}",
+];
 
 export default [
   ...reactConfig,

@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { cn } from "../../utils/class-composer";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./HoverCard.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -59,6 +60,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
     },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
     const [open, setOpen] = useState(false);
     const openTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const closeTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -104,7 +106,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
             <motion.div
               className={cn(styles.panel, styles[placement])}
               role="dialog"
-              aria-label="Preview"
+              aria-label={messages.preview}
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}

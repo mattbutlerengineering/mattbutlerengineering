@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import type { ToastData, ToastVariant } from "./ToastContext";
 import styles from "./Toast.module.css";
 
@@ -56,6 +57,7 @@ function ToastIcon({ variant }: { variant: ToastVariant }) {
 }
 
 function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: string) => void }) {
+  const { messages } = useRialtoLocale();
   const motionPreset = useMotionPreset();
   const shouldReduceMotion = motionPreset.reduced;
   const duration = t.duration ?? 4000;
@@ -85,7 +87,11 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: 
         </button>
       )}
 
-      <button className={styles.close} onClick={() => onDismiss(t.id)} aria-label="Dismiss">
+      <button
+        className={styles.close}
+        onClick={() => onDismiss(t.id)}
+        aria-label={messages.dismiss}
+      >
         <svg
           width="10"
           height="10"

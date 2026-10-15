@@ -3362,7 +3362,14 @@
       // adds slug scoping and drops `guestId` from the accepted body (#4487).
       fastify.post<{
         Params: { slug: string; holdId: string };
-        Body: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string };
+        Body: {
+          guestName?: string;
+          guestEmail?: string;
+          guestPhone?: string;
+          notes?: string;
+          occasion?: Occasion;
+          seatingPreference?: SeatingPreference;
+        };
         Reply:
           | (ApiResponse<Reservation> & { manageToken?: string })
           | ReturnType<typeof createProblemDetails>;
@@ -3397,13 +3404,14 @@
             // Fastify leaves unknown properties on `request.body`, so spreading it
             // would let an anonymous caller smuggle a `guestId` and attach its
             // reservation to someone else's guest record.
-            const { guestName, guestEmail, guestPhone, notes } = request.body;
+            const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
+              request.body;
             const result = await fastify.transitions.confirmHold(
               {
                 holdId,
                 sessionId,
                 venueId,
-                guestDetails: { guestName, guestEmail, guestPhone, notes },
+                guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
               },
               { door: "public-hold" }
             );
@@ -8004,6 +8012,8 @@
               guestPhone: guestDetails.guestPhone ?? null,
               guestId: guestDetails.guestId ?? null,
               notes: guestDetails.notes ?? null,
+              occasion: guestDetails.occasion ?? null,
+              seatingPreference: guestDetails.seatingPreference ?? null,
               userId: userId ?? null,
               // Ownership proof for the public deposit route (#6304).
               originSessionId: hold.sessionId,
@@ -12288,6 +12298,8 @@
             partySize: data.partySize,
             tableId: data.tableId,
             notes: data.notes ?? null,
+            occasion: data.occasion ?? null,
+            seatingPreference: data.seatingPreference ?? null,
             guestName: data.guestName ?? null,
             guestEmail: data.guestEmail ?? null,
             guestPhone: data.guestPhone ?? null,
@@ -12389,6 +12401,8 @@
                 partySize: data.partySize,
                 tableId: data.tableId,
                 notes: data.notes ?? null,
+                occasion: data.occasion ?? null,
+                seatingPreference: data.seatingPreference ?? null,
                 guestName: data.guestName ?? null,
                 guestEmail: data.guestEmail ?? null,
                 guestPhone: data.guestPhone ?? null,
@@ -12428,6 +12442,8 @@
             ...(data.tableId !== undefined && { tableId: data.tableId }),
             ...(data.status !== undefined && { status: data.status }),
             ...(data.notes !== undefined && { notes: data.notes }),
+            ...(data.occasion !== undefined && { occasion: data.occasion }),
+            ...(data.seatingPreference !== undefined && { seatingPreference: data.seatingPreference }),
             ...(data.cancellationReason !== undefined && {
               cancellationReason: data.cancellationReason,
             }),
@@ -12634,6 +12650,8 @@
           ...(data.partySize !== undefined && { partySize: data.partySize }),
           ...(data.tableId !== undefined && { tableId: data.tableId }),
           ...(data.notes !== undefined && { notes: data.notes }),
+          ...(data.occasion !== undefined && { occasion: data.occasion }),
+          ...(data.seatingPreference !== undefined && { seatingPreference: data.seatingPreference }),
         };
     
         const result = await bookSlot({
@@ -12758,6 +12776,8 @@
                 userId: userId ?? null,
                 venueId: data.venueId ?? null,
                 notes: null,
+                occasion: data.occasion ?? null,
+                seatingPreference: data.seatingPreference ?? null,
               },
               include: {
                 table: true,

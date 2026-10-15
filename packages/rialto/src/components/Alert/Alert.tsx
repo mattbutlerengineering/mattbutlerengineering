@@ -2,6 +2,7 @@ import { forwardRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./Alert.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -100,6 +101,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
     { variant = "info", title, children, dismissible = false, onDismiss, actions, className = "" },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
     const [visible, setVisible] = useState(true);
     const { precision, reduced: shouldReduceMotion } = useMotionPreset();
 
@@ -135,7 +137,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
                 type="button"
                 className={styles.close}
                 onClick={handleDismiss}
-                aria-label="Dismiss"
+                aria-label={messages.dismiss}
               >
                 <svg
                   width="10"
