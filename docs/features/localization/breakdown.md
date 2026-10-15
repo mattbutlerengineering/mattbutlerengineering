@@ -68,7 +68,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 
 ## Milestone 2: Guest booking — public booking and manage pages fully usable in 4 locales
 
-- [ ] **Venue formatting** — refactor `apps/hospitality/src/utils/format.ts` to explicit
+- [x] **Venue formatting** — refactor `apps/hospitality/src/utils/format.ts` to explicit
       `{ locale, timeZone, currency }`, drop forced `hour12`, add `useVenueFormat()`. (tracker: #6612)
   - Accept: equivalence test: for en-US, old and new formatters produce identical output
     over a sample of ≥20 date/time/money inputs across two venue timezones; en-GB test
