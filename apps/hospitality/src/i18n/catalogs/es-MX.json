@@ -1094,5 +1094,9 @@
       "seated": "Se sentó a {{name}} en {{table}}.",
       "viewOnTimeline": "Ver en la cronología"
     }
+  },
+  "staffLocaleSwitcher": {
+    "title": "Idioma y región",
+    "previewLabel": "Vista previa"
   }
 }

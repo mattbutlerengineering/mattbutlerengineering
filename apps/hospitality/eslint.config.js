@@ -16,6 +16,7 @@ const LOCALIZED_FILES = [
   "src/components/crm/**/*.{ts,tsx}",
   "src/components/reservations/**/*.{ts,tsx}",
   "src/components/{ErrorRetryBanner,KpiStat}.tsx",
+  "src/components/LanguageRegionCard.tsx",
 ];
 
 export default [

@@ -33,6 +33,7 @@ import { LoadingPage } from "../pages/LoadingPage.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { ErrorRetryBanner } from "./ErrorRetryBanner.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
+import { LocalePicker } from "./LocalePicker/index.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
 import styles from "./DashboardLayout.module.css";
@@ -352,6 +353,7 @@ function DashboardLayoutInner() {
             isMobileOpen={isMobileMenuOpen}
             onMobileClose={handleMobileClose}
             headerSlot={<VenueSwitcher onNavigate={navigate} />}
+            footerSlot={<LocalePicker variant="sidebar" />}
           />
           <Button
             type="button"

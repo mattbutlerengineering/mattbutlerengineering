@@ -1077,5 +1077,9 @@
       "seated": "Seated {{name}} at {{table}}.",
       "viewOnTimeline": "View on Timeline"
     }
+  },
+  "staffLocaleSwitcher": {
+    "title": "Language & region",
+    "previewLabel": "Preview"
   }
 }

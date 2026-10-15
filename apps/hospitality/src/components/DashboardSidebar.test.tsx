@@ -57,6 +57,15 @@ describe("DashboardSidebar", () => {
     );
   };
 
+  it("renders footerSlot after the nav sections", () => {
+    renderSidebar({ footerSlot: <div data-testid="footer-slot">footer</div> });
+    const footer = screen.getByTestId("footer-slot");
+    const lastNavItem = screen.getByText("Timeline");
+    expect(
+      lastNavItem.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
   it("renders navigation labels", () => {
     renderSidebar();
     expect(screen.getByText("Dashboard")).toBeDefined();
