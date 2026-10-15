@@ -53,9 +53,9 @@ describe("ProjectCard", () => {
 
   it("renders a 'View live' link when href is provided", () => {
     render(<ProjectCard project={{ ...BASE_PROJECT, href: "/rialto/" }} />);
-    // The link aria-label is "<title> (opens in new tab)" — that overrides the accessible name
+    // The aria-label starts with the visible text (WCAG 2.5.3) and adds the destination: "View live: <title> (opens in new tab)"
     const link = screen.getByRole("link", {
-      name: "Test Project (opens in new tab)",
+      name: "View live: Test Project (opens in new tab)",
     });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute("href", "/rialto/");
@@ -66,7 +66,7 @@ describe("ProjectCard", () => {
   it("opens the link in a new tab with noopener noreferrer", () => {
     render(<ProjectCard project={{ ...BASE_PROJECT, href: "/rialto/" }} />);
     const link = screen.getByRole("link", {
-      name: "Test Project (opens in new tab)",
+      name: "View live: Test Project (opens in new tab)",
     });
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
@@ -75,7 +75,7 @@ describe("ProjectCard", () => {
   it("link aria-label includes the project title", () => {
     render(<ProjectCard project={{ ...BASE_PROJECT, href: "/rialto/" }} />);
     const link = screen.getByRole("link", {
-      name: "Test Project (opens in new tab)",
+      name: "View live: Test Project (opens in new tab)",
     });
     expect(link).toBeInTheDocument();
   });
