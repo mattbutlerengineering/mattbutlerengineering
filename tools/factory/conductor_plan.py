@@ -7,16 +7,16 @@ conductor.py's main dispatches here.
 import fcntl
 import json
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import assembler
 import factory_config
 import work_queue
 from cli import CLI_FAILURES, detail, gh_read, label_names
-from conductor import LEDGER, WORKTREES, ask, batch_branch, \
-    batch_name_problems, batch_worktree, is_text, stamp
+from conductor import LEDGER, WORKTREES, ask, batch_branch, batch_dir, \
+    batch_name_problems, batch_worktree, is_text, load, stamp
 from cost_ledger import ISSUE_KEY
-from knowledge_plane import ADR_TOKEN, PRD_TOKEN, WO_TOKEN
+from knowledge_plane import PRD_TOKEN, WO_TOKEN, adr_file_number
 
 # The policy below was accepted by the Owner on 2026-10-10 (breakdown.md
 # Notes): steps per item type, the step-to-charter table, the type labels,
@@ -31,27 +31,48 @@ STEP_CHARTERS = {"spec": "architect", "verify": "qa", "review": "reviewer",
                  "ship": "qa"}
 TYPE_BY_LABEL = {"type:feature": "feature", "type:defect": "fix",
                  "type:chore": "fix"}
+SIZE_LABELS = ("size:S", "size:M", "size:L")
+# The labels the default rules read; detector J checks the taxonomy
+# carries them (gates.declared_labels reads every module's LABELS).
+LABELS = (*TYPE_BY_LABEL, *SIZE_LABELS)
 # lean: fixed block sizes per item type. The ceiling is an item that
 # needs more numbers than its block; its Worker stops and says so. The
 # trigger to size blocks per item is a scorecard showing that stop fire.
 BLOCK_SIZES = {"feature": {"prd": 1, "adr": 3, "wo": 10},
                "fix": {"adr": 1, "wo": 5},
                "order": {}}
-ID_TOKENS = (("prd", PRD_TOKEN), ("adr", ADR_TOKEN), ("wo", WO_TOKEN))
+ID_TOKENS = (("prd", PRD_TOKEN), ("wo", WO_TOKEN))
 # docs/ only: tests and fixtures carry example ids in the nine-thousands
 # that no run ever used, and a block above them would leave the 4-digit
-# grammar.
-ID_GREP = ["grep", "-h", "-o", "-E", "(PRD|ADR|WO)-[0-9]{4}", "origin/main",
+# grammar. The stamped payload (tools/factory/, factory/) lies outside it.
+ID_GREP = ["grep", "-h", "-o", "-E", "(PRD|WO)-[0-9]{4}", "origin/main",
            "--", "docs"]
+# An ADR is taken by its file, never by a citation (#821): a consumer's
+# docs cite this plugin's ADRs, and its own files may be 3-digit
+# (`ADR-020-*.md`), which ADR_TOKEN deliberately does not read (#774).
+ADR_LIST = ["ls-tree", "--name-only", "origin/main", "--", "docs/adr/"]
+BATCHES = str(PurePosixPath(batch_dir("b")).parent) + "/"
+BATCH_LIST = ["ls-tree", "--name-only", "origin/main", "--", BATCHES]
 ISSUE_FIELDS = "number,state,author,labels"
 SPEND_OPTIONS = ["approve", "decline"]
 
 
+def _listed(git, args):
+    """(the names `git ls-tree --name-only` prints for ARGS, problems)."""
+    try:
+        out = git(args).stdout
+    except CLI_FAILURES as err:
+        return None, [f"cd: git ls-tree origin/main failed: {detail(err)}"]
+    return [PurePosixPath(line).name for line in out.splitlines()], []
+
+
 def ids_on_main(git):
     """({kind: set of numbers}, problems) for the PRD, ADR and WO ids on
-    origin/main, through knowledge_plane's token grammars. Over-counts
-    any id merely cited, which is the safe direction. grep's exit 1 is
-    "no match", so every kind is empty."""
+    origin/main. PRD and WO are knowledge_plane's token grammars over
+    docs/, over-counting any id merely cited, which is the safe
+    direction; grep's exit 1 is "no match". ADR is the number of every
+    ADR file in docs/adr, at any width, as knowledge_plane.adr_paths
+    reads the same directory on disk."""
     try:
         text = git(ID_GREP).stdout
     except subprocess.CalledProcessError as err:
@@ -60,18 +81,55 @@ def ids_on_main(git):
         text = ""
     except CLI_FAILURES as err:
         return None, [f"cd: git grep origin/main failed: {detail(err)}"]
-    return {kind: {int(match.group(0)[-4:])
-                   for match in token.finditer(text)}
-            for kind, token in ID_TOKENS}, []
+    names, problems = _listed(git, ADR_LIST)
+    if problems:
+        return None, problems
+    found = {kind: {int(match.group(0)[-4:])
+                    for match in token.finditer(text)}
+             for kind, token in ID_TOKENS}
+    found["adr"] = {int(adr_file_number(name)[0]) for name in names
+                    if name.endswith(".md") and adr_file_number(name)}
+    return found, []
+
+
+def ids_reserved(git):
+    """({kind: set of numbers}, problems): every number a reserve row
+    holds in a batch ledger not yet on origin/main, read from its batch
+    worktree under the main checkout (#821). A merged ledger's used
+    numbers are on main and the rest are free again. An item worktree's
+    name ends in -<n>, so it names no batch and is passed over."""
+    checkout, problems = main_checkout(git)
+    if problems:
+        return None, problems
+    merged, problems = _listed(git, BATCH_LIST)
+    if problems:
+        return None, problems
+    prefix = PurePosixPath(batch_worktree("")).name
+    held = {kind: set() for kind in BLOCK_SIZES["feature"]}
+    for worktree in sorted((checkout / WORKTREES).glob(f"{prefix}*")):
+        batch = worktree.name[len(prefix):]
+        if (batch_name_problems(batch) or batch in merged
+                or not (worktree / LEDGER.format(batch=batch)).is_file()):
+            continue
+        rows, problems = load(worktree, batch)
+        if problems:
+            return None, problems
+        for row in rows:
+            if row["kind"] == "reserve" and row["what"] in held:
+                held[row["what"]].update(row["values"])
+    return held, []
 
 
 def ids_in_use(git):
-    """({kind: highest number}, problems): ids_on_main's maxima, 0 for a
-    kind with none."""
+    """({kind: highest number}, problems): the maxima of ids_on_main and
+    ids_reserved together, 0 for a kind with none."""
     found, problems = ids_on_main(git)
     if problems:
         return None, problems
-    return {kind: max(numbers, default=0)
+    reserved, problems = ids_reserved(git)
+    if problems:
+        return None, problems
+    return {kind: max(numbers | reserved[kind], default=0)
             for kind, numbers in found.items()}, []
 
 
@@ -148,7 +206,7 @@ def _size(labels, rules):
     table, default = rules.get("size_labels"), rules.get("default_size")
     if table is None:
         size = next((name[len("size:"):] for name in labels
-                     if name in ("size:S", "size:M", "size:L")), default)
+                     if name in SIZE_LABELS), default)
         return (size, None) if size else (None, "no size: label")
     if default and not any(name in table for name in labels):
         return default, None

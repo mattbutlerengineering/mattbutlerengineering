@@ -152,6 +152,11 @@ def transition_problems(rows, item, to, fields):
     return []
 
 
+# The reason a launch state row carries: its `to` is the step launched,
+# and the row names the Worker's run_id (conductor_run._launch).
+LAUNCHED = "launched"
+
+
 def state_row(now, item, frm, to, reason, **fields):
     return {"at": stamp(now), "kind": "state", "item": item, "from": frm,
             "to": to, "reason": reason, **fields}
@@ -169,16 +174,9 @@ def move(root, batch, now, item, to, reason, **fields):
     return append(root, batch, build)
 
 
-def _band(entry, step):
-    return next((s["band"] for s in entry["steps"] if s["step"] == step),
-                None)
-
-
-def stall_options(entry, state, band=None):
-    """The stall ask's options for a step: retry-up only below the top
-    band — `band` when given (the band a run actually used), else the
-    step's planned band."""
-    band = band or _band(entry, state)
+def stall_options(band):
+    """The stall ask's options for a step run at `band`: retry-up only
+    below the top band."""
     return [option for option in STALL_OPTIONS
             if option != "retry-up" or band != BANDS[-1]]
 
@@ -190,17 +188,18 @@ def _choices(options):
     return said[0].upper() + said[1:] + "?"
 
 
-def stall_rows(rows, now, entry, reason, recommended, why):
+def stall_rows(rows, now, entry, reason, cause, recommended, why):
     """[state row, stall ask] for an item that stalls in its current
-    state. retry-up is offered only when the run leaving this state
-    (if any — a dead runner leaves none) was not already at the top
-    band: the planned band alone misses a prior retry-up bump (#732)."""
+    state, for `reason` of class `cause` (conductor.CAUSES, #819).
+    retry-up is offered only when the run leaving this state (if any — a
+    dead runner leaves none) was not already at the top band: the
+    planned band alone misses a prior retry-up bump (#732)."""
     item = entry["item"]
-    state = current_state(rows, item)
-    finishing = item_view(rows, item)["finishing"]
-    options = stall_options(entry, state, finishing["band"]
-                            if finishing is not None else None)
-    moved = state_row(now, item, state, "stalled", reason)
+    found = item_view(rows, item)
+    state, finishing = found["state"], found["finishing"]
+    options = stall_options(finishing["band"] if finishing is not None
+                            else found["steps"].get(state, {}).get("band"))
+    moved = state_row(now, item, state, "stalled", reason, cause=cause)
     asked, problems = ask_row(
         rows + [moved], now, item, "stall",
         f"{item} stalled in {state}: {reason}. {_choices(options)}",
@@ -239,25 +238,24 @@ def worker_advice(rows, entry, step, band, reason):
     run, last = earlier[-1]
     if reason == BUDGET_REASON and last == BUDGET_REASON \
             and (run or {}).get("band") == band:
-        ceiling = next(s["ceiling_usd"] for s in entry["steps"]
-                       if s["step"] == step)
-        up = "retry-up" in stall_options(entry, step) \
-            and band == _band(entry, step)
+        policy = item_view(rows, entry["item"])["steps"][step]
+        up = "retry-up" in stall_options(band) \
+            and band == policy["band"] and not policy["bumped"]
         return ("retry-up" if up else BLOCK), REPEAT_BUDGET_WHY.format(
-            step=step, ceiling=ceiling,
+            step=step, ceiling=policy["ceiling_usd"],
             remedy=("retry it one band up, on a stronger model" if up
                     else "block it"))
     return "retry", ATTEMPT_WHY.format(n=len(earlier) + 1, step=step)
 
 
-def queue_stall(root, batch, now, item, reason, recommended, why):
+def queue_stall(root, batch, now, item, reason, cause, recommended, why):
     """(rows written, problems): stall the item and queue its ask."""
     def build(rows):
         found = item_view(rows, item)
         if found["unknown"]:
             return None, [found["unknown"]]
-        return stall_rows(rows, now, found["entry"], reason, recommended,
-                          why)
+        return stall_rows(rows, now, found["entry"], reason, cause,
+                          recommended, why)
     return append(root, batch, build)
 
 
@@ -281,6 +279,14 @@ CHANGES_WHY = "a second request for changes is evidence about the item"
 # The stall reason of a second request for changes: the scorecard counts
 # it as a review change.
 CHANGES_AGAIN = "the reviewer requested changes a second time"
+
+
+def review_change(row):
+    """True for a ledger row recording a request for changes: a review
+    sent back to build, or a second request that stalled the item. The
+    rule rejection_mining reads Conductor rework by (#800)."""
+    return (row["kind"] == "state" and row["from"] == "review"
+            and (row["to"] == "build" or row["reason"] == CHANGES_AGAIN))
 
 
 def record_verdict(root, batch, now, item, verdict, reviewer_run, head):
@@ -307,8 +313,8 @@ def record_verdict(root, batch, now, item, verdict, reviewer_run, head):
             reason = "the reviewer requested changes; one fix step"
             if "build" not in _successors(entry["type"], "review", rows,
                                           item):
-                return stall_rows(rows, now, entry, CHANGES_AGAIN, BLOCK,
-                                  CHANGES_WHY)
+                return stall_rows(rows, now, entry, CHANGES_AGAIN,
+                                  "changes-again", BLOCK, CHANGES_WHY)
         problems = transition_problems(rows, item, to, fields)
         if problems:
             return None, problems
@@ -354,22 +360,18 @@ def needs_facts(rows):
             if one["state"] in ("spec", "build") and one["completed"]]
 
 
-def _build_usd(entry, rows):
+def _build_usd(ceiling, rows):
     """The build's price: one run per breakdown row, each up to the
-    build step's ceiling (the --max-budget-usd it runs under)."""
-    ceiling = next(s["ceiling_usd"] for s in entry["steps"]
-                   if s["step"] == "build")
+    build step's `ceiling` (the --max-budget-usd it runs under)."""
     return round(rows * ceiling, 2)
 
 
-def _gate_question(entry, rows):
+def _gate_question(entry, ceiling, rows):
     """The gate ask, which doubles as the build-spend question
     (architecture.md, `plan`): the plan priced one build run, so the
     item is re-priced with one per breakdown row."""
     item = entry["item"]
-    ceiling = next(s["ceiling_usd"] for s in entry["steps"]
-                   if s["step"] == "build")
-    build = _build_usd(entry, rows)
+    build = _build_usd(ceiling, rows)
     repriced = entry["estimate_usd"] - ceiling + build
     return (f"{item}'s spec is ready for its gate: approve these gate files"
             f" and its build of {rows} breakdown row(s) at up to"
@@ -392,11 +394,13 @@ def _after_step(rows, now, entry, launched, facts, policy):
                           f"spec run {launched['run_id']} completed")
         files = (f"the gate files are {', '.join(sorted(blobs))}" if blobs
                  else "the item branch changes no gate file")
+        ceiling = item_view(rows, item)["steps"]["build"]["ceiling_usd"]
+        unchecked = facts[item]["unchecked"]
         asked, problems = ask_row(
             rows + [moved], now, item, "gate", _gate_question(
-                entry, facts[item]["unchecked"]), GATE_OPTIONS, "approve",
+                entry, ceiling, unchecked), GATE_OPTIONS, "approve",
             f"the spec step completed; {files}", gate_blobs=blobs,
-            build_usd=_build_usd(entry, facts[item]["unchecked"]))
+            build_usd=_build_usd(ceiling, unchecked))
         return None, ([moved, asked] if not problems else [])
     if state == "build":
         if entry["type"] == "order":
@@ -431,7 +435,8 @@ def _in_flight(rows, now, entry, launched, alive):
         if idle <= limit:
             return True, []
         reason = f"no state change for over {limit} minutes"
-    written, _ = stall_rows(rows, now, entry, reason, "retry", IDLE_WHY)
+    written, _ = stall_rows(rows, now, entry, reason, "runner-lost",
+                            "retry", IDLE_WHY)
     return False, written
 
 
@@ -444,7 +449,7 @@ def _merge_gone(rows, now, entry, merging, alive):
         return []
     written, _ = stall_rows(
         rows, now, entry, f"its merge turn (pid {pid}) is gone with no"
-        " merged row", "retry", IDLE_WHY)
+        " merged row", "runner-lost", "retry", IDLE_WHY)
     return written
 
 

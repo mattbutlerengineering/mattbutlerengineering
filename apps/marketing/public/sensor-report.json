@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-15T00:59:08.550Z",
+  "generated_at": "2026-10-15T03:58:52.247Z",
   "period": {
     "start": "2026-10-08",
     "end": "2026-10-15"
@@ -37,33 +37,33 @@
     },
     "metricsFreshness": {
       "available": true,
-      "stale_count": 1,
+      "stale_count": 0,
       "metrics": [
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.38,
+          "age_days": 0.5,
           "latest": "2026-10-14T15:52:50.802Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.03,
+          "age_days": 0.15,
           "latest": "2026-10-15T00:17:42.039Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
-          "state": "stale",
-          "age_days": 21.04,
-          "latest": "2026-09-24T00:00:00.000Z",
+          "state": "fresh",
+          "age_days": 0.17,
+          "latest": "2026-10-15T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.28,
+          "age_days": 0.41,
           "latest": "2026-10-14T18:14:04.975Z",
           "max_age_days": 5
         }
@@ -85,21 +85,21 @@
     "prCategoryMetrics": {
       "available": true,
       "total_prs": 96,
-      "total_merged": 92,
-      "total_closed_without_merge": 4,
+      "total_merged": 91,
+      "total_closed_without_merge": 5,
       "by_category": {
+        "tier:standard": {
+          "merged": 24,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.96
+        },
         "tier:trivial": {
-          "merged": 30,
+          "merged": 31,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 28,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:standard": {
-          "merged": 24,
+          "merged": 26,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -139,46 +139,20 @@
       }
     },
     "ccusageCost": {
-      "available": true,
-      "spend_today_usd": 0,
-      "spend_7d_usd": 0,
-      "spend_30d_usd": 0,
-      "cache_read_tokens": 78934888,
-      "output_tokens": 237739,
-      "cache_creation_tokens": 1367990,
-      "cache_hit_rate": 0.983,
-      "by_model": {
-        "claude-sonnet-5": {
-          "cost": 0,
-          "input_tokens": 827,
-          "output_tokens": 203327,
-          "cache_read_tokens": 75092704,
-          "cache_creation_tokens": 950071
-        },
-        "claude-haiku-5-5": {
-          "cost": 0,
-          "input_tokens": 108,
-          "output_tokens": 34412,
-          "cache_read_tokens": 3842184,
-          "cache_creation_tokens": 417919
-        }
-      }
+      "available": false
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 28,
-      "passed": 25,
+      "completed": 30,
+      "passed": 23,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 38663083704,
-        "status": "in_progress",
-        "conclusion": null,
-        "createdAt": "2026-10-15T00:58:53Z",
-        "name": "Push on main",
-        "headBranch": "main",
-        "headSha": "63c50ebc9c0ae5f911bc86c751870a0bb1055267"
+        "conclusion": "success",
+        "createdAt": "2026-10-15T03:58:29Z",
+        "name": "Revert Watchdog",
+        "status": "completed"
       }
     },
     "lighthouse": {
@@ -186,11 +160,11 @@
     },
     "issues": {
       "available": true,
-      "open": 43,
-      "created_7d": 191,
+      "open": 47,
+      "created_7d": 196,
       "closed_7d": 200,
-      "closure_rate": 105,
-      "queue_depth": 10,
+      "closure_rate": 102,
+      "queue_depth": 13,
       "agent_failed": 0
     },
     "issueFeedback": {
@@ -262,17 +236,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 11,
-      "logs_7d": 11,
-      "total_commits_7d": 220,
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.443,
-      "total_lines_added_7d": 61378,
-      "lines_churned_7d": 27175,
+      "churn_rate": 0.445,
+      "total_lines_added_7d": 64811,
+      "lines_churned_7d": 28821,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -281,55 +255,19 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": true,
-      "flaky_count": 0,
-      "flaky_tests": [],
-      "total_runs": 27710,
-      "window_shas": 5
-    },
-    "e2eStability": {
       "available": false
     },
-    "queueEfficiency": {
+    "e2eStability": {
       "available": true,
-      "composite": 0.964,
-      "sub_metrics": {
-        "issues_merged": 157,
-        "first_pass_success_rate": 0.911,
-        "median_time_to_merge_hours": 0.3,
-        "median_rework_cycles": 0,
-        "cost_per_issue_usd": 0,
-        "review_coverage": 0.153
-      },
-      "distribution": {
-        "size:m": {
-          "count": 41,
-          "avg_commits": 1.9,
-          "avg_ttm_hours": 4.2
-        },
-        "size:xs": {
-          "count": 43,
-          "avg_commits": 1.2,
-          "avg_ttm_hours": 11.4
-        },
-        "size:l": {
-          "count": 16,
-          "avg_commits": 1.8,
-          "avg_ttm_hours": 5
-        },
-        "size:s": {
-          "count": 45,
-          "avg_commits": 1.4,
-          "avg_ttm_hours": 6.8
-        },
-        "size:xl": {
-          "count": 12,
-          "avg_commits": 2.3,
-          "avg_ttm_hours": 3.7
-        }
-      },
-      "baseline": null,
-      "regressions": []
+      "consecutive_failures": 8,
+      "total_runs": 12,
+      "total_non_frontend_runs": 11,
+      "summary": "E2E instability: 8 consecutive failure(s) on non-frontend runs — likely environment issue, not a regression"
+    },
+    "queueEfficiency": {
+      "available": false,
+      "reason": "query_error",
+      "error": "spawnSync gh ETIMEDOUT"
     }
   },
   "thresholds": {
@@ -344,26 +282,18 @@
   },
   "regressions": [
     {
-      "sensor": "metricsFreshness",
-      "metric": "queueEfficiency",
-      "current": "stale",
-      "previous": "2026-09-24T00:00:00.000Z",
-      "delta": 21.04,
-      "severity": "medium"
-    },
-    {
       "sensor": "codeChurn",
       "metric": "churn_rate",
-      "current": 0.443,
-      "previous": 0.008,
-      "delta": 0.435,
+      "current": 0.445,
+      "previous": 0.443,
+      "delta": 0.002,
       "severity": "medium"
     }
   ],
   "summary": {
-    "sensors_available": 14,
+    "sensors_available": 12,
     "sensors_total": 17,
-    "regressions_detected": 2,
+    "regressions_detected": 1,
     "status": "regressions_detected"
   }
 }

@@ -188,18 +188,24 @@ SegmentedControl.tsx - model is a single-select `role=radiogroup` of `role=radio
 
 ---
 
-## Iteration 5: Navigation (Navbar)
+## Iteration 5: Navigation (Navbar, Sidebar)
 
 ### Navbar.tsx
 
-Navbar.tsx - the root `<nav>` had no accessible name, unlike Sidebar, Breadcrumb and Pagination. **FIXED**: optional `label` prop (default "Main navigation"); a consumer `aria-label`/`aria-labelledby` wins.
-Navbar.tsx - the submenu toggle had `aria-expanded` but no `aria-controls`. **FIXED**: each (recursive) `NavbarLinkItem` gets a `useId` id on its children container; `aria-controls` only while open (no dangling reference).
+Navbar.tsx - the root `<nav>` had no accessible name, unlike Sidebar, Breadcrumb and Pagination. **FIXED**: optional `label` prop (default "Main navigation"); a consumer `aria-label`/`aria-labelledby` wins. (#6587)
+Navbar.tsx - the submenu toggle had `aria-expanded` but no `aria-controls`. **FIXED**: each (recursive) `NavbarLinkItem` gets a `useId` id on its children container; `aria-controls` only while open (no dangling reference). (#6588)
+
+### Sidebar.tsx
+
+Sidebar.tsx - section label was a bare `<span>` with no association to its items. **FIXED**: each section is now `role="group"` with `aria-labelledby` pointing at the label (`useId`); the attribute is omitted when the section has no label or the sidebar is collapsed (no dangling reference). (#6589)
 
 ---
 
 ## Fixes applied this iteration (Iteration 5, in progress)
 
-- Navbar: landmark named; submenu toggle linked via `aria-controls` while open (2 fixes). Sidebar, Breadcrumb, Pagination not yet audited.
+- Navbar: landmark named; submenu toggle linked via `aria-controls` while open (2 fixes)
+- Sidebar: sections grouped under their label (1 fix)
+- Breadcrumb, Pagination: not yet audited
 
 ---
 
