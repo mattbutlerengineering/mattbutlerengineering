@@ -16,7 +16,7 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
 
 ## Work items
 
-- [ ] **WO-26: ADR-095 amending ADR-023** — Write
+- [x] **WO-26: ADR-095 amending ADR-023** — Write
       `docs/adr/ADR-095-same-zone-batching-under-nonstrict-main.md`
       (status `provisional`, repo ADR shape; see ADR-025 for an
       amendment example): the conditional rule, the fail-closed probe,
@@ -48,9 +48,9 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
       mode, spread-with-disjoint-scopes the measured-non-strict mode).
       Acceptance: SC-6 full-gate sweep (`pnpm lint`, `pnpm typecheck`,
       `pnpm exec vitest run --config scripts/vitest.config.mjs
-    scripts/__tests__/issue-zone.test.mjs
-    scripts/__tests__/zone-vocabulary.test.mjs
-    scripts/__tests__/main-strictness.test.mjs`); docs name
+  scripts/__tests__/issue-zone.test.mjs
+  scripts/__tests__/zone-vocabulary.test.mjs
+  scripts/__tests__/main-strictness.test.mjs`); docs name
       `main-strictness.mjs` and ADR-095 consistently.
 
 ## Notes
