@@ -24,7 +24,7 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
       Set ADR-023's status line to `amended by ADR-027` — its Decision
       section stays byte-identical. Add the README.md index row.
       Acceptance: SC-5; `check-adr` green.
-- [ ] **WO-27: selector `strictMain` option** — In
+- [x] **WO-27: selector `strictMain` option** — In
       `scripts/issue-zone.mjs`, extend `selectZoneSpreadBatch` per
       `architecture.md` § Design 1 (occupied zone → admitted path sets;
       prefix-aware pairwise disjointness via `extractPathsFromBody`;
@@ -33,14 +33,14 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
       existing suite untouched), three disjoint same-zone → one batch,
       overlapping pair → deferred, pathless same-zone pair → deferred,
       global pair → still single slot. Acceptance: SC-1, SC-2, SC-3.
-- [ ] **WO-28: fail-closed strict probe** — New
+- [x] **WO-28: fail-closed strict probe** — New
       `scripts/main-strictness.mjs`: pure `classifyMainStrictness()`
       (only a parsed literal `strict: false` yields
       `strictMain: false`; error/non-JSON/missing field → `true`) + thin
       CLI wrapping `gh api`. Unit tests in
       `scripts/__tests__/main-strictness.test.mjs` cover the four input
       shapes. Acceptance: SC-4.
-- [ ] **WO-29: wire the compose hook + docs** — Rewrite
+- [x] **WO-29: wire the compose hook + docs** — Rewrite
       `.claude/implement-queue.md` § compose: run the WO-28 probe each
       iteration, pass `{ maxWorkers: 3, strictMain }` to
       `selectZoneSpreadBatch`; update the gotchas § CI bullets that

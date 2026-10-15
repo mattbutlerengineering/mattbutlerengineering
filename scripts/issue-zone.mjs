@@ -339,6 +339,37 @@ function issueZone(issue) {
 // ---------------------------------------------------------------------------
 
 /**
+ * True when two repo-relative paths are the same or one is an ancestor of the
+ * other (`packages/x/src` overlaps `packages/x/src/a.ts`; `src/a` does not
+ * overlap `src/ab`).
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function pathsOverlap(a, b) {
+  const left = a.replace(/\/+$/, "");
+  const right = b.replace(/\/+$/, "");
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
+/**
+ * True when every path in `candidate` is disjoint from every path in every
+ * already-admitted set. An empty path set (candidate or admitted) can't be
+ * proven disjoint, so it never stacks.
+ *
+ * @param {string[]} candidate
+ * @param {string[][]} admitted
+ * @returns {boolean}
+ */
+function isDisjointFromAll(candidate, admitted) {
+  if (candidate.length === 0 || admitted.some((other) => other.length === 0)) return false;
+  return admitted.every((other) =>
+    candidate.every((mine) => other.every((theirs) => !pathsOverlap(mine, theirs)))
+  );
+}
+
+/**
  * Composes a claim batch that maximizes distinct merge-train zones.
  *
  * Preserving the caller's priority order, it takes at most one issue per
@@ -348,22 +379,36 @@ function issueZone(issue) {
  * the global lock and serializes against every other train, so co-scheduling
  * two would reintroduce the very serialization this avoids.
  *
+ * With `strictMain: false` (ADR-027 — only when the caller has MEASURED main as
+ * non-strict) a non-global zone may admit more issues, provided each one's
+ * extracted path set is non-empty and prefix-aware disjoint from every path set
+ * already admitted in that zone. Only a literal `false` relaxes the rule; the
+ * default is `true` (fail closed).
+ *
  * Pure and deterministic: no I/O, no mutation of inputs.
  *
  * @param {Array<object>} candidates — issues in priority order (highest first)
- * @param {{ maxWorkers?: number }} [opts]
+ * @param {{ maxWorkers?: number, strictMain?: boolean }} [opts]
  * @returns {Array<object>} selected issues (subset of `candidates`, in order)
  */
-function selectZoneSpreadBatch(candidates, { maxWorkers = DEFAULT_MAX_WORKERS } = {}) {
+function selectZoneSpreadBatch(
+  candidates,
+  { maxWorkers = DEFAULT_MAX_WORKERS, strictMain = true } = {}
+) {
   if (!Array.isArray(candidates) || maxWorkers <= 0) return [];
 
   const batch = [];
-  const occupied = new Set(); // holds zone strings and, at most once, null
+  const occupied = new Map(); // zone (or null) → admitted issues' path sets
   for (const issue of candidates) {
     if (batch.length >= maxWorkers) break;
     const zone = issueZone(issue);
-    if (occupied.has(zone)) continue; // zone already claimed → defer this one
-    occupied.add(zone); // null counts as its own single occupancy
+    const paths = extractPathsFromBody(issue && typeof issue === "object" ? issue.body : undefined);
+    if (occupied.has(zone)) {
+      const stackable =
+        strictMain === false && zone !== null && isDisjointFromAll(paths, occupied.get(zone));
+      if (!stackable) continue; // zone already claimed → defer this one
+    }
+    occupied.set(zone, [...(occupied.get(zone) ?? []), paths]); // null = single global slot
     batch.push(issue);
   }
   return batch;
