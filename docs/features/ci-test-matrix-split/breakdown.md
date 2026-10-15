@@ -26,7 +26,7 @@ mechanism below is Architect's.
 
 ## Milestone 1: the topology is pinned by a red guard
 
-- [ ] **WO-0056 — Write `scripts/__tests__/ci-test-shards.test.mjs`, prove
+- [x] **WO-0056 — Write `scripts/__tests__/ci-test-shards.test.mjs`, prove
       it RED** — textual parse of the real `ci.yml` (pattern:
       `ci-lint-critical-path.test.mjs` `needsOf`). Asserts: (a) the `test`
       job declares `matrix.leg` with named legs
@@ -44,7 +44,7 @@ mechanism below is Architect's.
 
 ## Milestone 2: ci.yml satisfies the guard
 
-- [ ] **WO-0057 — Split `test` into the leg matrix** — add `leg` axis
+- [x] **WO-0057 — Split `test` into the leg matrix** — add `leg` axis
       (`node-version: [22]` stays), per-leg turbo command keeping
       `--concurrency=2`; per-leg uploads: `coverage-${{ matrix.leg }}`
       (fixed-depth `*/coverage/coverage-final.json`,
@@ -54,7 +54,7 @@ mechanism below is Architect's.
       coverage/codecov steps and job-level `COVERAGE_THRESHOLD`. AC:
       `ci-test-results-glob.test.mjs` and
       `nightly-compliance-workflow.test.mjs` still green; no `**` globs.
-- [ ] **WO-0058 — Add `test-coverage-gate`** — `needs: [test]` (no
+- [x] **WO-0058 — Add `test-coverage-gate`** — `needs: [test]` (no
       `if: always()`), env `COVERAGE_THRESHOLD: 60`; checkout, download
       `pattern: coverage-*` with `merge-multiple: true` into the workspace
       root, then the three moved steps verbatim (repo-wide gate, agent-core
@@ -62,7 +62,7 @@ mechanism below is Architect's.
       now-meaningless `matrix.node-version == 22` conditions. AC: gate steps
       byte-equivalent to the moved originals aside from those drops;
       fail-closed `TOTAL_LINES -eq 0` path intact.
-- [ ] **WO-0059 — Wire `ci-gate` and sweep consumers** — add
+- [x] **WO-0059 — Wire `ci-gate` and sweep consumers** — add
       `test-coverage-gate` to `ci-gate`'s inline `needs:` (keeping `test`);
       confirm `report-health`'s `needs` untouched and resolving; run
       WO-0056's guard (now GREEN) plus `ci-lint-critical-path.test.mjs`,
