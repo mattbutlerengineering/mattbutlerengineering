@@ -47,6 +47,11 @@ AT_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # daily gate digest inside ADR-0034's open outcome vocabulary.
 GATE_OUTCOME = re.compile(r"gate_wait:([a-z]+):(\d+)s")
 
+# Owner-session markers (ADR-0069): a $0 row recording that a work order
+# was worked in an owner session, not dispatched — "not a dispatch", so
+# never a run. Written as outcome "owner-session:unmetered".
+OWNER_SESSION = "owner-session:"
+
 # The issue key (ADR-0084): a run that implements no single work order is
 # keyed by the issue it served, "#<n>" with no leading zero. wo_token
 # still returns None for it, so every work-order rule skips the row while
@@ -114,10 +119,21 @@ def gate_wait(entry):
     return match.group(1), int(match.group(2))
 
 
+def owner_session(entry):
+    """True when the record is an owner-session marker (ADR-0069: not a
+    dispatch) — the one predicate for it, beside gate_wait. Detector G
+    still validates the marker as a row; only dispatched() sets it
+    apart. Same tolerant shape as gate_wait."""
+    value = entry.get("outcome") if isinstance(entry, dict) else None
+    return isinstance(value, str) and value.startswith(OWNER_SESSION)
+
+
 def dispatched(entries, month=None):
     """The rows that count as spend, in ledger order: never a
-    gate-latency observation (ADR-0041 — a wait record, not a run), and
-    when `month` ("YYYY-MM") is given only the rows in_month admits.
+    gate-latency observation (ADR-0041 — a wait record, not a run), never
+    an owner-session marker (ADR-0069 — not a dispatch, and $0 by
+    line_problems' rule, so the month's spend is the same with or
+    without it), and when `month` ("YYYY-MM") is given only the rows in_month admits.
 
     The ONE row-selection rule behind both month-to-date figures — the
     weekly report's spend breakdown and the work queue's circuit-breaker
@@ -128,7 +144,7 @@ def dispatched(entries, month=None):
     contract), in the same family as in_month, gate_wait, row_key and
     wo_token."""
     return [entry for entry in entries
-            if gate_wait(entry) is None
+            if gate_wait(entry) is None and not owner_session(entry)
             and (month is None or in_month(entry, month))]
 
 
@@ -174,6 +190,34 @@ def record(root, entry):
     return []
 
 
+def record_new(root, rows):
+    """(landed, problems): the guarded write for a batch writer (#772) —
+    record()'s rules over many rows with ONE read. A row whose row_key
+    is already in the ledger, or earlier in the batch, is skipped, not
+    refused: callers carrying or re-scanning rows hand over everything
+    and never restate the dedup. landed is the rows appended, in order.
+
+    Fails closed before any write: a read() problem, or any row
+    line_problems rejects, refuses the whole batch and lands nothing.
+    Every problem carries read()'s ledger: label (a shape refusal names
+    the row's run_id), so callers pass them through as they are."""
+    shape = [f"ledger: refusing run_id {row.get('run_id')!r}: {problem}"
+             for row in rows for problem in line_problems(row)]
+    if shape:
+        return [], shape
+    entries, problems = read(root)
+    if problems:
+        return [], problems
+    present = {row_key(existing) for existing in entries}
+    landed = []
+    for row in rows:
+        if row_key(row) not in present:
+            append(root, row)
+            present.add(row_key(row))
+            landed.append(row)
+    return landed, []
+
+
 def row_key(entry):
     """The row's (wo, run_id) identity — ADR-0041's dedup rule in the
     module that composes both fields: gate_entry keys run_id on the
@@ -200,7 +244,8 @@ def line_problems(entry):
     `wo` is a WO-#### token or an ADR-0084 issue key):
     missing/unknown fields, per-field rules in LEDGER_FIELDS order, then
     the optional `at` rule (present means a valid ISO date; absent means a
-    legacy row and is never a problem). Callers prefix their own label and
+    legacy row and is never a problem). An owner-session marker must
+    cost 0 — the invariant dispatched()'s exclusion rests on. Callers prefix their own label and
     location — this is the single rule detector G and read() both apply."""
     problems = []
     missing = sorted(set(LEDGER_FIELDS) - set(entry))
@@ -233,6 +278,12 @@ def line_problems(entry):
             if isinstance(value, bool) or not isinstance(value, (int, float)) \
                     or value < 0:
                 problems.append("cost must be a non-negative number")
+            elif value != 0 and owner_session(entry):
+                # dispatched() drops markers from spend on the grounds
+                # that they are $0 (ADR-0069); a paid row mislabelled as
+                # one would escape the monthly cap unreported (#815).
+                problems.append("an owner-session marker must cost 0"
+                                f" (ADR-0069), not {value!r}")
     for field in LEDGER_OPTIONAL_FIELDS:
         if field not in entry:
             continue

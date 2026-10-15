@@ -57,7 +57,8 @@ def aggregate(entries, month=None):
     with work_queue.month_to_date so the cap is compared against one
     definition: gate-latency observations (ADR-0041) are skipped, being
     wait records rather than runs, and counting them would inflate
-    run_count and pad by_wo with $0.00 lines; and when `month`
+    run_count and pad by_wo with $0.00 lines, as would owner-session
+    markers (ADR-0069: not a dispatch); and when `month`
     ("YYYY-MM") is given only rows cost_ledger.in_month places in that
     month are counted, rows without `at` being legacy (pre-timestamp) and
     belonging to closed months by construction. Every number below is

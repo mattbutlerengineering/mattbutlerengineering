@@ -15,7 +15,8 @@ The harness-IO conventions live here for the same reason: child_env
 write_outputs (the $GITHUB_OUTPUT heredoc form assembler.py and
 cost_report.py both emit), read_event (the $GITHUB_EVENT_PATH read
 gates.py and assembler.py both make — ADR-0042), and read_execution (the
-claude-code-action execution file's spend record — issue #222).
+claude-code-action execution file's spend record — issue #222), with
+prettier_json, the form a kept result event is written in (#832).
 decode_events and harness_run (ADR-0053) are the streaming half: the
 one JSON-lines decode every harness stream shares, and the
 spawn-watch-reap lifecycle of a `-p` harness child (own process group,
@@ -43,6 +44,7 @@ import contextlib
 import json
 import math
 import os
+import re
 import secrets
 import select
 import signal
@@ -341,6 +343,84 @@ def read_file(path, shown, kind):
     return value, None
 
 
+# prettier's default printWidth: the line a one-line array must fit.
+PRETTIER_WIDTH = 80
+_EXPONENT = re.compile(r"e\+?(-?)0*(?=\d)")
+
+
+def prettier_json(value):
+    """value as the JSON text prettier leaves unchanged (#832): a
+    consumer's prettier check rewrote the Conductor's compact runs/*.json,
+    and would rewrite plain indent=2 too. Indent two, a trailing newline,
+    every non-empty object expanded (prettier keeps an object expanded
+    when it is written so), an array on one line when it fits, else one
+    item a line, or filled lines for numbers; exponents as prettier
+    prints them. A consumer whose printWidth is not 80 can still differ
+    on an array whose one-line form lands between the two widths."""
+    return _pretty(value, 0, 0, 0) + "\n"
+
+
+def _scalar(value):
+    text = json.dumps(value)
+    return _EXPONENT.sub(r"e\1", text) if isinstance(value, float) else text
+
+
+def _flat(value):
+    """value on one line, or None when it holds a non-empty object."""
+    if isinstance(value, dict):
+        return None if value else "{}"
+    if not isinstance(value, list):
+        return _scalar(value)
+    items = [_flat(item) for item in value]
+    return None if None in items else "[" + ", ".join(items) + "]"
+
+
+def _must_break(items):
+    """prettier's rule: two or more items, all arrays (or all objects),
+    each holding more than one entry."""
+    return len(items) > 1 and all(
+        isinstance(item, type(items[0])) and isinstance(item, (list, dict))
+        and len(item) > 1 for item in items)
+
+
+def _pretty(value, indent, column, tail):
+    """value starting at column, tail characters (a comma) after it."""
+    pad = " " * (indent + 2)
+    if isinstance(value, dict) and value:
+        last = len(value) - 1
+        lines = [pad + json.dumps(key) + ": "
+                 + _pretty(item, indent + 2,
+                           len(pad) + len(json.dumps(key)) + 2, n < last)
+                 + ("," if n < last else "")
+                 for n, (key, item) in enumerate(value.items())]
+        return "{\n" + "\n".join(lines) + "\n" + " " * indent + "}"
+    flat = _flat(value)
+    if not isinstance(value, list) or not value or (
+            flat is not None and not _must_break(value)
+            and column + len(flat) + tail <= PRETTIER_WIDTH):
+        return flat
+    last = len(value) - 1
+    if last and all(isinstance(item, (int, float))
+                    and not isinstance(item, bool) for item in value):
+        return "[\n" + _fill([_scalar(item) + ("," if n < last else "")
+                              for n, item in enumerate(value)], pad) \
+            + "\n" + " " * indent + "]"
+    lines = [pad + _pretty(item, indent + 2, len(pad), n < last)
+             + ("," if n < last else "") for n, item in enumerate(value)]
+    return "[\n" + "\n".join(lines) + "\n" + " " * indent + "]"
+
+
+def _fill(words, pad):
+    """prettier's fill: the next number joins the line while it fits."""
+    lines = [pad + words[0]]
+    for word in words[1:]:
+        if len(lines[-1]) + 1 + len(word) <= PRETTIER_WIDTH:
+            lines[-1] += " " + word
+        else:
+            lines.append(pad + word)
+    return "\n".join(lines)
+
+
 # The usage counts a result entry may carry; absent fields count zero
 # (the CLI omits cache fields on cache-less runs), present fields must be
 # non-negative integers.
@@ -429,16 +509,16 @@ def read_execution(path):
 
 
 def runner(binary, timeout=None):
-    """A run(args, input=None) callable shelling out to `binary`,
-    returning the CompletedProcess. A failed or missing binary raises
-    CLI_FAILURES — the caller's concern, not this adapter's — as does
-    one still running after `timeout` seconds (None: wait forever).
-    `input` is the child's stdin text; both defaults leave every
-    earlier caller byte-for-byte unchanged."""
-    def run(args, input=None):
+    """A run(args, input=None, cwd=None) callable shelling out to
+    `binary`, returning the CompletedProcess. A failed or missing binary
+    raises CLI_FAILURES — the caller's concern, not this adapter's — as
+    does one still running after `timeout` seconds (None: wait forever).
+    `input` is the child's stdin text and `cwd` its working directory;
+    the defaults leave every earlier caller byte-for-byte unchanged."""
+    def run(args, input=None, cwd=None):
         return subprocess.run([binary, *args], check=True,
                               capture_output=True, text=True,
-                              timeout=timeout, input=input)
+                              timeout=timeout, input=input, cwd=cwd)
     return run
 
 

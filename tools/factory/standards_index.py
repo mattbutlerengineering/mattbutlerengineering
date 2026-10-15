@@ -11,10 +11,12 @@ sites needing the identical shape/parsing logic from the moment K exists,
 the same "two real callers" relationship cost_ledger.py already has with
 detector G (ADR-0037). Conventions match cost_ledger.py: a pure parser
 (parse_bullet) returns unlocated problem suffixes for callers that locate
-and label their own; build_index walks docs/adr/*.md once and returns
-(entries, LOCATED problems, already prefixed with the caller's label via
-`load`) — gates.py's detector K is that caller, passing "K" the same way
-detector G passes "G" to cost_ledger.load.
+and label their own; build_index parses the ADR lines it is handed —
+knowledge_plane.read_adrs' files, the one guarded ADR read (issue #855)
+— and returns (entries, LOCATED problems) that each caller labels:
+gates.py's detector K hands it parse_run's adr_files and prefixes "K",
+the same way detector G passes "G" to cost_ledger.load; `update` reads
+the tree through index_tree.
 
 The statement shape (ADR-0073's Component 1, architecture.md): a
 docs/standards.json entry is
@@ -63,7 +65,7 @@ import sys
 from pathlib import Path
 
 from cli import read_file, report
-from knowledge_plane import adr_paths, repo_root
+from knowledge_plane import adr_file_number, read_adrs, repo_root
 
 STANDARDS_PATH = "docs/standards.json"
 
@@ -180,11 +182,12 @@ def adr_number(source):
     return match.group("number") if match else None
 
 
-def build_index(root):
+def build_index(root, adr_files):
     """(entries, problems): the ADR-derived subset of docs/standards.json,
-    freshly rebuilt from docs/adr/*.md's `## Normative statements`
-    sections — deterministic (sorted by slug) and pure over the tree at
-    `root`. Never reads the previously committed docs/standards.json (see
+    freshly rebuilt from the `## Normative statements` sections of
+    ADR_FILES — [(Path, [str])], knowledge_plane.read_adrs' files or
+    parse_run's "adr_files" — deterministic (sorted by slug) and pure
+    over them; `root` only relativizes problem-string paths. Never reads the previously committed docs/standards.json (see
     this module's docstring: status is always "advisory" here by
     construction). `problems` is LOCATED but UNLABELLED
     ("docs/adr/NNNN-x.md:12 <suffix>") — `update` and gates.py's detector
@@ -200,9 +203,9 @@ def build_index(root):
     entries = []
     problems = []
     seen = {}  # slug -> "rel:lineno" of its first occurrence
-    for number, path in adr_paths(root):
+    for path, lines in adr_files:
         rel = path.relative_to(root)
-        lines = path.read_text(encoding="utf-8").splitlines()
+        number = adr_file_number(path.name)[0]
         for start, body in _normative_sections(lines):
             for offset, line in enumerate(body):
                 if not line.strip():
@@ -232,6 +235,16 @@ def build_index(root):
     return entries, problems
 
 
+def index_tree(root):
+    """build_index over the ADRs under `root`, read through
+    knowledge_plane.read_adrs: (entries, problems), an ADR that cannot
+    be read joining the build's unlabelled problems."""
+    root = Path(root)
+    adr_files, read_problems = read_adrs(root)
+    entries, problems = build_index(root, adr_files)
+    return entries, read_problems + problems
+
+
 def foreign_entries(root):
     """(hand-curated entries, problems): every existing docs/standards.json
     entry whose `source` starts with HAND_CURATED_PREFIX, read verbatim —
@@ -255,7 +268,7 @@ def foreign_entries(root):
 
 def update(root):
     """Regenerate docs/standards.json: the ADR-derived subset rebuilt
-    fresh (build_index), every hand-curated CLAUDE.md#-sourced entry
+    fresh (index_tree), every hand-curated CLAUDE.md#-sourced entry
     preserved verbatim (foreign_entries), sorted by slug for a stable
     diff (the same stability concern factory_init.update_manifest already
     has for factory/manifest.json). Refuses to write on any problem —
@@ -263,7 +276,7 @@ def update(root):
     the same "do not write past what did not parse" rule
     factory_init.update_manifest follows for a missing root file."""
     root = Path(root)
-    entries, problems = build_index(root)
+    entries, problems = index_tree(root)
     foreign, foreign_problems = foreign_entries(root)
     problems = problems + foreign_problems
     if problems:

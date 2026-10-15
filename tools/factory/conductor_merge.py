@@ -32,7 +32,7 @@ import re
 import subprocess
 import time
 from collections import Counter
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import conductor_consent as consent
 import conductor_flow as flow
@@ -43,6 +43,7 @@ from cli import CLI_FAILURES, detail, gh_read
 from conductor import BLOCK, append, current_state, is_text, \
     item_view, load, stamp
 from cost_ledger import ISSUE_KEY
+from knowledge_plane import adr_citation, adr_digits, adr_file_number
 
 def _refused(text):
     return [f"cd: merge refused: {text}"]
@@ -137,7 +138,6 @@ RETRY = "retry"
 QUEUE_QUERY = ("query($owner:String!,$name:String!){repository(owner:"
                '$owner,name:$name){mergeQueue(branch:"main"){id}}}')
 PREFIXES = {"prd": "PRD", "adr": "ADR", "wo": "WO"}
-ADR_FILE = re.compile(r"docs/adr/(\d{4})-[^/]+")
 DRIFT_WHY = ("the item has no path back to review, and a change nobody"
              " reviewed must not merge; block it and file the change anew")
 RETRY_WHY = ("a timeout, an ejection or a failed call may be transient; the"
@@ -289,7 +289,33 @@ def added_marks(main_lines, head_lines):
 
 
 def _token(kind, number):
-    return re.compile(rf"\b{PREFIXES[kind]}-{number:04d}\b")
+    """A citation of NUMBER, its digits in group `num`: an ADR at any
+    width it is written (#860), a PRD or WO at its 4 digits."""
+    if kind == "adr":
+        return adr_citation(number)
+    return re.compile(rf"\b{PREFIXES[kind]}-(?P<num>{number:04d})\b")
+
+
+def _adr_file(path):
+    """adr_file_number's (number, written) for a repo-relative PATH in
+    the ADR file set knowledge_plane.adr_paths reads (docs/adr/*.md),
+    else None."""
+    where = PurePosixPath(path)
+    if str(where.parent) != "docs/adr" or where.suffix != ".md":
+        return None
+    return adr_file_number(where.name)
+
+
+def _width(kind, number, new_paths):
+    """The digits NUMBER is written at in a message: an ADR at the width
+    of the item's ADR file of NUMBER (#860, #890), anything else at the
+    4-digit grammar."""
+    if kind == "adr":
+        for path in new_paths:
+            found = _adr_file(path)
+            if found and int(found[0]) == number:
+                return found[1]
+    return "0000"
 
 
 def _used(held, files, new_paths):
@@ -302,15 +328,14 @@ def _used(held, files, new_paths):
                         for lines, marks in files.values()
                         for line, added in zip(lines, marks) if added)
             named = kind == "adr" and any(
-                ADR_FILE.fullmatch(path)
-                and int(ADR_FILE.fullmatch(path).group(1)) == number
+                _adr_file(path) and int(_adr_file(path)[0]) == number
                 for path in new_paths)
             if cited or named:
                 used.setdefault(kind, []).append(number)
     return used
 
 
-def _allocate(rows, on_main, collided):
+def _allocate(rows, on_main, collided, new_paths):
     """{kind: {old: new}}: each collided number moves to the next number
     above everything on origin/main and every block in the batch."""
     moves = {}
@@ -322,7 +347,9 @@ def _allocate(rows, on_main, collided):
         for number in numbers:
             top += 1
             if top > 9999:
-                raise Stall(f"{PREFIXES[kind]}-{number:04d} is taken on"
+                written = _width(kind, number, new_paths)
+                raise Stall(f"{PREFIXES[kind]}-"
+                            f"{adr_digits(number, written)} is taken on"
                             " origin/main and cannot be renumbered:"
                             f" {PREFIXES[kind]}-{top} would leave the"
                             " 4-digit grammar")
@@ -333,8 +360,10 @@ def _allocate(rows, on_main, collided):
 def _rewrite(line, moves, stems):
     for kind, pairs in moves.items():
         for old, new in pairs.items():
-            line = _token(kind, old).sub(f"{PREFIXES[kind]}-{new:04d}",
-                                         line)
+            # Each citation keeps the width it is written at (#860).
+            line = _token(kind, old).sub(
+                lambda cited, kind=kind, new=new:
+                f"{PREFIXES[kind]}-{adr_digits(new, cited['num'])}", line)
     for old, new in stems.items():
         line = line.replace(old, new)
     return line
@@ -345,11 +374,13 @@ def _renumber(git, worktree, files, new_paths, moves):
     commit. Lines that are origin/main's are never touched."""
     renames = {}
     for path in new_paths:
-        found = ADR_FILE.fullmatch(path)
-        number = int(found.group(1)) if found else None
-        if number in moves.get("adr", {}):
-            renames[path] = (f"docs/adr/{moves['adr'][number]:04d}"
-                             f"{path[len('docs/adr/0000'):]}")
+        number, written = _adr_file(path) or (None, None)
+        if number is not None and int(number) in moves.get("adr", {}):
+            # The name's first digits are its number (ADR_FILE's prefix
+            # holds none), renamed at the width they are written (#860).
+            new = adr_digits(moves["adr"][int(number)], written)
+            renames[path] = ("docs/adr/" + PurePosixPath(path).name
+                             .replace(written, new, 1))
     for old, new in renames.items():
         if (worktree / new).exists():
             raise Stall(f"{old} cannot be renumbered: {new} already exists")
@@ -367,10 +398,11 @@ def _renumber(git, worktree, files, new_paths, moves):
             touched.append(target)
     _git(git, worktree, ["add", "--", *sorted(set(touched))],
          "staging the renumber")
-    spans = ", ".join(f"{PREFIXES[kind]}-{old:04d} to"
-                      f" {PREFIXES[kind]}-{new:04d}"
-                      for kind, pairs in moves.items()
-                      for old, new in pairs.items())
+    spans = ", ".join(
+        f"{PREFIXES[kind]}-{adr_digits(old, written)} to"
+        f" {PREFIXES[kind]}-{adr_digits(new, written)}"
+        for kind, pairs in moves.items() for old, new in pairs.items()
+        for written in [_width(kind, old, new_paths)])
     _git(git, worktree, ["commit", "-m", f"chore(conductor): renumber {spans}"],
          "committing the renumber")
 
@@ -401,7 +433,7 @@ def confirm_reservations(rows, item, git, worktree, branch):
                 if numbers}
     if not collided:
         return []
-    moves = _allocate(rows, on_main, collided)
+    moves = _allocate(rows, on_main, collided, new_paths)
     _renumber(git, worktree, files, new_paths, moves)
     return [{"what": kind, "values": list(pairs.values()),
              "renumbered_from": list(pairs)}
@@ -502,7 +534,9 @@ def land(gh, pr, head, queued, clock, sleep):
         sleep(POLL_SECONDS)
 
 
-def _main_head(git, worktree):
+def main_head(git, worktree):
+    """origin/main's sha as last fetched: the base a caller passes to
+    land_branch once it merged that main into the branch."""
     return _git(git, worktree, ["rev-parse", "origin/main"],
                 "reading origin/main", RETRY).strip()
 
@@ -517,11 +551,70 @@ def _main_held(git, worktree, base):
     window left is the moment between this read and the squash."""
     _git(git, worktree, ["fetch", "origin", "main"], "fetching origin/main",
          RETRY)
-    moved = _main_head(git, worktree)
+    moved = main_head(git, worktree)
     if moved != base:
         raise Stall(f"origin/main moved from {base[:12]} to {moved[:12]}"
                     " while the checks ran; a retry merges it in and"
                     " checks again", RETRY)
+
+
+def land_branch(git, gh, worktree, branch, base, clock, sleep):
+    """(pr, sha, checks): push `branch`, wait for green checks on its
+    head, then land that head, or raise Stall. `base` is the origin/main
+    the caller merged into the branch; without a merge queue main must
+    still be there when the checks finish (ADR-0086: the check runs on
+    the updated head). The one owner of landing a checked head (#770):
+    the merge turn and the closing merge both call it."""
+    _git(git, worktree, ["push", "origin", branch], f"pushing {branch}",
+         RETRY)
+    head = _git(git, worktree, ["rev-parse", "HEAD"], "reading HEAD").strip()
+    pr = pr_number(gh, branch)
+    checks = wait_checks(gh, head, clock, sleep)
+    queued = has_queue(gh)
+    if not queued:
+        _main_held(git, worktree, base)
+    return pr, land(gh, pr, head, queued, clock, sleep), checks
+
+
+def _on_main(git, worktree, head):
+    """True when `head` is an ancestor of a freshly fetched origin/main;
+    `merge-base --is-ancestor` exits 1 for not, any other failure stalls."""
+    _git(git, worktree, ["fetch", "origin", "main"], "fetching origin/main",
+         RETRY)
+    try:
+        git(["-C", str(worktree), "merge-base", "--is-ancestor", head,
+             "origin/main"])
+    except CLI_FAILURES as err:
+        if getattr(err, "returncode", None) == 1:
+            return False
+        raise Stall("reading whether origin/main holds"
+                    f" {head[:12]} failed: {detail(err)}", RETRY)
+    return True
+
+
+def landed_by_repo(git, gh, worktree, branch):
+    """(pr, sha) when the repo itself (its auto-merge) already merged
+    `branch`'s PR carrying the head this worktree pushed, None when no PR
+    of the branch merged (#807). Its head is that head (a squash), or
+    that head is on origin/main (a merge commit); a PR merged without it
+    stalls naming the gap."""
+    listed = _read(gh, ["pr", "list", "--head", branch, "--state", "merged",
+                        "--json", "number,headRefOid,mergeCommit"],
+                   "gh pr list --state merged", expect=list)
+    if not listed:
+        return None
+    merged = listed[0] if isinstance(listed[0], dict) else {}
+    pr, at = merged.get("number"), merged.get("headRefOid")
+    sha = (merged.get("mergeCommit") or {}).get("oid")
+    if not (isinstance(pr, int) and is_text(at) and is_text(sha)):
+        raise Stall(f"gh pr list named an unreadable merged PR of {branch}",
+                    RETRY)
+    head = _git(git, worktree, ["rev-parse", "HEAD"], "reading HEAD").strip()
+    if at != head and not _on_main(git, worktree, head):
+        raise Stall(f"PR #{pr} was merged by the repo at {at[:12]}, without"
+                    f" {head[:12]}, the head the Conductor pushed: what"
+                    " that head adds is missing from main")
+    return pr, sha
 
 
 def _reserve(root, batch, clock, item, fields):
@@ -539,7 +632,7 @@ def _turn(root, batch, item, ports, worktree, gate, policy):
     git, gh, tool, clock, sleep = ports
     branch = flow.item_branch(batch, item)
     update_branch(git, tool, worktree, branch)
-    base = _main_head(git, worktree)
+    base = main_head(git, worktree)
     version = bump_version(git, tool, worktree, branch)
     rows, problems = load(root, batch)
     if problems:
@@ -560,15 +653,8 @@ def _turn(root, batch, item, ports, worktree, gate, policy):
         tool(gate, cwd=str(worktree))
     except CLI_FAILURES as err:
         raise Stall(f"{' '.join(gate)} failed on {branch}: {detail(err)}")
-    _git(git, worktree, ["push", "origin", branch], f"pushing {branch}",
-         RETRY)
-    head = _git(git, worktree, ["rev-parse", "HEAD"], "reading HEAD").strip()
-    pr = pr_number(gh, branch)
-    checks = wait_checks(gh, head, clock, sleep)
-    queued = has_queue(gh)
-    if not queued:
-        _main_held(git, worktree, base)
-    sha = land(gh, pr, head, queued, clock, sleep)
+    pr, sha, checks = land_branch(git, gh, worktree, branch, base, clock,
+                                  sleep)
     return {"pr": pr, "sha": sha, "checks": checks}, []
 
 
@@ -650,7 +736,7 @@ def merge_turn(root, batch, item, clock, git, gh, tool, sleep, pid=None,
         return None, problems
     if drift is not None:
         _, problems = flow.queue_stall(root, batch, clock(), item, drift,
-                                       BLOCK, DRIFT_WHY)
+                                       "merge-drift", BLOCK, DRIFT_WHY)
         return {"item": item, "stall": drift}, problems
     # The turn's pid lets `next` stall a turn that died mid-way.
     _, problems = flow.move(root, batch, clock(), item, "merging",
@@ -664,7 +750,8 @@ def merge_turn(root, batch, item, clock, git, gh, tool, sleep, pid=None,
                                  gate, policy)
     except Stall as stall:
         _, problems = flow.queue_stall(
-            root, batch, clock(), item, stall.reason, stall.recommended,
+            root, batch, clock(), item, stall.reason, "merge-failed",
+            stall.recommended,
             RETRY_WHY if stall.recommended == RETRY else BLOCK_WHY)
         return {"item": item, "stall": stall.reason}, problems
     if problems:
