@@ -1815,6 +1815,15 @@
   </section>
   <section priority="medium" role="contexts">
   <file path="apps/hospitality/src/contexts/venue-context-object.ts">
+    <item priority="low">
+      interface VenueContextValue {
+        venues: readonly Venue[];
+        selectedVenueId: string | null;
+        selectedVenue: Venue | null;
+        setVenueId: (id: string) => void;
+        isLoading: boolean;
+      }
+    </item>
     <item priority="high">
       export const VenueContext: unknown;
     </item>
