@@ -3,6 +3,7 @@ import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import { addDays, venueDate } from "../../utils/service-day.js";
+import { WidgetLocalePicker } from "./WidgetLocalePicker.js";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { GuestDetailsForm } from "./GuestDetailsForm";
@@ -145,6 +146,7 @@ export function BookingWidget({
     <div className={[styles.widget, className].filter(Boolean).join(" ")}>
       {/* Header */}
       <div className={styles.header}>
+        <WidgetLocalePicker />
         <Text variant="display" as="h2" align="center">
           Make a Reservation
         </Text>
