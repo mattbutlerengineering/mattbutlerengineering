@@ -447,3 +447,91 @@ describe("issue-zone", () => {
     });
   });
 });
+
+describe("selectZoneSpreadBatch — strictMain: false (ADR-027)", () => {
+  const filesBody = (...paths) =>
+    `## Files to Modify/Create\n\n${paths.map((p) => `- ${p}`).join("\n")}\n`;
+  const rialto = (n, ...paths) =>
+    issue(`fix(rialto): item ${n}`, { number: n, body: filesBody(...paths) });
+  const numbers = (batch) => batch.map((i) => i.number);
+
+  test("default (strictMain omitted) still defers same-zone issues", () => {
+    const batch = selectZoneSpreadBatch([
+      rialto(1, "packages/rialto/src/a.ts"),
+      rialto(2, "packages/rialto/src/b.ts"),
+    ]);
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("strictMain: true defers same-zone issues even with disjoint paths", () => {
+    const batch = selectZoneSpreadBatch(
+      [rialto(1, "packages/rialto/src/a.ts"), rialto(2, "packages/rialto/src/b.ts")],
+      { strictMain: true }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("three disjoint same-zone issues batch together", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        rialto(1, "packages/rialto/src/a.ts"),
+        rialto(2, "packages/rialto/src/b.ts"),
+        rialto(3, "packages/rialto/src/c.ts"),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1, 2, 3]);
+  });
+
+  test("overlapping pair is deferred (identical path)", () => {
+    const batch = selectZoneSpreadBatch(
+      [rialto(1, "packages/rialto/src/a.ts"), rialto(2, "packages/rialto/src/a.ts")],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("ancestor/descendant paths overlap (prefix-aware)", () => {
+    const batch = selectZoneSpreadBatch(
+      [rialto(1, "packages/rialto/src"), rialto(2, "packages/rialto/src/b.ts")],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("sibling names sharing a string prefix do not overlap", () => {
+    const batch = selectZoneSpreadBatch(
+      [rialto(1, "packages/rialto/src/a"), rialto(2, "packages/rialto/src/ab")],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1, 2]);
+  });
+
+  test("pathless same-zone issues never stack", () => {
+    const batch = selectZoneSpreadBatch(
+      [issue("fix(rialto): a", { number: 1 }), issue("fix(rialto): b", { number: 2 })],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("global (null-zone) issues keep the single slot", () => {
+    const batch = selectZoneSpreadBatch(
+      [issue("chore: a", { number: 1 }), issue("chore: b", { number: 2 })],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("maxWorkers still caps the batch", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        rialto(1, "packages/rialto/src/a.ts"),
+        rialto(2, "packages/rialto/src/b.ts"),
+        rialto(3, "packages/rialto/src/c.ts"),
+      ],
+      { strictMain: false, maxWorkers: 2 }
+    );
+    expect(numbers(batch)).toEqual([1, 2]);
+  });
+});
