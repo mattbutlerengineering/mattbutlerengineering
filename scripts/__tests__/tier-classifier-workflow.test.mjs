@@ -46,29 +46,44 @@ afterEach(() => {
  * per-test temp path so parallel test runs cannot collide — this is the only
  * deviation from the committed script text.
  */
-function runClassifier({ title = "", body = "", files = [], added = 0, isFork = false }) {
+function runClassifier({
+  title = "",
+  body = "",
+  files = [],
+  added = 0,
+  additions = {},
+  isFork = false,
+}) {
   const dir = mkdtempSync(join(tmpdir(), "tier-classifier-test-"));
   tmpDirs.push(dir);
 
   const changedFilesPath = join(dir, "changed-files.txt");
   const outputPath = join(dir, "github-output.txt");
   writeFileSync(changedFilesPath, files.join("\n"));
-
-  const script = extractClassifierScript(WORKFLOW).replace(
-    "/tmp/changed-files.txt",
-    changedFilesPath
+  // `added` is shorthand: attribute that many lines to the first file.
+  const perFile = { ...(added && files[0] ? { [files[0]]: added } : {}), ...additions };
+  const numstatPath = join(dir, "numstat.txt");
+  writeFileSync(
+    numstatPath,
+    Object.entries(perFile)
+      .map(([path, n]) => `${n}\t0\t${path}`)
+      .join("\n")
   );
+
+  const script = extractClassifierScript(WORKFLOW)
+    .replace("/tmp/changed-files.txt", changedFilesPath)
+    .replace("/tmp/numstat.txt", numstatPath);
 
   const result = spawnSync(process.execPath, ["-e", script], {
     env: {
       ...process.env,
       PR_TITLE: title,
       PR_BODY: body,
-      ADDED_LINES: String(added),
       PR_IS_FORK: String(isFork),
       GITHUB_OUTPUT: outputPath,
     },
     encoding: "utf8",
+    cwd: ROOT,
   });
 
   if (result.status !== 0) {
@@ -381,5 +396,92 @@ describe("tier-classifier path rules: ACMM automation output", () => {
       added: 1001,
     });
     expect(tier).toBe(2);
+  });
+});
+
+describe("tier-classifier delegates escalation to scripts/tier-escalation.mjs (#6655)", () => {
+  const body = (prose) => `${PR_TEMPLATE}\n\n## Summary\n\n${prose}`;
+
+  it("#6610 shape: generated churn does not push a T3 PR to T4 on size", () => {
+    const { tier, reasons } = runClassifier({
+      title: "feat: thing",
+      body: PR_TEMPLATE,
+      files: ["llms-full.txt", "services/a/src/routes/r.ts"],
+      additions: { "llms-full.txt": 1194, "services/a/src/routes/r.ts": 988 },
+    });
+    expect(tier).toBe(3);
+    expect(reasons).not.toMatch(/lines added/);
+  });
+
+  it("#6591 shape: >1000 real code lines still escalates one tier", () => {
+    const { tier, reasons } = runClassifier({
+      title: "feat: thing",
+      body: PR_TEMPLATE,
+      files: ["services/a/src/routes/r.ts", "docs/guide.md"],
+      additions: { "services/a/src/routes/r.ts": 1387, "docs/guide.md": 943 },
+    });
+    expect(tier).toBe(4);
+    expect(reasons).toMatch(/review-surface lines added/);
+  });
+
+  it("#6541 shape: a descriptive credentials mention does not escalate", () => {
+    const { tier, reasons } = runClassifier({
+      title: "chore: add e2e spec",
+      body: body("Needs a human to supply the E2E_AUTH0_USER credentials or CI/artifact access."),
+      files: ["services/a/src/x.ts"],
+    });
+    expect(tier).toBe(2);
+    expect(reasons).not.toMatch(/secrets or incident/);
+  });
+
+  it("a real incident sentence still escalates a non-sensitive PR one tier", () => {
+    const { tier, reasons } = runClassifier({
+      title: "chore: cleanup",
+      body: body("We leaked the Stripe key and must rotate it."),
+      files: ["services/a/src/x.ts"],
+    });
+    expect(tier).toBe(3);
+    expect(reasons).toMatch(/secrets or incident/);
+  });
+
+  it("a real incident with a sensitive path still lands T4", () => {
+    const { tier } = runClassifier({
+      title: "fix: redact",
+      body: body("We leaked the Stripe key and must rotate it."),
+      files: ["services/users/src/auth/session.ts"],
+    });
+    expect(tier).toBe(4);
+  });
+
+  it("a secret/credential file edit under an infra path stays T4", () => {
+    const { tier } = runClassifier({
+      title: "chore: rotate the production secret",
+      body: PR_TEMPLATE,
+      files: ["infrastructure/pulumi/Pulumi.prod.yaml"],
+    });
+    expect(tier).toBe(4);
+  });
+
+  it("the workflow loads the module instead of inlining the policy", () => {
+    const script = extractClassifierScript(WORKFLOW);
+    expect(script).toMatch(/tier-escalation\.mjs/);
+    expect(script).not.toMatch(/added > 1000/);
+  });
+
+  it("fails closed (non-zero exit, no tier output) if the module cannot load", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tier-classifier-missing-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "changed.txt"), "a.ts");
+    const outputPath = join(dir, "out.txt");
+    const script = extractClassifierScript(WORKFLOW).replace(
+      "/tmp/changed-files.txt",
+      join(dir, "changed.txt")
+    );
+    const result = spawnSync(process.execPath, ["-e", script], {
+      env: { ...process.env, GITHUB_OUTPUT: outputPath },
+      encoding: "utf8",
+      cwd: dir,
+    });
+    expect(result.status).not.toBe(0);
   });
 });
