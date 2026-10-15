@@ -1,5 +1,5 @@
 {
-  "version": "0.6.2",
+  "version": "0.6.3",
   "components": [
     {
       "name": "Accordion",
@@ -3014,6 +3014,12 @@
           "type": "BreadcrumbItem[] | undefined",
           "required": false,
           "description": "Breadcrumb trail rendered above the title."
+        },
+        {
+          "name": "breadcrumbLabel",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name of the breadcrumb `<nav>`. Give each header on a page its own\nname when more than one renders, so the landmarks stay unique."
         },
         {
           "name": "actions",

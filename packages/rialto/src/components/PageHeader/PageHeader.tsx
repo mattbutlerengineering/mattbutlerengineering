@@ -23,6 +23,12 @@ export interface PageHeaderProps extends HTMLAttributes<HTMLElement> {
   title: string;
   /** Breadcrumb trail rendered above the title. */
   breadcrumbs?: BreadcrumbItem[];
+  /**
+   * Accessible name of the breadcrumb `<nav>`. Give each header on a page its own
+   * name when more than one renders, so the landmarks stay unique.
+   * @default "Breadcrumb" (localized)
+   */
+  breadcrumbLabel?: string;
   /** Right-aligned action buttons. Hidden on narrow screens. */
   actions?: ReactNode;
   /** Badges or avatars displayed beside the title. */
@@ -37,7 +43,7 @@ export type { BreadcrumbItem };
 /* ── Component ───────────────────────────────── */
 
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
-  ({ title, breadcrumbs, actions, meta, children, className, ...props }, ref) => {
+  ({ title, breadcrumbs, breadcrumbLabel, actions, meta, children, className, ...props }, ref) => {
     const classes = cn(styles.header, className);
 
     return (
@@ -46,7 +52,12 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
         <div className={styles.grain} />
 
         <div className={styles.inner}>
-          {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
+          {breadcrumbs && breadcrumbs.length > 0 && (
+            <Breadcrumb
+              items={breadcrumbs}
+              {...(breadcrumbLabel ? { "aria-label": breadcrumbLabel } : {})}
+            />
+          )}
 
           <div className={styles.titleRow}>
             <Heading level={1} size={3} className={styles.title}>

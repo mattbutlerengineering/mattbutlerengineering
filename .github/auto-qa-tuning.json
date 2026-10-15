@@ -203,10 +203,16 @@
       "trigger": "threshold-auto-tuner",
       "adjustments": ["acmm: 1.15 → 1.167 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: acmm."
+    },
+    {
+      "date": "2026-10-15",
+      "trigger": "threshold-auto-tuner",
+      "adjustments": ["acmm: 1.167 → 1.17 (headroom)"],
+      "note": "Auto-tuned 1 sensor threshold(s) from verification results: acmm."
     }
   ],
   "sensorSensitivity": {
     "ci-fix": 1.248,
-    "acmm": 1.167
+    "acmm": 1.17
   }
 }
