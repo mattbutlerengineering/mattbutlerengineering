@@ -15,20 +15,35 @@ import { checkDetectionLabel, isCheckCriterion } from "./detection-label.js";
 import { fileIssue, isIssueNotFoundError } from "../../../../scripts/lib/issue-filing.mjs";
 
 /**
+ * Map gh's `state`/`stateReason` to a fileIssue state. CLOSED + NOT_PLANNED is
+ * an Owner veto and must never be reopened.
+ *
+ * @param {string} state
+ * @param {string | null | undefined} stateReason
+ * @returns {"open" | "closed" | "vetoed" | "error"}
+ */
+export function classifyIssueState(state, stateReason) {
+  const s = String(state).toLowerCase();
+  if (s === "open") return "open";
+  if (s === "closed") {
+    return String(stateReason ?? "").toLowerCase() === "not_planned" ? "vetoed" : "closed";
+  }
+  return "error";
+}
+
+/**
  * @param {number} issueNumber
- * @returns {"open" | "closed" | "missing" | "error"}
+ * @returns {"open" | "closed" | "vetoed" | "missing" | "error"}
  */
 function getIssueState(issueNumber) {
   try {
     const out = execFileSync(
       "gh",
-      ["issue", "view", String(issueNumber), "--json", "state", "--jq", ".state"],
+      ["issue", "view", String(issueNumber), "--json", "state,stateReason"],
       { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
     );
-    const s = out.trim().toLowerCase();
-    if (s === "open") return "open";
-    if (s === "closed") return "closed";
-    return "error";
+    const { state, stateReason } = JSON.parse(out);
+    return classifyIssueState(state, stateReason);
   } catch (err) {
     return isIssueNotFoundError(err) ? "missing" : "error";
   }
@@ -110,16 +125,18 @@ export function buildIssueBody(c) {
  *   1. No entry yet                        → create, store.
  *   2. Entry, issue currently open          → skip (don't spam).
  *   3. Entry, issue currently closed        → reopen the existing issue (no dupe).
+ *   4. Entry, closed as "not planned"       → skip-vetoed (Owner veto, never reopen).
  *
  * @param {Array<import("../sources/types.js").Criterion>} failing
  * @param {Record<string, number>} existingIssues
  * @param {{ dryRun?: boolean, extraLabels?: string[] }} [opts]
- * @returns {{ issuesCreated: Record<string, number>, createdCount: number, skippedOpen: number, reopenedCount: number }}
+ * @returns {{ issuesCreated: Record<string, number>, createdCount: number, skippedOpen: number, skippedVetoed: number, reopenedCount: number }}
  */
 export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
   let ledger = { ...existingIssues };
   let createdCount = 0;
   let skippedOpen = 0;
+  let skippedVetoed = 0;
   let reopenedCount = 0;
 
   for (const c of failing) {
@@ -142,11 +159,12 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
     ledger = result.ledger;
 
     if (result.action === "skip") skippedOpen += 1;
+    else if (result.action === "skip-vetoed") skippedVetoed += 1;
     else if (result.action === "create") createdCount += 1;
     else if (result.action === "reopen") reopenedCount += 1;
   }
 
-  return { issuesCreated: ledger, createdCount, skippedOpen, reopenedCount };
+  return { issuesCreated: ledger, createdCount, skippedOpen, skippedVetoed, reopenedCount };
 }
 
 /**

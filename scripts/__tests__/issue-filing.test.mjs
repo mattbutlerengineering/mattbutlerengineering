@@ -80,6 +80,21 @@ describe("fileIssue: skip/create/reopen decision", () => {
   });
 });
 
+describe("fileIssue: Owner veto (closed as not planned)", () => {
+  it("skips a vetoed issue without reopening or creating", () => {
+    const deps = fakeDeps({ getIssueState: vi.fn(() => "vetoed") });
+    const result = fileIssue(request(), { "example-key": 77 }, deps);
+
+    expect(result).toEqual({
+      action: "skip-vetoed",
+      issueNumber: 77,
+      ledger: { "example-key": 77 },
+    });
+    expect(deps.createIssue).not.toHaveBeenCalled();
+    expect(deps.reopenIssue).not.toHaveBeenCalled();
+  });
+});
+
 describe("fileIssue: state lookup error (#6374)", () => {
   it("never creates or reopens when the state lookup errors", () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
