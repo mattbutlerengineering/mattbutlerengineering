@@ -182,7 +182,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 
 ## Milestone 4: Release prep
 
-- [ ] **Rialto release notes & ADR index** — rialto minor changeset describing the new
+- [x] **Rialto release notes & ADR index** — rialto minor changeset describing the new
       `./locales/*` exports and provider props; ADR-028 index row in `docs/adr/README.md`
       on a branch from current `origin/main`; `apps/hospitality/CLAUDE.md` and
       `packages/rialto/CLAUDE.md` document the i18n conventions (where catalogs live,
@@ -190,6 +190,10 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
   - Accept: `pnpm changeset status` lists rialto minor; ADR index renders ADR-028;
     `/claude-md-improver`-style dangling-path check finds no broken references.
   - Blocked by: Per-locale e2e sweep (authenticated routes)
+  - Done (#6630): the new public API (`RialtoLocaleProvider`/`useRialtoLocale`, the `messages`/`locale`
+    props, `./locales/*` subpaths, per-family message keys, `GlobalNav` `labels`) shipped as **patch**
+    changesets in #6591, #6689, #6710, #6724 and #6741. Patch, not minor, per rialto's pre-1.0
+    convention (`packages/rialto/CLAUDE.md` § Publishing). The ADR-028 index row landed in #6591.
 
 ## Design gaps found
 
