@@ -13,6 +13,7 @@ import { cn, variantClass } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useField } from "../../hooks/useField";
 import styles from "./PinInput.module.css";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -69,6 +70,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
   },
   ref
 ) {
+  const { messages } = useRialtoLocale();
   const field = useField({ error, required, hint });
   const cellRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { spring, reduced: shouldReduceMotion } = useMotionPreset();
@@ -224,7 +226,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
                 autoComplete="one-time-code"
                 aria-invalid={field.controlProps["aria-invalid"]}
                 aria-required={required || undefined}
-                aria-label={`Digit ${i + 1} of ${length}`}
+                aria-label={messages.digitOf(i + 1, length)}
                 onChange={handleChange(i)}
                 onKeyDown={handleKeyDown(i)}
                 onPaste={handlePaste(i)}

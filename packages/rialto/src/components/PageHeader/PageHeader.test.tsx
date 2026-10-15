@@ -25,6 +25,17 @@ describe("PageHeader", () => {
       expect(screen.getAllByText("Settings").length).toBeGreaterThan(0);
     });
 
+    it("names the breadcrumb nav with breadcrumbLabel so several headers stay landmark-unique", () => {
+      render(
+        <PageHeader
+          title="Settings"
+          breadcrumbs={[{ label: "Home", href: "/" }, { label: "Settings" }]}
+          breadcrumbLabel="Settings breadcrumb"
+        />
+      );
+      expect(screen.getByRole("navigation", { name: "Settings breadcrumb" })).toBeInTheDocument();
+    });
+
     it("does not render breadcrumbs when not provided", () => {
       render(<PageHeader title="Settings" />);
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();

@@ -99,12 +99,12 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
   - Accept: same as the previous rialto item, plus a Calendar test showing es-MX month
     names via context with no `locale` prop, and today's behaviour with no provider.
   - Blocked by: Rialto locale subpaths
-- [ ] **Rialto migration — inputs & composites** — Tag, Combobox, Autocomplete, Select,
+- [x] **Rialto migration — inputs & composites** — Tag, Combobox, Autocomplete, Select,
       CommandPalette, ChatPanel, MasterOverride, Progress/Spinner, Button `loadingText`. (tracker: #6617)
   - Accept: same as the overlays item; afterwards rialto lint scope is `src/**` and
     `pnpm lint` passes for rialto.
   - Blocked by: Rialto migration — overlays & dismiss, Rialto migration — navigation & data
-- [ ] **Widget locale scope** — cloned i18next instance, `mbe-booking-widget-locale`,
+- [x] **Widget locale scope** — cloned i18next instance, `mbe-booking-widget-locale`,
       compact LocalePicker in the widget header, used by `PublicBookingPage`,
       `ManageReservationPage`, `BookingWidgetDemoPage`. (tracker: #6618)
   - Accept: tests: widget locale independent of dashboard both ways; demo page defaults

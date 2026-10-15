@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",

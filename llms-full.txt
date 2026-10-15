@@ -15186,6 +15186,92 @@
       readonly fileTooLarge: (max: string, actual: string) => string;
       /** ImageUpload validation message: file type outside `accept`. */
       readonly fileTypeNotAccepted: (accept: string) => string;
+      /** Accessible name of a control that removes a tag or chip, e.g. "Remove VIP". */
+      readonly removeItem: (label: string) => string;
+      /** Accessible name of an AvatarGroup overflow count. */
+      readonly moreCount: (count: number) => string;
+      /** Accessible name of one PinInput digit cell (1-based `index`). */
+      readonly digitOf: (index: number, length: number) => string;
+      /** Chalkboard item sold-out marker. */
+      readonly soldOut: string;
+      /** DataTable select-all checkbox label (screen-reader only). */
+      readonly selectAllRows: string;
+      /** DataTable single-select column header (screen-reader only). */
+      readonly selectRow: string;
+      /** ErrorBoundary default heading. */
+      readonly errorTitle: string;
+      /** ErrorBoundary default message. */
+      readonly errorMessage: string;
+      /** ErrorBoundary refresh button. */
+      readonly refreshPage: string;
+      /** Accessible name of the CommandPalette dialog. */
+      readonly commandPalette: string;
+      /** Accessible name of the CommandPalette search input. */
+      readonly searchCommands: string;
+      /** Accessible name of the CommandPalette results list. */
+      readonly commandResults: string;
+      /** CommandPalette empty state. */
+      readonly noResults: string;
+      /** CommandPalette footer hint beside the arrow keys. */
+      readonly navigateHint: string;
+      /** CommandPalette footer hint beside the enter key. */
+      readonly selectHint: string;
+      /** CommandPalette footer hint beside the escape key. */
+      readonly closeHint: string;
+      /** Generic busy-region accessible name. */
+      readonly loading: string;
+      /** Retry button (ChatPanel error). */
+      readonly tryAgain: string;
+      /** ChatPanel pending-action confirm button name. */
+      readonly confirmAction: string;
+      /** ChatPanel pending-action cancel button name. */
+      readonly cancelAction: string;
+      /** ChatPanel message input name. */
+      readonly chatInput: string;
+      /** ChatPanel message input placeholder. */
+      readonly chatPlaceholder: string;
+      /** ChatPanel send button. */
+      readonly send: string;
+      /** ChatPanel drawer title. */
+      readonly chat: string;
+      /** ChatPanel tool denial, rendered after the bold tool name. */
+      readonly toolBlocked: (reason: string) => string;
+      /** TapeChart list-row fallback name when a reservation has no guest. */
+      readonly reservation: string;
+      /** TapeChart list-row date span, e.g. "Mon, Jan 5 to Wed, Jan 7". */
+      readonly dateSpan: (start: string, end: string) => string;
+      /** Select trigger placeholder when nothing is chosen. */
+      readonly selectPlaceholder: string;
+      /** Combobox loading state. */
+      readonly loadingEllipsis: string;
+      /** Combobox and Autocomplete empty list. */
+      readonly noOptions: string;
+      /** Table and DataTable empty body. */
+      readonly noData: string;
+      /** CommandPalette search placeholder. */
+      readonly searchCommandsPlaceholder: string;
+      /** Accessible name of the Footer link columns. */
+      readonly footerLinks: string;
+      /** MasterOverride switch-face text when off. */
+      readonly standby: string;
+      /** MasterOverride switch-face text when on. */
+      readonly engaged: string;
+      /** MasterOverride safety-cover text. */
+      readonly liftToArm: string;
+      /** MasterOverride live-region text while the switch is held. */
+      readonly holdToArm: (label: string) => string;
+      /** MasterOverride live-region text once the hold completes. */
+      readonly switchEngaged: (label: string) => string;
+      /** MasterOverride live-region text when a hold is released early. */
+      readonly armingCancelled: string;
+      /** MasterOverride status with the cover closed; `state` is the switch face text. */
+      readonly coverClosedStatus: (label: string, state: string) => string;
+      /** MasterOverride status with the cover open; `state` is the switch face text. */
+      readonly coverOpenStatus: (label: string, state: string) => string;
+      /** MasterOverride cover button name while armed. */
+      readonly closeSafetyCover: (label: string) => string;
+      /** MasterOverride cover button name while safe. */
+      readonly liftSafetyCover: (label: string) => string;
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
@@ -15233,6 +15319,49 @@
       addImage: "Add image",
       fileTooLarge: (max, actual) => `File exceeds maximum size of ${max} — this file is ${actual}`,
       fileTypeNotAccepted: (accept) => `File type not accepted. Accepted: ${accept}`,
+      removeItem: (label) => `Remove ${label}`,
+      moreCount: (count) => `${count} more`,
+      digitOf: (index, length) => `Digit ${index} of ${length}`,
+      soldOut: "sold out",
+      selectAllRows: "Select all rows",
+      selectRow: "Select",
+      errorTitle: "Something went wrong",
+      errorMessage: "An unexpected error occurred. Please try refreshing the page.",
+      refreshPage: "Refresh page",
+      commandPalette: "Command palette",
+      searchCommands: "Search commands",
+      commandResults: "Command results",
+      noResults: "No results found",
+      navigateHint: "navigate",
+      selectHint: "select",
+      closeHint: "close",
+      loading: "Loading",
+      tryAgain: "Try again",
+      confirmAction: "Confirm action",
+      cancelAction: "Cancel action",
+      chatInput: "Chat input",
+      chatPlaceholder: "Ask about availability, reservations...",
+      send: "Send",
+      chat: "Chat",
+      toolBlocked: (reason) => `was blocked: ${reason}`,
+      reservation: "Reservation",
+      dateSpan: (start, end) => `${start} to ${end}`,
+      selectPlaceholder: "Select…",
+      loadingEllipsis: "Loading…",
+      noOptions: "No results",
+      noData: "No data",
+      searchCommandsPlaceholder: "Search commands…",
+      footerLinks: "Footer links",
+      standby: "STANDBY",
+      engaged: "ENGAGED",
+      liftToArm: "LIFT TO ARM",
+      holdToArm: (label) => `Hold to arm ${label}`,
+      switchEngaged: (label) => `${label} engaged`,
+      armingCancelled: "Arming cancelled",
+      coverClosedStatus: (label, state) => `${label} safety cover closed. Switch is ${state}.`,
+      coverOpenStatus: (label, state) => `${label} safety cover open. Switch is ${state}.`,
+      closeSafetyCover: (label) => `Close safety cover for ${label}`,
+      liftSafetyCover: (label) => `Lift safety cover for ${label}`,
     };
   </file>
   </section>
@@ -16268,6 +16397,51 @@
       fileTooLarge: (max, actual) =>
         `El archivo supera el tamaño máximo de ${max}: este archivo pesa ${actual}`,
       fileTypeNotAccepted: (accept) => `Tipo de archivo no aceptado. Se aceptan: ${accept}`,
+      removeItem: (label) => `Quitar ${label}`,
+      moreCount: (count) => `${count} más`,
+      digitOf: (index, length) => `Dígito ${index} de ${length}`,
+      soldOut: "agotado",
+      selectAllRows: "Seleccionar todas las filas",
+      selectRow: "Seleccionar",
+      errorTitle: "Algo salió mal",
+      errorMessage: "Ocurrió un error inesperado. Intenta actualizar la página.",
+      refreshPage: "Actualizar página",
+      commandPalette: "Paleta de comandos",
+      searchCommands: "Buscar comandos",
+      commandResults: "Resultados de comandos",
+      noResults: "No se encontraron resultados",
+      navigateHint: "navegar",
+      selectHint: "seleccionar",
+      closeHint: "cerrar",
+      loading: "Cargando",
+      tryAgain: "Intentar de nuevo",
+      confirmAction: "Confirmar acción",
+      cancelAction: "Cancelar acción",
+      chatInput: "Entrada del chat",
+      chatPlaceholder: "Pregunta sobre disponibilidad, reservaciones...",
+      send: "Enviar",
+      chat: "Conversación",
+      toolBlocked: (reason) => `fue bloqueado: ${reason}`,
+      reservation: "Reservación",
+      dateSpan: (start, end) => `${start} al ${end}`,
+      selectPlaceholder: "Seleccionar…",
+      loadingEllipsis: "Cargando…",
+      noOptions: "Sin resultados",
+      noData: "Sin datos",
+      searchCommandsPlaceholder: "Buscar comandos…",
+      footerLinks: "Enlaces del pie de página",
+      standby: "EN ESPERA",
+      engaged: "ACTIVADO",
+      liftToArm: "LEVANTAR PARA ARMAR",
+      holdToArm: (label) => `Mantén presionado para armar ${label}`,
+      switchEngaged: (label) => `${label} activado`,
+      armingCancelled: "Armado cancelado",
+      coverClosedStatus: (label, state) =>
+        `Cubierta de seguridad de ${label} cerrada. El interruptor está en ${state}.`,
+      coverOpenStatus: (label, state) =>
+        `Cubierta de seguridad de ${label} abierta. El interruptor está en ${state}.`,
+      closeSafetyCover: (label) => `Cerrar la cubierta de seguridad de ${label}`,
+      liftSafetyCover: (label) => `Levantar la cubierta de seguridad de ${label}`,
     };
   </file>
   <file path="packages/rialto/src/i18n/locales/fr-CA.ts">
@@ -16318,6 +16492,51 @@
       fileTooLarge: (max, actual) =>
         `Le fichier dépasse la taille maximale de ${max} : ce fichier fait ${actual}`,
       fileTypeNotAccepted: (accept) => `Type de fichier non accepté. Types acceptés : ${accept}`,
+      removeItem: (label) => `Retirer ${label}`,
+      moreCount: (count) => `${count} de plus`,
+      digitOf: (index, length) => `Chiffre ${index} sur ${length}`,
+      soldOut: "épuisé",
+      selectAllRows: "Sélectionner toutes les lignes",
+      selectRow: "Sélectionner",
+      errorTitle: "Une erreur s'est produite",
+      errorMessage: "Une erreur inattendue s'est produite. Veuillez actualiser la page.",
+      refreshPage: "Actualiser la page",
+      commandPalette: "Palette de commandes",
+      searchCommands: "Rechercher des commandes",
+      commandResults: "Résultats des commandes",
+      noResults: "Aucun résultat trouvé",
+      navigateHint: "naviguer",
+      selectHint: "sélectionner",
+      closeHint: "fermer",
+      loading: "Chargement",
+      tryAgain: "Réessayer",
+      confirmAction: "Confirmer l'action",
+      cancelAction: "Annuler l'action",
+      chatInput: "Saisie du clavardage",
+      chatPlaceholder: "Posez une question sur les disponibilités, les réservations...",
+      send: "Envoyer",
+      chat: "Clavardage",
+      toolBlocked: (reason) => `a été bloqué : ${reason}`,
+      reservation: "Réservation",
+      dateSpan: (start, end) => `${start} au ${end}`,
+      selectPlaceholder: "Sélectionner…",
+      loadingEllipsis: "Chargement…",
+      noOptions: "Aucun résultat",
+      noData: "Aucune donnée",
+      searchCommandsPlaceholder: "Rechercher des commandes…",
+      footerLinks: "Liens de bas de page",
+      standby: "EN VEILLE",
+      engaged: "ACTIVÉ",
+      liftToArm: "SOULEVER POUR ARMER",
+      holdToArm: (label) => `Maintenez pour armer ${label}`,
+      switchEngaged: (label) => `${label} activé`,
+      armingCancelled: "Armement annulé",
+      coverClosedStatus: (label, state) =>
+        `Capot de sécurité de ${label} fermé. L'interrupteur est sur ${state}.`,
+      coverOpenStatus: (label, state) =>
+        `Capot de sécurité de ${label} ouvert. L'interrupteur est sur ${state}.`,
+      closeSafetyCover: (label) => `Fermer le capot de sécurité de ${label}`,
+      liftSafetyCover: (label) => `Soulever le capot de sécurité de ${label}`,
     };
   </file>
   </section>

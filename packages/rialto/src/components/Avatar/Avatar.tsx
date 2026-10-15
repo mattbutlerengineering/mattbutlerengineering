@@ -4,6 +4,7 @@ import { useMotionPreset } from "../../providers/useMotionPreset";
 import { StatusLED } from "../StatusLED";
 import { cn } from "../../utils/class-composer";
 import styles from "./Avatar.module.css";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Avatar ──────────────────────────────────── */
 /**
@@ -210,6 +211,7 @@ export interface AvatarGroupProps {
 
 export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
   ({ avatars, max = 4, size = "md", className }, ref) => {
+    const { messages } = useRialtoLocale();
     const visible = avatars.slice(0, max);
     const overflow = avatars.length - max;
 
@@ -219,7 +221,7 @@ export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
           <div
             className={cn(styles.overflow, styles[size])}
             role="img"
-            aria-label={`${overflow} more`}
+            aria-label={messages.moreCount(overflow)}
           >
             <span className={styles.overflowText} aria-hidden="true">
               +{overflow}
