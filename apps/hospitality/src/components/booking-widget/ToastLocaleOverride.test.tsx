@@ -1,19 +1,28 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
-import { ToastProvider } from "@mattbutlerengineering/rialto";
+import { useRialtoLocale } from "@mattbutlerengineering/rialto/providers";
 import { localeRuntime, LocaleBridge } from "../../i18n/runtime.js";
 import { WidgetLocaleScope, WIDGET_LOCALE_STORAGE_KEY } from "./WidgetLocaleScope.js";
 import { ToastLocaleOverride } from "./ToastLocaleOverride.js";
 
-function App({ guest }: { guest: boolean }) {
+/** Stands in for dashboard chrome (Sidebar, Navbar…) that reads rialto's locale outside any guest scope. */
+function StaffChrome() {
+  const { messages } = useRialtoLocale();
+  return <span data-testid="staff-chrome">{messages.notifications}</span>;
+}
+
+function App({ guest, staffDemo = false }: { guest: boolean; staffDemo?: boolean }) {
   return (
     <I18nextProvider i18n={localeRuntime.i18n}>
       <LocaleBridge>
         <ToastLocaleOverride>
-          <ToastProvider>
-            {guest ? <WidgetLocaleScope>guest</WidgetLocaleScope> : <span>staff</span>}
-          </ToastProvider>
+          <StaffChrome />
+          {guest ? (
+            <WidgetLocaleScope followDashboardOnce={staffDemo}>guest</WidgetLocaleScope>
+          ) : (
+            <span>staff</span>
+          )}
         </ToastLocaleOverride>
       </LocaleBridge>
     </I18nextProvider>
@@ -47,5 +56,21 @@ describe("ToastLocaleOverride", () => {
       expect(screen.getByRole("region", { name: "Notifications" })).toBeInTheDocument()
     );
     expect(screen.getAllByRole("region")).toHaveLength(1);
+  });
+
+  it("leaves dashboard chrome outside the guest scope in the dashboard locale", async () => {
+    localStorage.setItem(WIDGET_LOCALE_STORAGE_KEY, "fr-CA");
+    render(<App guest />);
+    await waitFor(() => screen.getByRole("region", { name: "Avis" }));
+    expect(screen.getByTestId("staff-chrome")).toHaveTextContent("Notifications");
+  });
+
+  it("does not switch the toast region for the staff widget demo (followDashboardOnce)", async () => {
+    localStorage.setItem(WIDGET_LOCALE_STORAGE_KEY, "fr-CA");
+    render(<App guest staffDemo />);
+    // render() flushes effects inside act(), so any publish has already happened here.
+    await waitFor(() => expect(screen.getByText("guest")).toBeInTheDocument());
+    expect(screen.getByRole("region", { name: "Notifications" })).toBeInTheDocument();
+    expect(screen.getByTestId("staff-chrome")).toHaveTextContent("Notifications");
   });
 });

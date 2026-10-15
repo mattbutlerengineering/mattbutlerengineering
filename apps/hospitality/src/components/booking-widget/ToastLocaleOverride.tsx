@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { RialtoLocaleProvider, useRialtoLocale } from "@mattbutlerengineering/rialto/providers";
 
 type RialtoLocale = ReturnType<typeof useRialtoLocale>;
@@ -6,8 +7,10 @@ type RialtoLocale = ReturnType<typeof useRialtoLocale>;
 /**
  * The root ToastProvider sits outside every WidgetLocaleScope, so its single
  * live region would keep the dashboard's label on guest routes. A mounted
- * guest scope publishes its Rialto locale here; the override wraps the
- * provider so that one region follows the guest. No second region is mounted.
+ * guest scope publishes its Rialto locale here, and this component renders the
+ * root ToastProvider under it so that one region follows the guest. The app
+ * subtree gets the dashboard locale back, so only the live region changes —
+ * staff chrome never picks up a guest's language. No second region is mounted.
  */
 let current: RialtoLocale | null = null;
 const listeners = new Set<() => void>();
@@ -34,7 +37,7 @@ export function PublishGuestToastLocale() {
   return null;
 }
 
-/** Wrap the root ToastProvider: guest locale while a guest scope is mounted, else the dashboard's. */
+/** The app's root ToastProvider: guest locale for its live region while a guest scope is mounted. */
 export function ToastLocaleOverride({ children }: { children: ReactNode }) {
   const dashboard = useRialtoLocale();
   const guest = useSyncExternalStore(
@@ -45,7 +48,11 @@ export function ToastLocaleOverride({ children }: { children: ReactNode }) {
   const active = guest ?? dashboard;
   return (
     <RialtoLocaleProvider locale={active.locale} messages={active.messages}>
-      {children}
+      <ToastProvider>
+        <RialtoLocaleProvider locale={dashboard.locale} messages={dashboard.messages}>
+          {children}
+        </RialtoLocaleProvider>
+      </ToastProvider>
     </RialtoLocaleProvider>
   );
 }

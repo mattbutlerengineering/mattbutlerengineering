@@ -84,7 +84,8 @@ export function WidgetLocaleScope({
     <WidgetLocaleContext.Provider value={runtime}>
       <I18nextProvider i18n={runtime.i18n}>
         <LocaleBridge runtime={runtime}>
-          <PublishGuestToastLocale />
+          {/* The staff demo page is a dashboard route: its toasts stay in the dashboard locale. */}
+          {!followDashboardOnce && <PublishGuestToastLocale />}
           <WidgetLang>{children}</WidgetLang>
         </LocaleBridge>
       </I18nextProvider>

@@ -3,7 +3,7 @@ import "./index.css";
 import { StrictMode, Suspense, lazy, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
-import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
+import { RialtoProvider, ErrorBoundary } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
@@ -357,15 +357,13 @@ function Root() {
       <LocaleProviders>
         <ThemeBridge>
           <ToastLocaleOverride>
-            <ToastProvider>
-              <ErrorBoundary onError={handleErrorBoundary}>
-                <AuthProvider config={authConfigResult.config}>
-                  <QueryProvider>
-                    <RouterProvider router={router} />
-                  </QueryProvider>
-                </AuthProvider>
-              </ErrorBoundary>
-            </ToastProvider>
+            <ErrorBoundary onError={handleErrorBoundary}>
+              <AuthProvider config={authConfigResult.config}>
+                <QueryProvider>
+                  <RouterProvider router={router} />
+                </QueryProvider>
+              </AuthProvider>
+            </ErrorBoundary>
           </ToastLocaleOverride>
         </ThemeBridge>
       </LocaleProviders>
