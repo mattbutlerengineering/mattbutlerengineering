@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 
 const TOP_DIRS = ["apps", "packages", "services", "tools"];
@@ -42,10 +41,12 @@ export default {
     if (filtered.length === 0) return [];
     const groups = groupByPackage(filtered);
     const commands = [];
-    for (const [pkgDir, pkgFiles] of groups) {
-      const localConfig = path.resolve(pkgDir, "eslint.config.js");
-      const configFlag = fs.existsSync(localConfig) ? `--config "${localConfig}"` : "";
-      commands.push(`eslint --fix ${configFlag} ${quote(pkgFiles)}`);
+    // No `--config`: lint-staged runs from the repo root, and an explicit
+    // config resolves its `files` globs against the cwd, which silently turned
+    // off every package-relative rule (e.g. `src/**`) and let `--fix` strip
+    // their disable comments. ESLint 10 finds each file's nearest config itself.
+    for (const pkgFiles of groups.values()) {
+      commands.push(`eslint --fix ${quote(pkgFiles)}`);
     }
     // Every staged ts/tsx file, not just the ones `groupByPackage` matched.
     // That grouping only recognises apps/packages/services/tools, so the
