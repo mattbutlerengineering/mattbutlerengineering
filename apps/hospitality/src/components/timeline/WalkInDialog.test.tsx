@@ -271,6 +271,23 @@ describe("WalkInDialog", () => {
     expect(data.guestName).toBe("Johnson");
   });
 
+  it("sends the chosen occasion and seating preference (#6597)", async () => {
+    render(<WalkInDialog {...defaultProps} />);
+    fireEvent.click(screen.getByRole("combobox", { name: /occasion/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Birthday" }));
+    fireEvent.click(screen.getByRole("combobox", { name: /seating preference/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Booth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+
+    await waitFor(() => {
+      expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+    });
+    expect(defaultProps.onConfirm.mock.calls[0]![0]).toMatchObject({
+      occasion: "birthday",
+      seatingPreference: "booth",
+    });
+  });
+
   it("should omit guestName when empty", async () => {
     render(<WalkInDialog {...defaultProps} />);
 

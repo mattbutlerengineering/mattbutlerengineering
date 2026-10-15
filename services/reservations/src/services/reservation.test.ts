@@ -124,27 +124,26 @@ function makePrismaReservation(overrides: Record<string, unknown> = {}) {
  * seam: the advisory-lock $executeRaw is a no-op, conflict re-checks default to
  * "free", and create/update return the given row.
  */
-function useSlotTxOnce(reservationRow: unknown = makePrismaReservation()): void {
+function useSlotTxOnce(reservationRow: unknown = makePrismaReservation()) {
+  const tx = {
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
+    reservation: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue(reservationRow),
+      update: vi.fn().mockResolvedValue(reservationRow),
+    },
+    reservationHold: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+  };
   vi.mocked(prisma.$transaction).mockImplementationOnce(((
     fn: (client: unknown) => Promise<unknown>
-  ) => {
-    const tx = {
-      $executeRawUnsafe: vi.fn().mockResolvedValue(0),
-      $executeRaw: vi.fn().mockResolvedValue(0),
-      venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
-      reservation: {
-        findFirst: vi.fn().mockResolvedValue(null),
-        findMany: vi.fn().mockResolvedValue([]),
-        create: vi.fn().mockResolvedValue(reservationRow),
-        update: vi.fn().mockResolvedValue(reservationRow),
-      },
-      reservationHold: {
-        findFirst: vi.fn().mockResolvedValue(null),
-        findMany: vi.fn().mockResolvedValue([]),
-      },
-    };
-    return fn(tx);
-  }) as never);
+  ) => fn(tx)) as never);
+  return tx;
 }
 
 describe("reservationService", () => {
@@ -445,6 +444,82 @@ describe("reservationService", () => {
           data: expect.objectContaining({ userId: null }),
         })
       );
+    });
+  });
+
+  describe("occasion and seatingPreference persistence (#6597)", () => {
+    const base = {
+      date: "2026-05-05",
+      startTime: "2026-05-05T18:00:00Z",
+      endTime: "2026-05-05T19:30:00Z",
+      partySize: 2,
+      tableId: "table-1",
+      venueId: "venue-1",
+      occasion: "anniversary" as const,
+      seatingPreference: "window" as const,
+    };
+    const persisted = expect.objectContaining({
+      data: expect.objectContaining({ occasion: "anniversary", seatingPreference: "window" }),
+    });
+
+    it("create writes both fields", async () => {
+      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      await reservationService.create(base);
+      expect(prisma.reservation.create).toHaveBeenCalledWith(persisted);
+    });
+
+    it("create writes null when the fields are omitted", async () => {
+      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      await reservationService.create({
+        ...base,
+        occasion: undefined,
+        seatingPreference: undefined,
+      });
+      expect(prisma.reservation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ occasion: null, seatingPreference: null }),
+        })
+      );
+    });
+
+    it("createWithConflictCheck writes both fields", async () => {
+      const tx = useSlotTxOnce(makePrismaReservation({ status: "PENDING" }));
+      await reservationService.createWithConflictCheck(base, "user-1");
+      expect(tx.reservation.create).toHaveBeenCalledWith(persisted);
+    });
+
+    it("createWalkIn writes both fields", async () => {
+      const tx = useSlotTxOnce(makePrismaReservation({ status: "CONFIRMED" }));
+      Object.assign(tx, { table: { update: vi.fn().mockResolvedValue(makePrismaTable()) } });
+      await reservationService.createWalkIn({
+        partySize: 4,
+        tableId: "table-1",
+        venueId: "venue-1",
+        occasion: "anniversary",
+        seatingPreference: "window",
+      });
+      expect(tx.reservation.create).toHaveBeenCalledWith(persisted);
+    });
+
+    it("update writes both fields", async () => {
+      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(makePrismaReservation() as never);
+      await reservationService.update("res-1", {
+        occasion: "anniversary",
+        seatingPreference: "window",
+      });
+      expect(prisma.reservation.update).toHaveBeenCalledWith(persisted);
+    });
+
+    it("updateWithConflictCheck writes both fields", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(makePrismaReservation() as never);
+      await reservationService.updateWithConflictCheck("res-1", {
+        occasion: "anniversary",
+        seatingPreference: "window",
+      });
+      expect(prisma.reservation.update).toHaveBeenCalledWith(persisted);
     });
   });
 

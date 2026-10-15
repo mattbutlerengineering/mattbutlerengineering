@@ -138,6 +138,8 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
           guestPhone: guestDetails.guestPhone ?? null,
           guestId: guestDetails.guestId ?? null,
           notes: guestDetails.notes ?? null,
+          occasion: guestDetails.occasion ?? null,
+          seatingPreference: guestDetails.seatingPreference ?? null,
           userId: userId ?? null,
           // Ownership proof for the public deposit route (#6304).
           originSessionId: hold.sessionId,
