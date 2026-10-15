@@ -339,31 +339,120 @@ function issueZone(issue) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Reports whether two repo-relative paths overlap — equal, or one is an
+ * ancestor directory of the other. Prefix-aware over `/`-separated segments
+ * rather than plain string prefix, so `apps/hospitality-2` never collides
+ * with `apps/hospitality`.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function pathsOverlap(a, b) {
+  const segA = a.split("/");
+  const segB = b.split("/");
+  const len = Math.min(segA.length, segB.length);
+  for (let i = 0; i < len; i++) {
+    if (segA[i] !== segB[i]) return false;
+  }
+  return true;
+}
+
+/**
+ * Reports whether every path in `setA` is disjoint (per `pathsOverlap`) from
+ * every path in `setB`.
+ *
+ * @param {Set<string>} setA
+ * @param {Set<string>} setB
+ * @returns {boolean}
+ */
+function pathSetsDisjoint(setA, setB) {
+  for (const a of setA) {
+    for (const b of setB) {
+      if (pathsOverlap(a, b)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * The body-derived path set used for same-zone stacking admission — distinct
+ * from `issueZone`'s own fallback resolution, which also considers the
+ * title's conventional-commit scope.
+ *
+ * @param {{ body?: unknown }} issue
+ * @returns {Set<string>}
+ */
+function issuePathSet(issue) {
+  const body = issue && typeof issue === "object" ? issue.body : undefined;
+  return new Set(extractPathsFromBody(body));
+}
+
+/**
  * Composes a claim batch that maximizes distinct merge-train zones.
  *
  * Preserving the caller's priority order, it takes at most one issue per
- * distinct zone (up to `maxWorkers`), deferring same-zone surplus to a later
- * batch. `null`-zone (global/cross-cutting) issues each occupy the single
- * global slot, so at most ONE global is scheduled per batch — a global PR takes
- * the global lock and serializes against every other train, so co-scheduling
- * two would reintroduce the very serialization this avoids.
+ * distinct zone (up to `maxWorkers`) when `strictMain` is true (the default —
+ * `main`'s branch protection requires an up-to-date branch, so same-zone PRs
+ * fully serialize anyway; see ADR-023). `null`-zone (global/cross-cutting)
+ * issues each occupy the single global slot in both modes, so at most ONE
+ * global is scheduled per batch — a global PR takes the global lock and
+ * serializes against every other train, so co-scheduling two would
+ * reintroduce the very serialization this avoids.
+ *
+ * When `strictMain` is false (ADR-095), a non-global issue whose zone is
+ * already occupied may still stack into the batch if its body-derived path
+ * set is non-empty and pairwise disjoint (prefix-aware) from every path set
+ * already admitted in that zone — the merge-train zone lock still serializes
+ * the merges themselves, so this only widens what can be *claimed* together.
+ * An empty or unextractable path set never stacks (defers, same as strict
+ * mode), since there is nothing to prove disjointness against.
  *
  * Pure and deterministic: no I/O, no mutation of inputs.
  *
  * @param {Array<object>} candidates — issues in priority order (highest first)
- * @param {{ maxWorkers?: number }} [opts]
+ * @param {{ maxWorkers?: number, strictMain?: boolean }} [opts]
  * @returns {Array<object>} selected issues (subset of `candidates`, in order)
  */
-function selectZoneSpreadBatch(candidates, { maxWorkers = DEFAULT_MAX_WORKERS } = {}) {
+function selectZoneSpreadBatch(
+  candidates,
+  { maxWorkers = DEFAULT_MAX_WORKERS, strictMain = true } = {}
+) {
   if (!Array.isArray(candidates) || maxWorkers <= 0) return [];
 
   const batch = [];
-  const occupied = new Set(); // holds zone strings and, at most once, null
+  let globalOccupied = false;
+  const occupiedZonePaths = new Map(); // zone → admitted path sets (Set<string>[])
+
   for (const issue of candidates) {
     if (batch.length >= maxWorkers) break;
     const zone = issueZone(issue);
-    if (occupied.has(zone)) continue; // zone already claimed → defer this one
-    occupied.add(zone); // null counts as its own single occupancy
+
+    if (zone === null) {
+      if (globalOccupied) continue; // global slot already taken → defer
+      globalOccupied = true;
+      batch.push(issue);
+      continue;
+    }
+
+    const admittedPathSets = occupiedZonePaths.get(zone);
+    if (admittedPathSets === undefined) {
+      occupiedZonePaths.set(zone, [issuePathSet(issue)]);
+      batch.push(issue);
+      continue;
+    }
+
+    if (strictMain) continue; // zone already claimed, strict mode defers
+
+    const candidatePaths = issuePathSet(issue);
+    if (candidatePaths.size === 0) continue; // nothing to prove disjointness against
+
+    const disjointFromAllAdmitted = admittedPathSets.every((admitted) =>
+      pathSetsDisjoint(admitted, candidatePaths)
+    );
+    if (!disjointFromAllAdmitted) continue;
+
+    admittedPathSets.push(candidatePaths);
     batch.push(issue);
   }
   return batch;

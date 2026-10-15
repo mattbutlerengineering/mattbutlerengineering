@@ -270,7 +270,93 @@ describe("issue-zone", () => {
       expect(selectZoneSpreadBatch([])).toEqual([]);
       expect(selectZoneSpreadBatch([], { maxWorkers: 3 })).toEqual([]);
     });
+  });
 
+  describe("selectZoneSpreadBatch — strictMain (ADR-095)", () => {
+    const filesBody = (...paths) =>
+      `## Files to Modify/Create\n\n${paths.map((p) => `- \`${p}\``).join("\n")}\n`;
+
+    test("default is unchanged: same-zone surplus with disjoint paths is still deferred when strictMain is omitted", () => {
+      const candidates = [
+        issue("refactor(rialto): a", {
+          number: 1,
+          body: filesBody("packages/rialto/src/components/Button.tsx"),
+        }),
+        issue("refactor(rialto): b", {
+          number: 2,
+          body: filesBody("packages/rialto/src/utils/format.ts"),
+        }),
+      ];
+      expect(selectZoneSpreadBatch(candidates, { maxWorkers: 3 }).map((i) => i.number)).toEqual([
+        1,
+      ]);
+      // Same result with strictMain explicitly true.
+      expect(
+        selectZoneSpreadBatch(candidates, { maxWorkers: 3, strictMain: true }).map((i) => i.number)
+      ).toEqual([1]);
+    });
+
+    test("three disjoint same-zone issues batch together when strictMain is false", () => {
+      const candidates = [
+        issue("refactor(rialto): a", {
+          number: 1,
+          body: filesBody("packages/rialto/src/components/Button.tsx"),
+        }),
+        issue("refactor(rialto): b", {
+          number: 2,
+          body: filesBody("packages/rialto/src/components/Modal.tsx"),
+        }),
+        issue("refactor(rialto): c", {
+          number: 3,
+          body: filesBody("packages/rialto/src/utils/format.ts"),
+        }),
+      ];
+      const batch = selectZoneSpreadBatch(candidates, { maxWorkers: 3, strictMain: false });
+      expect(batch.map((i) => i.number)).toEqual([1, 2, 3]);
+      // All three resolved to the same zone — this is genuinely a same-zone stack.
+      expect(new Set(batch.map((i) => issueZone(i))).size).toBe(1);
+    });
+
+    test("overlapping same-zone pair is deferred even when strictMain is false", () => {
+      const candidates = [
+        issue("refactor(rialto): a", {
+          number: 1,
+          body: filesBody("packages/rialto/src/components/Button.tsx"),
+        }),
+        // Ancestor of #1's path (ancestor/descendant pairs overlap, prefix-aware).
+        issue("refactor(rialto): b", {
+          number: 2,
+          body: filesBody("packages/rialto/src/components"),
+        }),
+      ];
+      const batch = selectZoneSpreadBatch(candidates, { maxWorkers: 3, strictMain: false });
+      expect(batch.map((i) => i.number)).toEqual([1]);
+    });
+
+    test("pathless same-zone issue is deferred even when strictMain is false", () => {
+      const candidates = [
+        issue("refactor(rialto): a", {
+          number: 1,
+          body: filesBody("packages/rialto/src/components/Button.tsx"),
+        }),
+        // No ## Files to Modify/Create section and no path-like tokens at all.
+        issue("refactor(rialto): b", { number: 2, body: "Please also tidy this up." }),
+      ];
+      const batch = selectZoneSpreadBatch(candidates, { maxWorkers: 3, strictMain: false });
+      expect(batch.map((i) => i.number)).toEqual([1]);
+    });
+
+    test("a global (null-zone) pair still gets only one slot when strictMain is false", () => {
+      const candidates = [
+        issue("refactor(cli): a", { number: 1 }), // null / global
+        issue("chore(skills): b", { number: 2 }), // null / global
+      ];
+      const batch = selectZoneSpreadBatch(candidates, { maxWorkers: 3, strictMain: false });
+      expect(batch.map((i) => i.number)).toEqual([1]);
+    });
+  });
+
+  describe("selectZoneSpreadBatch — #3629 backlog regressions", () => {
     test("regression (#3629): a /decompose-shaped backlog spreads across 3 zones, not 1", () => {
       // Realistic mixed backlog: three [Feature] issues, none conventionally
       // scoped, each carrying a real ## Files to Modify/Create section that

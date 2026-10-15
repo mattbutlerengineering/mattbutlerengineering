@@ -24,7 +24,7 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
       Set ADR-023's status line to `amended by ADR-095` — its Decision
       section stays byte-identical. Add the README.md index row.
       Acceptance: SC-5; `check-adr` green.
-- [ ] **WO-27: selector `strictMain` option** — In
+- [x] **WO-27: selector `strictMain` option** — In
       `scripts/issue-zone.mjs`, extend `selectZoneSpreadBatch` per
       `architecture.md` § Design 1 (occupied zone → admitted path sets;
       prefix-aware pairwise disjointness via `extractPathsFromBody`;
@@ -48,9 +48,9 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
       mode, spread-with-disjoint-scopes the measured-non-strict mode).
       Acceptance: SC-6 full-gate sweep (`pnpm lint`, `pnpm typecheck`,
       `pnpm exec vitest run --config scripts/vitest.config.mjs
-  scripts/__tests__/issue-zone.test.mjs
-  scripts/__tests__/zone-vocabulary.test.mjs
-  scripts/__tests__/main-strictness.test.mjs`); docs name
+scripts/__tests__/issue-zone.test.mjs
+scripts/__tests__/zone-vocabulary.test.mjs
+scripts/__tests__/main-strictness.test.mjs`); docs name
       `main-strictness.mjs` and ADR-095 consistently.
 
 ## Notes
