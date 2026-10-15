@@ -339,8 +339,12 @@ for (const locale of LOCALES) {
         await sweep(page, locale, "time-slot step");
         await page.getByRole("option").first().click();
 
-        await page.locator('input[type="email"]').fill("sweep@example.com");
-        await page.getByRole("textbox").first().fill("Locale Sweep Guest");
+        await page
+          .getByLabel(label(locale, "bookingWidget.details.email"))
+          .fill("sweep@example.com");
+        await page
+          .getByLabel(label(locale, "bookingWidget.details.name"))
+          .fill("Locale Sweep Guest");
         await sweep(page, locale, "guest-details step");
         await page
           .getByRole("button", { name: label(locale, "bookingWidget.details.complete") })

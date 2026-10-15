@@ -99,8 +99,6 @@
 
 .actions {
   display: flex;
-  /* A longer translation wraps below the other button instead of being clipped. */
-  flex-wrap: wrap;
   /* A longer translation ("Annuler la réservation") wraps below the other button instead of being clipped. */
   flex-wrap: wrap;
   gap: var(--rialto-space-sm);
