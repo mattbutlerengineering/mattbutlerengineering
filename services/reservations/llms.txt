@@ -2732,6 +2732,30 @@
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
     </item>
   </file>
+  <file path="src/test/shared-schema-compilers.ts">
+    <item priority="high">
+      type RouteSchemaDef = {
+        schema: unknown;
+        method?: string;
+        url?: string;
+       ...;
+    </item>
+    <item priority="high">
+      type Serializer = (data: unknown) => string;
+    </item>
+    <item priority="high">
+      type BuildSerializerFn = (def: RouteSchemaDef) => Serializer;
+    </item>
+    <item priority="high">
+      type SerializerFactory = (externalSchemas: unknown, opts: unknown) => BuildSeriali...;
+    </item>
+    <item priority="high">
+      type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => unknown;
+    </item>
+    <item priority="high">
+      export function withSharedSchemaCompilers(opts: FastifyServerOptions = {}): FastifyServerOptions { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="transitions">
   <file path="src/transitions/in-memory.ts">

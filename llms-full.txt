@@ -59379,6 +59379,32 @@
       };
     }
   </file>
+  <file path="services/reservations/src/test/shared-schema-compilers.ts">
+    type RouteSchemaDef = {
+      schema: unknown;
+      method?: string;
+      url?: string;
+      httpStatus?: string;
+      contentType?: string;
+    };
+    type Serializer = (data: unknown) => string;
+    type BuildSerializerFn = (def: RouteSchemaDef) => Serializer;
+    type SerializerFactory = (externalSchemas: unknown, opts: unknown) => BuildSerializerFn;
+    type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => unknown;
+    export function withSharedSchemaCompilers(opts: FastifyServerOptions = {}): FastifyServerOptions {
+      return {
+        ...opts,
+        schemaController: {
+          ...opts.schemaController,
+          compilersFactory: {
+            buildValidator: validatorFactory,
+            buildSerializer: memoizedSerializerFactory,
+            ...opts.schemaController?.compilersFactory,
+          } as never,
+        },
+      };
+    }
+  </file>
   <file path="services/users/src/test/fixtures.ts">
     export const MOCK_USER = createMockUser();
     export const MOCK_JWT_PAYLOAD = createMockJWTPayload();

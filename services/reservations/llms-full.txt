@@ -15762,6 +15762,32 @@
       };
     }
   </file>
+  <file path="src/test/shared-schema-compilers.ts">
+    type RouteSchemaDef = {
+      schema: unknown;
+      method?: string;
+      url?: string;
+      httpStatus?: string;
+      contentType?: string;
+    };
+    type Serializer = (data: unknown) => string;
+    type BuildSerializerFn = (def: RouteSchemaDef) => Serializer;
+    type SerializerFactory = (externalSchemas: unknown, opts: unknown) => BuildSerializerFn;
+    type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => unknown;
+    export function withSharedSchemaCompilers(opts: FastifyServerOptions = {}): FastifyServerOptions {
+      return {
+        ...opts,
+        schemaController: {
+          ...opts.schemaController,
+          compilersFactory: {
+            buildValidator: validatorFactory,
+            buildSerializer: memoizedSerializerFactory,
+            ...opts.schemaController?.compilersFactory,
+          } as never,
+        },
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="transitions">
   <file path="src/transitions/in-memory.ts">
