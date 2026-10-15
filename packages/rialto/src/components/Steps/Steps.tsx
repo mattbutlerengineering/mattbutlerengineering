@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
 import styles from "./Steps.module.css";
 
@@ -58,6 +59,7 @@ export const Steps = forwardRef<HTMLDivElement, StepsProps>(
     },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
     const containerClass = cn(
       orientation === "horizontal" ? styles.horizontal : styles.vertical,
       compact && styles.compact,
@@ -65,7 +67,7 @@ export const Steps = forwardRef<HTMLDivElement, StepsProps>(
     );
 
     return (
-      <div ref={ref} className={containerClass} role="list" aria-label="Progress steps">
+      <div ref={ref} className={containerClass} role="list" aria-label={messages.progressSteps}>
         {steps.map((step, i) => {
           const state = i < currentStep ? "completed" : i === currentStep ? "current" : "upcoming";
 

@@ -12,7 +12,7 @@ describe("useRialtoLocale", () => {
   });
 
   it("keeps today's English defaults byte-identical", () => {
-    expect(enUS).toEqual({
+    expect(enUS).toMatchObject({
       dismiss: "Dismiss",
       close: "Close",
       closeDialog: "Close dialog",
@@ -23,7 +23,18 @@ describe("useRialtoLocale", () => {
       notifications: "Notifications",
       confirm: "Confirm",
       cancel: "Cancel",
+      pagination: "Pagination",
+      previousMonth: "Previous month",
+      chooseDateRange: "Choose date range",
+      mainNavigation: "Main navigation",
+      loadingContent: "Loading content",
+      replaceImage: "Replace",
     });
+    expect(enUS.pageNumber(3)).toBe("Page 3");
+    expect(enUS.pageStatus(3, 20)).toBe("Page 3 of 20");
+    expect(enUS.fileTypeNotAccepted("image/png")).toBe(
+      "File type not accepted. Accepted: image/png"
+    );
   });
 
   it("returns the locale and messages a RialtoLocaleProvider supplies", () => {

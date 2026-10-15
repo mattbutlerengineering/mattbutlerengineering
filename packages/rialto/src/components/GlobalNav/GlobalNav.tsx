@@ -1,4 +1,5 @@
 import { forwardRef, useId, useState, useCallback, type HTMLAttributes } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import { cn } from "../../utils/class-composer";
 import styles from "./GlobalNav.module.css";
@@ -38,8 +39,12 @@ export interface GlobalNavProps extends Pick<
   onThemeToggle?: () => void;
 }
 
+/** Product name, not translatable text. */
+const BRAND_NAME = "MBE";
+
 export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
   ({ currentApp, theme, onThemeToggle, className, ...props }, ref) => {
+    const { messages } = useRialtoLocale();
     const [menuOpen, setMenuOpen] = useState(false);
     const mobileMenuId = useId();
 
@@ -59,11 +64,11 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
     const classes = cn(styles.globalNav, className);
 
     return (
-      <nav ref={ref} className={classes} aria-label="Global navigation" {...props}>
+      <nav ref={ref} className={classes} aria-label={messages.globalNavigation} {...props}>
         <div className={styles.inner}>
           {/* ── Brand ──────────────────────────────── */}
           <a href="/" className={styles.brand}>
-            MBE
+            {BRAND_NAME}
           </a>
 
           {/* ── Desktop links ─────────────────────── */}
@@ -93,7 +98,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               onKeyDown={handleKeyDown}
               aria-expanded={menuOpen}
               aria-controls={mobileMenuId}
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-label={menuOpen ? messages.closeMenu : messages.openMenu}
             >
               <span className={cn(styles.hamburgerBar, menuOpen && styles.open)} />
             </button>

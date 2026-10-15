@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useState } from "react";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { Popover } from "../Popover/Popover";
 import { Input } from "../Input/Input";
 import { Calendar, parseIsoDate } from "../Calendar/Calendar";
@@ -56,7 +57,7 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
     min,
     max,
     isDateDisabled,
-    locale,
+    locale: localeProp,
     weekStartsOn,
     label,
     placeholder,
@@ -66,6 +67,8 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
   },
   ref
 ) {
+  const { locale: contextLocale, messages } = useRialtoLocale();
+  const locale = localeProp ?? contextLocale;
   const [open, setOpen] = useState(false);
 
   const handleSelect = useCallback(
@@ -95,7 +98,7 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
       readOnly
       role="combobox"
       endIcon={<CalendarIcon size={16} />}
-      aria-label={label ? undefined : "Choose date"}
+      aria-label={label ? undefined : messages.chooseDate}
     />
   );
 

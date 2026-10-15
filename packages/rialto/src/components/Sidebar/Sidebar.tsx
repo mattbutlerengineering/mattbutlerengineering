@@ -1,5 +1,6 @@
 import { forwardRef, useId, type HTMLAttributes, type ReactNode } from "react";
 import { motion } from "framer-motion";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Sidebar.module.css";
@@ -180,6 +181,7 @@ function SectionGroup({
 
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
   ({ items, collapsed = false, onCollapse, className, ...props }, ref) => {
+    const { messages } = useRialtoLocale();
     const motionPreset = useMotionPreset();
     const shouldReduceMotion = motionPreset.reduced;
 
@@ -189,7 +191,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
     return (
       <motion.nav
         ref={ref}
-        aria-label="Sidebar navigation"
+        aria-label={messages.sidebarNavigation}
         layout={shouldReduceMotion ? false : true}
         transition={motionPreset.spring}
         {...(props as React.ComponentProps<typeof motion.nav>)}
@@ -214,7 +216,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             type="button"
             className={styles.collapseToggle}
             onClick={() => onCollapse(!collapsed)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? messages.expandSidebar : messages.collapseSidebar}
             layout={shouldReduceMotion ? false : "position"}
             transition={motionPreset.spring}
           >

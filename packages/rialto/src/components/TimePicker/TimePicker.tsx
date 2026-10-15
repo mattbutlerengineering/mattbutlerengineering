@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useState } from "react";
 import { Clock } from "lucide-react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { Popover } from "../Popover/Popover";
 import { Input } from "../Input/Input";
 import { cn } from "../../utils/class-composer";
@@ -59,7 +60,7 @@ export const TimePicker = forwardRef<HTMLDivElement, TimePickerProps>(function T
     min,
     max,
     isTimeDisabled,
-    locale,
+    locale: localeProp,
     label,
     placeholder,
     placement = "bottom",
@@ -68,6 +69,8 @@ export const TimePicker = forwardRef<HTMLDivElement, TimePickerProps>(function T
   },
   ref
 ) {
+  const { locale: contextLocale, messages } = useRialtoLocale();
+  const locale = localeProp ?? contextLocale;
   const [open, setOpen] = useState(false);
 
   const handleSelect = useCallback(
@@ -89,7 +92,7 @@ export const TimePicker = forwardRef<HTMLDivElement, TimePickerProps>(function T
       readOnly
       role="combobox"
       endIcon={<Clock size={16} />}
-      aria-label={label ? undefined : "Choose time"}
+      aria-label={label ? undefined : messages.chooseTime}
     />
   );
 
@@ -105,7 +108,7 @@ export const TimePicker = forwardRef<HTMLDivElement, TimePickerProps>(function T
             max={max}
             isTimeDisabled={isTimeDisabled}
             locale={locale}
-            label={label ?? "Choose time"}
+            label={label ?? messages.chooseTime}
           />
         </div>
       </Popover>
