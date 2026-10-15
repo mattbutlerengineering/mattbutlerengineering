@@ -16,7 +16,7 @@ import {
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { describeApiError } from "../lib/describe-api-error.js";
-import { BookingWidget, hasOperatingHours } from "../components/booking-widget";
+import { BookingWidget, WidgetLocaleScope, hasOperatingHours } from "../components/booking-widget";
 import { useVenues } from "../hooks/useVenues.js";
 import { highlightEmbedCode } from "./highlight-embed-code.js";
 import styles from "./BookingWidgetDemoPage.module.css";
@@ -221,17 +221,19 @@ export function BookingWidgetDemoPage() {
                 style={{ maxInlineSize: DEVICE_WIDTHS[deviceFrame] }}
               >
                 {effectiveVenueId ? (
-                  <BookingWidget
-                    venueId={effectiveVenueId}
-                    // The preview holds real slots through the public,
-                    // slug-scoped route (#4487) — without the slug it could
-                    // browse but never hold.
-                    venueSlug={selectedVenue?.slug}
-                    audience="staff"
-                    hasOperatingHours={hasOperatingHours(selectedVenue?.operatingHours)}
-                    venueTimezone={selectedVenue?.ianaTimezone}
-                    onSetHours={handleSetHours}
-                  />
+                  <WidgetLocaleScope followDashboardOnce>
+                    <BookingWidget
+                      venueId={effectiveVenueId}
+                      // The preview holds real slots through the public,
+                      // slug-scoped route (#4487) — without the slug it could
+                      // browse but never hold.
+                      venueSlug={selectedVenue?.slug}
+                      audience="staff"
+                      hasOperatingHours={hasOperatingHours(selectedVenue?.operatingHours)}
+                      venueTimezone={selectedVenue?.ianaTimezone}
+                      onSetHours={handleSetHours}
+                    />
+                  </WidgetLocaleScope>
                 ) : (
                   <Alert variant="info">Select a venue above to preview the widget.</Alert>
                 )}

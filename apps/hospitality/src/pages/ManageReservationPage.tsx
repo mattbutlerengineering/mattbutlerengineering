@@ -12,6 +12,7 @@ import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../utils/calendarLinks.js";
 import { specialRequestsText } from "../utils/reservation-display.js";
 import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
+import { WidgetLocaleScope, WidgetLocalePicker } from "../components/booking-widget/index.js";
 import styles from "./ManageReservationPage.module.css";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -73,7 +74,16 @@ function DeadEndRescue({ heading, description }: { heading: string; description:
   );
 }
 
+/** Same guest locale scope as the booking page, so a choice made there carries here. */
 export function ManageReservationPage() {
+  return (
+    <WidgetLocaleScope>
+      <ManageReservationPageContent />
+    </WidgetLocaleScope>
+  );
+}
+
+function ManageReservationPageContent() {
   const { params } = useUrlParams(manageParamsSchema, MANAGE_DEFAULTS);
   const token = params.token || null;
   const publicApiClient = usePublicApiClient({ baseUrl: API_BASE, maxRetries: 3 });
@@ -159,6 +169,7 @@ export function ManageReservationPage() {
     <main>
       <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Stack gap="lg" style={{ maxWidth: 600, width: "100%" }}>
+          <WidgetLocalePicker />
           <Text as="h1" variant="display">
             {venue ? venue.name : "Your reservation"}
           </Text>
