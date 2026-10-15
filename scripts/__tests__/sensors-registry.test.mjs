@@ -1328,7 +1328,7 @@ describe("metricsFreshness sensor (#5529)", () => {
   const FRESH_QUEUE = `${JSON.stringify({ claimed_at: "2026-09-20T00:00:00.000Z" })}\n`;
   // Healthy rows for the #6312 collectors, same reason.
   const FRESH_COLLECTORS = {
-    "process-metrics.jsonl": `${JSON.stringify({ date: "2026-09-20", sensor: "queueEfficiency", available: true })}\n`,
+    "process-metrics.jsonl": `${JSON.stringify({ date: "2026-09-20", sensor: "queueEfficiency", available: true })}\n${JSON.stringify({ date: "2026-09-20", sensor: "sdlcSpeed", available: true })}\n`,
     "ai-issue-feedback.json": JSON.stringify({
       collected_at: "2026-09-20T00:00:00.000Z",
       categories: {},
@@ -1360,7 +1360,7 @@ describe("metricsFreshness sensor (#5529)", () => {
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(4);
+    expect(data.stale_count).toBe(5);
 
     const regressions = sensor().detectRegression(data, undefined, {});
     expect(regressions.map((r) => r.metric).sort()).toEqual([
@@ -1368,6 +1368,7 @@ describe("metricsFreshness sensor (#5529)", () => {
       "queue-telemetry",
       "queueEfficiency",
       "review-burden",
+      "sdlcSpeed",
     ]);
     expect(regressions.every((r) => r.sensor === "metricsFreshness")).toBe(true);
   });

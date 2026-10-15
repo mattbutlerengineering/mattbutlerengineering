@@ -38,7 +38,7 @@ export type SseEventName = keyof SsePayloadMap;
  * matching `*_QUERY_KEY` constant in apps/hospitality (pinned there by a
  * `satisfies` check and a test); @mbe/types never imports from an app.
  */
-export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
 
 export interface SseEventDefinition {
   /** Query-key roots to invalidate when this event arrives (may be empty). */
@@ -54,7 +54,7 @@ export const SSE_EVENT_CATALOG = {
   "hold:released": { invalidates: [] },
   "hold:confirmed": { invalidates: ["reservations"] },
   "table:updated": { invalidates: ["tables"] },
-  "floor-plan:created": { invalidates: ["floorPlans", "floorPlan"] },
+  "floor-plan:created": { invalidates: ["floorPlans"] },
   "guest:lapsing": { invalidates: ["lapsingGuests"] },
   "table-status:changed": { invalidates: [] },
 } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
@@ -62,10 +62,17 @@ export const SSE_EVENT_CATALOG = {
 /** Every catalog event name, in catalog order — the client's subscription list. */
 export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
 
-/** The wire envelope for one SSE event, as emitted by the server and parsed by the client. */
-export interface SseEvent {
-  type: SseEventName;
-  venueId: string;
-  timestamp: string;
-  data: SsePayloadMap[SseEventName];
-}
+/**
+ * The wire envelope for one SSE event, as emitted by the server and parsed by
+ * the client. A discriminated union over SseEventName: `type` selects `data`,
+ * so `{ type: "guest:lapsing", data: someReservation }` is a type error.
+ * Pass a single name (`SseEvent<"table:updated">`) to get one variant.
+ */
+export type SseEvent<K extends SseEventName = SseEventName> = {
+  [N in K]: {
+    type: N;
+    venueId: string;
+    timestamp: string;
+    data: SsePayloadMap[N];
+  };
+}[K];

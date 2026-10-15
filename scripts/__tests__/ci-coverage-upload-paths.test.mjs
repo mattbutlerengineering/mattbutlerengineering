@@ -13,7 +13,10 @@ import { loadWorkflow, getJob, getStep } from "../lib/workflow.mjs";
  */
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const step = getStep(getJob(loadWorkflow("ci.yml"), "test"), "Upload coverage reports");
+const step = getStep(
+  getJob(loadWorkflow("ci.yml"), "test-coverage-gate"),
+  "Upload coverage reports"
+);
 const uploaded = step.with.files
   .split(",")
   .map((p) => p.trim().replace(/^\.\//, ""))

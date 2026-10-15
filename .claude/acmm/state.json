@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-10-14T09:23:33.731Z",
+  "lastRun": "2026-10-15T08:58:38.042Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -340,7 +340,7 @@
     },
     "acmm:auto-issue-gen": {
       "passed": true,
-      "evidence": "129 automation-labeled issue(s) created in the last 30 days",
+      "evidence": "132 automation-labeled issue(s) created in the last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -550,7 +550,7 @@
     },
     "meta:threshold-tuning": {
       "passed": true,
-      "evidence": "4 threshold adjustment(s) in last 30 days",
+      "evidence": "6 threshold adjustment(s) in last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1071,6 +1071,12 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-10-15",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1263,33 +1269,33 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.00597609561752988,
+        "value": 0.00922509225092251,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 502
+        "sampleSize": 542
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9850187265917603,
+        "value": 0.9852941176470589,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 269
+        "sampleSize": 279
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 24,
+        "value": 26,
         "threshold": 1,
         "direction": "above",
         "strict": true,
@@ -1302,56 +1308,142 @@
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0.0038022813688212928,
+        "value": 0.0037313432835820895,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 269
+        "sampleSize": 279
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.019011406844106463,
+        "value": 0.018656716417910446,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 269
+        "sampleSize": 279
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.00597609561752988,
-      "sample_size": 502,
+      "rate_30d": 0.00922509225092251,
+      "sample_size": 542,
       "flaky_shas": [
         "2b2af184d05e2f27dd83bac1504abad173bda939",
+        "539a571fb724e6aad2c072d430d904c7c7765136",
         "75f231cd981ccac1476f79b938ca28d7acbb5203",
-        "857e0688e9a04a5d6e653146e56049386a6a6867"
+        "857e0688e9a04a5d6e653146e56049386a6a6867",
+        "8f0ff88d87c92c613375b44fb3fa0822abfc4a39"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-14T00:40:54.000Z",
-      "measured_at": "2026-10-14T09:23:33.730Z"
+      "oldest_record_at": "2026-09-15T00:58:20.000Z",
+      "measured_at": "2026-10-15T08:58:38.041Z"
     },
     "agent_pr": {
-      "sample_size": 269,
-      "merged_count": 263,
+      "sample_size": 279,
+      "merged_count": 268,
       "closed_unmerged_count": 4,
-      "open_count": 2,
-      "acceptance_rate_30d": 0.9850187265917603,
-      "revert_rate_30d": 0.0038022813688212928,
+      "open_count": 7,
+      "acceptance_rate_30d": 0.9852941176470589,
+      "revert_rate_30d": 0.0037313432835820895,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.35194444444444445,
-      "human_touch_ratio": 0.019011406844106463,
+      "median_time_to_merge_hours": 0.3375,
+      "human_touch_ratio": 0.018656716417910446,
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-07T01:00:04.000Z",
+      "oldest_record_at": "2026-09-09T00:31:22.000Z",
       "recent_changes": [
+        {
+          "number": 6688,
+          "title": "feat(localization): describeCancellationPolicy structured result",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6688",
+          "mergedAt": "2026-10-15T07:37:47Z"
+        },
+        {
+          "number": 6683,
+          "title": "perf(reservations): share compiled route schemas across buildApp() in tests",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6683",
+          "mergedAt": "2026-10-15T06:01:26Z"
+        },
+        {
+          "number": 6679,
+          "title": "fix(waitlist): null estimates stay null, free-window from freeAt, wire position-update SMS",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6679",
+          "mergedAt": "2026-10-15T06:01:17Z"
+        },
+        {
+          "number": 6680,
+          "title": "ci(deps): auto-merge official-action and @types Dependabot bumps on green CI",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6680",
+          "mergedAt": "2026-10-15T05:52:32Z"
+        },
+        {
+          "number": 6678,
+          "title": "feat(implement-queue): batch same-zone issues with disjoint scopes while main is non-strict",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6678",
+          "mergedAt": "2026-10-15T05:37:59Z"
+        },
+        {
+          "number": 6676,
+          "title": "feat: pnpm bootstrap:worktree one-command worktree bootstrap",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6676",
+          "mergedAt": "2026-10-15T05:37:25Z"
+        },
+        {
+          "number": 6675,
+          "title": "feat(ship-pr): gate-path hold before fast path; record gates and dry walk-through",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6675",
+          "mergedAt": "2026-10-15T05:37:21Z"
+        },
+        {
+          "number": 6669,
+          "title": "fix(verify-fixes): verifyCiFix ignores cancelled/skipped runs",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6669",
+          "mergedAt": "2026-10-15T04:59:25Z"
+        },
+        {
+          "number": 6645,
+          "title": "fix: move llms.txt regen and the antipattern ratchet to commit time",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6645",
+          "mergedAt": "2026-10-15T00:52:29Z"
+        },
+        {
+          "number": 6644,
+          "title": "fix(marketing): regenerate ai-health visual baselines for PR-metrics snapshot date",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6644",
+          "mergedAt": "2026-10-15T00:50:56Z"
+        },
+        {
+          "number": 6642,
+          "title": "feat: promote dependent issues to ready when all blockers close",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6642",
+          "mergedAt": "2026-10-15T00:45:52Z"
+        },
+        {
+          "number": 6570,
+          "title": "fix(metrics): batch queueEfficiency commit fetch, raise list timeout",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6570",
+          "mergedAt": "2026-10-14T18:16:06Z"
+        },
+        {
+          "number": 6568,
+          "title": "test(reservations): cover fail-closed 401 backstop in venues and floor-plans list routes",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6568",
+          "mergedAt": "2026-10-14T18:04:53Z"
+        },
+        {
+          "number": 6592,
+          "title": "test(reservations): cover requireAuth-removed branch on venues/floor-plans list (mbe-daily-issue #6520)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6592",
+          "mergedAt": "2026-10-14T15:01:12Z"
+        },
         {
           "number": 6556,
           "title": "fix(waitlist): live wait estimates for guests",
@@ -1387,93 +1479,9 @@
           "title": "fix(notifications): settle reminder channels independently, skip SMS without phone, log job failures",
           "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6543",
           "mergedAt": "2026-10-13T19:57:35Z"
-        },
-        {
-          "number": 6553,
-          "title": "fix(agent,rialto): zero-output guard, gen-ui on shared factory, surface permission_denied/tool_status",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6553",
-          "mergedAt": "2026-10-13T19:46:23Z"
-        },
-        {
-          "number": 6552,
-          "title": "feat(scripts): instruction-rot covers all rules files and stale skill/script references",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6552",
-          "mergedAt": "2026-10-13T19:34:39Z"
-        },
-        {
-          "number": 6548,
-          "title": "fix(rialto-web): one DriverForm, honest auth demos, Pit Wall nav label",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6548",
-          "mergedAt": "2026-10-13T19:25:29Z"
-        },
-        {
-          "number": 6514,
-          "title": "fix(waitlist): persist notified state, guard expiry, keep estimates in step with position",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6514",
-          "mergedAt": "2026-10-13T19:19:25Z"
-        },
-        {
-          "number": 6545,
-          "title": "fix(gen): export valid JSON, consume ?prompt=, store history kind as a field, one shortcut table",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6545",
-          "mergedAt": "2026-10-13T19:16:14Z"
-        },
-        {
-          "number": 6544,
-          "title": "fix(rialto-catalog): row identity for Table/DataTable adapters; Toast include:false",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6544",
-          "mergedAt": "2026-10-13T18:46:38Z"
-        },
-        {
-          "number": 6542,
-          "title": "fix(rialto): CommandPalette appends item groups not listed in groups",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6542",
-          "mergedAt": "2026-10-13T18:46:30Z"
-        },
-        {
-          "number": 6516,
-          "title": "refactor(test-fixtures): type session fixtures against real shapes, default JWT fixture to no permissions",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6516",
-          "mergedAt": "2026-10-13T18:41:17Z"
-        },
-        {
-          "number": 6513,
-          "title": "fix(agent): orchestrator sub-session calls carry caller auth and server status vocabulary",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6513",
-          "mergedAt": "2026-10-13T18:41:12Z"
-        },
-        {
-          "number": 6512,
-          "title": "fix(agent): gen-route-factory errors the stream on runner failure",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6512",
-          "mergedAt": "2026-10-13T18:41:08Z"
-        },
-        {
-          "number": 6491,
-          "title": "fix(supply-chain-scanner): detect bidi/tag chars, scan .py and shebang files, fold line continuations",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6491",
-          "mergedAt": "2026-10-13T18:41:02Z"
-        },
-        {
-          "number": 6517,
-          "title": "fix(availability): one booking window and one party-fits rule",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6517",
-          "mergedAt": "2026-10-13T18:40:43Z"
-        },
-        {
-          "number": 6511,
-          "title": "fix(observability): one build identity from DEPLOY_SHA (Sentry release, OTel version, /health)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6511",
-          "mergedAt": "2026-10-13T18:40:37Z"
-        },
-        {
-          "number": 6510,
-          "title": "refactor(cli): retire uncalled new/generate/up/health commands",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6510",
-          "mergedAt": "2026-10-13T18:40:32Z"
         }
       ],
-      "measured_at": "2026-10-14T09:23:33.730Z"
+      "measured_at": "2026-10-15T08:58:38.041Z"
     },
     "evals": {
       "n": 37,
@@ -1494,8 +1502,8 @@
       "measured_at": "2026-05-30T17:04:57.036Z"
     },
     "auto_qa_tuning": {
-      "history_count": 24,
-      "measured_at": "2026-10-14T09:23:33.730Z"
+      "history_count": 26,
+      "measured_at": "2026-10-15T08:58:38.041Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."

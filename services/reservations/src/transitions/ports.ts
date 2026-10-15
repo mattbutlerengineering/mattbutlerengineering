@@ -69,7 +69,11 @@ export type JobOp =
 // ─── Events ──────────────────────────────────────────────────────────────────
 
 /** A live SSE event before the adapter stamps its timestamp. */
-export type LiveEvent = Omit<ReservationEvent, "timestamp">;
+export type LiveEvent = ReservationEvent extends infer E
+  ? E extends ReservationEvent
+    ? Omit<E, "timestamp">
+    : never
+  : never;
 
 export interface EventsPort {
   publish(event: LiveEvent): void;

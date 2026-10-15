@@ -25,7 +25,7 @@ function makeEvent(overrides: Partial<ReservationEvent> = {}): ReservationEvent 
     // so a stub reservation stands in for the full wire shape.
     data: { id: "res-1" } as Reservation,
     ...overrides,
-  };
+  } as ReservationEvent;
 }
 
 describe("ActivityFeed", () => {
