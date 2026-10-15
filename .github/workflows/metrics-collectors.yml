@@ -82,7 +82,12 @@ jobs:
       # The workflow is daily; gate to Mondays (UTC) or a manual dispatch so the
       # series stays one row a week. Needs `gh` + API access, which only this
       # runner has (not a Claude Code Remote session). Staleness is watched by
-      # the `sdlcSpeed` entry in scripts/metrics-freshness.mjs.
+      # the `sdlcSpeed` entry in scripts/metrics-freshness.mjs. The row also
+      # stores `proposals` (regression issues to file), so the retro has them
+      # where the script cannot run. `mainStrict` is null here by design: reading
+      # branch protection needs Administration:read, which GITHUB_TOKEN cannot
+      # hold, so the row says `mainStrictSource: "unavailable"` — the retro must
+      # re-measure with an admin token (scripts/main-strictness.mjs).
       - name: Collect SDLC speed sensor row
         continue-on-error: true
         env:

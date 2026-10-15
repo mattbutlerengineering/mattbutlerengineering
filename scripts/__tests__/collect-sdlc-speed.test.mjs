@@ -8,6 +8,7 @@ import {
   normalizeSearchPr,
   normalizeCiRun,
   upsertSensorRow,
+  resolveRepoSlug,
 } from "../collect-sdlc-speed.mjs";
 
 // Shape captured from `gh api search/issues?q=repo:..+is:pr+is:merged` (items[]).
@@ -135,6 +136,31 @@ describe("summarizeSdlcSpeed", () => {
     });
     expect(s.ci.lockfileShare).toBe(0.5);
   });
+  it("records why mainStrict is null instead of fabricating a value", () => {
+    expect(summary.mainStrictSource).toBe("protection");
+    const unknown = summarizeSdlcSpeed({ prs: [], ciRuns: [], protection: null });
+    expect(unknown.mainStrict).toBeNull();
+    expect(unknown.mainStrictSource).toBe("unavailable");
+  });
+  it("breaks slowest-job ties deterministically by name", () => {
+    const run = (name) => ({
+      wallMin: 1,
+      touchedLockfile: null,
+      jobs: [{ name, durationMin: 2.8 }],
+    });
+    const a = summarizeSdlcSpeed({
+      prs: [],
+      ciRuns: [run("Test"), run("Dependency Sync")],
+      protection: null,
+    });
+    const b = summarizeSdlcSpeed({
+      prs: [],
+      ciRuns: [run("Dependency Sync"), run("Test")],
+      protection: null,
+    });
+    expect(a.ci.slowestJob).toEqual({ name: "Dependency Sync", medianMin: 2.8 });
+    expect(b.ci.slowestJob).toEqual(a.ci.slowestJob);
+  });
   it("reports mainStrict from protection, null when unknown", () => {
     expect(summary.mainStrict).toBe(false);
     expect(summarizeSdlcSpeed({ prs: [], ciRuns: [], protection: null }).mainStrict).toBeNull();
@@ -194,6 +220,18 @@ describe("upsertSensorRow", () => {
     expect(out.trim().split("\n")).toHaveLength(3);
     expect(out).toContain('"v":2');
     expect(out).not.toContain('"v":1');
+  });
+});
+
+describe("resolveRepoSlug", () => {
+  it("prefers GITHUB_REPOSITORY and skips the lookup", () => {
+    const lookup = () => {
+      throw new Error("should not be called");
+    };
+    expect(resolveRepoSlug({ GITHUB_REPOSITORY: "o/r" }, lookup)).toBe("o/r");
+  });
+  it("falls back to the REST lookup", () => {
+    expect(resolveRepoSlug({}, () => "o/r\n")).toBe("o/r");
   });
 });
 

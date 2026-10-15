@@ -107,7 +107,12 @@ function slowestJob(ciRuns) {
   let best = null;
   for (const [name, durations] of byName) {
     const medianMin = percentile(durations, 50);
-    if (best === null || medianMin > best.medianMin) best = { name, medianMin };
+    // Ties go to the alphabetically first name so the result never depends on run order.
+    const wins =
+      best === null ||
+      medianMin > best.medianMin ||
+      (medianMin === best.medianMin && name < best.name);
+    if (wins) best = { name, medianMin };
   }
   return best;
 }
@@ -135,6 +140,9 @@ export function summarizeSdlcSpeed({ prs, ciRuns, protection }) {
       lockfileShare: sampled.length ? Math.round((locked / sampled.length) * 100) / 100 : 0,
     },
     mainStrict: typeof protection?.strict === "boolean" ? protection.strict : null,
+    // Branch protection needs Administration:read, which an Actions GITHUB_TOKEN
+    // lacks — a null here is an explicit "could not read", never a guess.
+    mainStrictSource: typeof protection?.strict === "boolean" ? "protection" : "unavailable",
   };
 }
 
@@ -190,6 +198,15 @@ export function upsertSensorRow(jsonlText, entry) {
   return [...kept, JSON.stringify(entry)].join("\n") + "\n";
 }
 
+/**
+ * `owner/repo` without a GraphQL-backed `gh repo view` (403 in Claude Code
+ * Remote): GITHUB_REPOSITORY when set (Actions), else one REST lookup.
+ */
+export function resolveRepoSlug(env, lookup) {
+  const fromEnv = (env.GITHUB_REPOSITORY ?? "").trim();
+  return fromEnv || lookup().trim();
+}
+
 // ── I/O (CLI only) ───────────────────────────────────────────────────────
 
 function gh(args) {
@@ -203,7 +220,9 @@ const lines = (text) =>
     .map((l) => JSON.parse(l));
 
 function fetchPrs(days, now) {
-  const repo = gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).trim();
+  const repo = resolveRepoSlug(process.env, () =>
+    gh(["api", "repos/{owner}/{repo}", "--jq", ".full_name"])
+  );
   const since = new Date(now.getTime() - days * 86_400_000).toISOString().slice(0, 10);
   const q = `repo:${repo} is:pr is:merged merged:>=${since}`;
   const out = gh([
@@ -320,11 +339,21 @@ function main(argv) {
     .filter((r) => r.sensor === SENSOR && r.available === true && r.date < date)
     .at(-1);
   const result = { date, days, ...summary };
-  if (argv.includes("--regressions")) {
+  const record = argv.includes("--record");
+  // A recorded row carries its proposals so the retro has them even where
+  // this script cannot run (Claude Code Remote has no usable egress).
+  if (record || argv.includes("--regressions")) {
     result.proposals = dedupeProposals(detectSdlcRegressions(summary, prior), openReadyTitles());
   }
-  if (argv.includes("--record")) {
-    const entry = { date, sensor: SENSOR, available: true, days, ...summary };
+  if (record) {
+    const entry = {
+      date,
+      sensor: SENSOR,
+      available: true,
+      days,
+      ...summary,
+      proposals: result.proposals,
+    };
     const existing = existsSync(path) ? readFileSync(path, "utf-8") : "";
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, upsertSensorRow(existing, entry), "utf-8");
