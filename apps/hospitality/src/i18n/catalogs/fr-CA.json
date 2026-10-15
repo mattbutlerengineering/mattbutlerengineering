@@ -603,6 +603,12 @@
       "bar": "Bar",
       "window": "Fenêtre",
       "quiet": "Coin tranquille"
+    },
+    "live": {
+      "createdTitle": "Nouvelle réservation",
+      "createdDescription": "{{name}} — {{time}}",
+      "cancelledTitle": "Réservation annulée",
+      "cancelledDescription": "La réservation de {{name}} a été annulée"
     }
   },
   "newReservation": {

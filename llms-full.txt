@@ -12095,6 +12095,30 @@
       }
     }
   </file>
+  <file path="apps/hospitality/src/hooks/live-reservation-toast.ts">
+    export type LiveToastEvent = "reservation:created" | "reservation:cancelled";
+    export function liveReservationToast(
+      type: LiveToastEvent,
+      reservation: Reservation,
+      t: TFunction,
+      formatTime: (iso: string) => string
+    ): { title: string; description: string } {
+      const name = reservation.guestName ?? t("reservations.guestFallback");
+      if (type === "reservation:created") {
+        return {
+          title: t("reservations.live.createdTitle"),
+          description: t("reservations.live.createdDescription", {
+            name,
+            time: formatTime(reservation.startTime),
+          }),
+        };
+      }
+      return {
+        title: t("reservations.live.cancelledTitle"),
+        description: t("reservations.live.cancelledDescription", { name }),
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
     export const SSE_INVALIDATION_QUERY_KEYS = [
       RESERVATIONS_QUERY_KEY,

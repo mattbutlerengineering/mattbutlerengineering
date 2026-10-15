@@ -3656,6 +3656,19 @@
       export function draftReducer(state: DraftState, action: DraftAction): DraftState { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/live-reservation-toast.ts">
+    <item priority="low">
+      type LiveToastEvent = "reservation:created" | "reservation:cancelled";
+    </item>
+    <item priority="high">
+      export function liveReservationToast(
+        type: LiveToastEvent,
+        reservation: Reservation,
+        t: TFunction,
+        formatTime: (iso: string) => string
+      ): { title: string; description: string } { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
     <item priority="high">
       export const SSE_INVALIDATION_QUERY_KEYS: unknown;

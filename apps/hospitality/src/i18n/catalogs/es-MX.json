@@ -603,6 +603,12 @@
       "bar": "Barra",
       "window": "Ventana",
       "quiet": "Zona tranquila"
+    },
+    "live": {
+      "createdTitle": "Nueva reservación",
+      "createdDescription": "{{name}} — {{time}}",
+      "cancelledTitle": "Reservación cancelada",
+      "cancelledDescription": "Se canceló la reservación de {{name}}"
     }
   },
   "newReservation": {

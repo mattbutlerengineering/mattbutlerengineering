@@ -594,6 +594,12 @@
       "bar": "Bar",
       "window": "Window",
       "quiet": "Quiet"
+    },
+    "live": {
+      "createdTitle": "New reservation",
+      "createdDescription": "{{name}} — {{time}}",
+      "cancelledTitle": "Reservation cancelled",
+      "cancelledDescription": "{{name}}'s reservation was cancelled"
     }
   },
   "newReservation": {
