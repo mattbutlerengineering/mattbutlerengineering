@@ -37,6 +37,7 @@ vi.mock("./database.js", async () => {
 
 import { waitlistService } from "./waitlist.js";
 import { prisma } from "./database.js";
+import { createWaitlistNotifier } from "./waitlist-notifier.js";
 
 const NOW = new Date("2026-06-01T18:00:00Z");
 const TWO_TABLES = [
@@ -321,6 +322,80 @@ describe("waitlistService", () => {
       vi.useRealTimers();
     });
 
+    it("a real 3-party queue: cancelling the head sends a position-update SMS to each party behind", async () => {
+      const sendPositionUpdate = vi.fn().mockResolvedValue(undefined);
+      const notifier = createWaitlistNotifier({
+        smsAdapter: { sendWaitlistPositionUpdate: sendPositionUpdate } as never,
+        scheduler: { schedule: vi.fn() },
+        expireEntry: vi.fn(),
+        listWaiting: vi.fn(),
+        notifyTableReady: vi.fn(),
+        markNotified: vi.fn(),
+        revertNotified: vi.fn(),
+        logger: { error: vi.fn(), info: vi.fn() },
+      });
+      vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(
+        makeEntry({ id: "a", status: "cancelled" }) as never
+      );
+      // Positions as stored after "a" (position 1) left: 2 and 3, renumbered to 1 and 2.
+      vi.mocked(prisma.waitlistEntry.findMany).mockResolvedValueOnce([
+        {
+          id: "b",
+          venueId: "venue-1",
+          partySize: 2,
+          guestName: "B",
+          guestPhone: "+2",
+          position: 2,
+        },
+        {
+          id: "c",
+          venueId: "venue-1",
+          partySize: 2,
+          guestName: "C",
+          guestPhone: "+3",
+          position: 3,
+        },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({ settings: null } as never);
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce(TWO_TABLES as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+
+      await waitlistService.cancel("a", (changes) => {
+        for (const change of changes) void notifier.notifyPositionUpdate(change);
+      });
+
+      expect(sendPositionUpdate).toHaveBeenCalledTimes(2);
+      expect(sendPositionUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ guestPhone: "+2", position: 1 })
+      );
+      expect(sendPositionUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ guestPhone: "+3", position: 2 })
+      );
+    });
+
+    it("still resolves (mutation stays successful) when the estimator throws", async () => {
+      vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(
+        makeEntry({ status: "seated" }) as never
+      );
+      vi.mocked(prisma.waitlistEntry.findMany).mockResolvedValueOnce([
+        {
+          id: "a",
+          venueId: "venue-1",
+          partySize: 2,
+          guestName: "A",
+          guestPhone: "+1",
+          position: 2,
+        },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique).mockRejectedValueOnce(new Error("estimator boom"));
+      const onImproved = vi.fn();
+
+      const result = await waitlistService.seat("wl-1", onImproved);
+
+      expect(result).toMatchObject({ status: "seated" });
+      expect(onImproved).not.toHaveBeenCalled();
+    });
+
     it("does not call back when no position changed", async () => {
       vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(
         makeEntry({ status: "seated" }) as never
@@ -445,6 +520,34 @@ describe("waitlistService", () => {
       vi.mocked(prisma.waitlistEntry.update).mockRejectedValueOnce(new Error("not found"));
       expect(await waitlistService.markNotified("wl-1")).toBeNull();
       expect(prisma.waitlistEntry.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("markNotified position reporting", () => {
+    it("reports parties behind the notified one whose position improved", async () => {
+      vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(
+        makeEntry({ status: "notified" }) as never
+      );
+      vi.mocked(prisma.waitlistEntry.findMany).mockResolvedValueOnce([
+        {
+          id: "b",
+          venueId: "venue-1",
+          partySize: 2,
+          guestName: "B",
+          guestPhone: "+2",
+          position: 2,
+        },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({ settings: null } as never);
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce(TWO_TABLES as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+      const onImproved = vi.fn();
+
+      await waitlistService.markNotified("wl-1", onImproved);
+
+      expect(onImproved).toHaveBeenCalledWith([
+        expect.objectContaining({ id: "b", previousPosition: 2, newPosition: 1 }),
+      ]);
     });
   });
 

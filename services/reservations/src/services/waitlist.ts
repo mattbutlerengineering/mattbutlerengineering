@@ -133,7 +133,21 @@ async function reportImproved(
   const moved = before.filter((e) => (newPositions.get(e.id) ?? e.position) < e.position);
   if (moved.length === 0) return;
 
-  const estimate = await loadEstimator(venueId, new Date());
+  // The position change is already saved; an estimator failure (e.g. a venue with
+  // no duration rules) must not turn that successful mutation into a 500.
+  let estimate: (position: number, partySize: number) => number | null;
+  try {
+    estimate = await loadEstimator(venueId, new Date());
+  } catch (err) {
+    process.stderr.write(
+      JSON.stringify({
+        venueId,
+        err: String(err),
+        msg: "waitlist position-update estimate failed",
+      }) + "\n"
+    );
+    return;
+  }
   onImproved(
     moved.map((e) => {
       const newPosition = newPositions.get(e.id) ?? e.position;
@@ -244,7 +258,10 @@ export const waitlistService = {
    * Records the notified lifecycle state on the row. Only a `waiting` entry
    * can be notified; anything else (seated/cancelled/already notified) -> null.
    */
-  async markNotified(id: string): Promise<WaitlistEntryData | null> {
+  async markNotified(
+    id: string,
+    onImproved?: OnPositionsImproved
+  ): Promise<WaitlistEntryData | null> {
     const notifiedAt = new Date();
     let entry: WaitlistEntryData;
     try {
@@ -260,7 +277,7 @@ export const waitlistService = {
       return null;
     }
     // The notified party left the waiting queue: close the gap behind it.
-    await recalculateVenuePositions(entry.venueId);
+    await recalculateVenuePositions(entry.venueId, onImproved);
     return entry;
   },
 
