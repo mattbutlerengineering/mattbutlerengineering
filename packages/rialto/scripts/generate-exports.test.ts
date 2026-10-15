@@ -34,7 +34,7 @@ describe("buildExportsMap", () => {
     expect(Object.keys(map)).toContain("./manifest");
   });
 
-  it("exposes one ./locales/<tag> subpath per non-default locale (ADR-027)", () => {
+  it("exposes one ./locales/<tag> subpath per non-default locale (ADR-028)", () => {
     const map = buildExportsMap(RIALTO_ROOT);
     for (const tag of ["en-GB", "es-MX", "fr-CA"]) {
       expect(map[`./locales/${tag}`]).toEqual({

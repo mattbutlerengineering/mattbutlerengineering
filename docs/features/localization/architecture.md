@@ -13,7 +13,7 @@ i18next + react-i18next (user's choice) with one JSON catalog per locale, en-US 
 the others lazy-loaded. **Rialto** stays i18n-library-free: it owns a typed
 `RialtoMessages` dictionary delivered through an optional, never-throwing context — the
 ADR-025 pattern — with en-US inlined as the default and each other locale shipped as its
-own subpath (ADR-027). The app bridges them: when i18next's language changes, the app loads
+own subpath (ADR-028). The app bridges them: when i18next's language changes, the app loads
 the matching rialto dictionary and hands it to rialto's locale provider. Formatting moves
 behind one venue-bound formatter, so locale picks the _format_ while the venue supplies
 currency and timezone. Two gates keep it from regressing: an ESLint rule for literal UI
@@ -238,7 +238,7 @@ Compared old vs new rules over the inputs where they differ:
 - **Rialto via typed context dictionary + per-locale subpaths** over shared i18next
   instance (forces consumers onto i18next) / all locales bundled (breaks per-subpath size
   budgets) / per-component label props (dozens of API additions, no central catalog) —
-  ADR-027.
+  ADR-028.
 - **Venue timezone on staff screens** over keeping the device-clock policy — PRD says the
   venue owns timezone; differs only for off-site viewers. (User decision, 2026-10-13.)
 - **Translations written by the implementing agent in the same PR** over a translate
@@ -266,12 +266,12 @@ Compared old vs new rules over the inputs where they differ:
 | Switch keeps form input, persists on reload | i18n runtime (`changeLocale`), LocalePicker, widget scope    |
 | Venue USD + venue time in en-GB format      | Venue formatting, cancellation-policy description            |
 | Rialto built-in text in all 4 locales       | Rialto messages, LocaleBridge                                |
-| Rialto non-breaking, no i18n lib required   | Rialto messages (no-provider default), ADR-027               |
+| Rialto non-breaking, no i18n lib required   | Rialto messages (no-provider default), ADR-028               |
 | CI blocks hardcoded string / missing key    | Lint rule, catalog parity check (each with failing fixtures) |
 | MT notice visible                           | Locale policy (`machineTranslated`), LocalePicker            |
 | No truncation/overflow                      | e2e sweep (overflow assertion), ux.md expansion rules        |
 
 ## ADRs
 
-- [ADR-027](../../adr/ADR-027-rialto-localization-through-context.md) — Rialto
+- [ADR-028](../../adr/ADR-028-rialto-localization-through-context.md) — Rialto
   localization through an optional context with typed per-locale dictionaries.

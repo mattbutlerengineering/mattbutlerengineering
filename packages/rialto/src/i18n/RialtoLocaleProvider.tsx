@@ -21,7 +21,7 @@ export interface RialtoLocaleProviderProps {
   children: ReactNode;
 }
 
-/** Sets the locale and messages Rialto components render with (ADR-027). */
+/** Sets the locale and messages Rialto components render with (ADR-028). */
 export function RialtoLocaleProvider({
   locale,
   messages = enUS,

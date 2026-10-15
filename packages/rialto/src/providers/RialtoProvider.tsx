@@ -36,7 +36,7 @@ export interface RialtoProviderProps {
    */
   persistTheme?: boolean;
   /**
-   * Locale for Rialto's built-in text and `Intl` formatting (ADR-027). Omit
+   * Locale for Rialto's built-in text and `Intl` formatting (ADR-028). Omit
    * both `locale` and `messages` to keep today's English and runtime-default
    * formatting.
    */

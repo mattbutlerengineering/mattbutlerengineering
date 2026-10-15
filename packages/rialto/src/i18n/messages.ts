@@ -1,6 +1,6 @@
 /**
  * Every user-visible string Rialto renders by itself, as one typed dictionary
- * (ADR-027). en-US is the inline default; other locales ship as their own
+ * (ADR-028). en-US is the inline default; other locales ship as their own
  * subpath modules typed `RialtoMessages`, so a missing key fails typecheck.
  *
  * Keys are added as components migrate onto `useRialtoLocale()` — each new key

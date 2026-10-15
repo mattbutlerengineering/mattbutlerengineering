@@ -3358,7 +3358,7 @@
     },
     {
       "name": "RialtoLocaleProvider",
-      "description": "Sets the locale and messages Rialto components render with (ADR-027).",
+      "description": "Sets the locale and messages Rialto components render with (ADR-028).",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -3379,7 +3379,7 @@
     },
     {
       "name": "RialtoMessages",
-      "description": "Every user-visible string Rialto renders by itself, as one typed dictionary\n(ADR-027). en-US is the inline default; other locales ship as their own\nsubpath modules typed `RialtoMessages`, so a missing key fails typecheck.\n\nKeys are added as components migrate onto `useRialtoLocale()` — each new key\nlands with its value in every locale module. Interpolated entries are\nfunctions, e.g. `removeItem: (label: string) => string`.",
+      "description": "Every user-visible string Rialto renders by itself, as one typed dictionary\n(ADR-028). en-US is the inline default; other locales ship as their own\nsubpath modules typed `RialtoMessages`, so a missing key fails typecheck.\n\nKeys are added as components migrate onto `useRialtoLocale()` — each new key\nlands with its value in every locale module. Interpolated entries are\nfunctions, e.g. `removeItem: (label: string) => string`.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
@@ -3417,7 +3417,7 @@
           "name": "locale",
           "type": "string | undefined",
           "required": false,
-          "description": "Locale for Rialto's built-in text and `Intl` formatting (ADR-027). Omit\nboth `locale` and `messages` to keep today's English and runtime-default\nformatting."
+          "description": "Locale for Rialto's built-in text and `Intl` formatting (ADR-028). Omit\nboth `locale` and `messages` to keep today's English and runtime-default\nformatting."
         },
         {
           "name": "messages",

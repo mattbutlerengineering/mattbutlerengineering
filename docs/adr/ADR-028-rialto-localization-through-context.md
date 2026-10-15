@@ -1,11 +1,11 @@
 ---
-id: ADR-027
+id: ADR-028
 title: Localize Rialto Through an Optional Context with Typed Per-Locale Dictionaries
 status: active
 date: 2026-10-13
 ---
 
-# ADR-027: Localize Rialto Through an Optional Context with Typed Per-Locale Dictionaries
+# ADR-028: Localize Rialto Through an Optional Context with Typed Per-Locale Dictionaries
 
 ## Context
 

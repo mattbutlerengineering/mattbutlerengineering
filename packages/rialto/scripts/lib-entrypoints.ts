@@ -51,7 +51,7 @@ const componentEntries = listComponentEntries();
 
 /**
  * Non-default locales Rialto ships messages for, one subpath each
- * (`@mattbutlerengineering/rialto/locales/<tag>`, ADR-027). en-US is inlined
+ * (`@mattbutlerengineering/rialto/locales/<tag>`, ADR-028). en-US is inlined
  * as the default and has no subpath. Read by generate-exports.ts too.
  */
 export const RIALTO_LOCALE_TAGS = ["en-GB", "es-MX", "fr-CA"] as const;
