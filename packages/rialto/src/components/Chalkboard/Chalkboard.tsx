@@ -1,7 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "../../utils/class-composer";
 import styles from "./Chalkboard.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /**
  * A stylized menu board rendered like a restaurant chalkboard. Composes with
@@ -89,7 +88,6 @@ export interface ChalkboardItemProps {
 }
 
 export function ChalkboardItem({ name, price, description, soldOut = false }: ChalkboardItemProps) {
-  const { messages } = useRialtoLocale();
   const classes = cn(styles.item, soldOut && styles.soldOut);
 
   return (
@@ -100,7 +98,7 @@ export function ChalkboardItem({ name, price, description, soldOut = false }: Ch
           {soldOut && (
             <span className={styles.soldOutLabel}>
               <span aria-hidden="true"> — </span>
-              {messages.soldOut}
+              sold out
             </span>
           )}
         </span>

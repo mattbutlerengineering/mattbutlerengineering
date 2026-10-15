@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Progress.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Progress Bar ────────────────────────────── */
 /**
@@ -92,9 +91,7 @@ export interface SpinnerProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export const Spinner = forwardRef<HTMLDivElement, SpinnerProps>(
-  ({ size = "md", label: labelProp, className, ...props }, ref) => {
-    const { messages } = useRialtoLocale();
-    const label = labelProp ?? messages.loading;
+  ({ size = "md", label = "Loading", className, ...props }, ref) => {
     const sizeClass =
       size === "sm" ? styles.traceSm : size === "lg" ? styles.traceLg : styles.traceMd;
 

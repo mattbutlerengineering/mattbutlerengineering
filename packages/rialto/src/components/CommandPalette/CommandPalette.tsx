@@ -13,7 +13,6 @@ import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import styles from "./CommandPalette.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 /**
@@ -101,13 +100,11 @@ export function rankCommandMatch(label: string, query: string): CommandMatchRank
 /* ── Component ──────────────────────────────── */
 export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
   function CommandPalette(
-    { open, onOpenChange, items, placeholder: placeholderProp, groups = [] },
+    { open, onOpenChange, items, placeholder = "Search commands…", groups = [] },
     ref
   ) {
     const motionPreset = useMotionPreset();
     const shouldReduceMotion = motionPreset.reduced;
-    const { messages } = useRialtoLocale();
-    const placeholder = placeholderProp ?? messages.searchCommandsPlaceholder;
     const [query, setQuery] = useState("");
     const [activeIndex, setActiveIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -264,7 +261,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               className={styles.panel}
               role="dialog"
               aria-modal="true"
-              aria-label={messages.commandPalette}
+              aria-label="Command palette"
               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -8 }}
               animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -4 }}
@@ -282,7 +279,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                   className={styles.searchInput}
                   type="text"
                   role="combobox"
-                  aria-label={messages.searchCommands}
+                  aria-label="Search commands"
                   aria-expanded={true}
                   aria-controls="cmd-palette-listbox"
                   aria-activedescendant={
@@ -305,7 +302,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                 ref={listRef}
                 id="cmd-palette-listbox"
                 role="listbox"
-                aria-label={messages.commandResults}
+                aria-label="Command results"
               >
                 {flatItems.length === 0 ? (
                   <div className={styles.empty}>
@@ -314,7 +311,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                       <line x1="20.5" y1="20.5" x2="28" y2="28" />
                       <line x1="11" y1="14" x2="17" y2="14" />
                     </svg>
-                    <span className={styles.emptyText}>{messages.noResults}</span>
+                    <span className={styles.emptyText}>No results found</span>
                   </div>
                 ) : (
                   grouped.map((section) => {
@@ -366,14 +363,13 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               <div className={styles.footer}>
                 <span className={styles.footerHint}>
                   <kbd>↑</kbd>
-                  <kbd>↓</kbd> {messages.navigateHint}
+                  <kbd>↓</kbd> navigate
                 </span>
                 <span className={styles.footerHint}>
-                  <kbd>↵</kbd> {messages.selectHint}
+                  <kbd>↵</kbd> select
                 </span>
                 <span className={styles.footerHint}>
-                  {/* eslint-disable-next-line mbe-local/no-literal-ui-strings -- physical key legend, same in every locale */}
-                  <kbd>esc</kbd> {messages.closeHint}
+                  <kbd>esc</kbd> close
                 </span>
               </div>
             </motion.div>

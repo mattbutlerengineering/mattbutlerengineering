@@ -4,7 +4,6 @@ import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useField } from "../../hooks/useField";
 import { cn } from "../../utils/class-composer";
 import styles from "./Input.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /**
  * Single-line text field with optional label, hint text, and error state.
@@ -56,7 +55,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const { messages } = useRialtoLocale();
     const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const wrapperClass = cn(styles.wrapper, error && styles.error, className);
     const inputClass = cn(
@@ -72,7 +70,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             <label {...field.labelProps} className={styles.label}>
               {label}
               {field.requiredMarker}
-              {field.showOptional && <span className={styles.optional}> {messages.optional}</span>}
+              {field.showOptional && <span className={styles.optional}> (optional)</span>}
             </label>
           )}
           <div className={styles.inputContainer}>

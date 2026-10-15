@@ -9,7 +9,6 @@ import React, {
 import { cn } from "../../utils/class-composer";
 import { Checkbox } from "../Checkbox/Checkbox";
 import styles from "./DataTable.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 export type SortDirection = "asc" | "desc";
@@ -270,7 +269,6 @@ interface SelectionHeaderProps {
 }
 
 function SelectionHeader({ mode, allSelected, someSelected, onToggleAll }: SelectionHeaderProps) {
-  const { messages } = useRialtoLocale();
   return (
     <th scope="col" role="columnheader" className={cn(styles.th, styles.selectCell)}>
       {mode === "multiple" ? (
@@ -278,10 +276,10 @@ function SelectionHeader({ mode, allSelected, someSelected, onToggleAll }: Selec
           checked={allSelected}
           indeterminate={someSelected && !allSelected}
           onCheckedChange={onToggleAll}
-          label={<span className={styles.srOnly}>{messages.selectAllRows}</span>}
+          label={<span className={styles.srOnly}>Select all rows</span>}
         />
       ) : (
-        <span className={styles.srOnly}>{messages.selectRow}</span>
+        <span className={styles.srOnly}>Select</span>
       )}
     </th>
   );
@@ -295,7 +293,7 @@ function DataTableInner<T extends Record<string, unknown>>(
     rowKey,
     density = "default",
     striped = false,
-    emptyMessage: emptyMessageProp,
+    emptyMessage = "No data",
     className = "",
     label,
     sort: sortProp,
@@ -309,8 +307,6 @@ function DataTableInner<T extends Record<string, unknown>>(
   }: DataTablePropsGeneric<T>,
   ref: React.ForwardedRef<HTMLDivElement>
 ) {
-  const { messages } = useRialtoLocale();
-  const emptyMessage = emptyMessageProp ?? messages.noData;
   const [sort, setSort] = useControllable<SortState | null>(sortProp, defaultSort, onSortChange);
   const [selected, setSelected] = useControllable<RowKey[]>(
     selectedKeysProp,

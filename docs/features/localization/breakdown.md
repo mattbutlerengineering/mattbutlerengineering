@@ -99,7 +99,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
   - Accept: same as the previous rialto item, plus a Calendar test showing es-MX month
     names via context with no `locale` prop, and today's behaviour with no provider.
   - Blocked by: Rialto locale subpaths
-- [x] **Rialto migration — inputs & composites** — Tag, Combobox, Autocomplete, Select,
+- [ ] **Rialto migration — inputs & composites** — Tag, Combobox, Autocomplete, Select,
       CommandPalette, ChatPanel, MasterOverride, Progress/Spinner, Button `loadingText`. (tracker: #6617)
   - Accept: same as the overlays item; afterwards rialto lint scope is `src/**` and
     `pnpm lint` passes for rialto.

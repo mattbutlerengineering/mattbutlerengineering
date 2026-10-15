@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn, variantClass } from "../../utils/class-composer";
 import styles from "./Tag.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 type TagVariant = "default" | "accent" | "success" | "error";
@@ -48,7 +47,6 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
     },
     ref
   ) => {
-    const { messages } = useRialtoLocale();
     const isInteractive = !!onClick;
     const motionPreset = useMotionPreset();
     const classes = cn(
@@ -80,7 +78,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
           <button
             className={styles.dismiss}
             onClick={onDismiss}
-            aria-label={messages.removeItem(String(children))}
+            aria-label={`Remove ${children}`}
             type="button"
           >
             <svg
@@ -125,7 +123,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
               e.stopPropagation();
               onDismiss?.();
             }}
-            aria-label={messages.removeItem(String(children))}
+            aria-label={`Remove ${children}`}
             type="button"
           >
             <svg

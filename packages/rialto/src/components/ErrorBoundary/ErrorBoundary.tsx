@@ -2,7 +2,6 @@ import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { Heading, type HeadingLevel } from "../Heading/Heading";
 import styles from "./ErrorBoundary.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 export interface ErrorBoundaryProps {
   /** Content to render when no error has occurred. */
@@ -17,29 +16,6 @@ export interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   readonly hasError: boolean;
-}
-
-/* ── Default fallback ───────────────────────── */
-// A function component so the class boundary can read the locale from context.
-function ErrorFallback({
-  headingLevel,
-  onRefresh,
-}: {
-  readonly headingLevel: HeadingLevel;
-  readonly onRefresh: () => void;
-}) {
-  const { messages } = useRialtoLocale();
-  return (
-    <div className={styles.container} role="alert">
-      <Heading level={headingLevel} size={3} className={styles.heading}>
-        {messages.errorTitle}
-      </Heading>
-      <p className={styles.message}>{messages.errorMessage}</p>
-      <button type="button" className={styles.button} onClick={onRefresh}>
-        {messages.refreshPage}
-      </button>
-    </div>
-  );
 }
 
 /**
@@ -75,7 +51,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       return (
-        <ErrorFallback headingLevel={this.props.headingLevel ?? 1} onRefresh={this.handleRefresh} />
+        <div className={styles.container} role="alert">
+          <Heading level={this.props.headingLevel ?? 1} size={3} className={styles.heading}>
+            Something went wrong
+          </Heading>
+          <p className={styles.message}>
+            An unexpected error occurred. Please try refreshing the page.
+          </p>
+          <button type="button" className={styles.button} onClick={this.handleRefresh}>
+            Refresh page
+          </button>
+        </div>
       );
     }
 

@@ -1,7 +1,6 @@
 import React, { forwardRef, useState, useCallback, type ReactNode } from "react";
 import { cn } from "../../utils/class-composer";
 import styles from "./Table.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 type SortDirection = "asc" | "desc";
@@ -117,13 +116,11 @@ function TableInner<T extends Record<string, unknown>>(
     rowKey,
     density = "default",
     striped = false,
-    emptyMessage: emptyMessageProp,
+    emptyMessage = "No data",
     className = "",
   }: TablePropsGeneric<T>,
   ref: React.ForwardedRef<HTMLDivElement>
 ) {
-  const { messages } = useRialtoLocale();
-  const emptyMessage = emptyMessageProp ?? messages.noData;
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
 

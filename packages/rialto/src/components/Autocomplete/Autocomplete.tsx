@@ -13,7 +13,6 @@ import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useCombobox } from "../../hooks/useCombobox";
 import styles from "./Autocomplete.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 export interface AutocompleteOption {
   value: string;
@@ -44,7 +43,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
       value: controlledValue,
       onChange,
       onSelect,
-      emptyText: emptyTextProp,
+      emptyText = "No results",
       showOptional,
       className,
       id,
@@ -56,9 +55,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     },
     ref
   ) => {
-    const { messages } = useRialtoLocale();
     const autoId = useId();
-    const emptyText = emptyTextProp ?? messages.noOptions;
     const inputId = id ?? autoId;
     const listboxId = `${inputId}-listbox`;
     const { precision, reduced: shouldReduceMotion } = useMotionPreset();
@@ -148,9 +145,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
                 *
               </span>
             )}
-            {showOptional && !required && (
-              <span className={styles.optional}> {messages.optional}</span>
-            )}
+            {showOptional && !required && <span className={styles.optional}> (optional)</span>}
           </label>
         )}
 

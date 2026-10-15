@@ -5,7 +5,6 @@ import type { DomainContext } from "./types.js";
 import type { ChatMessageElement } from "./useChatStream.js";
 import { sanitizeElementProps } from "./sanitize.js";
 import styles from "./ChatPanel.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ComponentRegistry = Record<string, React.ComponentType<any>>;
@@ -36,7 +35,6 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
   { onClose, api, domainContext, getAccessToken, standalone, registry },
   ref
 ) {
-  const { messages: t } = useRialtoLocale();
   const {
     messages,
     isStreaming,
@@ -90,7 +88,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
           </div>
         ))}
         {isStreaming && messages.length === 0 && (
-          <div className={styles.loading} aria-label={t.loading}>
+          <div className={styles.loading} aria-label="Loading">
             ...
           </div>
         )}
@@ -101,15 +99,15 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
         )}
         {permissionDenials.map((denial, i) => (
           <div key={i} className={styles.assistantMessage} role="alert">
-            <strong>{denial.toolName}</strong> {t.toolBlocked(denial.reason)}
+            <strong>{denial.toolName}</strong> was blocked: {denial.reason}
           </div>
         ))}
         {error && (
           <div className={styles.assistantMessage} role="alert">
             {error.message}
             <div className={styles.confirmActions}>
-              <button className={styles.confirmButton} onClick={retry} aria-label={t.tryAgain}>
-                {t.tryAgain}
+              <button className={styles.confirmButton} onClick={retry} aria-label="Try again">
+                Try again
               </button>
             </div>
           </div>
@@ -129,16 +127,16 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
             <button
               className={styles.confirmButton}
               onClick={confirmAction}
-              aria-label={t.confirmAction}
+              aria-label="Confirm action"
             >
-              {t.confirm}
+              Confirm
             </button>
             <button
               className={styles.cancelButton}
               onClick={cancelAction}
-              aria-label={t.cancelAction}
+              aria-label="Cancel action"
             >
-              {t.cancel}
+              Cancel
             </button>
           </div>
         </div>
@@ -146,20 +144,20 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
       <div className={styles.inputBar}>
         <textarea
           className={styles.input}
-          aria-label={t.chatInput}
+          aria-label="Chat input"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={t.chatPlaceholder}
+          placeholder="Ask about availability, reservations..."
           rows={1}
         />
         <button
           className={styles.sendButton}
           onClick={handleSubmit}
           disabled={!inputValue.trim() || isStreaming}
-          aria-label={t.send}
+          aria-label="Send"
         >
-          {t.send}
+          Send
         </button>
       </div>
     </div>
@@ -174,7 +172,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
   }
 
   return (
-    <Drawer ref={ref} open={true} onClose={onClose} title={t.chat} side="right">
+    <Drawer ref={ref} open={true} onClose={onClose} title="Chat" side="right">
       {content}
     </Drawer>
   );

@@ -14,7 +14,6 @@ import { cn } from "../../utils/class-composer";
 import { useCombobox } from "../../hooks/useCombobox";
 import { useField } from "../../hooks/useField";
 import styles from "./Combobox.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -96,14 +95,13 @@ interface ComboboxChipProps {
 }
 
 function ComboboxChip({ label, disabled, onRemove }: ComboboxChipProps) {
-  const { messages } = useRialtoLocale();
   return (
     <span className={styles.chip}>
       <span className={styles.chipLabel}>{label}</span>
       <button
         type="button"
         className={styles.chipRemove}
-        aria-label={messages.removeItem(label)}
+        aria-label={`Remove ${label}`}
         disabled={disabled}
         tabIndex={-1}
         onClick={(e) => {
@@ -174,14 +172,11 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
       onInputChange,
       filter = true,
       loading = false,
-      loadingText: loadingTextProp,
-      emptyText: emptyTextProp,
+      loadingText = "Loading…",
+      emptyText = "No results",
     },
     ref
   ) => {
-    const { messages } = useRialtoLocale();
-    const loadingText = loadingTextProp ?? messages.loadingEllipsis;
-    const emptyText = emptyTextProp ?? messages.noOptions;
     const field = useField({ id, hint, error, required, showOptional });
     const listboxId = `${field.id}-listbox`;
     const liveId = `${field.id}-live`;
@@ -354,7 +349,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
                 *
               </span>
             )}
-            {field.showOptional && <span className={styles.optional}> {messages.optional}</span>}
+            {field.showOptional && <span className={styles.optional}> (optional)</span>}
           </label>
         )}
 

@@ -8,7 +8,6 @@ import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useCombobox } from "../../hooks/useCombobox";
 import { useField } from "../../hooks/useField";
 import styles from "./Select.module.css";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -76,7 +75,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       options,
       value,
       onChange,
-      placeholder: placeholderProp,
+      placeholder = "Select…",
       label,
       hint,
       error,
@@ -91,8 +90,6 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     },
     ref
   ) => {
-    const { messages } = useRialtoLocale();
-    const placeholder = placeholderProp ?? messages.selectPlaceholder;
     const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const triggerId = `${field.id}-trigger`;
     const listboxId = `${field.id}-listbox`;
@@ -174,7 +171,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           <label htmlFor={triggerId} className={styles.label}>
             {label}
             {field.requiredMarker}
-            {field.showOptional && <span className={styles.optional}> {messages.optional}</span>}
+            {field.showOptional && <span className={styles.optional}> (optional)</span>}
           </label>
         )}
         <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
