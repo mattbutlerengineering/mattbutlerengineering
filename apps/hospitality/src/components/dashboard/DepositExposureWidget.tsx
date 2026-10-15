@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Card, Text } from "@mattbutlerengineering/rialto";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./DepositExposureWidget.module.css";
@@ -13,17 +14,18 @@ export function DepositExposureWidget({
   noShowExposureCents,
   currency,
 }: DepositExposureWidgetProps) {
+  const { t, i18n } = useTranslation();
   return (
-    <Card title="Deposit Exposure">
+    <Card title={t("home.deposit.title")}>
       <div className={styles.row}>
         <Text className={styles.value}>{depositAtRiskCount}</Text>
-        <Text className={styles.label}>Deposits at risk</Text>
+        <Text className={styles.label}>{t("home.deposit.atRisk")}</Text>
       </div>
       <div className={styles.row}>
         <Text className={styles.value}>
-          {formatCurrencyFromCents(noShowExposureCents, currency)}
+          {formatCurrencyFromCents(noShowExposureCents, currency, i18n.language)}
         </Text>
-        <Text className={styles.label}>No-show exposure</Text>
+        <Text className={styles.label}>{t("home.deposit.noShowExposure")}</Text>
       </div>
     </Card>
   );

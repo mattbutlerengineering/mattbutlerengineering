@@ -505,6 +505,263 @@
     "retry": "Reintentar",
     "machineTranslated": "Las traducciones son automáticas."
   },
+  "home": {
+    "title": "Panel",
+    "welcome": "Bienvenido de nuevo",
+    "welcomeNamed": "Bienvenido de nuevo, {{name}}",
+    "loadFailed": "No se pudo cargar el panel.",
+    "actions": {
+      "walkIn": "Sin reservación",
+      "floorPlan": "Ver plano de sala",
+      "guestLookup": "Buscar invitado",
+      "bookingWidget": "Widget de reservaciones"
+    },
+    "stats": {
+      "reservations": "Reservaciones de hoy",
+      "covers": "Cubiertos esperados",
+      "upcoming": "Próximas (2 h)",
+      "waitlist": "Lista de espera",
+      "longestWait": "Espera más larga (min)",
+      "cancellationRate": "Tasa de cancelación"
+    },
+    "reservations": {
+      "title": "Reservaciones de hoy",
+      "empty": "No hay reservaciones hoy",
+      "walkIn": "Sin reservación",
+      "partyOf": "Grupo de {{count}}"
+    },
+    "activity": {
+      "title": "Actividad en vivo",
+      "connecting": "Conectando con las actualizaciones en vivo...",
+      "empty": "Sin actividad reciente",
+      "justNow": "justo ahora",
+      "minutesAgo": "hace {{count}} min",
+      "hoursAgo": "hace {{count}} h",
+      "events": {
+        "reservationCreated": "Nueva reservación creada",
+        "reservationUpdated": "Reservación actualizada",
+        "reservationCancelled": "Reservación cancelada",
+        "holdCreated": "Mesa apartada",
+        "holdReleased": "Mesa liberada",
+        "holdConfirmed": "Apartado confirmado como reservación",
+        "tableUpdated": "Cambió el estado de la mesa",
+        "floorPlanCreated": "Plano de sala creado"
+      }
+    },
+    "lapsing": {
+      "title": "Invitados inactivos",
+      "empty": "No hay invitados inactivos",
+      "listLabel": "Invitados inactivos",
+      "every_one": "Cada {{count}} día",
+      "every_many": "Cada {{count}} de días",
+      "every_other": "Cada {{count}} días",
+      "overdue_one": "{{count}} día de retraso",
+      "overdue_many": "{{count}} de días de retraso",
+      "overdue_other": "{{count}} días de retraso",
+      "cadence": "{{every}} · {{overdue}}",
+      "sendWinBack": "Enviar invitación para volver",
+      "sendWinBackTo": "Enviar invitación para volver a {{name}}"
+    },
+    "deposit": {
+      "title": "Exposición de depósitos",
+      "atRisk": "Depósitos en riesgo",
+      "noShowExposure": "Exposición por inasistencias"
+    }
+  },
+  "timeline": {
+    "page": {
+      "title": "Cronograma",
+      "description": "Vista de reservaciones en tiempo real",
+      "previousDay": "Día anterior",
+      "nextDay": "Día siguiente",
+      "today": "Hoy",
+      "walkIn": "Sin reservación",
+      "walkInDisabled": "Para registrar clientes sin reservación se necesitan las mesas cargadas — reintenta arriba.",
+      "live": "En vivo",
+      "offline": "Sin conexión",
+      "kpiReservations": "Reservaciones",
+      "kpiCovers": "Cubiertos",
+      "loadFailedHeading": "No se pudo cargar la noche.",
+      "retry": "Reintentar",
+      "noTablesHeading": "Aún no hay mesas.",
+      "noTablesDescription": "Configura un plano de sala y la cuadrícula se llenará.",
+      "floorPlans": "Planos de sala",
+      "detailsTitle": "Detalles de la reservación",
+      "closeDetails": "Cerrar detalles de la reservación",
+      "loadBanner": "No se pudieron cargar las reservaciones de esta noche.",
+      "tableStatusBanner": "No se cambió el estado de la mesa."
+    },
+    "announce": {
+      "loadedTonight": "Se cargó la cuadrícula de esta noche.",
+      "loadedDate": "Se cargaron las reservaciones del {{date}}.",
+      "seated": "Se sentó a {{guest}}.",
+      "seatedAt": "Se sentó a {{guest}} en {{table}}.",
+      "theGuest": "el invitado",
+      "walkInSeated": "Se sentó a {{who}}, grupo de {{size}}.",
+      "walkInSeatedAt": "Se sentó a {{who}}, grupo de {{size}}, en {{table}}.",
+      "aWalkIn": "un cliente sin reservación",
+      "cancelledNamed": "Se canceló la reservación de {{name}}.",
+      "cancelled": "Se canceló la reservación.",
+      "noShowNamed": "Se marcó la reservación de {{name}} como inasistencia.",
+      "noShow": "Se marcó la reservación como inasistencia.",
+      "withWarning": "{{sentence}} {{warning}}",
+      "savedNamed": "Se guardaron los cambios de la reservación de {{name}}.",
+      "saved": "Se guardaron los cambios de la reservación.",
+      "tableNow": "{{table}} ahora está {{status}}.",
+      "aTable": "La mesa"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "confirmed": "Confirmada",
+      "cancelled": "Cancelada",
+      "completed": "Completada",
+      "noShow": "No asistió",
+      "seated": "Sentados"
+    },
+    "guests_one": "{{count}} invitado",
+    "guests_many": "{{count}} de invitados",
+    "guests_other": "{{count}} invitados",
+    "guest": "Invitado",
+    "partyOf": "grupo de {{count}}",
+    "tableUnknown": "mesa desconocida",
+    "visitOrdinalOne": "{{count}}.ª visita",
+    "visitOrdinalTwo": "{{count}}.ª visita",
+    "visitOrdinalFew": "{{count}}.ª visita",
+    "visitOrdinalOther": "{{count}}.ª visita",
+    "block": {
+      "title": "{{guest}} - {{party}} a las {{time}}",
+      "seatedWord": "sentados"
+    },
+    "grid": {
+      "label": "Cronograma de reservaciones",
+      "tables": "Mesas",
+      "rowLabel": "Mesa {{name}}",
+      "capacity": "{{min}}-{{max}} invitados",
+      "navHint": "Usa las teclas de flecha para recorrer las reservaciones"
+    },
+    "tableMenu": {
+      "mark": "Marcar como {{status}}",
+      "trigger": "{{table}}: {{status}}. Cambiar estado"
+    },
+    "mobile": {
+      "all": "Todas",
+      "upcoming": "Próximas",
+      "empty": "No hay reservaciones",
+      "unassigned": "Sin asignar",
+      "cardLabel": "{{guest}}, grupo de {{size}}, {{time}}, mesa {{table}}",
+      "seated": "Sentados"
+    },
+    "emptyNight": {
+      "todayHeading": "Todo tranquilo por ahora.",
+      "todayDescription": "No hay nada en la agenda para esta noche. Los clientes sin reservación van directo a una mesa.",
+      "otherHeading": "No hay nada en la agenda para el {{date}}.",
+      "otherDescription": "Las reservaciones de esa noche aparecerán aquí.",
+      "walkIn": "Sin reservación",
+      "backToToday": "Volver a hoy"
+    },
+    "skeleton": {
+      "loading": "Cargando la cuadrícula de esta noche…"
+    },
+    "details": {
+      "guest": "Invitado",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "time": "Hora",
+      "partySize": "Tamaño del grupo",
+      "table": "Mesa",
+      "status": "Estado",
+      "seatFailed": "No se sentó al invitado.",
+      "edit": "Editar reservación",
+      "seat": "Sentar al invitado",
+      "seating": "Sentando…",
+      "cancel": "Cancelar reservación",
+      "noShow": "Marcar inasistencia",
+      "occupied": "{{table}} sigue ocupada: libérala o cambia de mesa al grupo."
+    },
+    "sheet": {
+      "allergy": "Alergia: {{restriction}}",
+      "edit": "Editar reservación",
+      "cancel": "Cancelar reservación",
+      "more": "Más"
+    },
+    "deposit": {
+      "title": "Depósito",
+      "collectTitle": "Cobrar depósito",
+      "collect": "+ Cobrar depósito",
+      "amountLabel": "Monto ({{symbol}})",
+      "invalidAmount": "Ingresa un monto válido.",
+      "cancel": "Cancelar",
+      "create": "Crear depósito",
+      "saving": "Guardando...",
+      "statusLine": "{{amount}} — {{status}}",
+      "refundedVia": "Se reembolsaron {{amount}} mediante Stripe",
+      "statuses": {
+        "pending": "Pendiente",
+        "held": "Autorizado",
+        "applied": "Cobrado",
+        "refunded": "Reembolsado",
+        "forfeited": "Perdido",
+        "partialRefunded": "Reembolsado parcialmente",
+        "uncollectable": "Incobrable"
+      }
+    },
+    "cancel": {
+      "title": "Cancelar reservación",
+      "intro": "Cancelando la reservación de <strong>{{name}}</strong>",
+      "reasonLabel": "Motivo",
+      "reasons": {
+        "guestCancelled": "Canceló el invitado",
+        "noShow": "No asistió",
+        "restaurantCancelled": "Canceló el restaurante",
+        "other": "Otro"
+      },
+      "noteLabel": "Nota (opcional)",
+      "notePlaceholder": "Agrega más contexto...",
+      "failed": "No se canceló la reservación.",
+      "keep": "Conservar reservación",
+      "confirm": "Cancelar reservación",
+      "cancelling": "Cancelando…"
+    },
+    "noShowDialog": {
+      "title": "Marcar inasistencia",
+      "body": "Marcar a <strong>{{name}}</strong> como inasistencia no se puede deshacer. Si hay un depósito registrado, se aplica la política de cargos por inasistencia del local: puede cobrarse una parte o la totalidad, o reembolsarse si no corresponde ningún cargo.",
+      "failed": "No se marcó la reservación como inasistencia.",
+      "keep": "Conservar reservación",
+      "confirm": "Marcar inasistencia",
+      "marking": "Marcando…"
+    },
+    "edit": {
+      "title": "Editar reservación",
+      "startTime": "Hora de inicio",
+      "endTime": "Hora de fin",
+      "partySize": "Tamaño del grupo",
+      "assignTable": "Asignar mesa",
+      "tableOption": "{{name}} (cap. {{capacity}})",
+      "notes": "Notas",
+      "timesRequired": "Se requieren las horas de inicio y fin.",
+      "endAfterStart": "La hora de fin debe ser posterior a la de inicio.",
+      "partySizePositive": "El tamaño del grupo debe ser un número positivo.",
+      "failed": "No se guardaron los cambios.",
+      "cancel": "Cancelar",
+      "save": "Guardar cambios",
+      "saving": "Guardando…"
+    },
+    "walkInDialog": {
+      "title": "Sentar cliente sin reservación",
+      "partySize": "Tamaño del grupo",
+      "nothingFree": "No hay nada libre para un grupo de {{size}} por ahora. Prueba con un grupo más pequeño o marca una mesa como disponible.",
+      "table": "Mesa",
+      "tableOption": "{{name}} ({{capacity}} lugares)",
+      "guestLabel": "Nombre del invitado (opcional)",
+      "guestHint": "Nombre o teléfono: los invitados que regresan aparecen al escribir.",
+      "guestPlaceholder": "p. ej., Pérez",
+      "guestCleared": "Se quitó al invitado.",
+      "failed": "No se sentó al cliente sin reservación.",
+      "cancel": "Cancelar",
+      "seatNow": "Sentar ahora",
+      "seating": "Sentando…"
+    }
+  },
   "errorBanner": {
     "retry": "Reintentar",
     "showDetails": "Mostrar detalles"

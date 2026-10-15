@@ -505,6 +505,263 @@
     "retry": "Réessayer",
     "machineTranslated": "Les traductions sont automatiques."
   },
+  "home": {
+    "title": "Tableau de bord",
+    "welcome": "Bon retour",
+    "welcomeNamed": "Bon retour, {{name}}",
+    "loadFailed": "Impossible de charger le tableau de bord.",
+    "actions": {
+      "walkIn": "Sans réservation",
+      "floorPlan": "Voir le plan de salle",
+      "guestLookup": "Chercher un client",
+      "bookingWidget": "Widget de réservation"
+    },
+    "stats": {
+      "reservations": "Réservations du jour",
+      "covers": "Couverts prévus",
+      "upcoming": "À venir (2 h)",
+      "waitlist": "Liste d'attente",
+      "longestWait": "Attente la plus longue (min)",
+      "cancellationRate": "Taux d'annulation"
+    },
+    "reservations": {
+      "title": "Réservations du jour",
+      "empty": "Aucune réservation aujourd'hui",
+      "walkIn": "Sans réservation",
+      "partyOf": "Groupe de {{count}}"
+    },
+    "activity": {
+      "title": "Activité en direct",
+      "connecting": "Connexion aux mises à jour en direct...",
+      "empty": "Aucune activité récente",
+      "justNow": "à l'instant",
+      "minutesAgo": "il y a {{count}} min",
+      "hoursAgo": "il y a {{count}} h",
+      "events": {
+        "reservationCreated": "Nouvelle réservation créée",
+        "reservationUpdated": "Réservation mise à jour",
+        "reservationCancelled": "Réservation annulée",
+        "holdCreated": "Table mise de côté",
+        "holdReleased": "Table libérée",
+        "holdConfirmed": "Mise de côté confirmée en réservation",
+        "tableUpdated": "Statut de la table modifié",
+        "floorPlanCreated": "Plan de salle créé"
+      }
+    },
+    "lapsing": {
+      "title": "Clients à reconquérir",
+      "empty": "Aucun client à reconquérir",
+      "listLabel": "Clients à reconquérir",
+      "every_one": "Tous les {{count}} jour",
+      "every_many": "Tous les {{count}} de jours",
+      "every_other": "Tous les {{count}} jours",
+      "overdue_one": "{{count}} jour de retard",
+      "overdue_many": "{{count}} de jours de retard",
+      "overdue_other": "{{count}} jours de retard",
+      "cadence": "{{every}} · {{overdue}}",
+      "sendWinBack": "Envoyer une invitation de retour",
+      "sendWinBackTo": "Envoyer une invitation de retour à {{name}}"
+    },
+    "deposit": {
+      "title": "Exposition aux dépôts",
+      "atRisk": "Dépôts à risque",
+      "noShowExposure": "Exposition aux absences"
+    }
+  },
+  "timeline": {
+    "page": {
+      "title": "Chronologie",
+      "description": "Vue des réservations en temps réel",
+      "previousDay": "Jour précédent",
+      "nextDay": "Jour suivant",
+      "today": "Aujourd'hui",
+      "walkIn": "Sans réservation",
+      "walkInDisabled": "Pour accueillir un client sans réservation, les tables doivent être chargées — réessayez ci-dessus.",
+      "live": "En direct",
+      "offline": "Hors ligne",
+      "kpiReservations": "Réservations",
+      "kpiCovers": "Couverts",
+      "loadFailedHeading": "Impossible de charger la soirée.",
+      "retry": "Réessayer",
+      "noTablesHeading": "Aucune table pour l'instant.",
+      "noTablesDescription": "Configurez un plan de salle et la grille se remplira.",
+      "floorPlans": "Plans de salle",
+      "detailsTitle": "Détails de la réservation",
+      "closeDetails": "Fermer les détails de la réservation",
+      "loadBanner": "Impossible de charger les réservations de ce soir.",
+      "tableStatusBanner": "Le statut de la table n'a pas été modifié."
+    },
+    "announce": {
+      "loadedTonight": "La grille de ce soir est chargée.",
+      "loadedDate": "Les réservations du {{date}} sont chargées.",
+      "seated": "{{guest}} est installé.",
+      "seatedAt": "{{guest}} est installé à {{table}}.",
+      "theGuest": "le client",
+      "walkInSeated": "{{who}} est installé, groupe de {{size}}.",
+      "walkInSeatedAt": "{{who}} est installé, groupe de {{size}}, à {{table}}.",
+      "aWalkIn": "un client sans réservation",
+      "cancelledNamed": "La réservation de {{name}} est annulée.",
+      "cancelled": "La réservation est annulée.",
+      "noShowNamed": "La réservation de {{name}} est marquée comme une absence.",
+      "noShow": "La réservation est marquée comme une absence.",
+      "withWarning": "{{sentence}} {{warning}}",
+      "savedNamed": "Les modifications de la réservation de {{name}} sont enregistrées.",
+      "saved": "Les modifications de la réservation sont enregistrées.",
+      "tableNow": "{{table}} est maintenant {{status}}.",
+      "aTable": "La table"
+    },
+    "status": {
+      "pending": "En attente",
+      "confirmed": "Confirmée",
+      "cancelled": "Annulée",
+      "completed": "Terminée",
+      "noShow": "Absent",
+      "seated": "Installés"
+    },
+    "guests_one": "{{count}} client",
+    "guests_many": "{{count}} de clients",
+    "guests_other": "{{count}} clients",
+    "guest": "Client",
+    "partyOf": "groupe de {{count}}",
+    "tableUnknown": "table inconnue",
+    "visitOrdinalOne": "{{count}}re visite",
+    "visitOrdinalTwo": "{{count}}e visite",
+    "visitOrdinalFew": "{{count}}e visite",
+    "visitOrdinalOther": "{{count}}e visite",
+    "block": {
+      "title": "{{guest}} - {{party}} à {{time}}",
+      "seatedWord": "installés"
+    },
+    "grid": {
+      "label": "Chronologie des réservations",
+      "tables": "Tables",
+      "rowLabel": "Table {{name}}",
+      "capacity": "{{min}}-{{max}} clients",
+      "navHint": "Utilisez les touches fléchées pour parcourir les réservations"
+    },
+    "tableMenu": {
+      "mark": "Marquer comme {{status}}",
+      "trigger": "{{table}} : {{status}}. Modifier le statut"
+    },
+    "mobile": {
+      "all": "Toutes",
+      "upcoming": "À venir",
+      "empty": "Aucune réservation",
+      "unassigned": "Non attribuée",
+      "cardLabel": "{{guest}}, groupe de {{size}}, {{time}}, table {{table}}",
+      "seated": "Installés"
+    },
+    "emptyNight": {
+      "todayHeading": "Calme pour l'instant.",
+      "todayDescription": "Rien à l'agenda pour ce soir. Les clients sans réservation vont directement à une table.",
+      "otherHeading": "Rien à l'agenda pour le {{date}}.",
+      "otherDescription": "Les réservations de cette soirée s'afficheront ici.",
+      "walkIn": "Sans réservation",
+      "backToToday": "Retour à aujourd'hui"
+    },
+    "skeleton": {
+      "loading": "Chargement de la grille de ce soir…"
+    },
+    "details": {
+      "guest": "Client",
+      "email": "Courriel",
+      "phone": "Téléphone",
+      "time": "Heure",
+      "partySize": "Taille du groupe",
+      "table": "Table",
+      "status": "Statut",
+      "seatFailed": "Le client n'a pas été installé.",
+      "edit": "Modifier la réservation",
+      "seat": "Installer le client",
+      "seating": "Installation…",
+      "cancel": "Annuler la réservation",
+      "noShow": "Marquer comme absent",
+      "occupied": "{{table}} est toujours occupée — libérez-la ou déplacez le groupe."
+    },
+    "sheet": {
+      "allergy": "Allergie : {{restriction}}",
+      "edit": "Modifier la réservation",
+      "cancel": "Annuler la réservation",
+      "more": "Plus"
+    },
+    "deposit": {
+      "title": "Dépôt",
+      "collectTitle": "Percevoir un dépôt",
+      "collect": "+ Percevoir un dépôt",
+      "amountLabel": "Montant ({{symbol}})",
+      "invalidAmount": "Saisissez un montant valide.",
+      "cancel": "Annuler",
+      "create": "Créer le dépôt",
+      "saving": "Enregistrement...",
+      "statusLine": "{{amount}} — {{status}}",
+      "refundedVia": "{{amount}} remboursés par Stripe",
+      "statuses": {
+        "pending": "En attente",
+        "held": "Autorisé",
+        "applied": "Débité",
+        "refunded": "Remboursé",
+        "forfeited": "Confisqué",
+        "partialRefunded": "Partiellement remboursé",
+        "uncollectable": "Irrécouvrable"
+      }
+    },
+    "cancel": {
+      "title": "Annuler la réservation",
+      "intro": "Annulation de la réservation de <strong>{{name}}</strong>",
+      "reasonLabel": "Motif",
+      "reasons": {
+        "guestCancelled": "Annulée par le client",
+        "noShow": "Absent",
+        "restaurantCancelled": "Annulée par le restaurant",
+        "other": "Autre"
+      },
+      "noteLabel": "Note (facultatif)",
+      "notePlaceholder": "Ajoutez du contexte...",
+      "failed": "La réservation n'a pas été annulée.",
+      "keep": "Garder la réservation",
+      "confirm": "Annuler la réservation",
+      "cancelling": "Annulation…"
+    },
+    "noShowDialog": {
+      "title": "Marquer comme absent",
+      "body": "Marquer <strong>{{name}}</strong> comme absent ne peut pas être annulé. Si un dépôt est au dossier, la politique de frais d'absence de l'établissement s'applique : il peut être perçu en partie ou en totalité, ou remboursé si aucun frais ne s'applique.",
+      "failed": "La réservation n'a pas été marquée comme une absence.",
+      "keep": "Garder la réservation",
+      "confirm": "Marquer comme absent",
+      "marking": "Marquage…"
+    },
+    "edit": {
+      "title": "Modifier la réservation",
+      "startTime": "Heure de début",
+      "endTime": "Heure de fin",
+      "partySize": "Taille du groupe",
+      "assignTable": "Attribuer une table",
+      "tableOption": "{{name}} (cap. {{capacity}})",
+      "notes": "Notes",
+      "timesRequired": "Les heures de début et de fin sont obligatoires.",
+      "endAfterStart": "L'heure de fin doit être postérieure à l'heure de début.",
+      "partySizePositive": "La taille du groupe doit être un nombre positif.",
+      "failed": "Les modifications n'ont pas été enregistrées.",
+      "cancel": "Annuler",
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…"
+    },
+    "walkInDialog": {
+      "title": "Installer un client sans réservation",
+      "partySize": "Taille du groupe",
+      "nothingFree": "Rien de libre pour un groupe de {{size}} en ce moment. Essayez un groupe plus petit ou marquez une table comme disponible.",
+      "table": "Table",
+      "tableOption": "{{name}} ({{capacity}} places)",
+      "guestLabel": "Nom du client (facultatif)",
+      "guestHint": "Nom ou téléphone : les clients connus apparaissent pendant la saisie.",
+      "guestPlaceholder": "p. ex. Tremblay",
+      "guestCleared": "Client retiré.",
+      "failed": "Le client sans réservation n'a pas été installé.",
+      "cancel": "Annuler",
+      "seatNow": "Installer maintenant",
+      "seating": "Installation…"
+    }
+  },
   "errorBanner": {
     "retry": "Réessayer",
     "showDetails": "Afficher les détails"

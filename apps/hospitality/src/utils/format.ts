@@ -250,3 +250,15 @@ export function formatShortDate(dateStr: string, locale: string = LOCALE): strin
     day: "2-digit",
   });
 }
+
+/**
+ * The header over an hour column: "7 PM" in en-US, "19 h" in fr-CA. `compact` keeps only the hour
+ * digits for the narrow phone grid. A wall-clock hour carries no zone, so it is formatted on a
+ * fixed UTC instant — never shifted by the viewer's or the venue's offset.
+ */
+export function formatHourLabel(hour: number, locale: string, compact: boolean): string {
+  const formatter = new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" });
+  const instant = new Date(Date.UTC(1970, 0, 1, hour));
+  if (!compact) return formatter.format(instant);
+  return formatter.formatToParts(instant).find((part) => part.type === "hour")?.value ?? "";
+}

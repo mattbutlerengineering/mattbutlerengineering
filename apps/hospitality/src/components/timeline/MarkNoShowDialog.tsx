@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -35,6 +36,7 @@ interface MarkNoShowDialogProps {
  * lost) a retry gets a 409 Conflict rather than a silent no-op.
  */
 export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDialogProps) {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
 
@@ -45,7 +47,7 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
   useFocusTrap(panelRef, true);
   useEscapeKey(onClose, true);
 
-  const displayName = guestName ?? "Guest";
+  const displayName = guestName ?? t("timeline.guest");
 
   const handleConfirm = async () => {
     setIsLoading(true);
@@ -79,18 +81,20 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
         <Stack gap="lg">
           <div className={styles.header}>
             <Text variant="display" id="mark-no-show-dialog-title">
-              Mark No-Show
+              {t("timeline.noShowDialog.title")}
             </Text>
             <Text variant="body" color="secondary">
-              Marking <strong>{displayName}</strong> as a no-show cannot be undone. If a deposit is
-              on file, the venue&apos;s no-show fee policy applies — this may capture some or all of
-              it, or refund it if no fee applies.
+              <Trans
+                i18nKey="timeline.noShowDialog.body"
+                values={{ name: displayName }}
+                components={{ strong: <strong /> }}
+              />
             </Text>
           </div>
 
           {failure && (
             <ErrorRetryBanner
-              title="Reservation not marked as no-show."
+              title={t("timeline.noShowDialog.failed")}
               error={failure.detail}
               details={failure.raw}
             />
@@ -98,16 +102,16 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
 
           <div className={styles.actions}>
             <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-              Keep Reservation
+              {t("timeline.noShowDialog.keep")}
             </Button>
             <Button
               ref={confirmRef}
               variant="primary"
               onClick={() => void handleConfirm()}
               isLoading={isLoading}
-              loadingText="Marking…"
+              loadingText={t("timeline.noShowDialog.marking")}
             >
-              Mark No-Show
+              {t("timeline.noShowDialog.confirm")}
             </Button>
           </div>
         </Stack>
