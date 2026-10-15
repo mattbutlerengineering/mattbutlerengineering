@@ -118,7 +118,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     `check:i18n-catalogs` green; es-MX/fr-CA render tests for each booking step.
   - Blocked by: Widget locale scope, Cancellation-policy description, Rialto migration —
     inputs & composites
-- [ ] **Per-locale e2e sweep (public routes)** — spec reusing the route ledger/fixtures
+- [x] **Per-locale e2e sweep (public routes)** — spec reusing the route ledger/fixtures
       behind `e2e/visual.spec.ts`; for en-GB, es-MX, fr-CA asserts no visible text equals
       a differing en-US catalog value and no non-`data-truncate` overflow. (tracker: #6620)
   - Accept: passes on `book/:venueSlug` (every step) and `reservations/manage` in all
