@@ -4187,6 +4187,68 @@
     });
   </file>
   </section>
+  <section priority="medium" role="i18n">
+  <file path="src/i18n/locales.ts">
+    export type LocaleTag = "en-US" | "en-GB" | "es-MX" | "fr-CA";
+    export interface SupportedLocale {
+      readonly tag: LocaleTag;
+      /** The locale's name in its own language — what the picker shows. */
+      readonly endonym: string;
+      /** Text was machine-generated; the picker discloses this. */
+      readonly machineTranslated: boolean;
+    }
+    export const DEFAULT_LOCALE: LocaleTag = "en-US";
+    export const SUPPORTED_LOCALES: readonly SupportedLocale[] = [
+      { tag: "en-US", endonym: "English (US)", machineTranslated: false },
+      { tag: "en-GB", endonym: "English (UK)", machineTranslated: false },
+      { tag: "es-MX", endonym: "Español (México)", machineTranslated: true },
+      { tag: "fr-CA", endonym: "Français (Canada)", machineTranslated: true },
+    ];
+    function parse(tag: string): Intl.Locale | null {
+      try {
+        return new Intl.Locale(tag);
+      } catch {
+        return null;
+      }
+    }
+    function exactMatch(tag: string): LocaleTag | null {
+      const locale = parse(tag);
+      if (!locale) return null;
+      const normalized = `${locale.language}-${locale.region ?? ""}`;
+      return SUPPORTED_LOCALES.find((l) => l.tag === normalized)?.tag ?? null;
+    }
+    function matchOne(tag: string): LocaleTag | null {
+      const exact = exactMatch(tag);
+      if (exact) return exact;
+      const language = parse(tag)?.language;
+      return language ? (LANGUAGE_FALLBACK[language] ?? null) : null;
+    }
+    export function resolveLocale({
+      stored,
+      browser,
+    }: {
+      stored: string | null;
+      browser: readonly string[];
+    }): LocaleTag {
+      const fromStorage = stored ? exactMatch(stored) : null;
+      if (fromStorage) return fromStorage;
+      for (const tag of browser) {
+        const match = matchOne(tag);
+        if (match) return match;
+      }
+      return DEFAULT_LOCALE;
+    }
+  </file>
+  <file path="src/i18n/typed-keys.typecheck.ts">
+    export function typedKeysContract(t: TFunction): string[] {
+      return [
+        t("shell.skipToMain"),
+        // @ts-expect-error — a key missing from the en-US catalog is a type error
+        t("no.such.key"),
+      ];
+    }
+  </file>
+  </section>
   <section priority="medium" role="journeys">
   <file path="e2e/journeys/journey-api.ts">
     export const SYNTHETIC_VENUE_PREFIX = "synthetic-journey-";

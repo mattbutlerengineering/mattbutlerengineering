@@ -3034,6 +3034,20 @@
     }
   </file>
   </section>
+  <section priority="medium" role="i18n">
+  <file path="src/i18n/messages.ts">
+    export interface RialtoMessages {
+      /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
+      readonly dismiss: string;
+      /** Accessible name of a control that closes a surface (Drawer, Popover). */
+      readonly close: string;
+    }
+    export const enUS: RialtoMessages = {
+      dismiss: "Dismiss",
+      close: "Close",
+    };
+  </file>
+  </section>
   <section priority="medium" role="lib">
   <file path="scripts/lib/color-tokens.ts">
     export interface DtcgToken {
@@ -3084,6 +3098,23 @@
         );
       }
     }
+  </file>
+  </section>
+  <section priority="medium" role="locales">
+  <file path="src/i18n/locales/en-GB.ts">
+    export const enGB: RialtoMessages = { ...enUS };
+  </file>
+  <file path="src/i18n/locales/es-MX.ts">
+    export const esMX: RialtoMessages = {
+      dismiss: "Descartar",
+      close: "Cerrar",
+    };
+  </file>
+  <file path="src/i18n/locales/fr-CA.ts">
+    export const frCA: RialtoMessages = {
+      dismiss: "Ignorer",
+      close: "Fermer",
+    };
   </file>
   </section>
   <section priority="medium" role="providers">
@@ -4102,6 +4133,12 @@
         types: "./dist/lib/hooks/index.d.ts",
         import: "./dist/lib/hooks/index.js",
       };
+      for (const tag of RIALTO_LOCALE_TAGS) {
+        exportsMap[`./locales/${tag}`] = {
+          types: `./dist/lib/i18n/locales/${tag}.d.ts`,
+          import: `./dist/lib/i18n/locales/${tag}.js`,
+        };
+      }
     
       // One subpath per component directory, derived from the canonical model.
       // Only include subpaths that actually correspond to a directory under
@@ -4672,6 +4709,7 @@
       entries.sort((a, b) => a.subpath.localeCompare(b.subpath));
       return entries;
     }
+    export const RIALTO_LOCALE_TAGS = ["en-GB", "es-MX", "fr-CA"] as const;
     export const libEntries: LibEntry[] = [
       // Root barrel — preserved for back-compat with `import { x } from "@.../rialto"`.
       {
@@ -4700,6 +4738,7 @@
         source: path.join(repoRoot, "src/hooks/index.ts"),
         chunkName: "hooks/index",
       },
+      ...localeEntries,
       ...componentEntries,
     ];
     export function viteEntryMap(): Record<string, string> {

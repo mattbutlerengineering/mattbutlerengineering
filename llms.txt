@@ -4794,6 +4794,60 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="i18n">
+  <file path="apps/hospitality/src/i18n/locales.ts">
+    <item priority="low">
+      type LocaleTag = "en-US" | "en-GB" | "es-MX" | "fr-CA";
+    </item>
+    <item priority="low">
+      interface SupportedLocale {
+        tag: LocaleTag;
+        endonym: string;
+        machineTranslated: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_LOCALE: LocaleTag;
+    </item>
+    <item priority="high">
+      export const SUPPORTED_LOCALES: readonly SupportedLocale[];
+    </item>
+    <item priority="medium">
+      function parse(tag: string): Intl.Locale | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function exactMatch(tag: string): LocaleTag | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function matchOne(tag: string): LocaleTag | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveLocale({
+        stored,
+        browser,
+      }: {
+        stored: string | null;
+        browser: readonly string[];
+      }): LocaleTag { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/i18n/typed-keys.typecheck.ts">
+    <item priority="high">
+      export function typedKeysContract(t: TFunction): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/i18n/messages.ts">
+    <item priority="low">
+      interface RialtoMessages {
+        dismiss: string;
+        close: string;
+      }
+    </item>
+    <item priority="high">
+      export const enUS: RialtoMessages;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="journeys">
   <file path="apps/hospitality/e2e/journeys/journey-api.ts">
     <item priority="high">
@@ -5192,6 +5246,23 @@
       export function createVerifiedBodyPreHandler(
         opts: VerifiedWebhookOptions
       ): preHandlerAsyncHookHandler { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="locales">
+  <file path="packages/rialto/src/i18n/locales/en-GB.ts">
+    <item priority="high">
+      export const enGB: RialtoMessages;
+    </item>
+  </file>
+  <file path="packages/rialto/src/i18n/locales/es-MX.ts">
+    <item priority="high">
+      export const esMX: RialtoMessages;
+    </item>
+  </file>
+  <file path="packages/rialto/src/i18n/locales/fr-CA.ts">
+    <item priority="high">
+      export const frCA: RialtoMessages;
     </item>
   </file>
   </section>
@@ -8002,6 +8073,9 @@
     </item>
     <item priority="medium">
       function listComponentEntries(): LibEntry[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const RIALTO_LOCALE_TAGS: unknown;
     </item>
     <item priority="high">
       export const libEntries: LibEntry[];

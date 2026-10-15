@@ -110,7 +110,7 @@ describe("buildManifest", () => {
     expect(iconButton!.props.map((p) => p.name)).toContain("aria-label");
   });
 
-  it("keeps props declared outside src/components (RialtoProvider vibe/vibeOverrides/theme/persistTheme)", () => {
+  it("keeps props declared outside src/components (RialtoProvider vibe/vibeOverrides/theme/persistTheme/locale/messages)", () => {
     // Regression for #3375: RialtoProviderProps is declared in src/providers,
     // not src/components. When the declaredInRialto boundary was scoped to
     // src/components, these three genuine public props were misclassified as
@@ -123,7 +123,7 @@ describe("buildManifest", () => {
     const names = provider!.props.map((p) => p.name);
     expect(names).toEqual(expect.arrayContaining(["vibe", "vibeOverrides", "theme"]));
     // …and its RialtoProviderProps does not extend HTMLAttributes, so these
-    // four are the ENTIRE projected API — no HTML bleed-through admitted.
-    expect(names).toEqual(["vibe", "vibeOverrides", "theme", "persistTheme"]);
+    // six are the ENTIRE projected API — no HTML bleed-through admitted.
+    expect(names).toEqual(["vibe", "vibeOverrides", "theme", "persistTheme", "locale", "messages"]);
   });
 });

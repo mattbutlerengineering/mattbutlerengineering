@@ -124,6 +124,74 @@ export default {
         };
       },
     },
+    "no-literal-ui-strings": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Disallow hardcoded user-visible text in JSX (text, string children, and UI attributes) in localized packages — render it through the locale's messages instead",
+        },
+        schema: [],
+        messages: {
+          jsxText:
+            "Hardcoded UI text. Render it through the locale's messages (t() in apps, useRialtoLocale() in rialto).",
+          attribute:
+            'Hardcoded "{{name}}" text. Render it through the locale\'s messages (t() in apps, useRialtoLocale() in rialto).',
+        },
+      },
+      create(context) {
+        // Attributes whose value a person reads or hears. Everything else
+        // (className, variant, data-*, id, type…) may hold literals.
+        const UI_ATTRS = new Set([
+          "aria-label",
+          "aria-description",
+          "aria-placeholder",
+          "aria-roledescription",
+          "aria-valuetext",
+          "title",
+          "placeholder",
+          "alt",
+          "label",
+          "description",
+          "heading",
+          "message",
+          "loadingText",
+          "emptyText",
+          "confirmLabel",
+          "cancelLabel",
+        ]);
+        // Any letter in any script — punctuation, digits and whitespace carry no language.
+        const HAS_LETTER = /\p{L}/u;
+
+        const isTextual = (node) => {
+          if (!node) return false;
+          if (node.type === "Literal")
+            return typeof node.value === "string" && HAS_LETTER.test(node.value);
+          if (node.type === "TemplateLiteral") {
+            return node.quasis.some((q) => HAS_LETTER.test(q.value.cooked ?? q.value.raw));
+          }
+          return false;
+        };
+
+        return {
+          JSXText(node) {
+            if (HAS_LETTER.test(node.value)) context.report({ node, messageId: "jsxText" });
+          },
+          JSXExpressionContainer(node) {
+            if (node.parent.type === "JSXAttribute") return;
+            if (isTextual(node.expression)) context.report({ node, messageId: "jsxText" });
+          },
+          JSXAttribute(node) {
+            if (node.name.type !== "JSXIdentifier" || !UI_ATTRS.has(node.name.name)) return;
+            const value =
+              node.value?.type === "JSXExpressionContainer" ? node.value.expression : node.value;
+            if (isTextual(value)) {
+              context.report({ node, messageId: "attribute", data: { name: node.name.name } });
+            }
+          },
+        };
+      },
+    },
     "prefer-rialto-components": {
       meta: {
         type: "suggestion",

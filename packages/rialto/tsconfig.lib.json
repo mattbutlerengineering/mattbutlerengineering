@@ -12,6 +12,7 @@
     "src/tokens",
     "src/styles",
     "src/hooks",
+    "src/i18n",
     "src/lib-entry.ts",
     "src/vite-env.d.ts"
   ],
