@@ -12,9 +12,33 @@ export interface RialtoMessages {
   readonly dismiss: string;
   /** Accessible name of a control that closes a surface (Drawer, Popover). */
   readonly close: string;
+  /** Accessible name of the Dialog close button. */
+  readonly closeDialog: string;
+  /** Fallback accessible name of a Dialog with no title. */
+  readonly dialog: string;
+  /** Fallback accessible name of a Drawer with no title. */
+  readonly drawer: string;
+  /** Fallback accessible name of a Popover with no title. */
+  readonly popover: string;
+  /** Accessible name of a HoverCard's preview surface. */
+  readonly preview: string;
+  /** Accessible name of the Toast region. */
+  readonly notifications: string;
+  /** Default ConfirmDialog confirm button label. */
+  readonly confirm: string;
+  /** Default ConfirmDialog cancel button label. */
+  readonly cancel: string;
 }
 
 export const enUS: RialtoMessages = {
   dismiss: "Dismiss",
   close: "Close",
+  closeDialog: "Close dialog",
+  dialog: "Dialog",
+  drawer: "Drawer",
+  popover: "Popover",
+  preview: "Preview",
+  notifications: "Notifications",
+  confirm: "Confirm",
+  cancel: "Cancel",
 };

@@ -4841,6 +4841,9 @@
       interface RialtoMessages {
         dismiss: string;
         close: string;
+        closeDialog: string;
+        dialog: string;
+        drawer: string;
       }
     </item>
     <item priority="high">
