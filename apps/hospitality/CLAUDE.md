@@ -55,7 +55,7 @@ Build-time env vars (set in CI and `.env`):
 
 Staff and guest UI ships in en-US, en-GB, es-MX and fr-CA ([ADR-028](../../docs/adr/ADR-028-rialto-localization-through-context.md), feature docs in [`docs/features/localization/`](../../docs/features/localization/)).
 
-- **Catalogs:** `src/i18n/catalogs/<tag>.json` (i18next JSON, nested keys, `_one`/`_other` plural suffixes, `{{name}}` placeholders). en-US is the source. es-MX and fr-CA must carry every key; en-GB holds only keys whose wording differs, because it falls back to en-US.
+- **Catalogs:** `src/i18n/catalogs/<tag>.json` (i18next JSON, nested keys, `_one`/`_other` plural suffixes plus `_many` for es-MX/fr-CA per `Intl.PluralRules`, `{{name}}` placeholders). en-US is the source. es-MX and fr-CA must carry every key; en-GB holds only keys whose wording differs, because it falls back to en-US.
 - **Parity check:** `pnpm check:i18n-catalogs` (repo root, `scripts/check-i18n-catalogs.mjs`) fails on a missing key, placeholder or plural form. Add every new en-US key with its es-MX and fr-CA values in the same PR.
 - **Lint rule:** `mbe-local/no-literal-ui-strings` is an error across `src/**` (`LOCALIZED_FILES` in `eslint.config.js`). UI text goes through `useTranslation().t`; pure helpers called outside React use `defaultT` (`src/i18n/default-t.ts`).
 - **Runtime:** `src/i18n/runtime.tsx` owns the dashboard locale (`localeRuntime`, persisted under `mbe-hospitality-locale`) and bridges it to rialto through `LocaleBridge`. Supported tags and the fallback rule live in `src/i18n/locales.ts`.
