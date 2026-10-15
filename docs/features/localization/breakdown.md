@@ -87,7 +87,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     `onChange` pending with current text retained, rejection shows Retry and keeps value,
     keyboard operable; axe clean.
   - Blocked by: i18n runtime
-- [ ] **Rialto migration — overlays & dismiss** — Alert, Banner, Toast, ToastAnimated,
+- [x] **Rialto migration — overlays & dismiss** — Alert, Banner, Toast, ToastAnimated,
       Dialog, Drawer, Popover, HoverCard, ConfirmDialog defaults onto `useRialtoLocale()`. (tracker: #6615)
   - Accept: each component renders es-MX text under a provider and byte-identical English
     with none; those component directories added to rialto lint scope.

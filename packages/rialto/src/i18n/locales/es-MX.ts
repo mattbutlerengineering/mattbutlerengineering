@@ -4,4 +4,12 @@ import type { RialtoMessages } from "../messages";
 export const esMX: RialtoMessages = {
   dismiss: "Descartar",
   close: "Cerrar",
+  closeDialog: "Cerrar diálogo",
+  dialog: "Diálogo",
+  drawer: "Panel lateral",
+  popover: "Ventana emergente",
+  preview: "Vista previa",
+  notifications: "Notificaciones",
+  confirm: "Confirmar",
+  cancel: "Cancelar",
 };
