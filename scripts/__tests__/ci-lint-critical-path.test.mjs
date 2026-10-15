@@ -37,13 +37,10 @@ function needsOf(jobName) {
 }
 
 describe("ci.yml lint critical path", () => {
-  it.each(["build", "test", "migrations", "rls-integration"])(
-    "%s does not wait for lint",
-    (job) => {
-      expect(needsOf(job)).not.toContain("lint");
-      expect(needsOf(job)).toContain("typecheck");
-    }
-  );
+  it.each(["build", "migrations", "rls-integration"])("%s does not wait for lint", (job) => {
+    expect(needsOf(job)).not.toContain("lint");
+    expect(needsOf(job)).toContain("typecheck");
+  });
 
   it("CI Gate still requires lint", () => {
     expect(needsOf("ci-gate")).toContain("lint");
@@ -77,10 +74,38 @@ describe("ci.yml integrity critical path", () => {
 describe("ci.yml architecture-audit critical path", () => {
   it.each(["build", "test"])("%s does not wait for architecture-audit", (job) => {
     expect(needsOf(job)).not.toContain("architecture-audit");
-    expect(needsOf(job)).toContain("typecheck");
   });
 
   it("CI Gate still requires architecture-audit", () => {
     expect(needsOf("ci-gate")).toContain("architecture-audit");
+  });
+});
+
+/**
+ * #6665: Test waited on Typecheck only for the turbo `^build` cache. Measured
+ * on run 38779620768 (warm) Test replayed 100% of ^build tasks (41/41 across
+ * legs) and Typecheck itself 18/19; on cold run 38650413196 Typecheck built 14
+ * of 19 and Test then replayed 19/19. Prepare now builds that closure, so Test
+ * runs in parallel with Typecheck. Typecheck still gates CI Gate.
+ */
+describe("ci.yml test/typecheck parallelism", () => {
+  it("test does not wait for typecheck", () => {
+    expect(needsOf("test")).not.toContain("typecheck");
+    expect(needsOf("test")).toContain("prepare");
+  });
+
+  it("CI Gate still requires typecheck and test", () => {
+    expect(needsOf("ci-gate")).toContain("typecheck");
+    expect(needsOf("ci-gate")).toContain("test");
+  });
+
+  it("prepare builds the ^build closure that Test and Typecheck replay", () => {
+    const lines = WORKFLOW.split("\n");
+    const start = lines.findIndex((l) => /^ {2}prepare:\s*$/.test(l));
+    const rest = lines.slice(start + 1);
+    const end = rest.findIndex((l) => /^ {2}\S/.test(l));
+    const block = rest.slice(0, end === -1 ? undefined : end).join("\n");
+    expect(block).toMatch(/run: pnpm turbo run build --filter='\.\/packages\/\*'/);
+    expect(block).toContain("path: .turbo/cache");
   });
 });

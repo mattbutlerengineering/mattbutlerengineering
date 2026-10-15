@@ -93,6 +93,30 @@ jobs:
             pnpm --filter "$PKG" db:generate
           done
 
+      - name: Cache for Turbo
+        # #6665: see the Typecheck job's identical step for rationale.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
+      - name: Restore turbo local cache
+        # #6665: Prepare is the one job that saves this key now. Typecheck and
+        # Test restore it exactly (same sha) once Prepare ends, so none of them
+        # rebuilds the `^build` closure.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: Build library packages
+        # #6665: produces the `^build` outputs Typecheck, Lint and every Test
+        # leg replay as `cache hit`, so Test no longer waits on Typecheck for
+        # them. Packages and services are every `^build` target; edge-worker is
+        # the one dependency living outside both (verified against
+        # `turbo run typecheck lint test:coverage --dry=json`). Single command,
+        # no pipe: a pipe here would mask a failed build (no pipefail default).
+        run: pnpm turbo run build --filter='./packages/*' --filter='./services/*' --filter=@mbe/edge-worker
+
   dependency-audit:
     name: Dependency Sync
     needs: [prepare]
@@ -506,12 +530,11 @@ jobs:
     # `test-coverage-gate`, which joins all legs.
     name: Test (Node ${{ matrix.node-version }}, ${{ matrix.leg }})
     runs-on: ubuntu-latest
-    # Not `lint`: ESLint produces nothing this job consumes, and the turbo
-    # `^build` cache it reuses comes from Typecheck. CI Gate still requires
-    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs). Not
-    # `architecture-audit` either: it builds the CLI on its own runner and
-    # hands this job nothing; CI Gate still requires it.
-    needs: [typecheck]
+    # Not `typecheck` (#6665): the turbo `^build` cache it reuses is produced
+    # by Prepare, so Test runs in parallel with Typecheck; CI Gate still
+    # requires typecheck. Not `lint` or `architecture-audit` either: neither
+    # hands this job anything (scripts/__tests__/ci-lint-critical-path.test.mjs).
+    needs: [prepare]
 
     strategy:
       fail-fast: false
