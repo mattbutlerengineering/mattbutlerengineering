@@ -166,7 +166,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       (incl. `LocationTimeStep` currency option labels via `Intl.DisplayNames`). (tracker: #6627)
   - Accept: paths in lint scope, parity-green, wizard render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth
-- [ ] **Translate Profile, Settings, Admin, Widget demo** — `ProfilePage`, `SettingsPage`,
+- [x] **Translate Profile, Settings, Admin, Widget demo** — `ProfilePage`, `SettingsPage`,
       `AdminPage`, `BookingWidgetDemoPage` (`FEATURES`, `DEVICE_LABELS`), any remaining
       `src/**` files. (tracker: #6628)
   - Accept: hospitality lint scope becomes `src/**` (per-directory globs removed) and

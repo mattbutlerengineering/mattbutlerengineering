@@ -6970,11 +6970,6 @@
       if (score === "standard") return "warning";
       return "neutral";
     }
-    export function getRiskLabel(score: GuestRiskScore): string {
-      if (score === "risky") return "Risky";
-      if (score === "standard") return "Standard";
-      return "Trusted";
-    }
     export function segmentText(label: string, t: TFunction = defaultT): string {
       if (label === "VIP") return t("crm.segment.VIP");
       if (label === "Repeat") return t("crm.segment.Repeat");
@@ -12430,16 +12425,22 @@
       /** ISO currency code used to format the label (e.g. "usd"). */
       currency: string;
     }
-    function buildFeeLabel(fee: CancellationFeeResult, currency: string): string {
-      const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency);
-      const refundAmount = formatCurrencyFromCents(fee.refundAmountCents, currency);
+    function buildFeeLabel(
+      fee: CancellationFeeResult,
+      currency: string,
+      locale: string = localeRuntime.i18n.language
+    ): string {
+      const t =
+        locale === localeRuntime.i18n.language ? defaultT : localeRuntime.i18n.getFixedT(locale);
+      const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency, locale);
+      const refund = formatCurrencyFromCents(fee.refundAmountCents, currency, locale);
       switch (fee.feeType) {
         case "none":
-          return `No cancellation fee — full refund of ${refundAmount}`;
+          return t("timeline.cancel.fee.none", { refund });
         case "late":
-          return `Late cancellation fee: ${feeAmount} — refund ${refundAmount}`;
+          return t("timeline.cancel.fee.late", { fee: feeAmount, refund });
         case "noshow":
-          return `No-show fee: ${feeAmount} forfeited — refund ${refundAmount}`;
+          return t("timeline.cancel.fee.noshow", { fee: feeAmount, refund });
       }
     }
     export type CancellationInitiator = "staff" | "guest";
@@ -12464,7 +12465,7 @@
     }
     export function withQuotedFeeNote(note: string, quote: CancellationQuote | null): string {
       if (!quote || quote.fee.feeType === "none") return note;
-      const audit = `Quoted at cancellation: ${quote.label}`;
+      const audit = `Quoted at cancellation: ${buildFeeLabel(quote.fee, quote.currency, AUDIT_LOCALE)}`;
       return note ? `${note}\n${audit}` : audit;
     }
     export interface UseCancellationQuoteParams {
@@ -62291,6 +62292,21 @@
         timeZone: "UTC",
       });
     }
+    export function formatWallHour(hour24: number, locale: string = LOCALE): string {
+      return new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" }).format(
+        new Date(Date.UTC(1970, 0, 1, hour24))
+      );
+    }
+    export function formatWallHourRange(
+      fromHour24: number,
+      toHour24: number,
+      locale: string = LOCALE
+    ): string {
+      return new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" }).formatRange(
+        new Date(Date.UTC(1970, 0, 1, fromHour24)),
+        new Date(Date.UTC(1970, 0, 1, toHour24))
+      );
+    }
     export function currencyMinorUnits(currency: string): number {
       return new Intl.NumberFormat(LOCALE, {
         style: "currency",
@@ -62459,13 +62475,6 @@
       CANCELLED: "error",
       COMPLETED: "neutral",
       NO_SHOW: "error",
-    };
-    export const STATUS_LABEL: Record<ReservationStatus, string> = {
-      PENDING: "Pending",
-      CONFIRMED: "Confirmed",
-      CANCELLED: "Cancelled",
-      COMPLETED: "Completed",
-      NO_SHOW: "No Show",
     };
     export function formatReservationTime(
       isoString: string,

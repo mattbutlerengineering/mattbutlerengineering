@@ -39,12 +39,6 @@ export function getRiskVariant(score: GuestRiskScore): GuestRiskVariant {
   return "neutral";
 }
 
-export function getRiskLabel(score: GuestRiskScore): string {
-  if (score === "risky") return "Risky";
-  if (score === "standard") return "Standard";
-  return "Trusted";
-}
-
 /** The displayed words for a segment label (the label itself stays the stable id `getSegmentVariant` reads). */
 export function segmentText(label: string, t: TFunction = defaultT): string {
   if (label === "VIP") return t("crm.segment.VIP");

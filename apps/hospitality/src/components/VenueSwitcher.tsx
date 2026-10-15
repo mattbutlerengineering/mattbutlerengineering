@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useVenue } from "../contexts/VenueContext.js";
 import styles from "./VenueSwitcher.module.css";
 
@@ -8,6 +9,7 @@ interface VenueSwitcherProps {
 
 export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
   const { venues, selectedVenue, setVenueId, isMultiVenue } = useVenue();
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -123,7 +125,7 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
         aria-expanded={isMultiVenue ? isOpen : undefined}
         aria-label={
           isMultiVenue
-            ? `Current venue: ${selectedVenue.name}. Click to switch`
+            ? t("venueSwitcher.currentVenue", { name: selectedVenue.name })
             : selectedVenue.name
         }
       >
@@ -150,7 +152,7 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
         <div
           className={styles.dropdown}
           role="listbox"
-          aria-label="Select venue"
+          aria-label={t("venueSwitcher.selectVenue")}
           tabIndex={-1}
           onKeyDown={handleListKeyDown}
         >
@@ -202,7 +204,7 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Add Venue
+            {t("venueSwitcher.addVenue")}
           </button>
         </div>
       )}

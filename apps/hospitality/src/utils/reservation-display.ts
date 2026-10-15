@@ -18,18 +18,6 @@ export const STATUS_BADGE_VARIANT: Record<
 };
 
 /**
- * Human-readable label for each reservation status.
- * Shared between ReservationsPage and TimelinePage.
- */
-export const STATUS_LABEL: Record<ReservationStatus, string> = {
-  PENDING: "Pending",
-  CONFIRMED: "Confirmed",
-  CANCELLED: "Cancelled",
-  COMPLETED: "Completed",
-  NO_SHOW: "No Show",
-};
-
-/**
  * Formats an ISO datetime string to a localised HH:MM time display.
  * Used in reservation list rows (ReservationsPage) and detail views.
  */

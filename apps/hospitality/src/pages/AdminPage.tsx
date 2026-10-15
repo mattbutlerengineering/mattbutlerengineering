@@ -1,5 +1,7 @@
 import { useVenueFormat, type VenueFormat } from "../hooks/useVenueFormat.js";
 import { useState, useMemo, useCallback, Fragment } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   Avatar,
   Badge,
@@ -39,11 +41,18 @@ const SearchIcon = (
   </svg>
 );
 
-const STATUS_SEGMENTS = [
-  { id: "all", label: "All" },
-  { id: "verified", label: "Verified" },
-  { id: "unverified", label: "Unverified" },
+const statusSegments = (t: TFunction) => [
+  { id: "all", label: t("admin.filter.all") },
+  { id: "verified", label: t("admin.filter.verified") },
+  { id: "unverified", label: t("admin.filter.unverified") },
 ];
+
+function themeText(t: TFunction, theme: string): string {
+  if (theme === "system") return t("settings.theme.system");
+  if (theme === "light") return t("settings.theme.light");
+  if (theme === "dark") return t("settings.theme.dark");
+  return theme;
+}
 
 function isCurrentMonth(dateString: string): boolean {
   const date = new Date(dateString);
@@ -70,9 +79,10 @@ function formatShortDate(dateString: string, fmt: VenueFormat): string {
 }
 
 function LoadingSkeleton() {
+  const { t } = useTranslation();
   return (
     <div>
-      <PageHeader title="Admin" description="Loading users..." />
+      <PageHeader title={t("admin.title")} description={t("admin.loading")} />
       <div className={styles.statsRow}>
         {Array.from({ length: 3 }, (_, i) => (
           <Skeleton key={i} variant="rect" width="100%" height={72} />
@@ -98,6 +108,7 @@ function LoadingSkeleton() {
 
 function UserDetailRow({ user }: { readonly user: User }) {
   const fmt = useVenueFormat();
+  const { t } = useTranslation();
   return (
     <tr className={styles.detailRow}>
       <td colSpan={4}>
@@ -105,7 +116,7 @@ function UserDetailRow({ user }: { readonly user: User }) {
           <div className={styles.detailGrid}>
             <div className={styles.detailField}>
               <Text variant="caption" color="secondary">
-                User ID
+                {t("admin.detail.userId")}
               </Text>
               <Text variant="detail" color="primary">
                 {user.id}
@@ -113,7 +124,7 @@ function UserDetailRow({ user }: { readonly user: User }) {
             </div>
             <div className={styles.detailField}>
               <Text variant="caption" color="secondary">
-                Created
+                {t("admin.detail.created")}
               </Text>
               <Text variant="detail" color="primary">
                 {formatFullDate(user.createdAt, fmt)}
@@ -121,7 +132,7 @@ function UserDetailRow({ user }: { readonly user: User }) {
             </div>
             <div className={styles.detailField}>
               <Text variant="caption" color="secondary">
-                Updated
+                {t("admin.detail.updated")}
               </Text>
               <Text variant="detail" color="primary">
                 {formatFullDate(user.updatedAt, fmt)}
@@ -129,10 +140,10 @@ function UserDetailRow({ user }: { readonly user: User }) {
             </div>
             <div className={styles.detailField}>
               <Text variant="caption" color="secondary">
-                Theme
+                {t("admin.detail.theme")}
               </Text>
               <Text variant="detail" color="primary">
-                {user.preferences.theme ?? "system"}
+                {themeText(t, user.preferences.theme ?? "system")}
               </Text>
             </div>
           </div>
@@ -144,6 +155,7 @@ function UserDetailRow({ user }: { readonly user: User }) {
 
 export function AdminPage() {
   const fmt = useVenueFormat();
+  const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -201,9 +213,9 @@ export function AdminPage() {
     const loadFailure = describeApiError(error);
     return (
       <div>
-        <PageHeader title="Admin" description="User management" />
+        <PageHeader title={t("admin.title")} description={t("admin.management")} />
         <ErrorRetryBanner
-          title="Couldn't load users."
+          title={t("admin.loadError")}
           error={loadFailure.detail}
           details={loadFailure.raw}
           onRetry={refetch}
@@ -214,12 +226,12 @@ export function AdminPage() {
 
   return (
     <div>
-      <PageHeader title="Admin" description="Manage users and system settings" />
+      <PageHeader title={t("admin.title")} description={t("admin.description")} />
 
       <div className={styles.statsRow}>
-        <Stat label="Total Users" value={stats.total} size="sm" />
-        <Stat label="Verified" value={stats.verified} size="sm" />
-        <Stat label="New This Month" value={stats.newThisMonth} size="sm" />
+        <Stat label={t("admin.stats.total")} value={stats.total} size="sm" />
+        <Stat label={t("admin.stats.verified")} value={stats.verified} size="sm" />
+        <Stat label={t("admin.stats.newThisMonth")} value={stats.newThisMonth} size="sm" />
       </div>
 
       <Divider spacing="compact" />
@@ -227,14 +239,14 @@ export function AdminPage() {
       <Card>
         <div className={styles.toolbar}>
           <Input
-            aria-label="Search by name or email"
-            placeholder="Search by name or email..."
+            aria-label={t("admin.search.label")}
+            placeholder={t("admin.search.placeholder")}
             value={searchQuery}
             onChange={handleSearchChange}
             startIcon={SearchIcon}
           />
           <SegmentedControl
-            segments={STATUS_SEGMENTS}
+            segments={statusSegments(t)}
             value={statusFilter}
             onChange={handleStatusFilterChange}
             size="sm"
@@ -246,10 +258,10 @@ export function AdminPage() {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th className={styles.th}>User</th>
-                <th className={styles.th}>Email</th>
-                <th className={styles.th}>Status</th>
-                <th className={styles.th}>Joined</th>
+                <th className={styles.th}>{t("admin.col.user")}</th>
+                <th className={styles.th}>{t("admin.col.email")}</th>
+                <th className={styles.th}>{t("admin.col.status")}</th>
+                <th className={styles.th}>{t("admin.col.joined")}</th>
               </tr>
             </thead>
             <tbody>
@@ -278,7 +290,10 @@ export function AdminPage() {
                             }
                           }}
                           aria-expanded={expandedUserId === user.id}
-                          aria-label={`${expandedUserId === user.id ? "Collapse" : "Expand"} details for ${user.name ?? user.email}`}
+                          aria-label={t(
+                            expandedUserId === user.id ? "admin.row.collapse" : "admin.row.expand",
+                            { name: user.name ?? user.email }
+                          )}
                         />
                         <Avatar
                           src={user.picture ?? undefined}
@@ -298,11 +313,11 @@ export function AdminPage() {
                     <td className={styles.td}>
                       {user.emailVerified ? (
                         <Badge variant="success" size="sm" dot>
-                          Verified
+                          {t("admin.filter.verified")}
                         </Badge>
                       ) : (
                         <Badge variant="neutral" size="sm">
-                          Unverified
+                          {t("admin.filter.unverified")}
                         </Badge>
                       )}
                     </td>
@@ -323,15 +338,15 @@ export function AdminPage() {
         </div>
 
         <Text className={styles.srOnly} aria-live="polite" role="status">
-          {`${filteredUsers.length} user${filteredUsers.length !== 1 ? "s" : ""} shown`}
+          {t("admin.shown", { count: filteredUsers.length })}
         </Text>
 
         {filteredUsers.length === 0 && (
           <div className={styles.emptyState} aria-live="polite" role="status">
             <Text variant="body" color="secondary">
               {searchQuery || statusFilter !== "all"
-                ? "No users match your filters"
-                : "No users found"}
+                ? t("admin.empty.filtered")
+                : t("admin.empty.none")}
             </Text>
           </div>
         )}

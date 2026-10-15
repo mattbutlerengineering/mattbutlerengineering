@@ -187,6 +187,30 @@ export function formatLocalTime(hhmm: string, locale: string = LOCALE): string {
 }
 
 /**
+ * A whole wall-clock hour with no minutes (18 → "6 PM" in en-US, "18 h" in fr-CA). Pinned
+ * to UTC like `formatLocalTime`, so it prints the same on every machine.
+ *
+ * Used by: BriefingPage time-segment filter labels
+ */
+export function formatWallHour(hour24: number, locale: string = LOCALE): string {
+  return new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" }).format(
+    new Date(Date.UTC(1970, 0, 1, hour24))
+  );
+}
+
+/** Two whole wall-clock hours as one range, collapsing a shared day period (18, 21 → "6–9 PM"). */
+export function formatWallHourRange(
+  fromHour24: number,
+  toHour24: number,
+  locale: string = LOCALE
+): string {
+  return new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" }).formatRange(
+    new Date(Date.UTC(1970, 0, 1, fromHour24)),
+    new Date(Date.UTC(1970, 0, 1, toHour24))
+  );
+}
+
+/**
  * Digits after the decimal point for a currency's minor unit (USD/CAD 2, JPY/KRW 0,
  * KWD 3), from the runtime's ISO 4217 data. Stripe amounts are in this minor unit.
  */

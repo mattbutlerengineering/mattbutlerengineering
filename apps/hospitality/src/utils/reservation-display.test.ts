@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   STATUS_BADGE_VARIANT,
-  STATUS_LABEL,
   formatReservationTime,
   specialRequestsText,
 } from "./reservation-display.js";
@@ -26,28 +25,6 @@ describe("reservation-display", () => {
 
     it("maps NO_SHOW to error", () => {
       expect(STATUS_BADGE_VARIANT.NO_SHOW).toBe("error");
-    });
-  });
-
-  describe("STATUS_LABEL", () => {
-    it("maps PENDING to Pending", () => {
-      expect(STATUS_LABEL.PENDING).toBe("Pending");
-    });
-
-    it("maps CONFIRMED to Confirmed", () => {
-      expect(STATUS_LABEL.CONFIRMED).toBe("Confirmed");
-    });
-
-    it("maps CANCELLED to Cancelled", () => {
-      expect(STATUS_LABEL.CANCELLED).toBe("Cancelled");
-    });
-
-    it("maps COMPLETED to Completed", () => {
-      expect(STATUS_LABEL.COMPLETED).toBe("Completed");
-    });
-
-    it("maps NO_SHOW to No Show", () => {
-      expect(STATUS_LABEL.NO_SHOW).toBe("No Show");
     });
   });
 

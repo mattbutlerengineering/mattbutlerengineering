@@ -5,7 +5,6 @@ import {
   isAllergyTag,
   getSegmentLabel,
   getSegmentVariant,
-  getRiskLabel,
   getRiskVariant,
 } from "./guest-signals.js";
 
@@ -79,16 +78,6 @@ describe("guest-signals", () => {
   });
 
   // Lifted from GuestCard so the history strip (M2.7) reads the same thresholds.
-  describe("getRiskLabel", () => {
-    it.each([
-      ["risky", "Risky"],
-      ["standard", "Standard"],
-      ["trusted", "Trusted"],
-    ] as const)("%s → %s", (score, label) => {
-      expect(getRiskLabel(score)).toBe(label);
-    });
-  });
-
   describe("getRiskVariant", () => {
     it.each([
       ["risky", "error"],
