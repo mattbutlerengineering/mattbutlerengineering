@@ -40,6 +40,7 @@
  * Run only through playwright.visual.config.ts.
  */
 import { readFileSync } from "node:fs";
+import { buildDepositsFixture, buildSlotsBody } from "./api-mocks.js";
 import { test as base, expect } from "./fixtures.js";
 
 const APP = "hospitality";
@@ -279,6 +280,17 @@ for (const { route } of pages) {
       const reservations = reservationsOnFixedDay();
       await page.route(/\/api\/v1\/reservations\?/, (r) =>
         r.fulfill({ status: 200, json: reservations })
+      );
+      // mockApi stamps deposits and re-dates the availability slots on the runner's real
+      // clock (Node-side, so page.clock never reaches them); pin both to FIXED_NOW.
+      const deposits = buildDepositsFixture(FIXED_NOW);
+      await page.route(/\/api\/v1\/deposits\?/, (r) =>
+        r.fulfill({ status: 200, json: { data: deposits } })
+      );
+      const slots = buildSlotsBody(FIXED_NOW);
+      await page.route(
+        /\/(api\/v1\/availability\/[^/?]+(\?|$)|public\/v1\/venues\/[^/]+\/availability)/,
+        (r) => r.fulfill({ status: 200, contentType: "application/json", body: slots })
       );
       if (route === "setup") {
         // An operational venue is bounced off the /setup checklist; with no

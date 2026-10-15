@@ -104,8 +104,7 @@ describe("PATCH /public/v1/reservations/confirm", () => {
 
   it("confirms PENDING reservation and returns HTML success", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(makePendingReservation() as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(makePendingReservation() as never);
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...makePendingReservation(),
@@ -125,8 +124,7 @@ describe("PATCH /public/v1/reservations/confirm", () => {
 
   it("returns success for already-CONFIRMED reservation (idempotent)", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
-    // middleware ownership check (any matching email); route handler gets CONFIRMED
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(makePendingReservation() as never);
+    // the manage-token scope loads the reservation once: CONFIRMED
     vi.mocked(reservationService.getById).mockResolvedValueOnce({
       ...makePendingReservation(),
       status: "CONFIRMED",
