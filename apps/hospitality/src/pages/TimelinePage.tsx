@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import { Button, Card, Drawer, EmptyState, IconButton, Text } from "@mattbutlerengineering/rialto";
-import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
+import type { Reservation, TableStatus, UpdateReservationRequest, WalkInRequest } from "@mbe/types";
 import {
   ReservationSheet,
   TimelineGrid,
@@ -312,13 +312,7 @@ export function TimelinePage() {
     if (opener) focusAfter({ kind: "element", element: opener });
   };
 
-  const handleWalkIn = async (data: {
-    partySize: number;
-    tableId: string;
-    venueId: string;
-    guestName?: string;
-    guestId?: string;
-  }) => {
+  const handleWalkIn = async (data: WalkInRequest) => {
     const created = await createWalkIn(data);
     setSelectedIdState(created.id);
     closeWalkInDialog();

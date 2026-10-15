@@ -2,9 +2,8 @@ import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { RialtoProvider } from "../../providers/RialtoProvider";
 import { RialtoLocaleProvider, useRialtoLocale } from "../RialtoLocaleProvider";
-import { enUS, type RialtoMessages } from "../messages";
-
-const esMX: RialtoMessages = { dismiss: "Descartar", close: "Cerrar" };
+import { enUS } from "../messages";
+import { esMX } from "../locales/es-MX";
 
 describe("useRialtoLocale", () => {
   it("returns en-US messages and no locale with no provider, without throwing", () => {
@@ -13,7 +12,18 @@ describe("useRialtoLocale", () => {
   });
 
   it("keeps today's English defaults byte-identical", () => {
-    expect(enUS).toEqual({ dismiss: "Dismiss", close: "Close" });
+    expect(enUS).toEqual({
+      dismiss: "Dismiss",
+      close: "Close",
+      closeDialog: "Close dialog",
+      dialog: "Dialog",
+      drawer: "Drawer",
+      popover: "Popover",
+      preview: "Preview",
+      notifications: "Notifications",
+      confirm: "Confirm",
+      cancel: "Cancel",
+    });
   });
 
   it("returns the locale and messages a RialtoLocaleProvider supplies", () => {

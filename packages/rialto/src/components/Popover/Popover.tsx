@@ -16,6 +16,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useDismiss } from "../../hooks/useDismiss";
 import { cn } from "../../utils/class-composer";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./Popover.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -81,6 +82,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   const open = openProp ?? internalOpen;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const { messages } = useRialtoLocale();
   const motionPreset = useMotionPreset();
   const shouldReduceMotion = motionPreset.reduced;
   const panelId = useId();
@@ -137,7 +139,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
             className={cn(styles.panel, styles[placement])}
             role="dialog"
             aria-modal="true"
-            aria-label={title ?? "Popover"}
+            aria-label={title ?? messages.popover}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
             animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
@@ -146,7 +148,12 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
             {title && (
               <div className={styles.header}>
                 <span className={styles.title}>{title}</span>
-                <button type="button" className={styles.close} onClick={close} aria-label="Close">
+                <button
+                  type="button"
+                  className={styles.close}
+                  onClick={close}
+                  aria-label={messages.close}
+                >
                   <svg
                     width="10"
                     height="10"

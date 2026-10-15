@@ -220,6 +220,24 @@ describe("NewReservationDialog", () => {
     expect(data.guestPhone).toBeUndefined();
   });
 
+  it("sends the chosen occasion and seating preference (#6597)", async () => {
+    render(<NewReservationDialog {...defaultProps} />);
+    fillRequiredFields();
+    fireEvent.click(screen.getByRole("combobox", { name: /occasion/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Birthday" }));
+    fireEvent.click(screen.getByRole("combobox", { name: /seating preference/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Booth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
+
+    await waitFor(() => {
+      expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+    });
+    expect(defaultProps.onConfirm.mock.calls[0]![0]).toMatchObject({
+      occasion: "birthday",
+      seatingPreference: "booth",
+    });
+  });
+
   it("should roll endTime to the next calendar day when start time is within the duration of midnight", async () => {
     render(<NewReservationDialog {...defaultProps} />);
     fireEvent.change(screen.getByLabelText(/guest name/i), { target: { value: "Smith" } });

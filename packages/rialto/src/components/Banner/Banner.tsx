@@ -2,6 +2,7 @@ import { forwardRef, useState, type HTMLAttributes, type ReactNode } from "react
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./Banner.module.css";
 
 /**
@@ -100,6 +101,7 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
     { variant = "info", dismissible = false, onDismiss, action, children, className, ...props },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
     const [visible, setVisible] = useState(true);
     const { precision, reduced: shouldReduceMotion } = useMotionPreset();
 
@@ -131,7 +133,7 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
                 type="button"
                 className={styles.close}
                 onClick={handleDismiss}
-                aria-label="Dismiss"
+                aria-label={messages.dismiss}
               >
                 <svg
                   width="12"

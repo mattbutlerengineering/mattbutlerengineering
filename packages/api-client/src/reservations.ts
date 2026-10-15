@@ -5,6 +5,7 @@ import type {
   ReservationStatus,
   CreateReservationRequest,
   UpdateReservationRequest,
+  WalkInRequest,
 } from "@mbe/types";
 import { ReservationSchema, ReservationStatusSchema, paginatedResponseSchema } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
@@ -178,14 +179,7 @@ export class ReservationsClient {
   /**
    * Create a walk-in reservation
    */
-  async walkIn(data: {
-    partySize: number;
-    tableId: string;
-    venueId: string;
-    guestId?: string;
-    guestName?: string;
-    durationMinutes?: number;
-  }): Promise<Reservation> {
+  async walkIn(data: WalkInRequest): Promise<Reservation> {
     return this.client.postOne<Reservation>(
       `${RESERVATION_BASE_PATH}/walk-in`,
       data,

@@ -6824,13 +6824,15 @@
     };
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
-    export const SESSION_LAPSE_COPY = Object.freeze({
-      heading: "Your session ended",
-      body: "Sign back in to pick up where you left off — this page is preserved.",
-      refreshFailedLead: "Your session couldn't renew and will end soon.",
-      action: "Sign back in",
-      actionBusy: "Heading to sign-in",
-    });
+    export function getSessionLapseCopy(t: TFunction) {
+      return Object.freeze({
+        heading: t("auth.sessionLapse.heading"),
+        body: t("auth.sessionLapse.body"),
+        refreshFailedLead: t("auth.sessionLapse.refreshFailedLead"),
+        action: t("auth.sessionLapse.action"),
+        actionBusy: t("auth.sessionLapse.actionBusy"),
+      });
+    }
   </file>
   </section>
   <section priority="medium" role="crm">
@@ -13481,13 +13483,7 @@
       cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
       updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
       markNoShow: (id: string) => Promise<{ reservation: Reservation; warning?: string }>;
-      createWalkIn: (data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestName?: string;
-        guestId?: string;
-      }) => Promise<Reservation>;
+      createWalkIn: (data: WalkInRequest) => Promise<Reservation>;
       updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
     }
     export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTimelineDataResult {
@@ -13602,13 +13598,7 @@
         return result;
       };
     
-      const createWalkIn = async (data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestName?: string;
-        guestId?: string;
-      }): Promise<Reservation> => {
+      const createWalkIn = async (data: WalkInRequest): Promise<Reservation> => {
         const created = await api.reservations.walkIn(data);
         invalidateAll();
         return created;
@@ -15081,10 +15071,34 @@
       readonly dismiss: string;
       /** Accessible name of a control that closes a surface (Drawer, Popover). */
       readonly close: string;
+      /** Accessible name of the Dialog close button. */
+      readonly closeDialog: string;
+      /** Fallback accessible name of a Dialog with no title. */
+      readonly dialog: string;
+      /** Fallback accessible name of a Drawer with no title. */
+      readonly drawer: string;
+      /** Fallback accessible name of a Popover with no title. */
+      readonly popover: string;
+      /** Accessible name of a HoverCard's preview surface. */
+      readonly preview: string;
+      /** Accessible name of the Toast region. */
+      readonly notifications: string;
+      /** Default ConfirmDialog confirm button label. */
+      readonly confirm: string;
+      /** Default ConfirmDialog cancel button label. */
+      readonly cancel: string;
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
       close: "Close",
+      closeDialog: "Close dialog",
+      dialog: "Dialog",
+      drawer: "Drawer",
+      popover: "Popover",
+      preview: "Preview",
+      notifications: "Notifications",
+      confirm: "Confirm",
+      cancel: "Cancel",
     };
   </file>
   </section>
@@ -15665,36 +15679,39 @@
       const code = (error as Error & { error?: unknown }).error;
       return typeof code === "string" ? code : "";
     }
-    export function describeAuthError(error: Error): AuthErrorDescription {
+    export function describeAuthError(
+      error: Error,
+      t: TFunction = localeRuntime.i18n.t
+    ): AuthErrorDescription {
       const haystack = `${oidcErrorCode(error)} ${error.message}`;
     
       if (ACCESS_DENIED_PATTERN.test(haystack)) {
         return {
-          title: "Access denied",
-          body: "Your account doesn't have access to Hospitality. Contact your administrator if you think this is a mistake.",
+          title: t("auth.error.accessDenied.title"),
+          body: t("auth.error.accessDenied.body"),
           canRetry: false,
         };
       }
     
       if (EXPIRED_FLOW_PATTERN.test(haystack)) {
         return {
-          title: "That sign-in link expired",
-          body: "Sign-in links are single-use. Start again and it should go through.",
+          title: t("auth.error.expiredLink.title"),
+          body: t("auth.error.expiredLink.body"),
           canRetry: true,
         };
       }
     
       if (NETWORK_PATTERN.test(haystack)) {
         return {
-          title: "Can't reach the sign-in service",
-          body: "Check your connection and try again in a moment.",
+          title: t("auth.error.network.title"),
+          body: t("auth.error.network.body"),
           canRetry: true,
         };
       }
     
       return {
-        title: "Sign-in hit a snag",
-        body: "Something unexpected happened during sign-in. Trying again usually clears it up.",
+        title: t("auth.error.generic.title"),
+        body: t("auth.error.generic.body"),
         canRetry: true,
       };
     }
@@ -16073,12 +16090,28 @@
     export const esMX: RialtoMessages = {
       dismiss: "Descartar",
       close: "Cerrar",
+      closeDialog: "Cerrar diálogo",
+      dialog: "Diálogo",
+      drawer: "Panel lateral",
+      popover: "Ventana emergente",
+      preview: "Vista previa",
+      notifications: "Notificaciones",
+      confirm: "Confirmar",
+      cancel: "Cancelar",
     };
   </file>
   <file path="packages/rialto/src/i18n/locales/fr-CA.ts">
     export const frCA: RialtoMessages = {
       dismiss: "Ignorer",
       close: "Fermer",
+      closeDialog: "Fermer la boîte de dialogue",
+      dialog: "Boîte de dialogue",
+      drawer: "Panneau latéral",
+      popover: "Fenêtre contextuelle",
+      preview: "Aperçu",
+      notifications: "Avis",
+      confirm: "Confirmer",
+      cancel: "Annuler",
     };
   </file>
   </section>
@@ -23059,7 +23092,14 @@
       // adds slug scoping and drops `guestId` from the accepted body (#4487).
       fastify.post<{
         Params: { slug: string; holdId: string };
-        Body: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string };
+        Body: {
+          guestName?: string;
+          guestEmail?: string;
+          guestPhone?: string;
+          notes?: string;
+          occasion?: Occasion;
+          seatingPreference?: SeatingPreference;
+        };
         Reply:
           | (ApiResponse<Reservation> & { manageToken?: string })
           | ReturnType<typeof createProblemDetails>;
@@ -23094,13 +23134,14 @@
             // Fastify leaves unknown properties on `request.body`, so spreading it
             // would let an anonymous caller smuggle a `guestId` and attach its
             // reservation to someone else's guest record.
-            const { guestName, guestEmail, guestPhone, notes } = request.body;
+            const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
+              request.body;
             const result = await fastify.transitions.confirmHold(
               {
                 holdId,
                 sessionId,
                 venueId,
-                guestDetails: { guestName, guestEmail, guestPhone, notes },
+                guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
               },
               { door: "public-hold" }
             );
@@ -27845,6 +27886,8 @@
       guestPhone: z.string().describe("Guest phone number").optional(),
       guestId: z.string().describe("ID of existing guest record").optional(),
       notes: z.string().describe("Special requests or notes").optional(),
+      occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+      seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
     });
     export const CreateDepositBodySchema = z.object({
       reservationId: z.string().describe("ID of the reservation"),
@@ -27967,6 +28010,8 @@
       guestEmail: z.email().describe("Guest email").optional(),
       guestPhone: z.string().describe("Guest phone number").optional(),
       notes: z.string().describe("Special requests or notes").optional(),
+      occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+      seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
     });
     export const PublicReservationBodySchema = z.object({
       holdId: z.string().min(1),
@@ -31969,6 +32014,8 @@
               guestPhone: guestDetails.guestPhone ?? null,
               guestId: guestDetails.guestId ?? null,
               notes: guestDetails.notes ?? null,
+              occasion: guestDetails.occasion ?? null,
+              seatingPreference: guestDetails.seatingPreference ?? null,
               userId: userId ?? null,
               // Ownership proof for the public deposit route (#6304).
               originSessionId: hold.sessionId,
@@ -36253,6 +36300,8 @@
             partySize: data.partySize,
             tableId: data.tableId,
             notes: data.notes ?? null,
+            occasion: data.occasion ?? null,
+            seatingPreference: data.seatingPreference ?? null,
             guestName: data.guestName ?? null,
             guestEmail: data.guestEmail ?? null,
             guestPhone: data.guestPhone ?? null,
@@ -36354,6 +36403,8 @@
                 partySize: data.partySize,
                 tableId: data.tableId,
                 notes: data.notes ?? null,
+                occasion: data.occasion ?? null,
+                seatingPreference: data.seatingPreference ?? null,
                 guestName: data.guestName ?? null,
                 guestEmail: data.guestEmail ?? null,
                 guestPhone: data.guestPhone ?? null,
@@ -36393,6 +36444,8 @@
             ...(data.tableId !== undefined && { tableId: data.tableId }),
             ...(data.status !== undefined && { status: data.status }),
             ...(data.notes !== undefined && { notes: data.notes }),
+            ...(data.occasion !== undefined && { occasion: data.occasion }),
+            ...(data.seatingPreference !== undefined && { seatingPreference: data.seatingPreference }),
             ...(data.cancellationReason !== undefined && {
               cancellationReason: data.cancellationReason,
             }),
@@ -36599,6 +36652,8 @@
           ...(data.partySize !== undefined && { partySize: data.partySize }),
           ...(data.tableId !== undefined && { tableId: data.tableId }),
           ...(data.notes !== undefined && { notes: data.notes }),
+          ...(data.occasion !== undefined && { occasion: data.occasion }),
+          ...(data.seatingPreference !== undefined && { seatingPreference: data.seatingPreference }),
         };
     
         const result = await bookSlot({
@@ -36723,6 +36778,8 @@
                 userId: userId ?? null,
                 venueId: data.venueId ?? null,
                 notes: null,
+                occasion: data.occasion ?? null,
+                seatingPreference: data.seatingPreference ?? null,
               },
               include: {
                 table: true,
@@ -39935,16 +39992,49 @@
       disabled?: boolean;
     }
     export interface NavSection {
+      /**
+       * Locale-independent identity (collapse state is persisted under it, so a
+       * language switch doesn't reset it). Falls back to `label` when absent.
+       */
+      id?: string;
       label?: string;
       items: NavItem[];
     }
-    function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readonly NavSection[] {
+    export const ACCOUNT_SECTION_ID = "Account";
+    function buildAccount(t: TFunction): NavSection {
+      return {
+        id: ACCOUNT_SECTION_ID,
+        label: t("nav.sections.account"),
+        items: [
+          { id: "profile", label: t("nav.items.profile"), action: { type: "route", path: "/profile" } },
+          {
+            id: "settings",
+            label: t("nav.items.settings"),
+            action: { type: "route", path: "/settings" },
+          },
+        ],
+      };
+    }
+    function buildAdmin(t: TFunction): NavSection {
+      return {
+        id: "Admin",
+        label: t("nav.sections.admin"),
+        items: [
+          { id: "admin", label: t("nav.items.users"), action: { type: "route", path: "/admin" } },
+        ],
+      };
+    }
+    function buildSetupSections(
+      readiness: VenueReadiness,
+      isAdmin: boolean,
+      t: TFunction
+    ): readonly NavSection[] {
       const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
     
       const STEP_LABELS: Record<SetupStep, string> = {
-        onboarding: "Venue Basics",
-        "operating-hours": "Set Operating Hours",
-        "floor-plan": "Create Floor Plan",
+        onboarding: t("nav.items.venueBasics"),
+        "operating-hours": t("nav.items.setOperatingHours"),
+        "floor-plan": t("nav.items.createFloorPlan"),
       };
     
       const STEP_PATHS: Record<SetupStep, string> = {
@@ -39968,50 +40058,53 @@
       });
     
       const setupSection: NavSection = {
-        label: "Get Started",
+        id: "Get Started",
+        label: t("nav.sections.getStarted"),
         items,
       };
     
-      return isAdmin ? [setupSection, ACCOUNT, ADMIN] : [setupSection, ACCOUNT];
+      const account = buildAccount(t);
+      return isAdmin ? [setupSection, account, buildAdmin(t)] : [setupSection, account];
     }
-    function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
+    function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavSection[] {
+      const route = (id: string, label: string, path: string): NavItem => ({
+        id,
+        label,
+        action: { type: "route", path },
+      });
+    
       const PRIMARY: NavSection = {
         items: [
-          { id: "briefing", label: "Tonight's Service", action: { type: "route", path: "/briefing" } },
-          { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
-          {
-            id: "reservations",
-            label: "Reservations",
-            action: { type: "route", path: "/reservations" },
-          },
-          { id: "waitlist", label: "Waitlist", action: { type: "route", path: "/waitlist" } },
-          { id: "guests", label: "Guests", action: { type: "route", path: "/guests" } },
-          { id: "home", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
+          route("briefing", t("nav.items.tonightsService"), "/briefing"),
+          route("timeline", t("nav.items.timeline"), "/timeline"),
+          route("reservations", t("nav.items.reservations"), "/reservations"),
+          route("waitlist", t("nav.items.waitlist"), "/waitlist"),
+          route("guests", t("nav.items.guests"), "/guests"),
+          route("home", t("nav.items.dashboard"), "/dashboard"),
         ],
       };
     
       const MANAGE: NavSection = {
-        label: "Manage",
+        id: "Manage",
+        label: t("nav.sections.manage"),
         items: [
-          { id: "floor-plans", label: "Floor Plans", action: { type: "route", path: "/floor-plans" } },
-          {
-            id: "booking-widget",
-            label: "Booking Widget",
-            action: { type: "route", path: "/booking-widget" },
-          },
+          route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+          route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
         ],
       };
     
-      return isAdmin ? [PRIMARY, MANAGE, ACCOUNT, ADMIN] : [PRIMARY, MANAGE, ACCOUNT];
+      const account = buildAccount(t);
+      return isAdmin ? [PRIMARY, MANAGE, account, buildAdmin(t)] : [PRIMARY, MANAGE, account];
     }
     export function buildNavSections(
       readiness: VenueReadiness,
-      isAdmin: boolean
+      isAdmin: boolean,
+      t: TFunction = defaultT()
     ): readonly NavSection[] {
       if (readiness.status !== "operational") {
-        return buildSetupSections(readiness, isAdmin);
+        return buildSetupSections(readiness, isAdmin, t);
       }
-      return buildOperationalSections(isAdmin);
+      return buildOperationalSections(isAdmin, t);
     }
   </file>
   <file path="apps/hospitality/src/vite-env.d.ts">
@@ -49994,14 +50087,7 @@
       /**
        * Create a walk-in reservation
        */
-      async walkIn(data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestId?: string;
-        guestName?: string;
-        durationMinutes?: number;
-      }): Promise<Reservation> {
+      async walkIn(data: WalkInRequest): Promise<Reservation> {
         return this.client.postOne<Reservation>(
           `${RESERVATION_BASE_PATH}/walk-in`,
           data,
@@ -56719,6 +56805,8 @@
       guestPhone?: string;
       guestId?: string;
       notes?: string;
+      occasion?: Occasion;
+      seatingPreference?: SeatingPreference;
     }
     export interface ConflictCheckResult {
       hasConflict: boolean;

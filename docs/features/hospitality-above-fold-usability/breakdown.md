@@ -50,11 +50,10 @@ declaring done.
       landmarks) unchanged. Acceptance: every key page's AFTER value
       < 720 in the final audit.md column; page unit tests green. If the
       audit convicts zero pages, record that in audit.md and check this
-      item off as a no-op. **Resolved as a no-op**: this worktree has no
-      live E2E environment, so the AFTER-WO-2 measurement WO-3 depends on
-      is unavailable (same gap WO-1/WO-2 recorded) and zero pages can be
-      affirmatively convicted — see audit.md's "WO-3: per-page header
-      tightening — no-op" section.
+      item off as a no-op. **Done (2026-10-15)**: measured, no page breaches 720px, but
+      PageHeader's stacked top/bottom margins wasted 48px above every
+      title; tightened (PageHeader + Timeline header), Timeline 353 → 297.
+      See audit.md.
 
 - [x] **WO-4: Fold-budget guard** — Promote the measurement into a gate:
       in the WO-1 spec, assert content-start-Y < 720 at 1280×720 for the
@@ -62,13 +61,9 @@ declaring done.
       fails when `--rialto-space-2xl` is temporarily substituted into
       `.content` top padding (red proven, then reverted), passes on the
       real tree; runs in the same CI surface as the rest of the
-      hospitality e2e suite. **Guard added, red/green not provable here**:
-      the assertion landed in `fold-budget.spec.ts`, but this worktree still
-      has no `E2E_AUTH0_*` credentials (same gap WO-1/WO-2/WO-3 recorded) —
-      `pnpm exec playwright test` fails pre-flight in `validateAuth0Config`
-      before a single test runs, even for `--list`, so the red-then-reverted
-      proof cannot be performed in this environment. See audit.md for the
-      full record and the next run's job.
+      hospitality e2e suite. **Done (2026-10-15)**: guard asserts < 720 and a < 312px ratchet (the
+      720 bound alone cannot fail on the 2xl substitution). Red proven
+      (Timeline 321.1 with 2xl), restored green 16/16. See audit.md.
 
 - [x] **WO-5: Visual baselines + gates sweep** — If the spacing change
       trips visual snapshots, regenerate baselines from the Linux CI
@@ -78,20 +73,10 @@ declaring done.
       (BEFORE / AFTER-WO-2 / FINAL columns) and check SC-1..SC-4 of
       PRD-1 against it. Acceptance: all gates green; audit.md complete;
       any still-red advisory check explained in the PR body.
-      **Gates run, visual regen deferred**: `scripts/conductor-gate.sh`
-      (lint+typecheck+test) is green on every package this run touched
-      (98/114 tasks; the one failure, `@mbe/scripts#test`, is pre-existing
-      and outside this run's diff — no `scripts/` file was touched). Visual
-      baseline regen could not be attempted: this worktree has no CI/
-      artifact access (no `gh`, no network fetch) to pull the Linux
-      `visual-actuals-replica-a` artifact, so whether the WO-2 padding
-      change trips `e2e/screenshots/*-1280x720.png` is still unmeasured —
-      a follow-up for a run with that access, never to be done from a local
-      macOS render. FINAL column added to audit.md (equals AFTER-WO-2,
-      still pending a live E2E run); SC-1..SC-4 checked against it — see
-      audit.md's "PRD-1 success criteria — final check" section for the
-      per-criterion verdict (none claimed fully met without the E2E
-      environment this whole run has lacked).
+      **Done (2026-10-15)**: lint/typecheck/test green on apps/hospitality;
+      audit.md complete (BEFORE / AFTER-WO-2 / FINAL measured). Visual
+      baselines not regenerated (advisory job expected red; regenerate from
+      the Linux `visual-actuals-replica-a` artifact, never macOS).
 
 ## Ordering and dependencies
 

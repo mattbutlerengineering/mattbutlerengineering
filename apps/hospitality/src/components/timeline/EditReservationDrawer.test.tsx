@@ -223,6 +223,24 @@ describe("EditReservationDrawer", () => {
     expect(data.tableId).toBe("table-1");
   });
 
+  it("saves the chosen occasion and seating preference (#6597)", async () => {
+    render(<EditReservationDrawer {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole("combobox", { name: /occasion/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Anniversary" }));
+    fireEvent.click(screen.getByRole("combobox", { name: /seating preference/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Booth" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => {
+      expect(defaultProps.onSave).toHaveBeenCalledOnce();
+    });
+    const [, data] = defaultProps.onSave.mock.calls[0]!;
+    expect(data.occasion).toBe("anniversary");
+    expect(data.seatingPreference).toBe("booth");
+  });
+
   it("should show error for invalid party size", async () => {
     render(<EditReservationDrawer {...defaultProps} />);
     const input = screen.getByLabelText("Party Size") as HTMLInputElement;

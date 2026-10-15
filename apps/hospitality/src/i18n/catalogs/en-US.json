@@ -1,6 +1,147 @@
 {
   "shell": {
-    "skipToMain": "Skip to main content"
+    "skipToMain": "Skip to main content",
+    "skipToContent": "Skip to content",
+    "copyright": "© {{year}} Matt Butler",
+    "dashboardDocumentTitle": "Dashboard - Matt Butler Engineering"
+  },
+  "auth": {
+    "stations": {
+      "browser": "Browser",
+      "identity": "Identity",
+      "api": "API",
+      "hospitality": "Hospitality"
+    },
+    "login": {
+      "title": "Hospitality",
+      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "boardPhrases": {
+        "reservations": "RESERVATIONS",
+        "guests": "GUESTS",
+        "floorPlans": "FLOOR PLANS",
+        "waitlist": "WAITLIST",
+        "timeline": "TIMELINE"
+      },
+      "boardLabel": "Reservations, guests, floor plans, waitlist, and timeline",
+      "taglineDefault": "Restaurant management, simplified.",
+      "taglineSignedOut": "You're signed out. Sign in again whenever you're ready.",
+      "taglineReferred": "You came from the portfolio site — take a look inside.",
+      "connecting": "Connecting your browser to Identity",
+      "signIn": "Sign In",
+      "busy": "Heading to sign-in",
+      "caption": "Manage reservations, guests, and floor plans"
+    },
+    "callback": {
+      "label": "Verifying your sign-in",
+      "status": "Exchanging your code for a session"
+    },
+    "signOut": {
+      "label": "Ending your session with Identity",
+      "status": "Signing you out"
+    },
+    "loading": {
+      "label": "Loading",
+      "status": "Setting the table"
+    },
+    "sessionLapse": {
+      "label": "Session with Identity has lapsed",
+      "heading": "Your session ended",
+      "body": "Sign back in to pick up where you left off — this page is preserved.",
+      "refreshFailedLead": "Your session couldn't renew and will end soon.",
+      "action": "Sign back in",
+      "actionBusy": "Heading to sign-in"
+    },
+    "failure": {
+      "connecting": "Connecting your browser to Identity",
+      "failedLabel": "Your sign-in could not be verified",
+      "statusRetrying": "Starting a fresh sign-in",
+      "statusFailed": "The exchange didn't go through",
+      "retry": "Try again",
+      "technicalDetails": "Technical details"
+    },
+    "error": {
+      "accessDenied": {
+        "title": "Access denied",
+        "body": "Your account doesn't have access to Hospitality. Contact your administrator if you think this is a mistake."
+      },
+      "expiredLink": {
+        "title": "That sign-in link expired",
+        "body": "Sign-in links are single-use. Start again and it should go through."
+      },
+      "network": {
+        "title": "Can't reach the sign-in service",
+        "body": "Check your connection and try again in a moment."
+      },
+      "generic": {
+        "title": "Sign-in hit a snag",
+        "body": "Something unexpected happened during sign-in. Trying again usually clears it up."
+      }
+    },
+    "config": {
+      "title": "Configuration Error",
+      "body": "The application is missing required authentication configuration. Please contact the site administrator.",
+      "missing": "Missing environment variables: {{list}}",
+      "returnHome": "Return to Home"
+    }
+  },
+  "nav": {
+    "label": "Dashboard navigation",
+    "sections": {
+      "account": "Account",
+      "admin": "Admin",
+      "getStarted": "Get Started",
+      "manage": "Manage",
+      "tools": "Tools"
+    },
+    "items": {
+      "profile": "Profile",
+      "settings": "Settings",
+      "users": "Users",
+      "venueBasics": "Venue Basics",
+      "setOperatingHours": "Set Operating Hours",
+      "createFloorPlan": "Create Floor Plan",
+      "tonightsService": "Tonight's Service",
+      "timeline": "Timeline",
+      "reservations": "Reservations",
+      "waitlist": "Waitlist",
+      "guests": "Guests",
+      "dashboard": "Dashboard",
+      "floorPlans": "Floor Plans",
+      "bookingWidget": "Booking Widget",
+      "signOut": "Sign Out",
+      "chat": "Chat"
+    }
+  },
+  "layout": {
+    "home": "Home",
+    "details": "Details",
+    "venueFallback": "Hospitality",
+    "documentTitle": "{{page}} · {{venue}}",
+    "routes": {
+      "timeline": "Timeline",
+      "reservations": "Reservations",
+      "guests": "Guests",
+      "waitlist": "Waitlist",
+      "briefing": "Tonight's Service",
+      "floorPlans": "Floor Plans",
+      "bookingWidget": "Booking Widget",
+      "onboarding": "New Venue",
+      "profile": "Profile",
+      "settings": "Settings",
+      "admin": "Admin",
+      "dashboard": "Dashboard",
+      "setup": "Setup",
+      "hours": "Operating Hours"
+    },
+    "venuesNotLoaded": "Venues not loaded.",
+    "searchPlaceholder": "Search pages and actions...",
+    "openSidebar": "Open sidebar",
+    "closeSidebar": "Close sidebar",
+    "openPalette": "Open command palette",
+    "search": "Search",
+    "errorHeading": "Something went wrong",
+    "errorBody": "An unexpected error occurred in this page.",
+    "reload": "Reload"
   },
   "localePicker": {
     "label": "Language",

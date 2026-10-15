@@ -1,3 +1,5 @@
+import type { Occasion, SeatingPreference } from "./reservation.js";
+
 export interface TimeSlot {
   time: string; // ISO 8601 datetime
   available: boolean;
@@ -58,6 +60,8 @@ export interface ConfirmHoldRequest {
   guestPhone?: string;
   guestId?: string;
   notes?: string;
+  occasion?: Occasion;
+  seatingPreference?: SeatingPreference;
 }
 
 export interface ConflictCheckResult {

@@ -1,6 +1,12 @@
 import reactConfig from "@mbe/config/eslint/react";
 
-const LOCALIZED_FILES = ["src/i18n/**/*.{ts,tsx}", "src/components/LocalePicker/**/*.{ts,tsx}"];
+const LOCALIZED_FILES = [
+  "src/i18n/**/*.{ts,tsx}",
+  "src/App.tsx",
+  "src/components/{LoginGate,CallbackPage,SessionExpiredGate,AuthConfigError,DashboardLayout,DashboardSidebar}.tsx",
+  "src/pages/{AuthFailurePage,SignOutPage,LoadingPage}.tsx",
+  "src/components/LocalePicker/**/*.{ts,tsx}",
+];
 
 export default [
   ...reactConfig,

@@ -1,6 +1,7 @@
 import { useRef, useEffect, forwardRef } from "react";
 import { Dialog } from "../Dialog/Dialog";
 import { cn } from "../../utils/class-composer";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./ConfirmDialog.module.css";
 
 function ConfirmIcon({ variant }: { variant: "default" | "destructive" }) {
@@ -69,18 +70,10 @@ export interface ConfirmDialogProps {
 }
 
 export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(function ConfirmDialog(
-  {
-    open,
-    onConfirm,
-    onCancel,
-    title,
-    description,
-    confirmLabel = "Confirm",
-    cancelLabel = "Cancel",
-    variant = "default",
-  },
+  { open, onConfirm, onCancel, title, description, confirmLabel, cancelLabel, variant = "default" },
   ref
 ) {
+  const { messages } = useRialtoLocale();
   const confirmRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
@@ -118,10 +111,10 @@ export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(func
             className={cn(styles.button, styles.cancel)}
             onClick={onCancel}
           >
-            {cancelLabel}
+            {cancelLabel ?? messages.cancel}
           </button>
           <button type="button" ref={confirmRef} className={confirmClass} onClick={onConfirm}>
-            {confirmLabel}
+            {confirmLabel ?? messages.confirm}
           </button>
         </>
       }
