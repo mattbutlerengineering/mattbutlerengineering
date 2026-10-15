@@ -1854,6 +1854,7 @@
         startHour: number;
         hourWidth: number;
         isMobile: boolean;
+        timeZone?: string;
       }
     </item>
     <item priority="low">
@@ -1866,7 +1867,7 @@
       export function computeReservationLayout(
         startTime: string,
         endTime: string,
-        { startHour, hourWidth, isMobile }: ReservationLayoutParams
+        { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
       ): ReservationLayoutResult { /* ... */ }
     </item>
   </file>
@@ -2045,6 +2046,13 @@
       ): string { /* ... */ }
     </item>
     <item priority="high">
+      export function formatCalendarDate(
+        dateStr: string,
+        options: Intl.DateTimeFormatOptions,
+        locale: string = LOCALE
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function formatTime(isoString: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
@@ -2057,8 +2065,17 @@
       export function formatLocalTime(hhmm: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
+      export function currencyMinorUnits(currency: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currencySymbol(currency: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function majorToMinorUnits(amount: number, currency: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function formatCurrencyFromCents(
-        amountCents: number,
+        amountMinor: number,
         currency: string,
         locale: string = LOCALE
       ): string { /* ... */ }
@@ -2197,6 +2214,9 @@
         weekday: string;
         nowMin: number;
       }
+    </item>
+    <item priority="high">
+      export function minutesOfDayIn(instant: Date, timeZone?: string): number { /* ... */ }
     </item>
     <item priority="high">
       export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }

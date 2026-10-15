@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useOptionalVenue } from "../contexts/venue-context-object.js";
 import {
   formatCurrencyFromCents,
+  formatCalendarDate,
   formatInstant,
   formatLocalTime,
   formatLongDate,
@@ -32,6 +33,8 @@ export interface VenueFormat {
   formatShortDate(dateStr: string): string;
   /** Any instant with caller-chosen `Intl` fields, on the venue clock. */
   formatInstant(value: string | number | Date, options: Intl.DateTimeFormatOptions): string;
+  /** A calendar date (`YYYY-MM-DD`) with caller-chosen fields, never zone-shifted. */
+  formatCalendarDate(dateStr: string, options: Intl.DateTimeFormatOptions): string;
   /** Venue-local "HH:MM" wall-clock string (an opening hour, not an instant). */
   formatLocalTime(hhmm: string): string;
 }
@@ -62,6 +65,7 @@ export function useVenueFormat(venue?: VenueFormatSource | null): VenueFormat {
       formatServiceDate: (d) => formatServiceDate(d, locale),
       formatShortDate: (d) => formatShortDate(d, locale),
       formatInstant: (value, options) => formatInstant(value, options, locale, timeZone),
+      formatCalendarDate: (dateStr, options) => formatCalendarDate(dateStr, options, locale),
       formatLocalTime: (hhmm) => formatLocalTime(hhmm, locale),
     }),
     [locale, timeZone, currency]

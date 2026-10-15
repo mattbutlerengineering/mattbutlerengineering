@@ -4001,6 +4001,8 @@
       formatShortDate(dateStr: string): string;
       /** Any instant with caller-chosen `Intl` fields, on the venue clock. */
       formatInstant(value: string | number | Date, options: Intl.DateTimeFormatOptions): string;
+      /** A calendar date (`YYYY-MM-DD`) with caller-chosen fields, never zone-shifted. */
+      formatCalendarDate(dateStr: string, options: Intl.DateTimeFormatOptions): string;
       /** Venue-local "HH:MM" wall-clock string (an opening hour, not an instant). */
       formatLocalTime(hhmm: string): string;
     }
@@ -4022,6 +4024,7 @@
           formatServiceDate: (d) => formatServiceDate(d, locale),
           formatShortDate: (d) => formatShortDate(d, locale),
           formatInstant: (value, options) => formatInstant(value, options, locale, timeZone),
+          formatCalendarDate: (dateStr, options) => formatCalendarDate(dateStr, options, locale),
           formatLocalTime: (hhmm) => formatLocalTime(hhmm, locale),
         }),
         [locale, timeZone, currency]
@@ -5173,6 +5176,8 @@
       startHour: number;
       hourWidth: number;
       isMobile: boolean;
+      /** The venue's IANA zone; positions are venue wall-clock. Omitted: the device clock. */
+      timeZone?: string;
     }
     export interface ReservationLayoutResult {
       left: number;
@@ -5181,13 +5186,13 @@
     export function computeReservationLayout(
       startTime: string,
       endTime: string,
-      { startHour, hourWidth, isMobile }: ReservationLayoutParams
+      { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
     ): ReservationLayoutResult {
       const start = new Date(startTime);
       const end = new Date(endTime);
     
-      const startMinutes = start.getHours() * 60 + start.getMinutes();
-      const endMinutes = end.getHours() * 60 + end.getMinutes();
+      const startMinutes = minutesOfDayIn(start, timeZone);
+      const endMinutes = minutesOfDayIn(end, timeZone);
       const startOffset = startMinutes - startHour * 60;
       const duration = endMinutes - startMinutes;
     
@@ -5531,6 +5536,13 @@
         timeZone: resolveTimeZone(timeZone),
       }).format(date);
     }
+    export function formatCalendarDate(
+      dateStr: string,
+      options: Intl.DateTimeFormatOptions,
+      locale: string = LOCALE
+    ): string {
+      return formatInstant(`${dateStr.slice(0, 10)}T00:00:00Z`, options, locale, "UTC");
+    }
     export function formatTime(isoString: string, locale: string = LOCALE): string {
       return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
@@ -5562,15 +5574,32 @@
         timeZone: "UTC",
       });
     }
+    export function currencyMinorUnits(currency: string): number {
+      return new Intl.NumberFormat(LOCALE, {
+        style: "currency",
+        currency: currency.toUpperCase(),
+      }).resolvedOptions().maximumFractionDigits as number;
+    }
+    export function currencySymbol(currency: string, locale: string = LOCALE): string {
+      const parts = new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: currency.toUpperCase(),
+        currencyDisplay: "narrowSymbol",
+      }).formatToParts(0);
+      return parts.find((part) => part.type === "currency")?.value ?? currency.toUpperCase();
+    }
+    export function majorToMinorUnits(amount: number, currency: string): number {
+      return Math.round(amount * 10 ** currencyMinorUnits(currency));
+    }
     export function formatCurrencyFromCents(
-      amountCents: number,
+      amountMinor: number,
       currency: string,
       locale: string = LOCALE
     ): string {
       return new Intl.NumberFormat(locale, {
         style: "currency",
         currency: currency.toUpperCase(),
-      }).format(amountCents / 100);
+      }).format(amountMinor / 10 ** currencyMinorUnits(currency));
     }
     export function formatShortDate(dateStr: string, locale: string = LOCALE): string {
       return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
@@ -5802,6 +5831,10 @@
       readonly weekday: string;
       /** Minutes since venue-local midnight. */
       readonly nowMin: number;
+    }
+    export function minutesOfDayIn(instant: Date, timeZone?: string): number {
+      const clock = timeZone ? venueWallClock(timeZone, instant) : null;
+      return clock ? clock.nowMin : instant.getHours() * 60 + instant.getMinutes();
     }
     export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
       try {

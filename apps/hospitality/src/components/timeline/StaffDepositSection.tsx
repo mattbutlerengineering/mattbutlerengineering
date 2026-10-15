@@ -3,7 +3,12 @@ import { Button, Input, Alert, Text } from "@mattbutlerengineering/rialto";
 import type { Deposit } from "@mbe/types";
 import { useCreateDeposit } from "../../hooks/useDeposits.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { formatCurrencyFromCents } from "../../utils/format.js";
+import {
+  currencyMinorUnits,
+  currencySymbol,
+  formatCurrencyFromCents,
+  majorToMinorUnits,
+} from "../../utils/format.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./StaffDepositSection.module.css";
 
@@ -51,7 +56,7 @@ export function StaffDepositSection({
       setError("Enter a valid amount.");
       return;
     }
-    const amountCents = Math.round(amountDollars * 100);
+    const amountCents = majorToMinorUnits(amountDollars, fmt.currency);
 
     setError(null);
 
@@ -131,11 +136,11 @@ export function StaffDepositSection({
         {error && <Alert variant="error">{error}</Alert>}
         <div className={styles.formRow}>
           <Input
-            label="Amount ($)"
+            label={`Amount (${currencySymbol(fmt.currency, fmt.locale)})`}
             type="number"
             value={amountInput}
             onChange={(e) => setAmountInput(e.target.value)}
-            placeholder="25.00"
+            placeholder={(25).toFixed(currencyMinorUnits(fmt.currency))}
             disabled={isCreating}
           />
         </div>

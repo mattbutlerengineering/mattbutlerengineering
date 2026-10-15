@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockDepositDb, mockGuestDb, mockQueryRaw } = vi.hoisted(() => ({
+const { mockDepositDb, mockGuestDb, mockVenueDb, mockQueryRaw } = vi.hoisted(() => ({
   mockDepositDb: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
@@ -13,6 +13,7 @@ const { mockDepositDb, mockGuestDb, mockQueryRaw } = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
   },
+  mockVenueDb: { findUnique: vi.fn() },
   // ADR-026 §3.3 item 6 / #5369 PR 7: `deposits` carries no venue_id column,
   // so every deposit route resolves its venue scope through the deposit's
   // own reservation — via the SECURITY DEFINER `app_resolve_venue_id`
@@ -27,7 +28,12 @@ const { mockDepositDb, mockGuestDb, mockQueryRaw } = vi.hoisted(() => ({
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService({
-    prisma: { deposit: mockDepositDb, guest: mockGuestDb, $queryRaw: mockQueryRaw },
+    prisma: {
+      deposit: mockDepositDb,
+      guest: mockGuestDb,
+      venue: mockVenueDb,
+      $queryRaw: mockQueryRaw,
+    },
   });
 });
 
@@ -131,6 +137,7 @@ describe("Deposit API routes", () => {
     // `app_resolve_venue_id`. Default to a resolvable venue so the existing
     // specs exercise the happy path; the fail-closed specs override it.
     mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: VENUE_ID }]);
+    mockVenueDb.findUnique.mockResolvedValue({ currencyCode: "USD" });
   });
 
   describe("POST /api/v1/deposits", () => {
@@ -155,6 +162,59 @@ describe("Deposit API routes", () => {
       expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body) as { data: Deposit };
       expect(body.data.status).toBe("pending");
+      await app.close();
+    });
+
+    it("stores the reservation's venue currency, lowercased, when the body omits it", async () => {
+      mockVenueDb.findUnique.mockResolvedValue({ currencyCode: "CAD" });
+      mockDepositDb.create.mockResolvedValueOnce(makeDeposit({ currency: "cad" }));
+
+      const app = await buildApp({ logger: false, payments });
+      await app.ready();
+      const response = await app.inject({
+        method: "POST",
+        url: DEPOSITS_URL,
+        headers: { authorization: ADMIN_TOKEN },
+        payload: { reservationId: "res-123", amountCents: 5000 },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(mockDepositDb.create.mock.calls[0]![0].data.currency).toBe("cad");
+      await app.close();
+    });
+
+    it("accepts a body currency matching the venue's, case-insensitively", async () => {
+      mockVenueDb.findUnique.mockResolvedValue({ currencyCode: "CAD" });
+      mockDepositDb.create.mockResolvedValueOnce(makeDeposit({ currency: "cad" }));
+
+      const app = await buildApp({ logger: false, payments });
+      await app.ready();
+      const response = await app.inject({
+        method: "POST",
+        url: DEPOSITS_URL,
+        headers: { authorization: ADMIN_TOKEN },
+        payload: { reservationId: "res-123", amountCents: 5000, currency: "Cad" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(mockDepositDb.create.mock.calls[0]![0].data.currency).toBe("cad");
+      await app.close();
+    });
+
+    it("rejects a body currency that differs from the venue's with 400", async () => {
+      mockVenueDb.findUnique.mockResolvedValue({ currencyCode: "CAD" });
+
+      const app = await buildApp({ logger: false, payments });
+      await app.ready();
+      const response = await app.inject({
+        method: "POST",
+        url: DEPOSITS_URL,
+        headers: { authorization: ADMIN_TOKEN },
+        payload: { reservationId: "res-123", amountCents: 5000, currency: "usd" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(mockDepositDb.create).not.toHaveBeenCalled();
       await app.close();
     });
 

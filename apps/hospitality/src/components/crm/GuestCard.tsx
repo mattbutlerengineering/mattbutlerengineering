@@ -208,7 +208,7 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
               {occasionReservations.map((r) => (
                 <Text key={r.id} variant="caption" color="secondary">
                   {OCCASION_LABELS[r.occasion!] ?? r.occasion} &mdash;{" "}
-                  {fmt.formatInstant(r.date, { month: "short", day: "numeric" })}
+                  {fmt.formatCalendarDate(r.date, { month: "short", day: "numeric" })}
                 </Text>
               ))}
             </Stack>

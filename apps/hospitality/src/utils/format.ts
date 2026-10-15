@@ -109,6 +109,19 @@ export function formatInstant(
 }
 
 /**
+ * Format a calendar date (`YYYY-MM-DD`, or an ISO string for that day's UTC midnight) with
+ * caller-chosen fields. A date is not an instant, so it is pinned to UTC and prints the
+ * same day in every device and venue zone.
+ */
+export function formatCalendarDate(
+  dateStr: string,
+  options: Intl.DateTimeFormatOptions,
+  locale: string = LOCALE
+): string {
+  return formatInstant(`${dateStr.slice(0, 10)}T00:00:00Z`, options, locale, "UTC");
+}
+
+/**
  * Format an ISO datetime string as time with minutes (e.g. "2:30 PM" in en-US), in the
  * viewer's device timezone. Staff screens use the venue-zone `formatTimeIn` (via
  * `useVenueFormat`) instead; this is the fallback when no venue zone is known.
@@ -174,20 +187,47 @@ export function formatLocalTime(hhmm: string, locale: string = LOCALE): string {
 }
 
 /**
- * Format an amount in cents as a localized currency string (e.g. "$10.00").
- * Currency code is case-insensitive; it will be uppercased internally.
+ * Digits after the decimal point for a currency's minor unit (USD/CAD 2, JPY/KRW 0,
+ * KWD 3), from the runtime's ISO 4217 data. Stripe amounts are in this minor unit.
+ */
+export function currencyMinorUnits(currency: string): number {
+  return new Intl.NumberFormat(LOCALE, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).resolvedOptions().maximumFractionDigits as number;
+}
+
+/** The currency's narrow symbol in `locale` ("$", "¥"). */
+export function currencySymbol(currency: string, locale: string = LOCALE): string {
+  const parts = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    currencyDisplay: "narrowSymbol",
+  }).formatToParts(0);
+  return parts.find((part) => part.type === "currency")?.value ?? currency.toUpperCase();
+}
+
+/** A major-unit amount typed by staff ("25", "2500") as the currency's integer minor units. */
+export function majorToMinorUnits(amount: number, currency: string): number {
+  return Math.round(amount * 10 ** currencyMinorUnits(currency));
+}
+
+/**
+ * Format an amount in a currency's minor units (cents for USD, yen for JPY) as a
+ * localized currency string (e.g. "$10.00", "¥2,500"). Currency code is
+ * case-insensitive; it will be uppercased internally.
  *
  * Used by: PaymentStep, StaffDepositSection, ConfirmationView
  */
 export function formatCurrencyFromCents(
-  amountCents: number,
+  amountMinor: number,
   currency: string,
   locale: string = LOCALE
 ): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: currency.toUpperCase(),
-  }).format(amountCents / 100);
+  }).format(amountMinor / 10 ** currencyMinorUnits(currency));
 }
 
 /**

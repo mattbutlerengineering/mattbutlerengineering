@@ -60,6 +60,16 @@ export interface VenueWallClock {
   readonly nowMin: number;
 }
 
+/**
+ * Minutes since midnight of `instant` on the venue's clock. Falls back to the device clock when
+ * the zone is omitted or unresolvable. The one source for placing times on the timeline grid, so
+ * block positions, the now-line and their labels share a zone.
+ */
+export function minutesOfDayIn(instant: Date, timeZone?: string): number {
+  const clock = timeZone ? venueWallClock(timeZone, instant) : null;
+  return clock ? clock.nowMin : instant.getHours() * 60 + instant.getMinutes();
+}
+
 /** Venue-local weekday and minute of `now`; `null` when the zone cannot be resolved. */
 export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
   try {

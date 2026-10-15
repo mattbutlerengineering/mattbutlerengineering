@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Reservation, Table } from "@mbe/types";
 import { Button, Card, Stack, StatusLED, Text, Tag } from "@mattbutlerengineering/rialto";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { minutesOfDayIn } from "../../utils/service-day.js";
 import styles from "./TimelineMobileView.module.css";
 
 export type StatusFilter = "ALL" | "CONFIRMED" | "PENDING" | "CANCELLED";
@@ -13,30 +14,11 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "CANCELLED", label: "Cancelled" },
 ];
 
-function formatSlotLabel(isoString: string): string {
-  const d = new Date(isoString);
-  const hours = d.getHours();
-  const minutes = d.getMinutes();
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const displayHour = hours % 12 || 12;
-  return minutes === 0
-    ? `${displayHour}:00 ${ampm}`
-    : `${displayHour}:${String(minutes).padStart(2, "0")} ${ampm}`;
-}
-
-function getSlotKey(isoString: string): string {
-  const d = new Date(isoString);
-  // Round down to nearest 30 min slot
-  const slot = d.getMinutes() < 30 ? 0 : 30;
-  return `${d.getHours()}:${String(slot).padStart(2, "0")}`;
-}
-
-function getSlotLabel(isoString: string): string {
-  const d = new Date(isoString);
-  const slot = d.getMinutes() < 30 ? 0 : 30;
-  const slotDate = new Date(d);
-  slotDate.setMinutes(slot, 0, 0);
-  return formatSlotLabel(slotDate.toISOString());
+/** The 30-minute slot an instant falls in, on the venue clock, as "H:00" / "H:30". */
+function getSlotKey(isoString: string, timeZone: string): string {
+  const minutes = minutesOfDayIn(new Date(isoString), timeZone);
+  const slot = minutes % 60 < 30 ? 0 : 30;
+  return `${Math.floor(minutes / 60)}:${String(slot).padStart(2, "0")}`;
 }
 
 function statusVariant(status: Reservation["status"]): "default" | "accent" | "success" | "error" {
@@ -150,6 +132,7 @@ export function TimelineMobileView({
   selectedReservationId,
   seatedIds,
 }: TimelineMobileViewProps) {
+  const { timeZone, formatLocalTime } = useVenueFormat();
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("ALL");
 
   const tableMap = useMemo(() => {
@@ -175,9 +158,9 @@ export function TimelineMobileView({
       (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     );
     for (const r of sorted) {
-      const key = getSlotKey(r.startTime);
+      const key = getSlotKey(r.startTime, timeZone);
       if (!grouped.has(key)) {
-        grouped.set(key, { label: getSlotLabel(r.startTime), reservations: [] });
+        grouped.set(key, { label: formatLocalTime(key), reservations: [] });
       }
       grouped.get(key)!.reservations.push(r);
     }
@@ -186,7 +169,7 @@ export function TimelineMobileView({
       const [bh, bm] = b.split(":").map(Number);
       return ah! * 60 + (am ?? 0) - (bh! * 60 + (bm ?? 0));
     });
-  }, [filtered]);
+  }, [filtered, timeZone, formatLocalTime]);
 
   return (
     <Stack gap="sm" className={styles.root}>

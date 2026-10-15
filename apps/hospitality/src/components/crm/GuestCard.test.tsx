@@ -290,6 +290,22 @@ describe("GuestCard", () => {
       expect(screen.getByText(/anniversary/i)).toBeDefined();
     });
 
+    it("shows a date-only reservation date as that calendar day in a western device zone", () => {
+      const previousTz = process.env.TZ;
+      process.env.TZ = "America/Los_Angeles";
+      try {
+        mockUseReservations.mockReturnValue({
+          data: [makeReservation({ occasion: "birthday", date: "2026-05-10" })],
+          isLoading: false,
+          error: null,
+        });
+        render(<GuestCard guestId="guest-1" />);
+        expect(screen.getByText(/birthday.*May 10/i)).toBeDefined();
+      } finally {
+        process.env.TZ = previousTz;
+      }
+    });
+
     it("omits reservations with no occasion or occasion=none", () => {
       mockUseReservations.mockReturnValue({
         data: [
