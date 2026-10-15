@@ -25,7 +25,7 @@
 }
 
 .jsonLink {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
   text-decoration: underline;
 }
 
