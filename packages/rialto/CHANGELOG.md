@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.6.3
+
+### Patch Changes
+
+- [#6722](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6722) [`b32c622`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b32c622d6a4ce67f64a34223a77a86f928370f51) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NeonSign: the unlit (closed) tube now uses `--rialto-text-secondary` instead of `--rialto-border`, so its text meets WCAG AA 4.5:1 on the recessed housing in both themes. PageHeader: add an optional `breadcrumbLabel` prop to name the breadcrumb `<nav>` so a page with several headers keeps unique landmarks. Defaults to the localized "Breadcrumb" — existing consumers see no change.
+
 ## 0.6.2
 
 ### Patch Changes
