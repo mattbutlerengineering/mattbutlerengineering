@@ -25,21 +25,30 @@ export interface CancellationQuote {
   currency: string;
 }
 
+/** The persisted audit note is a record, not UI copy, so it is always written in en-US. */
+const AUDIT_LOCALE = "en-US";
+
 /**
- * Builds the plain-language fee label shown to staff before they confirm, in the dashboard
- * locale (this module is pure, so it reads the runtime's language rather than a hook).
+ * Builds the plain-language fee label in `locale`. The dialog shows it in the dashboard
+ * locale (this module is pure, so it reads the runtime's language rather than a hook); the
+ * saved audit note uses en-US so the record reads the same whoever cancelled.
  */
-function buildFeeLabel(fee: CancellationFeeResult, currency: string): string {
-  const locale = localeRuntime.i18n.language;
+function buildFeeLabel(
+  fee: CancellationFeeResult,
+  currency: string,
+  locale: string = localeRuntime.i18n.language
+): string {
+  const t =
+    locale === localeRuntime.i18n.language ? defaultT : localeRuntime.i18n.getFixedT(locale);
   const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency, locale);
   const refund = formatCurrencyFromCents(fee.refundAmountCents, currency, locale);
   switch (fee.feeType) {
     case "none":
-      return defaultT("timeline.cancel.fee.none", { refund });
+      return t("timeline.cancel.fee.none", { refund });
     case "late":
-      return defaultT("timeline.cancel.fee.late", { fee: feeAmount, refund });
+      return t("timeline.cancel.fee.late", { fee: feeAmount, refund });
     case "noshow":
-      return defaultT("timeline.cancel.fee.noshow", { fee: feeAmount, refund });
+      return t("timeline.cancel.fee.noshow", { fee: feeAmount, refund });
   }
 }
 
@@ -81,11 +90,12 @@ export function evaluateCancellationQuote(
  * cancellation records what the guest was quoted. The reservations service is
  * authoritative for the actual refund, but the note is the only persisted
  * surface that ties "what we told the guest" to "what we did". No-op for free
- * cancellations, where there is no fee to reconcile.
+ * cancellations, where there is no fee to reconcile. Written in en-US regardless of the
+ * dashboard locale (see `AUDIT_LOCALE`).
  */
 export function withQuotedFeeNote(note: string, quote: CancellationQuote | null): string {
   if (!quote || quote.fee.feeType === "none") return note;
-  const audit = `Quoted at cancellation: ${quote.label}`;
+  const audit = `Quoted at cancellation: ${buildFeeLabel(quote.fee, quote.currency, AUDIT_LOCALE)}`;
   return note ? `${note}\n${audit}` : audit;
 }
 

@@ -12425,17 +12425,22 @@
       /** ISO currency code used to format the label (e.g. "usd"). */
       currency: string;
     }
-    function buildFeeLabel(fee: CancellationFeeResult, currency: string): string {
-      const locale = localeRuntime.i18n.language;
+    function buildFeeLabel(
+      fee: CancellationFeeResult,
+      currency: string,
+      locale: string = localeRuntime.i18n.language
+    ): string {
+      const t =
+        locale === localeRuntime.i18n.language ? defaultT : localeRuntime.i18n.getFixedT(locale);
       const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency, locale);
       const refund = formatCurrencyFromCents(fee.refundAmountCents, currency, locale);
       switch (fee.feeType) {
         case "none":
-          return defaultT("timeline.cancel.fee.none", { refund });
+          return t("timeline.cancel.fee.none", { refund });
         case "late":
-          return defaultT("timeline.cancel.fee.late", { fee: feeAmount, refund });
+          return t("timeline.cancel.fee.late", { fee: feeAmount, refund });
         case "noshow":
-          return defaultT("timeline.cancel.fee.noshow", { fee: feeAmount, refund });
+          return t("timeline.cancel.fee.noshow", { fee: feeAmount, refund });
       }
     }
     export type CancellationInitiator = "staff" | "guest";
@@ -12460,7 +12465,7 @@
     }
     export function withQuotedFeeNote(note: string, quote: CancellationQuote | null): string {
       if (!quote || quote.fee.feeType === "none") return note;
-      const audit = `Quoted at cancellation: ${quote.label}`;
+      const audit = `Quoted at cancellation: ${buildFeeLabel(quote.fee, quote.currency, AUDIT_LOCALE)}`;
       return note ? `${note}\n${audit}` : audit;
     }
     export interface UseCancellationQuoteParams {

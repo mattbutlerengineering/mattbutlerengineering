@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { CancellationPolicy } from "@mbe/cancellation-policy";
 import {
@@ -9,6 +9,8 @@ import {
 } from "./useCancellationQuote.js";
 import { useVenuePolicy } from "./useVenuePolicy.js";
 import { useIsAdmin } from "./useIsAdmin.js";
+import { localeRuntime } from "../i18n/runtime.js";
+import frCA from "../i18n/catalogs/fr-CA.json";
 
 // The quote owns fee evaluation + label formatting; it is tested here as a pure
 // function WITHOUT rendering the cancel dialog. The hook wrapper is exercised
@@ -137,6 +139,26 @@ describe("withQuotedFeeNote", () => {
 
   it("uses the quoted fee label as the whole note when the staff note is empty", () => {
     expect(withQuotedFeeNote("", feeQuote)).toContain(feeQuote.label);
+  });
+});
+
+describe("persisted cancellation note in a non-English dashboard", () => {
+  afterEach(async () => {
+    await localeRuntime.i18n.changeLanguage("en-US");
+  });
+
+  it("shows the fee in the staff locale but saves the audit note in en-US", async () => {
+    localeRuntime.i18n.addResourceBundle("fr-CA", "translation", frCA, true, true);
+    await localeRuntime.i18n.changeLanguage("fr-CA");
+
+    const quote = evaluateCancellationQuote(basePolicy, hoursFromNow(1), "usd", NOW);
+
+    // On screen: French.
+    expect(quote?.label).not.toMatch(/late cancellation fee/i);
+    // Saved record: canonical English, independent of who cancelled.
+    expect(withQuotedFeeNote("", quote)).toBe(
+      "Quoted at cancellation: Late cancellation fee: $25.00 — refund $25.00"
+    );
   });
 });
 

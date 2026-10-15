@@ -715,7 +715,11 @@
       }
     </item>
     <item priority="medium">
-      function buildFeeLabel(fee: CancellationFeeResult, currency: string): string { /* ... */ }
+      function buildFeeLabel(
+        fee: CancellationFeeResult,
+        currency: string,
+        locale: string = localeRuntime.i18n.language
+      ): string { /* ... */ }
     </item>
     <item priority="low">
       type CancellationInitiator = "staff" | "guest";
