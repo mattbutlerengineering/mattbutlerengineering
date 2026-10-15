@@ -7,7 +7,7 @@ import { useScrollToNow } from "./useScrollToNow.js";
 import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
 import { useGridFocus } from "./useGridFocus.js";
 import { computeReservationLayout, type ReservationLayoutResult } from "./reservationLayout.js";
-import { formatTime } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { deviceDate } from "../../utils/service-day.js";
 import styles from "./TimelineGrid.module.css";
 
@@ -87,6 +87,7 @@ export function TimelineGrid({
   emptyNight,
   pendingTableId,
 }: TimelineGridProps) {
+  const fmt = useVenueFormat();
   const isMobile = useIsMobile();
   const scrollRef = useRef<HTMLDivElement>(null);
   const hourWidth = isMobile ? MOBILE_HOUR_WIDTH : HOUR_WIDTH;
@@ -317,7 +318,7 @@ export function TimelineGrid({
             >
               <div className={styles.currentTimeDot} />
               <div className={styles.currentTimeLabel} aria-hidden="true">
-                {formatTime(currentTime.toISOString())}
+                {fmt.formatTime(currentTime.toISOString())}
               </div>
             </div>
           )}

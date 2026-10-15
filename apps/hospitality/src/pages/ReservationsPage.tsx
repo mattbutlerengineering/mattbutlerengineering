@@ -1,3 +1,4 @@
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useCallback, useMemo, useRef, useState, useReducer, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
@@ -109,6 +110,7 @@ function formatRelativeTime(date: Date): string {
 
 export function ReservationsPage() {
   const navigate = useNavigate();
+  const fmt = useVenueFormat();
   const { selectedVenueId } = useVenue();
   const { params, setParam } = useUrlParams(reservationsFilterSchema, RESERVATIONS_DEFAULTS);
   const selectedDate = params.date;
@@ -328,8 +330,8 @@ export function ReservationsPage() {
                   {filteredReservations.map((reservation) => (
                     <tr key={reservation.id}>
                       <td className={styles.td}>
-                        {formatReservationTime(reservation.startTime)} -{" "}
-                        {formatReservationTime(reservation.endTime)}
+                        {formatReservationTime(reservation.startTime, fmt.locale, fmt.timeZone)} -{" "}
+                        {formatReservationTime(reservation.endTime, fmt.locale, fmt.timeZone)}
                       </td>
                       <td className={styles.td}>
                         <Text variant="body" color="primary" className={styles.guestName}>

@@ -1,3 +1,4 @@
+import { useVenueFormat, type VenueFormat } from "../hooks/useVenueFormat.js";
 import { useState, useMemo, useCallback, Fragment } from "react";
 import {
   Avatar,
@@ -50,8 +51,8 @@ function isCurrentMonth(dateString: string): boolean {
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
-function formatFullDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString(undefined, {
+function formatFullDate(dateString: string, fmt: VenueFormat): string {
+  return fmt.formatInstant(dateString, {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -60,8 +61,8 @@ function formatFullDate(dateString: string): string {
   });
 }
 
-function formatShortDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString(undefined, {
+function formatShortDate(dateString: string, fmt: VenueFormat): string {
+  return fmt.formatInstant(dateString, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -96,6 +97,7 @@ function LoadingSkeleton() {
 }
 
 function UserDetailRow({ user }: { readonly user: User }) {
+  const fmt = useVenueFormat();
   return (
     <tr className={styles.detailRow}>
       <td colSpan={4}>
@@ -114,7 +116,7 @@ function UserDetailRow({ user }: { readonly user: User }) {
                 Created
               </Text>
               <Text variant="detail" color="primary">
-                {formatFullDate(user.createdAt)}
+                {formatFullDate(user.createdAt, fmt)}
               </Text>
             </div>
             <div className={styles.detailField}>
@@ -122,7 +124,7 @@ function UserDetailRow({ user }: { readonly user: User }) {
                 Updated
               </Text>
               <Text variant="detail" color="primary">
-                {formatFullDate(user.updatedAt)}
+                {formatFullDate(user.updatedAt, fmt)}
               </Text>
             </div>
             <div className={styles.detailField}>
@@ -141,6 +143,7 @@ function UserDetailRow({ user }: { readonly user: User }) {
 }
 
 export function AdminPage() {
+  const fmt = useVenueFormat();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -305,7 +308,7 @@ export function AdminPage() {
                     </td>
                     <td className={styles.td}>
                       <Text variant="detail" color="secondary">
-                        {formatShortDate(user.createdAt)}
+                        {formatShortDate(user.createdAt, fmt)}
                       </Text>
                     </td>
                   </tr>

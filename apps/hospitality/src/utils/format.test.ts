@@ -6,6 +6,7 @@ import {
   formatLocalTime,
   formatCurrencyFromCents,
   formatServiceDate,
+  formatInstant,
 } from "./format.js";
 
 describe("formatLongDate", () => {
@@ -124,5 +125,28 @@ describe("formatServiceDate", () => {
   it("does not shift the calendar day across the UTC boundary (T00:00:00 local)", () => {
     // 2024-01-01 is a Monday
     expect(formatServiceDate("2024-01-01")).toBe("Monday, Jan 1");
+  });
+});
+
+describe("formatInstant", () => {
+  it("formats in the given zone and locale", () => {
+    expect(
+      formatInstant(
+        "2024-03-15T21:30:00Z",
+        { hour: "numeric", minute: "2-digit" },
+        "en-US",
+        "Asia/Tokyo"
+      )
+    ).toBe("6:30 AM");
+  });
+
+  it("falls back to the device zone for an invalid zone", () => {
+    expect(() =>
+      formatInstant("2024-03-15T21:30:00Z", { hour: "numeric" }, "en-US", "Bad/Zone")
+    ).not.toThrow();
+  });
+
+  it("returns the legacy 'Invalid Date' text instead of throwing", () => {
+    expect(formatInstant("not a date", { hour: "numeric" })).toBe("Invalid Date");
   });
 });

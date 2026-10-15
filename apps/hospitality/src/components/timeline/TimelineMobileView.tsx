@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Reservation, Table } from "@mbe/types";
 import { Button, Card, Stack, StatusLED, Text, Tag } from "@mattbutlerengineering/rialto";
-import { formatTime } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./TimelineMobileView.module.css";
 
 export type StatusFilter = "ALL" | "CONFIRMED" | "PENDING" | "CANCELLED";
@@ -88,8 +88,9 @@ function ReservationCard({
   isSelected,
   seated,
 }: ReservationCardProps) {
+  const fmt = useVenueFormat();
   const tableLabel = table?.tableNumber || table?.name || "Unassigned";
-  const timeLabel = `${formatTime(reservation.startTime)} – ${formatTime(reservation.endTime)}`;
+  const timeLabel = `${fmt.formatTime(reservation.startTime)} – ${fmt.formatTime(reservation.endTime)}`;
 
   return (
     <Button

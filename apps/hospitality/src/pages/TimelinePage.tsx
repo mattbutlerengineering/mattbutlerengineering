@@ -1,3 +1,4 @@
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { z } from "zod";
@@ -31,7 +32,7 @@ import { useNow } from "../hooks/useNow.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError, type ApiErrorDescription } from "../lib/describe-api-error.js";
-import { formatServiceDate } from "../utils/format.js";
+import { formatLongDateWithYear, formatServiceDate } from "../utils/format.js";
 import { deviceDate } from "../utils/service-day.js";
 import { seatedReservationIds } from "../utils/seated.js";
 import { parseTimelineIntent, stripTimelineIntent } from "../utils/timeline-intent.js";
@@ -124,6 +125,7 @@ function CloseIcon() {
  */
 export function TimelinePage() {
   const { selectedVenueId, selectedVenue } = useVenue();
+  const fmt = useVenueFormat();
   const { isConnected } = useSSEStatus();
   const viewport = useViewport();
   const now = useNow();
@@ -343,12 +345,7 @@ export function TimelinePage() {
 
   /* ── Render facts ── */
 
-  const formattedDate = new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const formattedDate = formatLongDateWithYear(selectedDate, fmt.locale);
   const isToday = selectedDate === todayStr;
 
   const loadFailure = fetchError ? describeApiError(fetchError) : null;

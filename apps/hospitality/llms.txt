@@ -169,6 +169,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="contexts">
+  <file path="src/contexts/venue-context-object.ts">
+    <item priority="high">
+      export const VenueContext: unknown;
+    </item>
+    <item priority="high">
+      export function useOptionalVenue(): VenueContextValue | null { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="crm">
   <file path="src/components/crm/guest-lookup-rows.ts">
     <item priority="low">
@@ -1313,7 +1323,7 @@
       }
     </item>
     <item priority="high">
-      export function useVenueFormat(venue: VenueFormatSource): VenueFormat { /* ... */ }
+      export function useVenueFormat(venue?: VenueFormatSource | null): VenueFormat { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
@@ -2027,6 +2037,14 @@
       export function formatServiceDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
+      export function formatInstant(
+        value: string | number | Date,
+        options: Intl.DateTimeFormatOptions,
+        locale: string = LOCALE,
+        timeZone?: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function formatTime(isoString: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
@@ -2107,7 +2125,11 @@
       export const STATUS_LABEL: Record<ReservationStatus, string>;
     </item>
     <item priority="high">
-      export function formatReservationTime(isoString: string): string { /* ... */ }
+      export function formatReservationTime(
+        isoString: string,
+        locale?: string,
+        timeZone?: string
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function specialRequestsText(notes: string | null | undefined): string | null { /* ... */ }
@@ -2219,7 +2241,10 @@
       export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
     </item>
     <item priority="high">
-      export function formatVenueOpenLabel(s: VenueOpenState): string { /* ... */ }
+      export function formatVenueOpenLabel(
+        s: VenueOpenState,
+        formatClock: (hhmm: string) => string = formatLocalTime
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="src/utils/venueOpenState.ts">

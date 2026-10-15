@@ -1,3 +1,4 @@
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
@@ -39,6 +40,7 @@ export function HomePage() {
   const { isConnected } = useSSEStatus();
   const feedEvents = useSSEEventFeed({ maxItems: 5 });
   const { selectedVenue, selectedVenueId } = useVenue();
+  const fmt = useVenueFormat();
   const { data: lapsingGuests = [] } = useLapsingGuests(selectedVenueId);
   const sendWinBack = useSendWinBack();
   const now = useNow();
@@ -69,7 +71,10 @@ export function HomePage() {
         description={`Welcome back${user?.name ? `, ${user.name}` : ""}`}
         aside={
           openState && (
-            <NeonSign state={openState.state} aria-label={formatVenueOpenLabel(openState)} />
+            <NeonSign
+              state={openState.state}
+              aria-label={formatVenueOpenLabel(openState, fmt.formatLocalTime)}
+            />
           )
         }
       />
@@ -112,7 +117,7 @@ export function HomePage() {
             <DepositExposureWidget
               depositAtRiskCount={stats.depositAtRiskCount}
               noShowExposureCents={stats.noShowExposureCents}
-              currency={selectedVenue?.currencyCode ?? "USD"}
+              currency={fmt.currency}
             />
           )}
         </div>

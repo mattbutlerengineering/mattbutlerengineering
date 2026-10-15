@@ -4,6 +4,7 @@ import type { Deposit } from "@mbe/types";
 import { useCreateDeposit } from "../../hooks/useDeposits.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./StaffDepositSection.module.css";
 
 interface StaffDepositSectionProps {
@@ -35,6 +36,7 @@ export function StaffDepositSection({
   fetchError,
 }: StaffDepositSectionProps) {
   const createDeposit = useCreateDeposit();
+  const fmt = useVenueFormat();
   const [amountInput, setAmountInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -57,13 +59,13 @@ export function StaffDepositSection({
       await createDeposit.mutateAsync({
         reservationId,
         amountCents,
-        currency: "usd",
+        currency: fmt.currency.toLowerCase(),
       });
       setShowForm(false);
     } catch (err) {
       setError(describeApiError(err).detail);
     }
-  }, [amountInput, reservationId, createDeposit]);
+  }, [amountInput, reservationId, createDeposit, fmt.currency]);
 
   // The lookup owns this section's visibility before anything else does: a
   // stale fetchError from a prior render must never outrank a fresh
@@ -94,8 +96,12 @@ export function StaffDepositSection({
         </Text>
         <div className={styles.statusRow}>
           <Text variant="caption" color="secondary">
-            {formatCurrencyFromCents(existingDeposit.amountCents, existingDeposit.currency)} —{" "}
-            {depositStatusLabel(existingDeposit.status)}
+            {formatCurrencyFromCents(
+              existingDeposit.amountCents,
+              existingDeposit.currency,
+              fmt.locale
+            )}{" "}
+            — {depositStatusLabel(existingDeposit.status)}
           </Text>
         </div>
         {/* A refund issued in the Stripe dashboard after our own capture is
@@ -106,7 +112,8 @@ export function StaffDepositSection({
               Refunded{" "}
               {formatCurrencyFromCents(
                 existingDeposit.postCaptureRefundCents,
-                existingDeposit.currency
+                existingDeposit.currency,
+                fmt.locale
               )}{" "}
               via Stripe
             </Text>

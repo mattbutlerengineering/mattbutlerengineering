@@ -798,6 +798,14 @@
     });
   </file>
   </section>
+  <section priority="medium" role="contexts">
+  <file path="src/contexts/venue-context-object.ts">
+    export const VenueContext = createContext<VenueContextValue | null>(null);
+    export function useOptionalVenue(): VenueContextValue | null {
+      return useContext(VenueContext);
+    }
+  </file>
+  </section>
   <section priority="medium" role="crm">
   <file path="src/components/crm/guest-lookup-rows.ts">
     export type GuestLookupMode = "linked" | "recognised";
@@ -3991,11 +3999,16 @@
       formatLongDateWithYear(dateStr: string): string;
       formatServiceDate(dateStr: string): string;
       formatShortDate(dateStr: string): string;
+      /** Any instant with caller-chosen `Intl` fields, on the venue clock. */
+      formatInstant(value: string | number | Date, options: Intl.DateTimeFormatOptions): string;
+      /** Venue-local "HH:MM" wall-clock string (an opening hour, not an instant). */
+      formatLocalTime(hhmm: string): string;
     }
-    export function useVenueFormat(venue: VenueFormatSource): VenueFormat {
+    export function useVenueFormat(venue?: VenueFormatSource | null): VenueFormat {
       const { i18n } = useTranslation();
+      const selected = useOptionalVenue()?.selectedVenue;
       const locale = i18n.language;
-      const { ianaTimezone: timeZone, currencyCode: currency } = venue;
+      const { ianaTimezone: timeZone, currencyCode: currency } = venue ?? selected ?? NO_VENUE;
     
       return useMemo(
         () => ({
@@ -4008,6 +4021,8 @@
           formatLongDateWithYear: (d) => formatLongDateWithYear(d, locale),
           formatServiceDate: (d) => formatServiceDate(d, locale),
           formatShortDate: (d) => formatShortDate(d, locale),
+          formatInstant: (value, options) => formatInstant(value, options, locale, timeZone),
+          formatLocalTime: (hhmm) => formatLocalTime(hhmm, locale),
         }),
         [locale, timeZone, currency]
       );
@@ -5501,6 +5516,21 @@
         day: "numeric",
       });
     }
+    export function formatInstant(
+      value: string | number | Date,
+      options: Intl.DateTimeFormatOptions,
+      locale: string = LOCALE,
+      timeZone?: string
+    ): string {
+      const date = new Date(value);
+      // `Intl` throws on an invalid date where `toLocale*String` printed "Invalid Date"; a
+      // malformed SSE/API timestamp must degrade to a bad label, not crash the handler.
+      if (Number.isNaN(date.getTime())) return "Invalid Date";
+      return new Intl.DateTimeFormat(locale, {
+        ...options,
+        timeZone: resolveTimeZone(timeZone),
+      }).format(date);
+    }
     export function formatTime(isoString: string, locale: string = LOCALE): string {
       return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
@@ -5681,11 +5711,12 @@
       COMPLETED: "Completed",
       NO_SHOW: "No Show",
     };
-    export function formatReservationTime(isoString: string): string {
-      return new Date(isoString).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    export function formatReservationTime(
+      isoString: string,
+      locale?: string,
+      timeZone?: string
+    ): string {
+      return formatInstant(isoString, { hour: "2-digit", minute: "2-digit" }, locale, timeZone);
     }
     export function specialRequestsText(notes: string | null | undefined): string | null {
       const text = notes?.trim() ?? "";
@@ -5839,16 +5870,19 @@
       saturday: "Saturday",
       sunday: "Sunday",
     };
-    export function formatVenueOpenLabel(s: VenueOpenState): string {
+    export function formatVenueOpenLabel(
+      s: VenueOpenState,
+      formatClock: (hhmm: string) => string = formatLocalTime
+    ): string {
       switch (s.state) {
         case "open":
-          return `Open until ${formatLocalTime(s.closesAt)}`;
+          return `Open until ${formatClock(s.closesAt)}`;
         case "opening-soon":
-          return `Opens at ${formatLocalTime(s.opensAt)}`;
+          return `Opens at ${formatClock(s.opensAt)}`;
         case "closed":
           return s.opensOn === null
-            ? `Closed, opens at ${formatLocalTime(s.opensAt)}`
-            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatLocalTime(s.opensAt)}`;
+            ? `Closed, opens at ${formatClock(s.opensAt)}`
+            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatClock(s.opensAt)}`;
         case "unset":
           return UNSET_LABEL;
       }

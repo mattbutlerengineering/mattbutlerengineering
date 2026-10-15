@@ -1,3 +1,4 @@
+import { useVenueFormat, type VenueFormat } from "../hooks/useVenueFormat.js";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@mbe/auth/react";
@@ -36,14 +37,11 @@ interface ProfileFormData {
   picture: string;
 }
 
-function formatMemberSince(date: string | Date): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+function formatMemberSince(date: string | Date, fmt: VenueFormat): string {
+  return fmt.formatInstant(date, { month: "long", year: "numeric" });
 }
 
-function formatRelativeTime(date: string | Date): string {
+function formatRelativeTime(date: string | Date, fmt: VenueFormat): string {
   const now = Date.now();
   const then = new Date(date).getTime();
   const diffMs = now - then;
@@ -55,11 +53,7 @@ function formatRelativeTime(date: string | Date): string {
   if (diffMin < 60) return `${diffMin}m ago`;
   if (diffHr < 24) return `${diffHr}h ago`;
   if (diffDays < 30) return `${diffDays}d ago`;
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return fmt.formatInstant(date, { month: "short", day: "numeric", year: "numeric" });
 }
 
 /** How each session phase reads on the instrument cluster's telltale LED. */
@@ -121,6 +115,7 @@ function SessionCluster({ remainingMs, phase, elapsedPercent }: SessionClusterPr
 }
 
 export function ProfilePage() {
+  const fmt = useVenueFormat();
   const { user: authUser } = useAuth();
   // Session timing comes from the token claims @mbe/auth/react surfaces via
   // `user.raw` (`exp`/`iat`, epoch seconds). react-oidc-context's access-token
@@ -264,11 +259,11 @@ export function ProfilePage() {
     },
     {
       label: "Member Since",
-      value: user?.createdAt ? formatMemberSince(user.createdAt) : "Unknown",
+      value: user?.createdAt ? formatMemberSince(user.createdAt, fmt) : "Unknown",
     },
     {
       label: "Last Updated",
-      value: user?.updatedAt ? formatRelativeTime(user.updatedAt) : "Unknown",
+      value: user?.updatedAt ? formatRelativeTime(user.updatedAt, fmt) : "Unknown",
     },
   ];
 
@@ -415,7 +410,7 @@ export function ProfilePage() {
                 Member Since
               </Text>
               <Text variant="body" color="primary">
-                {user?.createdAt ? formatMemberSince(user.createdAt) : "Unknown"}
+                {user?.createdAt ? formatMemberSince(user.createdAt, fmt) : "Unknown"}
               </Text>
             </div>
             <div className={styles.activityItem}>
@@ -423,7 +418,7 @@ export function ProfilePage() {
                 Last Updated
               </Text>
               <Text variant="body" color="primary">
-                {user?.updatedAt ? formatRelativeTime(user.updatedAt) : "Unknown"}
+                {user?.updatedAt ? formatRelativeTime(user.updatedAt, fmt) : "Unknown"}
               </Text>
             </div>
             <div className={styles.activityItem}>

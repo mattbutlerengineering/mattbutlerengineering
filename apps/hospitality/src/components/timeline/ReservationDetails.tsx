@@ -3,7 +3,7 @@ import type { Reservation, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
-import { formatTime } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
@@ -57,6 +57,7 @@ export function ReservationDetails({
   onCancel,
   onMarkNoShow,
 }: ReservationDetailsProps) {
+  const fmt = useVenueFormat();
   const table = findReservationTable(reservation, tables);
   const caption = occupiedCaption(reservation, table, now);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
@@ -111,9 +112,9 @@ export function ReservationDetails({
           Time
         </Text>
         <Text variant="body" as="div">
-          {formatTime(reservation.startTime)}
+          {fmt.formatTime(reservation.startTime)}
           {" - "}
-          {formatTime(reservation.endTime)}
+          {fmt.formatTime(reservation.endTime)}
         </Text>
       </div>
 

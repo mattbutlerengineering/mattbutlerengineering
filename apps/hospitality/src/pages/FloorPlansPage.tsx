@@ -1,3 +1,4 @@
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
@@ -52,6 +53,7 @@ function cloneFailureFrom(err: unknown): CloneFailure {
 
 export function FloorPlansPage() {
   const navigate = useNavigate();
+  const fmt = useVenueFormat();
   const { selectedVenueId } = useVenue();
   const api = useApiClient();
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -96,9 +98,8 @@ export function FloorPlansPage() {
     [navigate]
   );
 
-  const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleDateString();
-  };
+  const formatDate = (isoString: string) =>
+    fmt.formatInstant(isoString, { year: "numeric", month: "numeric", day: "numeric" });
 
   if (isLoading && floorPlans.length === 0) {
     return <FloorPlansLoadingSkeleton />;

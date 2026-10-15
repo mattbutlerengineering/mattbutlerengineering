@@ -87,7 +87,31 @@ export function formatServiceDate(dateStr: string, locale: string = LOCALE): str
 }
 
 /**
- * Format an ISO datetime string as 12-hour time with minutes (e.g. "2:30 PM").
+ * Format any instant with caller-chosen `Intl` fields. `timeZone` (a venue's IANA zone)
+ * pins the clock; absent or invalid falls back to the device zone. The one door for
+ * display dates/times outside the fixed shapes above — components never call `Intl` or
+ * `toLocale*String` themselves.
+ */
+export function formatInstant(
+  value: string | number | Date,
+  options: Intl.DateTimeFormatOptions,
+  locale: string = LOCALE,
+  timeZone?: string
+): string {
+  const date = new Date(value);
+  // `Intl` throws on an invalid date where `toLocale*String` printed "Invalid Date"; a
+  // malformed SSE/API timestamp must degrade to a bad label, not crash the handler.
+  if (Number.isNaN(date.getTime())) return "Invalid Date";
+  return new Intl.DateTimeFormat(locale, {
+    ...options,
+    timeZone: resolveTimeZone(timeZone),
+  }).format(date);
+}
+
+/**
+ * Format an ISO datetime string as time with minutes (e.g. "2:30 PM" in en-US), in the
+ * viewer's device timezone. Staff screens use the venue-zone `formatTimeIn` (via
+ * `useVenueFormat`) instead; this is the fallback when no venue zone is known.
  *
  * Used by: TimeSlotPicker, GuestDetailsForm, ConfirmationView,
  *          TimelineMobileView, ReservationBlock
@@ -103,9 +127,7 @@ export function formatTime(isoString: string, locale: string = LOCALE): string {
  * Format an ISO datetime string as 12-hour time with minutes, in the given
  * IANA timezone (e.g. "2:30 PM"). Sibling to `formatTime`, which uses the
  * viewer's device timezone — use this wherever the *venue's* clock is what
- * matters, e.g. guest-facing booking flows (#4976), never mutating
- * `formatTime` itself since Timeline/ReservationBlock intentionally want
- * device-local.
+ * matters: booking flows (#4976) and, through `useVenueFormat`, staff screens.
  *
  * Used by: TimeSlotPicker, TimeSlotListbox, GuestDetailsForm, ConfirmationView
  */

@@ -1,12 +1,15 @@
 /**
  * Service-day clock — the one place the app decides what "today" is.
  *
- * Two policies, chosen per call site, neither of which is UTC (the UTC-keyed `toDateString`
+ * Two policies for choosing a day, neither of which is UTC (the UTC-keyed `toDateString`
  * from `@mbe/types` rolls to tomorrow at 17:00 Pacific and emptied the dashboard and grid):
  *
- * - **Device** (`deviceDate`, `deviceHour`, `isDeviceToday`, `addDays`-based ranges): staff
- *   screens. The Host stands in the venue, so the device clock is the service-night clock
- *   (ux.md decision (a)). The E2E harness re-dates fixtures with the same rule (`e2e/local-day.ts`).
+ * - **Device** (`deviceDate`, `deviceHour`, `isDeviceToday`, `addDays`-based ranges): which
+ *   night staff screens open on. The Host stands in the venue, so the device calendar day
+ *   picks the service night (ux.md decision (a)). The E2E harness re-dates fixtures with the
+ *   same rule (`e2e/local-day.ts`). This only selects a date; every time shown *on* a staff
+ *   screen is rendered on the venue's clock via `useVenueFormat` (localization architecture,
+ *   "Accepted behaviour changes").
  * - **Venue** (`venueDate`, `venueWallClock`): guest-facing booking flows, read on the venue's
  *   IANA zone. An absent or unresolvable zone falls back to the device policy, never UTC.
  */

@@ -2,7 +2,7 @@ import { memo } from "react";
 import { StatusLED } from "@mattbutlerengineering/rialto";
 import type { Reservation, ReservationStatus } from "@mbe/types";
 import { ordinalVisit } from "../../utils/ordinal.js";
-import { formatTime } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./ReservationBlock.module.css";
 
 export interface ReservationBlockProps {
@@ -31,9 +31,10 @@ function ReservationBlockComponent({
   isSeated = false,
   onClick,
 }: ReservationBlockProps) {
+  const fmt = useVenueFormat();
   const statusClass = STATUS_CLASS[reservation.status];
 
-  const startTime = formatTime(reservation.startTime);
+  const startTime = fmt.formatTime(reservation.startTime);
   const guestName = reservation.guestName || "Guest";
   const visitCount =
     reservation.guest && reservation.guest.visitCount > 1 ? reservation.guest.visitCount : null;

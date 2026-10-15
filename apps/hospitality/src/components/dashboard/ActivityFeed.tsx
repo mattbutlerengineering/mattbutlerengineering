@@ -1,8 +1,9 @@
 import { Card, Text } from "@mattbutlerengineering/rialto";
 import type { ReservationEvent, ReservationEventType } from "../../hooks/useSSESync.js";
+import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "../../pages/HomePage.module.css";
 
-function formatEventTimestamp(timestamp: string): string {
+function formatEventTimestamp(timestamp: string, fmt: VenueFormat): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -12,7 +13,7 @@ function formatEventTimestamp(timestamp: string): string {
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffHrs = Math.floor(diffMin / 60);
   if (diffHrs < 24) return `${diffHrs}h ago`;
-  return date.toLocaleDateString();
+  return fmt.formatInstant(date, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
 const EVENT_LABELS: Partial<Record<ReservationEventType, string>> = {
@@ -36,6 +37,7 @@ interface ActivityFeedProps {
 }
 
 export function ActivityFeed({ events, isConnected }: ActivityFeedProps) {
+  const fmt = useVenueFormat();
   if (!isConnected && events.length === 0) {
     return (
       <Card title="Live Activity">
@@ -71,7 +73,7 @@ export function ActivityFeed({ events, isConnected }: ActivityFeedProps) {
             <div className={styles.activityContent}>
               <div className={styles.activityMessage}>{describeEvent(event)}</div>
               <div className={styles.activityTimestamp}>
-                {formatEventTimestamp(event.timestamp)}
+                {formatEventTimestamp(event.timestamp, fmt)}
               </div>
             </div>
           </li>

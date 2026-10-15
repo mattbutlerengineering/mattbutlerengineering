@@ -1,14 +1,7 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Venue } from "@mbe/types";
+import { VenueContext } from "./venue-context-object.js";
 import { useVenues, VENUES_QUERY_KEY } from "../hooks/useVenues.js";
 
 interface VenueContextValue {
@@ -42,8 +35,6 @@ function storeVenueId(id: string): void {
     /* ignore storage errors */
   }
 }
-
-const VenueContext = createContext<VenueContextValue | null>(null);
 
 interface VenueProviderProps {
   readonly children: ReactNode;
