@@ -111,7 +111,7 @@ function matcherFor(value: string): RegExp {
 function forbiddenEnglish(
   locale: Locale,
   revertScope: RegExp | null = PUBLIC_NAMESPACE
-): Array<{ key: string; value: string; match: RegExp }> {
+): Array<{ key: string; value: string; literal: boolean; match: RegExp }> {
   const sources: Array<[Flat, Flat, boolean]> = [
     [loadCatalog("en-US"), { ...loadCatalog("en-US"), ...loadCatalog(locale) }, true],
     [
@@ -138,7 +138,12 @@ function forbiddenEnglish(
           !SAME_AS_EN_US[locale].has(key)
         );
       })
-      .map(([key, value]) => ({ key, value, match: matcherFor(value) }));
+      .map(([key, value]) => ({
+        key,
+        value,
+        literal: !/\{\{\w+\}\}/.test(value),
+        match: matcherFor(value),
+      }));
   });
 }
 
@@ -228,12 +233,16 @@ async function sweep(
   await page.waitForLoadState("networkidle");
   const forbidden = forbiddenEnglish(locale, revertScope);
   const untranslated = (await visibleStrings(page))
-    .flatMap((text) => appWords(text, userData))
     .map(normalize)
     .filter(Boolean)
-    .flatMap((text) =>
-      forbidden.filter((f) => f.match.test(text)).map((f) => `"${text}" is en-US ${f.key}`)
-    );
+    .flatMap((text) => {
+      // Literal values are matched against what is on screen; templates against the text
+      // with typed values masked, where their `.+?` still matches the token.
+      const masked = withTypedValuesMasked(text, userData);
+      return forbidden
+        .filter((f) => f.match.test(f.literal ? text : masked))
+        .map((f) => `"${text}" is en-US ${f.key}`);
+    });
   expect(untranslated, `${locale} ${where}: untranslated text`).toEqual([]);
   expect(await overflows(page), `${locale} ${where}: overflow outside data-truncate`).toEqual([]);
 }
@@ -430,23 +439,21 @@ function userEnteredText(): string[] {
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Where a UI template joins a typed value to its words ("Table 4: Disponible. ..."). */
-const DATA_SEPARATOR = /\s*[:,·•|–—]\s*/;
+/** Stands in for a typed value; a private-use character, so no catalog value contains it. */
+const TYPED = "";
 
 /**
- * The parts of a visible string that are the app's own words. A segment that is exactly a
- * typed value is dropped; nothing is ever cut out of the inside of a segment, so "New
- * reservation" or "e.g. Table 1" is still judged whole.
+ * The visible string with each typed value (whole, on letter/number boundaries, longest
+ * first) replaced by one token. The string is never cut: it is still judged whole, so
+ * "New reservation" or "e.g. Table 1" is as visible to the check as before, while
+ * "Table 1: Disponible" (a template's argument) no longer reads as the word "Table".
  */
-function appWords(text: string, userData: readonly string[]): string[] {
-  // A typed value that opens a template ("Table 1 (capacidad: 4)") is the template's argument.
-  const lead = userData.find((value) => new RegExp(`^${escapeRegExp(value)}\\s*[(:,]`).test(text));
-  const rest = lead ? text.slice(lead.length) : text;
-  const segments = rest.split(DATA_SEPARATOR).map(normalize);
-  const typed = (segment: string) => userData.includes(segment);
-  return segments.some(typed) || lead
-    ? segments.filter((segment) => segment && !typed(segment))
-    : [text];
+function withTypedValuesMasked(text: string, userData: readonly string[]): string {
+  const boundary = (value: string) =>
+    new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(value)}(?![\\p{L}\\p{N}])`, "gu");
+  return [...userData]
+    .sort((a, b) => b.length - a.length)
+    .reduce((rest, value) => rest.replace(boundary(value), TYPED), text);
 }
 
 /** The dashboard's own key (LOCALE_STORAGE_KEY in src/i18n/runtime.tsx) — never the widget's. */
