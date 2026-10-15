@@ -194,7 +194,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-03",
-    "last_seen": "2026-10-03",
+    "last_seen": "2026-10-15",
     "escalated_at": null
   },
   "rialto-web|components/tape-chart|r1|accessibility/axe-moderate": {
@@ -420,6 +420,60 @@
     "severity": "P2",
     "first_seen": "2026-10-12",
     "last_seen": "2026-10-12",
+    "escalated_at": null
+  },
+  "rialto-web|components/neon-sign|r1|accessibility/axe-serious": {
+    "issue": 6694,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-15",
+    "last_seen": "2026-10-15",
+    "escalated_at": null
+  },
+  "rialto-web|components/page-header|r1|accessibility/axe-moderate": {
+    "issue": 6695,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-15",
+    "last_seen": "2026-10-15",
+    "escalated_at": null
+  },
+  "rialto-web|components/pagination|r1|accessibility/axe-moderate": {
+    "issue": 6696,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-15",
+    "last_seen": "2026-10-15",
+    "escalated_at": null
+  },
+  "rialto-web|components/pagination|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-15",
+    "last_seen": "2026-10-15",
+    "escalated_at": null
+  },
+  "rialto-web|components/scroll-area|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-15",
+    "last_seen": "2026-10-15",
+    "escalated_at": null
+  },
+  "rialto-web|components/scroll-area|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-15",
+    "last_seen": "2026-10-15",
     "escalated_at": null
   }
 }

@@ -68,14 +68,14 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 
 ## Milestone 2: Guest booking — public booking and manage pages fully usable in 4 locales
 
-- [ ] **Venue formatting** — refactor `apps/hospitality/src/utils/format.ts` to explicit
+- [x] **Venue formatting** — refactor `apps/hospitality/src/utils/format.ts` to explicit
       `{ locale, timeZone, currency }`, drop forced `hour12`, add `useVenueFormat()`. (tracker: #6612)
   - Accept: equivalence test: for en-US, old and new formatters produce identical output
     over a sample of ≥20 date/time/money inputs across two venue timezones; en-GB test
     shows `US$40.00`, 24h time, `dd/mm/yyyy` for a USD / America/Los_Angeles venue;
     invalid IANA zone falls back to device zone and reports once.
   - Blocked by: i18n runtime
-- [ ] **Cancellation-policy description** — `describeCancellationPolicy()` discriminated
+- [x] **Cancellation-policy description** — `describeCancellationPolicy()` discriminated
       union in `packages/cancellation-policy`; English sentence function re-implemented
       over it. (tracker: #6613)
   - Accept: existing English-sentence tests pass unchanged; new tests cover every

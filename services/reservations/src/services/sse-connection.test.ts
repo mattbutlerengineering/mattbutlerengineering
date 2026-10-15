@@ -3,7 +3,7 @@ import { SseConnection } from "./sse-connection.js";
 import type { RequestLike, ReplyRaw } from "./sse-connection.js";
 import type { SseConnectionConfig } from "./sse-connection-manager.js";
 import { DEFAULT_SSE_CONFIG } from "./sse-connection-manager.js";
-import type { ReservationEvent } from "./events.js";
+import type { Reservation, SseEvent } from "@mbe/types";
 
 /** Minimal raw-response mock shaped for SseConnection. */
 function makeRawMock() {
@@ -39,12 +39,14 @@ function makeConfig(overrides: Partial<SseConnectionConfig> = {}): SseConnection
   return Object.freeze({ ...DEFAULT_SSE_CONFIG, ...overrides });
 }
 
-function makeReservationEvent(overrides: Partial<ReservationEvent> = {}): ReservationEvent {
+function makeReservationEvent(
+  overrides: Partial<SseEvent<"reservation:created">> = {}
+): SseEvent<"reservation:created"> {
   return {
     type: "reservation:created",
     venueId: "venue-1",
     timestamp: new Date().toISOString(),
-    data: { id: "res-1" } as unknown as ReservationEvent["data"],
+    data: { id: "res-1" } as unknown as Reservation,
     ...overrides,
   };
 }

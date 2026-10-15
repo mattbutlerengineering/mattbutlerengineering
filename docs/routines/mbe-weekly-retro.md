@@ -50,7 +50,13 @@ For each, state in ONE sentence the specific thing a human must do to unblock it
 
 ## Pass 3 — PR flow friction
 
-For PRs merged in the last 7 days, measure where time actually went: open-to-merge duration, how many needed `gh pr update-branch` (the N-squared tax of stacking same-zone PRs against strict main, ADR-016/ADR-023), how many went red at least once before merging, and how many were reverted or needed a follow-up fix within 48h. Name the slowest one and say why it was slow.
+Do not measure this by hand. Read the SDLC-speed sensor: `node scripts/collect-sdlc-speed.mjs --days 7 --regressions` (it needs egress and `gh` REST only; it avoids GraphQL-backed subcommands, so it works in a Claude Code Remote session with a REST-capable token; if the session cannot run it, read the latest `sensor: "sdlcSpeed"` row in `metrics/process-metrics.jsonl`, which `metrics-collectors.yml` appends every Monday and which already carries that week's `proposals`, and say which you used). It reports, for PRs merged in the window: open-to-merge p50/p90/max **split by author class** (human, agent, dependabot, github-actions) with the 3 slowest PR numbers per class; `ci.yml` pull_request wall-clock p50/p90, the slowest job by median duration, and the share of sampled runs that touched `pnpm-lock.yaml` (cold turbo cache); and `mainStrict`, the measured value of `main`'s branch-protection `strict` flag. Report the numbers per class, not one blended figure: a blended p90 is dominated by Dependabot's tail and hides everything else.
+
+Cite `mainStrict` as measured; do not assume it. Only when it is `true` is `gh pr update-branch` churn the N-squared tax of stacking same-zone PRs against strict main (ADR-016/ADR-023). When it is `false` a `BEHIND` PR merges without an update, so update-branch counts are not a cost to report. When it is `null` (always the case in the Monday Actions row, whose `GITHUB_TOKEN` lacks Administration:read, flagged by `mainStrictSource: "unavailable"`) the sensor could not read branch protection: say so, and re-measure with an admin token or run `node scripts/main-strictness.mjs` locally. Never fill in a value.
+
+Still measure by hand what the sensor does not cover: how many PRs went red at least once before merging, and how many were reverted or needed a follow-up fix within 48h. Name the slowest PR and say why it was slow.
+
+Regressions: the `proposals` array (when run with `--regressions`) holds at most one issue, already de-duplicated against open `ready` issues by title. It is non-empty only when a class's p90 rose 50% or more week over week, or `ci.yml` p50 rose 30% or more, against the previous recorded `sdlcSpeed` row. File it, labeled `ready`, with the proposal's title and body unchanged. File nothing when `proposals` is empty.
 
 ## Pass 4 — recurring failure causes
 

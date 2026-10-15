@@ -70,7 +70,7 @@ These signals can shift a PR's tier independent of file paths.
 
 **Always escalate to T4:**
 
-- PR title or body contains "secret", "credential", "rotate", "leak", "incident".
+- PR title or body contains "secret", "credential", "rotate", "leak", "incident" **as an incident signal**, or a changed file already matched a T3/T4 path rule. Policy lives in `scripts/tier-escalation.mjs` (`decideKeywordEscalation`): a keyword in the title, or in a body sentence that also carries an incident cue (leaked / exposed / compromised / breached / revoked / "rotate the…" / incident report|response|review / security incident), escalates one tier (or to T4 with a sensitive path). A descriptive mention elsewhere in the body (e.g. "needs the E2E credentials") does not escalate (#6655, #6541). Code spans and hyphenated identifiers never count.
 - PR body explicitly asks reviewers to bypass a check — a **request**, not a
   mention. `tier-classifier.yml` requires a request cue (please / can you /
   I need / requesting) in the same sentence as the bypass phrase, or a
@@ -83,7 +83,7 @@ These signals can shift a PR's tier independent of file paths.
 
 **Escalate one tier:**
 
-- Diff is > 1000 lines added (size correlates with risk).
+- Diff is > 1000 review-surface lines added (size correlates with risk). Generated files and pipeline run artifacts do not count toward the 1000 (#6655, #6610): `**/llms.txt`, `**/llms-full.txt`, `pnpm-lock.yaml`, `**/registry.json`, `infrastructure/worker/dep-graph.json`, `docs/architecture/dependency-graph.md`, `**/generated*`, `docs/features/**/*.md`, `docs/fixes/**/*.md`. Other markdown still counts. The list is `EXCLUDED_FROM_SIZE` in `scripts/tier-escalation.mjs` (a test keeps this paragraph in agreement).
 - PR is from a fork (external contributor).
 - PR has been force-pushed since the last review approval.
 - PR removes a test file.

@@ -498,7 +498,13 @@ jobs:
             });
 
   test:
-    name: Test (Node ${{ matrix.node-version }})
+    # One job id, several matrix legs: `ci-gate` and `report-health` key on the
+    # id `test`, and a `needs: test` edge waits on every leg, so sharding adds no
+    # consumer edits. Legs are selected by turbo --filter; `rest` is derived by
+    # exclusion so a new package can never fall outside every leg
+    # (scripts/__tests__/ci-test-shards.test.mjs). Coverage gating lives in
+    # `test-coverage-gate`, which joins all legs.
+    name: Test (Node ${{ matrix.node-version }}, ${{ matrix.leg }})
     runs-on: ubuntu-latest
     # Not `lint`: ESLint produces nothing this job consumes, and the turbo
     # `^build` cache it reuses comes from Typecheck. CI Gate still requires
@@ -506,12 +512,6 @@ jobs:
     # `architecture-audit` either: it builds the CLI on its own runner and
     # hands this job nothing; CI Gate still requires it.
     needs: [typecheck]
-
-    # Single source of truth for the repo-wide coverage threshold, enforced on
-    # the Node-22 leg below. The stricter agent-core package gate (80%) is a
-    # deliberately separate, package-specific rule — not a competing repo number.
-    env:
-      COVERAGE_THRESHOLD: 60
 
     strategy:
       fail-fast: false
@@ -521,6 +521,16 @@ jobs:
         # non-PR events, which let a Node-20-only failure land on main before
         # anyone saw it (#3558) — see #3570 and .claude/rules/gotchas.md.
         node-version: [22]
+        leg: [reservations, hospitality, rialto, rest]
+        include:
+          - leg: reservations
+            filter: "--filter=@mbe/reservations-service"
+          - leg: hospitality
+            filter: "--filter=@mbe/hospitality"
+          - leg: rialto
+            filter: "--filter=@mattbutlerengineering/rialto"
+          - leg: rest
+            filter: "--filter=!@mbe/reservations-service --filter=!@mbe/hospitality --filter=!@mattbutlerengineering/rialto"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -579,13 +589,13 @@ jobs:
         # this line still declares a cap and fails if the nightly runs the
         # suite more parallel than this job — the mismatch behind ten red
         # nights (#5203 … #5517).
-        run: pnpm turbo test:coverage --concurrency=2
+        run: pnpm turbo test:coverage --concurrency=2 ${{ matrix.filter }}
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-results-node${{ matrix.node-version }}
+          name: test-results-node${{ matrix.node-version }}-${{ matrix.leg }}
           # Fixed depths, not `**`: a recursive pattern makes the glob walk all
           # of node_modules (73s for one file on run 37527830915). Covers the
           # root and every workspace package (ci-test-results-glob.test.mjs).
@@ -594,6 +604,49 @@ jobs:
             */test-results/*.xml
             */*/test-results/*.xml
           retention-days: 14
+
+      - name: Upload coverage artifact
+        # Per-leg, fixed depths (no `**`: see the test-results step above).
+        # Covers scripts/ at depth 1 and every apps|packages|services|tools|
+        # plugins|infrastructure/* at depth 2; the gate job downloads them all
+        # into one workspace so its find-based scan sees repo-relative paths.
+        # Success-only: a failed leg means the gate never runs anyway.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ matrix.leg }}
+          path: |
+            */coverage/coverage-final.json
+            */*/coverage/coverage-final.json
+          retention-days: 14
+          if-no-files-found: error
+
+  test-coverage-gate:
+    name: Test Coverage Gate
+    # Plain `needs: [test]` — deliberately NO `if: always()`. A red or missing
+    # leg must mean no gate verdict at all, never a plausible-but-partial
+    # repo-wide percentage. On a docs-only run `test` is skipped, so this is
+    # skipped too (CI Gate treats skipped as pass).
+    needs: [test]
+    runs-on: ubuntu-latest
+
+    # Single source of truth for the repo-wide coverage threshold. The stricter
+    # agent-core package gate (80%) is a deliberately separate, package-specific
+    # rule — not a competing repo number.
+    env:
+      COVERAGE_THRESHOLD: 60
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Download coverage artifacts
+        # upload-artifact keeps paths relative to the workspace, so merging all
+        # legs into `.` reconstructs <pkg>/coverage/coverage-final.json exactly
+        # where the scan and the codecov file list below expect it.
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: .
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
@@ -604,7 +657,6 @@ jobs:
           verbose: true
 
       - name: Enforce repo-wide coverage threshold
-        if: matrix.node-version == 22
         run: |
           # Repo-wide statement coverage across every package's coverage-final.json,
           # folded in from the retired coverage-gate.yml so the suite runs at most
@@ -638,7 +690,6 @@ jobs:
           echo "Repo-wide coverage threshold met"
 
       - name: Enforce agent-core coverage threshold
-        if: matrix.node-version == 22
         run: |
           COVERAGE_FILE="./packages/agent-core/coverage/coverage-final.json"
           if [ ! -f "$COVERAGE_FILE" ]; then
@@ -1059,6 +1110,7 @@ jobs:
         architecture-audit,
         build,
         test,
+        test-coverage-gate,
         hadolint,
         trivy,
         migrations,

@@ -417,28 +417,7 @@ performs no session check, and requires `guestName` + `guestEmail`.
 
 ### Event Types
 
-```typescript
-type ReservationEvent = {
-  id: string; // Sequence number
-  type: "reservation:created" | "reservation:updated" | "reservation:cancelled";
-  timestamp: string;
-  data: Reservation;
-};
-
-type TableEvent = {
-  id: string;
-  type: "table:updated";
-  timestamp: string;
-  data: Table;
-};
-
-type HoldEvent = {
-  id: string;
-  type: "hold:created" | "hold:released" | "hold:confirmed";
-  timestamp: string;
-  data: ReservationHold | Reservation;
-};
-```
+The event vocabulary is owned by `SSE_EVENT_CATALOG` / `SsePayloadMap` in `packages/types/src/sse-events.ts`; do not restate it here. `SseEvent` (also exported as `ReservationEvent` from `services/events.ts`) is a discriminated union: `type` selects the `data` payload, so emitting `guest:lapsing` with a `Reservation` is a compile error. The current event list is tabulated in `apps/hospitality/docs/ARCHITECTURE.md` § Event Types Reference, which a test keeps equal to the catalog.
 
 ### SSE Connection
 

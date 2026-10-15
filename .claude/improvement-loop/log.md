@@ -3558,3 +3558,19 @@ None — 0 `agent-skip`.
 **Skill proposals:** n/a (not Friday)
 **Threshold notes:** auto-tuner moved acmm 1.15 → 1.167. Step 0's `scripts/collect-domain-metrics.mjs` no longer exists — SKILL.md is stale
 **Other:** e2eStability reports 8 consecutive non-frontend failures; cold/full PR CI runs take 19-23m with `Test (Node 22)` at ~889s (normal affected-only PR runs 1-4m)
+
+## 2026-10-15 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` source `branch` (`ui-quality/ledger`), merged `origin/main`, no conflicts resolved.
+- **Routes:** 40 due / 40 captured / 40 audited (all `rialto-web`). 18 `hospitality` rows `unreachable:auth`, never captured. `marketing` and `hospitality` capture runs skipped — no routes planned for either. No `unreachable:build` (all three app builds green).
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Judge:** every captured route read at both viewports (1280x720 and 375x812) against rubric v1; all 40 clean on the judged tells (`tells: []`).
+- **Calibration:** stamp `stale`. `calibration-status` returned exit 3; the single permitted calibrate attempt failed with exit 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Matt labels ≥ 10 once at the Verify stage). Logged, not retried. Re-queried status: still `stale`. Ratings ran anyway per the gate: 6 pairs recorded, rialto-web 2.92.
+- **Issues created:** 3 — #6694 (`components/neon-sign` axe-serious), #6695 (`components/page-header` axe-moderate), #6696 (`components/pagination` axe-moderate). All three came back carrying `ui-quality`; filing continued.
+- **Issues reopened:** 1 — #6003 (`components/tag` axe-serious, recurred after its fix merged in #6262).
+- **Issues commented:** 0.
+- **Seeds:** 3 P2 overflow seeds (`components/pagination` axe-serious, `components/scroll-area` axe-moderate and axe-serious) — all already present in `docs/backlog.md` from the 2026-10-02 fire, so `seeds` deduped and wrote nothing.
+- **Fix PR:** none — the plan carried no `fix_pr_candidate`.
+- **P1 breaches escalated:** 0 (no open `ui-quality:p1` issues at all).
+- **Coverage before this fire:** 100% (131/131, provisional; first run 2026-10-01). 18 auth-gated hospitality rows excluded as unreachable.
+- **Blockers / pipeline bugs:** none beyond the unlabelled calibration set noted above. No `blocker: no-browser` — Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`. Filing was not stopped.
