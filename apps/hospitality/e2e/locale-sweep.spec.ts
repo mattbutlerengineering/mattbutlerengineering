@@ -135,17 +135,9 @@ function forbiddenEnglish(locale: Locale): Array<{ key: string; value: string; m
   });
 }
 
-/**
- * KNOWN GAP, not an allowance: ToastProvider is mounted once at the app root
- * (main.tsx), outside the guest's WidgetLocaleScope, so its always-mounted
- * live region is labelled from the dashboard's locale ("Notifications") on
- * every public route. Tracked in #6737; remove this exclusion with its fix.
- */
-const KNOWN_GAP_SELECTOR = '[role="region"]:has(> [aria-live])';
-
 /** Every string a guest can read or hear on the page right now. */
 async function visibleStrings(page: Page): Promise<string[]> {
-  return page.evaluate((knownGap) => {
+  return page.evaluate(() => {
     const seen = new Set<string>();
     const visible = (el: Element) => {
       const style = getComputedStyle(el);
@@ -155,7 +147,6 @@ async function visibleStrings(page: Page): Promise<string[]> {
     };
     for (const el of document.body.querySelectorAll("*")) {
       if (["SCRIPT", "STYLE", "NOSCRIPT"].includes(el.tagName) || !visible(el)) continue;
-      if (el.matches(knownGap)) continue;
       const own = Array.from(el.childNodes)
         .filter((node) => node.nodeType === Node.TEXT_NODE)
         .map((node) => node.textContent ?? "")
@@ -166,7 +157,7 @@ async function visibleStrings(page: Page): Promise<string[]> {
       }
     }
     return Array.from(seen);
-  }, KNOWN_GAP_SELECTOR);
+  });
 }
 
 /**
