@@ -23,7 +23,12 @@ export function PaginationPage() {
           <Text variant="detail" color="tertiary">
             5 pages
           </Text>
-          <Pagination page={pageA} totalPages={5} onChange={setPageA} />
+          <Pagination
+            page={pageA}
+            totalPages={5}
+            onChange={setPageA}
+            ariaLabel="Small range pagination"
+          />
         </Stack>
       </Section>
 
@@ -33,7 +38,12 @@ export function PaginationPage() {
           <Text variant="detail" color="tertiary">
             20 pages
           </Text>
-          <Pagination page={pageB} totalPages={20} onChange={setPageB} />
+          <Pagination
+            page={pageB}
+            totalPages={20}
+            onChange={setPageB}
+            ariaLabel="Large range with ellipsis pagination"
+          />
         </Stack>
       </Section>
 
@@ -43,7 +53,12 @@ export function PaginationPage() {
           <Text variant="detail" color="tertiary">
             100 pages
           </Text>
-          <Pagination page={pageC} totalPages={100} onChange={setPageC} />
+          <Pagination
+            page={pageC}
+            totalPages={100}
+            onChange={setPageC}
+            ariaLabel="Very large range pagination"
+          />
         </Stack>
       </Section>
 
@@ -85,7 +100,12 @@ export function PaginationPage() {
             </Text>
           </div>
           <div style={{ display: "flex", justifyContent: "center" }}>
-            <Pagination page={pageA} totalPages={15} onChange={setPageA} />
+            <Pagination
+              page={pageA}
+              totalPages={15}
+              onChange={setPageA}
+              ariaLabel="Usage example pagination"
+            />
           </div>
         </div>
       </Section>
@@ -99,7 +119,10 @@ export function PaginationPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Element", value: "<nav aria-label='Pagination'>" },
+            {
+              label: "Element",
+              value: "<nav aria-label>, unique per instance via the ariaLabel prop",
+            },
             { label: "Current", value: "aria-current='page' on active page button" },
             { label: "Previous/Next", value: "aria-label='Previous/Next page' on arrow buttons" },
             { label: "Disabled", value: "aria-disabled on Previous at page 1, Next at last page" },
