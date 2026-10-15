@@ -14,7 +14,7 @@ export interface WaitlistEntryRef {
   guestPhone: string;
   guestName: string | null;
   position?: number;
-  estimatedWaitMinutes?: number;
+  estimatedWaitMinutes?: number | null;
   status?: string;
 }
 
@@ -27,8 +27,15 @@ export interface WaitlistNotifierDeps {
   // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
   // the notifier's own public method, so both must accept venueId.
   notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
-  /** Persists notified state on the row; null if the party is no longer waiting. */
-  markNotified(id: string): Promise<{ id: string } | null>;
+  /**
+   * Persists notified state on the row; null if the party is no longer waiting.
+   * `positionChanges` are the parties behind it that moved up; the notifier texts
+   * them only once the expiry job is scheduled, because a failed schedule reverts
+   * the party and moves everyone back down.
+   */
+  markNotified(
+    id: string
+  ): Promise<{ id: string; positionChanges?: readonly NotifyPositionUpdateInput[] } | null>;
   /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
   revertNotified(id: string): Promise<{ id: string } | null>;
   logger: WaitlistNotifierLogger;
@@ -39,7 +46,7 @@ export interface NotifyAddedInput {
   guestPhone: string;
   guestName: string | null;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface NotifyPositionUpdateInput {
@@ -48,7 +55,7 @@ export interface NotifyPositionUpdateInput {
   guestName: string | null;
   previousPosition: number;
   newPosition: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface NotifyTableReadyInput {
@@ -81,7 +88,9 @@ export interface WaitlistNotifier {
 }
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
-const POSITION_UPDATE_THRESHOLD = 2;
+// Any move up the queue is worth a text: renumbering closes the gap, so a seat,
+// cancel or notify moves each party behind it up by exactly one.
+const POSITION_UPDATE_THRESHOLD = 1;
 
 /**
  * Validates that a phone string contains at least 7 digits.
@@ -137,7 +146,8 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
   async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
     // Record notified state first: a party that was seated/cancelled in the
     // meantime gets no SMS and no expiry job.
-    if (!(await markNotified(input.id))) return;
+    const marked = await markNotified(input.id);
+    if (!marked) return;
 
     if (smsAdapter) {
       try {
@@ -163,6 +173,13 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
     } catch (err) {
       await revertNotified(input.id);
       throw err;
+    }
+
+    // Queue positions are final only now that the notified state stuck.
+    for (const change of marked.positionChanges ?? []) {
+      notifyPositionUpdate(change).catch(() => {
+        // Already logged inside notifyPositionUpdate
+      });
     }
   }
 
@@ -211,7 +228,13 @@ export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): Waitlis
     expireEntry: (id) => waitlistService.expire(id),
     listWaiting: (venueId) => waitlistService.listWaiting(venueId),
     notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-    markNotified: (id) => waitlistService.markNotified(id),
+    markNotified: async (id) => {
+      const positionChanges: NotifyPositionUpdateInput[] = [];
+      const entry = await waitlistService.markNotified(id, (changes) => {
+        positionChanges.push(...changes);
+      });
+      return entry ? { id: entry.id, positionChanges } : null;
+    },
     revertNotified: (id) => waitlistService.revertNotified(id),
     logger: consoleLogger,
   });

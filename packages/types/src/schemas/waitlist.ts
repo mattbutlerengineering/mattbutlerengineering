@@ -10,7 +10,7 @@ export const WaitlistJoinRequestSchema = z.object({
 export const WaitlistJoinResultSchema = z.object({
   statusToken: z.string(),
   position: z.number(),
-  estimatedWaitMinutes: z.number(),
+  estimatedWaitMinutes: z.number().nullable(),
 });
 
 export const WaitlistStatusSchema = z.enum([
@@ -23,7 +23,7 @@ export const WaitlistStatusSchema = z.enum([
 
 export const WaitlistEstimateSchema = z.object({
   position: z.number(),
-  estimatedWaitMinutes: z.number(),
+  estimatedWaitMinutes: z.number().nullable(),
   status: WaitlistStatusSchema,
 });
 
@@ -34,7 +34,7 @@ export const WaitlistEntrySchema = z.object({
   guestName: z.string(),
   guestPhone: z.string(),
   position: z.number(),
-  estimatedWaitMinutes: z.number(),
+  estimatedWaitMinutes: z.number().nullable(),
   status: WaitlistStatusSchema,
   notifiedAt: z.string().nullable(),
   expiresAt: z.string().nullable(),

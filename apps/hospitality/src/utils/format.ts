@@ -6,13 +6,50 @@
 const LOCALE = "en-US";
 
 /**
+ * Every formatter takes an explicit BCP-47 `locale` (default en-US). Currency and
+ * time zone always come from the venue; locale only picks the notation.
+ */
+
+const warnedZones = new Set<string>();
+
+function defaultReport(timeZone: string): void {
+  console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
+}
+
+/**
+ * Return `timeZone` if it is a valid IANA zone, else `undefined` (device zone),
+ * reporting each bad value once.
+ */
+export function resolveTimeZone(
+  timeZone: string | undefined,
+  report: (timeZone: string) => void = defaultReport
+): string | undefined {
+  if (!timeZone) return undefined;
+  try {
+    new Intl.DateTimeFormat(LOCALE, { timeZone });
+    return timeZone;
+  } catch {
+    if (!warnedZones.has(timeZone)) {
+      warnedZones.add(timeZone);
+      report(timeZone);
+    }
+    return undefined;
+  }
+}
+
+/** Test seam: forget which bad zones were already reported. */
+export function resetTimeZoneReports(): void {
+  warnedZones.clear();
+}
+
+/**
  * Format a YYYY-MM-DD date string as "Weekday, Month Day" (no year).
  * Appends T00:00:00 before constructing the Date to avoid UTC-offset date shifts.
  *
  * Used by: TimeSlotPicker, GuestDetailsForm
  */
-export function formatLongDate(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+export function formatLongDate(dateStr: string, locale: string = LOCALE): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -25,8 +62,8 @@ export function formatLongDate(dateStr: string): string {
  *
  * Used by: ConfirmationView
  */
-export function formatLongDateWithYear(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+export function formatLongDateWithYear(dateStr: string, locale: string = LOCALE): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -41,8 +78,8 @@ export function formatLongDateWithYear(dateStr: string): string {
  *
  * Used by: BriefingPage, ReservationsPage
  */
-export function formatServiceDate(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+export function formatServiceDate(dateStr: string, locale: string = LOCALE): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
     weekday: "long",
     month: "short",
     day: "numeric",
@@ -55,11 +92,10 @@ export function formatServiceDate(dateStr: string): string {
  * Used by: TimeSlotPicker, GuestDetailsForm, ConfirmationView,
  *          TimelineMobileView, ReservationBlock
  */
-export function formatTime(isoString: string): string {
-  return new Date(isoString).toLocaleTimeString(LOCALE, {
+export function formatTime(isoString: string, locale: string = LOCALE): string {
+  return new Date(isoString).toLocaleTimeString(locale, {
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
   });
 }
 
@@ -73,12 +109,11 @@ export function formatTime(isoString: string): string {
  *
  * Used by: TimeSlotPicker, TimeSlotListbox, GuestDetailsForm, ConfirmationView
  */
-export function formatTimeIn(isoString: string, timeZone: string): string {
-  return new Date(isoString).toLocaleTimeString(LOCALE, {
+export function formatTimeIn(isoString: string, timeZone: string, locale: string = LOCALE): string {
+  return new Date(isoString).toLocaleTimeString(locale, {
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
-    timeZone,
+    timeZone: resolveTimeZone(timeZone),
   });
 }
 
@@ -91,7 +126,7 @@ export function formatTimeIn(isoString: string, timeZone: string): string {
  */
 export function getHourIn(isoString: string, timeZone: string): number {
   const hour = new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: resolveTimeZone(timeZone),
     hour: "2-digit",
     hourCycle: "h23",
   })
@@ -107,12 +142,11 @@ export function getHourIn(isoString: string, timeZone: string): number {
  *
  * Used by: formatVenueOpenLabel
  */
-export function formatLocalTime(hhmm: string): string {
+export function formatLocalTime(hhmm: string, locale: string = LOCALE): string {
   const [hours = 0, minutes = 0] = hhmm.split(":").map(Number);
-  return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(LOCALE, {
+  return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(locale, {
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
     timeZone: "UTC",
   });
 }
@@ -123,9 +157,25 @@ export function formatLocalTime(hhmm: string): string {
  *
  * Used by: PaymentStep, StaffDepositSection, ConfirmationView
  */
-export function formatCurrencyFromCents(amountCents: number, currency: string): string {
-  return new Intl.NumberFormat(LOCALE, {
+export function formatCurrencyFromCents(
+  amountCents: number,
+  currency: string,
+  locale: string = LOCALE
+): string {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: currency.toUpperCase(),
   }).format(amountCents / 100);
+}
+
+/**
+ * Format a YYYY-MM-DD date string in the locale's numeric short form
+ * (en-US "03/15/2024", en-GB "15/03/2024").
+ */
+export function formatShortDate(dateStr: string, locale: string = LOCALE): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }

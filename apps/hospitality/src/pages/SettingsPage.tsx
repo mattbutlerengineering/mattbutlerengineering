@@ -192,7 +192,7 @@ export function SettingsPage() {
     <div>
       <PageHeader title="Settings" description="Manage your account settings and preferences" />
 
-      <Stack gap="md" data-testid="primary-content">
+      <Stack gap="md">
         {error && (
           <Alert variant="error" dismissible onDismiss={() => setError(null)}>
             {error}
@@ -206,7 +206,7 @@ export function SettingsPage() {
         )}
       </Stack>
 
-      <div className={styles.layout}>
+      <div className={styles.layout} data-testid="primary-content">
         {/* ── Main column ─────────────────────── */}
         <div className={styles.main}>
           <Stack gap="lg">

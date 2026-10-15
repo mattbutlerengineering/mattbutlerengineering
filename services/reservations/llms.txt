@@ -2496,7 +2496,7 @@
         guestPhone: string;
         guestName: string | null;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
@@ -2600,7 +2600,35 @@
       ): Promise<(position: number, partySize: number) => number | null> { /* ... */ }
     </item>
     <item priority="low">
-      async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
+      interface ImprovedPosition {
+        id: string;
+        venueId: string;
+        guestPhone: string;
+        guestName: string | null;
+        previousPosition: number;
+      }
+    </item>
+    <item priority="low">
+      type OnPositionsImproved = (changes: ImprovedPosition[]) => void;
+    </item>
+    <item priority="low">
+      async function recalculateVenuePositions(
+        venueId: string,
+        onImproved?: OnPositionsImproved
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      type WaitingRow = Pick<
+        WaitlistEntryData,
+        "id" | "venueId" | "partySiz...;
+    </item>
+    <item priority="low">
+      async function reportImproved(
+        venueId: string,
+        before: readonly WaitingRow[],
+        after: readonly { id: string; position: number }[],
+        onImproved: OnPositionsImproved
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export const waitlistService: unknown;
@@ -2730,6 +2758,30 @@
     </item>
     <item priority="high">
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
+    </item>
+  </file>
+  <file path="src/test/shared-schema-compilers.ts">
+    <item priority="high">
+      type RouteSchemaDef = {
+        schema: unknown;
+        method?: string;
+        url?: string;
+       ...;
+    </item>
+    <item priority="high">
+      type Serializer = (data: unknown) => string;
+    </item>
+    <item priority="high">
+      type BuildSerializerFn = (def: RouteSchemaDef) => Serializer;
+    </item>
+    <item priority="high">
+      type SerializerFactory = (externalSchemas: unknown, opts: unknown) => BuildSeriali...;
+    </item>
+    <item priority="high">
+      type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => unknown;
+    </item>
+    <item priority="high">
+      export function withSharedSchemaCompilers(opts: FastifyServerOptions = {}): FastifyServerOptions { /* ... */ }
     </item>
   </file>
   </section>
@@ -2914,7 +2966,8 @@
             op: "replace-if-presen;
     </item>
     <item priority="low">
-      type LiveEvent = Omit<ReservationEvent, "timestamp">;
+      type LiveEvent = ReservationEvent extends infer E
+        ? E extends Reservatio...;
     </item>
     <item priority="low">
       interface EventsPort {

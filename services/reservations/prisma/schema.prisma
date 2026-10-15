@@ -290,7 +290,7 @@ model WaitlistEntry {
   guestName            String         @map("guest_name")
   guestPhone           String         @map("guest_phone")
   position             Int
-  estimatedWaitMinutes Int            @map("estimated_wait_minutes")
+  estimatedWaitMinutes Int?           @map("estimated_wait_minutes")
   status               WaitlistStatus @default(waiting)
   notifiedAt           DateTime?      @map("notified_at")
   expiresAt            DateTime?      @map("expires_at")

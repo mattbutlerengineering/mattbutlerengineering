@@ -1357,7 +1357,7 @@
       interface WaitlistResult {
         statusToken: string;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
@@ -4394,6 +4394,24 @@
     </item>
     <item priority="high">
       export function useUsers(params: UseUsersParams = {}): UseUsersResult { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useVenueFormat.ts">
+    <item priority="low">
+      interface VenueFormatSource {
+        ianaTimezone: string;
+        currencyCode: string;
+      }
+    </item>
+    <item priority="low">
+      interface VenueFormat {
+        locale: string;
+        timeZone: string;
+        currency: string;
+      }
+    </item>
+    <item priority="high">
+      export function useVenueFormat(venue: VenueFormatSource): VenueFormat { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useVenuePolicy.ts">
@@ -9882,7 +9900,7 @@
         guestPhone: string;
         guestName: string | null;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
@@ -9986,7 +10004,35 @@
       ): Promise<(position: number, partySize: number) => number | null> { /* ... */ }
     </item>
     <item priority="low">
-      async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
+      interface ImprovedPosition {
+        id: string;
+        venueId: string;
+        guestPhone: string;
+        guestName: string | null;
+        previousPosition: number;
+      }
+    </item>
+    <item priority="low">
+      type OnPositionsImproved = (changes: ImprovedPosition[]) => void;
+    </item>
+    <item priority="low">
+      async function recalculateVenuePositions(
+        venueId: string,
+        onImproved?: OnPositionsImproved
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      type WaitingRow = Pick<
+        WaitlistEntryData,
+        "id" | "venueId" | "partySiz...;
+    </item>
+    <item priority="low">
+      async function reportImproved(
+        venueId: string,
+        before: readonly WaitingRow[],
+        after: readonly { id: string; position: number }[],
+        onImproved: OnPositionsImproved
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export const waitlistService: unknown;
@@ -13306,6 +13352,16 @@
         cancellationTime: Date
       ): CancellationFeeResult { /* ... */ }
     </item>
+    <item priority="low">
+      type CancellationPolicyDescription = { kind: "no-fees" } | {
+            kind: "free-window";
+       ;
+    </item>
+    <item priority="high">
+      export function describeCancellationPolicy(
+        policy: CancellationPolicy | null
+      ): CancellationPolicyDescription { /* ... */ }
+    </item>
     <item priority="high">
       export function formatCancellationTerms(
         policy: CancellationPolicy | null,
@@ -14571,7 +14627,7 @@
         guestPhone: string;
         guestName: string | null;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
@@ -14579,7 +14635,7 @@
         guestPhone: string;
         guestName: string | null;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
@@ -16069,7 +16125,7 @@
       type SseEventName = keyof SsePayloadMap;
     </item>
     <item priority="low">
-      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
     </item>
     <item priority="low">
       interface SseEventDefinition {
@@ -16083,12 +16139,11 @@
       export const SSE_EVENT_NAMES: unknown;
     </item>
     <item priority="low">
-      interface SseEvent {
-        type: SseEventName;
-        venueId: string;
-        timestamp: string;
-        data: SsePayloadMap[SseEventName];
-      }
+      type SseEvent = {
+        [N in K]: {
+          type: N;
+          venueId: string;
+          tim...;
     </item>
   </file>
   <file path="packages/types/src/table-status.ts">
@@ -16348,13 +16403,13 @@
       interface WaitlistJoinResult {
         statusToken: string;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
       interface WaitlistEstimate {
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
         status: WaitlistStatus;
       }
     </item>
@@ -17153,6 +17208,30 @@
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/test/shared-schema-compilers.ts">
+    <item priority="high">
+      type RouteSchemaDef = {
+        schema: unknown;
+        method?: string;
+        url?: string;
+       ...;
+    </item>
+    <item priority="high">
+      type Serializer = (data: unknown) => string;
+    </item>
+    <item priority="high">
+      type BuildSerializerFn = (def: RouteSchemaDef) => Serializer;
+    </item>
+    <item priority="high">
+      type SerializerFactory = (externalSchemas: unknown, opts: unknown) => BuildSeriali...;
+    </item>
+    <item priority="high">
+      type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => unknown;
+    </item>
+    <item priority="high">
+      export function withSharedSchemaCompilers(opts: FastifyServerOptions = {}): FastifyServerOptions { /* ... */ }
+    </item>
+  </file>
   <file path="services/users/src/test/fixtures.ts">
     <item priority="high">
       export const MOCK_USER: unknown;
@@ -17656,7 +17735,8 @@
             op: "replace-if-presen;
     </item>
     <item priority="low">
-      type LiveEvent = Omit<ReservationEvent, "timestamp">;
+      type LiveEvent = ReservationEvent extends infer E
+        ? E extends Reservatio...;
     </item>
     <item priority="low">
       interface EventsPort {
@@ -17813,29 +17893,48 @@
     </item>
   </file>
   <file path="apps/hospitality/src/utils/format.ts">
-    <item priority="high">
-      export function formatLongDate(dateStr: string): string { /* ... */ }
+    <item priority="medium">
+      function defaultReport(timeZone: string): void { /* ... */ }
     </item>
     <item priority="high">
-      export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
+      export function resolveTimeZone(
+        timeZone: string | undefined,
+        report: (timeZone: string) => void = defaultReport
+      ): string | undefined { /* ... */ }
     </item>
     <item priority="high">
-      export function formatServiceDate(dateStr: string): string { /* ... */ }
+      export function resetTimeZoneReports(): void { /* ... */ }
     </item>
     <item priority="high">
-      export function formatTime(isoString: string): string { /* ... */ }
+      export function formatLongDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
-      export function formatTimeIn(isoString: string, timeZone: string): string { /* ... */ }
+      export function formatLongDateWithYear(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatServiceDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTime(isoString: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimeIn(isoString: string, timeZone: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
       export function getHourIn(isoString: string, timeZone: string): number { /* ... */ }
     </item>
     <item priority="high">
-      export function formatLocalTime(hhmm: string): string { /* ... */ }
+      export function formatLocalTime(hhmm: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
-      export function formatCurrencyFromCents(amountCents: number, currency: string): string { /* ... */ }
+      export function formatCurrencyFromCents(
+        amountCents: number,
+        currency: string,
+        locale: string = LOCALE
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatShortDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

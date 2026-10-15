@@ -10,7 +10,7 @@ export interface LiveWaitlistConfirmationProps {
   api: BookingWidgetApiClient;
   venueSlug: string;
   /** The join response: the entry id to poll, and the snapshot shown until the first poll lands. */
-  joined: { statusToken: string; position: number; estimatedWaitMinutes: number };
+  joined: { statusToken: string; position: number; estimatedWaitMinutes: number | null };
   onNewBooking: () => void;
 }
 

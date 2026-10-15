@@ -6749,6 +6749,16 @@
   </file>
   <file path="src/routes/waitlist.ts">
     export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
+      // the seat/cancel that triggered it, and runs after the queue is recalculated.
+      const notifyImproved: OnPositionsImproved = (changes) => {
+        for (const change of changes) {
+          fastify.waitlistNotifier.notifyPositionUpdate(change).catch(() => {
+            // Already logged inside the notifier
+          });
+        }
+      };
+    
       // POST / — create waitlist entry
       fastify.post<{
         Body: {
@@ -6937,7 +6947,7 @@
           },
         },
         venueScoped({ venue: entryVenue }, async (request, reply) => {
-          const entry = await waitlistService.seat(request.params.id);
+          const entry = await waitlistService.seat(request.params.id, notifyImproved);
           if (!entry) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
@@ -6971,7 +6981,7 @@
           },
         },
         venueScoped({ venue: entryVenue }, async (request, reply) => {
-          const entry = await waitlistService.cancel(request.params.id);
+          const entry = await waitlistService.cancel(request.params.id, notifyImproved);
           if (!entry) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
@@ -14736,13 +14746,12 @@
       reservations: readonly EstimateReservation[]
     ): number | null {
       const own = reservations.filter((r) => r.tableId === tableId && OCCUPYING_STATUSES.has(r.status));
-      const blockedByUpcoming = own.some(
-        (r) => r.startTime.getTime() > now && r.startTime.getTime() < now + durationMs
-      );
-      if (blockedByUpcoming) return null;
-    
       const current = own.find((r) => r.startTime.getTime() <= now && r.endTime.getTime() > now);
-      return current ? current.endTime.getTime() - now : 0;
+      const freeAt = current ? current.endTime.getTime() : now;
+      const blocked = own.some(
+        (r) => r.startTime.getTime() >= freeAt && r.startTime.getTime() < freeAt + durationMs
+      );
+      return blocked ? null : freeAt - now;
     }
     export function estimateWaitFromTurnover(input: EstimateInput): number | null {
       const { position, partySize, now, tables, reservations, settings } = input;
@@ -14772,7 +14781,7 @@
       guestPhone: string;
       guestName: string | null;
       position?: number;
-      estimatedWaitMinutes?: number;
+      estimatedWaitMinutes?: number | null;
       status?: string;
     }
     export interface WaitlistNotifierDeps {
@@ -14784,8 +14793,15 @@
       // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
       // the notifier's own public method, so both must accept venueId.
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
-      /** Persists notified state on the row; null if the party is no longer waiting. */
-      markNotified(id: string): Promise<{ id: string } | null>;
+      /**
+       * Persists notified state on the row; null if the party is no longer waiting.
+       * `positionChanges` are the parties behind it that moved up; the notifier texts
+       * them only once the expiry job is scheduled, because a failed schedule reverts
+       * the party and moves everyone back down.
+       */
+      markNotified(
+        id: string
+      ): Promise<{ id: string; positionChanges?: readonly NotifyPositionUpdateInput[] } | null>;
       /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
       revertNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
@@ -14795,7 +14811,7 @@
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface NotifyPositionUpdateInput {
       id: string;
@@ -14803,7 +14819,7 @@
       guestName: string | null;
       previousPosition: number;
       newPosition: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface NotifyTableReadyInput {
       id: string;
@@ -14880,7 +14896,8 @@
       async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
         // Record notified state first: a party that was seated/cancelled in the
         // meantime gets no SMS and no expiry job.
-        if (!(await markNotified(input.id))) return;
+        const marked = await markNotified(input.id);
+        if (!marked) return;
     
         if (smsAdapter) {
           try {
@@ -14906,6 +14923,13 @@
         } catch (err) {
           await revertNotified(input.id);
           throw err;
+        }
+    
+        // Queue positions are final only now that the notified state stuck.
+        for (const change of marked.positionChanges ?? []) {
+          notifyPositionUpdate(change).catch(() => {
+            // Already logged inside notifyPositionUpdate
+          });
         }
       }
     
@@ -14943,7 +14967,13 @@
         expireEntry: (id) => waitlistService.expire(id),
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-        markNotified: (id) => waitlistService.markNotified(id),
+        markNotified: async (id) => {
+          const positionChanges: NotifyPositionUpdateInput[] = [];
+          const entry = await waitlistService.markNotified(id, (changes) => {
+            positionChanges.push(...changes);
+          });
+          return entry ? { id: entry.id, positionChanges } : null;
+        },
         revertNotified: (id) => waitlistService.revertNotified(id),
         logger: consoleLogger,
       });
@@ -15008,7 +15038,7 @@
       guestName: string;
       guestPhone: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
       notifiedAt: Date | null;
       expiresAt: Date | null;
@@ -15042,11 +15072,32 @@
       return (position, partySize) =>
         estimateWaitFromTurnover({ position, partySize, now, tables, reservations, settings });
     }
-    async function recalculateVenuePositions(venueId: string): Promise<void> {
+    export interface ImprovedPosition {
+      id: string;
+      venueId: string;
+      guestPhone: string;
+      guestName: string | null;
+      previousPosition: number;
+      newPosition: number;
+      /** Live estimate at the new position; null when no table can seat the party. */
+      estimatedWaitMinutes: number | null;
+    }
+    export type OnPositionsImproved = (changes: ImprovedPosition[]) => void;
+    async function recalculateVenuePositions(
+      venueId: string,
+      onImproved?: OnPositionsImproved
+    ): Promise<void> {
       const waitingEntries = await prisma.waitlistEntry.findMany({
         where: { venueId, status: "waiting" },
         orderBy: { position: "asc" },
-        select: { id: true, position: true },
+        select: {
+          id: true,
+          venueId: true,
+          partySize: true,
+          guestName: true,
+          guestPhone: true,
+          position: true,
+        },
       });
     
       const updated = recalculatePositions(waitingEntries);
@@ -15071,6 +15122,52 @@
           WHERE w.id = v.id
         `;
       });
+    
+      if (onImproved) await reportImproved(venueId, waitingEntries, updated, onImproved);
+    }
+    type WaitingRow = Pick<
+      WaitlistEntryData,
+      "id" | "venueId" | "partySize" | "guestName" | "guestPhone" | "position"
+    >;
+    async function reportImproved(
+      venueId: string,
+      before: readonly WaitingRow[],
+      after: readonly { id: string; position: number }[],
+      onImproved: OnPositionsImproved
+    ): Promise<void> {
+      const newPositions = new Map(after.map((e) => [e.id, e.position]));
+      const moved = before.filter((e) => (newPositions.get(e.id) ?? e.position) < e.position);
+      if (moved.length === 0) return;
+    
+      // The position change is already saved; an estimator failure (e.g. a venue with
+      // no duration rules) must not turn that successful mutation into a 500.
+      let estimate: (position: number, partySize: number) => number | null;
+      try {
+        estimate = await loadEstimator(venueId, new Date());
+      } catch (err) {
+        process.stderr.write(
+          JSON.stringify({
+            venueId,
+            err: String(err),
+            msg: "waitlist position-update estimate failed",
+          }) + "\n"
+        );
+        return;
+      }
+      onImproved(
+        moved.map((e) => {
+          const newPosition = newPositions.get(e.id) ?? e.position;
+          return {
+            id: e.id,
+            venueId: e.venueId,
+            guestPhone: e.guestPhone,
+            guestName: e.guestName,
+            previousPosition: e.position,
+            newPosition,
+            estimatedWaitMinutes: estimate(newPosition, e.partySize),
+          };
+        })
+      );
     }
     export const waitlistService = {
       async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
@@ -15084,7 +15181,7 @@
         const estimatedWait =
           avgTurnTimeMinutes !== undefined
             ? estimateWaitMinutes(position, avgTurnTimeMinutes)
-            : ((await loadEstimator(venueId, new Date()))(position, partySize) ?? 0);
+            : (await loadEstimator(venueId, new Date()))(position, partySize);
     
         return prisma.waitlistEntry.create({
           data: {
@@ -15100,8 +15197,9 @@
     
       /**
        * Replaces each waiting entry's stored (join-time) estimate with one computed
-       * from current table turnover. Entries that no table can seat keep their
-       * stored value. Computed on every read, never persisted.
+       * from current table turnover. Entries that no table can seat get null
+       * ("estimate unavailable"), never a stale or zero value. Computed on every
+       * read, never persisted.
        */
       async withLiveEstimates<T extends WaitlistEntryData>(entries: T[]): Promise<T[]> {
         const first = entries[0];
@@ -15110,7 +15208,7 @@
         return entries.map((entry) => {
           if (entry.status !== "waiting") return entry;
           const minutes = estimate(entry.position, entry.partySize);
-          return minutes === null ? entry : { ...entry, estimatedWaitMinutes: minutes };
+          return { ...entry, estimatedWaitMinutes: minutes };
         });
       },
     
@@ -15133,7 +15231,7 @@
         return prisma.waitlistEntry.findUnique({ where: { id } });
       },
     
-      async seat(id: string): Promise<WaitlistEntryData | null> {
+      async seat(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
         let entry: WaitlistEntryData;
         try {
           entry = await prisma.waitlistEntry.update({
@@ -15143,11 +15241,11 @@
         } catch {
           return null;
         }
-        await recalculateVenuePositions(entry.venueId);
+        await recalculateVenuePositions(entry.venueId, onImproved);
         return entry;
       },
     
-      async cancel(id: string): Promise<WaitlistEntryData | null> {
+      async cancel(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
         let entry: WaitlistEntryData;
         try {
           entry = await prisma.waitlistEntry.update({
@@ -15157,7 +15255,7 @@
         } catch {
           return null;
         }
-        await recalculateVenuePositions(entry.venueId);
+        await recalculateVenuePositions(entry.venueId, onImproved);
         return entry;
       },
     
@@ -15165,7 +15263,10 @@
        * Records the notified lifecycle state on the row. Only a `waiting` entry
        * can be notified; anything else (seated/cancelled/already notified) -> null.
        */
-      async markNotified(id: string): Promise<WaitlistEntryData | null> {
+      async markNotified(
+        id: string,
+        onImproved?: OnPositionsImproved
+      ): Promise<WaitlistEntryData | null> {
         const notifiedAt = new Date();
         let entry: WaitlistEntryData;
         try {
@@ -15181,7 +15282,7 @@
           return null;
         }
         // The notified party left the waiting queue: close the gap behind it.
-        await recalculateVenuePositions(entry.venueId);
+        await recalculateVenuePositions(entry.venueId, onImproved);
         return entry;
       },
     
@@ -15762,6 +15863,32 @@
       };
     }
   </file>
+  <file path="src/test/shared-schema-compilers.ts">
+    type RouteSchemaDef = {
+      schema: unknown;
+      method?: string;
+      url?: string;
+      httpStatus?: string;
+      contentType?: string;
+    };
+    type Serializer = (data: unknown) => string;
+    type BuildSerializerFn = (def: RouteSchemaDef) => Serializer;
+    type SerializerFactory = (externalSchemas: unknown, opts: unknown) => BuildSerializerFn;
+    type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => unknown;
+    export function withSharedSchemaCompilers(opts: FastifyServerOptions = {}): FastifyServerOptions {
+      return {
+        ...opts,
+        schemaController: {
+          ...opts.schemaController,
+          compilersFactory: {
+            buildValidator: validatorFactory,
+            buildSerializer: memoizedSerializerFactory,
+            ...opts.schemaController?.compilersFactory,
+          } as never,
+        },
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="transitions">
   <file path="src/transitions/in-memory.ts">
@@ -16299,7 +16426,11 @@
           delayMs: number;
           payload: ReminderPayload;
         };
-    export type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    export type LiveEvent = ReservationEvent extends infer E
+      ? E extends ReservationEvent
+        ? Omit<E, "timestamp">
+        : never
+      : never;
     export interface EventsPort {
       publish(event: LiveEvent): void;
     }

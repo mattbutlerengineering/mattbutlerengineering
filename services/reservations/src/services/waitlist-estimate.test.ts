@@ -78,4 +78,25 @@ describe("estimateWaitFromTurnover", () => {
     const reservations = [reservation("t2", 30, 105, "PENDING")];
     expect(estimates(tables, reservations, [1, 2])).toEqual([0, 75]);
   });
+
+  describe("free window measured from freeAt", () => {
+    it("blocks a table occupied until +120 with a booking at +135 (only a 15 min gap)", () => {
+      // Party of 2 -> 75 min duration; window is [120, 195) and 135 is inside it.
+      const tables = [table("t1")];
+      const reservations = [reservation("t1", -30, 120), reservation("t1", 135, 210)];
+      expect(estimates(tables, reservations, [1])).toEqual([null]);
+    });
+
+    it("blocks when a booking starts exactly at freeAt", () => {
+      const tables = [table("t1")];
+      const reservations = [reservation("t1", -30, 120), reservation("t1", 120, 195)];
+      expect(estimates(tables, reservations, [1])).toEqual([null]);
+    });
+
+    it("does not block when the next booking starts exactly freeAt + duration", () => {
+      const tables = [table("t1")];
+      const reservations = [reservation("t1", -30, 120), reservation("t1", 195, 270)];
+      expect(estimates(tables, reservations, [1])).toEqual([120]);
+    });
+  });
 });

@@ -4,7 +4,8 @@ import styles from "./WaitlistConfirmationView.module.css";
 
 export interface WaitlistConfirmationViewProps {
   position: number;
-  estimatedWaitMinutes: number;
+  /** null = no estimate could be computed; rendered as "Estimate unavailable", never "0 min". */
+  estimatedWaitMinutes: number | null;
   /** Where the party stands; anything but `waiting` replaces the queue numbers with a message. */
   status?: WaitlistStatus;
   onNewBooking: () => void;
@@ -56,7 +57,9 @@ export function WaitlistConfirmationView({
         </div>
         <div className={styles.waitCard}>
           <Text className={styles.waitLabel}>Estimated wait</Text>
-          <Text className={styles.waitTime}>{estimatedWaitMinutes} min</Text>
+          <Text className={styles.waitTime}>
+            {estimatedWaitMinutes === null ? "Estimate unavailable" : `${estimatedWaitMinutes} min`}
+          </Text>
         </div>
       </div>
 

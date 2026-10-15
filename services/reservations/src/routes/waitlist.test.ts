@@ -391,7 +391,58 @@ describe("Waitlist Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data.status).toBe("seated");
-      expect(waitlistService.seat).toHaveBeenCalledWith("entry-1");
+      expect(waitlistService.seat).toHaveBeenCalledWith("entry-1", expect.any(Function));
+    });
+
+    const improved = {
+      id: "entry-2",
+      venueId: "venue-1",
+      guestPhone: "+15550001111",
+      guestName: "Bob",
+      previousPosition: 4,
+      newPosition: 2,
+      estimatedWaitMinutes: 20,
+    };
+
+    it("notifies each party whose position improved, once, with their new estimate", async () => {
+      vi.mocked(waitlistService.seat).mockImplementation((async (
+        _id: string,
+        onImproved?: (c: unknown[]) => void
+      ) => {
+        onImproved?.([improved]);
+        return { ...mockEntry, status: "seated" };
+      }) as never);
+
+      const response = await app.inject({
+        method: "PUT",
+        url: `${WAITLIST_URL}/entry-1/seat`,
+        headers: AUTH_HEADERS,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(app.waitlistNotifier.notifyPositionUpdate).toHaveBeenCalledTimes(1);
+      expect(app.waitlistNotifier.notifyPositionUpdate).toHaveBeenCalledWith(improved);
+    });
+
+    it("does not fail the seat request when the position-update notification rejects", async () => {
+      vi.mocked(app.waitlistNotifier.notifyPositionUpdate).mockRejectedValueOnce(
+        new Error("sms down")
+      );
+      vi.mocked(waitlistService.seat).mockImplementation((async (
+        _id: string,
+        onImproved?: (c: unknown[]) => void
+      ) => {
+        onImproved?.([improved]);
+        return { ...mockEntry, status: "seated" };
+      }) as never);
+
+      const response = await app.inject({
+        method: "PUT",
+        url: `${WAITLIST_URL}/entry-1/seat`,
+        headers: AUTH_HEADERS,
+      });
+
+      expect(response.statusCode).toBe(200);
     });
 
     it("returns 404 when entry not found", async () => {
@@ -423,7 +474,37 @@ describe("Waitlist Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data.status).toBe("cancelled");
-      expect(waitlistService.cancel).toHaveBeenCalledWith("entry-1");
+      expect(waitlistService.cancel).toHaveBeenCalledWith("entry-1", expect.any(Function));
+    });
+
+    it("notifies parties whose position improved after a cancel", async () => {
+      vi.mocked(waitlistService.cancel).mockImplementation((async (
+        _id: string,
+        onImproved?: (c: unknown[]) => void
+      ) => {
+        onImproved?.([
+          {
+            id: "entry-3",
+            venueId: "venue-1",
+            guestPhone: "+15550002222",
+            guestName: null,
+            previousPosition: 5,
+            newPosition: 3,
+            estimatedWaitMinutes: null,
+          },
+        ]);
+        return { ...mockEntry, status: "cancelled" };
+      }) as never);
+
+      await app.inject({
+        method: "PUT",
+        url: `${WAITLIST_URL}/entry-1/cancel`,
+        headers: AUTH_HEADERS,
+      });
+
+      expect(app.waitlistNotifier.notifyPositionUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "entry-3", newPosition: 3, estimatedWaitMinutes: null })
+      );
     });
 
     it("returns 404 when entry not found", async () => {

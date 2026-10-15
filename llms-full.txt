@@ -4488,7 +4488,7 @@
     export interface WaitlistResult {
       statusToken: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface BookingFlowData {
       selectedDate: string | null;
@@ -12058,7 +12058,6 @@
       RESERVATIONS_QUERY_KEY,
       TABLES_QUERY_KEY,
       FLOOR_PLANS_QUERY_KEY,
-      FLOOR_PLAN_QUERY_KEY,
       LAPSING_GUESTS_QUERY_KEY,
     ] as const satisfies readonly SseQueryKey[];
   </file>
@@ -12473,7 +12472,10 @@
     
       return {
         waitlistCount: entries.length,
-        longestWaitMinutes: Math.max(...entries.map((e) => e.estimatedWaitMinutes)),
+        longestWaitMinutes: Math.max(
+          0,
+          ...entries.flatMap((e) => (e.estimatedWaitMinutes === null ? [] : [e.estimatedWaitMinutes]))
+        ),
       };
     }
     export function computeDepositStats(deposits: readonly Deposit[]): DepositStats {
@@ -13796,6 +13798,45 @@
         error: result.error,
         refetch: result.refetch,
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useVenueFormat.ts">
+    export interface VenueFormatSource {
+      readonly ianaTimezone: string;
+      readonly currencyCode: string;
+    }
+    export interface VenueFormat {
+      readonly locale: string;
+      readonly timeZone: string;
+      readonly currency: string;
+      /** Venue-clock time from an ISO instant. */
+      formatTime(isoString: string): string;
+      /** Cents in the venue's currency. */
+      formatMoney(amountCents: number): string;
+      formatLongDate(dateStr: string): string;
+      formatLongDateWithYear(dateStr: string): string;
+      formatServiceDate(dateStr: string): string;
+      formatShortDate(dateStr: string): string;
+    }
+    export function useVenueFormat(venue: VenueFormatSource): VenueFormat {
+      const { i18n } = useTranslation();
+      const locale = i18n.language;
+      const { ianaTimezone: timeZone, currencyCode: currency } = venue;
+    
+      return useMemo(
+        () => ({
+          locale,
+          timeZone,
+          currency,
+          formatTime: (iso) => formatTimeIn(iso, timeZone, locale),
+          formatMoney: (cents) => formatCurrencyFromCents(cents, currency, locale),
+          formatLongDate: (d) => formatLongDate(d, locale),
+          formatLongDateWithYear: (d) => formatLongDateWithYear(d, locale),
+          formatServiceDate: (d) => formatServiceDate(d, locale),
+          formatShortDate: (d) => formatShortDate(d, locale),
+        }),
+        [locale, timeZone, currency]
+      );
     }
   </file>
   <file path="apps/hospitality/src/hooks/useVenuePolicy.ts">
@@ -26461,6 +26502,16 @@
   </file>
   <file path="services/reservations/src/routes/waitlist.ts">
     export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
+      // the seat/cancel that triggered it, and runs after the queue is recalculated.
+      const notifyImproved: OnPositionsImproved = (changes) => {
+        for (const change of changes) {
+          fastify.waitlistNotifier.notifyPositionUpdate(change).catch(() => {
+            // Already logged inside the notifier
+          });
+        }
+      };
+    
       // POST / — create waitlist entry
       fastify.post<{
         Body: {
@@ -26649,7 +26700,7 @@
           },
         },
         venueScoped({ venue: entryVenue }, async (request, reply) => {
-          const entry = await waitlistService.seat(request.params.id);
+          const entry = await waitlistService.seat(request.params.id, notifyImproved);
           if (!entry) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
@@ -26683,7 +26734,7 @@
           },
         },
         venueScoped({ venue: entryVenue }, async (request, reply) => {
-          const entry = await waitlistService.cancel(request.params.id);
+          const entry = await waitlistService.cancel(request.params.id, notifyImproved);
           if (!entry) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
@@ -28189,7 +28240,7 @@
     export const WaitlistJoinResultSchema = z.object({
       statusToken: z.string(),
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
     });
     export const WaitlistStatusSchema = z.enum([
       "waiting",
@@ -28200,7 +28251,7 @@
     ]);
     export const WaitlistEstimateSchema = z.object({
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
       status: WaitlistStatusSchema,
     });
     export const WaitlistEntrySchema = z.object({
@@ -28210,7 +28261,7 @@
       guestName: z.string(),
       guestPhone: z.string(),
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
       status: WaitlistStatusSchema,
       notifiedAt: z.string().nullable(),
       expiresAt: z.string().nullable(),
@@ -38716,13 +38767,12 @@
       reservations: readonly EstimateReservation[]
     ): number | null {
       const own = reservations.filter((r) => r.tableId === tableId && OCCUPYING_STATUSES.has(r.status));
-      const blockedByUpcoming = own.some(
-        (r) => r.startTime.getTime() > now && r.startTime.getTime() < now + durationMs
-      );
-      if (blockedByUpcoming) return null;
-    
       const current = own.find((r) => r.startTime.getTime() <= now && r.endTime.getTime() > now);
-      return current ? current.endTime.getTime() - now : 0;
+      const freeAt = current ? current.endTime.getTime() : now;
+      const blocked = own.some(
+        (r) => r.startTime.getTime() >= freeAt && r.startTime.getTime() < freeAt + durationMs
+      );
+      return blocked ? null : freeAt - now;
     }
     export function estimateWaitFromTurnover(input: EstimateInput): number | null {
       const { position, partySize, now, tables, reservations, settings } = input;
@@ -38752,7 +38802,7 @@
       guestPhone: string;
       guestName: string | null;
       position?: number;
-      estimatedWaitMinutes?: number;
+      estimatedWaitMinutes?: number | null;
       status?: string;
     }
     export interface WaitlistNotifierDeps {
@@ -38764,8 +38814,15 @@
       // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
       // the notifier's own public method, so both must accept venueId.
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
-      /** Persists notified state on the row; null if the party is no longer waiting. */
-      markNotified(id: string): Promise<{ id: string } | null>;
+      /**
+       * Persists notified state on the row; null if the party is no longer waiting.
+       * `positionChanges` are the parties behind it that moved up; the notifier texts
+       * them only once the expiry job is scheduled, because a failed schedule reverts
+       * the party and moves everyone back down.
+       */
+      markNotified(
+        id: string
+      ): Promise<{ id: string; positionChanges?: readonly NotifyPositionUpdateInput[] } | null>;
       /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
       revertNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
@@ -38775,7 +38832,7 @@
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface NotifyPositionUpdateInput {
       id: string;
@@ -38783,7 +38840,7 @@
       guestName: string | null;
       previousPosition: number;
       newPosition: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface NotifyTableReadyInput {
       id: string;
@@ -38860,7 +38917,8 @@
       async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
         // Record notified state first: a party that was seated/cancelled in the
         // meantime gets no SMS and no expiry job.
-        if (!(await markNotified(input.id))) return;
+        const marked = await markNotified(input.id);
+        if (!marked) return;
     
         if (smsAdapter) {
           try {
@@ -38886,6 +38944,13 @@
         } catch (err) {
           await revertNotified(input.id);
           throw err;
+        }
+    
+        // Queue positions are final only now that the notified state stuck.
+        for (const change of marked.positionChanges ?? []) {
+          notifyPositionUpdate(change).catch(() => {
+            // Already logged inside notifyPositionUpdate
+          });
         }
       }
     
@@ -38923,7 +38988,13 @@
         expireEntry: (id) => waitlistService.expire(id),
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-        markNotified: (id) => waitlistService.markNotified(id),
+        markNotified: async (id) => {
+          const positionChanges: NotifyPositionUpdateInput[] = [];
+          const entry = await waitlistService.markNotified(id, (changes) => {
+            positionChanges.push(...changes);
+          });
+          return entry ? { id: entry.id, positionChanges } : null;
+        },
         revertNotified: (id) => waitlistService.revertNotified(id),
         logger: consoleLogger,
       });
@@ -38988,7 +39059,7 @@
       guestName: string;
       guestPhone: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
       notifiedAt: Date | null;
       expiresAt: Date | null;
@@ -39022,11 +39093,32 @@
       return (position, partySize) =>
         estimateWaitFromTurnover({ position, partySize, now, tables, reservations, settings });
     }
-    async function recalculateVenuePositions(venueId: string): Promise<void> {
+    export interface ImprovedPosition {
+      id: string;
+      venueId: string;
+      guestPhone: string;
+      guestName: string | null;
+      previousPosition: number;
+      newPosition: number;
+      /** Live estimate at the new position; null when no table can seat the party. */
+      estimatedWaitMinutes: number | null;
+    }
+    export type OnPositionsImproved = (changes: ImprovedPosition[]) => void;
+    async function recalculateVenuePositions(
+      venueId: string,
+      onImproved?: OnPositionsImproved
+    ): Promise<void> {
       const waitingEntries = await prisma.waitlistEntry.findMany({
         where: { venueId, status: "waiting" },
         orderBy: { position: "asc" },
-        select: { id: true, position: true },
+        select: {
+          id: true,
+          venueId: true,
+          partySize: true,
+          guestName: true,
+          guestPhone: true,
+          position: true,
+        },
       });
     
       const updated = recalculatePositions(waitingEntries);
@@ -39051,6 +39143,52 @@
           WHERE w.id = v.id
         `;
       });
+    
+      if (onImproved) await reportImproved(venueId, waitingEntries, updated, onImproved);
+    }
+    type WaitingRow = Pick<
+      WaitlistEntryData,
+      "id" | "venueId" | "partySize" | "guestName" | "guestPhone" | "position"
+    >;
+    async function reportImproved(
+      venueId: string,
+      before: readonly WaitingRow[],
+      after: readonly { id: string; position: number }[],
+      onImproved: OnPositionsImproved
+    ): Promise<void> {
+      const newPositions = new Map(after.map((e) => [e.id, e.position]));
+      const moved = before.filter((e) => (newPositions.get(e.id) ?? e.position) < e.position);
+      if (moved.length === 0) return;
+    
+      // The position change is already saved; an estimator failure (e.g. a venue with
+      // no duration rules) must not turn that successful mutation into a 500.
+      let estimate: (position: number, partySize: number) => number | null;
+      try {
+        estimate = await loadEstimator(venueId, new Date());
+      } catch (err) {
+        process.stderr.write(
+          JSON.stringify({
+            venueId,
+            err: String(err),
+            msg: "waitlist position-update estimate failed",
+          }) + "\n"
+        );
+        return;
+      }
+      onImproved(
+        moved.map((e) => {
+          const newPosition = newPositions.get(e.id) ?? e.position;
+          return {
+            id: e.id,
+            venueId: e.venueId,
+            guestPhone: e.guestPhone,
+            guestName: e.guestName,
+            previousPosition: e.position,
+            newPosition,
+            estimatedWaitMinutes: estimate(newPosition, e.partySize),
+          };
+        })
+      );
     }
     export const waitlistService = {
       async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
@@ -39064,7 +39202,7 @@
         const estimatedWait =
           avgTurnTimeMinutes !== undefined
             ? estimateWaitMinutes(position, avgTurnTimeMinutes)
-            : ((await loadEstimator(venueId, new Date()))(position, partySize) ?? 0);
+            : (await loadEstimator(venueId, new Date()))(position, partySize);
     
         return prisma.waitlistEntry.create({
           data: {
@@ -39080,8 +39218,9 @@
     
       /**
        * Replaces each waiting entry's stored (join-time) estimate with one computed
-       * from current table turnover. Entries that no table can seat keep their
-       * stored value. Computed on every read, never persisted.
+       * from current table turnover. Entries that no table can seat get null
+       * ("estimate unavailable"), never a stale or zero value. Computed on every
+       * read, never persisted.
        */
       async withLiveEstimates<T extends WaitlistEntryData>(entries: T[]): Promise<T[]> {
         const first = entries[0];
@@ -39090,7 +39229,7 @@
         return entries.map((entry) => {
           if (entry.status !== "waiting") return entry;
           const minutes = estimate(entry.position, entry.partySize);
-          return minutes === null ? entry : { ...entry, estimatedWaitMinutes: minutes };
+          return { ...entry, estimatedWaitMinutes: minutes };
         });
       },
     
@@ -39113,7 +39252,7 @@
         return prisma.waitlistEntry.findUnique({ where: { id } });
       },
     
-      async seat(id: string): Promise<WaitlistEntryData | null> {
+      async seat(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
         let entry: WaitlistEntryData;
         try {
           entry = await prisma.waitlistEntry.update({
@@ -39123,11 +39262,11 @@
         } catch {
           return null;
         }
-        await recalculateVenuePositions(entry.venueId);
+        await recalculateVenuePositions(entry.venueId, onImproved);
         return entry;
       },
     
-      async cancel(id: string): Promise<WaitlistEntryData | null> {
+      async cancel(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
         let entry: WaitlistEntryData;
         try {
           entry = await prisma.waitlistEntry.update({
@@ -39137,7 +39276,7 @@
         } catch {
           return null;
         }
-        await recalculateVenuePositions(entry.venueId);
+        await recalculateVenuePositions(entry.venueId, onImproved);
         return entry;
       },
     
@@ -39145,7 +39284,10 @@
        * Records the notified lifecycle state on the row. Only a `waiting` entry
        * can be notified; anything else (seated/cancelled/already notified) -> null.
        */
-      async markNotified(id: string): Promise<WaitlistEntryData | null> {
+      async markNotified(
+        id: string,
+        onImproved?: OnPositionsImproved
+      ): Promise<WaitlistEntryData | null> {
         const notifiedAt = new Date();
         let entry: WaitlistEntryData;
         try {
@@ -39161,7 +39303,7 @@
           return null;
         }
         // The notified party left the waiting queue: close the gap behind it.
-        await recalculateVenuePositions(entry.venueId);
+        await recalculateVenuePositions(entry.venueId, onImproved);
         return entry;
       },
     
@@ -50463,30 +50605,48 @@
         depositAction: "refund_partial",
       };
     }
+    export type CancellationPolicyDescription =
+      | { kind: "no-fees" }
+      | {
+          kind: "free-window";
+          freeHours: number;
+          lateFeePercent: number;
+          lateFeeAmountCents: number;
+          noShowFeePercent: number;
+          noShowFeeAmountCents: number;
+        };
+    export function describeCancellationPolicy(
+      policy: CancellationPolicy | null
+    ): CancellationPolicyDescription {
+      if (policy === null || policy.freeCancellationHours === null) {
+        return { kind: "no-fees" };
+      }
+    
+      const lateFeePercent = policy.lateCancellationFeePercent ?? 0;
+      const noShowFeePercent = policy.noShowFeePercent ?? 100;
+      return {
+        kind: "free-window",
+        freeHours: policy.freeCancellationHours,
+        lateFeePercent,
+        lateFeeAmountCents: Math.floor((policy.depositAmountCents * lateFeePercent) / 100),
+        noShowFeePercent,
+        noShowFeeAmountCents: Math.floor((policy.depositAmountCents * noShowFeePercent) / 100),
+      };
+    }
     export function formatCancellationTerms(
       policy: CancellationPolicy | null,
       currency: string
     ): string {
-      if (policy === null || policy.freeCancellationHours === null) {
+      const d = describeCancellationPolicy(policy);
+      if (d.kind === "no-fees") {
         return "No cancellation fees apply.";
       }
     
-      const feePercent = policy.lateCancellationFeePercent ?? 0;
-      const feeAmount = Math.floor((policy.depositAmountCents * feePercent) / 100);
-      const formattedFee = formatCents(feeAmount, currency);
-    
-      // Mirrors evaluateCancellationFee's own default: no noShowFeePercent on
-      // record means a full 100% forfeit, not "no fee" — the disclosure must
-      // reflect that or guests authorize a hold without seeing the real term.
-      const noShowFeePercent = policy.noShowFeePercent ?? 100;
-      const noShowFeeAmount = Math.floor((policy.depositAmountCents * noShowFeePercent) / 100);
-      const formattedNoShowFee = formatCents(noShowFeeAmount, currency);
-    
       return (
-        `Free cancellation up to ${policy.freeCancellationHours} hours before your reservation. ` +
-        `After that, a ${feePercent}% fee (${formattedFee}) applies. ` +
-        `If you don't show up for your reservation, a ${noShowFeePercent}% no-show fee ` +
-        `(${formattedNoShowFee}) applies.`
+        `Free cancellation up to ${d.freeHours} hours before your reservation. ` +
+        `After that, a ${d.lateFeePercent}% fee (${formatCents(d.lateFeeAmountCents, currency)}) applies. ` +
+        `If you don't show up for your reservation, a ${d.noShowFeePercent}% no-show fee ` +
+        `(${formatCents(d.noShowFeeAmountCents, currency)}) applies.`
       );
     }
     function formatCents(cents: number, currency: string): string {
@@ -53348,13 +53508,13 @@
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistPositionUpdateInput {
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistTableReadyInput {
       guestPhone: string;
@@ -53460,7 +53620,11 @@
         if (!this.client) return;
     
         const name = input.guestName ?? "Guest";
-        const body = `${name}, you're #${input.position}, est. ${input.estimatedWaitMinutes} min wait. We'll text when your table is ready.`;
+        const wait =
+          input.estimatedWaitMinutes === null
+            ? "estimate unavailable"
+            : `est. ${input.estimatedWaitMinutes} min wait`;
+        const body = `${name}, you're #${input.position}, ${wait}. We'll text when your table is ready.`;
         const trimmed = body.length > 160 ? body.slice(0, 160) : body;
     
         await this.sendWithRetry(input.guestPhone, trimmed);
@@ -53470,7 +53634,9 @@
         if (!this.client) return;
     
         const name = input.guestName ?? "Guest";
-        const body = `${name}, update: you're now #${input.position}, est. ${input.estimatedWaitMinutes} min.`;
+        const wait =
+          input.estimatedWaitMinutes === null ? "" : `, est. ${input.estimatedWaitMinutes} min`;
+        const body = `${name}, update: you're now #${input.position}${wait}.`;
         const trimmed = body.length > 160 ? body.slice(0, 160) : body;
     
         await this.sendWithRetry(input.guestPhone, trimmed);
@@ -57017,7 +57183,7 @@
       "table-status:changed": TableStatusDelta[];
     }
     export type SseEventName = keyof SsePayloadMap;
-    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
     export interface SseEventDefinition {
       /** Query-key roots to invalidate when this event arrives (may be empty). */
       readonly invalidates: readonly SseQueryKey[];
@@ -57030,17 +57196,19 @@
       "hold:released": { invalidates: [] },
       "hold:confirmed": { invalidates: ["reservations"] },
       "table:updated": { invalidates: ["tables"] },
-      "floor-plan:created": { invalidates: ["floorPlans", "floorPlan"] },
+      "floor-plan:created": { invalidates: ["floorPlans"] },
       "guest:lapsing": { invalidates: ["lapsingGuests"] },
       "table-status:changed": { invalidates: [] },
     } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
     export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
-    export interface SseEvent {
-      type: SseEventName;
-      venueId: string;
-      timestamp: string;
-      data: SsePayloadMap[SseEventName];
-    }
+    export type SseEvent<K extends SseEventName = SseEventName> = {
+      [N in K]: {
+        type: N;
+        venueId: string;
+        timestamp: string;
+        data: SsePayloadMap[N];
+      };
+    }[K];
   </file>
   <file path="packages/types/src/table-status.ts">
     export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
@@ -57330,11 +57498,11 @@
        */
       statusToken: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistEstimate {
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
     }
     export type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
@@ -57345,7 +57513,7 @@
       guestName: string;
       guestPhone: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
       notifiedAt: string | null;
       expiresAt: string | null;
@@ -59518,6 +59686,32 @@
       };
     }
   </file>
+  <file path="services/reservations/src/test/shared-schema-compilers.ts">
+    type RouteSchemaDef = {
+      schema: unknown;
+      method?: string;
+      url?: string;
+      httpStatus?: string;
+      contentType?: string;
+    };
+    type Serializer = (data: unknown) => string;
+    type BuildSerializerFn = (def: RouteSchemaDef) => Serializer;
+    type SerializerFactory = (externalSchemas: unknown, opts: unknown) => BuildSerializerFn;
+    type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => unknown;
+    export function withSharedSchemaCompilers(opts: FastifyServerOptions = {}): FastifyServerOptions {
+      return {
+        ...opts,
+        schemaController: {
+          ...opts.schemaController,
+          compilersFactory: {
+            buildValidator: validatorFactory,
+            buildSerializer: memoizedSerializerFactory,
+            ...opts.schemaController?.compilersFactory,
+          } as never,
+        },
+      };
+    }
+  </file>
   <file path="services/users/src/test/fixtures.ts">
     export const MOCK_USER = createMockUser();
     export const MOCK_JWT_PAYLOAD = createMockJWTPayload();
@@ -61096,7 +61290,11 @@
           delayMs: number;
           payload: ReminderPayload;
         };
-    export type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    export type LiveEvent = ReservationEvent extends infer E
+      ? E extends ReservationEvent
+        ? Omit<E, "timestamp">
+        : never
+      : never;
     export interface EventsPort {
       publish(event: LiveEvent): void;
     }
@@ -61367,46 +61565,66 @@
     }
   </file>
   <file path="apps/hospitality/src/utils/format.ts">
-    export function formatLongDate(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    function defaultReport(timeZone: string): void {
+      console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
+    }
+    export function resolveTimeZone(
+      timeZone: string | undefined,
+      report: (timeZone: string) => void = defaultReport
+    ): string | undefined {
+      if (!timeZone) return undefined;
+      try {
+        new Intl.DateTimeFormat(LOCALE, { timeZone });
+        return timeZone;
+      } catch {
+        if (!warnedZones.has(timeZone)) {
+          warnedZones.add(timeZone);
+          report(timeZone);
+        }
+        return undefined;
+      }
+    }
+    export function resetTimeZoneReports(): void {
+      warnedZones.clear();
+    }
+    export function formatLongDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "long",
         day: "numeric",
       });
     }
-    export function formatLongDateWithYear(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    export function formatLongDateWithYear(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "long",
         day: "numeric",
         year: "numeric",
       });
     }
-    export function formatServiceDate(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    export function formatServiceDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "short",
         day: "numeric",
       });
     }
-    export function formatTime(isoString: string): string {
-      return new Date(isoString).toLocaleTimeString(LOCALE, {
+    export function formatTime(isoString: string, locale: string = LOCALE): string {
+      return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
       });
     }
-    export function formatTimeIn(isoString: string, timeZone: string): string {
-      return new Date(isoString).toLocaleTimeString(LOCALE, {
+    export function formatTimeIn(isoString: string, timeZone: string, locale: string = LOCALE): string {
+      return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
-        timeZone,
+        timeZone: resolveTimeZone(timeZone),
       });
     }
     export function getHourIn(isoString: string, timeZone: string): number {
       const hour = new Intl.DateTimeFormat("en-US", {
-        timeZone,
+        timeZone: resolveTimeZone(timeZone),
         hour: "2-digit",
         hourCycle: "h23",
       })
@@ -61414,20 +61632,30 @@
         .find((part) => part.type === "hour")?.value;
       return hour ? Number(hour) : 0;
     }
-    export function formatLocalTime(hhmm: string): string {
+    export function formatLocalTime(hhmm: string, locale: string = LOCALE): string {
       const [hours = 0, minutes = 0] = hhmm.split(":").map(Number);
-      return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(LOCALE, {
+      return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
         timeZone: "UTC",
       });
     }
-    export function formatCurrencyFromCents(amountCents: number, currency: string): string {
-      return new Intl.NumberFormat(LOCALE, {
+    export function formatCurrencyFromCents(
+      amountCents: number,
+      currency: string,
+      locale: string = LOCALE
+    ): string {
+      return new Intl.NumberFormat(locale, {
         style: "currency",
         currency: currency.toUpperCase(),
       }).format(amountCents / 100);
+    }
+    export function formatShortDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
     }
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">
