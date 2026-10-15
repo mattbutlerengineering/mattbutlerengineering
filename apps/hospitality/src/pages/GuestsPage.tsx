@@ -221,64 +221,67 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
         />
       </div>
 
-      {/* Segments Overview */}
-      {(segments ?? []).length > 0 && (
-        <div className={styles.segmentsGrid}>
-          {(segments ?? []).map((segment: GuestSegment, index: number) => (
-            <Card
-              key={segment.name}
-              className={styles.segmentCard}
-              style={{
-                borderInlineStartColor: SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
-              }}
+      <div data-testid="primary-content">
+        {/* Segments Overview */}
+        {(segments ?? []).length > 0 && (
+          <div className={styles.segmentsGrid}>
+            {(segments ?? []).map((segment: GuestSegment, index: number) => (
+              <Card
+                key={segment.name}
+                className={styles.segmentCard}
+                style={{
+                  borderInlineStartColor:
+                    SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
+                }}
+              >
+                <Stat label={segment.name} value={segment.count} />
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {loadFailure && (
+          <ErrorRetryBanner
+            title="Couldn't load guests."
+            error={loadFailure.detail}
+            details={loadFailure.raw}
+            onRetry={refetch}
+            onDismiss={() => {}}
+          />
+        )}
+
+        <Text className={styles.srOnly} aria-live="polite" role="status">
+          {`${guests.length} guest${guests.length !== 1 ? "s" : ""} shown`}
+        </Text>
+
+        {!isLoading && !error && guests.length > 0 && (
+          <GuestTable guests={guests} selectedGuestId={selectedGuestId} onRowClick={selectGuest} />
+        )}
+
+        {!isSearchActive && totalPages > 1 && (
+          <Stack direction="row" gap="sm" align="center" justify="center">
+            <Button
+              variant="ghost"
+              aria-label="Previous page"
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
             >
-              <Stat label={segment.name} value={segment.count} />
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {loadFailure && (
-        <ErrorRetryBanner
-          title="Couldn't load guests."
-          error={loadFailure.detail}
-          details={loadFailure.raw}
-          onRetry={refetch}
-          onDismiss={() => {}}
-        />
-      )}
-
-      <Text className={styles.srOnly} aria-live="polite" role="status">
-        {`${guests.length} guest${guests.length !== 1 ? "s" : ""} shown`}
-      </Text>
-
-      {!isLoading && !error && guests.length > 0 && (
-        <GuestTable guests={guests} selectedGuestId={selectedGuestId} onRowClick={selectGuest} />
-      )}
-
-      {!isSearchActive && totalPages > 1 && (
-        <Stack direction="row" gap="sm" align="center" justify="center">
-          <Button
-            variant="ghost"
-            aria-label="Previous page"
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-          >
-            Previous
-          </Button>
-          <Text variant="caption" color="secondary">
-            Page {page} of {totalPages}
-          </Text>
-          <Button
-            variant="ghost"
-            aria-label="Next page"
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-          >
-            Next
-          </Button>
-        </Stack>
-      )}
+              Previous
+            </Button>
+            <Text variant="caption" color="secondary">
+              Page {page} of {totalPages}
+            </Text>
+            <Button
+              variant="ghost"
+              aria-label="Next page"
+              disabled={page >= totalPages}
+              onClick={() => setPage(page + 1)}
+            >
+              Next
+            </Button>
+          </Stack>
+        )}
+      </div>
 
       <GuestDrawer
         guest={selectedGuest}

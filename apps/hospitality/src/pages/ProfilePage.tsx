@@ -276,7 +276,7 @@ export function ProfilePage() {
     <div>
       <PageHeader title="Profile" description="View and manage your profile information" />
 
-      <Stack gap="lg">
+      <Stack gap="lg" data-testid="primary-content">
         {saveSuccess && (
           <Alert
             variant="success"
