@@ -13471,13 +13471,7 @@
       cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
       updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
       markNoShow: (id: string) => Promise<{ reservation: Reservation; warning?: string }>;
-      createWalkIn: (data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestName?: string;
-        guestId?: string;
-      }) => Promise<Reservation>;
+      createWalkIn: (data: WalkInRequest) => Promise<Reservation>;
       updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
     }
     export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTimelineDataResult {
@@ -13592,13 +13586,7 @@
         return result;
       };
     
-      const createWalkIn = async (data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestName?: string;
-        guestId?: string;
-      }): Promise<Reservation> => {
+      const createWalkIn = async (data: WalkInRequest): Promise<Reservation> => {
         const created = await api.reservations.walkIn(data);
         invalidateAll();
         return created;
@@ -49769,14 +49757,7 @@
       /**
        * Create a walk-in reservation
        */
-      async walkIn(data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestId?: string;
-        guestName?: string;
-        durationMinutes?: number;
-      }): Promise<Reservation> {
+      async walkIn(data: WalkInRequest): Promise<Reservation> {
         return this.client.postOne<Reservation>(
           `${RESERVATION_BASE_PATH}/walk-in`,
           data,

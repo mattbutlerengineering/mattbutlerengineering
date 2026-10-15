@@ -16,6 +16,7 @@ import type {
   Table,
   UpdateReservationRequest,
 } from "@mbe/types";
+import { OccasionSeatingFields } from "../reservations/OccasionSeatingFields.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { useFocusAfter } from "../../hooks/useFocusAfter.js";
@@ -29,24 +30,6 @@ interface EditReservationDrawerProps {
   onSave: (id: string, data: UpdateReservationRequest) => Promise<void>;
   onClose: () => void;
 }
-
-const OCCASION_OPTIONS: { value: Occasion; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "birthday", label: "Birthday" },
-  { value: "anniversary", label: "Anniversary" },
-  { value: "business", label: "Business" },
-  { value: "date_night", label: "Date Night" },
-  { value: "other", label: "Other" },
-];
-
-const SEATING_OPTIONS: { value: SeatingPreference; label: string }[] = [
-  { value: "no_preference", label: "No preference" },
-  { value: "booth", label: "Booth" },
-  { value: "patio", label: "Patio" },
-  { value: "bar", label: "Bar" },
-  { value: "window", label: "Window" },
-  { value: "quiet", label: "Quiet" },
-];
 
 interface EditReservationFormData {
   startTime: string;
@@ -199,20 +182,12 @@ export function EditReservationDrawer({
                 options={tableOptions}
               />
 
-              <Select
-                label="Occasion"
-                value={occasion}
-                onChange={(v) => setOccasion(v as Occasion)}
+              <OccasionSeatingFields
+                occasion={occasion}
+                seatingPreference={seatingPreference}
+                onOccasionChange={setOccasion}
+                onSeatingPreferenceChange={setSeatingPreference}
                 disabled={isLoading}
-                options={OCCASION_OPTIONS}
-              />
-
-              <Select
-                label="Seating Preference"
-                value={seatingPreference}
-                onChange={(v) => setSeatingPreference(v as SeatingPreference)}
-                disabled={isLoading}
-                options={SEATING_OPTIONS}
               />
 
               <TextArea label="Notes" rows={4} disabled={isLoading} {...register("notes")} />
