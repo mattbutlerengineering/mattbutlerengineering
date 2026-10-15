@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:local": "docker compose -f infrastructure/docker-compose.yml up postgres -d --wait && pnpm env:init && pnpm db:push && pnpm db:generate && turbo run dev",
+    "bootstrap:worktree": "node scripts/bootstrap-worktree.mjs",
     "env:init": "pnpm --filter './services/*' exec sh -c '[ -f .env ] || cp .env.example .env'",
     "db:push": "pnpm --filter './services/*' exec prisma db push",
     "db:generate": "pnpm --filter './services/*' exec prisma generate",

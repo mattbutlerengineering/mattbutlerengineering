@@ -34,11 +34,13 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
 
    Then re-run the check and confirm exit 0. Report and stop if it still fails.
 
-   Worktrees are also bare checkouts without `node_modules`:
+   Worktrees are also bare checkouts without `node_modules` or built `dist/` outputs. One command installs and builds only what is missing (no-op when already bootstrapped):
 
    ```bash
-   pnpm install --frozen-lockfile && touch .worktree-installed
+   pnpm bootstrap:worktree && touch .worktree-installed
    ```
+
+   (It runs `pnpm install --frozen-lockfile`, then builds the workspace packages whose `dist/` is absent.)
 
    The sentinel file `.worktree-installed` tells the verification phase that install already ran, so it can skip its own redundant install and save 20–90s per session.
 
