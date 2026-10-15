@@ -2,8 +2,22 @@
 .pagination {
   display: flex;
   align-items: center;
-  gap: var(--rialto-space-2xs);
   isolation: isolate;
+}
+
+/* ── List (resets UA list styles; layout matches the old flat nav) ── */
+.list {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
 }
 
 /* ── Shared button base ──────────────────────── */
