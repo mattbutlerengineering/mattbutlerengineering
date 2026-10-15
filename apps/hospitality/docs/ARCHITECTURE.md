@@ -234,15 +234,6 @@ The vocabulary is owned by `SSE_EVENT_CATALOG` in `packages/types/src/sse-events
 | `guest:lapsing`         | `LapsingGuest[]`     | Refetch the lapsing-guests widget                  |
 | `table-status:changed`  | `TableStatusDelta[]` | Merge deltas into live table statuses (no refetch) |
 
------------------------ | ----------------- | ---------------------- |
-| `reservation:created` | `Reservation` | Add to list |
-| `reservation:updated` | `Reservation` | Update in list |
-| `reservation:cancelled` | `Reservation` | Remove from list |
-| `table:updated` | `Table` | Update table state |
-| `hold:created` | `ReservationHold` | Add hold indicator |
-| `hold:released` | `ReservationHold` | Remove hold indicator |
-| `hold:confirmed` | `Reservation` | Convert to reservation |
-
 ---
 
 ## Component Architecture

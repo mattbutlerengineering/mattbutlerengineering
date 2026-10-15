@@ -10,8 +10,11 @@ const ARCHITECTURE_DOC = resolve(__dirname, "../docs/ARCHITECTURE.md");
 /** Event names in the first column of the "Event Types Reference" table. */
 function documentedEventNames(markdown: string): string[] {
   const section = markdown.slice(markdown.indexOf("### Event Types Reference"));
-  const end = section.indexOf("\n---");
-  const rows = (end === -1 ? section : section.slice(0, end)).split("\n");
+  // The section ends at the next heading or rule, so a stray event row left
+  // below the table is counted (and fails the equality check) rather than hidden.
+  const lines = section.split("\n").slice(1);
+  const end = lines.findIndex((line) => /^(#{1,6}\s|-{3,}\s*$)/.test(line));
+  const rows = end === -1 ? lines : lines.slice(0, end);
   return rows.flatMap((row) => {
     const match = /^\|\s*`([a-z-]+:[a-z-]+)`\s*\|/.exec(row);
     return match?.[1] ? [match[1]] : [];
