@@ -218,7 +218,7 @@
         guestPhone: string;
         guestName: string | null;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
@@ -226,7 +226,7 @@
         guestPhone: string;
         guestName: string | null;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">

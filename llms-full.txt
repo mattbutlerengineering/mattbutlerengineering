@@ -4488,7 +4488,7 @@
     export interface WaitlistResult {
       statusToken: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface BookingFlowData {
       selectedDate: string | null;
@@ -12473,7 +12473,7 @@
     
       return {
         waitlistCount: entries.length,
-        longestWaitMinutes: Math.max(...entries.map((e) => e.estimatedWaitMinutes)),
+        longestWaitMinutes: Math.max(0, ...entries.map((e) => e.estimatedWaitMinutes ?? 0)),
       };
     }
     export function computeDepositStats(deposits: readonly Deposit[]): DepositStats {
@@ -26330,6 +26330,16 @@
   </file>
   <file path="services/reservations/src/routes/waitlist.ts">
     export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
+      // the seat/cancel that triggered it, and runs after the queue is recalculated.
+      const notifyImproved: OnPositionsImproved = (changes) => {
+        for (const change of changes) {
+          fastify.waitlistNotifier.notifyPositionUpdate(change).catch(() => {
+            // Already logged inside the notifier
+          });
+        }
+      };
+    
       // POST / — create waitlist entry
       fastify.post<{
         Body: {
@@ -26518,7 +26528,7 @@
           },
         },
         venueScoped({ venue: entryVenue }, async (request, reply) => {
-          const entry = await waitlistService.seat(request.params.id);
+          const entry = await waitlistService.seat(request.params.id, notifyImproved);
           if (!entry) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
@@ -26552,7 +26562,7 @@
           },
         },
         venueScoped({ venue: entryVenue }, async (request, reply) => {
-          const entry = await waitlistService.cancel(request.params.id);
+          const entry = await waitlistService.cancel(request.params.id, notifyImproved);
           if (!entry) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
@@ -28058,7 +28068,7 @@
     export const WaitlistJoinResultSchema = z.object({
       statusToken: z.string(),
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
     });
     export const WaitlistStatusSchema = z.enum([
       "waiting",
@@ -28069,7 +28079,7 @@
     ]);
     export const WaitlistEstimateSchema = z.object({
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
       status: WaitlistStatusSchema,
     });
     export const WaitlistEntrySchema = z.object({
@@ -28079,7 +28089,7 @@
       guestName: z.string(),
       guestPhone: z.string(),
       position: z.number(),
-      estimatedWaitMinutes: z.number(),
+      estimatedWaitMinutes: z.number().nullable(),
       status: WaitlistStatusSchema,
       notifiedAt: z.string().nullable(),
       expiresAt: z.string().nullable(),
@@ -38577,13 +38587,12 @@
       reservations: readonly EstimateReservation[]
     ): number | null {
       const own = reservations.filter((r) => r.tableId === tableId && OCCUPYING_STATUSES.has(r.status));
-      const blockedByUpcoming = own.some(
-        (r) => r.startTime.getTime() > now && r.startTime.getTime() < now + durationMs
-      );
-      if (blockedByUpcoming) return null;
-    
       const current = own.find((r) => r.startTime.getTime() <= now && r.endTime.getTime() > now);
-      return current ? current.endTime.getTime() - now : 0;
+      const freeAt = current ? current.endTime.getTime() : now;
+      const blocked = own.some(
+        (r) => r.startTime.getTime() >= freeAt && r.startTime.getTime() < freeAt + durationMs
+      );
+      return blocked ? null : freeAt - now;
     }
     export function estimateWaitFromTurnover(input: EstimateInput): number | null {
       const { position, partySize, now, tables, reservations, settings } = input;
@@ -38613,7 +38622,7 @@
       guestPhone: string;
       guestName: string | null;
       position?: number;
-      estimatedWaitMinutes?: number;
+      estimatedWaitMinutes?: number | null;
       status?: string;
     }
     export interface WaitlistNotifierDeps {
@@ -38636,7 +38645,7 @@
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface NotifyPositionUpdateInput {
       id: string;
@@ -38644,7 +38653,7 @@
       guestName: string | null;
       previousPosition: number;
       newPosition: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface NotifyTableReadyInput {
       id: string;
@@ -38849,7 +38858,7 @@
       guestName: string;
       guestPhone: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
       notifiedAt: Date | null;
       expiresAt: Date | null;
@@ -38883,11 +38892,32 @@
       return (position, partySize) =>
         estimateWaitFromTurnover({ position, partySize, now, tables, reservations, settings });
     }
-    async function recalculateVenuePositions(venueId: string): Promise<void> {
+    export interface ImprovedPosition {
+      id: string;
+      venueId: string;
+      guestPhone: string;
+      guestName: string | null;
+      previousPosition: number;
+      newPosition: number;
+      /** Live estimate at the new position; null when no table can seat the party. */
+      estimatedWaitMinutes: number | null;
+    }
+    export type OnPositionsImproved = (changes: ImprovedPosition[]) => void;
+    async function recalculateVenuePositions(
+      venueId: string,
+      onImproved?: OnPositionsImproved
+    ): Promise<void> {
       const waitingEntries = await prisma.waitlistEntry.findMany({
         where: { venueId, status: "waiting" },
         orderBy: { position: "asc" },
-        select: { id: true, position: true },
+        select: {
+          id: true,
+          venueId: true,
+          partySize: true,
+          guestName: true,
+          guestPhone: true,
+          position: true,
+        },
       });
     
       const updated = recalculatePositions(waitingEntries);
@@ -38912,6 +38942,38 @@
           WHERE w.id = v.id
         `;
       });
+    
+      if (onImproved) await reportImproved(venueId, waitingEntries, updated, onImproved);
+    }
+    type WaitingRow = Pick<
+      WaitlistEntryData,
+      "id" | "venueId" | "partySize" | "guestName" | "guestPhone" | "position"
+    >;
+    async function reportImproved(
+      venueId: string,
+      before: readonly WaitingRow[],
+      after: readonly { id: string; position: number }[],
+      onImproved: OnPositionsImproved
+    ): Promise<void> {
+      const newPositions = new Map(after.map((e) => [e.id, e.position]));
+      const moved = before.filter((e) => (newPositions.get(e.id) ?? e.position) < e.position);
+      if (moved.length === 0) return;
+    
+      const estimate = await loadEstimator(venueId, new Date());
+      onImproved(
+        moved.map((e) => {
+          const newPosition = newPositions.get(e.id) ?? e.position;
+          return {
+            id: e.id,
+            venueId: e.venueId,
+            guestPhone: e.guestPhone,
+            guestName: e.guestName,
+            previousPosition: e.position,
+            newPosition,
+            estimatedWaitMinutes: estimate(newPosition, e.partySize),
+          };
+        })
+      );
     }
     export const waitlistService = {
       async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
@@ -38925,7 +38987,7 @@
         const estimatedWait =
           avgTurnTimeMinutes !== undefined
             ? estimateWaitMinutes(position, avgTurnTimeMinutes)
-            : ((await loadEstimator(venueId, new Date()))(position, partySize) ?? 0);
+            : (await loadEstimator(venueId, new Date()))(position, partySize);
     
         return prisma.waitlistEntry.create({
           data: {
@@ -38941,8 +39003,9 @@
     
       /**
        * Replaces each waiting entry's stored (join-time) estimate with one computed
-       * from current table turnover. Entries that no table can seat keep their
-       * stored value. Computed on every read, never persisted.
+       * from current table turnover. Entries that no table can seat get null
+       * ("estimate unavailable"), never a stale or zero value. Computed on every
+       * read, never persisted.
        */
       async withLiveEstimates<T extends WaitlistEntryData>(entries: T[]): Promise<T[]> {
         const first = entries[0];
@@ -38951,7 +39014,7 @@
         return entries.map((entry) => {
           if (entry.status !== "waiting") return entry;
           const minutes = estimate(entry.position, entry.partySize);
-          return minutes === null ? entry : { ...entry, estimatedWaitMinutes: minutes };
+          return { ...entry, estimatedWaitMinutes: minutes };
         });
       },
     
@@ -38974,7 +39037,7 @@
         return prisma.waitlistEntry.findUnique({ where: { id } });
       },
     
-      async seat(id: string): Promise<WaitlistEntryData | null> {
+      async seat(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
         let entry: WaitlistEntryData;
         try {
           entry = await prisma.waitlistEntry.update({
@@ -38984,11 +39047,11 @@
         } catch {
           return null;
         }
-        await recalculateVenuePositions(entry.venueId);
+        await recalculateVenuePositions(entry.venueId, onImproved);
         return entry;
       },
     
-      async cancel(id: string): Promise<WaitlistEntryData | null> {
+      async cancel(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
         let entry: WaitlistEntryData;
         try {
           entry = await prisma.waitlistEntry.update({
@@ -38998,7 +39061,7 @@
         } catch {
           return null;
         }
-        await recalculateVenuePositions(entry.venueId);
+        await recalculateVenuePositions(entry.venueId, onImproved);
         return entry;
       },
     
@@ -53209,13 +53272,13 @@
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistPositionUpdateInput {
       guestPhone: string;
       guestName: string | null;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistTableReadyInput {
       guestPhone: string;
@@ -53321,7 +53384,11 @@
         if (!this.client) return;
     
         const name = input.guestName ?? "Guest";
-        const body = `${name}, you're #${input.position}, est. ${input.estimatedWaitMinutes} min wait. We'll text when your table is ready.`;
+        const wait =
+          input.estimatedWaitMinutes === null
+            ? "estimate unavailable"
+            : `est. ${input.estimatedWaitMinutes} min wait`;
+        const body = `${name}, you're #${input.position}, ${wait}. We'll text when your table is ready.`;
         const trimmed = body.length > 160 ? body.slice(0, 160) : body;
     
         await this.sendWithRetry(input.guestPhone, trimmed);
@@ -53331,7 +53398,9 @@
         if (!this.client) return;
     
         const name = input.guestName ?? "Guest";
-        const body = `${name}, update: you're now #${input.position}, est. ${input.estimatedWaitMinutes} min.`;
+        const wait =
+          input.estimatedWaitMinutes === null ? "" : `, est. ${input.estimatedWaitMinutes} min`;
+        const body = `${name}, update: you're now #${input.position}${wait}.`;
         const trimmed = body.length > 160 ? body.slice(0, 160) : body;
     
         await this.sendWithRetry(input.guestPhone, trimmed);
@@ -57191,11 +57260,11 @@
        */
       statusToken: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface WaitlistEstimate {
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
     }
     export type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
@@ -57206,7 +57275,7 @@
       guestName: string;
       guestPhone: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
       status: WaitlistStatus;
       notifiedAt: string | null;
       expiresAt: string | null;

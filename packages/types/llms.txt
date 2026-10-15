@@ -1489,13 +1489,13 @@
       interface WaitlistJoinResult {
         statusToken: string;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
       interface WaitlistEstimate {
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
         status: WaitlistStatus;
       }
     </item>

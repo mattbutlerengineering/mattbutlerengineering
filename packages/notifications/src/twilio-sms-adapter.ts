@@ -116,7 +116,11 @@ export class TwilioSmsAdapter implements SmsPort {
     if (!this.client) return;
 
     const name = input.guestName ?? "Guest";
-    const body = `${name}, you're #${input.position}, est. ${input.estimatedWaitMinutes} min wait. We'll text when your table is ready.`;
+    const wait =
+      input.estimatedWaitMinutes === null
+        ? "estimate unavailable"
+        : `est. ${input.estimatedWaitMinutes} min wait`;
+    const body = `${name}, you're #${input.position}, ${wait}. We'll text when your table is ready.`;
     const trimmed = body.length > 160 ? body.slice(0, 160) : body;
 
     await this.sendWithRetry(input.guestPhone, trimmed);
@@ -126,7 +130,9 @@ export class TwilioSmsAdapter implements SmsPort {
     if (!this.client) return;
 
     const name = input.guestName ?? "Guest";
-    const body = `${name}, update: you're now #${input.position}, est. ${input.estimatedWaitMinutes} min.`;
+    const wait =
+      input.estimatedWaitMinutes === null ? "" : `, est. ${input.estimatedWaitMinutes} min`;
+    const body = `${name}, update: you're now #${input.position}${wait}.`;
     const trimmed = body.length > 160 ? body.slice(0, 160) : body;
 
     await this.sendWithRetry(input.guestPhone, trimmed);

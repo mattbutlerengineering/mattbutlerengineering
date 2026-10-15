@@ -14,7 +14,7 @@ export interface WaitlistEntryRef {
   guestPhone: string;
   guestName: string | null;
   position?: number;
-  estimatedWaitMinutes?: number;
+  estimatedWaitMinutes?: number | null;
   status?: string;
 }
 
@@ -39,7 +39,7 @@ export interface NotifyAddedInput {
   guestPhone: string;
   guestName: string | null;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface NotifyPositionUpdateInput {
@@ -48,7 +48,7 @@ export interface NotifyPositionUpdateInput {
   guestName: string | null;
   previousPosition: number;
   newPosition: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface NotifyTableReadyInput {

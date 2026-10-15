@@ -101,7 +101,7 @@ export function computeWaitlistStats(entries: readonly WaitlistEntry[]): Waitlis
 
   return {
     waitlistCount: entries.length,
-    longestWaitMinutes: Math.max(...entries.map((e) => e.estimatedWaitMinutes)),
+    longestWaitMinutes: Math.max(0, ...entries.map((e) => e.estimatedWaitMinutes ?? 0)),
   };
 }
 

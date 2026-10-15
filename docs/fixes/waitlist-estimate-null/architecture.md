@@ -16,7 +16,7 @@ packages, one UI surface. No new services, no new deps.
 
 ## Design
 
-### 1. `estimatedWaitMinutes: number | null` end to end (ADR-088)
+### 1. `estimatedWaitMinutes: number | null` end to end
 
 The estimator already returns `number | null`; the fix removes every
 coercion between it and the guest:
@@ -73,10 +73,9 @@ change; the notifier and its tests already exist.
 
 ## Decisions record
 
-- ADR-088 (provisional): nullable estimate end to end — one-way-ish door
+- Nullable estimate end to end (no ADR; recorded here) — one-way-ish door
   (public API field goes nullable; un-nulling needs backfill + consumer
-  sweeps), surprising without the "0 was a lie" context, real trade-off
-  (sentinel / keep-0 / drop-column rejected above).
+  sweeps); sentinel / keep-0 / drop-column rejected above.
 - Window fix and notifier wiring: one-line records here; reversible,
   unsurprising once stated — no ADR.
 

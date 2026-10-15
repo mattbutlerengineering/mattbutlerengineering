@@ -210,6 +210,24 @@ describe("TwilioSmsAdapter", () => {
       expect(call.body.length).toBeLessThanOrEqual(160);
     });
 
+    it("sendWaitlistAdded says the estimate is unavailable (never 0 min) when null", async () => {
+      await adapter().sendWaitlistAdded({ ...addedInput, estimatedWaitMinutes: null });
+
+      const call = mockCreate.mock.calls[0]![0];
+      expect(call.body).toContain("#3");
+      expect(call.body).toContain("estimate unavailable");
+      expect(call.body).not.toMatch(/\d+ min/);
+      expect(call.body.length).toBeLessThanOrEqual(160);
+    });
+
+    it("sendWaitlistPositionUpdate omits the estimate (never 0 min) when null", async () => {
+      await adapter().sendWaitlistPositionUpdate({ ...positionInput, estimatedWaitMinutes: null });
+
+      const call = mockCreate.mock.calls[0]![0];
+      expect(call.body).toContain("#1");
+      expect(call.body).not.toMatch(/\d+ min/);
+    });
+
     it("sendWaitlistPositionUpdate sends the updated position", async () => {
       await adapter().sendWaitlistPositionUpdate(positionInput);
 

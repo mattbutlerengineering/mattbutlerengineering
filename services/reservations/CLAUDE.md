@@ -238,7 +238,7 @@ interface WaitlistEntry {
   guestName: string;
   guestPhone: string;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null; // null = no estimate (no fitting table); never 0
   status: WaitlistStatus;
   notifiedAt: Date | null;
   expiresAt: Date | null;

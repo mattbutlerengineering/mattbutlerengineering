@@ -194,6 +194,24 @@ describe("POST /public/v1/venues/:slug/waitlist", () => {
     expect(body.data.estimatedWaitMinutes).toBe(45);
   });
 
+  it("returns a null estimate (not 0) when the entry has none, and still matches the shared schema", async () => {
+    vi.mocked(waitlistService.create).mockResolvedValue({
+      ...mockEntry,
+      estimatedWaitMinutes: null,
+    } as never);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/waitlist",
+      payload: validPayload,
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.payload) as { data: { estimatedWaitMinutes: number | null } };
+    expect(body.data.estimatedWaitMinutes).toBeNull();
+    expect(WaitlistJoinResultSchema.safeParse(body.data).success).toBe(true);
+  });
+
   it("returns a status token, never the bare entry id", async () => {
     const res = await app.inject({
       method: "POST",
@@ -316,6 +334,19 @@ describe("GET /public/v1/venues/:slug/waitlist/status", () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
     expect(body.data).toEqual({ position: 4, estimatedWaitMinutes: 12, status: "waiting" });
+  });
+
+  it("returns a null estimate when the live estimator has none, even if one is stored", async () => {
+    vi.mocked(waitlistService.withLiveEstimates).mockImplementation(((entries: unknown[]) =>
+      Promise.resolve(
+        entries.map((e) => ({ ...(e as object), estimatedWaitMinutes: null }))
+      )) as never);
+
+    const res = await app.inject({ method: "GET", url: urlFor(goodToken()) });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
+    expect(body.data).toEqual({ position: 4, estimatedWaitMinutes: null, status: "waiting" });
   });
 
   it("rejects a bare entry id used as a token", async () => {

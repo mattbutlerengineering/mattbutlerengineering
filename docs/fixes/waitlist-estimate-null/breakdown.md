@@ -17,7 +17,7 @@ before the code moves.
 
 ## Milestone (one PR): `fix(waitlist): null estimates stay null; free-window from freeAt; position SMS` — Closes #6580
 
-- [ ] **WO-1: `freeInMs` window from `freeAt`** — compute `freeAt` (current
+- [x] **WO-1: `freeInMs` window from `freeAt`** — compute `freeAt` (current
       occupier's `endTime`, else `now`) first; blocked iff an upcoming
       occupying booking starts in `[freeAt, freeAt + duration)`; return
       `freeAt - now`.
@@ -28,7 +28,7 @@ before the code moves.
     `freeAt + duration` does not. Existing estimator tests green.
   - Files: `services/reservations/src/services/waitlist-estimate.ts` (+test).
   - Blocked by: —
-- [ ] **WO-2: nullable column + types/schemas** — `schema.prisma:293`
+- [x] **WO-2: nullable column + types/schemas** — `schema.prisma:293`
       → `Int?` with migration `DROP NOT NULL` on
       `waitlist_entries.estimated_wait_minutes`; `packages/types`
       waitlist type + zod schema `.nullable()`; reservations route JSON
@@ -42,7 +42,7 @@ before the code moves.
     `packages/types/src/schemas/waitlist.ts`, route schemas in
     `services/reservations/src/routes/{waitlist,public-waitlist}.ts`.
   - Blocked by: —
-- [ ] **WO-3: service stores and serves null** — drop `?? 0` in
+- [x] **WO-3: service stores and serves null** — drop `?? 0` in
       `waitlistService.create` (`waitlist.ts:106`); `withLiveEstimates`
       replaces the stored value with the live result INCLUDING null
       (`waitlist.ts:132`); status GET passes it through
@@ -54,7 +54,7 @@ before the code moves.
   - Files: `services/reservations/src/services/waitlist.ts`,
     `services/reservations/src/routes/public-waitlist.ts` (+tests).
   - Blocked by: WO-2
-- [ ] **WO-4: render null as "estimate unavailable"** — SMS "added" copy
+- [x] **WO-4: render null as "estimate unavailable"** — SMS "added" copy
       (`packages/notifications/src/twilio-sms-adapter.ts:119`) and widget
       views (`WaitlistConfirmationView.tsx`, `LiveWaitlistConfirmation.tsx`)
       render the unavailable copy on null; never "0 min"/"est. 0 min wait".
@@ -65,7 +65,7 @@ before the code moves.
     `apps/hospitality/src/components/booking-widget/
 WaitlistConfirmationView.tsx`, `LiveWaitlistConfirmation.tsx` (+tests).
   - Blocked by: WO-2 (nullable type reaches consumers)
-- [ ] **WO-5: wire `notifyPositionUpdate`** — position-recalc path in
+- [x] **WO-5: wire `notifyPositionUpdate`** — position-recalc path in
       `waitlist.ts` surfaces entries whose position improved; seat/cancel/
       expire callers invoke `waitlistNotifier.notifyPositionUpdate` for
       each, fire-and-forget outside the transaction (same posture as
@@ -78,14 +78,14 @@ WaitlistConfirmationView.tsx`, `LiveWaitlistConfirmation.tsx` (+tests).
   - Files: `services/reservations/src/services/waitlist.ts`,
     `src/routes/waitlist.ts` callers (+tests).
   - Blocked by: —
-- [ ] **Gate: suites + typecheck green, PR opened** — `pnpm --dir
-    services/reservations test` + `typecheck`, `pnpm --dir
-    packages/types test`, `pnpm --dir packages/notifications test`,
+- [x] **Gate: suites + typecheck green, PR opened** — `pnpm --dir
+services/reservations test` + `typecheck`, `pnpm --dir
+packages/types test`, `pnpm --dir packages/notifications test`,
       hospitality widget tests; then PR per the repo's local-ci-precheck
       hook; conductor owns review/merge.
   - Accept: all named suites green; PR body carries `Closes #6580`,
     WO-1..WO-5 ids, and the Merge danger section (door: one-way-ish —
-    public API field goes nullable, per ADR-088; blast radius: waitlist
+    public API field goes nullable, per architecture.md; blast radius: waitlist
     join/status consumers and SMS copy).
   - Blocked by: WO-1, WO-2, WO-3, WO-4, WO-5
 
