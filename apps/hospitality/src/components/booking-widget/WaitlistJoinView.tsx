@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { Button, Input, Alert, Text, Heading } from "@mattbutlerengineering/rialto";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { formatLongDate } from "../../utils/format.js";
+import { useTranslation } from "react-i18next";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./WaitlistJoinView.module.css";
 
@@ -40,6 +41,8 @@ export function WaitlistJoinView({
   onJoined,
   onBack,
 }: WaitlistJoinViewProps) {
+  const { t } = useTranslation();
+  const format = useVenueFormat({ ianaTimezone: "", currencyCode: "USD" });
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -55,7 +58,7 @@ export function WaitlistJoinView({
       setSubmitError(null);
 
       if (!isValidPhone(phone)) {
-        setPhoneError("Please enter a valid phone number.");
+        setPhoneError(t("bookingWidget.waitlist.invalidPhone"));
         return;
       }
 
@@ -74,44 +77,47 @@ export function WaitlistJoinView({
         setIsLoading(false);
       }
     },
-    [name, phone, venueId, venueSlug, partySize, api, onJoined]
+    [name, phone, venueId, venueSlug, partySize, api, onJoined, t]
   );
 
-  const formattedDate = formatLongDate(requestedDate);
+  const formattedDate = format.formatLongDate(requestedDate);
 
   return (
     <div className={styles.container}>
       <div className={styles.topBar}>
         <Button variant="ghost" size="sm" onClick={onBack} type="button">
-          &larr; Back
+          {t("bookingWidget.back")}
         </Button>
       </div>
 
       <div className={styles.noAvailability}>
-        <Heading className={styles.noAvailabilityHeading}>No tables available</Heading>
+        <Heading className={styles.noAvailabilityHeading}>
+          {t("bookingWidget.waitlist.noTablesHeading")}
+        </Heading>
         <Text className={styles.noAvailabilityDetail}>
-          No tables available on {formattedDate} for {partySize}{" "}
-          {partySize === 1 ? "guest" : "guests"}.
+          {t("bookingWidget.waitlist.noTablesDetail", { date: formattedDate, count: partySize })}
         </Text>
         {estimatedWaitMinutes != null && (
-          <Text className={styles.waitEstimate}>Estimated wait: ~{estimatedWaitMinutes} min</Text>
+          <Text className={styles.waitEstimate}>
+            {t("bookingWidget.estimatedWait", { minutes: estimatedWaitMinutes })}
+          </Text>
         )}
       </div>
 
       {submitError && <Alert variant="error">{submitError}</Alert>}
 
       <form noValidate onSubmit={handleSubmit} className={styles.form}>
-        <Text className={styles.formHeading}>Join the waitlist?</Text>
+        <Text className={styles.formHeading}>{t("bookingWidget.waitlist.joinPrompt")}</Text>
 
         <Input
-          label="Name"
+          label={t("bookingWidget.waitlist.name")}
           value={name}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-          placeholder="Your name"
+          placeholder={t("bookingWidget.waitlist.namePlaceholder")}
         />
 
         <Input
-          label="Phone"
+          label={t("bookingWidget.waitlist.phone")}
           type="tel"
           value={phone}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,11 +126,11 @@ export function WaitlistJoinView({
           }}
           placeholder="+1 (555) 123-4567"
           error={Boolean(phoneError)}
-          hint={phoneError ?? "Required for SMS notifications when your table is ready."}
+          hint={phoneError ?? t("bookingWidget.waitlist.phoneHint")}
         />
 
         <Button variant="primary" type="submit" disabled={!isFormValid || isLoading}>
-          {isLoading ? "Joining..." : "Join Waitlist"}
+          {isLoading ? t("bookingWidget.waitlist.joining") : t("bookingWidget.waitlist.join")}
         </Button>
       </form>
     </div>

@@ -1,4 +1,6 @@
 import { useReducer, useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import enUS from "../../i18n/catalogs/en-US.json";
 import type {
   TimeSlot,
   ReservationHold,
@@ -100,7 +102,7 @@ type BookingFlowAction =
   | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
   | { type: "CONFIRM_ERROR"; error: string }
   | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
-  | { type: "EXPIRE_HOLD" }
+  | { type: "EXPIRE_HOLD"; error: string }
   | { type: "RESET"; selectedDate: string }
   | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
   | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
@@ -150,8 +152,7 @@ function createInitialState(venueTimezone?: string): BookingFlowState {
  * requires the slug-scoped public route, so there is nothing to fall back to —
  * the guest gets an honest dead end instead of a 401 from the staff route.
  */
-export const MISSING_VENUE_SLUG_ERROR =
-  "Online booking isn't available here. Please contact the venue directly to reserve.";
+export const MISSING_VENUE_SLUG_ERROR = enUS.bookingWidget.errors.missingVenueSlug;
 
 /** Step keys when no deposit is required — single source of truth for step-set derivation. */
 export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
@@ -302,7 +303,7 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         data: {
           ...state.data,
           hold: null,
-          holdError: "Your hold has expired. Please select a new time.",
+          holdError: action.error,
           slotsLoading: true,
         },
       };
@@ -416,6 +417,9 @@ export function useBookingFlow({
   venueTimezone,
 }: UseBookingFlowDeps): BookingFlowResult {
   const [flowState, dispatch] = useReducer(reducer, venueTimezone, createInitialState);
+  // The i18n instance is stable, so callbacks reading it don't churn on a
+  // language switch; each message is resolved in the locale active when it fires.
+  const { i18n } = useTranslation();
 
   // Ref pattern (see hospitality app conventions) — onHoldChange is commonly
   // passed as a fresh inline arrow on every render; reading it through a ref
@@ -533,7 +537,7 @@ export function useBookingFlow({
     }
     dispatch({ type: "GO_TO_TIME_SLOT" });
     if (!venueSlug) {
-      dispatch({ type: "SET_SLOTS_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+      dispatch({ type: "SET_SLOTS_ERROR", error: i18n.t("bookingWidget.errors.missingVenueSlug") });
       return;
     }
     fetchSlots()
@@ -541,7 +545,7 @@ export function useBookingFlow({
       .catch((err: unknown) => {
         dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
       });
-  }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug]);
+  }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug, i18n]);
 
   const goToDateParty = useCallback(() => {
     const holdId = flowState.data.hold?.id;
@@ -556,7 +560,7 @@ export function useBookingFlow({
       if (!flowState.data.selectedDate) return;
       dispatch({ type: "HOLD_START", slot });
       if (!venueSlug) {
-        dispatch({ type: "HOLD_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+        dispatch({ type: "HOLD_ERROR", error: i18n.t("bookingWidget.errors.missingVenueSlug") });
         return;
       }
       try {
@@ -573,7 +577,7 @@ export function useBookingFlow({
         dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
       }
     },
-    [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]
+    [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize, i18n]
   );
 
   const confirmReservation = useCallback(
@@ -674,17 +678,20 @@ export function useBookingFlow({
 
     const interval = setInterval(() => {
       if (new Date() >= new Date(capturedHold.expiresAt)) {
-        dispatch({ type: "EXPIRE_HOLD" });
+        dispatch({ type: "EXPIRE_HOLD", error: i18n.t("bookingWidget.errors.holdExpired") });
         fetchSlots()
           .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
           .catch(() =>
-            dispatch({ type: "SET_SLOTS_ERROR", error: "Failed to reload availability" })
+            dispatch({
+              type: "SET_SLOTS_ERROR",
+              error: i18n.t("bookingWidget.errors.reloadFailed"),
+            })
           );
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [flowState.data.hold, fetchSlots]);
+  }, [flowState.data.hold, fetchSlots, i18n]);
 
   // Notifies onHoldChange whenever the "releasable" hold changes. The reducer
   // clears `data.hold` once it becomes a reservation, so any hold left is

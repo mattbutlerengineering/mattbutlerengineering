@@ -1098,5 +1098,191 @@
   "staffLocaleSwitcher": {
     "title": "Langue et région",
     "previewLabel": "Aperçu"
+  },
+  "bookingWidget": {
+    "title": "Faire une réservation",
+    "subtitle": {
+      "dateParty": "Choisissez la date et le nombre de personnes",
+      "timeSlot": "Choisissez une heure disponible",
+      "guestDetails": "Entrez vos coordonnées pour confirmer",
+      "payment": "Garantissez votre réservation avec un dépôt"
+    },
+    "steps": {
+      "dateParty": "Date et personnes",
+      "time": "Heure",
+      "details": "Coordonnées",
+      "payment": "Paiement"
+    },
+    "guests_one": "{{count}} convive",
+    "guests_many": "{{count}} de convives",
+    "guests_other": "{{count}} convives",
+    "back": "← Retour",
+    "estimatedWait": "Attente estimée : ~{{minutes}} min",
+    "dateParty": {
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "date": "Date",
+      "partySize": "Nombre de personnes",
+      "largePartyCall": "Pour les groupes de plus de {{max}} personnes, appelez-nous au <phoneLink>{{phone}}</phoneLink>.",
+      "largePartyContact": "Pour les groupes de plus de {{max}} personnes, veuillez communiquer directement avec l’établissement.",
+      "findTimes": "Voir les heures disponibles",
+      "dateHint": "Choisissez une date à partir d’aujourd’hui pour voir les heures disponibles."
+    },
+    "timeSlot": {
+      "changeSearch": "← Changer la date ou le nombre de personnes",
+      "noHoursStaffHeading": "Aucune heure d’ouverture définie",
+      "noHoursStaffDescription": "Cet établissement n’a pas encore configuré ses heures d’ouverture, donc les clients ne peuvent ni voir les disponibilités ni réserver une table.",
+      "setHours": "Définir les heures d’ouverture",
+      "noHoursGuestHeading": "La réservation en ligne n’est pas encore offerte",
+      "noHoursGuestDescription": "Cet établissement n’a pas encore configuré la réservation en ligne. Veuillez communiquer directement avec lui pour réserver une table.",
+      "noTimesHeading": "Aucune heure disponible",
+      "tryDifferent": "Essayez une autre date ou un autre nombre de personnes.",
+      "joinWaitlist": "Rejoindre la liste d’attente",
+      "periods": {
+        "lunch": "Dîner",
+        "dinner": "Souper",
+        "late": "Fin de soirée"
+      },
+      "periodTimes": {
+        "lunch": "Heures disponibles pour le dîner",
+        "dinner": "Heures disponibles pour le souper",
+        "late": "Heures disponibles en fin de soirée"
+      },
+      "selected": "Sélection :",
+      "tablesAvailable_one": "{{count}} table disponible",
+      "tablesAvailable_many": "{{count}} de tables disponibles",
+      "tablesAvailable_other": "{{count}} tables disponibles"
+    },
+    "details": {
+      "holdExpires": "La retenue expire dans : {{time}}",
+      "holdExpired": "Expirée",
+      "summaryTitle": "Détails de la réservation",
+      "welcomeBack_ordinal_one": "Bon retour, {{name}} — c’est votre {{count}}re visite!",
+      "welcomeBack_ordinal_many": "Bon retour, {{name}} — c’est votre {{count}}e visite!",
+      "welcomeBack_ordinal_other": "Bon retour, {{name}} — c’est votre {{count}}e visite!",
+      "preferencesOnFile": "Préférences enregistrées",
+      "name": "Nom",
+      "namePlaceholder": "Jean Tremblay",
+      "email": "Courriel",
+      "emailPlaceholder": "jean@exemple.com",
+      "phone": "Téléphone",
+      "contactHint": "Veuillez fournir un courriel ou un numéro de téléphone pour la confirmation.",
+      "requestsPlaceholder": "Allergies, célébrations, préférences de place...",
+      "confirming": "Confirmation...",
+      "complete": "Confirmer la réservation"
+    },
+    "payment": {
+      "depositRequired": "Dépôt requis",
+      "perPerson_one": "({{count}} convive × {{amount}})",
+      "perPerson_many": "({{count}} de convives × {{amount}})",
+      "perPerson_other": "({{count}} convives × {{amount}})",
+      "authorizeNotice": "Votre carte sera autorisée pour {{amount}}. Le montant n’est prélevé que si vous n’annulez pas dans le délai prévu par la politique.",
+      "cancellationPolicy": "Politique d’annulation",
+      "cardDetails": "Renseignements de la carte",
+      "processing": "Traitement...",
+      "authorize": "Autoriser {{amount}}",
+      "sessionExpired": "Votre session de réservation a expiré. Veuillez recommencer votre réservation.",
+      "failed": "Le paiement a échoué"
+    },
+    "cancellationTerms_one": "Annulation gratuite jusqu’à {{count}} heure avant votre réservation. Ensuite, des frais de {{lateFeePercent}} % ({{lateFee}}) s’appliquent. Si vous ne vous présentez pas à votre réservation, des frais de non-présentation de {{noShowFeePercent}} % ({{noShowFee}}) s’appliquent.",
+    "cancellationTerms_many": "Annulation gratuite jusqu’à {{count}} d’heures avant votre réservation. Ensuite, des frais de {{lateFeePercent}} % ({{lateFee}}) s’appliquent. Si vous ne vous présentez pas à votre réservation, des frais de non-présentation de {{noShowFeePercent}} % ({{noShowFee}}) s’appliquent.",
+    "cancellationTerms_other": "Annulation gratuite jusqu’à {{count}} heures avant votre réservation. Ensuite, des frais de {{lateFeePercent}} % ({{lateFee}}) s’appliquent. Si vous ne vous présentez pas à votre réservation, des frais de non-présentation de {{noShowFeePercent}} % ({{noShowFee}}) s’appliquent.",
+    "confirmation": {
+      "title": "Réservation confirmée!",
+      "subtitle": "Au plaisir de vous accueillir.",
+      "detailsTitle": "Détails de la réservation",
+      "confirmationNumber": "N° de confirmation",
+      "date": "Date",
+      "time": "Heure",
+      "partySize": "Personnes",
+      "name": "Nom",
+      "table": "Table",
+      "deposit": "Dépôt",
+      "depositNotice": "Votre carte a été autorisée pour {{amount}}. La retenue sera libérée ou prélevée selon le délai d’annulation.",
+      "cancellationPolicy": "Politique d’annulation",
+      "contactLine": "Aucun courriel ni texto de confirmation n’est envoyé pour cette réservation, alors conservez ces détails. L’établissement a {{contact}} à votre réservation.",
+      "cancel": "Annuler la réservation",
+      "another": "Faire une autre réservation"
+    },
+    "specialRequests": {
+      "label": "Demandes spéciales",
+      "acknowledgement": "C’est noté. C’est inscrit à votre réservation pour l’équipe."
+    },
+    "calendar": {
+      "title": "Ajouter au calendrier",
+      "downloadIcs": "Télécharger le fichier .ics",
+      "google": "Google Agenda",
+      "outlook": "Outlook"
+    },
+    "waitlist": {
+      "noTablesHeading": "Aucune table disponible",
+      "noTablesDetail_one": "Aucune table disponible le {{date}} pour {{count}} convive.",
+      "noTablesDetail_many": "Aucune table disponible le {{date}} pour {{count}} de convives.",
+      "noTablesDetail_other": "Aucune table disponible le {{date}} pour {{count}} convives.",
+      "joinPrompt": "Rejoindre la liste d’attente?",
+      "name": "Nom",
+      "namePlaceholder": "Votre nom",
+      "phone": "Téléphone",
+      "phoneHint": "Requis pour vous aviser par texto quand votre table est prête.",
+      "invalidPhone": "Veuillez entrer un numéro de téléphone valide.",
+      "joining": "Inscription...",
+      "join": "Rejoindre la liste d’attente",
+      "added": "Ajouté à la liste d’attente",
+      "position": "Votre position",
+      "estimatedWait": "Attente estimée",
+      "estimateUnavailable": "Estimation non disponible",
+      "waitMinutes": "{{minutes}} min",
+      "smsNote": "Nous vous enverrons un texto quand votre table sera prête. Gardez votre téléphone à portée de main.",
+      "reserveInstead": "Plutôt faire une réservation",
+      "outcomes": {
+        "notifiedHeading": "Votre table est prête",
+        "notifiedBody": "Présentez-vous à l’hôte maintenant — nous ne pouvons la garder que quelques minutes.",
+        "seatedHeading": "Vous êtes attablé",
+        "seatedBody": "Bonne visite.",
+        "expiredHeading": "Votre place a expiré",
+        "expiredBody": "Nous n’avons pas pu garder votre table à temps. Vous pouvez rejoindre la liste d’attente de nouveau ou faire une réservation.",
+        "cancelledHeading": "Votre place dans la liste d’attente a été annulée",
+        "cancelledBody": "Vous pouvez rejoindre la liste d’attente de nouveau ou faire une réservation."
+      }
+    },
+    "errors": {
+      "missingVenueSlug": "La réservation en ligne n’est pas offerte ici. Veuillez communiquer directement avec l’établissement pour réserver.",
+      "holdExpired": "Votre retenue a expiré. Veuillez choisir une nouvelle heure.",
+      "reloadFailed": "Impossible de recharger les disponibilités"
+    }
+  },
+  "publicBooking": {
+    "documentTitle": "Réserver une table — Hospitality",
+    "venueDocumentTitle": "Réserver une table — {{venue}}",
+    "notFoundHeading": "Établissement introuvable",
+    "notFoundDescription": "Nous n’avons pas trouvé la page de réservation que vous cherchez. Vérifiez le lien ou communiquez directement avec l’établissement pour réserver.",
+    "goBack": "Retour",
+    "homeLink": "Retour à Matt Butler Engineering",
+    "loading": "Chargement de l’établissement...",
+    "tagline": "Réservez votre table en ligne",
+    "poweredBy": "Propulsé par Matt Butler Engineering"
+  },
+  "manageReservation": {
+    "documentTitle": "Votre réservation — Hospitality",
+    "venueDocumentTitle": "{{venue}} — Votre réservation",
+    "supportLine": "Besoin d’aide? Communiquez directement avec l’établissement à l’aide des coordonnées de votre courriel de confirmation.",
+    "homeLink": "Retour à Matt Butler Engineering",
+    "noLinkHeading": "Aucun lien d’accès",
+    "noLinkDescription": "Veuillez vérifier le lien dans votre courriel de confirmation.",
+    "loading": "Chargement de la réservation...",
+    "expiredHeading": "Lien expiré",
+    "expiredDescription": "Ce lien de gestion a expiré. Veuillez communiquer avec l’établissement pour obtenir de l’aide.",
+    "invalidHeading": "Lien non valide",
+    "invalidDescription": "Ce lien a déjà été utilisé ou n’est pas valide.",
+    "fallbackTitle": "Votre réservation",
+    "detailsTitle": "Détails de la réservation",
+    "guest": "Client",
+    "partySize": "Personnes",
+    "date": "Date",
+    "time": "Heure",
+    "timeRange": "{{start}} – {{end}}",
+    "call": "Appeler {{venue}}",
+    "cancel": "Annuler la réservation",
+    "cancelled": "Cette réservation a été annulée."
   }
 }

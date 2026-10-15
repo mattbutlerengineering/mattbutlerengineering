@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
@@ -12,7 +13,7 @@ import { ConfirmationView } from "./ConfirmationView";
 import { WaitlistJoinView } from "./WaitlistJoinView";
 import { LiveWaitlistConfirmation } from "./LiveWaitlistConfirmation";
 import { useBookingFlow } from "./useBookingFlow.js";
-import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
+import { useDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./BookingWidget.module.css";
 
 export interface BookingWidgetProps {
@@ -73,18 +74,12 @@ function buildManageCancellationUrl(manageToken: string): string {
   return `${window.location.origin}${MANAGE_RESERVATION_PATH}?token=${encodeURIComponent(manageToken)}`;
 }
 
-const BOOKING_STEPS_NO_DEPOSIT: StepItem[] = [
-  { label: "Date & Party" },
-  { label: "Time" },
-  { label: "Details" },
-];
-
-const BOOKING_STEPS_WITH_DEPOSIT: StepItem[] = [
-  { label: "Date & Party" },
-  { label: "Time" },
-  { label: "Details" },
-  { label: "Payment" },
-];
+const STEP_LABEL_KEYS = {
+  "date-party": "bookingWidget.steps.dateParty",
+  "time-slot": "bookingWidget.steps.time",
+  "guest-details": "bookingWidget.steps.details",
+  payment: "bookingWidget.steps.payment",
+} as const;
 
 export function BookingWidget({
   venueId,
@@ -124,9 +119,20 @@ export function BookingWidget({
   // of truth for the deposit decision (resolved once, at confirm, inside the
   // hook's own effectiveDepositPolicy call). The widget must never recompute
   // this decision separately.
-  const bookingSteps = stepKeys.includes("payment")
-    ? BOOKING_STEPS_WITH_DEPOSIT
-    : BOOKING_STEPS_NO_DEPOSIT;
+  const { t } = useTranslation();
+  const bookingSteps: StepItem[] = stepKeys
+    .filter((key): key is keyof typeof STEP_LABEL_KEYS => key in STEP_LABEL_KEYS)
+    .map((key) => ({ label: t(STEP_LABEL_KEYS[key]) }));
+
+  // `data.depositRequired` is the final, risk-aware outcome resolved at
+  // confirm time — gating on it (rather than raw depositConfig presence)
+  // keeps a "configured then disabled" venue's terms hidden for bookings that
+  // never actually required a deposit, while still showing them when the
+  // risky-guest override applied.
+  const cancellationPolicySummary = useDepositCancellationTerms(
+    data.depositRequired ? data.depositConfig : null,
+    data.partySize
+  );
 
   // The venue's own maxAdvanceBooking (days) bounds the date picker; an
   // explicit `maxDate` prop still wins.
@@ -148,14 +154,14 @@ export function BookingWidget({
       <div className={styles.header}>
         <WidgetLocalePicker />
         <Text variant="display" as="h2" align="center">
-          Make a Reservation
+          {t("bookingWidget.title")}
         </Text>
         {state !== "confirmation" && !isWaitlistState && (
           <Text variant="caption" color="secondary" align="center">
-            {state === "date-party" && "Select your date and party size"}
-            {state === "time-slot" && "Choose an available time"}
-            {state === "guest-details" && "Enter your details to confirm"}
-            {state === "payment" && "Secure your reservation with a deposit"}
+            {state === "date-party" && t("bookingWidget.subtitle.dateParty")}
+            {state === "time-slot" && t("bookingWidget.subtitle.timeSlot")}
+            {state === "guest-details" && t("bookingWidget.subtitle.guestDetails")}
+            {state === "payment" && t("bookingWidget.subtitle.payment")}
           </Text>
         )}
       </div>
@@ -242,16 +248,7 @@ export function BookingWidget({
               : null
           }
           depositCurrency={data.depositConfig?.currency ?? null}
-          cancellationPolicySummary={formatDepositCancellationTerms(
-            // `data.depositRequired` is the final, risk-aware outcome
-            // resolved at confirm time — gating on it (rather than raw
-            // depositConfig presence) keeps a "configured then disabled"
-            // venue's terms hidden for bookings that never actually
-            // required a deposit, while still showing them when the
-            // risky-guest override applied.
-            data.depositRequired ? data.depositConfig : null,
-            data.partySize
-          )}
+          cancellationPolicySummary={cancellationPolicySummary}
           onNewBooking={actions.resetFlow}
           cancellationUrl={
             cancellationUrl ??

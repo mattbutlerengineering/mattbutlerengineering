@@ -4461,18 +4461,38 @@
     }
   </file>
   <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
-    export function formatDepositCancellationTerms(
+    type FreeWindow = Extract<CancellationPolicyDescription, { kind: "free-window" }>;
+    export function describeDepositCancellation(
       config: DepositConfig | null,
       partySize: number
-    ): string | null {
+    ): FreeWindow | null {
       if (!config || config.freeCancellationHours == null) return null;
-      const policy: CancellationPolicy = {
+      const description = describeCancellationPolicy({
         depositAmountCents: quoteDeposit(config, partySize),
         freeCancellationHours: config.freeCancellationHours,
         lateCancellationFeePercent: config.lateCancellationFeePercent,
         noShowFeePercent: config.noShowFeePercent,
-      };
-      return formatCancellationTerms(policy, config.currency);
+      });
+      return description.kind === "free-window" ? description : null;
+    }
+    export function useDepositCancellationTerms(
+      config: DepositConfig | null,
+      partySize: number
+    ): string | null {
+      const { t } = useTranslation();
+      const { formatMoney } = useVenueFormat({
+        ianaTimezone: "",
+        currencyCode: config?.currency ?? "usd",
+      });
+      const terms = describeDepositCancellation(config, partySize);
+      if (!terms) return null;
+      return t("bookingWidget.cancellationTerms", {
+        count: terms.freeHours,
+        lateFeePercent: terms.lateFeePercent,
+        lateFee: formatMoney(terms.lateFeeAmountCents),
+        noShowFeePercent: terms.noShowFeePercent,
+        noShowFee: formatMoney(terms.noShowFeeAmountCents),
+      });
     }
   </file>
   <file path="apps/hospitality/src/components/booking-widget/hasOperatingHours.ts">
@@ -4565,7 +4585,7 @@
       | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
       | { type: "CONFIRM_ERROR"; error: string }
       | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
-      | { type: "EXPIRE_HOLD" }
+      | { type: "EXPIRE_HOLD"; error: string }
       | { type: "RESET"; selectedDate: string }
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
       | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
@@ -4578,8 +4598,7 @@
         data: { ...INITIAL_DATA, selectedDate: venueDate(new Date(), venueTimezone) },
       };
     }
-    export const MISSING_VENUE_SLUG_ERROR =
-      "Online booking isn't available here. Please contact the venue directly to reserve.";
+    export const MISSING_VENUE_SLUG_ERROR = enUS.bookingWidget.errors.missingVenueSlug;
     export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
     export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
       "date-party",
@@ -4721,7 +4740,7 @@
             data: {
               ...state.data,
               hold: null,
-              holdError: "Your hold has expired. Please select a new time.",
+              holdError: action.error,
               slotsLoading: true,
             },
           };
@@ -4831,6 +4850,9 @@
       venueTimezone,
     }: UseBookingFlowDeps): BookingFlowResult {
       const [flowState, dispatch] = useReducer(reducer, venueTimezone, createInitialState);
+      // The i18n instance is stable, so callbacks reading it don't churn on a
+      // language switch; each message is resolved in the locale active when it fires.
+      const { i18n } = useTranslation();
     
       // Ref pattern (see hospitality app conventions) — onHoldChange is commonly
       // passed as a fresh inline arrow on every render; reading it through a ref
@@ -4948,7 +4970,7 @@
         }
         dispatch({ type: "GO_TO_TIME_SLOT" });
         if (!venueSlug) {
-          dispatch({ type: "SET_SLOTS_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+          dispatch({ type: "SET_SLOTS_ERROR", error: i18n.t("bookingWidget.errors.missingVenueSlug") });
           return;
         }
         fetchSlots()
@@ -4956,7 +4978,7 @@
           .catch((err: unknown) => {
             dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
           });
-      }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug]);
+      }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug, i18n]);
     
       const goToDateParty = useCallback(() => {
         const holdId = flowState.data.hold?.id;
@@ -4971,7 +4993,7 @@
           if (!flowState.data.selectedDate) return;
           dispatch({ type: "HOLD_START", slot });
           if (!venueSlug) {
-            dispatch({ type: "HOLD_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+            dispatch({ type: "HOLD_ERROR", error: i18n.t("bookingWidget.errors.missingVenueSlug") });
             return;
           }
           try {
@@ -4988,7 +5010,7 @@
             dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
           }
         },
-        [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]
+        [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize, i18n]
       );
     
       const confirmReservation = useCallback(
@@ -5089,17 +5111,20 @@
     
         const interval = setInterval(() => {
           if (new Date() >= new Date(capturedHold.expiresAt)) {
-            dispatch({ type: "EXPIRE_HOLD" });
+            dispatch({ type: "EXPIRE_HOLD", error: i18n.t("bookingWidget.errors.holdExpired") });
             fetchSlots()
               .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
               .catch(() =>
-                dispatch({ type: "SET_SLOTS_ERROR", error: "Failed to reload availability" })
+                dispatch({
+                  type: "SET_SLOTS_ERROR",
+                  error: i18n.t("bookingWidget.errors.reloadFailed"),
+                })
               );
           }
         }, 1000);
     
         return () => clearInterval(interval);
-      }, [flowState.data.hold, fetchSlots]);
+      }, [flowState.data.hold, fetchSlots, i18n]);
     
       // Notifies onHoldChange whenever the "releasable" hold changes. The reducer
       // clears `data.hold` once it becomes a reservation, so any hold left is
@@ -6796,9 +6821,6 @@
       acknowledgement,
       hostCaption: `Guests see this with: “${acknowledgement}”`,
     });
-    export function contactLine(contact: string): string {
-      return `No confirmation email or text is sent for this booking, so save these details. The venue has ${contact} on your reservation.`;
-    }
   </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {

@@ -1098,5 +1098,191 @@
   "staffLocaleSwitcher": {
     "title": "Idioma y región",
     "previewLabel": "Vista previa"
+  },
+  "bookingWidget": {
+    "title": "Haz una reserva",
+    "subtitle": {
+      "dateParty": "Elige la fecha y el número de personas",
+      "timeSlot": "Elige un horario disponible",
+      "guestDetails": "Ingresa tus datos para confirmar",
+      "payment": "Asegura tu reserva con un depósito"
+    },
+    "steps": {
+      "dateParty": "Fecha y personas",
+      "time": "Hora",
+      "details": "Datos",
+      "payment": "Pago"
+    },
+    "guests_one": "{{count}} persona",
+    "guests_many": "{{count}} de personas",
+    "guests_other": "{{count}} personas",
+    "back": "← Atrás",
+    "estimatedWait": "Espera estimada: ~{{minutes}} min",
+    "dateParty": {
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha de fin",
+      "date": "Fecha",
+      "partySize": "Número de personas",
+      "largePartyCall": "Para grupos de más de {{max}}, llámanos al <phoneLink>{{phone}}</phoneLink>.",
+      "largePartyContact": "Para grupos de más de {{max}}, comunícate directamente con el restaurante.",
+      "findTimes": "Buscar horarios disponibles",
+      "dateHint": "Elige una fecha a partir de hoy para ver los horarios disponibles."
+    },
+    "timeSlot": {
+      "changeSearch": "← Cambiar fecha o número de personas",
+      "noHoursStaffHeading": "No hay horario de atención configurado",
+      "noHoursStaffDescription": "Este restaurante aún no tiene horario de atención configurado, así que los clientes no pueden ver disponibilidad ni reservar una mesa.",
+      "setHours": "Configurar horario de atención",
+      "noHoursGuestHeading": "Las reservas en línea aún no están disponibles",
+      "noHoursGuestDescription": "Este restaurante aún no ha configurado las reservas en línea. Comunícate directamente con ellos para reservar una mesa.",
+      "noTimesHeading": "No hay horarios disponibles",
+      "tryDifferent": "Prueba con otra fecha u otro número de personas.",
+      "joinWaitlist": "Unirse a la lista de espera",
+      "periods": {
+        "lunch": "Comida",
+        "dinner": "Cena",
+        "late": "Noche"
+      },
+      "periodTimes": {
+        "lunch": "Horarios disponibles para comida",
+        "dinner": "Horarios disponibles para cena",
+        "late": "Horarios disponibles por la noche"
+      },
+      "selected": "Seleccionado:",
+      "tablesAvailable_one": "{{count}} mesa disponible",
+      "tablesAvailable_many": "{{count}} de mesas disponibles",
+      "tablesAvailable_other": "{{count}} mesas disponibles"
+    },
+    "details": {
+      "holdExpires": "La reserva temporal vence en: {{time}}",
+      "holdExpired": "Vencida",
+      "summaryTitle": "Detalles de la reserva",
+      "welcomeBack_ordinal_one": "¡Bienvenido de nuevo, {{name}}! Es tu visita n.º {{count}}.",
+      "welcomeBack_ordinal_many": "¡Bienvenido de nuevo, {{name}}! Es tu visita n.º {{count}}.",
+      "welcomeBack_ordinal_other": "¡Bienvenido de nuevo, {{name}}! Es tu visita n.º {{count}}.",
+      "preferencesOnFile": "Preferencias registradas",
+      "name": "Nombre",
+      "namePlaceholder": "Juan Pérez",
+      "email": "Correo electrónico",
+      "emailPlaceholder": "juan@ejemplo.com",
+      "phone": "Teléfono",
+      "contactHint": "Proporciona un correo electrónico o un teléfono para la confirmación.",
+      "requestsPlaceholder": "Alergias, celebraciones, preferencias de mesa...",
+      "confirming": "Confirmando...",
+      "complete": "Completar reserva"
+    },
+    "payment": {
+      "depositRequired": "Depósito requerido",
+      "perPerson_one": "({{count}} persona × {{amount}})",
+      "perPerson_many": "({{count}} de personas × {{amount}})",
+      "perPerson_other": "({{count}} personas × {{amount}})",
+      "authorizeNotice": "Se autorizará un cargo de {{amount}} en tu tarjeta. Solo se cobra si no cancelas dentro del plazo de la política.",
+      "cancellationPolicy": "Política de cancelación",
+      "cardDetails": "Datos de la tarjeta",
+      "processing": "Procesando...",
+      "authorize": "Autorizar {{amount}}",
+      "sessionExpired": "Tu sesión de reserva expiró. Vuelve a iniciar tu reserva.",
+      "failed": "El pago no se pudo procesar"
+    },
+    "cancellationTerms_one": "Cancelación gratuita hasta {{count}} hora antes de tu reserva. Después, se aplica un cargo del {{lateFeePercent}} % ({{lateFee}}). Si no te presentas a tu reserva, se aplica un cargo por inasistencia del {{noShowFeePercent}} % ({{noShowFee}}).",
+    "cancellationTerms_many": "Cancelación gratuita hasta {{count}} de horas antes de tu reserva. Después, se aplica un cargo del {{lateFeePercent}} % ({{lateFee}}). Si no te presentas a tu reserva, se aplica un cargo por inasistencia del {{noShowFeePercent}} % ({{noShowFee}}).",
+    "cancellationTerms_other": "Cancelación gratuita hasta {{count}} horas antes de tu reserva. Después, se aplica un cargo del {{lateFeePercent}} % ({{lateFee}}). Si no te presentas a tu reserva, se aplica un cargo por inasistencia del {{noShowFeePercent}} % ({{noShowFee}}).",
+    "confirmation": {
+      "title": "¡Reserva confirmada!",
+      "subtitle": "Te esperamos con gusto.",
+      "detailsTitle": "Detalles de la reserva",
+      "confirmationNumber": "N.º de confirmación",
+      "date": "Fecha",
+      "time": "Hora",
+      "partySize": "Personas",
+      "name": "Nombre",
+      "table": "Mesa",
+      "deposit": "Depósito",
+      "depositNotice": "Se autorizó un cargo de {{amount}} en tu tarjeta. La retención se liberará o se cobrará según el plazo de cancelación.",
+      "cancellationPolicy": "Política de cancelación",
+      "contactLine": "No se envía ningún correo ni mensaje de confirmación para esta reserva, así que guarda estos datos. El restaurante tiene {{contact}} en tu reserva.",
+      "cancel": "Cancelar reserva",
+      "another": "Hacer otra reserva"
+    },
+    "specialRequests": {
+      "label": "Peticiones especiales",
+      "acknowledgement": "Anotado. Ya está en tu reserva para el equipo."
+    },
+    "calendar": {
+      "title": "Agregar al calendario",
+      "downloadIcs": "Descargar .ics",
+      "google": "Google Calendar",
+      "outlook": "Outlook"
+    },
+    "waitlist": {
+      "noTablesHeading": "No hay mesas disponibles",
+      "noTablesDetail_one": "No hay mesas disponibles el {{date}} para {{count}} persona.",
+      "noTablesDetail_many": "No hay mesas disponibles el {{date}} para {{count}} de personas.",
+      "noTablesDetail_other": "No hay mesas disponibles el {{date}} para {{count}} personas.",
+      "joinPrompt": "¿Unirte a la lista de espera?",
+      "name": "Nombre",
+      "namePlaceholder": "Tu nombre",
+      "phone": "Teléfono",
+      "phoneHint": "Necesario para avisarte por SMS cuando tu mesa esté lista.",
+      "invalidPhone": "Ingresa un número de teléfono válido.",
+      "joining": "Uniéndote...",
+      "join": "Unirse a la lista de espera",
+      "added": "Agregado a la lista de espera",
+      "position": "Tu lugar",
+      "estimatedWait": "Espera estimada",
+      "estimateUnavailable": "Estimación no disponible",
+      "waitMinutes": "{{minutes}} min",
+      "smsNote": "Te enviaremos un SMS cuando tu mesa esté lista. Ten tu teléfono a la mano.",
+      "reserveInstead": "Mejor hacer una reserva",
+      "outcomes": {
+        "notifiedHeading": "Tu mesa está lista",
+        "notifiedBody": "Preséntate con el anfitrión ahora; solo podemos guardarla unos minutos.",
+        "seatedHeading": "Ya tienes mesa",
+        "seatedBody": "Disfruta tu visita.",
+        "expiredHeading": "Tu lugar venció",
+        "expiredBody": "No pudimos guardar tu mesa a tiempo. Puedes volver a unirte a la lista de espera o hacer una reserva.",
+        "cancelledHeading": "Tu lugar en la lista de espera se canceló",
+        "cancelledBody": "Puedes volver a unirte a la lista de espera o hacer una reserva."
+      }
+    },
+    "errors": {
+      "missingVenueSlug": "Las reservas en línea no están disponibles aquí. Comunícate directamente con el restaurante para reservar.",
+      "holdExpired": "Tu reserva temporal venció. Elige un nuevo horario.",
+      "reloadFailed": "No se pudo volver a cargar la disponibilidad"
+    }
+  },
+  "publicBooking": {
+    "documentTitle": "Reserva una mesa — Hospitality",
+    "venueDocumentTitle": "Reserva una mesa — {{venue}}",
+    "notFoundHeading": "No se encontró el restaurante",
+    "notFoundDescription": "No encontramos la página de reservas que buscas. Revisa el enlace o comunícate directamente con el restaurante para reservar.",
+    "goBack": "Regresar",
+    "homeLink": "Volver a Matt Butler Engineering",
+    "loading": "Cargando restaurante...",
+    "tagline": "Reserva tu mesa en línea",
+    "poweredBy": "Con tecnología de Matt Butler Engineering"
+  },
+  "manageReservation": {
+    "documentTitle": "Tu reserva — Hospitality",
+    "venueDocumentTitle": "{{venue}} — Tu reserva",
+    "supportLine": "¿Necesitas ayuda? Comunícate directamente con el restaurante con los datos de tu correo de confirmación.",
+    "homeLink": "Volver a Matt Butler Engineering",
+    "noLinkHeading": "Sin enlace de acceso",
+    "noLinkDescription": "Revisa el enlace en tu correo de confirmación.",
+    "loading": "Cargando reserva...",
+    "expiredHeading": "Enlace vencido",
+    "expiredDescription": "Este enlace para gestionar tu reserva venció. Comunícate con el restaurante para recibir ayuda.",
+    "invalidHeading": "Enlace no válido",
+    "invalidDescription": "Este enlace ya se usó o no es válido.",
+    "fallbackTitle": "Tu reserva",
+    "detailsTitle": "Detalles de la reserva",
+    "guest": "Cliente",
+    "partySize": "Personas",
+    "date": "Fecha",
+    "time": "Hora",
+    "timeRange": "{{start}} – {{end}}",
+    "call": "Llamar a {{venue}}",
+    "cancel": "Cancelar reserva",
+    "cancelled": "Esta reserva se canceló."
   }
 }
