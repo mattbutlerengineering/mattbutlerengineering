@@ -16,7 +16,7 @@ implementation PR (see frontmatter).
 
 ## Milestone 1: policy + wiring
 
-- [ ] **WO-36 — pure policy module + tests** — RED first:
+- [x] **WO-36 — pure policy module + tests** — RED first:
       `scripts/__tests__/dependabot-auto-merge-policy.test.mjs` pins the six
       acceptance cases (`actions/setup-node` minor → merge;
       `github/codeql-action/upload-sarif` patch → merge;
@@ -26,13 +26,13 @@ implementation PR (see frontmatter).
       names, prefix mismatch) and npm-vs-non-npm reason wording; then
       `scripts/dependabot-auto-merge-policy.mjs` (`decideDependabotMerge` +
       `decide` CLI, no dependencies) goes GREEN. (tracker: #6650)
-- [ ] **WO-37 — dependabot.yml groups** — add `official-actions`
+- [x] **WO-37 — dependabot.yml groups** — add `official-actions`
       (`actions/*`, `github/*`) under the `github-actions` ecosystem; add npm
       group `types` (`@types/*`, no `dependency-type` key) and remove
       `@types/*` from `dev-deps` patterns, per architecture § 1. Accept: each
       affected package name matches exactly one group by inspection against
       the file's own pattern-matching comment. (tracker: #6650)
-- [ ] **WO-38 — workflow rewire** — `dependabot-auto-merge.yml` per
+- [x] **WO-38 — workflow rewire** — `dependabot-auto-merge.yml` per
       architecture § 3: pinned base-ref checkout, metadata passed via `env:`,
       `set -o pipefail`, branch on the CLI's printed `action`, comment posts
       the policy `reason`. Accept: `on: pull_request_target` and the
@@ -42,7 +42,7 @@ implementation PR (see frontmatter).
 
 ## Milestone 2: evidence
 
-- [ ] **WO-39 — measurement note** — replay the 30 PRs measured in #6650
+- [x] **WO-39 — measurement note** — replay the 30 PRs measured in #6650
       (their group/update-type under the NEW dependabot.yml grouping) through
       `decideDependabotMerge` and state in the implementation PR body how
       many would have auto-merged; needs `gh` access to enumerate the 30 PRs

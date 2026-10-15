@@ -1,4 +1,13 @@
-name: Auto-merge Dependabot dev deps
+name: Auto-merge Dependabot bumps
+
+# Policy lives in scripts/dependabot-auto-merge-policy.mjs (#6650): patch/minor
+# dev-deps, official (actions/*, github/*) GitHub Actions, and @types/*.
+# Everything else gets a manual-review comment.
+#
+# SECURITY: this runs on pull_request_target with a write token. It checks out
+# the BASE repo only (no `ref:` — never the PR head) to obtain the trusted
+# policy script, and passes every PR-derived value through `env:`, never by
+# interpolating `${{ }}` into a script body.
 
 on: pull_request_target
 
@@ -11,23 +20,44 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout base repo (policy script only)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          persist-credentials: false
+
       - name: Fetch Dependabot metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         id: metadata
 
-      - name: Auto-merge dev-deps (patch and minor only)
-        if: >-
-          steps.metadata.outputs.dependency-group == 'dev-deps' &&
-          steps.metadata.outputs.update-type != 'version-update:semver-major'
+      - name: Decide
+        id: decide
+        env:
+          ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          GROUP: ${{ steps.metadata.outputs.dependency-group }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+        run: |
+          set -o pipefail
+          decision=$(node scripts/dependabot-auto-merge-policy.mjs decide \
+            --ecosystem "$ECOSYSTEM" \
+            --group "$GROUP" \
+            --update-type "$UPDATE_TYPE" \
+            --dependency-names "$DEPENDENCY_NAMES")
+          echo "$decision"
+          echo "action=$(echo "$decision" | jq -r .action)" >> "$GITHUB_OUTPUT"
+          echo "reason=$(echo "$decision" | jq -r .reason)" >> "$GITHUB_OUTPUT"
+
+      - name: Auto-merge
+        if: steps.decide.outputs.action == 'merge'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Comment on production dependency PRs
-        if: steps.metadata.outputs.dependency-group != 'dev-deps'
-        run: |
-          gh pr comment "$PR_URL" --body "⚠️ This is a production dependency update and requires manual review."
+      - name: Comment on PRs needing manual review
+        if: steps.decide.outputs.action == 'manual'
+        run: gh pr comment "$PR_URL" --body "⚠️ $REASON"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          REASON: ${{ steps.decide.outputs.reason }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
