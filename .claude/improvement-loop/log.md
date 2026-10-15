@@ -3574,3 +3574,12 @@ None — 0 `agent-skip`.
 - **P1 breaches escalated:** 0 (no open `ui-quality:p1` issues at all).
 - **Coverage before this fire:** 100% (131/131, provisional; first run 2026-10-01). 18 auth-gated hospitality rows excluded as unreachable.
 - **Blockers / pipeline bugs:** none beyond the unlabelled calibration set noted above. No `blocker: no-browser` — Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`. Filing was not stopped.
+
+## 2026-10-15 — mbe-learning-loop (2nd run)
+
+**Sensors:** 14/17 available (lighthouse, mutationScore, e2eStability not available — no egress/not configured)
+**Regressions:** 0 detected, 0 issues created — status: Healthy (acmm L5 73/84, ciHealth 100% (13/13), queueEfficiency composite 0.958)
+**Verifications:** 4 checked, 0 verified, 0 failed, 4 skipped (no queryable Lighthouse/CI data for those issues yet)
+**Skill proposals:** n/a (not Friday)
+**Threshold notes:** auto-tuner moved acmm 1.167 → 1.17 (headroom). 30d fix-effectiveness rate 87.5% (14 verified / 2 reopened, 76 skipped excluded) — healthy, no loosening needed. Max per-category AI-issue rejection rate 15% (audit) — well under the 40% halving trigger; all budgets stayed at 3.
+**Note:** this is a second same-day firing of the daily routine — PR #6660 already landed this morning's `2026-10-15` run (0 ready issues created then either, after reopening #6648/#6607 as false positives and filing #6659).
