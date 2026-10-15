@@ -1,5 +1,146 @@
 {
   "shell": {
-    "skipToMain": "Saltar al contenido principal"
+    "skipToMain": "Saltar al contenido principal",
+    "skipToContent": "Saltar al contenido",
+    "copyright": "© {{year}} Matt Butler",
+    "dashboardDocumentTitle": "Panel - Matt Butler Engineering"
+  },
+  "auth": {
+    "stations": {
+      "browser": "Navegador",
+      "identity": "Identidad",
+      "api": "API",
+      "hospitality": "Hospitality"
+    },
+    "login": {
+      "title": "Hospitality",
+      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "boardPhrases": {
+        "reservations": "RESERVAS",
+        "guests": "CLIENTES",
+        "floorPlans": "PLANOS DE SALA",
+        "waitlist": "LISTA DE ESPERA",
+        "timeline": "CRONOLOGIA"
+      },
+      "boardLabel": "Reservas, clientes, planos de sala, lista de espera y cronología",
+      "taglineDefault": "Gestión de restaurantes, simplificada.",
+      "taglineSignedOut": "Cerraste sesión. Inicia sesión de nuevo cuando quieras.",
+      "taglineReferred": "Llegaste desde el sitio del portafolio — echa un vistazo por dentro.",
+      "connecting": "Conectando tu navegador con Identidad",
+      "signIn": "Iniciar sesión",
+      "busy": "Yendo al inicio de sesión",
+      "caption": "Administra reservas, clientes y planos de sala"
+    },
+    "callback": {
+      "label": "Verificando tu inicio de sesión",
+      "status": "Intercambiando tu código por una sesión"
+    },
+    "signOut": {
+      "label": "Finalizando tu sesión con Identidad",
+      "status": "Cerrando tu sesión"
+    },
+    "loading": {
+      "label": "Cargando",
+      "status": "Poniendo la mesa"
+    },
+    "sessionLapse": {
+      "label": "La sesión con Identidad ha caducado",
+      "heading": "Tu sesión terminó",
+      "body": "Inicia sesión de nuevo para continuar donde te quedaste — esta página se conserva.",
+      "refreshFailedLead": "Tu sesión no se pudo renovar y terminará pronto.",
+      "action": "Volver a iniciar sesión",
+      "actionBusy": "Yendo al inicio de sesión"
+    },
+    "failure": {
+      "connecting": "Conectando tu navegador con Identidad",
+      "failedLabel": "No se pudo verificar tu inicio de sesión",
+      "statusRetrying": "Iniciando una sesión nueva",
+      "statusFailed": "El intercambio no se completó",
+      "retry": "Intentar de nuevo",
+      "technicalDetails": "Detalles técnicos"
+    },
+    "error": {
+      "accessDenied": {
+        "title": "Acceso denegado",
+        "body": "Tu cuenta no tiene acceso a Hospitality. Comunícate con tu administrador si crees que es un error."
+      },
+      "expiredLink": {
+        "title": "Ese enlace de inicio de sesión caducó",
+        "body": "Los enlaces de inicio de sesión son de un solo uso. Empieza de nuevo y debería funcionar."
+      },
+      "network": {
+        "title": "No se puede acceder al servicio de inicio de sesión",
+        "body": "Revisa tu conexión e inténtalo de nuevo en un momento."
+      },
+      "generic": {
+        "title": "El inicio de sesión tuvo un problema",
+        "body": "Ocurrió algo inesperado al iniciar sesión. Volver a intentarlo suele resolverlo."
+      }
+    },
+    "config": {
+      "title": "Error de configuración",
+      "body": "A la aplicación le falta la configuración de autenticación requerida. Comunícate con el administrador del sitio.",
+      "missing": "Variables de entorno faltantes: {{list}}",
+      "returnHome": "Volver al inicio"
+    }
+  },
+  "nav": {
+    "label": "Navegación del panel",
+    "sections": {
+      "account": "Cuenta",
+      "admin": "Administración",
+      "getStarted": "Primeros pasos",
+      "manage": "Gestionar",
+      "tools": "Herramientas"
+    },
+    "items": {
+      "profile": "Perfil",
+      "settings": "Configuración",
+      "users": "Usuarios",
+      "venueBasics": "Datos del local",
+      "setOperatingHours": "Definir horario",
+      "createFloorPlan": "Crear plano de sala",
+      "tonightsService": "Servicio de esta noche",
+      "timeline": "Cronología",
+      "reservations": "Reservas",
+      "waitlist": "Lista de espera",
+      "guests": "Clientes",
+      "dashboard": "Panel",
+      "floorPlans": "Planos de sala",
+      "bookingWidget": "Widget de reservas",
+      "signOut": "Cerrar sesión",
+      "chat": "Chat"
+    }
+  },
+  "layout": {
+    "home": "Inicio",
+    "details": "Detalles",
+    "venueFallback": "Hospitality",
+    "documentTitle": "{{page}} · {{venue}}",
+    "routes": {
+      "timeline": "Cronología",
+      "reservations": "Reservas",
+      "guests": "Clientes",
+      "waitlist": "Lista de espera",
+      "briefing": "Servicio de esta noche",
+      "floorPlans": "Planos de sala",
+      "bookingWidget": "Widget de reservas",
+      "onboarding": "Nuevo local",
+      "profile": "Perfil",
+      "settings": "Configuración",
+      "admin": "Administración",
+      "dashboard": "Panel",
+      "setup": "Configuración inicial",
+      "hours": "Horario de operación"
+    },
+    "venuesNotLoaded": "No se cargaron los locales.",
+    "searchPlaceholder": "Buscar páginas y acciones...",
+    "openSidebar": "Abrir barra lateral",
+    "closeSidebar": "Cerrar barra lateral",
+    "openPalette": "Abrir paleta de comandos",
+    "search": "Buscar",
+    "errorHeading": "Algo salió mal",
+    "errorBody": "Ocurrió un error inesperado en esta página.",
+    "reload": "Recargar"
   }
 }
