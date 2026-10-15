@@ -16412,7 +16412,11 @@
           delayMs: number;
           payload: ReminderPayload;
         };
-    export type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    export type LiveEvent = ReservationEvent extends infer E
+      ? E extends ReservationEvent
+        ? Omit<E, "timestamp">
+        : never
+      : never;
     export interface EventsPort {
       publish(event: LiveEvent): void;
     }

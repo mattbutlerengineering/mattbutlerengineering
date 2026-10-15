@@ -2966,7 +2966,8 @@
             op: "replace-if-presen;
     </item>
     <item priority="low">
-      type LiveEvent = Omit<ReservationEvent, "timestamp">;
+      type LiveEvent = ReservationEvent extends infer E
+        ? E extends Reservatio...;
     </item>
     <item priority="low">
       interface EventsPort {

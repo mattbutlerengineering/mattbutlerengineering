@@ -45,6 +45,7 @@ import {
   SSE_EVENT_NAMES,
   type Reservation,
   type SseEvent,
+  type SsePayloadMap,
   type SseEventName,
   type TableStatusDelta,
   type TableDisplayStatus,
@@ -184,12 +185,14 @@ export function useSSESync(): { reconnect: () => void } {
   });
 
   const makeEvent = useCallback(
-    (type: ReservationEvent["type"], data: ReservationEvent["data"]): ReservationEvent => ({
-      type,
-      venueId: selectedVenueIdRef.current ?? "",
-      timestamp: new Date().toISOString(),
-      data,
-    }),
+    <K extends SseEventName>(type: K, data: SsePayloadMap[K]): SseEvent<K> =>
+      // TS cannot prove a generic K's object literal is the K-th union member.
+      ({
+        type,
+        venueId: selectedVenueIdRef.current ?? "",
+        timestamp: new Date().toISOString(),
+        data,
+      }) as SseEvent<K>,
     []
   );
 

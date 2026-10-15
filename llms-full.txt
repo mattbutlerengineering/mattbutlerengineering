@@ -12058,7 +12058,6 @@
       RESERVATIONS_QUERY_KEY,
       TABLES_QUERY_KEY,
       FLOOR_PLANS_QUERY_KEY,
-      FLOOR_PLAN_QUERY_KEY,
       LAPSING_GUESTS_QUERY_KEY,
     ] as const satisfies readonly SseQueryKey[];
   </file>
@@ -57091,7 +57090,7 @@
       "table-status:changed": TableStatusDelta[];
     }
     export type SseEventName = keyof SsePayloadMap;
-    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
     export interface SseEventDefinition {
       /** Query-key roots to invalidate when this event arrives (may be empty). */
       readonly invalidates: readonly SseQueryKey[];
@@ -57104,17 +57103,19 @@
       "hold:released": { invalidates: [] },
       "hold:confirmed": { invalidates: ["reservations"] },
       "table:updated": { invalidates: ["tables"] },
-      "floor-plan:created": { invalidates: ["floorPlans", "floorPlan"] },
+      "floor-plan:created": { invalidates: ["floorPlans"] },
       "guest:lapsing": { invalidates: ["lapsingGuests"] },
       "table-status:changed": { invalidates: [] },
     } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
     export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
-    export interface SseEvent {
-      type: SseEventName;
-      venueId: string;
-      timestamp: string;
-      data: SsePayloadMap[SseEventName];
-    }
+    export type SseEvent<K extends SseEventName = SseEventName> = {
+      [N in K]: {
+        type: N;
+        venueId: string;
+        timestamp: string;
+        data: SsePayloadMap[N];
+      };
+    }[K];
   </file>
   <file path="packages/types/src/table-status.ts">
     export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
@@ -61196,7 +61197,11 @@
           delayMs: number;
           payload: ReminderPayload;
         };
-    export type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    export type LiveEvent = ReservationEvent extends infer E
+      ? E extends ReservationEvent
+        ? Omit<E, "timestamp">
+        : never
+      : never;
     export interface EventsPort {
       publish(event: LiveEvent): void;
     }
