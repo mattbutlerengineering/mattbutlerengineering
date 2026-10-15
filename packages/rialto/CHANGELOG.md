@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.6.4
+
+### Patch Changes
+
+- [#6724](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6724) [`7d05cdc`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7d05cdca51e47bf63ae20d0b251eba1998f228a9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tag, Combobox, Autocomplete, Select, Input, TextArea, PinInput, Avatar, Chalkboard, DataTable, Table, ErrorBoundary, CommandPalette, ChatPanel, Footer, MasterOverride, Spinner and the TapeChart list views now read their built-in text from `useRialtoLocale()`. With no `RialtoLocaleProvider` the English output is unchanged. Rialto lint now enforces `no-literal-ui-strings` across all of `src/`.
+
 ## 0.6.3
 
 ### Patch Changes
