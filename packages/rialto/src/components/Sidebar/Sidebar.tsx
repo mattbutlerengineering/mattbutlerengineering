@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useId, type HTMLAttributes, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
@@ -155,6 +155,29 @@ function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolea
   );
 }
 
+function SectionGroup({
+  section,
+  collapsed,
+  children,
+}: {
+  section: SidebarSection;
+  collapsed: boolean;
+  children: ReactNode;
+}) {
+  const labelId = useId();
+  const showLabel = Boolean(section.label) && !collapsed;
+  return (
+    <div className={styles.section} role="group" aria-labelledby={showLabel ? labelId : undefined}>
+      {showLabel && (
+        <span id={labelId} className={styles.sectionLabel}>
+          {section.label}
+        </span>
+      )}
+      {children}
+    </div>
+  );
+}
+
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
   ({ items, collapsed = false, onCollapse, className, ...props }, ref) => {
     const motionPreset = useMotionPreset();
@@ -177,12 +200,9 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
           {items.map((entry, i) => {
             if (isSidebarSection(entry)) {
               return (
-                <div key={entry.label ?? i} className={styles.section}>
-                  {entry.label && !collapsed && (
-                    <span className={styles.sectionLabel}>{entry.label}</span>
-                  )}
+                <SectionGroup key={entry.label ?? i} section={entry} collapsed={collapsed}>
                   {renderItems(entry.items)}
-                </div>
+                </SectionGroup>
               );
             }
             return <ItemElement key={entry.id} item={entry} collapsed={collapsed} />;
