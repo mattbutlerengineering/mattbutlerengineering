@@ -18,6 +18,7 @@ import { describeApiError } from "../lib/describe-api-error.js";
 import { NewFloorPlanDialog } from "../components/floor-plan";
 import { useFloorPlans, useCloneFloorPlan } from "../hooks/useFloorPlans.js";
 import { useApiClient } from "../hooks/useApiClient.js";
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import styles from "./FloorPlansPage.module.css";
 
 /* ── Loading skeleton ───────────────────────── */
@@ -60,7 +61,11 @@ function cloneFailureFrom(err: unknown, t: TFunction): CloneFailure {
 export function FloorPlansPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { selectedVenueId } = useVenue();
+  const { selectedVenueId, selectedVenue } = useVenue();
+  const fmt = useVenueFormat({
+    ianaTimezone: selectedVenue?.ianaTimezone ?? "UTC",
+    currencyCode: selectedVenue?.currencyCode ?? "USD",
+  });
   const api = useApiClient();
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
@@ -103,10 +108,6 @@ export function FloorPlansPage() {
     },
     [navigate]
   );
-
-  const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleDateString();
-  };
 
   if (isLoading && floorPlans.length === 0) {
     return <FloorPlansLoadingSkeleton />;
@@ -233,10 +234,12 @@ export function FloorPlansPage() {
                     </div>
                     <div className={styles.cardDetails}>
                       <Text variant="caption" color="secondary">
-                        {t("floorPlan.list.tableCount", { n: floorPlan.tables?.length ?? 0 })}
+                        {t("floorPlan.list.tableCount", { count: floorPlan.tables?.length ?? 0 })}
                       </Text>
                       <Text variant="caption" color="secondary">
-                        {t("floorPlan.list.updated", { date: formatDate(floorPlan.updatedAt) })}
+                        {t("floorPlan.list.updated", {
+                          date: fmt.formatShortDate(floorPlan.updatedAt.slice(0, 10)),
+                        })}
                       </Text>
                     </div>
                   </div>
