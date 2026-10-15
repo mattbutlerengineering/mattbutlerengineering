@@ -71,7 +71,7 @@ mechanism below is Architect's.
 
 ## Milestone 3: the split is measured, not assumed
 
-- [ ] **WO-0060 — Forced full-run measurement (SC-3)** — on the
+- [x] **WO-0060 — Forced full-run measurement (SC-3)** — on the
       implementation PR, push a temporary commit touching a root turbo
       input to bust every cache, record each leg's wall-clock and the
       gate's repo-wide % against main's current %, then revert the bust in
