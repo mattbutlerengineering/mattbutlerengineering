@@ -15,6 +15,7 @@ import { RequireAdmin } from "./components/RequireAdmin";
 import { validateAuthConfig } from "./constants/auth";
 import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
+import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
 
 initSentry({
   appName: "hospitality",
@@ -355,15 +356,17 @@ function Root() {
     <RialtoProvider persistTheme>
       <LocaleProviders>
         <ThemeBridge>
-          <ToastProvider>
-            <ErrorBoundary onError={handleErrorBoundary}>
-              <AuthProvider config={authConfigResult.config}>
-                <QueryProvider>
-                  <RouterProvider router={router} />
-                </QueryProvider>
-              </AuthProvider>
-            </ErrorBoundary>
-          </ToastProvider>
+          <ToastLocaleOverride>
+            <ToastProvider>
+              <ErrorBoundary onError={handleErrorBoundary}>
+                <AuthProvider config={authConfigResult.config}>
+                  <QueryProvider>
+                    <RouterProvider router={router} />
+                  </QueryProvider>
+                </AuthProvider>
+              </ErrorBoundary>
+            </ToastProvider>
+          </ToastLocaleOverride>
         </ThemeBridge>
       </LocaleProviders>
     </RialtoProvider>
