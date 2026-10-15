@@ -38,3 +38,22 @@ test.describe("CF-10: Settings page and preferences persistence", () => {
     });
   });
 });
+
+test.describe("Staff locale switcher", () => {
+  test("sidebar switch updates the UI in place and persists across reload", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.goto("settings");
+    await expect(mockedPage.getByRole("heading", { name: "Settings" })).toBeVisible();
+
+    await mockedPage
+      .getByRole("navigation")
+      .getByRole("button", { name: /Language/ })
+      .click();
+    await mockedPage.getByRole("menuitem", { name: /Español/ }).click();
+    await expect(mockedPage.getByText("Idioma y región")).toBeVisible();
+
+    await mockedPage.reload();
+    await expect(mockedPage.getByText("Idioma y región")).toBeVisible();
+  });
+});

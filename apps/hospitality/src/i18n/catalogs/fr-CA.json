@@ -504,5 +504,9 @@
     "loadError": "Impossible de charger {{locale}}",
     "retry": "Réessayer",
     "machineTranslated": "Les traductions sont automatiques."
+  },
+  "staffLocaleSwitcher": {
+    "title": "Langue et région",
+    "previewLabel": "Aperçu"
   }
 }

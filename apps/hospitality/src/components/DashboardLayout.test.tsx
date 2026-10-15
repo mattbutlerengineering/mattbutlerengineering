@@ -17,6 +17,10 @@ import { DashboardLayout } from "./DashboardLayout.js";
 import { ChatPage } from "../pages/ChatPage.js";
 import React from "react";
 
+vi.mock("./LocalePicker/index.js", () => ({
+  LocalePicker: () => <div data-testid="locale-picker" />,
+}));
+
 vi.mock("../pages/ChatPage.js", () => ({
   ChatPage: () => <h1>Chat</h1>,
 }));

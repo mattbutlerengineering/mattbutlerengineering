@@ -496,5 +496,9 @@
     "loadError": "Couldn't load {{locale}}",
     "retry": "Retry",
     "machineTranslated": "Translations are machine-generated."
+  },
+  "staffLocaleSwitcher": {
+    "title": "Language & region",
+    "previewLabel": "Preview"
   }
 }

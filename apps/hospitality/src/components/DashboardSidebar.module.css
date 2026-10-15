@@ -21,6 +21,13 @@
   padding-block-end: var(--rialto-space-lg);
 }
 
+/* ── Pinned footer slot ──────────────────────── */
+
+.footer {
+  padding: var(--rialto-space-sm);
+  border-block-start: 1px solid var(--rialto-border);
+}
+
 /* ── Section ─────────────────────────────────── */
 
 .section {
