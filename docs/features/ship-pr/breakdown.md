@@ -18,7 +18,7 @@ their acceptance criteria are met.
 
 ## Milestone 1: /ship-pr runs the full boundary on an arbitrary PR
 
-- [ ] **WO-0016 — Write `.claude/skills/ship-pr/SKILL.md`** — the ordered
+- [x] **WO-0016 — Write `.claude/skills/ship-pr/SKILL.md`** — the ordered
       protocol per `architecture.md`: preconditions (open PR; draft refused
       without `--ready`, with it run `gh pr ready <N>` first), then
       `node scripts/agent-core-build-freshness.mjs check`, then
