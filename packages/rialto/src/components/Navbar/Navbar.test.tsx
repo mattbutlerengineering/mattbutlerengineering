@@ -141,5 +141,53 @@ describe("Navbar", () => {
       const toggle = screen.getByRole("button", { name: /toggle submenu/i });
       expect(toggle.closest("a")).toBeNull();
     });
+
+    it("names the nav landmark by default", () => {
+      render(<Navbar links={links} />);
+      expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
+    });
+
+    it("lets the label prop and a consumer aria-label override the default name", () => {
+      const { rerender } = render(<Navbar links={links} label="Primary" />);
+      expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+      rerender(<Navbar links={links} aria-label="Custom" />);
+      expect(screen.getByRole("navigation", { name: "Custom" })).toBeInTheDocument();
+    });
+
+    it("links the submenu toggle to its submenu only while expanded", async () => {
+      const user = userEvent.setup();
+      render(<Navbar links={nestedLinks} />);
+      const toggle = screen.getByRole("button", { name: /toggle submenu/i });
+      expect(toggle).not.toHaveAttribute("aria-controls");
+      await user.click(toggle);
+      const id = toggle.getAttribute("aria-controls");
+      expect(id).toBeTruthy();
+      const panel = document.getElementById(id!);
+      expect(panel).not.toBeNull();
+      expect(panel).toContainElement(screen.getByText("Widgets"));
+      await user.click(toggle);
+      expect(toggle).not.toHaveAttribute("aria-controls");
+    });
+
+    it("gives nested submenus distinct ids", async () => {
+      const user = userEvent.setup();
+      const deep: NavbarLink[] = [
+        {
+          id: "a",
+          label: "A",
+          children: [{ id: "b", label: "B", children: [{ id: "c", label: "C" }] }],
+        },
+        { id: "d", label: "D", children: [{ id: "e", label: "E" }] },
+      ];
+      render(<Navbar links={deep} />);
+      await user.click(screen.getAllByRole("button", { name: /toggle submenu/i }).at(0)!);
+      await user.click(screen.getAllByRole("button", { name: /toggle submenu/i }).at(1)!);
+      await user.click(screen.getAllByRole("button", { name: /toggle submenu/i }).at(2)!);
+      const ids = screen
+        .getAllByRole("button", { name: /toggle submenu/i })
+        .map((b) => b.getAttribute("aria-controls"));
+      expect(ids.every(Boolean)).toBe(true);
+      expect(new Set(ids).size).toBe(ids.length);
+    });
   });
 });

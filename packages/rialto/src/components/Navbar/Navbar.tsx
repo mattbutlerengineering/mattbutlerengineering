@@ -1,4 +1,4 @@
-import { forwardRef, useState, type HTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useId, useState, type HTMLAttributes, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
@@ -58,6 +58,8 @@ export interface NavbarProps extends HTMLAttributes<HTMLElement> {
   links: NavbarLink[];
   /** Content rendered at the bottom of the navbar (e.g., version info, logout button). */
   footer?: ReactNode;
+  /** Accessible name for the nav landmark. A consumer `aria-label` / `aria-labelledby` takes precedence. */
+  label?: string;
 }
 
 /**
@@ -73,6 +75,7 @@ interface NavbarLinkItemProps {
 function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
   const motionPreset = useMotionPreset();
   const [isOpen, setIsOpen] = useState(false);
+  const childrenId = useId();
   const hasChildren = link.children && link.children.length > 0;
 
   return (
@@ -93,6 +96,7 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
             className={styles.chevronButton}
             onClick={() => setIsOpen(!isOpen)}
             aria-expanded={isOpen}
+            aria-controls={isOpen ? childrenId : undefined}
             aria-label="Toggle submenu"
           >
             <motion.svg
@@ -114,7 +118,7 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
       </div>
 
       {hasChildren && isOpen && (
-        <div className={styles.linkChildren}>
+        <div id={childrenId} className={styles.linkChildren}>
           {link.children!.map((child) => (
             <NavbarLinkItem key={child.id} link={child} level={level + 1} />
           ))}
@@ -125,7 +129,7 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
 }
 
 export const Navbar = forwardRef<HTMLElement, NavbarProps>(
-  ({ logo, user, search, links, footer, className, ...props }, ref) => {
+  ({ logo, user, search, links, footer, label = "Main navigation", className, ...props }, ref) => {
     const [searchValue, setSearchValue] = useState("");
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,7 +138,12 @@ export const Navbar = forwardRef<HTMLElement, NavbarProps>(
     };
 
     return (
-      <nav ref={ref} className={cn(styles.navbar, className)} {...props}>
+      <nav
+        ref={ref}
+        aria-label={props["aria-labelledby"] ? undefined : label}
+        className={cn(styles.navbar, className)}
+        {...props}
+      >
         {/* Section 1: Header */}
         <div className={styles.header}>
           {logo && <div className={styles.logo}>{logo}</div>}
