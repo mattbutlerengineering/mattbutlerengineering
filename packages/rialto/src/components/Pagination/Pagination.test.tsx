@@ -136,6 +136,29 @@ describe("Pagination", () => {
       expect(screen.getByRole("button", { name: /page 1/i })).toHaveFocus();
     });
 
+    it("does not steal focus when an ignored Next click is followed by an external page change", async () => {
+      function Ignoring() {
+        const [page, setPage] = useState(4);
+        return (
+          <>
+            <Pagination page={page} totalPages={5} onChange={() => {}} />
+            <button type="button" onClick={() => setPage(5)}>
+              External
+            </button>
+          </>
+        );
+      }
+      render(<Ignoring />);
+      await user.click(screen.getByRole("button", { name: /next page/i }));
+      const external = screen.getByRole("button", { name: "External" });
+      await user.click(external);
+      expect(screen.getByRole("button", { name: /page 5/i })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+      expect(external).toHaveFocus();
+    });
+
     it("leaves focus on Next while it is still enabled", async () => {
       render(<Controlled start={2} total={5} />);
       const next = screen.getByRole("button", { name: /next page/i });

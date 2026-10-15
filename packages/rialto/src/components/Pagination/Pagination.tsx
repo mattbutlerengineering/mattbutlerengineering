@@ -126,7 +126,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
     const motionPreset = useMotionPreset();
     const boopHover = motionPreset.boop;
     const navRef = useRef<HTMLElement | null>(null);
-    const clickedArrow = useRef<ArrowDirection | null>(null);
+    const pendingArrowRef = useRef<{ direction: ArrowDirection; target: number } | null>(null);
 
     const setNavRef = useCallback(
       (node: HTMLElement | null) => {
@@ -137,19 +137,27 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
     );
 
     // Activating an arrow can land on the first/last page and disable that very
-    // button, dropping focus to <body>. Hand focus to the current page instead.
+    // button, dropping focus to <body>. Hand focus to the current page instead,
+    // but only if the page really became the clicked target.
     useEffect(() => {
-      const direction = clickedArrow.current;
-      clickedArrow.current = null;
-      if (!direction) return;
-      const atBound = direction === "prev" ? page <= 1 : page >= totalPages;
+      const pending = pendingArrowRef.current;
+      pendingArrowRef.current = null;
+      if (!pending || page !== pending.target) return;
+      const atBound = pending.direction === "prev" ? page <= 1 : page >= totalPages;
       if (!atBound) return;
       navRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.focus();
     }, [page, totalPages]);
 
-    const goTo = (target: number, arrow: ArrowDirection | null) => {
-      clickedArrow.current = arrow;
+    const goTo = (target: number, direction: ArrowDirection | null) => {
+      const pending = direction ? { direction, target } : null;
+      pendingArrowRef.current = pending;
       onChange(target);
+      // A parent that ignores the click never re-renders us, so the handoff would
+      // linger and fire on a later, unrelated page change. Drop it once the click's
+      // own update cycle is over.
+      setTimeout(() => {
+        if (pendingArrowRef.current === pending) pendingArrowRef.current = null;
+      }, 0);
     };
 
     return (
