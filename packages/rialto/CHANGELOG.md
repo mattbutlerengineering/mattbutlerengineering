@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.6.5
+
+### Patch Changes
+
+- [#6741](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6741) [`42f8107`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/42f81075f4040b25179c7db270136bb41928c746) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav accepts an optional `labels` prop so a consumer can localize the app link labels; omitted apps keep the English defaults.
+
 ## 0.6.4
 
 ### Patch Changes
