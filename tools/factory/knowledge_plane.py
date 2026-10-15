@@ -24,9 +24,11 @@ parse_run the already-selected path list to read once, alongside
 everything else this function already reads once.
 """
 import re
+from collections import namedtuple
 from pathlib import Path
 
-from protocol import read_frontmatter
+from cli import read_file
+from protocol import parse_frontmatter
 
 PRD_TOKEN = re.compile(r"\bPRD-\d{4}\b")
 ADR_TOKEN = re.compile(r"\bADR-(\d{4})\b")
@@ -86,14 +88,20 @@ def sanitize(value, limit=FIELD_LIMIT):
 # fence is indented to the item's content column. We do not track containers,
 # and false-positiving on honest nested evidence is the worse error.
 # One owner: deciding that a line is quoted rather than asserted is this
-# rule, and every caller (gates' H, M, N, O and D, validator's skip gate)
-# reads it from here rather than keeping a looser copy of its own.
+# rule, and every caller (gates' H, M, N, O and D, validator's skip gate,
+# md_claims, kb_drift) reads it from here, through `fenced`, rather than
+# keeping a looser copy of its own.
 FENCE_OPEN = re.compile(r"^\s*(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
 FENCE_CLOSE = re.compile(r"^\s*(?P<marker>`{3,}|~{3,})[ \t]*$")
 
 
-def fence_open(line):
-    """(marker char, marker length) if `line` opens a fence, else None."""
+# An open fence: its marker character and length, its info string
+# (stripped), and the 1-based line number of the line that opened it.
+Fence = namedtuple("Fence", "char length info lineno")
+
+
+def _fence_open(line, lineno):
+    """The Fence `line` opens, else None."""
     match = FENCE_OPEN.match(line)
     if not match:
         return None
@@ -101,32 +109,45 @@ def fence_open(line):
     # CommonMark: a backtick fence's info string may not contain a backtick.
     if marker[0] == "`" and "`" in info:
         return None
-    return marker[0], len(marker)
+    return Fence(marker[0], len(marker), info.strip(), lineno)
 
 
-def fence_closes(line, char, length):
-    """Does `line` close a fence opened with `length` copies of `char`?"""
+def _fence_closes(line, fence):
+    """Does `line` close `fence`?"""
     match = FENCE_CLOSE.match(line)
     if not match:
         return False
     marker = match.group("marker")
-    return marker[0] == char and len(marker) >= length
+    return marker[0] == fence.char and len(marker) >= fence.length
+
+
+def fenced(lines, start=1):
+    """(lineno, line, fence) for every line that is not itself a fence
+    marker, numbered from `start`; `fence` is the open Fence the line sits
+    inside, or None outside every fence. If the input ends inside a fence,
+    the last item is (fence.lineno, None, fence) — the unclosed event."""
+    fence = None
+    for lineno, line in enumerate(lines, start):
+        if fence is not None:
+            if _fence_closes(line, fence):
+                fence = None
+            else:
+                yield lineno, line, fence
+            continue
+        fence = _fence_open(line, lineno)
+        if fence is None:
+            yield lineno, line, None
+    if fence is not None:
+        yield fence.lineno, None, fence
 
 
 def unfenced(lines):
     """(lineno, line) for every line outside a fenced code block — fenced
     content is quoted, not asserted. An unterminated fence swallows the
     rest of the input."""
-    fence = None
-    for lineno, line in enumerate(lines, 1):
-        if fence is not None:
-            if fence_closes(line, fence[0], fence[1]):
-                fence = None
-            continue
-        fence = fence_open(line)
+    for lineno, line, fence in fenced(lines):
         if fence is None:
             yield lineno, line
-
 
 
 # A markdown inline link's destination, per CommonMark: optional leading
@@ -316,30 +337,67 @@ def row_unreadable_blockers(line):
 def row_done(line):
     """Whether a breakdown row is checked off.
 
-    The one owner of the checked-row grammar (ADR-0058). Call sites
-    (derived, not counted by hand — pinned in both directions by
-    test_the_documented_call_sites_are_the_real_ones): gates.py,
-    plane_drift.py, work_queue.py — nothing else asks. The reconcile
-    sweep and the dashboard reach this grammar THROUGH
-    plane_drift.reconcile_drift rather than directly (ADR-0060), which
-    is why neither appears above; an earlier hand-typed list still named
-    them, and their fold into one shared rule, and said five. Detector G
-    layers its own ADR-0043 pre-ledger exclusion on top at its call
-    site — that is the detector's rule, not the row grammar's, which is
-    why it is not here. Same alignment caveat as protocol._CHECKBOX:
-    change the bullet shape in one and the other must move with it.
+    The one owner of the checked-row grammar (ADR-0058). Its one caller
+    is parse_row below: every reader takes the answer as a row record's
+    `done` field (issue #737). Detector G layers its own ADR-0043
+    pre-ledger exclusion on top — that is the detector's rule, not the
+    row grammar's. Same alignment caveat as protocol._CHECKBOX: change
+    the bullet shape in one and the other must move with it.
 
     The ROW guard is the same one every sibling accessor opens with, and
     it is load-bearing rather than ceremonial: ROW requires whitespace
     after the closing bracket and DONE_ROW does not, so without it a
     checked box followed immediately by text is a checked row here and no
-    row at all to row_size, row_title and the rest. The one place that
-    difference escaped was detector G, which reaches this accessor
-    through a raw WO_TOKEN.search rather than through a sibling.
+    row at all to row_size, row_title and the rest.
     """
     if not ROW.match(line):
         return False
     return bool(DONE_ROW.match(line))
+
+
+def parse_row(line):
+    """The breakdown row a line is, as one record, or None when the line
+    is not a checkbox row (issue #737). The row_* accessors above are its
+    field grammar; readers take fields from the record, never re-match a
+    line, so prose — a Notes sub-bullet, a paragraph — naming a work
+    order is not a row to any of them. `wo` is None for a checkbox row
+    that names no work order: whether that matters is the caller's
+    policy. `prd_ids` is every PRD token the row cites, in order."""
+    if not ROW.match(line):
+        return None
+    return {
+        "text": line, "wo": row_work_order(line), "done": row_done(line),
+        "issue": row_tracker_issue(line), "size": row_size(line),
+        "title": row_title(line), "blockers": row_blockers(line),
+        "unreadable": row_unreadable_blockers(line),
+        "pre_ledger": row_pre_ledger(line),
+        "prd_ids": PRD_TOKEN.findall(line),
+    }
+
+
+def _row_block(lines, index):
+    """The block the row at lines[index] owns (issue #857): the row,
+    stripped, plus the lines under it — indented sub-bullets, blank
+    lines between them included (a loose list) — up to the next row or
+    the first unindented line, prose or heading. Trailing blank lines
+    are not the block's."""
+    block = [lines[index].strip()]
+    for line in lines[index + 1:]:
+        if ROW.match(line) or (line.strip() and not line[:1].isspace()):
+            break
+        block.append(line.rstrip())
+    return "\n".join(block).rstrip()
+
+
+def breakdown_rows(lines):
+    """Every row record in a breakdown's lines, in order, each carrying
+    its 1-based `lineno` and its `block` (_row_block) — the walk A, C,
+    G, O and the dispatch-plane tools share instead of each re-reading
+    every line."""
+    return [{**row, "lineno": index + 1, "block": _row_block(lines, index)}
+            for index, row in ((n, parse_row(line))
+                               for n, line in enumerate(lines))
+            if row is not None]
 
 
 def run_dirs(root):
@@ -356,10 +414,10 @@ def breakdown_files(root):
     """(breakdown path, its lines) per run that has a breakdown.md.
 
     The layout walk in one place: every dispatch-plane reader of
-    work-order rows — the assembler, the validator, orientation_pack,
-    and gates' detectors — opens the same files in the same run order.
-    Row and slice grammar stay with each caller (ADR-0037: this
-    concentrates layout knowledge, not row-reading policy).
+    work-order rows — the assembler, the validator and gates'
+    detectors — opens the same files in the same run order.
+    Row grammar is breakdown_rows' (ADR-0039 put it here); slice and
+    row-reading policy stay with each caller (ADR-0037).
     """
     for run in run_dirs(root):
         breakdown = run / "breakdown.md"
@@ -368,24 +426,61 @@ def breakdown_files(root):
                 encoding="utf-8").splitlines()
 
 
+def work_orders(root, files=None):
+    """(index, problems): the row a work order or an issue owns (issue
+    #857). index["wo"] maps a WO token, index["issue"] a tracker issue
+    number, to its breakdown row record — breakdown_rows' fields plus
+    `path` (the breakdown.md) and `clashes`. Every lookup in either
+    direction (ADR-0039: each caller keeps its own) reads this one
+    index, so they cannot disagree.
+
+    One duplicate policy: the first row in breakdown_files order owns
+    the key, and a later row naming the same WO or tracker issue is an
+    unlabelled problem, `<rel>:<lineno> <WO> duplicates the row at
+    <rel>:<lineno>` (or `(tracker: #N)` in the WO's place). Each clash
+    is also listed in the `clashes` of both rows it names, so a caller
+    that acts on one row — a dispatch, a label flip — can refuse it.
+
+    `files` is (breakdown path, lines) in breakdown_files order, default
+    a fresh breakdown_files(root): gates' detector C hands in the walk
+    parse_run already read rather than reading it again (issue #886)."""
+    root = Path(root)
+    index, problems = {"wo": {}, "issue": {}}, []
+    for path, lines in breakdown_files(root) if files is None else files:
+        for row in breakdown_rows(lines):
+            record = {**row, "path": path, "clashes": []}
+            for kind, key, shown in (
+                    ("wo", row["wo"], row["wo"]),
+                    ("issue", row["issue"], f"(tracker: #{row['issue']})")):
+                if key is None:
+                    continue
+                first = index[kind].setdefault(key, record)
+                if first is record:
+                    continue
+                clash = (f"{path.relative_to(root)}:{row['lineno']} {shown}"
+                         f" duplicates the row at"
+                         f" {first['path'].relative_to(root)}"
+                         f":{first['lineno']}")
+                problems.append(clash)
+                first["clashes"].append(clash)
+                record["clashes"].append(clash)
+    return index, problems
+
+
 def mirror_map(root):
     """{tracker issue number: WO token} from the breakdown rows. The
     knowledge plane is authoritative and the mirror one-way (ADR-0032):
     a row with no (tracker: #N) simply is not in any queue, and an issue
-    with no row is not a work order.
+    with no row is not a work order. Read from work_orders, so a
+    duplicated tracker maps to the row every other lookup resolves.
 
-    The one composition of the three names above that the tracker-facing
+    The one composition of the two names above that the tracker-facing
     tools — the gate digest, the miner, the dashboard — all need, and
     the reason ADR-0039 put the mirror grammar here in the first place:
     it reads rows, and it names no gate."""
-    mapping = {}
-    for _, lines in breakdown_files(root):
-        for line in lines:
-            wo = row_work_order(line)
-            number = row_tracker_issue(line)
-            if wo and number is not None:
-                mapping[number] = wo
-    return mapping
+    index, _ = work_orders(root)
+    return {number: row["wo"] for number, row in index["issue"].items()
+            if row["wo"]}
 
 
 # The ADR record (issue #747): which files in docs/adr are decision
@@ -397,6 +492,36 @@ def mirror_map(root):
 # `0062.md`, or the `ADR-007-slug.md` form other repos use. README.md and
 # TEMPLATE.md carry no number and are skipped by the same test.
 ADR_FILE = re.compile(r"^(?:ADR-?)?(?P<num>\d+)\b", re.IGNORECASE)
+
+
+def adr_file_number(name):
+    """(number, written) for an ADR filename, or None if NAME is not
+    one. `written` is the digits as the filename has them; `number` is
+    the same value at the one width every reader keys on — ADR_TOKEN's
+    citations, gates' index rows, standards_index sources — so
+    `ADR-007-auth.md` is ADR-0007 (issue #774)."""
+    match = ADR_FILE.match(name)
+    if not match:
+        return None
+    written = match.group("num")
+    return f"{int(written):04d}", written
+
+
+def adr_digits(number, written):
+    """NUMBER's digits at the width WRITTEN (adr_file_number's `written`,
+    or a citation's digits) has, so a renumbered `ADR-027` stays 3-digit
+    (issue #860)."""
+    return f"{int(number):0{len(written)}d}"
+
+
+def adr_citation(number):
+    """A citation of ADR NUMBER at whatever width it is written, its
+    digits in group `num`: `ADR-027` and `ADR-0027` both cite 27. Only
+    the renumberer reads this; ADR_TOKEN stays the gates' 4-digit
+    grammar (#774, #821)."""
+    return re.compile(rf"\bADR-(?P<num>0*{int(number)})\b")
+
+
 # The status vocabulary (docs/adr/README.md), as a status head plus an
 # optional free-text annotation: "accepted (shipped by ...)" is accepted.
 # Only full supersession retires a decision — "superseded in part by" and
@@ -421,9 +546,9 @@ def adr_paths(root):
         return []
     found = []
     for path in sorted(adr_dir.glob("*.md")):
-        match = ADR_FILE.match(path.name)
-        if match:
-            found.append((match.group("num"), path))
+        numbered = adr_file_number(path.name)
+        if numbered:
+            found.append((numbered[0], path))
     return found
 
 
@@ -471,27 +596,52 @@ def _declared_status(lines):
 
 
 def adr_record(path, lines):
-    """One ADR, read once: {number, path, lineno, status, head, standing,
-    superseded_by}. PATH must be an adr_paths file; LINES are its lines
-    (a parse_run adr_files entry). lineno is the line the status was read
+    """One ADR, read once: {number, written, path, lineno, status, head,
+    standing, superseded_by, title, lines}. PATH must be an adr_paths
+    file; LINES are its lines (a read_adrs entry). number and written
+    are adr_file_number's pair. lineno is the line the status was read
     from, 0 when it declares none; superseded_by is the retiring ADR's
-    number, or None."""
+    number, or None; title is the first `# ` heading's text, or None."""
     lineno, text = _declared_status(lines)
     match = ADR_STATUS.match(text or "")
-    return {"number": ADR_FILE.match(path.name).group("num"),
+    number, written = adr_file_number(path.name)
+    return {"number": number,
+            "written": written,
             "path": path,
             "lineno": lineno,
             "status": text,
             "head": match.group(1) if match else None,
             "standing": standing(text),
             "superseded_by": (match.group("by")
-                              if match and match.group("retired") else None)}
+                              if match and match.group("retired") else None),
+            "title": next((line[2:].strip() for line in lines
+                           if line.startswith("# ")), None),
+            "lines": lines}
+
+
+def read_adrs(root):
+    """([(Path, [str])], problems): every adr_paths file under ROOT with
+    its lines, in that order — the one ADR read (issue #855), guarded by
+    cli.read_file (ADR-0075). A file that cannot be read is left out
+    and named in an unlabelled problem string, `cannot read
+    docs/adr/<name>: <err>`, which each caller labels."""
+    root = Path(root)
+    files, problems = [], []
+    for _, path in adr_paths(root):
+        text, problem = read_file(path, path.relative_to(root).as_posix(),
+                                  str)
+        if problem:
+            problems.append(problem)
+        elif text is not None:
+            files.append((path, text.splitlines()))
+    return files, problems
 
 
 def adr_records(root):
-    """adr_record for every adr_paths file under ROOT, in that order."""
-    return [adr_record(path, path.read_text(encoding="utf-8").splitlines())
-            for _, path in adr_paths(root)]
+    """(records, problems): adr_record for every file read_adrs reads
+    under ROOT, in that order, and its read problems."""
+    files, problems = read_adrs(root)
+    return [adr_record(path, lines) for path, lines in files], problems
 
 
 def parse_run(root, scannable=()):
@@ -515,7 +665,9 @@ def parse_run(root, scannable=()):
     Issue #441 added this function, unused; issue #442 (the "migrate"
     step) wired detectors A, C, D, G, H and I onto it — gates.run_all
     now calls parse_run once per pass and hands the same parsed dict to
-    each of those six, and each of their own filesystem reads is gone.
+    every detector whose gates.ROSTER row declares a parsed input (K, N
+    and O joined those six later), and each of their own filesystem
+    reads is gone.
 
     `scannable`: an iterable of Paths the CALLER has already selected
     (gates._scannable_files(root), for detectors C, D and I) — read once
@@ -547,27 +699,51 @@ def parse_run(root, scannable=()):
          "verification_error": str | None}.
         "prd" and "prd_date" (the frontmatter `date:`) are what detectors
         N and O read (ADR-0071, ADR-0072).
-        A field is None when that run carries no such file.
-        verification_error carries str(err) when verification.md exists
-        but could not be decoded — check_evidence_honesty's own
-        "H: {rel} cannot be read: {err}" case — with verification then
-        None; every other artifact here is read the way its current
-        caller already reads it: uncaught, because no current caller
-        catches a read error there either.
-      "adr_files": [(Path, [str]), ...] for every adr_paths file, in
-        that order — adr_record reads an entry.
-      "adr_readme": [str] | None for docs/adr/README.md.
+        A field is None when that run carries no such file, or when
+        cli.read_file could not read it (ADR-0094) — then named in
+        "artifact_problems". verification_error carries str(err) when
+        verification.md exists but could not be decoded —
+        check_evidence_honesty's own "H: {rel} cannot be read: {err}"
+        case — with verification then None.
+      "adr_files": [(Path, [str]), ...] — read_adrs' files: every
+        adr_paths file it could read, in that order — adr_record reads
+        an entry. The ADRs alone are read guarded (issue #855), since
+        adr_status and the standards index share this read and promise
+        problem strings.
+      "adr_problems": [str] — read_adrs' unlabelled problems, one per
+        ADR left out of "adr_files"; detector D labels and reports them.
+      "adr_readme": [str] | None for docs/adr/README.md, read guarded.
+      "artifact_problems": [str] — unlabelled `cannot read <rel>: <err>`,
+        one per breakdown/PRD/architecture or index left None unread;
+        detector D reports them (ADR-0094).
       "scannable": [(Path, [str]), ...], one entry per path in
-        `scannable`, in that order — read uncaught, same as every other
-        entry above.
+        `scannable` it could read, in that order — guarded by
+        cli.read_file like the ADRs (issue #877), since one undecodable
+        doc anywhere in the tree otherwise crashes a full gates run.
+      "scannable_problems": [str] — unlabelled `cannot read <rel>: <err>`
+        problems, one per `scannable` path left out; detector D labels and
+        reports them beside adr_problems.
 
     Read-only: parse_run never writes.
     """
+    artifact_problems = []
+
+    def guarded_text(path):
+        """One guarded read (ADR-0094): the file's text, or None when it
+        is absent or unreadable — an unreadable one also named once in
+        artifact_problems."""
+        text, problem = read_file(path, path.relative_to(root).as_posix(),
+                                  str)
+        if problem:
+            artifact_problems.append(problem)
+        return text
+
+    def guarded_lines(path):
+        text = guarded_text(path)
+        return None if text is None else text.splitlines()
+
     runs = []
     for run in run_dirs(root):
-        breakdown = run / "breakdown.md"
-        prd = run / "prd.md"
-        architecture = run / "architecture.md"
         verification = run / "verification.md"
         verification_text = None
         verification_error = None
@@ -576,33 +752,37 @@ def parse_run(root, scannable=()):
                 verification_text = verification.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError) as err:
                 verification_error = str(err)
-        prd_fields = (read_frontmatter(prd) or {}) if prd.is_file() else {}
+        breakdown = guarded_lines(run / "breakdown.md")
+        prd_text = guarded_text(run / "prd.md")
+        prd_fields = ((parse_frontmatter(prd_text) or {})
+                      if prd_text is not None else {})
         runs.append({
             "path": run,
-            "breakdown": (breakdown.read_text(encoding="utf-8").splitlines()
-                         if breakdown.is_file() else None),
+            "breakdown": breakdown,
             "prd_id": prd_fields.get("id"),
-            "prd": (prd.read_text(encoding="utf-8").splitlines()
-                    if prd.is_file() else None),
+            "prd": None if prd_text is None else prd_text.splitlines(),
             "prd_date": prd_fields.get("date"),
-            "architecture": (architecture.read_text(
-                encoding="utf-8").splitlines()
-                if architecture.is_file() else None),
+            "architecture": guarded_lines(run / "architecture.md"),
             "verification": verification_text,
             "verification_error": verification_error,
         })
 
-    adr_files = [(path, path.read_text(encoding="utf-8").splitlines())
-                 for _, path in adr_paths(root)]
-    readme = root / "docs" / "adr" / "README.md"
-    adr_readme = (readme.read_text(encoding="utf-8").splitlines()
-                  if readme.is_file() else None)
+    adr_files, adr_problems = read_adrs(root)
+    adr_readme = guarded_lines(root / "docs" / "adr" / "README.md")
 
-    scanned = [(path, path.read_text(encoding="utf-8").splitlines())
-              for path in scannable]
+    scanned, scannable_problems = [], []
+    for path in scannable:
+        text, problem = read_file(path, path.relative_to(root).as_posix(),
+                                  str)
+        if problem:
+            scannable_problems.append(problem)
+        elif text is not None:
+            scanned.append((path, text.splitlines()))
 
-    return {"runs": runs, "adr_files": adr_files, "adr_readme": adr_readme,
-            "scannable": scanned}
+    return {"runs": runs, "adr_files": adr_files,
+            "adr_problems": adr_problems, "adr_readme": adr_readme,
+            "scannable": scanned, "scannable_problems": scannable_problems,
+            "artifact_problems": artifact_problems}
 
 
 def repo_root():

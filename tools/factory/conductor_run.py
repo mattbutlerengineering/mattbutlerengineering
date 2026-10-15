@@ -5,16 +5,16 @@
 per step of one item, in that item's own worktree.
 
 In order: launch (a state row carrying the run id and this runner's
-pid), compose the brief and every harness flag, run under
-cli.harness_run with the size's wall-clock limit, keep the result event
-as runs/<run_id>.json, meter it with cli.read_execution, commit one
+pid), run factory.json's conductor.worktree_setup if set (#850),
+compose the brief and every harness flag, run under cli.harness_run
+with the size's wall-clock limit, keep the result event as
+runs/<run_id>.json, meter it with cli.read_execution, commit one
 spend row on the item branch, push it (never forced), open or update its
 PR from the Worker's uncommitted pr-body.md, and append the run's one
 `run` row. Any outcome but a completed run with its expected output
 queues a stall ask; nothing retries. The Owner's 2026-10-10 answers
 (breakdown.md Notes) fix the branch names, tool list and defaults used.
 """
-import json
 import netrc as netrc_file
 import os
 import re
@@ -28,12 +28,12 @@ import cost_ledger
 import factory_config
 from assembler import PR_BODY_FILE
 from cli import CLI_FAILURES, child_env, detail, gh_read, harness_run, \
-    read_execution
-from conductor import RUNS, WORKER_ENV, answers, append, ask_row, \
+    prettier_json, read_execution, runner
+from conductor import RUN_ID, RUNS, WORKER_ENV, answers, append, ask_row, \
     current_state, item_view, item_worktree, load, stamp, view
 from conductor import run_id as make_run_id
 from conductor_plan import main_checkout, span
-from knowledge_plane import WO_TOKEN
+from knowledge_plane import WO_TOKEN, work_orders
 from orientation_pack import orientation_pack
 from protocol import read_frontmatter
 
@@ -75,7 +75,7 @@ CAP_WHY = ("the monthly cap is ADR-0034's breaker; raise monthly_cap_usd in"
 REFUSAL_WHY = ("a retry meets the same refusal until the setting it names"
                " changes; change it, then resume")
 # The subject of the spend commit each run ends with (_spend): it bounds
-# one run's own commits on the item branch.
+# one run's own commits on the item branch, and spend_run reads it back.
 SPEND_SUBJECT = "chore(cost): "
 PRIOR_WORK = ("The previous {step} run, {run_id}, ended: {reason}. These"
               " commits it made are already on {branch}, the head this"
@@ -237,21 +237,6 @@ def _git(git, args, what):
         return None, [f"{what} failed: {detail(err)}"]
 
 
-def _policy(rows, plan, entry, step):
-    """(band, model, effort, ceiling) for the step: the plan row's
-    snapshot, one band up after a retry-up answer."""
-    planned = next(s for s in entry["steps"] if s["step"] == step)
-    band, model, effort = planned["band"], planned["model"], \
-        planned["effort"]
-    resumed = item_view(rows, entry["item"])["resumed"]
-    if resumed and resumed["choice"] == "retry-up" \
-            and band in flow.BANDS[:-1]:
-        band = flow.BANDS[flow.BANDS.index(band) + 1]
-        model, _ = factory_config.resolve_model(band, plan["policy"])
-        effort, _ = factory_config.resolve_effort(band, plan["policy"])
-    return band, model, effort, planned["ceiling_usd"]
-
-
 def _issue(gh, item):
     result = gh_read(["issue", "view", item[1:], "--json", "title,body"],
                      f"gh issue view {item}", "cd", run=gh, expect=dict)
@@ -266,15 +251,20 @@ def _work(rows, entry, step, git, gh, batch, worktree):
         return item, "", (issue or {}).get("body"), problems
     if step != "build":
         return item, "", None, []
+    index, _ = work_orders(worktree)
     if entry["type"] == "order":
-        issue, problems = _issue(gh, item)
-        if problems:
-            return None, None, None, problems
-        found = WO_TOKEN.search(issue.get("title") or "")
-        if not found:
-            return None, None, None, [f"cd: {item}'s title names no work"
-                                      " order"]
-        wo, row = found.group(0), issue["title"]
+        # The row, not the issue title, names the work order (ADR-0032,
+        # issue #857): the same index the dispatcher resolves through.
+        record = index["issue"].get(int(item[1:]))
+        if record is None:
+            return None, None, None, [f"cd: no breakdown row mirrors {item}"]
+        if record["clashes"]:
+            return None, None, None, [f"cd: {clash}"
+                                      for clash in record["clashes"]]
+        if not record["wo"]:
+            return None, None, None, [f"cd: {item}'s breakdown row names no"
+                                      " work order"]
+        wo, row = record["wo"], record["block"]
     else:
         pending, problems = flow.unchecked_rows(
             git, flow.item_branch(batch, item))
@@ -286,7 +276,9 @@ def _work(rows, entry, step, git, gh, batch, worktree):
         row = pending[0]
         found = WO_TOKEN.search(row)
         wo = found.group(0) if found else item
-    return wo, f"{row}\n\n{orientation_pack(worktree, wo, row)}", None, []
+    record = index["wo"].get(wo)
+    block = record["block"] if record else row
+    return wo, f"{row}\n\n{orientation_pack(worktree, wo, block)}", None, []
 
 
 def worktree_path(git, batch, item):
@@ -308,6 +300,17 @@ def _worktree(git, batch, item):
                                  flow.item_branch(batch, item), str(path),
                                  "origin/main"], "cd: git worktree add")
     return path, problems
+
+
+def _setup(setup, argv, worktree, minutes):
+    """The stall reason when factory.json's conductor.worktree_setup
+    fails in the item worktree under the step's limit (#850), else None.
+    It is not git, so the Conductor's hook-skipping git port is not it."""
+    try:
+        setup(argv[0], timeout=minutes * 60)(argv[1:], cwd=str(worktree))
+    except CLI_FAILURES as err:
+        return f"worktree setup `{shlex.join(argv)}` failed: {detail(err)}"
+    return None
 
 
 def _harness(harness, cmd, worktree, minutes, batch):
@@ -337,7 +340,7 @@ def _meter(root, batch, run_id, event, ended, ceiling, model):
         runs = Path(root) / RUNS.format(batch=batch)
         runs.mkdir(parents=True, exist_ok=True)
         kept = runs / f"{run_id}.json"
-        kept.write_text(json.dumps(event) + "\n", encoding="utf-8")
+        kept.write_text(prettier_json(event), encoding="utf-8")
         metered, error = read_execution(kept)
         if error is None:
             reported = sorted(event.get("modelUsage") or {})
@@ -397,6 +400,28 @@ def _spend(git, worktree, wo, run_id, model, tokens, cost, outcome, now):
     return None
 
 
+def spend_run(subject):
+    """The run id a spend commit's subject names, else None: the grammar
+    _spend writes, SPEND_SUBJECT + a run id (#771). A Worker's own
+    `chore(cost): ...` commit names no run id, so it is work, not
+    spend."""
+    if not subject.startswith(SPEND_SUBJECT):
+        return None
+    run = subject[len(SPEND_SUBJECT):]
+    return run if RUN_ID.fullmatch(run) else None
+
+
+def run_commits(git, branch, head=None):
+    """(the subjects of the branch's commits beyond origin/main, newest
+    first, problems): the one item-branch log read. `head` pins the
+    commit read (a sha inspected for a leased delete); it defaults to
+    the branch."""
+    out, problems = _git(git, ["log", "--format=%s",
+                               f"origin/main..{head or branch}"],
+                         f"reading {branch}'s commits")
+    return (None, problems) if problems else (out.splitlines(), [])
+
+
 def _prior_work(git, rows, item, step, branch):
     """(the brief's prior-work note, "" when there is none, problems): on
     a retry, the commits the stalled run of this step made, read from
@@ -406,17 +431,16 @@ def _prior_work(git, rows, item, step, branch):
     if not earlier or earlier[-1][0] is None:
         return "", []
     run, reason = earlier[-1]
-    out, problems = _git(git, ["log", "--format=%s",
-                               f"origin/main..{branch}"], "cd: git log")
+    subjects, problems = run_commits(git, branch)
     if problems:
-        return None, problems
-    subjects = out.splitlines()
-    spend = SPEND_SUBJECT + run["run_id"]
-    if spend not in subjects:
+        return None, [f"cd: {problem}" for problem in problems]
+    runs = [spend_run(subject) for subject in subjects]
+    if run["run_id"] not in runs:
         return "", []
     commits = []
-    for subject in subjects[subjects.index(spend) + 1:]:
-        if subject.startswith(SPEND_SUBJECT):
+    start = runs.index(run["run_id"]) + 1
+    for subject, spent in zip(subjects[start:], runs[start:]):
+        if spent is not None:
             break
         commits.append(f"- {subject}")
     if not commits:
@@ -436,6 +460,17 @@ def _verdict(git, worktree, branch):
     return None
 
 
+def _stall_cause(stall, ended, failed):
+    """The class of a run's stall (conductor.CAUSES, #819): a wall-clock
+    kill, a budget stop, a failed spend commit, push or PR (`failed`),
+    else the Worker's own failure."""
+    if ended == "timeout":
+        return "timeout"
+    if stall == flow.BUDGET_REASON:
+        return "ceiling"
+    return "delivery-failed" if stall == failed else "agent-failed"
+
+
 def _left_unchecked(git, branch, briefed, wo):
     """A stall reason when a completed build run left the breakdown row
     it was briefed with unchecked on the branch, else None: without it,
@@ -449,7 +484,7 @@ def _left_unchecked(git, branch, briefed, wo):
     return None
 
 
-def ref_spend_rows(git, ref):
+def ref_rows(git, ref):
     """(the spend rows the ref's cost ledger holds, problems a retry may
     fix, problems it cannot). An absent ledger holds none (#708):
     nothing seeds docs/factory/costs.jsonl in a consumer repo, so its
@@ -489,7 +524,7 @@ def month_spend(git, rows, batch, now):
     entries = {}
     for ref in ["origin/main"] + [flow.item_branch(batch, item)
                                   for item in launched]:
-        found, problems, malformed = ref_spend_rows(git, ref)
+        found, problems, malformed = ref_rows(git, ref)
         if problems or malformed:
             return None, problems, malformed
         entries.update((cost_ledger.row_key(entry), entry)
@@ -509,7 +544,7 @@ def preflight(root, git, netrc):
     if not problems:
         problems = factory_config.resolve_cap(config)[1] \
             + factory_config.resolve_gate_command(config)[1]
-    _, unread, malformed = ref_spend_rows(git, "origin/main")
+    _, unread, malformed = ref_rows(git, "origin/main")
     return problems + unread + malformed + push_gaps(git, root, netrc)
 
 
@@ -521,8 +556,7 @@ def _in_flight_usd(rows):
     for entry in read["plan"]["items"]:
         found = read["items"][entry["item"]]
         if found["in_flight"]:
-            total += next(s["ceiling_usd"] for s in entry["steps"]
-                          if s["step"] == found["state"])
+            total += found["steps"][found["state"]]["ceiling_usd"]
     return total
 
 
@@ -578,7 +612,7 @@ def _launch(root, batch, now, launch, spent, cap):
         month = spent + _in_flight_usd(rows) + ceiling
         if month <= cap:
             return flow.state_row(now, item, current_state(rows, item),
-                                  step, "launched", **launch["fields"]), []
+                                  step, flow.LAUNCHED, **launch["fields"]), []
         what = (f"{item} {step} (${ceiling:.2f} ceiling) would put the"
                 f" month at ${month:.2f} against its ${cap:.2f} cap")
         pending, written, problems = _pause(
@@ -598,12 +632,11 @@ def _prepare(root, batch, item, step, git, gh, netrc, now):
     rows, problems = load(root, batch)
     if problems:
         return None, problems
-    plan = view(rows)["plan"] or {}
     found = item_view(rows, item)
     entry = found["entry"]
     if found["unknown"]:
         return None, [found["unknown"]]
-    if step not in [s["step"] for s in entry["steps"]]:
+    if step not in found["steps"]:
         return None, [f"cd: {item} has no {step} step"]
     problems = flow.transition_problems(rows, item, step, {})
     if problems:
@@ -638,15 +671,15 @@ def _prepare(root, batch, item, step, git, gh, netrc, now):
         head = out.strip()
     seq = 1 + sum(1 for r in found["states"]
                   if r["to"] == step and "run_id" in r)
-    return {"rows": rows, "plan": plan, "entry": entry, "wo": wo,
+    return {"rows": rows, "entry": entry, "wo": wo,
             "context": context, "body": body, "worktree": worktree,
             "block": found["reserved"], "briefed": briefed, "head": head,
-            "prior": prior,
+            "prior": prior, "policy": found["steps"][step],
             "run_id": make_run_id(batch, item, step, seq)}, []
 
 
 def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
-             pid=None, netrc=None):
+             pid=None, netrc=None, setup=runner):
     """(summary, problems): one Worker run. problems only when nothing
     was launched or a ledger write failed; a failed run is a stall, and
     a launch refusal no retry fixes pauses dispatch (hold_dispatch). The
@@ -662,11 +695,13 @@ def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
         return None, problems
     entry, run_id, worktree = ctx["entry"], ctx["run_id"], ctx["worktree"]
     branch = flow.item_branch(batch, item)
-    band, model, effort, ceiling = _policy(ctx["rows"], ctx["plan"], entry,
-                                           step)
+    policy = ctx["policy"]
+    band, model, effort, ceiling = (policy[field] for field in (
+        "band", "model", "effort", "ceiling_usd"))
     config, problems = factory_config.load(root)
     cap, found = factory_config.resolve_cap(config or {})
     gate, unusable = factory_config.resolve_gate_command(config or {})
+    setup_argv, _ = factory_config.resolve_worktree_setup(config or {})
     refusals = problems or found or unusable
     if not refusals:
         spent, problems, refusals = month_spend(git, ctx["rows"], batch,
@@ -682,19 +717,27 @@ def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
     # pr-body.md is this step's output only (review minor 7): one left by
     # an earlier step would satisfy the expected-output check.
     (worktree / PR_BODY_FILE).unlink(missing_ok=True)
+    minutes = flow.WALL_CLOCK_MINUTES[entry["size"]]
+    stall = setup_argv and _setup(setup, setup_argv, worktree, minutes)
+    if stall:
+        recommended, why = flow.worker_advice(ctx["rows"], entry, step,
+                                              band, stall)
+        _, problems = flow.queue_stall(root, batch, clock(), item, stall,
+                                       "setup-failed", recommended, why)
+        return {"run_id": run_id, "outcome": "setup-failed",
+                "stall": stall}, problems
     tools = allowed_tools(gate)
     brief = compose_brief(step, item, entry["type"], worktree, branch,
                           ctx["block"], ctx["wo"], ctx["context"],
                           ctx["body"], ceiling, tools, ctx["prior"])
     event, ended, _ = _harness(
         harness, harness_command(brief, model, effort, ceiling, tools),
-        worktree, flow.WALL_CLOCK_MINUTES[entry["size"]], batch)
+        worktree, minutes, batch)
     done = clock()
     tokens, cost, outcome, reported, stall = _meter(
         root, batch, run_id, event, ended, ceiling, model)
     if ended == "timeout":
-        stall = (f"killed at its {flow.WALL_CLOCK_MINUTES[entry['size']]}"
-                 "-minute wall-clock limit")
+        stall = f"killed at its {minutes}-minute wall-clock limit"
     spent_model = model if model in reported or not reported \
         else reported[0]
     failed = _spend(git, worktree, ctx["wo"], run_id, spent_model, tokens,
@@ -706,11 +749,10 @@ def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
     stall = stall or failed
     if stall is None and ctx["briefed"] is not None:
         stall = _left_unchecked(git, branch, ctx["briefed"], ctx["wo"])
-    charter = next(s["charter"] for s in entry["steps"]
-                   if s["step"] == step)
     _, problems = append(root, batch, lambda rows: ({
         "at": stamp(done), "kind": "run",
-        "item": item, "step": step, "charter": charter, "band": band,
+        "item": item, "step": step, "charter": policy["charter"],
+        "band": band,
         "model": model, "models_reported": reported, "effort": effort,
         "run_id": run_id, "pid": pid, "outcome": outcome}, []))
     if problems:
@@ -725,8 +767,9 @@ def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
     if stall is not None:
         recommended, why = flow.worker_advice(ctx["rows"], entry, step,
                                               band, stall)
-        _, problems = flow.queue_stall(root, batch, done, item, stall,
-                                       recommended, why)
+        _, problems = flow.queue_stall(
+            root, batch, done, item, stall,
+            _stall_cause(stall, ended, failed), recommended, why)
     return {"run_id": run_id, "outcome": outcome, "stall": stall}, problems
 
 

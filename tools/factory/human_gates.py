@@ -8,23 +8,28 @@ labels (ADR-0032, ADR-0035): `wo:draft` waits at the PRD gate,
 `wo:prd-approved` at the blueprint gate, `wo:needs-review` at the merge
 gate. This module owns that vocabulary and the walk over it — the
 label-event stream, the completed-stay partition, the current stay's
-start, and (refused_timestamps) how many events that stream silently
-dropped.
+start, the open queues aged from it, and (read_timelines) the one read
+that produces the stream and says what its admission refused.
 
 Its callers are thin: gate_digest.py keeps the confirmed stays as
 latency rows, rejection_mining.py harvests the rest, dashboard.py ages
 the open ones, and gates.py's detector J asks which labels the gates
 name. They differ in what a stay MEANS to them, never in what a stay
-IS, which is the whole reason this is one module and their fetches,
-posts and compositions are not.
+IS, which is the whole reason this is one module and their posts and
+compositions are not.
 
-Pure by construction: no gh, no ledger, no filesystem, no clock. Events
-in, gate facts out, testable with a literal list — which is why the
-timeline fetch that produces those events stays with the tools that own
-its failure meaning (ADR-0051).
+Pure but for one function: no ledger, no filesystem, no clock (`now` is
+an argument). read_timelines is the exception ADR-0090 made — it reads
+gh, but only through the injected runner at cli's gh port, so tests
+still never touch the network. ADR-0056 had kept that read in each
+tool; the #491 refusal then had to be wired into each copy, and one
+copy missed it (#791). Everything else is events in, gate facts out,
+testable with a literal list.
 """
 from collections import namedtuple
 from datetime import datetime
+
+from cli import gh_read, label_names
 
 # A gate's ledger name, the wo: label an issue carries while waiting,
 # the label whose application confirms the pass (a flip to anything else
@@ -46,10 +51,13 @@ GATES = (
 
 def gate_labels():
     """Every label the three gates name — each queue and each pass
-    label. Detector J's one reach into this module
-    (gates.LABEL_DECLARERS): the taxonomy must carry all of them, and
-    the detector should not know how many label fields a row has."""
+    label. Detector J's one reach into this module (LABELS below, which
+    gates.declared_labels reads): the taxonomy must carry all of them,
+    and the detector should not know how many label fields a row has."""
     return {label for gate in GATES for label in (gate.queue, gate.passed)}
+
+
+LABELS = tuple(sorted(gate_labels()))
 
 
 def _parse_ts(iso):
@@ -98,7 +106,7 @@ def _admit(timeline):
     """The one walk over a raw GitHub timeline: every event classed as a
     label flip carrying a name, split into admitted (timestamp reads as
     one) and refused (it does not). label_events keeps the admitted
-    list; refused_timestamps counts the refused half. One loop reading
+    list; read_timelines also reports the refused count. One loop reading
     the payload's `event`/`label`/`created_at` keys, so the two
     questions cannot drift apart — the second clause of "well-formed" is
     still asked exactly once, by `_is_timestamp`."""
@@ -129,24 +137,51 @@ def label_events(timeline):
     carrying a timestamp that reads as one. The third clause is what
     lets every function downstream take ISO-8601 as given.
 
-    Silent on purpose: this module stays pure (ADR-0056) and returns no
-    problems for any of the three clauses. A caller that wants to know
-    how many events the third clause refused — the shape a `gd:`/
-    `dashboard:` problem string needs — calls refused_timestamps on the
-    same raw timeline."""
+    Silent on purpose: it returns no problems for any of the three
+    clauses. read_timelines is the one caller that reports what the
+    third clause refused, so no tool can read a timeline and forget to
+    (ADR-0090)."""
     return _admit(timeline)[0]
 
 
-def refused_timestamps(timeline):
-    """How many otherwise-well-formed label flips (a label flip, name
-    present) label_events silently dropped from this raw timeline
-    because the third clause failed: created_at did not read as a
-    timestamp. Exists so gate_digest and dashboard — which already carry
-    a problems list past label_events' call — can report what vanished
-    without label_events itself growing a problems channel; a nameless
-    or non-flip event is not this count's business, same as it is not
-    label_events'."""
-    return _admit(timeline)[1]
+def read_timelines(numbers, run, label, slug="{owner}/{repo}"):
+    """({issue number: label events}, problems) for each issue in
+    `numbers`, read through the injected gh runner at cli's gh port —
+    the one timeline read the gate tools share (ADR-0090).
+
+    An issue whose fetch failed or did not parse is ABSENT from the
+    map, never present-and-empty: [] is a history that was read and
+    holds nothing, and open_queues tells an unreadable age from an
+    unknown one by that difference (#665). Its problem is gh_read's.
+
+    A fetch that succeeds can still carry an otherwise-well-formed
+    label flip whose created_at does not read as a timestamp. Admission
+    drops it, and this says so as a `<label>: timeline for #N refused`
+    problem (#491): the read succeeded, so gh_read said nothing, and a
+    dropped `unlabeled` leaves its stay open — a lost rejection for the
+    miner, a wrong age for the queues (#740). A nameless or non-flip
+    event is not a refusal.
+
+    `label` is the caller's problem-string label ("gd", "rm",
+    "dashboard"); `slug` is gh's {owner}/{repo} placeholder unless the
+    caller reads another repo."""
+    events = {}
+    problems = []
+    for number in numbers:
+        path = f"repos/{slug}/issues/{number}/timeline"
+        read = gh_read(["api", path, "--paginate", "--slurp"],
+                       f"gh api timeline for #{number}", label=label,
+                       run=run)
+        problems.extend(read.problems)
+        if read.value is None:
+            continue
+        admitted, refused = _admit(
+            [event for page in read.value for event in page])
+        if refused:
+            problems.append(f"{label}: timeline for #{number} refused"
+                            f" {refused} malformed timestamp(s)")
+        events[number] = admitted
+    return events, problems
 
 
 def completed_stays(events, gate):
@@ -226,3 +261,53 @@ def waiting_since(events, queue_label):
             continue
         since = ts if kind == "labeled" else None
     return since
+
+
+# One open issue waiting at a gate: the listing entry as the caller read
+# it (title, url and the rest are the caller's to render), whole seconds
+# waited, and whether its timeline was read at all. `aged` is False only
+# for an unread timeline, which is a different fact from a `waited` of
+# None on a read one (no arrival at this gate) — so it is named, never
+# inferred (#665).
+Waiting = namedtuple("Waiting", "issue waited aged")
+
+
+def _waits_at(entry, mirror, queue_label):
+    return entry.get("number") in mirror and \
+        queue_label in label_names(entry)
+
+
+def waiting_issues(open_issues, mirror):
+    """The numbers of the open mirrored issues waiting at any gate,
+    ascending — the timelines a caller that reads only what it ages must
+    read before open_queues can age them. Same membership as
+    open_queues, by construction."""
+    return sorted({entry["number"] for entry in open_issues
+                   for gate in GATES
+                   if _waits_at(entry, mirror, gate.queue)})
+
+
+def open_queues(open_issues, mirror, events_by_issue, now):
+    """[(Gate, [Waiting])] for all three gates in pipeline order, each
+    listing the open mirrored issues carrying its queue label, issue
+    number ascending, aged from the current stay's labeled event at the
+    aware datetime `now` — the queues gate_digest posts and dashboard
+    renders, built once (ADR-0090).
+
+    `open_issues` is the caller's already-filtered open listing.
+    `events_by_issue` is read_timelines' map: an absent issue was not
+    read (aged False), a present one with no arrival has no age."""
+    queues = []
+    for gate in GATES:
+        items = []
+        for entry in sorted(open_issues,
+                            key=lambda e: e.get("number") or 0):
+            if not _waits_at(entry, mirror, gate.queue):
+                continue
+            events = events_by_issue.get(entry["number"])
+            since = waiting_since(events or [], gate.queue)
+            waited = (waited_seconds(since, now.isoformat())
+                      if since else None)
+            items.append(Waiting(entry, waited, events is not None))
+        queues.append((gate, items))
+    return queues

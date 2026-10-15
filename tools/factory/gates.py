@@ -11,9 +11,11 @@ ai-tooling suite where the rule is the same idea):
   B PR-TRACEABILITY — PR body carries a WO id and a closing keyword
                      (event-payload; SKIP locally)
   C LINK-INTEGRITY — every PRD-####/ADR-####/WO-#### token resolves;
-                     duplicate PRD ids fail
+                     duplicate PRD ids fail, and so does a work order or
+                     tracker issue two breakdown rows claim
   D BLUEPRINT-DRIFT — the approved blueprint (docs/adr) is self-consistent:
-                     every ADR declares a known status and is indexed with
+                     every ADR reads, declares a known status and is
+                     indexed with
                      that status in docs/adr/README.md, and no artifact
                      outside docs/adr builds on a superseded decision
   E SCAFFOLD-SYNC  — factory/manifest.json checksums match the template
@@ -43,9 +45,9 @@ ai-tooling suite where the rule is the same idea):
   I STALENESS      — no knowledge-plane doc links to a path that no longer
                      exists on disk
   K STANDARDS-DRIFT — docs/standards.json's ADR-derived entries match a
-                     fresh standards_index.build_index(root) regen, and
+                     fresh standards_index.build_index regen, and
                      every `enforced`-status entry's source ADR is
-                     `accepted` (ADR-0073)
+                     in force (ADR-0073, ADR-0089)
   M CAPTURE-COMPLETENESS — every docs/fixes/<slug>/defect.md that exists
                      carries skills/capture/TEMPLATE.md's required
                      sections, each with real (non-placeholder) content
@@ -62,23 +64,25 @@ The letter namespace does not end at I. Detector L (LABEL-SYNC) is
 network-side and lives in label_sync.py, driven by scheduled sweeps —
 network calls stay out of this offline gate. K, M, N and O are claimed
 above; a new detector takes the next free letter (P).
-DETECTORS (beside CHECKERS below) is the full roster.
+ROSTER below is the full roster, and what run_all dispatches from.
 
 `--selftest` runs the checkers against fixture trees and exits nonzero
-on a failing assertion. Both run in CI (validator.yml, via `make check`)
+on a failing assertion; the fixtures and the selftest live in
+gates_selftest.py, mirrored beside this module. Both run in CI (validator.yml, via `make check`)
 on every push/PR.
 
 The knowledge plane's shared grammar (typed-ID tokens, run_dirs,
 repo_root) lives in knowledge_plane.py, and the cost ledger's shape in
 cost_ledger.py (ADR-0037) — this module keeps only the detectors.
 """
+import ast
 import hashlib
 import importlib
 import json
 import os
 import re
 import sys
-import tempfile
+from collections import namedtuple
 from pathlib import Path
 
 import cost_ledger
@@ -87,10 +91,10 @@ import standards_index
 from cli import read_event, read_file, report
 from cost_ledger import COST_LEDGER
 from knowledge_plane import (ADR_TOKEN, CLOSES_TOKEN, PRD_TOKEN, WO_TOKEN,
-                             adr_record, fence_closes, fence_open,
+                             adr_record, breakdown_rows, fenced,
                              local_link_targets, parse_run, repo_root,
-                             resolve_link, row_done, row_pre_ledger,
-                             run_dirs, status_head, unfenced)
+                             resolve_link, run_dirs, status_head, unfenced,
+                             work_orders)
 from protocol import read_frontmatter
 # Not every factory PR implements a work order: a governance or chore PR
 # (the merge-auth removal in #139, a docs fix) closes an issue but maps to no
@@ -106,8 +110,10 @@ NO_WO_DECLARATION = re.compile(r"\bno[\s-]+work[\s-]+order\b[ \t]*:[ \t]*\S",
                                re.IGNORECASE)
 
 # An index row: | [0032](0032-slug.md) | Decision | status |
+# The first cell's link target is knowledge_plane's to read (issue #773:
+# a hand-rolled `[^)]+` took a link title into the filename).
 ADR_INDEX_ROW = re.compile(
-    r"^\|\s*\[(?P<num>\d{4})\]\((?P<file>[^)]+)\)\s*\|[^|]*\|"
+    r"^\|\s*(?P<cell>\[(?P<num>\d{4})\]\([^|]*\))\s*\|[^|]*\|"
     r"\s*(?P<status>[^|]*?)\s*\|")
 
 # H reads verification.md the way the verify skill writes it: markdown
@@ -306,11 +312,10 @@ def check_wo_citation(root, parsed=None):
         if entry["breakdown"] is None:
             continue
         rel = (entry["path"] / "breakdown.md").relative_to(root)
-        for lineno, line in enumerate(entry["breakdown"], 1):
-            wo = WO_TOKEN.search(line)
-            if wo and not PRD_TOKEN.search(line):
+        for row in breakdown_rows(entry["breakdown"]):
+            if row["wo"] and not row["prd_ids"]:
                 problems.append(
-                    f"A: {rel}:{lineno} work-order row {wo.group(0)}"
+                    f"A: {rel}:{row['lineno']} work-order row {row['wo']}"
                     " cites no PRD id")
     return problems
 
@@ -362,19 +367,18 @@ def collect_prd_ids(root, parsed):
 
 
 def collect_wo_rows(parsed):
-    """Set of WO tokens that appear in any breakdown.md row. Pure over
-    `parsed`."""
-    rows = set()
-    for entry in parsed["runs"]:
-        if entry["breakdown"] is None:
-            continue
-        for line in entry["breakdown"]:
-            rows.update(WO_TOKEN.findall(line))
-    return rows
+    """Set of work orders a breakdown.md row carries (knowledge_plane's
+    row record, issue #737). Pure over `parsed`."""
+    return {row["wo"] for entry in parsed["runs"]
+            if entry["breakdown"] is not None
+            for row in breakdown_rows(entry["breakdown"]) if row["wo"]}
 
 
 def check_link_integrity(root, parsed=None):
-    """C: typed cross-link tokens must resolve; duplicate PRD ids fail.
+    """C: typed cross-link tokens must resolve; duplicate PRD ids fail,
+    and so does a duplicated work order or tracker — in
+    knowledge_plane.work_orders' own words, the one duplicate rule the
+    dispatcher refuses on (issue #886).
 
     Pure over `parsed` (`root` only relativizes problem-string paths);
     `parsed` defaults to a fresh parse — including gates._scannable_files'
@@ -388,6 +392,10 @@ def check_link_integrity(root, parsed=None):
         if len(paths) > 1:
             listed = ", ".join(str(p) for p in paths)
             problems.append(f"C: duplicate PRD id {prd_id} in {listed}")
+    _, duplicates = work_orders(root, [
+        (entry["path"] / "breakdown.md", entry["breakdown"])
+        for entry in parsed["runs"] if entry["breakdown"] is not None])
+    problems.extend(f"C: {duplicate}" for duplicate in duplicates)
     adr_numbers = {adr_record(path, lines)["number"]
                    for path, lines in parsed["adr_files"]}
     wo_rows = collect_wo_rows(parsed)
@@ -486,20 +494,13 @@ def _architecture_drift(root, parsed):
         if entry["architecture"] is None:
             continue
         rel = (entry["path"] / "architecture.md").relative_to(root)
-        fence = None  # None | (marker char, marker length, is tree-claims)
-        for lineno, line in enumerate(entry["architecture"], 1):
-            if fence is not None:
-                if fence_closes(line, fence[0], fence[1]):
-                    fence = None
-                elif fence[2]:
-                    problems.extend(
-                        _declared_claims(root, rel, lineno, line))
-                continue
-            opened = fence_open(line)
-            if opened:
-                fence = (*opened, bool(ARCH_CLAIMS_FENCE.match(line)))
-                continue
-            problems.extend(_prose_claims(root, rel, lineno, line))
+        lines = entry["architecture"]
+        for lineno, line, fence in fenced(lines):
+            if fence is None:
+                problems.extend(_prose_claims(root, rel, lineno, line))
+            elif line is not None and ARCH_CLAIMS_FENCE.match(
+                    lines[fence.lineno - 1]):
+                problems.extend(_declared_claims(root, rel, lineno, line))
     return problems
 
 
@@ -531,6 +532,11 @@ def check_blueprint_drift(root, parsed=None):
     if parsed is None:
         parsed = parse_run(root, scannable=_scannable_files(root))
     problems = _architecture_drift(root, parsed)
+    # An ADR is also a scanned doc, so one undecodable ADR is the same
+    # string in both lists; dict.fromkeys reports it once (issue #877).
+    problems += [f"D: {problem}" for problem in dict.fromkeys(
+        parsed["adr_problems"] + parsed["artifact_problems"]
+        + parsed["scannable_problems"])]
     adr_dir = root / "docs" / "adr"
     # Equivalent to the pre-migration `if not adr_dir.is_dir(): return
     # problems` (see gates.py history): with no ADR files and no README,
@@ -558,7 +564,11 @@ def check_blueprint_drift(root, parsed=None):
             retired[number] = record["superseded_by"]
 
     readme_lines = parsed["adr_readme"]
-    if statuses and readme_lines is None:
+    # An index parse_run could not read is already a "cannot read"
+    # problem above (ADR-0094), not a missing one: only a live check
+    # tells the two apart.
+    if (statuses and readme_lines is None
+            and not (adr_dir / "README.md").is_file()):
         problems.append("D: docs/adr/README.md is missing"
                         " (ADR files present, no blueprint index)")
     elif readme_lines is not None:
@@ -567,9 +577,11 @@ def check_blueprint_drift(root, parsed=None):
             match = ADR_INDEX_ROW.match(line)
             if not match:
                 continue
-            number, filename = match.group("num"), match.group("file")
+            number = match.group("num")
             rows[number] = (lineno, match.group("status"))
-            if not (adr_dir / filename).is_file():
+            filename = next(iter(local_link_targets(match.group("cell"))), "")
+            named = resolve_link(root, adr_dir / "README.md", filename)
+            if named is None or not named.is_file():
                 problems.append(
                     f"D: docs/adr/README.md:{lineno} index row ADR-{number}"
                     f" links to missing file {filename}")
@@ -603,8 +615,8 @@ def check_blueprint_drift(root, parsed=None):
 def merged_wo_rows(root, parsed):
     """(breakdown path, lineno, WO token) for every checked breakdown row —
     the artifact-side record that a work order merged (ADR-0004). Rows
-    carrying the trailing (pre-ledger) annotation — knowledge_plane's
-    row_pre_ledger grammar — are excluded: they merged before the ledger
+    carrying the trailing (pre-ledger) annotation — the row record's
+    `pre_ledger` field — are excluded: they merged before the ledger
     existed and G owes them no ledger line (ADR-0043). Pure over `parsed`;
     `root` only relativizes the paths returned."""
     rows = []
@@ -612,11 +624,9 @@ def merged_wo_rows(root, parsed):
         if entry["breakdown"] is None:
             continue
         rel = (entry["path"] / "breakdown.md").relative_to(root)
-        for lineno, line in enumerate(entry["breakdown"], 1):
-            wo = WO_TOKEN.search(line)
-            if (row_done(line) and wo
-                    and not row_pre_ledger(line)):
-                rows.append((rel, lineno, wo.group(0)))
+        rows += [(rel, row["lineno"], row["wo"])
+                 for row in breakdown_rows(entry["breakdown"])
+                 if row["done"] and row["wo"] and not row["pre_ledger"]]
     return rows
 
 
@@ -729,10 +739,17 @@ def install_destination(rel):
     """Where a manifest key installs in a stamped repo, or None if it is not
     a plain path under templates/.
 
-    Mirrors factory_init.install_path's rule, pinned to it in lockstep by
-    tests/test_factory_init.py: factory_init.py is NOT in the payload, so a
-    stamped repo's gates.py cannot import the mapping it has to agree with.
+    A dual-home artifact's payload key installs at its installed home, read
+    from factory_config.ARTIFACT_HOMES — the table factory_init.INSTALL_MAP
+    derives from (ADR-0048), so the two cannot disagree on a mapped key
+    (#748). The strip rule below mirrors factory_init.install_path's, pinned
+    to it in lockstep by tests/test_factory_init.py: ADR-0048 keeps that rule
+    with the stamp, and factory_init.py is NOT in the payload, so a stamped
+    repo's gates.py cannot import it.
     """
+    for installed, payload in factory_config.ARTIFACT_HOMES.values():
+        if rel == payload:
+            return installed
     if not rel.startswith("templates/"):
         return None
     dest = rel[len("templates/"):]
@@ -805,23 +822,45 @@ def check_scaffold_sync(root):
     return problems + stamped_destination_problems(root, files)
 
 
-# Where the factory's label literals are declared: module name -> a
-# callable pulling the labels that module names out of its own constants.
-# Read the declaration, never the source text — a regex over source stops
-# matching the moment a literal is reformatted, and stops SILENTLY, which
-# is the exact failure a detector exists to prevent.
+# Where the factory's label literals are declared: every module beside
+# gates.py that assigns LABELS at module scope declares the labels it
+# names there (issue #856). J discovers the declarers rather than keeping
+# a list of them, so a tool that ships a label is covered by declaring
+# it — a hand-kept list had already fallen three modules behind. The
+# source is parsed only to FIND a declarer; the labels are read off the
+# imported module, never the source text — a regex over source stops
+# matching the moment a literal is reformatted, and stops SILENTLY,
+# which is the exact failure a detector exists to prevent.
 #
-# sweeps.py is absent on purpose: it is factory-repo-only (never stamped)
-# and its TRIAGE labels are bootstrap-created by ensure_labels before any
-# sweep runs, so they are wired by construction rather than by taxonomy.
-LABEL_DECLARERS = {
-    "assembler": lambda mod: ({mod.READY_LABEL, mod.EXHAUSTED_LABEL}
-                              | set(mod.CHARTER_BY_TYPE)),
-    "human_gates": lambda mod: mod.gate_labels(),
-}
+# sweeps.py declares no LABELS on purpose: it is factory-repo-only (never
+# stamped) and its TRIAGE labels are bootstrap-created by ensure_labels
+# before any sweep runs, so they are wired by construction rather than
+# by taxonomy.
+LABELS_NAME = "LABELS"
 
-# The Makefile's lifecycle targets hand validator.py the label to flip, so
-# the target line IS the declaration — there is no constant to read.
+
+def label_declarers():
+    """Sorted names of the modules beside gates.py that assign LABELS at
+    module scope. Beside gates.py is the factory repo's root and a
+    stamped repo's tools/factory/, so a declarer J finds is a module
+    that ships with it — by construction, not by a list."""
+    names = []
+    for path in sorted(Path(__file__).resolve().parent.glob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, SyntaxError):
+            continue  # an unparseable sibling fails its own import first
+        if any(isinstance(target, ast.Name) and target.id == LABELS_NAME
+               for node in tree.body if isinstance(node, ast.Assign)
+               for target in node.targets):
+            names.append(path.stem)
+    return names
+
+
+# A stamped Makefile from before the lifecycle verbs (#859) hands
+# validator.py the label to flip, so its target line IS the declaration.
+# factory-init update never refreshes a stamped Makefile, so this stays
+# until no stamp carries the `lifecycle --label` alias.
 MAKEFILE_LABEL = re.compile(r"--label\s+([a-z][a-z0-9:._-]*)")
 
 
@@ -837,12 +876,12 @@ def declared_labels(root):
     not the place to discover that.
     """
     named = {}
-    for name, pull in sorted(LABEL_DECLARERS.items()):
+    for name in label_declarers():
         try:
             module = importlib.import_module(name)
         except ImportError:
             continue
-        for label in pull(module):
+        for label in getattr(module, LABELS_NAME):
             named.setdefault(label, set()).add(f"{name}.py")
     makefile = root / "Makefile"
     if makefile.is_file():
@@ -859,8 +898,9 @@ def check_label_wiring(root):
 
     The couplings are all runtime-only otherwise. assembler reads
     wo:ready-for-agent and budget-exhausted, human_gates counts the six
-    gate labels, and each Makefile lifecycle target hands validator.py one
-    to flip — and validator refuses a label the taxonomy does not carry
+    gate labels, validator's lifecycle verbs each flip one, and a
+    pre-verb Makefile lifecycle target hands validator.py one — and
+    validator refuses a label the taxonomy does not carry
     (`V: <label> is not a lifecycle label in the taxonomy`). So a taxonomy
     that loses a label passes every offline gate and fails in the dispatch
     plane, at merge or dispatch time, which is the worst moment to find
@@ -898,7 +938,7 @@ def check_label_wiring(root):
     # The loader's problems travel with their own L: prefix, forwarded as
     # they arrive: a broken taxonomy is that detector's finding, not
     # ours, and sweeps.py forwards them the same way from the same seam.
-    # (Forwarding the strings is not wiring detector L into CHECKERS —
+    # (Forwarding the strings is not giving detector L a checker row in ROSTER —
     # load_labels reads a file, and L's network half stays out of the
     # offline gate.)
     taxonomy, problems = label_sync.load_labels(root)
@@ -1009,7 +1049,7 @@ def _walk_sections(lines, body_start):
         HEADING_LINE, or Setext via _is_setext_title; the underline that
         follows a Setext title is consumed, never yielded).
       ("line", lineno, (line, in_fence)) — ordinary content. `in_fence`
-        marks a line read while a fence opened by FENCE_OPEN is still
+        marks a line read while a fence (knowledge_plane.fenced) is still
         open, so a caller applies its own "is this evidence" or "is this
         body text" rule without re-deriving fence state itself. A line
         that OPENS or CLOSES a fence is itself never yielded — matching
@@ -1021,21 +1061,16 @@ def _walk_sections(lines, body_start):
     ("unclosed", lineno, None) with the fence's OWN opening line number —
     a caller that owes no such rule (M) may simply ignore the event, the
     same way H already reports it and nothing else has ever needed to."""
-    fence = None  # (marker char, marker length, opening line number)
     underlined = False
-    for lineno, line in enumerate(lines[body_start:], body_start + 1):
+    for lineno, line, fence in fenced(lines[body_start:], body_start + 1):
+        if line is None:
+            yield "unclosed", lineno, None
+            continue
         if fence is not None:
-            if fence_closes(line, fence[0], fence[1]):
-                fence = None
-            else:
-                yield "line", lineno, (line, True)
+            yield "line", lineno, (line, True)
             continue
         if underlined:  # the ===/--- under a Setext title, already consumed
             underlined = False
-            continue
-        opened = fence_open(line)
-        if opened:
-            fence = (opened[0], opened[1], lineno)
             continue
         heading = HEADING_LINE.match(line)
         if heading:
@@ -1046,8 +1081,6 @@ def _walk_sections(lines, body_start):
             underlined = True
             continue
         yield "line", lineno, (line, False)
-    if fence is not None:
-        yield "unclosed", fence[2], None
 
 
 def verification_sections(text):
@@ -1284,10 +1317,9 @@ def check_prd_coverage(root, parsed=None):
         if isinstance(date, str) and date < COVERAGE_ADOPTED:
             continue
         citations = [cited.strip().casefold()
-                     for line in entry["breakdown"]
-                     if WO_TOKEN.search(line) and prd_id in PRD_TOKEN.findall(
-                         line)
-                     for cited in SECTION_CITATION.findall(line)]
+                     for row in breakdown_rows(entry["breakdown"])
+                     if row["wo"] and prd_id in row["prd_ids"]
+                     for cited in SECTION_CITATION.findall(row["text"])]
         rel = (entry["path"] / "prd.md").relative_to(root)
         for lineno, title, waived in _prd_sections(entry["prd"]):
             if not waived and not _cites(citations, title):
@@ -1317,6 +1349,12 @@ def _drift_fingerprint(entry):
     return tuple(entry.get(field) for field in _DRIFT_FIELDS)
 
 
+# The knowledge_plane.standing values whose ADR can source an enforced
+# standard (ADR-0089): accepted or amended, or superseded only in part.
+# Provisional, retired and unrecognized never can.
+ENFORCEABLE_STANDINGS = ("active", "partial")
+
+
 def check_standards_drift(root, parsed=None):
     """K: docs/standards.json is a derived, regenerable index (ADR-0073)
     over docs/adr/*.md's `## Normative statements` sections — the same
@@ -1330,13 +1368,16 @@ def check_standards_drift(root, parsed=None):
 
     (1) the committed file's ADR-derived entries (every entry whose
         `source` is NOT a standards_index.HAND_CURATED_PREFIX entry)
-        disagree with a fresh standards_index.build_index(root) regen,
+        disagree with a fresh standards_index.build_index regen over
+        parsed["adr_files"],
         compared on every field EXCEPT `status` (see _DRIFT_FIELDS —
         `status` can never "drift" from an ADR regen by definition, since
         an ADR bullet never states one).
-    (2) an `enforced`-status entry's source ADR's status (its
-        knowledge_plane.adr_record — the same reading detector D and
-        adr_status use, not a second status parser) is not `accepted`.
+    (2) an `enforced`-status entry's source ADR is not in force: its
+        knowledge_plane.adr_record standing (the same reading detector D
+        and adr_status use, not a second status parser) is not one of
+        ENFORCEABLE_STANDINGS — accepted, amended, or superseded only in
+        part (ADR-0089).
 
     An absent docs/standards.json is not a K problem — mirrors detector
     G's "an absent ledger is silent" precedent (check_cost_ledger): the
@@ -1345,7 +1386,7 @@ def check_standards_drift(root, parsed=None):
 
     `parsed` defaults to a fresh parse of `root`, same lazy-default
     convention as A, C, D, G, H and I; run_all threads the shared parse
-    in (K joins _PARSED_CHECKERS) so this never re-parses on that path."""
+    in (K's ROSTER row declares a parsed input) so this never re-parses on that path."""
     standards_path = root / standards_index.STANDARDS_PATH
     if not standards_path.is_file():
         return []
@@ -1369,7 +1410,8 @@ def check_standards_drift(root, parsed=None):
 
     if parsed is None:
         parsed = parse_run(root)
-    fresh, build_problems = standards_index.build_index(root)
+    fresh, build_problems = standards_index.build_index(
+        root, parsed["adr_files"])
     problems = [f"K: {p}" for p in build_problems]
 
     committed_adr = sorted(
@@ -1396,10 +1438,10 @@ def check_standards_drift(root, parsed=None):
             continue
         record = records.get(number, {})
         status = record.get("status")
-        if record.get("head") != "accepted":
+        if record.get("standing") not in ENFORCEABLE_STANDINGS:
             problems.append(
                 f"K: enforced statement {entry.get('slug')!r} cites"
-                f" ADR-{number}, status {status!r} (not accepted)")
+                f" ADR-{number}, status {status!r} (not in force)")
     return problems
 
 
@@ -1551,67 +1593,77 @@ def check_capture_completeness(root):
     return problems
 
 
-# The detector letter namespace, indexed in ONE place: letter -> (name,
-# home module, plane). A letter's plane decides where its code goes.
-# Offline detectors live in this module and gate every push/PR through
-# CHECKERS — hermetic and deterministic, no network (B reads a local event
-# file, so it is offline too; it just SKIPs outside a PR run). Network
-# detectors read live services, so they live beside the scheduled sweeps
-# that drive them and are NEVER wired into CHECKERS: L reads the repo's
-# live label set through gh, which is why it lives in label_sync.py and
-# not here (the same posture that keeps every ADR-0037 seam offline).
-# K and M are claimed below (ADR-0073), and N and O (ADR-0071,
-# ADR-0072) skipped them while that work was in flight. A new detector
-# takes the next free letter (P) and adds its row here.
-DETECTORS = {
-    "A": ("WO-CITATION", "gates.py", "offline"),
-    "B": ("PR-TRACEABILITY", "gates.py", "offline"),
-    "C": ("LINK-INTEGRITY", "gates.py", "offline"),
-    "D": ("BLUEPRINT-DRIFT", "gates.py", "offline"),
-    "E": ("SCAFFOLD-SYNC", "gates.py", "offline"),
-    "F": ("CONFIG-SHAPE", "gates.py", "offline"),
-    "G": ("COST-LEDGER", "gates.py", "offline"),
-    "H": ("EVIDENCE-HONESTY", "gates.py", "offline"),
-    "I": ("STALENESS", "gates.py", "offline"),
-    "J": ("LABEL-WIRING", "gates.py", "offline"),
-    "K": ("STANDARDS-DRIFT", "gates.py", "offline"),
-    "L": ("LABEL-SYNC", "label_sync.py", "network"),
-    "M": ("CAPTURE-COMPLETENESS", "gates.py", "offline"),
-    "N": ("NEEDS-CLARIFICATION", "gates.py", "offline"),
-    "O": ("PRD-COVERAGE", "gates.py", "offline"),
-}
+# The detector roster, in ONE table (#738): one row per letter, declaring
+# its name, home module, plane, checker and input. A letter's plane
+# decides where its code goes. Offline detectors live in this module and
+# gate every push/PR through run_all — hermetic and deterministic, no
+# network (B reads a local event file, so it is offline too; it just
+# SKIPs outside a PR run). Network detectors read live services, so they
+# live beside the scheduled sweeps that drive them and carry no checker
+# here: L reads the repo's live label set through gh, which is why it
+# lives in label_sync.py and not here (the same posture that keeps every
+# ADR-0037 seam offline). K and M are claimed (ADR-0073), and N and O
+# (ADR-0071, ADR-0072) skipped them while that work was in flight. A new
+# detector takes the next free letter (P) and adds its row here — the
+# one edit run_all and tests/test_gates.py's TestRoster both read.
+#
+# `input` is what run_all hands the checker after `root`:
+#   root             — nothing more: E, F, J and M each read their own
+#                      seam (factory_config.py, the manifest, the label
+#                      taxonomy, the capture briefs) exactly once
+#   env              — the process environment: B reads the CI event
+#   parsed           — the one knowledge_plane.parse_run of this pass
+#   parsed+scannable — the same parse, which then must carry the
+#                      _scannable_files docs: C, D and I scan them, and
+#                      find nothing in a parse made without them
+# Row order is run_all's report order.
+Detector = namedtuple("Detector", "letter name home plane fn input")
+INPUTS = ("root", "env", "parsed", "parsed+scannable")
 
-CHECKERS = (check_wo_citation, check_pr_traceability, check_link_integrity,
-            check_blueprint_drift, check_scaffold_sync, check_label_wiring,
-            check_config_shape, check_cost_ledger, check_evidence_honesty,
-            check_staleness, check_standards_drift, check_capture_completeness,
-            check_needs_clarification, check_prd_coverage)
-
-# The CHECKERS that read the knowledge plane's run artifacts and were
-# migrated onto knowledge_plane.parse_run (issue #442): A, C, D, G, H and
-# I. E, F and J each already read their own dedicated seam exactly once
-# (factory_config.py, cost_ledger.py's own ledger file, label_sync.py)
-# and B reads the CI event payload — none of those four touch `parsed`,
-# so run_all keeps threading `root, env` to B and bare `root` to E/F/J,
-# same as before this issue. Identity-checked, same style as the
-# existing check_pr_traceability special-case below, rather than adding
-# an `env`-shaped parameter every CHECKERS entry must now accept.
-_PARSED_CHECKERS = frozenset((
-    check_wo_citation, check_link_integrity, check_blueprint_drift,
-    check_cost_ledger, check_evidence_honesty, check_staleness,
-    check_standards_drift, check_needs_clarification, check_prd_coverage))
+ROSTER = (
+    Detector("A", "WO-CITATION", "gates.py", "offline",
+             check_wo_citation, "parsed"),
+    Detector("B", "PR-TRACEABILITY", "gates.py", "offline",
+             check_pr_traceability, "env"),
+    Detector("C", "LINK-INTEGRITY", "gates.py", "offline",
+             check_link_integrity, "parsed+scannable"),
+    Detector("D", "BLUEPRINT-DRIFT", "gates.py", "offline",
+             check_blueprint_drift, "parsed+scannable"),
+    Detector("E", "SCAFFOLD-SYNC", "gates.py", "offline",
+             check_scaffold_sync, "root"),
+    Detector("J", "LABEL-WIRING", "gates.py", "offline",
+             check_label_wiring, "root"),
+    Detector("F", "CONFIG-SHAPE", "gates.py", "offline",
+             check_config_shape, "root"),
+    Detector("G", "COST-LEDGER", "gates.py", "offline",
+             check_cost_ledger, "parsed"),
+    Detector("H", "EVIDENCE-HONESTY", "gates.py", "offline",
+             check_evidence_honesty, "parsed"),
+    Detector("I", "STALENESS", "gates.py", "offline",
+             check_staleness, "parsed+scannable"),
+    Detector("K", "STANDARDS-DRIFT", "gates.py", "offline",
+             check_standards_drift, "parsed"),
+    Detector("L", "LABEL-SYNC", "label_sync.py", "network", None, None),
+    Detector("M", "CAPTURE-COMPLETENESS", "gates.py", "offline",
+             check_capture_completeness, "root"),
+    Detector("N", "NEEDS-CLARIFICATION", "gates.py", "offline",
+             check_needs_clarification, "parsed"),
+    Detector("O", "PRD-COVERAGE", "gates.py", "offline",
+             check_prd_coverage, "parsed"),
+)
 
 # Issue #443 (the sequence's "contract" step) asked whether dropping the
-# migrate-era shim means making `parsed` a required argument on these six
-# functions. It does not, and this is that judgment call, made and kept
-# in one place rather than six.
+# migrate-era shim means making `parsed` a required argument on the
+# checkers whose row declares a parsed input. It does not, and this is
+# that judgment call, made and kept in one place rather than once per
+# checker.
 #
 # The thing #443 actually asks to be gone — a detector, reached through
 # `run_all`, re-walking the filesystem another detector (or itself) has
 # already walked this pass — IS gone, and was already gone as of #442:
 # `run_all` below builds `parsed` exactly once and threads it to every
-# _PARSED_CHECKERS entry by identity, so none of the six ever takes its
-# own `if parsed is None` branch on that path (pinned by
+# row declaring a parsed input, so none of them ever takes its own
+# `if parsed is None` branch on that path (pinned by
 # TestRunAll.test_run_all_parses_the_knowledge_plane_exactly_once in
 # tests/test_gates.py, which counts parse_run's calls directly rather
 # than trusting the code doesn't regress).
@@ -1619,675 +1671,47 @@ _PARSED_CHECKERS = frozenset((
 # What stays is each function's OWN fallback, for a caller that invokes
 # it directly rather than through run_all — and this repo leans on that
 # in ~50 places (tests/test_gates.py, tests/test_budget_guard.py, and
-# seven calls in selftest() below), several of which need a real tree no
-# hand-built `parsed` dict substitutes for: D's tree-claims happy path,
-# G's ledger seam, I's live link-target check, and H's TestLockstep read
-# of this repo's OWN verification.md. Requiring `parsed` would not
-# remove one filesystem read from the path that gates every push/PR —
-# only push `parse_run(root, ...)` boilerplate onto every one of those
-# standalone callers, for a test-count-sized diff with no behavior
-# change. `check_pr_traceability`'s own `env=None` sibling default has
-# stood since ADR-0033 without ever being treated as debt to strip; the
-# `parsed=None` fallback is the same convention, not the shim.
+# seven calls in gates_selftest.selftest()), several of which need a
+# real tree no hand-built `parsed` dict substitutes for: D's tree-claims
+# happy path, G's ledger seam, I's live link-target check, and H's
+# TestLockstep read of this repo's OWN verification.md. Requiring
+# `parsed` would not remove one filesystem read from the path that gates
+# every push/PR — only push `parse_run(root, ...)` boilerplate onto every
+# one of those standalone callers, for a test-count-sized diff with no
+# behavior change. `check_pr_traceability`'s own `env=None` sibling
+# default has stood since ADR-0033 without ever being treated as debt to
+# strip; the `parsed=None` fallback is the same convention, not the shim.
 
 
 def run_all(root, env=None):
-    """Run every detector. `env` (default os.environ) is threaded to the
-    checkers that read the process environment, so callers can stay
-    hermetic without mutating global state. The knowledge plane is
-    parsed ONCE (parse_run, with gates._scannable_files' own selection)
-    and threaded to every _PARSED_CHECKERS entry, rather than each one
-    re-parsing it — issue #442's "migrate" step built this (following
-    #441's "expand"); #443's "contract" step confirmed nothing more was
-    left to remove (see the _PARSED_CHECKERS comment above)."""
+    """Run every detector ROSTER wires, handing each the input its row
+    declares. `env` (default os.environ) goes to the rows that read the
+    process environment, so callers can stay hermetic without mutating
+    global state. The knowledge plane is parsed ONCE — with
+    _scannable_files' own selection when any row declares
+    parsed+scannable — and threaded to every parsed row, rather than each
+    one re-parsing it (issue #442; #443 confirmed nothing more was left
+    to remove, see the comment above)."""
     if env is None:
         env = os.environ
-    parsed = parse_run(root, scannable=_scannable_files(root))
+    wired = [row for row in ROSTER if row.fn is not None]
+    scan = any(row.input == "parsed+scannable" for row in wired)
+    parsed = parse_run(root, scannable=_scannable_files(root) if scan else ())
+    extra = {"root": (), "env": (env,), "parsed": (parsed,),
+             "parsed+scannable": (parsed,)}
     problems = []
-    for checker in CHECKERS:
-        if checker is check_pr_traceability:
-            problems.extend(checker(root, env))
-        elif checker in _PARSED_CHECKERS:
-            problems.extend(checker(root, parsed))
-        else:
-            problems.extend(checker(root))
+    for row in wired:
+        problems.extend(row.fn(root, *extra[row.input]))
     return problems
-
-
-# ---- planted-defect fixtures ----------------------------------------
-#
-# One builder per detector (or per detector's own sub-scenarios), each
-# writing an isolated tree from nothing. `selftest` below and
-# tests/test_gates.py both build detector fixtures through these — a
-# detector fixture is written here exactly once, whichever caller needs
-# it (issue #440). A builder writes files and returns nothing unless a
-# caller needs something back (a path, a computed label set).
-
-def _wo_citation_defect_fixture(root):
-    """A breakdown row that cites its PRD section, beside one that does
-    not."""
-    breakdown = root / "docs" / "features" / "demo" / "breakdown.md"
-    breakdown.parent.mkdir(parents=True, exist_ok=True)
-    breakdown.write_text(
-        "- [x] WO-0001 do the thing (PRD-0001 §Solution)\n"
-        "- [ ] WO-0002 uncited row\n", encoding="utf-8")
-
-
-def _link_integrity_base_fixture(root):
-    """A PRD declaring PRD-0001 and an ADR file declaring ADR-0001 — the
-    minimal resolvable pair C's dangling-token checks run against."""
-    run = root / "docs" / "features" / "demo"
-    run.mkdir(parents=True, exist_ok=True)
-    (run / "prd.md").write_text(
-        "---\nstage: prd\nid: PRD-0001\n---\n# PRD\n", encoding="utf-8")
-    adr_dir = root / "docs" / "adr"
-    adr_dir.mkdir(parents=True, exist_ok=True)
-    (adr_dir / "0001-real.md").write_text("# Real\n", encoding="utf-8")
-
-
-def _link_integrity_defect_fixture(root):
-    """PRD-0001 and ADR-0001 resolve; PRD-0099 and WO-0003 dangle."""
-    _link_integrity_base_fixture(root)
-    (root / "CONTEXT.md").write_text(
-        "See PRD-0001, PRD-0099, ADR-0001 and WO-0003.\n", encoding="utf-8")
-
-
-def _blueprint_drift_defect_fixture(root):
-    """The index disagrees with ADR-0002's own file, and an artifact
-    still cites ADR-0001, which ADR-0002 superseded."""
-    adr_dir = root / "docs" / "adr"
-    adr_dir.mkdir(parents=True)
-    (adr_dir / "0001-real.md").write_text(
-        "# Real\n\n- Status: superseded by ADR-0002\n", encoding="utf-8")
-    (adr_dir / "0002-new.md").write_text(
-        "# New\n\n- Status: accepted\n", encoding="utf-8")
-    (adr_dir / "README.md").write_text(
-        "| ADR | Decision | Status |\n|-----|----------|--------|\n"
-        "| [0001](0001-real.md) | Real | superseded by ADR-0002 |\n"
-        "| [0002](0002-new.md) | New | provisional |\n", encoding="utf-8")
-    (root / "CONTEXT.md").write_text(
-        "Per ADR-0001, which the blueprint already retired.\n",
-        encoding="utf-8")
-
-
-def _cost_ledger_defect_fixture(root):
-    """A merged work order the ledger never recorded, beside a line that
-    is not JSON at all."""
-    breakdown = root / "docs" / "features" / "demo" / "breakdown.md"
-    breakdown.parent.mkdir(parents=True, exist_ok=True)
-    breakdown.write_text(
-        "- [x] WO-0001 do the thing (PRD-0001 §Solution)\n"
-        "- [ ] WO-0002 uncited row\n", encoding="utf-8")
-    ledger = root / "docs" / "factory" / "costs.jsonl"
-    ledger.parent.mkdir(parents=True, exist_ok=True)
-    ledger.write_text(
-        json.dumps({"wo": "WO-0002", "run_id": "r1", "model": "m",
-                    "tokens": 900, "cost": 0.3, "outcome": "failed"})
-        + "\n{\"wo\": \"WO-0001\"\n", encoding="utf-8")
-
-
-def _staleness_defect_fixture(root):
-    """A doc that links to a path which is not on disk."""
-    (root / "CONTEXT.md").write_text(
-        "The [handbook](docs/handbook.md) moved away.\n", encoding="utf-8")
-
-
-def _standards_drift_defect_fixture(root):
-    """Two failure shapes K must catch, from one committed
-    docs/standards.json: a committed ADR-derived entry whose statement
-    text disagrees with a fresh regen of its own source ADR, and an
-    `enforced`-status entry whose source ADR is not `accepted`."""
-    adr_dir = root / "docs" / "adr"
-    adr_dir.mkdir(parents=True)
-    (adr_dir / "0001-real.md").write_text(
-        "# Real\n\n- Status: accepted\n\n## Normative statements\n\n"
-        "- **some-slug** (factory): Something MUST happen.\n",
-        encoding="utf-8")
-    (adr_dir / "0002-provisional.md").write_text(
-        "# Provisional\n\n- Status: provisional\n", encoding="utf-8")
-    standards_path = root / standards_index.STANDARDS_PATH
-    standards_path.parent.mkdir(parents=True, exist_ok=True)
-    standards_path.write_text(json.dumps([
-        {"slug": "some-slug",
-         "statement": "Something MUST happen (STALE WORDING).",
-         "level": "MUST", "source": "adr/0001#some-slug",
-         "status": "advisory", "domain": "factory"},
-        {"slug": "enforced-slug", "statement": "Something else MUST"
-         " happen.", "level": "MUST", "source": "adr/0002#enforced-slug",
-         "status": "enforced", "domain": "factory"},
-    ]), encoding="utf-8")
-
-
-def _standards_drift_clean_fixture(root):
-    """The happy path: docs/standards.json matches a fresh regen exactly,
-    and its one `enforced` entry cites an `accepted` ADR."""
-    adr_dir = root / "docs" / "adr"
-    adr_dir.mkdir(parents=True)
-    (adr_dir / "0001-real.md").write_text(
-        "# Real\n\n- Status: accepted\n\n## Normative statements\n\n"
-        "- **some-slug** (factory): Something MUST happen.\n",
-        encoding="utf-8")
-    standards_path = root / standards_index.STANDARDS_PATH
-    standards_path.parent.mkdir(parents=True, exist_ok=True)
-    standards_path.write_text(json.dumps([
-        {"slug": "some-slug", "statement": "Something MUST happen.",
-         "level": "MUST", "source": "adr/0001#some-slug",
-         "status": "enforced", "domain": "factory"},
-    ]), encoding="utf-8")
-
-
-def _capture_completeness_defect_fixture(root):
-    """A fresh (dated on CAPTURE_ADOPTED, so not grandfathered) defect.md:
-    two required sections missing outright, two present as unfilled
-    TEMPLATE.md placeholders, and one filled in for real — every shape M
-    must tell apart, in one fixture."""
-    path = root / "docs" / "fixes" / "demo" / "defect.md"
-    path.parent.mkdir(parents=True)
-    path.write_text(
-        "---\nstage: capture\nrun: maintenance:demo\n"
-        f"date: {CAPTURE_ADOPTED}\nre-entry: implement\n---\n\n"
-        "# Defect: demo\n\n"
-        "## Defect (or Condition)\n\n<What is broken — observed vs"
-        " expected behavior.>\n\n"
-        "## Reproduction / Evidence\n\nRun `make check`; it fails with"
-        " a traceback.\n\n"
-        "## Ruled out\n\n- <Dead ends already investigated and why"
-        " they're not it — or \"none yet\".>\n",
-        encoding="utf-8")
-
-
-def _capture_completeness_grandfathered_fixture(root):
-    """A defect.md dated well before CAPTURE_ADOPTED, missing every
-    required section — M must stay silent: the brief predates the
-    convention (ADR-0073)."""
-    path = root / "docs" / "fixes" / "old" / "defect.md"
-    path.parent.mkdir(parents=True)
-    path.write_text(
-        "---\nstage: capture\nrun: maintenance:old\ndate: 2026-01-01\n"
-        "re-entry: implement\n---\n\n# Defect: old\n\n"
-        "## Defect\n\nSomething broke, written before the convention"
-        " existed.\n",
-        encoding="utf-8")
-
-
-def _scaffold_sync_fixture(root, rel="Makefile", payload="check:\n"):
-    """A single template file under factory/templates/ whose manifest
-    checksum matches it exactly — E's baseline synced state, shared by
-    every caller that needs a starting point to tamper with."""
-    path = root / "factory" / "templates" / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(payload, encoding="utf-8")
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    (root / "factory" / "manifest.json").write_text(
-        json.dumps({"files": {f"templates/{rel}": digest}}),
-        encoding="utf-8")
-    return path
-
-
-# The correctly curated state's Makefile: one lifecycle target, naming
-# the one label the fixtures below prune and restore.
-_LABEL_WIRING_MAKEFILE = (
-    "wo-merged:\n\tpython3 validator.py lifecycle --label wo:merged\n")
-
-
-def _label_taxonomy_json(names):
-    return json.dumps([{"name": name, "color": "ededed",
-                        "description": name} for name in names])
-
-
-def _label_wiring_wired_fixture(root, makefile=None):
-    """Write the correctly curated state — a Makefile plus a taxonomy
-    carrying every label the shipped tools and that Makefile name — and
-    return the sorted label list, so a caller can derive a pruned
-    variant. Derived from declared_labels rather than hand-listed, so
-    this fixture cannot drift out of step with the tools it wires."""
-    (root / "Makefile").write_text(
-        _LABEL_WIRING_MAKEFILE if makefile is None else makefile,
-        encoding="utf-8")
-    named = sorted(declared_labels(root))
-    labels = root / ".github" / "labels.json"
-    labels.parent.mkdir(parents=True, exist_ok=True)
-    labels.write_text(_label_taxonomy_json(named), encoding="utf-8")
-    return named
-
-
-def _config_shape_defect_fixture(root):
-    """A factory.json with every F-checked field wrong at once: an
-    incomplete budgets_usd and routing map, a non-positive wip_cap, a
-    negative monthly_cap_usd, and an effort outside the vocabulary."""
-    path = root / "factory" / "templates" / "factory.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(
-        {"budgets_usd": {"S": 5}, "routing": {"mechanical": "m"},
-         "wip_cap": 0, "monthly_cap_usd": -1,
-         "effort": {"mechanical": "extreme"}}), encoding="utf-8")
-    return path
-
-
-def _pr_event_fixture(root, payload):
-    """Write a GITHUB_EVENT_PATH payload and return the env pointing
-    check_pr_traceability at it."""
-    event = root / "event.json"
-    event.write_text(json.dumps(payload), encoding="utf-8")
-    return {"GITHUB_EVENT_PATH": str(event)}
-
-
-# Fragments H's own test suite (tests/test_gates.py TestEvidenceHonesty)
-# shares with these two file-tree fixtures — each one a literal ALSO used
-# directly as `gates.evidence_problems(...)` input by a unit-level
-# regression test for the exact bypass it demonstrates, per issue #440's
-# review round 2: H's fixtures were consolidated at the file-tree level
-# but these body fragments still had a second, hand-typed copy in the
-# pytest suite. Named for the bypass each one is the evidence body of;
-# each fixture below is built by concatenating the fragment with content
-# specific to that scenario, never a full second copy of it.
-EVIDENCE_FABRICATED_HEAD = ("## Summary\n\n6/6 criteria pass. Verdict: ship"
-                           " it.\n\n## Criteria & evidence\n\n")
-EVIDENCE_FABRICATED_TAIL = ("## Failures\n\nNone.\n\n## Not verified\n\n"
-                           "Nothing; everything was checked.\n")
-EVIDENCE_HONEST_LEAF = ("### Grammar parses\n\n- Evidence:\n  ```\n  .\n"
-                       "  ```\n- Result: PASS\n\n")
-EVIDENCE_APPENDIX_FENCE = "```\ngit log --oneline -3\n```\n"
-EVIDENCE_SUITE_GREEN_OPEN = ("### Suite is green\n\n- Evidence:\n  ```\n"
-                            "  Ran 212 tests\n\n  OK\n")
-
-
-def _evidence_honesty_defect_fixture(root):
-    """Four artifacts H must catch: a bare unevidenced claim, a
-    template-shaped roll-up with zero real output, a gamed artifact
-    exercising each bypass H closes, and an unclosed code fence that must
-    not silently swallow the rest of the file."""
-    demo = root / "docs" / "features" / "demo"
-    demo.mkdir(parents=True)
-    (demo / "verification.md").write_text(
-        "---\nstage: verify\n---\n# Verification\n\n"
-        "### Suite is green\n\n- Check: ran it, all good.\n"
-        "- Result: PASS\n", encoding="utf-8")
-    # A wholly fabricated, TEMPLATE-shaped artifact with ZERO command
-    # output. The `## Not verified` slot ships in every artifact, so its
-    # LABEL cannot be the disclosure — only what the author writes is.
-    fabricated = root / "docs" / "features" / "fabricated"
-    fabricated.mkdir(parents=True)
-    (fabricated / "verification.md").write_text(
-        "---\nstage: verify\n---\n# Verification\n\n"
-        + EVIDENCE_FABRICATED_HEAD + "### Test suite\n\n"
-        "- Check: ran the full suite; everything passed.\n\n"
-        + EVIDENCE_FABRICATED_TAIL,
-        encoding="utf-8")
-    # The gaming shapes H exists to stop: a lying roll-up RENAMED to dodge
-    # the (now deleted) roll-up excuse, one throwaway evidenced leaf trying
-    # to launder it, a relabelled verdict dodging the "Result:" token, a
-    # scoped hedge posing as a NOT-RUN disclaimer, and an unrelated
-    # appendix fence standing in for per-criterion evidence. Each fires in
-    # its own section's scope.
-    gamed = root / "docs" / "features" / "gamed"
-    gamed.mkdir(parents=True)
-    (gamed / "verification.md").write_text(
-        "---\nstage: verify\n---\n# Verification\n\n"
-        + EVIDENCE_HONEST_LEAF
-        + "## Results\n\n- Result: all 6 criteria PASS\n\n"
-        "### Budget guard holds\n\n- Verdict: PASS\n\n"
-        "### Router picks the model\n\n- Result: PASS\n"
-        "Note: not tested on Windows.\n\n"
-        "### Retry path\n\n- Result: PASS\n"
-        "- (the retry path itself was not run)\n\n"
-        "## Appendix\n\n" + EVIDENCE_APPENDIX_FENCE,
-        encoding="utf-8")
-    # An unclosed fence must be reported, never silently absorb the tail.
-    unclosed = root / "docs" / "features" / "unclosed"
-    unclosed.mkdir(parents=True)
-    (unclosed / "verification.md").write_text(
-        "---\nstage: verify\n---\n# Verification\n\n"
-        "### Report renders\n\n- Evidence:\n  ```\n  3 orders merged\n"
-        "- Result: PASS\n", encoding="utf-8")
-
-
-def _evidence_honesty_clean_fixture(root):
-    """Three artifacts H must stay silent on: literal fenced evidence, an
-    explicit NOT-RUN disclosure, and a narrative roll-up over evidenced
-    criteria below it."""
-    evidenced = root / "docs" / "features" / "evidenced"
-    evidenced.mkdir(parents=True)
-    (evidenced / "verification.md").write_text(
-        "---\nstage: verify\n---\n# Verification\n\n"
-        + EVIDENCE_SUITE_GREEN_OPEN + "  ```\n- Result: PASS\n",
-        encoding="utf-8")
-    disclosed = root / "docs" / "features" / "disclosed"
-    disclosed.mkdir(parents=True)
-    (disclosed / "verification.md").write_text(
-        "---\nstage: verify\n---\n# Verification\n\n"
-        "### Non-owner dispatch does not fire\n\n"
-        "- Check: NOT RUN — needs a second GitHub account.\n"
-        "- Result: NOT VERIFIED\n", encoding="utf-8")
-    # A roll-up summary narrates the verdicts the criteria below evidence.
-    # It is not itself a criterion, and H must not read it as one.
-    rollup = root / "docs" / "features" / "rollup"
-    rollup.mkdir(parents=True)
-    (rollup / "verification.md").write_text(
-        "---\nstage: verify\n---\n# Verification\n\n"
-        "## Summary\n\n4/4 criteria pass; suite and lint green on the\n"
-        "branch. Verdict: the feature demonstrably works.\n\n"
-        "## Criteria & evidence\n\n### Suite is green\n\n- Evidence:\n"
-        "  ```\n  Ran 222 tests\n\n  OK\n  ```\n- Result: PASS\n",
-        encoding="utf-8")
-
-
-def _needs_clarification_defect_fixture(root):
-    """A PRD and an architecture doc each still carrying a live marker,
-    beside a quoted one (a code span) that is a mention, not a marker."""
-    run = root / "docs" / "features" / "demo"
-    run.mkdir(parents=True, exist_ok=True)
-    (run / "prd.md").write_text(
-        "# PRD\n\nMark ambiguity as `[NEEDS CLARIFICATION: <question>]`.\n"
-        "Users sign in via [NEEDS CLARIFICATION: auth method?].\n",
-        encoding="utf-8")
-    (run / "architecture.md").write_text(
-        "# Architecture\n\nState lives in [NEEDS CLARIFICATION: which DB?]\n",
-        encoding="utf-8")
-
-
-def _prd_coverage_fixture(root, waive_actors):
-    """A PRD dated on COVERAGE_ADOPTED whose §Solution a work-order row
-    cites and whose §Actors none does — waived or not, per the caller."""
-    run = root / "docs" / "features" / "demo"
-    run.mkdir(parents=True, exist_ok=True)
-    waiver = ("<!-- coverage-waiver: actors are context, not work -->\n\n"
-              if waive_actors else "")
-    (run / "prd.md").write_text(
-        f"---\nstage: prd\nid: PRD-0001\ndate: {COVERAGE_ADOPTED}\n---\n"
-        "# PRD\n\n## Solution\n\nBuild it.\n\n## Actors\n\n" + waiver
-        + "- **Dev**\n", encoding="utf-8")
-    (run / "breakdown.md").write_text(
-        "- [ ] **WO-0001** build it (PRD-0001 §Solution)\n", encoding="utf-8")
-
-
-def _clean_repo_fixture(root):
-    """A fully stamped, fully honest repo: every detector's happy path at
-    once, the shape run_all must stay silent across."""
-    run = root / "docs" / "features" / "demo"
-    run.mkdir(parents=True)
-    (run / "prd.md").write_text(
-        "---\nstage: prd\nid: PRD-0001\n---\n# PRD\n", encoding="utf-8")
-    (run / "breakdown.md").write_text(
-        "- [x] WO-0001 shipped slice (PRD-0001 §Solution), per"
-        " [ADR-0001](../../adr/0001-spine.md)\n", encoding="utf-8")
-    (root / "docs" / "adr").mkdir()
-    (root / "docs" / "adr" / "0001-spine.md").write_text(
-        "# Spine\n\n- Status: accepted (shipped 2026-07-06)\n",
-        encoding="utf-8")
-    (root / "docs" / "adr" / "README.md").write_text(
-        "| ADR | Decision | Status |\n|-----|----------|--------|\n"
-        "| [0001](0001-spine.md) | Spine | accepted |\n",
-        encoding="utf-8")
-    (root / "docs" / "factory").mkdir()
-    (root / "docs" / "factory" / "costs.jsonl").write_text(
-        json.dumps({"wo": "WO-0001", "run_id": "r1", "model": "m",
-                    "tokens": 1200, "cost": 0.42, "outcome": "merged"})
-        + "\n", encoding="utf-8")
-    _evidence_honesty_clean_fixture(root)
-    config = json.dumps(
-        {"budgets_usd": {"S": 5, "M": 15, "L": 40},
-         "routing": {"mechanical": "m", "implementation": "i",
-                     "architecture_review": "a"},
-         "wip_cap": 3, "monthly_cap_usd": 300})
-    _scaffold_sync_fixture(root, rel="factory.json", payload=config)
-
-
-def selftest():
-    """Fixture trees: each detector must catch its planted defect and stay
-    silent on the clean tree."""
-    failures = []
-
-    def expect(label, problems, *substrings):
-        for fragment in substrings:
-            if not any(fragment in p for p in problems):
-                failures.append(f"{label}: expected a problem containing"
-                                f" {fragment!r}, got {problems}")
-
-    def expect_clean(label, problems):
-        if problems:
-            failures.append(f"{label}: expected no problems, got {problems}")
-
-    # A: an isolated tree per detector, matching ordinary unittest
-    # per-test-method style — a failure for one detector must not depend
-    # on or corrupt state left behind by a previous one's fixture.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _wo_citation_defect_fixture(root)
-        expect("A", check_wo_citation(root), "WO-0002")
-
-    # C
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _link_integrity_defect_fixture(root)
-        problems = check_link_integrity(root)
-        expect("C", problems, "PRD-0099", "WO-0003")
-        if any("PRD-0001 " in p and "dangling" in p for p in problems):
-            failures.append(f"C: PRD-0001 should resolve, got {problems}")
-
-    # D: the index disagrees with ADR-0002's file, and an artifact still
-    # builds on ADR-0001, which ADR-0002 superseded.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _blueprint_drift_defect_fixture(root)
-        expect("D", check_blueprint_drift(root),
-               "ADR-0002 index status 'provisional'",
-               "cites ADR-0001, superseded by ADR-0002")
-
-    # G: the ledger accounts for an unmerged order and misses a merged
-    # one, and one line is not JSON at all.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _cost_ledger_defect_fixture(root)
-        expect("G", check_cost_ledger(root),
-               "merged work order WO-0001 has no line", "is not valid JSON")
-
-    # I: a doc links to a path that is not on disk.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _staleness_defect_fixture(root)
-        expect("I", check_staleness(root), "stale link docs/handbook.md")
-
-    # K: a committed ADR-derived entry has drifted from a fresh regen,
-    # and an enforced entry cites a not-accepted ADR — both from one
-    # committed docs/standards.json.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _standards_drift_defect_fixture(root)
-        expect("K", check_standards_drift(root),
-               "docs/standards.json has drifted",
-               "enforced statement 'enforced-slug' cites ADR-0002,"
-               " status 'provisional' (not accepted)")
-
-    # K: the happy path — a regen-matching index, and no ADR standing.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _standards_drift_clean_fixture(root)
-        expect_clean("K clean", check_standards_drift(root))
-
-    # K: an absent docs/standards.json is silent — no runs recorded yet,
-    # same precedent as detector G.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        expect_clean("K absent", check_standards_drift(root))
-
-    # M: a fresh defect.md missing sections, and one placeholder-only.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _capture_completeness_defect_fixture(root)
-        expect("M", check_capture_completeness(root),
-               "missing required section 'Root-cause hypothesis'",
-               "missing required section 'Blast radius'",
-               "required section 'Defect (or Condition)' is present but"
-               " placeholder-only",
-               "required section 'Ruled out' is present but"
-               " placeholder-only")
-        if any("Reproduction / Evidence" in p
-               for p in check_capture_completeness(root)):
-            failures.append("M: Reproduction / Evidence should be clean,"
-                            f" got {check_capture_completeness(root)}")
-
-    # M: a defect.md dated before CAPTURE_ADOPTED is grandfathered —
-    # missing every section, but M must stay silent (ADR-0073).
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _capture_completeness_grandfathered_fixture(root)
-        expect_clean("M grandfathered", check_capture_completeness(root))
-
-    # M: no defect.md at all is out of scope entirely.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        (root / "docs" / "features" / "demo").mkdir(parents=True)
-        expect_clean("M no defect", check_capture_completeness(root))
-
-    # E
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _scaffold_sync_fixture(root)
-        expect_clean("E clean", check_scaffold_sync(root))
-        factory = root / "factory" / "templates"
-        (factory / "Makefile").write_text("check: tampered\n", encoding="utf-8")
-        expect("E", check_scaffold_sync(root), "manifest checksum")
-
-        # E's stamped half (issue #207): an unstamped tree is silent about
-        # destinations, a stamped one compares its executable payload — and
-        # only that. The Makefile above stays diverged throughout and is
-        # never reported as a destination: it is the repo's to adjust.
-        tool = factory / "tools" / "factory" / "gates.py"
-        tool.parent.mkdir(parents=True)
-        tool.write_text("# payload\n", encoding="utf-8")
-        (factory / "Makefile").write_text("check:\n", encoding="utf-8")
-        (root / "factory" / "manifest.json").write_text(json.dumps(
-            {"files": manifest_files(root)}), encoding="utf-8")
-        expect_clean("E unstamped", check_scaffold_sync(root))
-        stamped = root / "tools" / "factory"
-        stamped.mkdir(parents=True)
-        (stamped / "gates.py").write_text("# payload\n", encoding="utf-8")
-        expect_clean("E stamped clean", check_scaffold_sync(root))
-        (stamped / "gates.py").write_text("# hand-edited\n", encoding="utf-8")
-        expect("E stamped", check_scaffold_sync(root),
-               "tools/factory/gates.py does not match", "hand-edited")
-        (stamped / "gates.py").unlink()
-        # the discriminator is gates.py itself, so removing it un-stamps the
-        # tree — a second tool proves the missing-destination leg instead
-        (factory / "tools" / "factory" / "cli.py").write_text(
-            "# payload\n", encoding="utf-8")
-        (stamped / "gates.py").write_text("# payload\n", encoding="utf-8")
-        (root / "factory" / "manifest.json").write_text(json.dumps(
-            {"files": manifest_files(root)}), encoding="utf-8")
-        expect("E partial", check_scaffold_sync(root),
-               "tools/factory/cli.py is in the payload but missing here",
-               "partial stamp")
-
-    # J: the taxonomy is the repo's to curate, so a pruned label must be
-    # caught here — the alternative is finding out when CI flips it.
-    # Silent with no taxonomy at all: nothing stamped to be wrong.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        expect_clean("J unstamped", check_label_wiring(root))
-        named = _label_wiring_wired_fixture(root)
-        expect_clean("J clean", check_label_wiring(root))
-        labels = root / ".github" / "labels.json"
-        labels.write_text(
-            _label_taxonomy_json([n for n in named if n != "wo:merged"]),
-            encoding="utf-8")
-        expect("J", check_label_wiring(root), "Makefile:2 names wo:merged",
-               "human_gates.py names wo:merged", "no such label")
-        # A taxonomy nobody can read is the same finding one step
-        # earlier, and it is the case with no wiring evidence to fall
-        # back on — the loader's line is the only thing that gets said.
-        labels.write_text("{ not json", encoding="utf-8")
-        expect("J unreadable", check_label_wiring(root),
-               ".github/labels.json is not valid JSON")
-        labels.write_text(_label_taxonomy_json(named), encoding="utf-8")
-        # the restore the later fixtures depend on, now asserted rather
-        # than assumed
-        expect_clean("J restored", check_label_wiring(root))
-
-    # F
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _config_shape_defect_fixture(root)
-        problems = check_config_shape(root)
-        expect("F", problems, "budgets_usd", "routing", "wip_cap",
-               "monthly_cap_usd", "effort.mechanical")
-
-    # B
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        env = _pr_event_fixture(root, {"pull_request": {
-            "title": "fix: something", "body": "no tokens here"}})
-        expect("B", check_pr_traceability(root, env),
-               "cites no work-order id", "no Closes #N link")
-        expect("B unreadable", check_pr_traceability(
-            root, {"GITHUB_EVENT_PATH": str(root / "missing.json")}),
-            "cannot read GITHUB_EVENT_PATH")
-        env = _pr_event_fixture(root, {"ref": "refs/heads/main"})
-        expect_clean("B non-PR", check_pr_traceability(root, env))
-        env = _pr_event_fixture(root, {"pull_request": {
-            "title": "WO-0003: detector B",
-            "body": "WO-0003 (PRD-0001) Fixes: #108"}})
-        expect_clean("B clean", check_pr_traceability(root, env))
-
-    # H: the planted-defect side.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _evidence_honesty_defect_fixture(root)
-        expect("H", check_evidence_honesty(root),
-               'criterion "Suite is green" asserts PASS with neither',
-               "artifact shows neither literal evidence",
-               'criterion "Results" asserts all 6 criteria PASS with neither',
-               'criterion "Budget guard holds" asserts PASS with neither',
-               'criterion "Router picks the model" asserts PASS with neither',
-               'criterion "Retry path" asserts PASS with neither',
-               "unclosed code fence")
-
-    # H: the honest side — three shapes that must stay silent.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _evidence_honesty_clean_fixture(root)
-        expect_clean("H honest", check_evidence_honesty(root))
-
-    # N: a live marker in each gated artifact fires; the quoted one in a
-    # code span (prd.md:3) does not.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _needs_clarification_defect_fixture(root)
-        problems = check_needs_clarification(root)
-        expect("N", problems, "demo/prd.md:4 unresolved",
-               "demo/architecture.md:3 unresolved")
-        if any("prd.md:3" in p for p in problems):
-            failures.append(f"N: a quoted marker fired, got {problems}")
-
-    # O: an uncited, unwaived PRD section fires; the same section with a
-    # declared waiver passes.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _prd_coverage_fixture(root, waive_actors=False)
-        expect("O", check_prd_coverage(root),
-               "PRD-0001 §Actors is cited by no breakdown row")
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _prd_coverage_fixture(root, waive_actors=True)
-        expect_clean("O waived", check_prd_coverage(root))
-
-    # Every detector's happy path at once — the integration smoke test
-    # run_all must stay silent across, beyond any one detector's own
-    # fixture.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        _clean_repo_fixture(root)
-        expect_clean("clean tree", run_all(root, env={}))
-
-    for failure in failures:
-        print(failure)
-    print(f"selftest: {'FAIL' if failures else 'ok'}")
-    return 1 if failures else 0
 
 
 def main(argv):
     if "--selftest" in argv:
-        return selftest()
+        # The planted-defect fixtures and selftest() live in their own
+        # mirrored module (#784); imported here, not at the top, because
+        # it imports this one.
+        import gates_selftest
+        return gates_selftest.selftest()
     return report("gates", run_all(repo_root()))
 
 
