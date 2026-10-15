@@ -36,7 +36,7 @@ their acceptance criteria are met.
     § merge-command rather than restating their steps; no new script or
     classifier is added anywhere in the diff.
   - Blocked by: —
-- [ ] **WO-0017 — Add the `/ship-pr` row to CLAUDE.md § Skills** — one
+- [x] **WO-0017 — Add the `/ship-pr` row to CLAUDE.md § Skills** — one
       table row in the Project Automation table, purpose line matching the
       skill's frontmatter description. (tracker: #6639)
   - Accept: `node scripts/check-claude-md-table-drift.mjs` passes with the
