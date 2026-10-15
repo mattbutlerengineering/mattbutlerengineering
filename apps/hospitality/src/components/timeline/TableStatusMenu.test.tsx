@@ -7,6 +7,9 @@ import userEvent from "@testing-library/user-event";
 import { TABLE_VALID_TRANSITIONS, type TableStatus } from "@mbe/types";
 import { TableStatusMenu, type TableStatusMenuProps } from "./TableStatusMenu.js";
 import { tableStatusMenuItems } from "./table-status-menu.js";
+import { localeRuntime } from "../../i18n/runtime.js";
+
+const enT = localeRuntime.i18n.getFixedT("en-US");
 
 const STATUSES: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"];
 const TRIGGER_NAME = "Table 3: Occupied. Change status";
@@ -22,7 +25,7 @@ function readCss(): string {
 
 describe("tableStatusMenuItems (A8.2 — a projection of the API's own state machine)", () => {
   it.each(STATUSES)("%s offers one 'Mark <state>' item per valid transition", (status) => {
-    expect(tableStatusMenuItems(status)).toEqual(
+    expect(tableStatusMenuItems(status, enT, "en-US")).toEqual(
       TABLE_VALID_TRANSITIONS[status].map((next) => ({
         id: next,
         label: `Mark ${next.toLowerCase()}`,
@@ -31,11 +34,13 @@ describe("tableStatusMenuItems (A8.2 — a projection of the API's own state mac
   });
 
   it("AVAILABLE offers exactly 'Mark occupied'", () => {
-    expect(tableStatusMenuItems("AVAILABLE")).toEqual([{ id: "OCCUPIED", label: "Mark occupied" }]);
+    expect(tableStatusMenuItems("AVAILABLE", enT, "en-US")).toEqual([
+      { id: "OCCUPIED", label: "Mark occupied" },
+    ]);
   });
 
   it("an unknown status offers nothing", () => {
-    expect(tableStatusMenuItems("BOGUS" as TableStatus)).toEqual([]);
+    expect(tableStatusMenuItems("BOGUS" as TableStatus, enT, "en-US")).toEqual([]);
   });
 });
 

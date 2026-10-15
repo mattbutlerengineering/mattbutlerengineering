@@ -497,6 +497,260 @@
     "retry": "Retry",
     "machineTranslated": "Translations are machine-generated."
   },
+  "home": {
+    "title": "Dashboard",
+    "welcome": "Welcome back",
+    "welcomeNamed": "Welcome back, {{name}}",
+    "loadFailed": "Couldn't load the dashboard.",
+    "actions": {
+      "walkIn": "Walk-in",
+      "floorPlan": "View Floor Plan",
+      "guestLookup": "Guest Lookup",
+      "bookingWidget": "Booking Widget"
+    },
+    "stats": {
+      "reservations": "Today's Reservations",
+      "covers": "Expected Covers",
+      "upcoming": "Upcoming (2 hrs)",
+      "waitlist": "Waitlist",
+      "longestWait": "Longest Wait (min)",
+      "cancellationRate": "Cancellation Rate"
+    },
+    "reservations": {
+      "title": "Today's Reservations",
+      "empty": "No reservations today",
+      "walkIn": "Walk-in",
+      "partyOf": "Party of {{count}}"
+    },
+    "activity": {
+      "title": "Live Activity",
+      "connecting": "Connecting to live updates...",
+      "empty": "No recent activity",
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "events": {
+        "reservationCreated": "New reservation created",
+        "reservationUpdated": "Reservation updated",
+        "reservationCancelled": "Reservation cancelled",
+        "holdCreated": "Table hold placed",
+        "holdReleased": "Table hold released",
+        "holdConfirmed": "Hold confirmed as reservation",
+        "tableUpdated": "Table status changed",
+        "floorPlanCreated": "Floor plan created"
+      }
+    },
+    "lapsing": {
+      "title": "Lapsing Guests",
+      "empty": "No lapsing guests",
+      "listLabel": "Lapsing guests",
+      "every_one": "Every {{count}} day",
+      "every_other": "Every {{count}} days",
+      "overdue_one": "{{count}} day overdue",
+      "overdue_other": "{{count}} days overdue",
+      "cadence": "{{every}} · {{overdue}}",
+      "sendWinBack": "Send win-back",
+      "sendWinBackTo": "Send win-back to {{name}}"
+    },
+    "deposit": {
+      "title": "Deposit Exposure",
+      "atRisk": "Deposits at risk",
+      "noShowExposure": "No-show exposure"
+    }
+  },
+  "timeline": {
+    "page": {
+      "title": "Timeline",
+      "description": "Real-time reservation view",
+      "previousDay": "Previous day",
+      "nextDay": "Next day",
+      "today": "Today",
+      "walkIn": "Walk-in",
+      "walkInDisabled": "Walk-ins need the tables loaded — Retry above.",
+      "live": "Live",
+      "offline": "Offline",
+      "kpiReservations": "Reservations",
+      "kpiCovers": "Covers",
+      "loadFailedHeading": "Couldn't load tonight.",
+      "retry": "Retry",
+      "noTablesHeading": "No tables yet.",
+      "noTablesDescription": "Set up a floor plan and the grid fills in.",
+      "floorPlans": "Floor plans",
+      "detailsTitle": "Reservation Details",
+      "closeDetails": "Close reservation details",
+      "loadBanner": "Couldn't load tonight's reservations.",
+      "tableStatusBanner": "Table status not changed."
+    },
+    "announce": {
+      "loadedTonight": "Tonight's grid loaded.",
+      "loadedDate": "Reservations for {{date}} loaded.",
+      "seated": "Seated {{guest}}.",
+      "seatedAt": "Seated {{guest}} at {{table}}.",
+      "theGuest": "the guest",
+      "walkInSeated": "Seated {{who}}, party of {{size}}.",
+      "walkInSeatedAt": "Seated {{who}}, party of {{size}}, at {{table}}.",
+      "aWalkIn": "a walk-in",
+      "cancelledNamed": "Cancelled {{name}}'s reservation.",
+      "cancelled": "Cancelled the reservation.",
+      "noShowNamed": "Marked {{name}}'s reservation as a no-show.",
+      "noShow": "Marked the reservation as a no-show.",
+      "withWarning": "{{sentence}} {{warning}}",
+      "savedNamed": "Saved changes to {{name}}'s reservation.",
+      "saved": "Saved changes to the reservation.",
+      "tableNow": "{{table}} is now {{status}}.",
+      "aTable": "Table"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "noShow": "No Show",
+      "seated": "Seated"
+    },
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
+    "guest": "Guest",
+    "partyOf": "party of {{count}}",
+    "tableUnknown": "table unknown",
+    "visitOrdinalOne": "{{count}}st visit",
+    "visitOrdinalTwo": "{{count}}nd visit",
+    "visitOrdinalFew": "{{count}}rd visit",
+    "visitOrdinalOther": "{{count}}th visit",
+    "block": {
+      "title": "{{guest}} - {{party}} at {{time}}",
+      "seatedWord": "seated"
+    },
+    "grid": {
+      "label": "Reservation timeline",
+      "tables": "Tables",
+      "rowLabel": "Table {{name}}",
+      "capacity": "{{min}}-{{max}} guests",
+      "navHint": "Use arrow keys to navigate reservations"
+    },
+    "tableMenu": {
+      "mark": "Mark {{status}}",
+      "trigger": "{{table}}: {{status}}. Change status"
+    },
+    "mobile": {
+      "all": "All",
+      "upcoming": "Upcoming",
+      "empty": "No reservations",
+      "unassigned": "Unassigned",
+      "cardLabel": "{{guest}}, party of {{size}}, {{time}}, table {{table}}",
+      "seated": "Seated"
+    },
+    "emptyNight": {
+      "todayHeading": "Quiet so far.",
+      "todayDescription": "Nothing on the book for tonight. Walk-ins go straight to a table.",
+      "otherHeading": "Nothing on the book for {{date}}.",
+      "otherDescription": "Bookings for that night will show here.",
+      "walkIn": "Walk-in",
+      "backToToday": "Back to today"
+    },
+    "skeleton": {
+      "loading": "Loading tonight's grid…"
+    },
+    "details": {
+      "guest": "Guest",
+      "email": "Email",
+      "phone": "Phone",
+      "time": "Time",
+      "partySize": "Party Size",
+      "table": "Table",
+      "status": "Status",
+      "seatFailed": "Guest not seated.",
+      "edit": "Edit Reservation",
+      "seat": "Seat Guest",
+      "seating": "Seating…",
+      "cancel": "Cancel Reservation",
+      "noShow": "Mark No-Show",
+      "occupied": "{{table}} is still occupied — turn it or move the party."
+    },
+    "sheet": {
+      "allergy": "Allergy: {{restriction}}",
+      "edit": "Edit reservation",
+      "cancel": "Cancel reservation",
+      "more": "More"
+    },
+    "deposit": {
+      "title": "Deposit",
+      "collectTitle": "Collect Deposit",
+      "collect": "+ Collect Deposit",
+      "amountLabel": "Amount ({{symbol}})",
+      "invalidAmount": "Enter a valid amount.",
+      "cancel": "Cancel",
+      "create": "Create Deposit",
+      "saving": "Saving...",
+      "statusLine": "{{amount}} — {{status}}",
+      "refundedVia": "Refunded {{amount}} via Stripe",
+      "statuses": {
+        "pending": "Pending",
+        "held": "Authorized",
+        "applied": "Charged",
+        "refunded": "Refunded",
+        "forfeited": "Forfeited",
+        "partialRefunded": "Partially Refunded",
+        "uncollectable": "Uncollectable"
+      }
+    },
+    "cancel": {
+      "title": "Cancel Reservation",
+      "intro": "Cancelling reservation for <strong>{{name}}</strong>",
+      "reasonLabel": "Reason",
+      "reasons": {
+        "guestCancelled": "Guest Cancelled",
+        "noShow": "No Show",
+        "restaurantCancelled": "Restaurant Cancelled",
+        "other": "Other"
+      },
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "Add any additional context...",
+      "failed": "Reservation not cancelled.",
+      "keep": "Keep Reservation",
+      "confirm": "Cancel Reservation",
+      "cancelling": "Cancelling…"
+    },
+    "noShowDialog": {
+      "title": "Mark No-Show",
+      "body": "Marking <strong>{{name}}</strong> as a no-show cannot be undone. If a deposit is on file, the venue's no-show fee policy applies — this may capture some or all of it, or refund it if no fee applies.",
+      "failed": "Reservation not marked as no-show.",
+      "keep": "Keep Reservation",
+      "confirm": "Mark No-Show",
+      "marking": "Marking…"
+    },
+    "edit": {
+      "title": "Edit Reservation",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "partySize": "Party Size",
+      "assignTable": "Assign Table",
+      "tableOption": "{{name}} (cap. {{capacity}})",
+      "notes": "Notes",
+      "timesRequired": "Start and end times are required.",
+      "endAfterStart": "End time must be after start time.",
+      "partySizePositive": "Party size must be a positive number.",
+      "failed": "Changes not saved.",
+      "cancel": "Cancel",
+      "save": "Save Changes",
+      "saving": "Saving…"
+    },
+    "walkInDialog": {
+      "title": "Seat walk-in",
+      "partySize": "Party size",
+      "nothingFree": "Nothing free for a party of {{size}} right now. Try a smaller party, or mark a table Available.",
+      "table": "Table",
+      "tableOption": "{{name}} (seats {{capacity}})",
+      "guestLabel": "Guest name (optional)",
+      "guestHint": "Name or phone — returning guests appear as you type.",
+      "guestPlaceholder": "e.g. Smith",
+      "guestCleared": "Guest cleared.",
+      "failed": "Walk-in not seated.",
+      "cancel": "Cancel",
+      "seatNow": "Seat now",
+      "seating": "Seating…"
+    }
+  },
   "staffLocaleSwitcher": {
     "title": "Language & region",
     "previewLabel": "Preview"

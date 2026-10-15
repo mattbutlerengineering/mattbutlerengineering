@@ -149,7 +149,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       `constants/session-lapse-copy.ts`, `lib/describe-auth-error.ts`. (tracker: #6623)
   - Accept: paths in lint scope, catalogs parity-green, render tests in es-MX.
   - Blocked by: i18n runtime
-- [ ] **Translate Home & Timeline** — `HomePage`, `TimelinePage`, `components/timeline/**`,
+- [x] **Translate Home & Timeline** — `HomePage`, `TimelinePage`, `components/timeline/**`,
       `components/dashboard/**`; status badges use short-form keys; ellipsis cells marked
       `data-truncate`. (tracker: #6624)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.

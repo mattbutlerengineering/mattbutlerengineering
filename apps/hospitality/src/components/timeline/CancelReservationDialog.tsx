@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Button, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CancellationQuote } from "../../hooks/useCancellationQuote.js";
@@ -18,11 +19,11 @@ interface CancelReservationDialogProps {
 }
 
 const CANCELLATION_REASONS = [
-  { value: "guest_cancelled", label: "Guest Cancelled" },
-  { value: "no_show", label: "No Show" },
-  { value: "restaurant_cancelled", label: "Restaurant Cancelled" },
-  { value: "other", label: "Other" },
-];
+  { value: "guest_cancelled", labelKey: "timeline.cancel.reasons.guestCancelled" },
+  { value: "no_show", labelKey: "timeline.cancel.reasons.noShow" },
+  { value: "restaurant_cancelled", labelKey: "timeline.cancel.reasons.restaurantCancelled" },
+  { value: "other", labelKey: "timeline.cancel.reasons.other" },
+] as const;
 
 /**
  * The dialog owns its failure and nothing else: a rejected `onConfirm` becomes an
@@ -37,6 +38,7 @@ export function CancelReservationDialog({
   onClose,
   quote,
 }: CancelReservationDialogProps) {
+  const { t } = useTranslation();
   const [reason, setReason] = useState<string>("guest_cancelled");
   const [note, setNote] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +51,11 @@ export function CancelReservationDialog({
   useFocusTrap(panelRef, true);
   useEscapeKey(onClose, true);
 
-  const displayName = guestName ?? "Guest";
+  const displayName = guestName ?? t("timeline.guest");
+  const reasonOptions = CANCELLATION_REASONS.map(({ value, labelKey }) => ({
+    value,
+    label: t(labelKey),
+  }));
 
   const handleConfirm = async () => {
     setIsLoading(true);
@@ -83,10 +89,14 @@ export function CancelReservationDialog({
         <Stack gap="lg">
           <div className={styles.header}>
             <Text variant="display" id="cancel-dialog-title">
-              Cancel Reservation
+              {t("timeline.cancel.title")}
             </Text>
             <Text variant="body" color="secondary">
-              Cancelling reservation for <strong>{displayName}</strong>
+              <Trans
+                i18nKey="timeline.cancel.intro"
+                values={{ name: displayName }}
+                components={{ strong: <strong /> }}
+              />
             </Text>
           </div>
 
@@ -101,26 +111,26 @@ export function CancelReservationDialog({
 
           <Stack gap="md">
             <Select
-              label="Reason"
+              label={t("timeline.cancel.reasonLabel")}
               value={reason}
               onChange={setReason}
-              options={CANCELLATION_REASONS}
+              options={reasonOptions}
               disabled={isLoading}
             />
 
             <TextArea
-              label="Note (optional)"
+              label={t("timeline.cancel.noteLabel")}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
-              placeholder="Add any additional context..."
+              placeholder={t("timeline.cancel.notePlaceholder")}
               disabled={isLoading}
             />
           </Stack>
 
           {failure && (
             <ErrorRetryBanner
-              title="Reservation not cancelled."
+              title={t("timeline.cancel.failed")}
               error={failure.detail}
               details={failure.raw}
             />
@@ -128,16 +138,16 @@ export function CancelReservationDialog({
 
           <div className={styles.actions}>
             <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-              Keep Reservation
+              {t("timeline.cancel.keep")}
             </Button>
             <Button
               ref={confirmRef}
               variant="primary"
               onClick={handleConfirm}
               isLoading={isLoading}
-              loadingText="Cancelling…"
+              loadingText={t("timeline.cancel.cancelling")}
             >
-              Cancel Reservation
+              {t("timeline.cancel.confirm")}
             </Button>
           </div>
         </Stack>

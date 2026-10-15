@@ -60278,8 +60278,8 @@
     ): Table | undefined {
       return tables.find((table) => table.id === reservation.tableId);
     }
-    export function statusWord(reservation: Reservation, seated: boolean): string {
-      return seated ? "Seated" : STATUS_LABEL[reservation.status];
+    export function statusWord(reservation: Reservation, seated: boolean, t: TFunction): string {
+      return t(seated ? "timeline.status.seated" : RESERVATION_STATUS_KEYS[reservation.status]);
     }
     function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
       if (reservation.status !== "CONFIRMED") return false;
@@ -60291,11 +60291,12 @@
     export function occupiedCaption(
       reservation: Reservation,
       table: Table | undefined,
-      now: Date
+      now: Date,
+      t: TFunction
     ): string | null {
       if (!isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
       if (isOccupiedByThisReservation(reservation, now)) return null;
-      return `${table.name} is still occupied — turn it or move the party.`;
+      return t("timeline.details.occupied", { table: table.name });
     }
     export interface SeatGuestState {
       /** True while `onSeat` is pending — Seat Guest reads "Seating…" and the other actions rest. */
@@ -60342,21 +60343,39 @@
       default: "min(50vh, 480px)",
     });
   </file>
+  <file path="apps/hospitality/src/components/timeline/status-keys.ts">
+    export const RESERVATION_STATUS_KEYS = {
+      PENDING: "timeline.status.pending",
+      CONFIRMED: "timeline.status.confirmed",
+      CANCELLED: "timeline.status.cancelled",
+      COMPLETED: "timeline.status.completed",
+      NO_SHOW: "timeline.status.noShow",
+    } as const satisfies Record<ReservationStatus, string>;
+  </file>
   <file path="apps/hospitality/src/components/timeline/table-status-menu.ts">
     export interface TableStatusMenuItem {
       id: TableStatus;
       label: string;
     }
-    export function tableStatusMenuItems(status: TableStatus): TableStatusMenuItem[] {
+    export function tableStatusWord(status: TableStatus, t: TFunction): string {
+      if (status in TABLE_STATUS_KEYS) return t(TABLE_STATUS_KEYS[status]);
+      // A status this build does not know (an API ahead of it): title-case the raw value.
+      const lower = status.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    }
+    export function tableStatusInline(status: TableStatus, t: TFunction, locale: string): string {
+      return tableStatusWord(status, t).toLocaleLowerCase(locale);
+    }
+    export function tableStatusMenuItems(
+      status: TableStatus,
+      t: TFunction,
+      locale: string
+    ): TableStatusMenuItem[] {
       if (!(status in TABLE_VALID_TRANSITIONS)) return [];
       return TABLE_VALID_TRANSITIONS[status].map((next) => ({
         id: next,
-        label: `Mark ${next.toLowerCase()}`,
+        label: t("timeline.tableMenu.mark", { status: tableStatusInline(next, t, locale) }),
       }));
-    }
-    export function tableStatusWord(status: TableStatus): string {
-      const lower = status.toLowerCase();
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
     }
   </file>
   <file path="apps/hospitality/src/components/timeline/useGridFocus.ts">
@@ -60468,6 +60487,21 @@
           element.scrollLeft = left;
         }
       }, [hasNowLine, scrollRef]);
+    }
+  </file>
+  <file path="apps/hospitality/src/components/timeline/visit-label.ts">
+    export function visitLabel(visitCount: number, t: TFunction, locale: string): string {
+      const category = new Intl.PluralRules(locale, { type: "ordinal" }).select(visitCount);
+      switch (category) {
+        case "one":
+          return t("timeline.visitOrdinalOne", { count: visitCount });
+        case "two":
+          return t("timeline.visitOrdinalTwo", { count: visitCount });
+        case "few":
+          return t("timeline.visitOrdinalFew", { count: visitCount });
+        default:
+          return t("timeline.visitOrdinalOther", { count: visitCount });
+      }
     }
   </file>
   </section>
@@ -62222,6 +62256,12 @@
         month: "2-digit",
         day: "2-digit",
       });
+    }
+    export function formatHourLabel(hour: number, locale: string, compact: boolean): string {
+      const formatter = new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" });
+      const instant = new Date(Date.UTC(1970, 0, 1, hour));
+      if (!compact) return formatter.format(instant);
+      return formatter.formatToParts(instant).find((part) => part.type === "hour")?.value ?? "";
     }
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

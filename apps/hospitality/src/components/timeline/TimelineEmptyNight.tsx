@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button, EmptyState } from "@mattbutlerengineering/rialto";
 import styles from "./TimelineEmptyNight.module.css";
 
@@ -19,6 +20,7 @@ export function TimelineEmptyNight({
   onWalkIn,
   onToday,
 }: TimelineEmptyNightProps) {
+  const { t } = useTranslation();
   const today = variant === "today";
   return (
     <div data-testid="timeline-empty-night" className={styles.overlay}>
@@ -27,20 +29,24 @@ export function TimelineEmptyNight({
         size="sm"
         icon={null}
         className={styles.card}
-        heading={today ? "Quiet so far." : `Nothing on the book for ${dateLabel}.`}
+        heading={
+          today
+            ? t("timeline.emptyNight.todayHeading")
+            : t("timeline.emptyNight.otherHeading", { date: dateLabel })
+        }
         description={
           today
-            ? "Nothing on the book for tonight. Walk-ins go straight to a table."
-            : "Bookings for that night will show here."
+            ? t("timeline.emptyNight.todayDescription")
+            : t("timeline.emptyNight.otherDescription")
         }
         action={
           today ? (
             <Button variant="primary" onClick={onWalkIn}>
-              Walk-in
+              {t("timeline.emptyNight.walkIn")}
             </Button>
           ) : (
             <Button variant="secondary" onClick={onToday}>
-              Back to today
+              {t("timeline.emptyNight.backToToday")}
             </Button>
           )
         }

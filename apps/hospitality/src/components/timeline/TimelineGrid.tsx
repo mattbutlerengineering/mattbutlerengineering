@@ -1,4 +1,6 @@
+import { formatHourLabel } from "../../utils/format.js";
 import { useMemo, useState, useEffect, useRef, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
 import type { Reservation, Table, TableStatus } from "@mbe/types";
 import { ReservationBlock } from "./ReservationBlock";
 import { TableStatusMenu } from "./TableStatusMenu.js";
@@ -88,6 +90,7 @@ export function TimelineGrid({
   pendingTableId,
 }: TimelineGridProps) {
   const fmt = useVenueFormat();
+  const { t } = useTranslation();
   const timeZone = fmt.timeZone;
   const isMobile = useIsMobile();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -136,11 +139,7 @@ export function TimelineGrid({
     gridFocus.handleKeyDown(e);
   };
 
-  const formatHour = (hour: number) => {
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return isMobile ? `${displayHour}` : `${displayHour} ${ampm}`;
-  };
+  const formatHour = (hour: number) => formatHourLabel(hour, fmt.locale, isMobile);
 
   const reservationsByTable = useMemo(() => {
     const map = new Map<string, Reservation[]>();
@@ -214,7 +213,7 @@ export function TimelineGrid({
         data-testid="timeline-grid"
         className={`${styles.gridWrapper} ${showMobileView ? styles.gridWrapperMobile : ""}`}
         role="grid"
-        aria-label="Reservation timeline"
+        aria-label={t("timeline.grid.label")}
         tabIndex={0}
         onKeyDown={handleGridKeyDown}
         style={bottomInset ? { scrollPaddingBlockEnd: bottomInset } : undefined}
@@ -226,7 +225,7 @@ export function TimelineGrid({
               role="columnheader"
               style={{ width: tableColumnWidth, minWidth: tableColumnWidth }}
             >
-              Tables
+              {t("timeline.grid.tables")}
             </div>
             {hours.map((hour) => (
               <div
@@ -246,7 +245,7 @@ export function TimelineGrid({
               data-testid={`table-row-${table.id}`}
               className={styles.tableRow}
               role="row"
-              aria-label={`Table ${table.name}`}
+              aria-label={t("timeline.grid.rowLabel", { name: table.name })}
               style={{ height: ROW_HEIGHT }}
             >
               <div
@@ -259,7 +258,10 @@ export function TimelineGrid({
                     <div className={styles.tableName}>{table.tableNumber || table.name}</div>
                     {isMobile ? null : (
                       <div className={styles.tableCapacity}>
-                        {table.minCovers}-{table.maxCovers ?? table.capacity} guests
+                        {t("timeline.grid.capacity", {
+                          min: table.minCovers,
+                          max: table.maxCovers ?? table.capacity,
+                        })}
                       </div>
                     )}
                   </div>
@@ -329,7 +331,7 @@ export function TimelineGrid({
 
         {showMobileView && keyboardEntries.length > 0 && (
           <div className={styles.mobileNavHint} aria-live="polite">
-            Use arrow keys to navigate reservations
+            {t("timeline.grid.navHint")}
           </div>
         )}
       </div>

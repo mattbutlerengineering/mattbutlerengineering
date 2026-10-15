@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import {
   Drawer,
@@ -52,6 +53,7 @@ export function EditReservationDrawer({
   onClose,
 }: EditReservationDrawerProps) {
   const { timeZone } = useVenueFormat();
+  const { t } = useTranslation();
   const [tableId, setTableId] = useState(reservation.tableId);
   const [occasion, setOccasion] = useState<Occasion>(reservation.occasion ?? "none");
   const [seatingPreference, setSeatingPreference] = useState<SeatingPreference>(
@@ -76,10 +78,10 @@ export function EditReservationDrawer({
     },
   });
 
-  const activeTables = tables.filter((t) => t.isActive);
-  const tableOptions = activeTables.map((t) => ({
-    value: t.id,
-    label: `${t.name} (cap. ${t.capacity})`,
+  const activeTables = tables.filter((table) => table.isActive);
+  const tableOptions = activeTables.map((table) => ({
+    value: table.id,
+    label: t("timeline.edit.tableOption", { name: table.name, capacity: table.capacity }),
   }));
 
   const watchedStartTime = watch("startTime");
@@ -114,7 +116,7 @@ export function EditReservationDrawer({
     errors.partySize?.message ?? errors.startTime?.message ?? errors.endTime?.message;
 
   return (
-    <Drawer open={true} onClose={onClose} title="Edit Reservation" size="default">
+    <Drawer open={true} onClose={onClose} title={t("timeline.edit.title")} size="default">
       <div data-testid="edit-reservation-drawer">
         <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
           <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>
@@ -131,24 +133,24 @@ export function EditReservationDrawer({
               <div className={styles.fieldRow}>
                 <div style={{ flex: 1 }}>
                   <Input
-                    label="Start Time"
+                    label={t("timeline.edit.startTime")}
                     type="time"
                     disabled={isLoading}
                     {...register("startTime", {
-                      required: "Start and end times are required.",
+                      required: t("timeline.edit.timesRequired"),
                     })}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
                   <Input
-                    label="End Time"
+                    label={t("timeline.edit.endTime")}
                     type="time"
                     disabled={isLoading}
                     {...register("endTime", {
-                      required: "Start and end times are required.",
+                      required: t("timeline.edit.timesRequired"),
                       validate: (value) => {
-                        if (!value) return "Start and end times are required.";
-                        if (watchedStartTime >= value) return "End time must be after start time.";
+                        if (!value) return t("timeline.edit.timesRequired");
+                        if (watchedStartTime >= value) return t("timeline.edit.endAfterStart");
                         return true;
                       },
                     })}
@@ -157,21 +159,21 @@ export function EditReservationDrawer({
               </div>
 
               <Input
-                label="Party Size"
+                label={t("timeline.edit.partySize")}
                 type="number"
                 min={1}
                 disabled={isLoading}
                 {...register("partySize", {
                   validate: (value) => {
                     const parsed = parseInt(value, 10);
-                    if (isNaN(parsed) || parsed < 1) return "Party size must be a positive number.";
+                    if (isNaN(parsed) || parsed < 1) return t("timeline.edit.partySizePositive");
                     return true;
                   },
                 })}
               />
 
               <Select
-                label="Assign Table"
+                label={t("timeline.edit.assignTable")}
                 value={tableId}
                 onChange={setTableId}
                 disabled={isLoading}
@@ -186,12 +188,17 @@ export function EditReservationDrawer({
                 disabled={isLoading}
               />
 
-              <TextArea label="Notes" rows={4} disabled={isLoading} {...register("notes")} />
+              <TextArea
+                label={t("timeline.edit.notes")}
+                rows={4}
+                disabled={isLoading}
+                {...register("notes")}
+              />
             </Stack>
 
             {failure && (
               <ErrorRetryBanner
-                title="Changes not saved."
+                title={t("timeline.edit.failed")}
                 error={failure.detail}
                 details={failure.raw}
               />
@@ -205,17 +212,17 @@ export function EditReservationDrawer({
                 disabled={isLoading}
                 className={styles.fullWidth}
               >
-                Cancel
+                {t("timeline.edit.cancel")}
               </Button>
               <Button
                 ref={saveRef}
                 variant="primary"
                 type="submit"
                 isLoading={isLoading}
-                loadingText="Saving…"
+                loadingText={t("timeline.edit.saving")}
                 className={styles.fullWidth}
               >
-                Save Changes
+                {t("timeline.edit.save")}
               </Button>
             </div>
           </Stack>
