@@ -1,22 +1,23 @@
+import { useTranslation } from "react-i18next";
 import { Select } from "@mattbutlerengineering/rialto";
 import type { Occasion, SeatingPreference } from "@mbe/types";
 
-const OCCASION_OPTIONS: { value: Occasion; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "birthday", label: "Birthday" },
-  { value: "anniversary", label: "Anniversary" },
-  { value: "business", label: "Business" },
-  { value: "date_night", label: "Date Night" },
-  { value: "other", label: "Other" },
+const OCCASIONS: readonly Occasion[] = [
+  "none",
+  "birthday",
+  "anniversary",
+  "business",
+  "date_night",
+  "other",
 ];
 
-const SEATING_OPTIONS: { value: SeatingPreference; label: string }[] = [
-  { value: "no_preference", label: "No preference" },
-  { value: "booth", label: "Booth" },
-  { value: "patio", label: "Patio" },
-  { value: "bar", label: "Bar" },
-  { value: "window", label: "Window" },
-  { value: "quiet", label: "Quiet" },
+const SEATINGS: readonly SeatingPreference[] = [
+  "no_preference",
+  "booth",
+  "patio",
+  "bar",
+  "window",
+  "quiet",
 ];
 
 interface OccasionSeatingFieldsProps {
@@ -35,21 +36,28 @@ export function OccasionSeatingFields({
   onSeatingPreferenceChange,
   disabled,
 }: OccasionSeatingFieldsProps) {
+  const { t } = useTranslation();
   return (
     <>
       <Select
-        label="Occasion"
+        label={t("reservations.occasion.label")}
         value={occasion}
         onChange={(v) => onOccasionChange(v as Occasion)}
         disabled={disabled}
-        options={OCCASION_OPTIONS}
+        options={OCCASIONS.map((value) => ({
+          value,
+          label: t(`reservations.occasion.${value}`),
+        }))}
       />
       <Select
-        label="Seating Preference"
+        label={t("reservations.seating.label")}
         value={seatingPreference}
         onChange={(v) => onSeatingPreferenceChange(v as SeatingPreference)}
         disabled={disabled}
-        options={SEATING_OPTIONS}
+        options={SEATINGS.map((value) => ({
+          value,
+          label: t(`reservations.seating.${value}`),
+        }))}
       />
     </>
   );

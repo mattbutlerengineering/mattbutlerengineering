@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   Alert,
   Button,
@@ -44,9 +46,10 @@ const ADD_GUEST_INITIAL: AddGuestFormValues = { name: "", email: "", phone: "", 
 /* ── Loading skeleton ───────────────────────── */
 
 function GuestsLoadingSkeleton() {
+  const { t } = useTranslation();
   return (
     <div className={styles.container}>
-      <PageHeader title="Guests" description="Manage your guest directory" />
+      <PageHeader title={t("guests.title")} description={t("guests.description")} />
       <SkeletonGroup>
         <div className={styles.segmentsGrid}>
           {Array.from({ length: 4 }, (_, i) => (
@@ -59,6 +62,20 @@ function GuestsLoadingSkeleton() {
   );
 }
 
+/** Server-owned segment names; an unknown one renders as the server sent it. */
+const SEGMENT_KEYS = {
+  "All Guests": "guests.segments.all",
+  VIP: "guests.segments.vip",
+  Recent: "guests.segments.recent",
+  "At Risk": "guests.segments.atRisk",
+  Lapsed: "guests.segments.lapsed",
+  New: "guests.segments.new",
+} as const;
+
+function segmentName(name: string, t: TFunction): string {
+  return name in SEGMENT_KEYS ? t(SEGMENT_KEYS[name as keyof typeof SEGMENT_KEYS]) : name;
+}
+
 /* ── Add Guest Dialog ──────────────────────── */
 
 interface AddGuestDialogProps {
@@ -68,6 +85,7 @@ interface AddGuestDialogProps {
 }
 
 function AddGuestDialog({ open, onClose, onSubmit }: AddGuestDialogProps) {
+  const { t } = useTranslation();
   const { fields, setField, isPending, error, reset, handleSubmit } = useFormState(
     ADD_GUEST_INITIAL,
     onSubmit,
@@ -83,18 +101,18 @@ function AddGuestDialog({ open, onClose, onSubmit }: AddGuestDialogProps) {
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Add Guest"
+      title={t("guests.addDialog.title")}
       footer={
         <Stack direction="row" gap="sm" justify="end">
           <Button variant="ghost" onClick={handleClose} disabled={isPending}>
-            Cancel
+            {t("guests.addDialog.cancel")}
           </Button>
           <Button
             variant="primary"
             onClick={handleSubmit}
             disabled={isPending || fields.name.trim().length === 0}
           >
-            {isPending ? "Adding..." : "Add Guest"}
+            {isPending ? t("guests.addDialog.adding") : t("guests.addDialog.submit")}
           </Button>
         </Stack>
       }
@@ -102,30 +120,30 @@ function AddGuestDialog({ open, onClose, onSubmit }: AddGuestDialogProps) {
       <Stack gap="md">
         {error && <Alert variant="error">{error}</Alert>}
         <Input
-          label="Name"
+          label={t("guests.addDialog.name")}
           type="text"
-          placeholder="Full name"
+          placeholder={t("guests.addDialog.namePlaceholder")}
           value={fields.name}
           onChange={(e) => setField("name", e.target.value)}
         />
         <Input
-          label="Email"
+          label={t("guests.addDialog.email")}
           type="email"
-          placeholder="guest@example.com"
+          placeholder={t("guests.addDialog.emailPlaceholder")}
           value={fields.email}
           onChange={(e) => setField("email", e.target.value)}
         />
         <Input
-          label="Phone"
+          label={t("guests.addDialog.phone")}
           type="tel"
           placeholder="+1 (555) 000-0000"
           value={fields.phone}
           onChange={(e) => setField("phone", e.target.value)}
         />
         <Input
-          label="Notes"
+          label={t("guests.addDialog.notes")}
           type="text"
-          placeholder="Preferences, allergies, etc."
+          placeholder={t("guests.addDialog.notesPlaceholder")}
           value={fields.notes}
           onChange={(e) => setField("notes", e.target.value)}
         />
@@ -142,6 +160,7 @@ export interface GuestsPageProps {
 }
 
 export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
+  const { t } = useTranslation();
   const { selectedVenueId } = useVenue();
 
   const directory = (_useGuestDirectory ?? useGuestDirectory)({
@@ -193,9 +212,9 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
   if (!selectedVenueId && !isLoading) {
     return (
       <div className={styles.container}>
-        <PageHeader title="Guests" description="Manage your guest directory" />
+        <PageHeader title={t("guests.title")} description={t("guests.description")} />
         <div style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <Alert variant="warning">Please select a venue to view guests.</Alert>
+          <Alert variant="warning">{t("guests.selectVenue")}</Alert>
         </div>
       </div>
     );
@@ -208,7 +227,7 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <PageHeader title="Guests" description="Manage your guest directory" />
+        <PageHeader title={t("guests.title")} description={t("guests.description")} />
         <SearchOrchestrator
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -234,7 +253,7 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
                     SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
                 }}
               >
-                <Stat label={segment.name} value={segment.count} />
+                <Stat label={segmentName(segment.name, t)} value={segment.count} />
               </Card>
             ))}
           </div>
@@ -242,7 +261,7 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
 
         {loadFailure && (
           <ErrorRetryBanner
-            title="Couldn't load guests."
+            title={t("guests.loadFailed")}
             error={loadFailure.detail}
             details={loadFailure.raw}
             onRetry={refetch}
@@ -251,7 +270,7 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
         )}
 
         <Text className={styles.srOnly} aria-live="polite" role="status">
-          {`${guests.length} guest${guests.length !== 1 ? "s" : ""} shown`}
+          {t("guests.shown", { count: guests.length })}
         </Text>
 
         {!isLoading && !error && guests.length > 0 && (
@@ -262,22 +281,22 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
           <Stack direction="row" gap="sm" align="center" justify="center">
             <Button
               variant="ghost"
-              aria-label="Previous page"
+              aria-label={t("guests.pagination.previousAria")}
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
             >
-              Previous
+              {t("guests.pagination.previous")}
             </Button>
             <Text variant="caption" color="secondary">
-              Page {page} of {totalPages}
+              {t("guests.pagination.page", { page, total: totalPages })}
             </Text>
             <Button
               variant="ghost"
-              aria-label="Next page"
+              aria-label={t("guests.pagination.nextAria")}
               disabled={page >= totalPages}
               onClick={() => setPage(page + 1)}
             >
-              Next
+              {t("guests.pagination.next")}
             </Button>
           </Stack>
         )}

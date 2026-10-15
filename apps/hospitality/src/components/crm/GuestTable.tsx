@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { Badge, Button, Card, Tag, Text } from "@mattbutlerengineering/rialto";
 import type { Guest } from "@mbe/types";
@@ -13,14 +15,15 @@ export interface GuestTableProps {
 
 /* ── Helpers ────────────────────────────────── */
 
-function formatDate(isoString: string | null, fmt: VenueFormat): string {
-  if (!isoString) return "Never";
+function formatDate(isoString: string | null, fmt: VenueFormat, t: TFunction): string {
+  if (!isoString) return t("guests.table.never");
   return fmt.formatInstant(isoString, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
 /* ── Mobile guest card ──────────────────────── */
 
 function MobileGuestCard({ guest, onClick }: { guest: Guest; onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <Button type="button" className={styles.mobileCard} onClick={onClick}>
       <div className={styles.mobileCardHeader}>
@@ -28,7 +31,7 @@ function MobileGuestCard({ guest, onClick }: { guest: Guest; onClick: () => void
           {guest.name}
         </Text>
         <Badge variant="neutral" size="sm">
-          {guest.visitCount} {guest.visitCount === 1 ? "visit" : "visits"}
+          {t("crm.visit", { count: guest.visitCount })}
         </Badge>
       </div>
       <div className={styles.mobileCardContact}>
@@ -57,6 +60,7 @@ function MobileGuestCard({ guest, onClick }: { guest: Guest; onClick: () => void
 /* ── GuestTable ─────────────────────────────── */
 
 export function GuestTable({ guests, selectedGuestId, onRowClick }: GuestTableProps) {
+  const { t } = useTranslation();
   const fmt = useVenueFormat();
   const handleRowKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, guestId: string) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -74,11 +78,11 @@ export function GuestTable({ guests, selectedGuestId, onRowClick }: GuestTablePr
           <table className={styles.table}>
             <thead className={styles.thead}>
               <tr>
-                <th className={styles.th}>Guest</th>
-                <th className={styles.th}>Contact</th>
-                <th className={styles.th}>Visits</th>
-                <th className={styles.th}>Last Visit</th>
-                <th className={styles.th}>Tags</th>
+                <th className={styles.th}>{t("guests.table.guest")}</th>
+                <th className={styles.th}>{t("guests.table.contact")}</th>
+                <th className={styles.th}>{t("guests.table.visits")}</th>
+                <th className={styles.th}>{t("guests.table.lastVisit")}</th>
+                <th className={styles.th}>{t("guests.table.tags")}</th>
               </tr>
             </thead>
             <tbody className={styles.tbody}>
@@ -98,7 +102,7 @@ export function GuestTable({ guests, selectedGuestId, onRowClick }: GuestTablePr
                       className={styles.rowButton}
                       onClick={() => onRowClick(guest.id)}
                       onKeyDown={(e) => handleRowKeyDown(e, guest.id)}
-                      aria-label={`View details for ${guest.name}`}
+                      aria-label={t("guests.table.viewDetails", { name: guest.name })}
                     />
                     <Text variant="body" color="primary" className={styles.guestName}>
                       {guest.name}
@@ -122,7 +126,7 @@ export function GuestTable({ guests, selectedGuestId, onRowClick }: GuestTablePr
                     )}
                   </td>
                   <td className={styles.td}>{guest.visitCount}</td>
-                  <td className={styles.tdMuted}>{formatDate(guest.lastVisit, fmt)}</td>
+                  <td className={styles.tdMuted}>{formatDate(guest.lastVisit, fmt, t)}</td>
                   <td className={styles.tdTags}>
                     <div className={styles.tagList}>
                       {guest.tags?.map((tag) => (

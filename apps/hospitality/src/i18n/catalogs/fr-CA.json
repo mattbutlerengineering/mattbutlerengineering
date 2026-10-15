@@ -762,6 +762,339 @@
       "seating": "Installation…"
     }
   },
+  "errorBanner": {
+    "retry": "Réessayer",
+    "showDetails": "Afficher les détails"
+  },
+  "kpi": {
+    "unavailable": "{{label}}, non disponible"
+  },
+  "reservations": {
+    "title": "Réservations",
+    "description": "Consultez et gérez les réservations",
+    "loading": "Chargement des réservations…",
+    "tableUnavailable": "Table non disponible",
+    "relative": {
+      "justNow": "à l’instant",
+      "seconds": "il y a {{n}} s",
+      "minutes": "il y a {{n}} min",
+      "hours": "il y a {{n}} h"
+    },
+    "loaded": "Les réservations du {{date}} sont chargées.",
+    "updated": "Mis à jour {{when}}",
+    "kpi": {
+      "total": "Total",
+      "confirmed": "Confirmées",
+      "pending": "En attente",
+      "cancelled": "Annulées"
+    },
+    "filter": {
+      "all": "Toutes",
+      "CONFIRMED": "Confirmées",
+      "PENDING": "En attente",
+      "CANCELLED": "Annulées"
+    },
+    "search": {
+      "label": "Rechercher par nom de client",
+      "placeholder": "Rechercher par nom de client..."
+    },
+    "filterDate": "Filtrer par date",
+    "newReservation": "Nouvelle réservation",
+    "loadFailed": "Impossible de charger les réservations.",
+    "shown_one": "{{count}} réservation affichée",
+    "shown_many": "{{count}} de réservations affichées",
+    "shown_other": "{{count}} réservations affichées",
+    "emptyDay": {
+      "heading": "Rien au registre pour le {{date}}.",
+      "description": "Les nouvelles réservations s’affichent ici dès leur arrivée."
+    },
+    "none": {
+      "heading": "Aucune réservation",
+      "matching": "Aucune réservation ne correspond à « {{query}} ».",
+      "forStatus": {
+        "all": "Aucune réservation trouvée pour le {{date}}.",
+        "CONFIRMED": "Aucune réservation confirmée trouvée pour le {{date}}.",
+        "PENDING": "Aucune réservation en attente trouvée pour le {{date}}.",
+        "CANCELLED": "Aucune réservation annulée trouvée pour le {{date}}."
+      }
+    },
+    "col": {
+      "time": "Heure",
+      "guest": "Client",
+      "partySize": "Convives",
+      "table": "Table",
+      "status": "Statut",
+      "notes": "Notes",
+      "actions": "Actions"
+    },
+    "guestFallback": "Client",
+    "view": "Voir",
+    "viewAria": "Voir la réservation de {{name}} dans la chronologie",
+    "status": {
+      "PENDING": "En attente",
+      "CONFIRMED": "Confirmée",
+      "CANCELLED": "Annulée",
+      "COMPLETED": "Terminée",
+      "NO_SHOW": "Absence"
+    },
+    "visitOrdinal": {
+      "one": "{{count}}re visite",
+      "two": "{{count}}e visite",
+      "few": "{{count}}e visite",
+      "other": "{{count}}e visite"
+    },
+    "occasion": {
+      "label": "Occasion",
+      "none": "Aucune",
+      "birthday": "Anniversaire",
+      "anniversary": "Anniversaire de mariage",
+      "business": "Affaires",
+      "date_night": "Soirée en amoureux",
+      "other": "Autre"
+    },
+    "seating": {
+      "label": "Préférence de placement",
+      "no_preference": "Aucune préférence",
+      "booth": "Banquette",
+      "patio": "Terrasse",
+      "bar": "Bar",
+      "window": "Fenêtre",
+      "quiet": "Coin tranquille"
+    },
+    "live": {
+      "createdTitle": "Nouvelle réservation",
+      "createdDescription": "{{name}} — {{time}}",
+      "cancelledTitle": "Réservation annulée",
+      "cancelledDescription": "La réservation de {{name}} a été annulée"
+    }
+  },
+  "newReservation": {
+    "title": "Nouvelle réservation",
+    "guestName": "Nom du client",
+    "nameHint": "Nom, courriel ou téléphone : les clients connus s’affichent pendant la saisie.",
+    "namePlaceholder": "p. ex. Tremblay",
+    "nameRequired": "Le nom du client est obligatoire.",
+    "linkOnlyCaption": "Les modifications du courriel ou du téléphone ci-dessous ne touchent que cette réservation; le profil n’est pas modifié.",
+    "guestCleared": "Client retiré.",
+    "email": "Courriel du client",
+    "emailPlaceholder": "client@exemple.com",
+    "phone": "Téléphone du client",
+    "date": "Date",
+    "dateRequired": "La date est obligatoire.",
+    "startTime": "Heure de début",
+    "startTimeRequired": "L’heure de début est obligatoire.",
+    "partySize": "Convives",
+    "noTables": "Aucune table disponible pour {{size}} convives.",
+    "table": "Table",
+    "tableOption": "{{name}} ({{capacity}} places)",
+    "selectTable": "Veuillez sélectionner une table.",
+    "needContact": "Veuillez fournir un courriel ou un numéro de téléphone du client.",
+    "cancel": "Annuler",
+    "create": "Créer la réservation",
+    "creating": "Création…"
+  },
+  "crm": {
+    "clear": "Retirer",
+    "clearAria": "Retirer {{name}}",
+    "allergy": "Allergie : {{restriction}}",
+    "allergyList": "Allergie : {{list}}.",
+    "visit_one": "{{count}} visite",
+    "visit_many": "{{count}} de visites",
+    "visit_other": "{{count}} visites",
+    "noVisits": "Aucune visite enregistrée pour l’instant",
+    "noVisitsInline": "aucune visite enregistrée pour l’instant",
+    "noShow_one": "{{count}} absence",
+    "noShow_many": "{{count}} d’absences",
+    "noShow_other": "{{count}} absences",
+    "noContact": "aucun contact au dossier",
+    "stripLinked": "Utilisation du profil de {{name}}",
+    "stripRecognised": "Client reconnu : {{name}}",
+    "segment": {
+      "VIP": "VIP",
+      "Repeat": "Habitué",
+      "New": "Nouveau"
+    },
+    "risk": {
+      "risky": "À risque",
+      "standard": "Standard",
+      "trusted": "Fiable"
+    },
+    "lookup": {
+      "failure": "Impossible de rechercher des clients pour le moment : saisissez les renseignements comme d’habitude.",
+      "loading": "Recherche de clients…",
+      "noMatch": "Aucun client connu ne correspond. Poursuivez comme d’habitude.",
+      "more": "D’autres correspondances existent : continuez à saisir pour préciser.",
+      "listboxLabel": "Suggestions de clients",
+      "results_one": "{{count}} résultat disponible",
+      "results_many": "{{count}} de résultats disponibles",
+      "results_other": "{{count}} résultats disponibles"
+    },
+    "card": {
+      "specialOccasion": "Occasion spéciale",
+      "loadFailed": "Impossible de charger le profil du client.",
+      "retry": "Réessayer",
+      "allergyAlert": "Alerte allergie",
+      "dietary": "Restrictions alimentaires",
+      "contact": "Coordonnées",
+      "occasionHistory": "Historique des occasions",
+      "staffNotes": "Notes du personnel",
+      "showAll": "Tout afficher ({{count}})",
+      "newNote": "Nouvelle note du personnel",
+      "notePlaceholder": "Saisissez une note...",
+      "cancel": "Annuler",
+      "saving": "Enregistrement...",
+      "saveNote": "Enregistrer la note",
+      "addNote": "Ajouter une note",
+      "editProfile": "Modifier le profil"
+    },
+    "drawer": {
+      "nameRequired": "Le nom est obligatoire",
+      "invalidEmail": "Veuillez saisir une adresse courriel valide",
+      "invalidPhone": "Veuillez saisir un numéro de téléphone valide",
+      "updated": "Client mis à jour",
+      "editTitle": "Modifier {{name}}",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement...",
+      "close": "Fermer",
+      "editGuest": "Modifier le client",
+      "name": "Nom",
+      "namePlaceholder": "Nom complet",
+      "email": "Courriel",
+      "emailPlaceholder": "client@exemple.com",
+      "phone": "Téléphone",
+      "notes": "Notes",
+      "notesPlaceholder": "Préférences, allergies, etc.",
+      "tags": "Étiquettes",
+      "removeTag": "Retirer l’étiquette {{tag}}",
+      "addTag": "Ajouter une étiquette (appuyez sur Entrée)",
+      "dietaryOption": {
+        "vegetarian": "végétarien",
+        "vegan": "végétalien",
+        "gluten-free": "sans gluten",
+        "dairy-free": "sans produits laitiers",
+        "nut-free": "sans noix",
+        "halal": "halal",
+        "kosher": "casher",
+        "shellfish-free": "sans fruits de mer"
+      },
+      "loadingHistory": "Chargement de l’historique des réservations...",
+      "recent": "Réservations récentes",
+      "partyGuests_one": "{{count}} convive",
+      "partyGuests_many": "{{count}} de convives",
+      "partyGuests_other": "{{count}} convives"
+    }
+  },
+  "guests": {
+    "title": "Clients",
+    "description": "Gérez votre répertoire de clients",
+    "selectVenue": "Veuillez sélectionner un établissement pour voir les clients.",
+    "loadFailed": "Impossible de charger les clients.",
+    "shown_one": "{{count}} client affiché",
+    "shown_many": "{{count}} de clients affichés",
+    "shown_other": "{{count}} clients affichés",
+    "addGuest": "Ajouter un client",
+    "addAGuest": "Ajouter un client",
+    "search": {
+      "label": "Rechercher des clients",
+      "placeholder": "Rechercher des clients...",
+      "showing": "Affichage de {{shown}} sur {{total}} clients",
+      "noneFound": "Aucun client trouvé",
+      "noneYet": "Aucun client pour l’instant",
+      "tryAdjusting": "Essayez de modifier votre recherche.",
+      "getStarted": "Commencez par ajouter votre premier client."
+    },
+    "segments": {
+      "all": "Tous les clients",
+      "vip": "VIP",
+      "recent": "Récents",
+      "atRisk": "À risque",
+      "lapsed": "Inactifs",
+      "new": "Nouveaux"
+    },
+    "table": {
+      "guest": "Client",
+      "contact": "Coordonnées",
+      "visits": "Visites",
+      "lastVisit": "Dernière visite",
+      "tags": "Étiquettes",
+      "never": "Jamais",
+      "viewDetails": "Voir les détails de {{name}}"
+    },
+    "pagination": {
+      "previous": "Précédent",
+      "previousAria": "Page précédente",
+      "next": "Suivant",
+      "nextAria": "Page suivante",
+      "page": "Page {{page}} sur {{total}}"
+    },
+    "addDialog": {
+      "title": "Ajouter un client",
+      "cancel": "Annuler",
+      "adding": "Ajout...",
+      "submit": "Ajouter le client",
+      "name": "Nom",
+      "namePlaceholder": "Nom complet",
+      "email": "Courriel",
+      "emailPlaceholder": "client@exemple.com",
+      "phone": "Téléphone",
+      "notes": "Notes",
+      "notesPlaceholder": "Préférences, allergies, etc."
+    }
+  },
+  "waitlist": {
+    "title": "Liste d’attente",
+    "description": "Clients en attente d’une table",
+    "loadFailed": "Impossible de charger la liste d’attente.",
+    "empty": {
+      "heading": "Personne en attente",
+      "description": "La liste d’attente est vide pour le moment.",
+      "add": "Ajouter un client"
+    },
+    "form": {
+      "heading": "Ajouter à la liste d’attente",
+      "guestName": "Nom du client",
+      "nameHint": "Nom ou téléphone : les clients connus s’affichent pendant la saisie.",
+      "namePlaceholder": "p. ex. Tremblay",
+      "nameRequired": "Le nom du client est obligatoire.",
+      "guestPhone": "Téléphone du client",
+      "phoneRequired": "Le téléphone du client est obligatoire.",
+      "phoneInvalid": "Saisissez un numéro de téléphone valide.",
+      "partySize": "Convives",
+      "submit": "Ajouter à la liste d’attente",
+      "adding": "Ajout…",
+      "notAdded": "Non ajouté.",
+      "guestCleared": "Client retiré."
+    },
+    "row": {
+      "party": "Groupe de {{size}}",
+      "wait": "~{{minutes}} min",
+      "waitUnavailable": "Estimation non disponible",
+      "notified": "Avisé",
+      "table": "Table",
+      "tableOption": "{{name}} ({{capacity}} places)",
+      "noTables": "Aucune table disponible",
+      "seat": "Installer",
+      "seating": "Installation…",
+      "notify": "Aviser",
+      "notifying": "Envoi de l’avis…",
+      "cancel": "Annuler",
+      "cancelling": "Annulation…",
+      "selectTable": "Veuillez sélectionner une table.",
+      "theTable": "la table",
+      "splitFailure": "Installé à {{table}}, mais la liste d’attente n’a pas été mise à jour. Actualisez pour la remettre en ordre.",
+      "notNotified": "Non avisé.",
+      "notRemoved": "Non retiré.",
+      "notSeated": "Non installé."
+    },
+    "announce": {
+      "added": "{{name}}, groupe de {{size}}, a été ajouté à la liste d’attente.",
+      "notified": "{{name}} a été avisé.",
+      "removed": "{{name}} a été retiré de la liste d’attente.",
+      "seated": "{{name}} a été installé à {{table}}.",
+      "viewOnTimeline": "Voir dans la chronologie"
+    }
+  },
   "staffLocaleSwitcher": {
     "title": "Langue et région",
     "previewLabel": "Aperçu"
