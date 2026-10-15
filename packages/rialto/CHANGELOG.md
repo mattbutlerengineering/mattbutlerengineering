@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.6.1
+
+### Patch Changes
+
+- [#6658](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6658) [`b2f41f7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b2f41f742115a9230e4e6f5067a43a71d8c088a2) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Navbar: name the root nav landmark (new optional `label` prop, default "Main navigation"; consumer `aria-label`/`aria-labelledby` still wins) and link each submenu toggle to its submenu via `aria-controls` while expanded.
+
+- [#6656](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6656) [`2dac532`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2dac5322511edd85f9690a5762238e2074bf9f54) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Sidebar: render each section as `role="group"` labelled by its section label via `aria-labelledby` (omitted when unlabeled or collapsed).
+
 ## 0.6.0
 
 ### Minor Changes
