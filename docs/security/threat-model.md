@@ -136,13 +136,12 @@ The agent runtime grants access to external services via MCP servers declared in
 Claude Code's `PreToolUse` hooks run before every tool call in interactive sessions.
 Current hooks relevant to security:
 
-| Hook file                      | What it does                                                                                                                             |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `gsd-prompt-guard.js`          | Scans `Write`/`Edit` calls targeting `.planning/` files for 12 injection patterns and invisible Unicode. Advisory only — does not block. |
-| `gsd-workflow-guard.js`        | GSD workflow enforcement.                                                                                                                |
-| `regen-dep-graph.sh`           | Re-generates dependency graph when `package.json` changes (PostToolUse).                                                                 |
-| `regen-after-update-branch.sh` | Re-runs `pnpm regen` after `gh pr update-branch` to prevent artifact drift (PostToolUse).                                                |
-| `session-logger.sh`            | Writes session metadata (commits, files changed) to `.claude/session-logs/` on Stop (PostToolUse).                                       |
+| Hook file               | What it does                                                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `gsd-prompt-guard.js`   | Scans `Write`/`Edit` calls targeting `.planning/` files for 12 injection patterns and invisible Unicode. Advisory only — does not block. |
+| `gsd-workflow-guard.js` | GSD workflow enforcement.                                                                                                                |
+| `regen-dep-graph.sh`    | Re-generates dependency graph when `package.json` changes (PostToolUse).                                                                 |
+| `session-logger.sh`     | Writes session metadata (commits, files changed) to `.claude/session-logs/` on Stop (PostToolUse).                                       |
 
 **Note:** `gsd-prompt-guard.js` is the only hook that scans content for injection patterns.
 Its scope is limited to `.planning/` files. It is advisory — detection generates a warning
