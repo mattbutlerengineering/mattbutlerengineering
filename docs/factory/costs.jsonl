@@ -16,3 +16,4 @@
 {"wo": "WO-0017", "run_id": "conductor-b20261014c-6639-build-2", "model": "claude-sonnet-5", "tokens": 404379, "cost": 1.0397956, "outcome": "completed", "at": "2026-10-15"}
 {"wo": "#6665", "run_id": "conductor-sdlc-ci-6665-spec-2", "model": "claude-fable-5", "tokens": 1578263, "cost": 4.390109, "outcome": "completed", "at": "2026-10-16"}
 {"wo": "WO-0066", "run_id": "conductor-sdlc-ci-6665-build-1", "model": "claude-sonnet-5", "tokens": 2411153, "cost": 1.0140146, "outcome": "completed", "at": "2026-10-16"}
+{"wo": "WO-0066", "run_id": "conductor-sdlc-ci-6665-build-2", "model": "claude-sonnet-5", "tokens": 821555, "cost": 0.5480347999999999, "outcome": "completed", "at": "2026-10-16"}
