@@ -61,11 +61,11 @@ step on anything but a clean pass.
    `failed`/`pending`/`gate-missing`/`gate-unattributed`/`unknown` here.
 
 4. **Review.** First read the changed files (`gh pr diff <N> --name-only`)
-   and the labels from step 1. `qualifiesForLowRiskFastPath` returns `true`
-   for a docs-only diff that touches `**/prd.md` or `**/architecture.md`,
-   yet the profile holds those for a human merge (ADR-0087) — so a gate-path
-   match or a `needs-review` label is checked **before** the fast path is
-   consulted, not after (found in the #6639 dry walk-through on #6674). A
+   and the labels from step 1. The profile holds gate-path PRs (`GATE_PATHS`)
+   for a human merge (ADR-0087), so a gate-path match or a `needs-review`
+   label is checked **before** the fast path is consulted, not after (found
+   in the #6639 dry walk-through on #6674); since #6769
+   `qualifiesForLowRiskFastPath` also returns `false` for gate paths. A
    gate-path PR still gets the review below, then step 5 holds it. Follow `.claude/implement-queue.md` § reviewers (and the
    `fast-path` hook's `qualifiesForLowRiskFastPath` short-circuit, which
    composes `isLowRiskPR` with `reviewersForDiff` and already decides when
