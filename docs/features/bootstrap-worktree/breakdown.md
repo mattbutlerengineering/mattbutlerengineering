@@ -49,7 +49,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 3: sessions discover it (SC-4)
 
-- [ ] **WO-8. SessionStart hint hook** —
+- [x] **WO-8. SessionStart hint hook** —
       `.claude/hooks/worktree-bootstrap-hint.sh` (linked-worktree test,
       `--check` probe, one-line hint, unconditional `exit 0`) wired in
       `.claude/settings.json` beside `session-log-rotate.sh` with the same
