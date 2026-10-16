@@ -13,3 +13,4 @@
 {"wo": "#6367", "run_id": "conductor-b20261013-6367-review-2", "model": "claude-fable-5", "tokens": 207680, "cost": 2.140961, "outcome": "agent-failed", "at": "2026-10-14"}
 {"wo": "#6634", "run_id": "conductor-b20261014c-6634-spec-1", "model": "claude-fable-5", "tokens": 2480445, "cost": 6.128031, "outcome": "completed", "at": "2026-10-15"}
 {"wo": "#6634", "run_id": "conductor-b20261014c-6634-build-1", "model": "claude-sonnet-5", "tokens": 2753491, "cost": 1.1124440000000002, "outcome": "completed", "at": "2026-10-15"}
+{"wo": "#6634", "run_id": "conductor-b20261014c-6634-build-3", "model": "claude-sonnet-5", "tokens": 5684990, "cost": 1.81073, "outcome": "completed", "at": "2026-10-16"}
