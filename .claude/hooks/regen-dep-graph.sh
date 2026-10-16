@@ -18,7 +18,18 @@ case "$file_path" in
   */node_modules/*|*/dist/*|*/.next/*) exit 0 ;;
 esac
 
-root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+# The tree to act on is the one the edited file lives in, NOT
+# $CLAUDE_PROJECT_DIR: hooks run with that set to the MAIN checkout even for a
+# worktree-isolated subagent (measured 2026-10-15, see gotchas.md). Resolving
+# it from the project dir regenerated the main checkout's artifacts and left
+# the worktree's own stale — the worker's PR then shipped them that way — and
+# the repo-root-relative strip below no-opped, because the main checkout's
+# prefix does not match a worktree path. The project dir stays as the fallback
+# for a payload whose path names no git tree.
+root=$(git -C "$(dirname "$file_path")" rev-parse --show-toplevel 2>/dev/null)
+if [[ -z "$root" || ! -d "$root" ]]; then
+  root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+fi
 [[ -z "$root" || ! -d "$root" ]] && exit 0
 cd "$root" || exit 0
 
