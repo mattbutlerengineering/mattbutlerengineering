@@ -33,6 +33,10 @@ function interpolatePath(path: string, params: Record<string, unknown> | undefin
   );
 }
 
+function hasHeader(headers: Record<string, string>, name: string): boolean {
+  return Object.keys(headers).some((key) => key.toLowerCase() === name);
+}
+
 /** The single 2xx body schema of a definition (`undefined` for a body-less 204). */
 function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined {
   for (const [status, response] of Object.entries(def.responses)) {
@@ -85,6 +89,12 @@ export interface PerRequestOptions {
    * unless explicitly opted in.
    */
   idempotentRetry?: boolean;
+  /**
+   * Extra headers for this call only (e.g. `x-session-id`, or a manage-token
+   * `Authorization: Bearer ...`). An explicit `Authorization` here wins over
+   * the client-wide `getAccessToken` token.
+   */
+  headers?: Record<string, string>;
 }
 
 export class ApiClient {
@@ -108,9 +118,10 @@ export class ApiClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(options.headers as Record<string, string>),
+      ...override?.headers,
     };
 
-    if (getAccessToken) {
+    if (getAccessToken && !hasHeader(headers, "authorization")) {
       const token = await getAccessToken();
       if (token) {
         headers.Authorization = `Bearer ${token}`;

@@ -112,6 +112,19 @@ function _typeLevelAssertions(): void {
     path: "/v1/things",
     responses: { 200: { body: null }, 201: { body: null } },
   });
+  // rejects a 2xx status mapped to problem() (was a registerEndpoint boot-time throw only)
+  // @ts-expect-error — 200 cannot be a problem response
+  defineEndpoint({
+    method: "GET",
+    path: "/v1/things",
+    responses: { 200: problem() },
+  });
+  // a declared 207 counts as the single 2xx response
+  defineEndpoint({
+    method: "POST",
+    path: "/v1/things/batch",
+    responses: { 207: { body: z.object({ results: z.array(z.string()) }) } },
+  });
 }
 
 // Referenced so noUnusedLocals is satisfied; it is compiled, never executed.
@@ -147,6 +160,15 @@ describe("defineEndpoint", () => {
       status: 204,
       response: { description: "Deleted", body: null },
     });
+  });
+
+  it("successResponse() treats a declared 207 as the success response", () => {
+    const batch = defineEndpoint({
+      method: "POST",
+      path: "/v1/batch",
+      responses: { 207: { body: z.object({ results: z.array(z.string()) }) } },
+    });
+    expect(successResponse(batch).status).toBe(207);
   });
 
   it("successResponse() throws when a definition has no or several 2xx entries (runtime backstop)", () => {

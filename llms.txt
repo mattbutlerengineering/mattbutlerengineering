@@ -13150,6 +13150,9 @@
       function interpolatePath(path: string, params: Record<string, unknown> | undefined): string { /* ... */ }
     </item>
     <item priority="medium">
+      function hasHeader(headers: Record<string, string>, name: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
       function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined { /* ... */ }
     </item>
     <item priority="low">
@@ -13171,6 +13174,7 @@
         maxRetries?: number;
         timeout?: number;
         idempotentRetry?: boolean;
+        headers?: Record<string, string>;
       }
     </item>
     <item priority="high">
