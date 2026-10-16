@@ -48,7 +48,7 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
 
 2. **Find the code** — Use Grep/Glob to locate the relevant files. Read them to understand the current implementation and existing patterns.
 
-   **If the issue touches a Prisma schema or migration**, invoke the `/prisma-migrations` skill first for the house migration workflow (dev vs. prod, baselining, destructive-change rules) before writing the migration.
+   **If the issue touches a Prisma schema or migration**, invoke the `/idea-to-prod:prisma-migrations` skill first for the house migration workflow (dev vs. prod, baselining, destructive-change rules) before writing the migration.
 
 3. **TDD implementation** — Work in vertical slices. For each slice:
    - Write ONE failing test (RED), run it, confirm it fails
