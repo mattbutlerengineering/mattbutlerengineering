@@ -72,6 +72,15 @@ describe("LocalePicker", () => {
     expect(items[3]!.textContent).toContain("Traduction autom.");
   });
 
+  it("keeps each endonym on one line next to its machine-translation tag (#6866)", () => {
+    const { runtime } = makeRuntime();
+    renderPicker(runtime);
+    openMenu();
+    const endonym = screen.getByText("Español (México)");
+    expect(endonym.className).toMatch(/endonym/);
+    expect(endonym.closest("[role=menuitem]")).not.toBeNull();
+  });
+
   it("names the trigger with the current locale, including when the sidebar is collapsed", () => {
     const { runtime } = makeRuntime();
     renderPicker(runtime, { collapsed: true });

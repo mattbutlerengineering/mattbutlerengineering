@@ -87,7 +87,7 @@ export function LocalePicker({
             }
             items={SUPPORTED_LOCALES.map((l) => ({
               id: l.tag,
-              label: l.endonym,
+              label: <Text className={styles.endonym}>{l.endonym}</Text>,
               icon: (
                 <Text as="span" aria-hidden>
                   {l.tag === current ? "✓" : ""}

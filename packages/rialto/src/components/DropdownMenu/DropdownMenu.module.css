@@ -22,6 +22,12 @@
   transform-origin: top right;
 }
 
+/* Opaque in every theme. The composed glass surface is translucent, and its
+   rule can land after .menu in the bundle, so out-rank it by specificity. */
+.wrapper .menu {
+  background: var(--rialto-surface-elevated);
+}
+
 /* Opens upward for triggers pinned to the bottom of a container */
 .menu[data-side="top"] {
   top: auto;
@@ -31,10 +37,6 @@
 
 [dir="rtl"] .menu[data-side="top"] {
   transform-origin: bottom right;
-}
-
-:global([data-theme="dark"]) .menu {
-  background: var(--rialto-surface-elevated);
 }
 
 .menuRight {
@@ -135,6 +137,7 @@
   font-family: var(--rialto-font-mono);
   color: var(--rialto-text-tertiary);
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 /* ── Label (sub-section heading) ─────────────── */

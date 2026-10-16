@@ -23,3 +23,8 @@
   align-items: center;
   gap: var(--rialto-space-xs);
 }
+
+/* Menu item label: keep "Español (México)" on one line beside its MT tag (#6866). */
+.endonym {
+  white-space: nowrap;
+}
