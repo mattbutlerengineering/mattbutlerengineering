@@ -9778,6 +9778,11 @@
   </file>
   <file path="services/reservations/src/services/table.ts">
     <item priority="high">
+      class TableConcurrentUpdateError {
+        
+      }
+    </item>
+    <item priority="high">
       export function mapPrismaTable(table: {
         id: string;
         name: string;

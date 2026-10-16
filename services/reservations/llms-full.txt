@@ -5723,7 +5723,7 @@
             fastify.reservationEvents.emitTableUpdated(table);
             return { data: table };
           } catch (err) {
-            if (err instanceof TableTransitionError) {
+            if (err instanceof TableTransitionError || err instanceof TableConcurrentUpdateError) {
               const error = new Error(err.message) as Error & { statusCode?: number };
               error.statusCode = 409;
               throw error;
@@ -13943,6 +13943,14 @@
     }
   </file>
   <file path="src/services/table.ts">
+    export class TableConcurrentUpdateError extends Error {
+      constructor(id: string, status: string) {
+        super(
+          `Table ${id} concurrent update conflict: lost race moving to ${status}. Another status change completed first.`
+        );
+        this.name = "TableConcurrentUpdateError";
+      }
+    }
     export function mapPrismaTable(table: {
       id: string;
       name: string;
@@ -14082,16 +14090,13 @@
         const current = await prisma.table.findUnique({ where: { id } });
         if (!current) return null;
         transitionTable(current.status, status as TableStatus);
-        try {
-          const table = await prisma.table.update({
-            where: { id },
-            data: { status: status as TableStatus },
-          });
-          return mapPrismaTable(table);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
-        }
+        const { count } = await prisma.table.updateMany({
+          where: { id, status: current.status },
+          data: { status: status as TableStatus },
+        });
+        if (count === 0) throw new TableConcurrentUpdateError(id, status);
+        const table = await prisma.table.findUnique({ where: { id } });
+        return table ? mapPrismaTable(table) : null;
       },
     
       async delete(id: string): Promise<boolean> {

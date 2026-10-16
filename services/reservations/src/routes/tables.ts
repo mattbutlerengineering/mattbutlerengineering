@@ -18,7 +18,7 @@ import {
 } from "@mbe/types";
 import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
-import { TableTransitionError } from "../services/table.js";
+import { TableTransitionError, TableConcurrentUpdateError } from "../services/table.js";
 import { bodyVenueId, inNamedVenueContext, queryVenueId } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -355,7 +355,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.reservationEvents.emitTableUpdated(table);
         return { data: table };
       } catch (err) {
-        if (err instanceof TableTransitionError) {
+        if (err instanceof TableTransitionError || err instanceof TableConcurrentUpdateError) {
           const error = new Error(err.message) as Error & { statusCode?: number };
           error.statusCode = 409;
           throw error;
