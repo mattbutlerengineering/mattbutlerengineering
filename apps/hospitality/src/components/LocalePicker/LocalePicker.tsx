@@ -87,13 +87,23 @@ export function LocalePicker({
             }
             items={SUPPORTED_LOCALES.map((l) => ({
               id: l.tag,
-              label: l.endonym,
+              label: (
+                <Text as="span" className={styles.itemLabel}>
+                  <Text as="span" className={styles.endonym}>
+                    {l.endonym}
+                  </Text>
+                  {MACHINE_TRANSLATION_TAGS[l.tag] && (
+                    <Text as="span" variant="caption" className={styles.mtTag}>
+                      {MACHINE_TRANSLATION_TAGS[l.tag]}
+                    </Text>
+                  )}
+                </Text>
+              ),
               icon: (
                 <Text as="span" aria-hidden>
                   {l.tag === current ? "✓" : ""}
                 </Text>
               ),
-              shortcut: MACHINE_TRANSLATION_TAGS[l.tag],
               onSelect: () => void pick(l.tag),
             }))}
           />
