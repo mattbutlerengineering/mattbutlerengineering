@@ -9,7 +9,7 @@ cadence: Daily 5:11pm PT
 # mbe-evening
 
 Authoritative prompt for the `mbe-evening` RemoteTrigger, captured byte-for-byte
-from `job_config.ccr.events[0]` via `RemoteTrigger get` on 2026-08-03 (#3582). If
+from `job_config.ccr.events[0]` via `RemoteTrigger get` on 2026-08-03 (#3582); live trigger re-synced to this file on 2026-10-16 (#6831). If
 this file and the live trigger ever disagree, this file wins — see
 [`docs/scheduled-tasks.md`](../scheduled-tasks.md#editing-a-routine) for the
 `update`-clobbers-`job_config` trap and the rule for editing the live trigger.
