@@ -100,6 +100,27 @@ the guard shape; no component was unclear at cut time.
 - 2026-10-15 — Blueprint stops here per `stop-after: decompose` in
   autorun-brief.md; Implement onward belongs to a later Worker with
   GitHub access (WO-0066 needs Actions logs; WO-0070 needs a pushed PR).
+- 2026-10-15 — WO-0066 attempted by the implement Worker on
+  `conductor/sdlc-ci-6665` and still blocked: this worktree's tool
+  grant is `Read, Edit, Glob, Grep, Bash(python3 *), Bash(bash
+scripts/conductor-gate.sh), git add/commit/status/diff/log` — no
+  `gh`, no `WebFetch`, no push, and the Conductor item's own boundary
+  text confirms "this environment carries no GitHub credential." The
+  measurement's acceptance criterion needs `gh run view <id> --json
+jobs` and a real Test-job "Run tests with coverage" log to count
+  `cache hit, replaying` vs `cache miss, executing` `#build` lines —
+  none of that is reachable from here. `docs/audits/ci-conditional-steps-2026-10-10.md`
+  was checked as a possible substitute (it already reads 25 real
+  `ci.yml` PR runs via `gh run view`) but only times Test as a whole
+  job (median 6.1 min / 7 billed) — it does not break out `^build`
+  cache hits by producer, so it cannot stand in for this measurement.
+  Per the protocol ("the check could not run — no review surface, no
+  credentials, no network ... name why it is blocked, never silence
+  it"), the item stays unchecked rather than recording an invented
+  run id or verdict. Remains: "Blocked by: — (needs GitHub Actions log
+  access; this blueprint environment has none)" — true again for this
+  Worker, not just the Blueprint one. Re-dispatch WO-0066 to a session
+  with `gh` + a real GitHub credential.
 - Ordering constraint from #6665: depends on #6664 (same `test` job);
   not parallel-safe — the implement Worker lands after it.
 - The protocol's open-PRs pre-flight could not run in this environment
