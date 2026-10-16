@@ -53,7 +53,9 @@
       ? [exactly_one_2xx_response_required_none_declared: never]
       : true extends IsUnion<SuccessKey<R>>
         ? [exactly_one_2xx_response_required_several_declared: never]
-        : [];
+        : R[SuccessKey<R> & keyof R] extends ProblemResponse
+          ? [a_2xx_response_cannot_be_a_problem_response: never]
+          : [];
     export function defineEndpoint<const D extends AnyEndpointDefinition>(
       def: D,
       ..._contractCheck: DefinitionCheck<D>

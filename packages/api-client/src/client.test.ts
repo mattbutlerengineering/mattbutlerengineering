@@ -1125,6 +1125,57 @@ describe("ApiClient.call — execute an endpoint definition", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
+  it("sends per-call headers (x-session-id, manage-token Bearer) from the third argument", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: item }));
+
+    await client().call(
+      getItem,
+      { params: { id: "g1" } },
+      { headers: { "x-session-id": "sess-1", Authorization: "Bearer manage-tok" } }
+    );
+
+    const headers = mockFetch.mock.calls[0]![1]?.headers as Record<string, string>;
+    expect(headers["x-session-id"]).toBe("sess-1");
+    expect(headers.Authorization).toBe("Bearer manage-tok");
+    expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("an explicit per-call Authorization beats the client-wide access token", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: item }));
+    const authed = new ApiClient({ baseUrl: "https://api.test.com", getAccessToken: () => "user" });
+
+    await authed.call(
+      getItem,
+      { params: { id: "g1" } },
+      { headers: { Authorization: "Bearer manage-tok" } }
+    );
+
+    const headers = mockFetch.mock.calls[0]![1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer manage-tok");
+  });
+
+  it("handles a declared 207 as success and validates its body", async () => {
+    const batch = defineEndpoint({
+      method: "POST",
+      path: "/v1/items/batch",
+      body: z.object({ ids: z.array(z.string()) }),
+      responses: {
+        207: {
+          body: z.object({ results: z.array(z.object({ id: z.string(), status: z.number() })) }),
+        },
+      },
+    });
+    const results = [
+      { id: "a", status: 200 },
+      { id: "b", status: 409 },
+    ];
+    mockFetch.mockResolvedValueOnce(jsonResponse({ results }, 207));
+
+    const result = await client().call(batch, { body: { ids: ["a", "b"] } });
+
+    expect(result).toEqual({ results });
+  });
+
   it("still retries a GET definition on 503", async () => {
     mockFetch
       .mockResolvedValueOnce(

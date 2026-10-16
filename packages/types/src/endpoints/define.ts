@@ -50,7 +50,7 @@ export interface EndpointDefinition<
 /** Any endpoint definition — the constraint the adapters accept. */
 export type AnyEndpointDefinition = EndpointDefinition;
 
-const SUCCESS_STATUSES = [200, 201, 202, 203, 204, 205, 206] as const;
+const SUCCESS_STATUSES = [200, 201, 202, 203, 204, 205, 206, 207] as const;
 type SuccessStatus = (typeof SUCCESS_STATUSES)[number];
 
 /** Names of the `:segments` in a Fastify path. */
@@ -73,7 +73,7 @@ type ResponsesOf<D> = D extends { readonly responses: infer X } ? X : never;
  * Compile-time contract checks, surfaced as a required extra argument whose
  * label names the violation (`Expected 2 arguments, but got 1` + the label):
  * `params` keys must equal the path's `:segments`, and there must be exactly
- * one 2xx response.
+ * one 2xx response, and that response must not be a `problem()`.
  */
 type DefinitionCheck<D extends AnyEndpointDefinition> = [PathParamNames<D["path"]>] extends [never]
   ? ParamsSchemaOf<D> extends z.ZodObject
@@ -89,7 +89,9 @@ type SuccessCheck<R> = [SuccessKey<R>] extends [never]
   ? [exactly_one_2xx_response_required_none_declared: never]
   : true extends IsUnion<SuccessKey<R>>
     ? [exactly_one_2xx_response_required_several_declared: never]
-    : [];
+    : R[SuccessKey<R> & keyof R] extends ProblemResponse
+      ? [a_2xx_response_cannot_be_a_problem_response: never]
+      : [];
 
 /**
  * Declare an endpoint. An identity function that exists for inference and

@@ -9202,7 +9202,9 @@
       ? [exactly_one_2xx_response_required_none_declared: never]
       : true extends IsUnion<SuccessKey<R>>
         ? [exactly_one_2xx_response_required_several_declared: never]
-        : [];
+        : R[SuccessKey<R> & keyof R] extends ProblemResponse
+          ? [a_2xx_response_cannot_be_a_problem_response: never]
+          : [];
     export function defineEndpoint<const D extends AnyEndpointDefinition>(
       def: D,
       ..._contractCheck: DefinitionCheck<D>
@@ -49841,6 +49843,9 @@
         encodeURIComponent(String(params?.[name]))
       );
     }
+    function hasHeader(headers: Record<string, string>, name: string): boolean {
+      return Object.keys(headers).some((key) => key.toLowerCase() === name);
+    }
     function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined {
       for (const [status, response] of Object.entries(def.responses)) {
         const code = Number(status);
@@ -49870,6 +49875,12 @@
        * unless explicitly opted in.
        */
       idempotentRetry?: boolean;
+      /**
+       * Extra headers for this call only (e.g. `x-session-id`, or a manage-token
+       * `Authorization: Bearer ...`). An explicit `Authorization` here wins over
+       * the client-wide `getAccessToken` token.
+       */
+      headers?: Record<string, string>;
     }
     export class ApiClient {
       private readonly timeout: number;
@@ -49892,9 +49903,10 @@
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
           ...(options.headers as Record<string, string>),
+          ...override?.headers,
         };
     
-        if (getAccessToken) {
+        if (getAccessToken && !hasHeader(headers, "authorization")) {
           const token = await getAccessToken();
           if (token) {
             headers.Authorization = `Bearer ${token}`;
