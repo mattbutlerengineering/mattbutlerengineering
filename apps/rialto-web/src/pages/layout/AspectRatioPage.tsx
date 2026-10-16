@@ -24,7 +24,7 @@ function RatioBox({ label }: { label: string }) {
         borderRadius: "var(--rialto-radius-soft)",
         fontFamily: "var(--rialto-font-mono)",
         fontSize: "var(--rialto-text-xs)",
-        color: "var(--rialto-text-tertiary)",
+        color: "var(--rialto-text-primary)",
       }}
     >
       {label}

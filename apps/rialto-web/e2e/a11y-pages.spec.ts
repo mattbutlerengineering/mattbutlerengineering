@@ -70,3 +70,39 @@ test("a11y: Tape Chart page has no serious axe violations (including contrast)",
     `Tape Chart page has ${serious.length} critical/serious a11y violations:\n${serious.map((v) => `  - ${v.id} (${v.nodes.length} instances)`).join("\n")}`
   ).toHaveLength(0);
 });
+
+// Iteration 6 (#6715): component showcase pages the ui-quality loop kept
+// flagging axe-serious/-moderate. Full rule set (colour contrast and landmark
+// uniqueness included), both themes, any impact level fails.
+const ITERATION_6_PAGES = [
+  "aspect-ratio",
+  "avatar",
+  "breadcrumb",
+  "data-list",
+  "dialog",
+  "divider",
+  "drawer",
+  "dropdown-menu",
+  "pagination",
+  "scroll-area",
+];
+
+for (const scheme of ["light", "dark"] as const) {
+  for (const slug of ITERATION_6_PAGES) {
+    test(`a11y: ${slug} page has zero axe violations (${scheme})`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: "reduce", colorScheme: scheme });
+      await page.goto(`components/${slug}`);
+      await page.waitForLoadState("networkidle");
+      // Without this the dark arm would silently audit the light theme if the
+      // colorScheme -> data-theme pipeline ever regressed.
+      await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+
+      const { violations } = await new AxeBuilder({ page }).analyze();
+
+      expect(
+        violations,
+        `${slug} (${scheme}) has ${violations.length} axe violations:\n${violations.map((v) => `  - ${v.id} [${v.impact}] (${v.nodes.length} instances)`).join("\n")}`
+      ).toHaveLength(0);
+    });
+  }
+}
