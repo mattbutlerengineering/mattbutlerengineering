@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.6.6
+
+### Patch Changes
+
+- [#6823](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6823) [`34f155b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/34f155bde5eddf5e5236bbe3ae5567595800b525) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Input: stop hiding the `endIcon` slot with `aria-hidden`, so interactive end content (for example a password show/hide button) stays reachable by assistive technology. Decorative icons remain hidden through the icon component itself.
+
 ## 0.6.5
 
 ### Patch Changes
