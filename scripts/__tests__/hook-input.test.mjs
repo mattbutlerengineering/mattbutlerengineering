@@ -270,8 +270,6 @@ const bashCommandContaining = (needle) => bashHookCommands().find((cmd) => cmd.i
 
 /**
  * The three hooks repaired off the fictional `$CLAUDE_BASH_COMMAND`.
- * `regen-after-update-branch.sh` is deliberately NOT here — see the
- * env-var scan below.
  */
 const REPAIRED_BASH_HOOKS = ["pre-bash-guard.sh", "pre-push-typecheck.sh", "verify-push-sha.sh"];
 
@@ -715,14 +713,7 @@ describe("no hook reads the fictional Bash-tool env vars", () => {
     expect(filesContaining(["CLAUDE_BASH_COMMAND"])).toEqual([]);
   });
 
-  it("confines CLAUDE_TOOL_INPUT/CLAUDE_TOOL_OUTPUT to the one known-inert hook", () => {
-    // regen-after-update-branch.sh is deliberately left inert: repairing its
-    // input would arm never-executed `git checkout origin/$branch --detach`
-    // + `git push --no-verify` against the live working tree (lines 36-58).
-    // Recorded in docs/backlog.md; rewrite those lines before adopting the
-    // adapter there. Exact equality keeps that repair a deliberate act.
-    expect(filesContaining(["CLAUDE_TOOL_INPUT", "CLAUDE_TOOL_OUTPUT"])).toEqual([
-      "regen-after-update-branch.sh",
-    ]);
+  it("references no CLAUDE_TOOL_INPUT/CLAUDE_TOOL_OUTPUT anywhere under .claude/hooks/", () => {
+    expect(filesContaining(["CLAUDE_TOOL_INPUT", "CLAUDE_TOOL_OUTPUT"])).toEqual([]);
   });
 });
