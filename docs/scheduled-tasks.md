@@ -59,6 +59,7 @@ not a new row in the catalog below and not an edit of the builtin array in
 | `mbe-ui-quality` _(new)_     | `trig_01DYzgRBp66dxwQ828y9x1jV`                                                                                                                                       | [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md)                 | Daily 12:23am       | `23 7 * * *`                                              | **opus** | 1 PR (`ledger <date>`) + ≤1 fix PR + issues               | Captures due routes of the three apps, judges them against the rubric, files findings (see note)                                                                                                   |
 | `mbe-feature-drain` _(new)_  | `trig_01RT7JnCPWyxw4fcKKVmCTb8` (`:03`) + `trig_013Yd7dJ2X98nAwME7fi7iqx` (`:33`)                                                                                     | [`routines/mbe-feature-drain.md`](./routines/mbe-feature-drain.md)           | Every 30 min        | `3 * * * *` + `33 * * * *`                                | sonnet   | merged PRs (`… (mbe-feature-drain #N)`) + heartbeat       | Finish in-flight user-facing work (red main → open PRs → orphaned issues → `ready`), then decompose one post-veto proposal; two offset hourly triggers (see note)                                  |
 | `mbe-prune` _(new)_          | `trig_01TBQ4jQS9UGwJTxrWfWBCyQ` (`:14`) + `trig_01SoduJryRjjQN5D75h3ZJjv` (`:29`) + `trig_01CzgACLRQpi8ApXfSUM7T5q` (`:44`) + `trig_016WxmLRG8kYUymu3QmwEk3P` (`:59`) | [`routines/mbe-prune.md`](./routines/mbe-prune.md)                           | Every 15 min        | `14 * * * *` + `29 * * * *` + `44 * * * *` + `59 * * * *` | sonnet   | merged PRs (`… (mbe-prune)`) + `ready` issues + heartbeat | Keep the repo pristine: a delta-driven prune of stale docs and provably dead code after every merge to `main`, plus one rotating full-surface lens per day; four offset hourly triggers (see note) |
+| `mbe-swarm` _(new)_          | `trig_012VzcF9GaMqsqdVE8zX4zKK` (lane 01; lanes 02–10 in the prompt file)                                                                                             | [`routines/mbe-swarm.md`](./routines/mbe-swarm.md)                           | On demand           | — (`swarm.yml` fires)                                     | sonnet   | merged PRs (`… (mbe-swarm-NN #N)`) + issue comments       | Ten lanes fired at once at one issue labeled `swarm`: each claims a distinct child, implements, reviews, merges; lane 01 decomposes a too-large leaf (see note)                                    |
 | `mbe-weekly-improve`         | `trig_01G12wULcCweXSb2jmVkChPW`                                                                                                                                       | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)         | Fri 7:00am          | `0 14 * * 5`                                              | **opus** | 1 PR (`weekly improve <date>`) + `ready` issues           | Codebase improvement survey → implement the best change (see note)                                                                                                                                 |
 | `mbe-doc-rot` _(new)_        | `trig_0176gF6ty4Jg8oyyXYApKWyi`                                                                                                                                       | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                       | Fri 8:00am          | `0 15 * * 5`                                              | sonnet   | 1 PR                                                      | Documentation drift — dead links, stale refs, and false claims in docs (see note)                                                                                                                  |
 | `mbe-weekly-retro` _(new)_   | `trig_01VczFFpZUHi1vTdrfTauMkh`                                                                                                                                       | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)             | Sun 4:00pm          | `0 23 * * 0`                                              | **opus** | 1 PR + ≤3 issues                                          | Process retro — what blocked flow last week and what to change (see note)                                                                                                                          |
@@ -128,6 +129,26 @@ not a new row in the catalog below and not an edit of the builtin array in
 > `mbe-doc-rot` (kept as the Friday deep pass), the Tuesday `Docs Audit` PR and
 > `drift-fix`. Heartbeat on #6211 under the shared name `mbe-prune`. Prompt:
 > [`routines/mbe-prune.md`](./routines/mbe-prune.md).
+
+> **`mbe-swarm`** is the on-demand pack: ten RemoteTriggers
+> (`mbe-swarm-01` … `mbe-swarm-10`) with no schedule at all, fired together by
+> [`.github/workflows/swarm.yml`](../.github/workflows/swarm.yml) the moment a
+> human labels an issue `swarm` (or runs the workflow by hand with an issue
+> number). GitHub-event routine triggers only cover pull-request and release
+> events, so the workflow POSTs each lane's per-routine `/fire` endpoint with the
+> text `swarm #<N> lane <LL>: <title>`, authenticated by that lane's own bearer
+> token (`SWARM_FIRE_TOKEN_01` … `_10`, minted in the claude.ai UI, see
+> [docs/SECRETS.md](./SECRETS.md)). Each lane claims a distinct child of a
+> tracking issue (`in-progress` label plus a `claimed by mbe-swarm-<LL>`
+> comment, earliest `created_at` wins), implements it with the same WORK
+> PROTOCOL / REVIEW GATE / REST squash-merge as `mbe-feature-drain`, and loops
+> until nothing is claimable or 45 minutes have passed; a leaf issue too large
+> for one PR is decomposed by lane 01, which then re-labels the new tracking
+> issue `swarm` so the pack fires again at the children. A lane with no token is
+> reported as skipped by the workflow's single `swarm: fired N/10 lanes` comment,
+> never as a silent success. No cadence means no liveness check:
+> `scripts/routine-manifest.mjs` lists the pack `outOfScope` with the reason.
+> Prompt: [`routines/mbe-swarm.md`](./routines/mbe-swarm.md).
 
 > **`mbe-ui-quality`** works the UI coverage ledger: it captures the due
 > routes of marketing, rialto-web and hospitality against a local build,

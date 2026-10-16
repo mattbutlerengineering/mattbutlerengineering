@@ -1,0 +1,126 @@
+name: swarm
+
+# Fires the ten `mbe-swarm-NN` cloud routines ("lanes") at ONE issue the moment
+# a human applies the `swarm` label (docs/routines/mbe-swarm.md). GitHub-event
+# routine triggers only cover pull_request/release events, so issue swarms go
+# through each routine's per-routine API token instead: the token is minted
+# once in the claude.ai UI and stored as SWARM_FIRE_TOKEN_<lane>; it can fire
+# that one routine and nothing else, so CI stays keyless for Anthropic API keys
+# (#3585). A lane whose token is not configured is reported as skipped, never
+# as a silent success, and the issue gets exactly one comment saying how many
+# lanes actually fired — a label that fires nothing must not be silence.
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Issue number to swarm"
+        required: true
+        type: string
+
+permissions:
+  issues: write
+
+concurrency:
+  group: swarm-${{ github.event.issue.number || inputs.issue }}
+  cancel-in-progress: false
+
+jobs:
+  fire:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'swarm'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { lane: "01", routine: "trig_012VzcF9GaMqsqdVE8zX4zKK" }
+          - { lane: "02", routine: "trig_011mgtZi2oSFMoGHLzYAqW2M" }
+          - { lane: "03", routine: "trig_01Con8ZKtMPndeUaSWgXi7Nc" }
+          - { lane: "04", routine: "trig_01CQUGtEc1V7fMqiVCtwXFwK" }
+          - { lane: "05", routine: "trig_01Wj9oH3yJBbuYppCeHHuoCw" }
+          - { lane: "06", routine: "trig_01N6fZV2JokKrdx7KWizatw1" }
+          - { lane: "07", routine: "trig_01BVLqKu6StiqxKiqWqJyKuP" }
+          - { lane: "08", routine: "trig_015gMNTyPG9zKmXS2Xa5PWG7" }
+          - { lane: "09", routine: "trig_01TF1K6dRBYR5MgbMZwvaDhu" }
+          - { lane: "10", routine: "trig_01Msf4dnuCaWFdhUrp9aokpK" }
+    env:
+      # Untrusted inputs reach the shell through env only; the issue title is
+      # fetched by API and passed to jq as an argument, never inlined.
+      ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
+      LANE: ${{ matrix.lane }}
+      ROUTINE_ID: ${{ matrix.routine }}
+      # Named statically: indexing secrets by a computed name makes Actions pass
+      # every repo secret to the runner. The trailing `|| ''` keeps an unset
+      # token empty instead of the string "false".
+      ROUTINE_FIRE_TOKEN: >-
+        ${{
+          matrix.lane == '01' && secrets.SWARM_FIRE_TOKEN_01 ||
+          matrix.lane == '02' && secrets.SWARM_FIRE_TOKEN_02 ||
+          matrix.lane == '03' && secrets.SWARM_FIRE_TOKEN_03 ||
+          matrix.lane == '04' && secrets.SWARM_FIRE_TOKEN_04 ||
+          matrix.lane == '05' && secrets.SWARM_FIRE_TOKEN_05 ||
+          matrix.lane == '06' && secrets.SWARM_FIRE_TOKEN_06 ||
+          matrix.lane == '07' && secrets.SWARM_FIRE_TOKEN_07 ||
+          matrix.lane == '08' && secrets.SWARM_FIRE_TOKEN_08 ||
+          matrix.lane == '09' && secrets.SWARM_FIRE_TOKEN_09 ||
+          matrix.lane == '10' && secrets.SWARM_FIRE_TOKEN_10 || '' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Report unconfigured lane
+        if: env.ROUTINE_FIRE_TOKEN == ''
+        run: |
+          echo "SWARM_FIRE_TOKEN_${LANE} is not configured; lane ${LANE} did not fire (docs/routines/mbe-swarm.md, Tokens)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fire lane
+        if: env.ROUTINE_FIRE_TOKEN != ''
+        run: |
+          set -euo pipefail
+          title=$(gh api "repos/${GH_REPO}/issues/${ISSUE_NUMBER}" --jq .title)
+          payload=$(jq -cn --arg t "swarm #${ISSUE_NUMBER} lane ${LANE}: ${title}" '{text: $t}')
+          http_code=$(curl -sS -o response.json -w '%{http_code}' -X POST \
+            "https://api.anthropic.com/v1/claude_code/routines/${ROUTINE_ID}/fire" \
+            -H "Authorization: Bearer ${ROUTINE_FIRE_TOKEN}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "Content-Type: application/json" \
+            --data "$payload")
+          if [ "$http_code" != "200" ]; then
+            echo "::error::lane ${LANE}: fire returned HTTP ${http_code}: $(cat response.json)"
+            exit 1
+          fi
+          session_url=$(jq -r '.claude_code_session_url' response.json)
+          echo "lane ${LANE} fired -> ${session_url}" >> "$GITHUB_STEP_SUMMARY"
+
+  # One comment per fire, counted from the matrix jobs' own step conclusions:
+  # `success` = fired, `skipped` = no token, `failure` = the /fire call failed.
+  report:
+    needs: fire
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'swarm')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Count fired lanes and comment once
+        run: |
+          set -euo pipefail
+          jobs=$(gh api "repos/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100")
+          count() {
+            jq --arg c "$1" '[.jobs[] | select(.name | startswith("fire")) | .steps[] | select(.name == "Fire lane" and .conclusion == $c)] | length' <<<"$jobs"
+          }
+          fired=$(count success)
+          failed=$(count failure)
+          skipped=$(count skipped)
+          if [ "$fired" = "0" ]; then
+            body="swarm: no lane fired at #${ISSUE_NUMBER} (${skipped} unconfigured, ${failed} failed). Configure SWARM_FIRE_TOKEN_01..10 per docs/routines/mbe-swarm.md. Run: ${RUN_URL}"
+          else
+            body="swarm: fired ${fired}/10 lanes at #${ISSUE_NUMBER} (${skipped} unconfigured, ${failed} failed). Session links are in the run summary: ${RUN_URL}"
+          fi
+          echo "$body" >> "$GITHUB_STEP_SUMMARY"
+          gh api -X POST "repos/${GH_REPO}/issues/${ISSUE_NUMBER}/comments" -f body="$body" --silent
