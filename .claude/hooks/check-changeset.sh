@@ -16,8 +16,20 @@ set -uo pipefail
 file_path="${1:-}"
 [[ -z "$file_path" ]] && exit 0
 
-root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+# The tree to ask about is the one the edited file lives in, NOT
+# $CLAUDE_PROJECT_DIR: hooks run with that set to the MAIN checkout even for a
+# worktree-isolated subagent (measured 2026-10-15, see gotchas.md). That made
+# this hook silent for every worktree edit — changeset-hook.mjs resolves the
+# repo root itself, in its own CWD, so from the main checkout a worktree path
+# fell outside the root and `toRepoRelativePath` handed the rule an absolute
+# path it never matches. The `cd` is what puts that resolution in the right
+# tree; the project dir stays as the fallback.
+root=$(git -C "$(dirname "$file_path")" rev-parse --show-toplevel 2>/dev/null)
+if [[ -z "$root" || ! -d "$root" ]]; then
+  root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+fi
 [[ -z "$root" || ! -f "$root/scripts/changeset-hook.mjs" ]] && exit 0
+cd "$root" || exit 0
 
 advisory=$(node "$root/scripts/changeset-hook.mjs" "$file_path" 2>/dev/null) || true
 [[ -n "$advisory" ]] && printf '%s\n' "$advisory" >&2
