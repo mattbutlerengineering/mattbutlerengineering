@@ -291,9 +291,8 @@ diff-reviewer AI gate, PR auto-merge path.
   from `dep-bump-merger.ts` fast-path auto-merge.
 - ADR compliance check (`check-adr`, CI `adr-check.yml`) blocks PRs introducing
   prohibited architectural changes.
-- Commit hooks: pre-commit runs `eslint --fix` + `check-adr` + the llms.txt
-  regen (`scripts/precommit-llms-stage.mjs`); there is no `post-commit` hook
-  (removed in #6633). `--no-verify` is explicitly forbidden in `docs/SECURITY-AI.md`.
+- Commit hooks: pre-commit runs `eslint --fix` + `check-adr`, post-commit runs
+  `pack-changed`; `--no-verify` is explicitly forbidden in `docs/SECURITY-AI.md`.
 
 **Absent mitigations:**
 

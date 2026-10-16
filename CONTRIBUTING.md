@@ -31,12 +31,13 @@ Issues labeled `ready` are queued for AI-agent pickup (see [How AI agents fit in
 1. Fork the repo, create a feature branch off `main`. Branch naming: `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>`.
 
 2. Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages. This is a convention, not a gate — there is no `commitlint` in this repo, and no hook rejects a malformed message. Examples:
+
    - `feat(rialto): add SplitFlap stagger direction prop`
    - `fix(reservations): null-check booking.guest before render`
    - `docs(adr): add ADR-013 for caching strategy`
    - `chore(deps): bump turbo to 2.x`
 
-3. Commit hooks: pre-commit runs `eslint --fix` + `check-adr`, then `scripts/precommit-llms-stage.mjs` regenerates and stages `llms.txt` files for the packages affected by your staged commit — expect them to appear in `git status` after your commit lands; that's intentional. (There is no `post-commit` hook — it was removed in #6633.) Don't `--no-verify`; if a hook fails, fix the underlying issue.
+3. Commit hooks: pre-commit runs `eslint --fix` + `check-adr`, then post-commit runs `pack-changed`. The post-commit step regenerates `llms.txt` files for affected packages — expect them to appear in `git status` after your commit lands; that's intentional. Don't `--no-verify`; if a hook fails, fix the underlying issue.
 
 4. Open a PR against `main`. Use the PR template — it has a security checklist; please complete it honestly. PRs that don't fill out the template will get a comment asking you to.
 
