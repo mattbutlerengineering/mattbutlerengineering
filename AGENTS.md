@@ -148,7 +148,7 @@ Synonyms listed there as "avoid" must not appear in code or API responses.
 ### Database (Prisma)
 
 - `pnpm db:push` (root) — push all schemas, dev only.
-- For prod migrations, run `pnpm db:migrate` from each service dir (`services/users`, `services/reservations`, `services/agent`) — there is no root-level `db:migrate` script.
+- Prod migrations apply automatically: the `db-migrate` DO job runs `prisma migrate deploy` per service (`infrastructure/migrate/migrate.sh`). To apply by hand, run `pnpm db:migrate:deploy` from each service dir (`services/users`, `services/reservations`, `services/agent`) — never `pnpm db:migrate`, which is `prisma migrate dev` and can drop tables on drift. There is no root-level `db:migrate` script.
 - Migrations must be version-controlled in each service's `prisma/migrations/`.
 
 ## Testing & Validation
