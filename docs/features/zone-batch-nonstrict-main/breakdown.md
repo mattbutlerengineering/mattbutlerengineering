@@ -40,7 +40,7 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
       CLI wrapping `gh api`. Unit tests in
       `scripts/__tests__/main-strictness.test.mjs` cover the four input
       shapes. Acceptance: SC-4.
-- [ ] **WO-29: wire the compose hook + docs** — Rewrite
+- [x] **WO-29: wire the compose hook + docs** — Rewrite
       `.claude/implement-queue.md` § compose: run the WO-28 probe each
       iteration, pass `{ maxWorkers: 3, strictMain }` to
       `selectZoneSpreadBatch`; update the gotchas § CI bullets that

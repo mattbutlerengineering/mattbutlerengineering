@@ -39,16 +39,30 @@ State transitions (`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip`) a
 
 ## compose
 
-**Compose the batch — spread across zones (ADR-023).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones instead of stacking same-zone PRs. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > ci-fix > feature > audit), takes at most one issue per zone (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch:
+**Compose the batch — spread across zones, conditionally (ADR-023 amended by ADR-095).** First, probe whether `main`'s branch protection is currently `strict`:
+
+```bash
+node scripts/main-strictness.mjs check
+# prints {"strictMain":boolean,"reason":string} — run once per compose iteration
+```
+
+`strict` is repo _state_, not repo code (gotchas § CI) — it can flip with zero diff — so never hardcode this from a point-in-time measurement or cache it across iterations. `classifyMainStrictness` (`scripts/main-strictness.mjs`) fails closed to `strictMain: true` on any `gh api` error, non-JSON output, or missing/non-`false` `strict` field; only a parsed literal `strict: false` yields `strictMain: false`.
+
+Feed the priority-sorted, independence-filtered candidates, plus that result, into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones instead of stacking same-zone PRs when it matters, and allows safe same-zone stacking when it doesn't:
 
 ```js
 import { selectZoneSpreadBatch } from "./scripts/issue-zone.mjs";
 
 // `ready` = candidates already priority-sorted (Sort above) and
 // independence-filtered, each { number, title, labels, body }.
-const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3 });
-// → ≤3 issues in distinct zones, priority order preserved.
+// `strictMain` = this iteration's probe result, above.
+const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3, strictMain });
+// → ≤3 issues, priority order preserved.
 ```
+
+With `strictMain: true` (today's default behavior, and the fail-closed landing spot) this is exactly ADR-023's original rule: the selector consumes the priority tiers as its input order (security > ci-fix > feature > audit), takes at most one issue per zone (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch — same-zone stacking under a `strict` main (ADR-016) incurs an N² `update-branch`/CI re-run tax, because each merge makes its siblings out-of-date.
+
+With `strictMain: false` (ADR-095 — measured non-strict, e.g. `{"strict": false}` on 2026-08-17 and again on 2026-10-14), that tax does not apply: a non-global issue whose zone is already claimed may still be admitted into the same batch, but only when its expected file set (from `extractPathsFromBody`) is non-empty and pairwise disjoint (prefix-aware) from every path set already admitted in that zone. An issue with no extractable paths never stacks. The per-zone merge-train lock still serializes the actual merges in both modes — this only widens what a single batch may _claim_ together, never what merges concurrently.
 
 Each issue's zone is estimated from its conventional-commit scope via `issueZone(issue)`, which reuses the shared zone vocabulary (`scripts/zone-vocabulary.mjs`, `WORKSPACE_ROOTS` + `zoneForPath`) — there is no second, divergent zone list.
 
