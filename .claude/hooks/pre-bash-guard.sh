@@ -17,6 +17,10 @@
 #     `isolation: worktree` creates a bare checkout without node_modules, so
 #     `pnpm test` / `vitest` dies with "command not found" (#1 recurring
 #     failure). We block with the fix instead of letting it fail opaquely.
+#     The tree checked is the payload's `cwd`: hooks run with CWD =
+#     $CLAUDE_PROJECT_DIR = the main checkout even for a worktree-isolated
+#     subagent, so checking the project dir (as this did until 2026-10-15)
+#     let every bare worktree through.
 #
 #   Check 3 — inert git hooks (WARN, exit 0, #5766):
 #     `core.hooksPath` (`.husky/_`) is created only by `pnpm install`'s
@@ -40,7 +44,10 @@
 #   - $SKIP_BASH_GUARD=1 → bypass all checks entirely.
 set -uo pipefail
 
-cmd=$(node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
+# Read the payload once — stdin can only be consumed once, and the adapter is
+# asked for two fields: the command now, the tree it ran in further down.
+payload=$(cat)
+cmd=$(printf '%s' "$payload" | node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
 [ -n "$cmd" ] || exit 0
 [[ "${SKIP_BASH_GUARD:-}" == "1" ]] && exit 0
 
@@ -66,7 +73,14 @@ esac
 # ---------------------------------------------------------------------------
 case "$cmd" in
   *"pnpm test"*|*"pnpm build"*|*"pnpm typecheck"*|*vitest*|*"turbo run test"*|*"turbo run build"*)
-    root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+    # The tree the command runs in is the payload's `cwd`, NOT
+    # $CLAUDE_PROJECT_DIR (the main checkout, whose node_modules exist — which
+    # is why a bare worktree's `pnpm test` used to pass this check). The
+    # project dir is only the fallback for a payload that names no usable cwd.
+    tree=$(printf '%s' "$payload" | node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" cwd)
+    root=""
+    [[ -n "$tree" && -d "$tree" ]] && root=$(git -C "$tree" rev-parse --show-toplevel 2>/dev/null)
+    [[ -n "$root" ]] || root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
     if [[ ! -d "$root/node_modules" ]]; then
       cat >&2 <<EOF
 BLOCK: node_modules missing at $root — this looks like a bare worktree checkout.
