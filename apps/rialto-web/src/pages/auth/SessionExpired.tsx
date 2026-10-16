@@ -36,7 +36,7 @@ export function SessionExpired() {
       </div>
       <div className={styles.lapse}>
         <StatusLED variant="warning" pulse size="lg" label="Session expired" />
-        <Heading level={1} size={3}>
+        <Heading level={2} size={3}>
           Your session ended
         </Heading>
         <Text>Sign back in to pick up where you left off.</Text>
