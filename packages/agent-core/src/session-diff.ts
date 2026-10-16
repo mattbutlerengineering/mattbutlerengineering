@@ -1,5 +1,8 @@
 import { runGit } from "./run-git.js";
 
+/** Same ceiling as `getGitDiff`; Node's 1 MiB default would reject e.g. a lockfile rewrite. */
+const MAX_DIFF_BYTES = 10 * 1024 * 1024;
+
 /**
  * The whole of an agent session's change: everything in the worktree relative
  * to the merge-base with `baseBranch` — mid-session commits, the final commit,
@@ -24,7 +27,7 @@ export async function getSessionDiff(
   try {
     const mergeBase = await runGit(["merge-base", baseBranch, "HEAD"], { cwd: worktreePath });
     await runGit(["add", "--intent-to-add", "--all"], { cwd: worktreePath });
-    return await runGit(["diff", mergeBase], { cwd: worktreePath });
+    return await runGit(["diff", mergeBase], { cwd: worktreePath, maxBuffer: MAX_DIFF_BYTES });
   } catch {
     return undefined;
   }

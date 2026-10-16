@@ -2282,6 +2282,7 @@
       interface RunGitOptions {
         cwd?: string;
         timeoutMs?: number;
+        maxBuffer?: number;
       }
     </item>
     <item priority="high">

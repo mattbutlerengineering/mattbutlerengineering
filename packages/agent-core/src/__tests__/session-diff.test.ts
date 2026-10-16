@@ -48,6 +48,13 @@ describe("getSessionDiff", () => {
     expect(diff).toContain("src/new.ts");
   });
 
+  it("captures a diff larger than Node's 1 MiB default buffer", async () => {
+    writeFileSync(join(dir, "big.txt"), "x".repeat(100) + "\n".repeat(1) + "y".repeat(1_500_000));
+    const diff = await getSessionDiff(dir, "main");
+    expect(diff).toBeDefined();
+    expect(diff!.length).toBeGreaterThan(1_048_576);
+  });
+
   it("returns undefined (could not capture) when git fails", async () => {
     expect(await getSessionDiff(dir, "no-such-branch")).toBeUndefined();
     expect(await getSessionDiff(join(dir, "missing"), "main")).toBeUndefined();
