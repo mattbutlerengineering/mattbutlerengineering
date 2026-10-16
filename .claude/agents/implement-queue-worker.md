@@ -37,7 +37,7 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
    Worktrees are also bare checkouts without `node_modules`:
 
    ```bash
-   pnpm install --frozen-lockfile && touch .worktree-installed
+   pnpm bootstrap:worktree && touch .worktree-installed
    ```
 
    The sentinel file `.worktree-installed` tells the verification phase that install already ran, so it can skip its own redundant install and save 20–90s per session.

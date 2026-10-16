@@ -64,7 +64,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 4: docs follow the tool (R4)
 
-- [ ] **WO-9. Re-point gotchas + worker step 0** — edit the
+- [x] **WO-9. Re-point gotchas + worker step 0** — edit the
       `.claude/rules/gotchas.md` § Build / pnpm / turbo worktree-install
       bullet (and the pre-push/typecheck worktree bullet) and
       `.claude/agents/implement-queue-worker.md` step 0 to name
