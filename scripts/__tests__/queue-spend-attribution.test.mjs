@@ -56,11 +56,7 @@ describe("queue worker spend attribution (#5885)", () => {
     // DEFAULT_ROOT), so copying both modules makes the unmodified snippet
     // write into this temp root instead of the real repo.
     mkdirSync(join(root, "scripts"));
-    for (const f of [
-      "collect-queue-telemetry.mjs",
-      "queue-telemetry-store.mjs",
-      "metrics-store.mjs",
-    ]) {
+    for (const f of ["queue-telemetry-store.mjs", "metrics-store.mjs"]) {
       copyFileSync(join(REPO_ROOT, "scripts", f), join(root, "scripts", f));
     }
   });

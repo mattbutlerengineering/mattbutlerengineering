@@ -10,7 +10,7 @@
  * as a starting point for triage, not an audit trail.
  *
  * Taxonomy (`HUMAN_TOUCH_REASONS`, single source of truth) lives in
- * `collect-queue-telemetry.mjs` (#3843) — this module infers into it, it
+ * `queue-telemetry-store.mjs` (#3843) — this module infers into it, it
  * does not redefine it.
  *
  * Agent-PR detection reuses `isAgentPr()` from

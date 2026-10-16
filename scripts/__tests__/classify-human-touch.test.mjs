@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { classifyHumanTouch } from "../classify-human-touch.mjs";
-import { HUMAN_TOUCH_REASONS } from "../collect-queue-telemetry.mjs";
+import { HUMAN_TOUCH_REASONS } from "../queue-telemetry-store.mjs";
 
 // ── Helpers ──────────────────────────────────────────────
 

@@ -8,7 +8,7 @@
  *   3. The PATH. Always `metrics-store.resolvePath`, never a literal.
  *
  * Every writer goes through here: the in-session append
- * (`collect-queue-telemetry.mjs`), the GitHub backstop
+ * (`appendTelemetryRow` below), the GitHub backstop
  * (`collect-queue-telemetry-from-github.mjs`), and the rewrite paths
  * (`reconcile-queue-telemetry.mjs`, `backfill-human-touch-reasons.mjs`). The
  * rewrite path is `updateTelemetry`: it reads the sink, applies a transform,
@@ -26,12 +26,36 @@
  * different issue than the in-session writer claimed; it therefore appends with
  * `ifPrAbsent`, which refuses a placeholder row when ANY row covers that PR.
  *
+ * Row schema (outcome fields -- merged/merged_at/ci_first_pass/rework_cycles --
+ * may be null at write time; the sensor reconciles them from GitHub later):
+ *   issue_number    number        GitHub issue number
+ *   labels          string[]      Labels at time of claim
+ *   model_tier      string        haiku | sonnet | opus
+ *   subagent_tokens number        Tokens from worker <usage> payload
+ *   tool_uses       number        Tool call count for the session
+ *   duration_ms     number        Wall-clock ms from claim to completion
+ *   pr_number       number|null   PR created (null if worker failed)
+ *   merged          boolean|null  Reconciled by sensor
+ *   ci_first_pass   boolean|null  Reconciled by sensor
+ *   rework_cycles   number|null   Reconciled by sensor
+ *   reviewer_verdict string|null  pass | flag | skipped | error
+ *                                 error = the reviewer could not run (dispatch
+ *                                 threw / timed out). Distinct from pass: the
+ *                                 merge gate never fired. Read by
+ *                                 collect-queue-efficiency's review_coverage.
+ *   claimed_at      string        ISO 8601
+ *   merged_at       string|null   ISO 8601, reconciled by sensor
+ *   cost_usd        number|null   Optional precise cost if known at write time
+ *   human_touch_reason string|undefined  One of HUMAN_TOUCH_REASONS.
+ *                                 Optional — classifies why a merged agent PR
+ *                                 needed a human commit. Absent on rows
+ *                                 written before this field existed, and on
+ *                                 rows where no human touch occurred.
+ *
  * Writer rows are schema-checked: unknown fields (which could carry
  * credentials) throw before any write.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 import { read, write, resolvePath } from "./metrics-store.mjs";
 
 /**
@@ -204,29 +228,6 @@ function validateRow(row) {
   }
 }
 
-function parseRows(content) {
-  return content
-    .split("\n")
-    .filter((l) => l.trim())
-    .map((l) => {
-      try {
-        return JSON.parse(l);
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
-}
-
-function defaultReadFile(filePath) {
-  return existsSync(filePath) ? readFileSync(filePath, "utf-8") : null;
-}
-
-function defaultWriteFile(filePath, content) {
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, content, "utf-8");
-}
-
 /**
  * Append a telemetry row. Idempotent per (issue_number, pr_number): returns
  * `{ written: false, reason: "duplicate" }` when the identity already exists.
@@ -234,33 +235,22 @@ function defaultWriteFile(filePath, content) {
  * With `ifPrAbsent` the row is a placeholder (the GitHub backstop's) and is
  * refused when ANY row covers its PR, even under another issue.
  *
- * Dependency-injected so tests need no filesystem: `filePath`/`readFile`/
- * `writeFile` override the I/O; `root` redirects the metrics directory.
+ * Dependency-injected so tests need no filesystem: `readFile`/`writeFile`
+ * override the I/O (the same `metrics-store` path `readTelemetryRows` and
+ * `updateTelemetry` use); `root` redirects the metrics directory.
  *
- * @param {object} row - Telemetry row matching the schema in
- *   `collect-queue-telemetry.mjs`.
+ * @param {object} row - Telemetry row matching the schema in the header.
  * @param {object} [opts]
  * @param {string} [opts.root]
- * @param {string} [opts.filePath] - Overrides the resolved sink path.
  * @param {(path: string) => string|null} [opts.readFile]
  * @param {(path: string, content: string) => void} [opts.writeFile]
  * @param {boolean} [opts.ifPrAbsent]
  * @returns {{ written: boolean, reason?: string }}
  */
-export function appendTelemetryRow(
-  row,
-  {
-    root,
-    filePath = telemetryPath({ root }),
-    readFile = defaultReadFile,
-    writeFile = defaultWriteFile,
-    ifPrAbsent = false,
-  } = {}
-) {
+export function appendTelemetryRow(row, { ifPrAbsent = false, ...io } = {}) {
   validateRow(row);
 
-  const existingContent = readFile(filePath) ?? "";
-  const existing = parseRows(existingContent);
+  const existing = readTelemetryRows(io);
   const key = telemetryRowKey(row);
 
   const duplicate =
@@ -270,7 +260,6 @@ export function appendTelemetryRow(
       : existing.some((r) => telemetryRowKey(r) === key));
   if (duplicate) return { written: false, reason: "duplicate" };
 
-  const separator = existingContent.length > 0 && !existingContent.endsWith("\n") ? "\n" : "";
-  writeFile(filePath, existingContent + separator + JSON.stringify(row) + "\n");
+  write("queue-telemetry", [...existing, row], io);
   return { written: true };
 }

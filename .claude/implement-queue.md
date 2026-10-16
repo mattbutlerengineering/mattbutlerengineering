@@ -319,10 +319,10 @@ Recurring use: `/loop 30m /idea-to-prod:implement-queue`.
 
 ## telemetry
 
-After each worker completes, append one row to `metrics/queue-telemetry.jsonl` via `appendTelemetryRow` from `scripts/collect-queue-telemetry.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
+After each worker completes, append one row to `metrics/queue-telemetry.jsonl` via `appendTelemetryRow` from `scripts/queue-telemetry-store.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
 
 ```js
-import { appendTelemetryRow } from "./scripts/collect-queue-telemetry.mjs";
+import { appendTelemetryRow } from "./scripts/queue-telemetry-store.mjs";
 
 appendTelemetryRow({
   issue_number: 2747, // required
