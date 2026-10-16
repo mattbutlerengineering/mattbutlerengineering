@@ -6978,7 +6978,6 @@
   </file>
   <file path="apps/hospitality/src/components/crm/guest-signals.ts">
     export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
-    export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
     export type GuestSegmentVariant = "accent" | "success" | "neutral";
     export type GuestRiskVariant = "error" | "warning" | "neutral";
     export function isAllergyTag(tag: string): boolean {
@@ -12507,7 +12506,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;
-    export type BriefingGuest = ApiBriefingGuest;
     export type BriefingEntry = ApiBriefingEntry;
     export interface UseBriefingParams {
       date: string;
@@ -12843,12 +12841,6 @@
       venueId?: string | null;
       limit?: number;
       enabled?: boolean;
-    }
-    export interface UseFloorPlansResult {
-      data: FloorPlan[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
     }
     export const useFloorPlans = createQueryHook<FloorPlan[], UseFloorPlansParams>({
       key: FLOOR_PLANS_QUERY_KEY,
@@ -13619,12 +13611,6 @@
     export interface UseTablesParams extends ListTablesParams {
       enabled?: boolean;
     }
-    export interface UseTablesResult {
-      data: Table[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
-    }
     export const useTables = createQueryHook<Table[], UseTablesParams>({
       key: TABLES_QUERY_KEY,
       fetcher: async (params, api) => {
@@ -14164,12 +14150,6 @@
     export interface UseVenuesParams {
       limit?: number;
       enabled?: boolean;
-    }
-    export interface UseVenuesResult {
-      data: Venue[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
     }
     export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
       key: VENUES_QUERY_KEY,
@@ -21870,14 +21850,6 @@
     };
   </file>
   <file path="services/reservations/src/routes/events.ts">
-    export function getConnectionManager(): SseConnectionManager {
-      return connectionManager;
-    }
-    export function createConnectionManager(
-      config?: Partial<SseConnectionConfig>
-    ): SseConnectionManager {
-      return new SseConnectionManager(config);
-    }
     function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] {
       if (!RESERVATION_TRANSITION_EVENT_TYPES.has(event.type)) {
         return [];
@@ -25273,8 +25245,6 @@
        */
       lastRlsErrorName: string | null;
     }
-    export type PayloadOrFactory =
-      InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
     export function inWindowDate(daysAhead: number): string {
       return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     }
@@ -33894,7 +33864,6 @@
     };
   </file>
   <file path="services/reservations/src/services/events.ts">
-    export type ReservationEventType = SseEventName;
     export type ReservationEvent = SseEvent;
     export class ReservationEventEmitter extends EventEmitter {
       private connectionCount = 0;
@@ -40596,13 +40565,6 @@
   </section>
   <section priority="medium" role="src">
   <file path="apps/gen/src/types.ts">
-    export interface HistoryEntry {
-      id: string;
-      prompt: string;
-      spec: Spec;
-      rawLines: string[];
-      timestamp: Date;
-    }
     export type EntryKind = "generate" | "refine" | "recover" | "failed";
     export interface StoredSpec {
       id: string;
@@ -60492,7 +60454,6 @@
     }
   </file>
   <file path="services/users/src/test/fixtures.ts">
-    export const MOCK_USER = createMockUser();
     export const MOCK_JWT_PAYLOAD = createMockJWTPayload();
     export const ADMIN_JWT_PAYLOAD = createMockJWTPayload({ permissions: ["admin"] });
   </file>

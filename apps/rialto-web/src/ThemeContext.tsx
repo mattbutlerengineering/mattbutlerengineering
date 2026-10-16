@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { ThemePreference, ThemeState } from "@mattbutlerengineering/rialto";
+import type { ThemeState } from "@mattbutlerengineering/rialto";
 
 const DEFAULT_CONTEXT: ThemeState = {
   preference: "system",
@@ -14,4 +14,4 @@ export function useThemeContext(): ThemeState {
   return useContext(ThemeContext);
 }
 
-export type { ThemePreference, ThemeState };
+export type { ThemeState };

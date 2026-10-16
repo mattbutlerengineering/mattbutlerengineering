@@ -1907,9 +1907,6 @@
       export const ALLERGY_KEYWORDS: readonly string[];
     </item>
     <item priority="low">
-      type GuestSegmentLabel = "VIP" | "Repeat" | "New";
-    </item>
-    <item priority="low">
       type GuestSegmentVariant = "accent" | "success" | "neutral";
     </item>
     <item priority="low">
@@ -3817,9 +3814,6 @@
       export const BRIEFING_QUERY_KEY: unknown;
     </item>
     <item priority="low">
-      type BriefingGuest = ApiBriefingGuest;
-    </item>
-    <item priority="low">
       type BriefingEntry = ApiBriefingEntry;
     </item>
     <item priority="low">
@@ -3980,14 +3974,6 @@
         venueId?: string | null;
         limit?: number;
         enabled?: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface UseFloorPlansResult {
-        data: FloorPlan[] | undefined;
-        isLoading: boolean;
-        error: Error | null;
-        refetch: () => void;
       }
     </item>
     <item priority="high">
@@ -4357,14 +4343,6 @@
         enabled?: boolean;
       }
     </item>
-    <item priority="low">
-      interface UseTablesResult {
-        data: Table[] | undefined;
-        isLoading: boolean;
-        error: Error | null;
-        refetch: () => void;
-      }
-    </item>
     <item priority="high">
       export const useTables: unknown;
     </item>
@@ -4544,14 +4522,6 @@
       interface UseVenuesParams {
         limit?: number;
         enabled?: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface UseVenuesResult {
-        data: Venue[] | undefined;
-        isLoading: boolean;
-        error: Error | null;
-        refetch: () => void;
       }
     </item>
     <item priority="high">
@@ -6456,14 +6426,6 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/events.ts">
-    <item priority="high">
-      export function getConnectionManager(): SseConnectionManager { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createConnectionManager(
-        config?: Partial<SseConnectionConfig>
-      ): SseConnectionManager { /* ... */ }
-    </item>
     <item priority="medium">
       function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] { /* ... */ }
     </item>
@@ -6829,9 +6791,6 @@
         venueB: { id: string; slug: string };
         venueC: { id: string };
       }
-    </item>
-    <item priority="low">
-      type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
     </item>
     <item priority="high">
       export function inWindowDate(daysAhead: number): string { /* ... */ }
@@ -8792,9 +8751,6 @@
   </file>
   <file path="services/reservations/src/services/events.ts">
     <item priority="low">
-      type ReservationEventType = SseEventName;
-    </item>
-    <item priority="low">
       type ReservationEvent = SseEvent;
     </item>
     <item priority="high">
@@ -10257,15 +10213,6 @@
   </section>
   <section priority="medium" role="src">
   <file path="apps/gen/src/types.ts">
-    <item priority="low">
-      interface HistoryEntry {
-        id: string;
-        prompt: string;
-        spec: Spec;
-        rawLines: string[];
-        timestamp: Date;
-      }
-    </item>
     <item priority="low">
       type EntryKind = "generate" | "refine" | "recover" | "failed";
     </item>
@@ -17361,9 +17308,6 @@
     </item>
   </file>
   <file path="services/users/src/test/fixtures.ts">
-    <item priority="high">
-      export const MOCK_USER: unknown;
-    </item>
     <item priority="high">
       export const MOCK_JWT_PAYLOAD: unknown;
     </item>

@@ -66,7 +66,6 @@ domains above.
 ## Dependencies
 
 - `@modelcontextprotocol/sdk` — MCP protocol implementation
-- `pg` — Direct Postgres access for database tools
 - `zod` — Schema validation
 
 ## Commands

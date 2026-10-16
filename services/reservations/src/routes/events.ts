@@ -8,31 +8,11 @@ import {
 } from "@mbe/types";
 import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
 import type { ReservationEvent } from "../services/events.js";
-import {
-  SseConnectionManager,
-  type SseConnectionConfig,
-} from "../services/sse-connection-manager.js";
+import { SseConnectionManager } from "../services/sse-connection-manager.js";
 import { queryVenueId } from "./named-venue.js";
 
 /** Shared connection manager — one per process. */
 const connectionManager = new SseConnectionManager();
-
-/**
- * Override SSE config for tests without mutating the default singleton.
- * Returns the manager instance so tests can inspect state.
- */
-export function getConnectionManager(): SseConnectionManager {
-  return connectionManager;
-}
-
-/**
- * Create a connection manager with custom config (for testing).
- */
-export function createConnectionManager(
-  config?: Partial<SseConnectionConfig>
-): SseConnectionManager {
-  return new SseConnectionManager(config);
-}
 
 /**
  * Domain event types whose `data` is a `Reservation` representing a

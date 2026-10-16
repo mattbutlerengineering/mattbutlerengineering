@@ -12,13 +12,6 @@ export interface UseVenuesParams {
   enabled?: boolean;
 }
 
-export interface UseVenuesResult {
-  data: Venue[] | undefined;
-  isLoading: boolean;
-  error: Error | null;
-  refetch: () => void;
-}
-
 export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
   key: VENUES_QUERY_KEY,
   fetcher: async (params, api) => {

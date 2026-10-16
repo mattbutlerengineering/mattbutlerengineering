@@ -166,16 +166,6 @@ export interface SweepContext {
   lastRlsErrorName: string | null;
 }
 
-/**
- * A payload value, or a factory reading it off {@link SweepContext} — needed
- * wherever a KNOWN_BROKEN fixture's body must reference a seeded id (e.g.
- * `ctx.tableA`) that doesn't exist yet when `FIXTURES` is built (module load
- * time, before `beforeAll` seeds anything). Re-exported by
- * `rls-route-sweep.fixtures-public.ts` rather than redeclared there.
- */
-export type PayloadOrFactory =
-  InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
-
 /** `x-auth-bypass` short-circuits `requireAuth`/`requireVenueAccess` to a hardcoded platform-admin identity. */
 /**
  * A YYYY-MM-DD date `daysAhead` days from today (UTC). Hold creation enforces

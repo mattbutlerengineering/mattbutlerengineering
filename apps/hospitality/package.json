@@ -81,7 +81,6 @@
     "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/cancellation-policy": "workspace:*",
-    "@mbe/observability": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
@@ -117,7 +116,6 @@
     "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-pwa": "^2.0.0",
     "vitest": "catalog:",
     "vitest-axe": "^0.1.0",
     "zod": "^4.6.6"

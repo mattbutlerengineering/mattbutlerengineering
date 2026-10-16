@@ -680,7 +680,6 @@
   </section>
   <section priority="medium" role="test">
   <file path="src/test/fixtures.ts">
-    export const MOCK_USER = createMockUser();
     export const MOCK_JWT_PAYLOAD = createMockJWTPayload();
     export const ADMIN_JWT_PAYLOAD = createMockJWTPayload({ permissions: ["admin"] });
   </file>

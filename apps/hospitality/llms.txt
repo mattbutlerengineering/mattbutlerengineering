@@ -263,9 +263,6 @@
       export const ALLERGY_KEYWORDS: readonly string[];
     </item>
     <item priority="low">
-      type GuestSegmentLabel = "VIP" | "Repeat" | "New";
-    </item>
-    <item priority="low">
       type GuestSegmentVariant = "accent" | "success" | "neutral";
     </item>
     <item priority="low">
@@ -690,9 +687,6 @@
       export const BRIEFING_QUERY_KEY: unknown;
     </item>
     <item priority="low">
-      type BriefingGuest = ApiBriefingGuest;
-    </item>
-    <item priority="low">
       type BriefingEntry = ApiBriefingEntry;
     </item>
     <item priority="low">
@@ -853,14 +847,6 @@
         venueId?: string | null;
         limit?: number;
         enabled?: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface UseFloorPlansResult {
-        data: FloorPlan[] | undefined;
-        isLoading: boolean;
-        error: Error | null;
-        refetch: () => void;
       }
     </item>
     <item priority="high">
@@ -1230,14 +1216,6 @@
         enabled?: boolean;
       }
     </item>
-    <item priority="low">
-      interface UseTablesResult {
-        data: Table[] | undefined;
-        isLoading: boolean;
-        error: Error | null;
-        refetch: () => void;
-      }
-    </item>
     <item priority="high">
       export const useTables: unknown;
     </item>
@@ -1417,14 +1395,6 @@
       interface UseVenuesParams {
         limit?: number;
         enabled?: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface UseVenuesResult {
-        data: Venue[] | undefined;
-        isLoading: boolean;
-        error: Error | null;
-        refetch: () => void;
       }
     </item>
     <item priority="high">
