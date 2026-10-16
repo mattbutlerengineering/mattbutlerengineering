@@ -1,13 +1,15 @@
+import type { EvaluationResult } from "../success-evaluator.js";
 import type { JudgeFunction, TaskRunResult, TaskScore } from "./types.js";
 
 /**
  * Scores a single task run against its rubric.
  *
  * Deterministic signals (tests, typecheck, lint, budget) are always applied.
- * When the rubric has `judgeCriteria` AND a `judge` function is provided, the
- * LLM judge is invoked and its pass/fail outcome is added as one additional
- * signal — keeping the judge isolated behind an injectable seam so tests
- * can stub it without live LLM calls.
+ * When the rubric has `judgeCriteria`, the LLM judge's pass/fail outcome is
+ * added as one additional signal — behind an injectable seam so tests can stub
+ * it without live LLM calls. The judge fails closed: no judge wired, or one
+ * that throws, yields `passed: false, evaluationFailed: true` rather than
+ * silently dropping the criteria.
  *
  * `score` is the fraction of *applicable* signals that were satisfied;
  * `passed` requires every applicable signal to hold.
@@ -25,9 +27,8 @@ export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Prom
 
   // LLM-judge signals — only when criteria are specified and a judge is injected.
   let judgeResult: TaskScore["judgeResult"];
-  if (rubric.judgeCriteria.length > 0 && judge !== undefined) {
-    const criteria = rubric.judgeCriteria.join("\n");
-    judgeResult = await judge(task.prompt, criteria);
+  if (rubric.judgeCriteria.length > 0) {
+    judgeResult = await runJudge(task.prompt, rubric.judgeCriteria.join("\n"), judge);
     signals.push(judgeResult.passed);
   }
 
@@ -47,4 +48,27 @@ export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Prom
     turns: session.numTurns,
     ...(session.errors?.length ? { sessionErrors: session.errors } : {}),
   };
+}
+
+function inconclusive(reasoning: string): EvaluationResult {
+  return {
+    passed: false,
+    confidence: 0,
+    reasoning,
+    issues: ["LLM judge could not run"],
+    evaluationFailed: true,
+  };
+}
+
+async function runJudge(
+  prompt: string,
+  criteria: string,
+  judge: JudgeFunction | undefined
+): Promise<EvaluationResult> {
+  if (judge === undefined) return inconclusive("No judge configured — judgeCriteria not evaluated");
+  try {
+    return await judge(prompt, criteria);
+  } catch (err) {
+    return inconclusive(`Judge threw: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }

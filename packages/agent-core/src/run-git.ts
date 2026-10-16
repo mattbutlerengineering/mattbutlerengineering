@@ -14,6 +14,8 @@ export interface RunGitOptions {
   readonly cwd?: string;
   /** Timeout in milliseconds. Defaults to `DEFAULT_GIT_TIMEOUT_MS`. */
   readonly timeoutMs?: number;
+  /** Max stdout bytes. Omit to keep Node's 1 MiB default (unchanged for existing callers). */
+  readonly maxBuffer?: number;
 }
 
 interface ExecFileFailure {
@@ -56,6 +58,7 @@ export async function runGit(
     const { stdout } = await execFileAsync("git", [...args], {
       cwd: options.cwd,
       timeout: options.timeoutMs ?? DEFAULT_GIT_TIMEOUT_MS,
+      ...(options.maxBuffer === undefined ? {} : { maxBuffer: options.maxBuffer }),
     });
     return stdout.trim();
   } catch (cause) {

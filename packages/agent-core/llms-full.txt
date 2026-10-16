@@ -715,6 +715,7 @@
       let threw = false;
       let hasChanges = false;
       let gatewayVerdict: GatewayVerdict | undefined;
+      let gatewayEvaluation: EvaluationResult | undefined;
     
       // A throw anywhere after WorktreePhase (dispatch, verification, publish,
       // feedback) lands in errors[] and falls through to the retention →
@@ -771,6 +772,7 @@
           errors.push(...verifyExec.result.errors);
           hasChanges = verifyExec.output?.hasChanges ?? false;
           gatewayVerdict = verifyExec.output?.gatewayVerdict;
+          gatewayEvaluation = verifyExec.output?.gatewayEvaluation;
     
           // A failed CLI dispatch that still wrote changes must always publish via
           // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
@@ -885,6 +887,16 @@
         numTurns,
         resultText: "",
         errors,
+        // Same projection as result-builder.ts's evalSummary on the SDK path.
+        ...(gatewayEvaluation
+          ? {
+              evaluation: {
+                passed: gatewayEvaluation.passed,
+                confidence: gatewayEvaluation.confidence,
+                reasoning: gatewayEvaluation.reasoning,
+              },
+            }
+          : {}),
         ...(failureCategory ? { failureCategory } : {}),
         // Present iff the worktree is kept — see SessionResult.worktreePath.
         ...(keepsWorktree && worktree ? { worktreePath: worktree.path } : {}),
@@ -1024,6 +1036,12 @@
       readonly runTask: TaskRunner;
       /** Stable id for this run (callers pass a timestamp/uuid — kept injectable for determinism in tests). */
       readonly runId: string;
+      /**
+       * Builds the LLM judge for one run (it needs that run's diff). Omit and any
+       * task with `judgeCriteria` fails closed as inconclusive — never silently
+       * scores on the deterministic checks alone.
+       */
+      readonly judgeFor?: (run: TaskRunResult) => JudgeFunction;
       /** When set, run only the task with this id. */
       readonly only?: string;
     }
@@ -1037,7 +1055,7 @@
       for (const task of selected) {
         try {
           const runResult = await opts.runTask(task);
-          scores.push(await scoreTask(runResult));
+          scores.push(await scoreTask(runResult, opts.judgeFor?.(runResult)));
         } catch (err) {
           scores.push(failedScore(task, err));
         }
@@ -1152,6 +1170,40 @@
       return parsed.data;
     }
   </file>
+  <file path="src/eval/llm-judge.ts">
+    type Evaluate = (
+      task: string,
+      diff: string,
+      config?: { readonly forceEvaluate?: boolean }
+    ) => Promise<EvaluationResult>;
+    export function createEvalJudge(
+      run: TaskRunResult,
+      evaluate: Evaluate = evaluateSuccess
+    ): JudgeFunction {
+      return async (taskPrompt, criteria) => {
+        if (run.diff === undefined) {
+          return {
+            passed: false,
+            confidence: 0,
+            reasoning: "The session's diff could not be captured — judgeCriteria not evaluated",
+            issues: ["LLM judge could not run"],
+            evaluationFailed: true,
+          };
+        }
+        return evaluate(`${taskPrompt}\n\n${formatAcceptanceCriteria(criteria)}`, run.diff, {
+          forceEvaluate: true,
+        });
+      };
+    }
+    function formatAcceptanceCriteria(criteria: string): string {
+      const items = criteria
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => `- [ ] ${line}`);
+      return ["## Acceptance Criteria", ...items].join("\n");
+    }
+  </file>
   <file path="src/eval/run-detection.ts">
     export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean {
       return score.turns === 0 && score.costUsd === 0;
@@ -1174,9 +1226,8 @@
     
       // LLM-judge signals — only when criteria are specified and a judge is injected.
       let judgeResult: TaskScore["judgeResult"];
-      if (rubric.judgeCriteria.length > 0 && judge !== undefined) {
-        const criteria = rubric.judgeCriteria.join("\n");
-        judgeResult = await judge(task.prompt, criteria);
+      if (rubric.judgeCriteria.length > 0) {
+        judgeResult = await runJudge(task.prompt, rubric.judgeCriteria.join("\n"), judge);
         signals.push(judgeResult.passed);
       }
     
@@ -1196,6 +1247,27 @@
         turns: session.numTurns,
         ...(session.errors?.length ? { sessionErrors: session.errors } : {}),
       };
+    }
+    function inconclusive(reasoning: string): EvaluationResult {
+      return {
+        passed: false,
+        confidence: 0,
+        reasoning,
+        issues: ["LLM judge could not run"],
+        evaluationFailed: true,
+      };
+    }
+    async function runJudge(
+      prompt: string,
+      criteria: string,
+      judge: JudgeFunction | undefined
+    ): Promise<EvaluationResult> {
+      if (judge === undefined) return inconclusive("No judge configured — judgeCriteria not evaluated");
+      try {
+        return await judge(prompt, criteria);
+      } catch (err) {
+        return inconclusive(`Judge threw: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   </file>
   <file path="src/eval/types.ts">
@@ -1249,6 +1321,12 @@
       readonly task: Task;
       readonly session: SessionResult;
       readonly checks: DeterministicChecks;
+      /**
+       * The whole session's change as a unified diff, captured by the runner for
+       * the LLM judge. `""` = captured, nothing changed; `undefined` = could not
+       * be captured (judge is inconclusive).
+       */
+      readonly diff?: string;
     }
     export interface TaskScore {
       readonly taskId: string;
@@ -1257,9 +1335,20 @@
       /** 0..1 — fraction of applicable rubric signals satisfied. */
       readonly score: number;
       readonly deterministic: DeterministicChecks;
-      /** Self-reported agent evaluation, when present — used for calibration. */
+      /**
+       * Self-reported agent evaluation — used for calibration. Both the SDK
+       * pipeline and the CLI-adapter pipeline (e.g. `claude-cli`) populate it from
+       * the post-commit gateway's LLM evaluation; it is absent whenever that gate
+       * did not run (e.g. no changes or a failed dispatch). The
+       * suite's authoritative semantic verdict is {@link TaskScore.judgeResult},
+       * not this.
+       */
       readonly selfEvaluation?: SessionResult["evaluation"];
-      /** LLM-judge result, present when `rubric.judgeCriteria` is non-empty and a judge was provided. */
+      /**
+       * LLM-judge result, present whenever `rubric.judgeCriteria` is non-empty.
+       * `evaluationFailed: true` marks an inconclusive judge (it could not run, or
+       * none was wired) — fails closed, and is distinct from a genuine fail.
+       */
       readonly judgeResult?: EvaluationResult;
       readonly costUsd: number;
       readonly turns: number;
@@ -7599,6 +7688,8 @@
       readonly cwd?: string;
       /** Timeout in milliseconds. Defaults to `DEFAULT_GIT_TIMEOUT_MS`. */
       readonly timeoutMs?: number;
+      /** Max stdout bytes. Omit to keep Node's 1 MiB default (unchanged for existing callers). */
+      readonly maxBuffer?: number;
     }
     interface ExecFileFailure {
       readonly message?: string;
@@ -7629,6 +7720,7 @@
         const { stdout } = await execFileAsync("git", [...args], {
           cwd: options.cwd,
           timeout: options.timeoutMs ?? DEFAULT_GIT_TIMEOUT_MS,
+          ...(options.maxBuffer === undefined ? {} : { maxBuffer: options.maxBuffer }),
         });
         return stdout.trim();
       } catch (cause) {
@@ -8157,6 +8249,20 @@
           controller.enqueue(value);
         },
       });
+    }
+  </file>
+  <file path="src/session-diff.ts">
+    export async function getSessionDiff(
+      worktreePath: string,
+      baseBranch: string
+    ): Promise<string | undefined> {
+      try {
+        const mergeBase = await runGit(["merge-base", baseBranch, "HEAD"], { cwd: worktreePath });
+        await runGit(["add", "--intent-to-add", "--all"], { cwd: worktreePath });
+        return await runGit(["diff", mergeBase], { cwd: worktreePath, maxBuffer: MAX_DIFF_BYTES });
+      } catch {
+        return undefined;
+      }
     }
   </file>
   <file path="src/session-runner.ts">
@@ -9159,7 +9265,7 @@
     }
     export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
       model: resolveModelId("haiku"),
-      maxBudgetUsd: 0.05,
+      maxBudgetUsd: 0.25,
     };
     function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult {
       const detail =
@@ -9185,13 +9291,19 @@
         return "";
       }
     }
-    export type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyInput, "diff">;
+    export const EMPTY_DIFF_MARKER = "(no changes — the session produced an empty diff)";
+    export type EvaluateSuccessConfig = Partial<EvaluationConfig> &
+      Omit<SkipPolicyInput, "diff"> & {
+        /** Bypass the skip policy — for callers (the eval judge) that must always get a real verdict. */
+        readonly forceEvaluate?: boolean;
+      };
     export async function evaluateSuccess(
       taskDescription: string,
       gitDiff: string,
       config?: EvaluateSuccessConfig
     ): Promise<EvaluationResult> {
-      if (!gitDiff.trim()) {
+      const isEmptyDiff = !gitDiff.trim();
+      if (isEmptyDiff && !config?.forceEvaluate) {
         return {
           passed: false,
           confidence: 1.0,
@@ -9205,14 +9317,17 @@
         testsPassed: config?.testsPassed,
         commitTitle: config?.commitTitle,
       });
-      if (skip.skip) {
+      if (skip.skip && !config?.forceEvaluate) {
         return { ...SKIP_RESULT, skipped: true, skipReason: skip.reason };
       }
     
       const mergedConfig = { ...DEFAULT_EVALUATION_CONFIG, ...config };
     
       try {
-        const prompt = buildEvaluationPrompt(taskDescription, gitDiff);
+        const prompt = buildEvaluationPrompt(
+          taskDescription,
+          isEmptyDiff ? EMPTY_DIFF_MARKER : gitDiff
+        );
     
         const conversation = query({
           prompt,

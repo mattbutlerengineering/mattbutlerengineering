@@ -2761,6 +2761,7 @@
       interface RunEvalSuiteOptions {
         runTask: TaskRunner;
         runId: string;
+        judgeFor?: (run: TaskRunResult) => JudgeFunction;
         only?: string;
       }
     </item>
@@ -2793,6 +2794,23 @@
       async function loadTaskFile(path: string): Promise<Task> { /* ... */ }
     </item>
   </file>
+  <file path="packages/agent-core/src/eval/llm-judge.ts">
+    <item priority="high">
+      type Evaluate = (
+        task: string,
+        diff: string,
+        config?: { readonly f...;
+    </item>
+    <item priority="high">
+      export function createEvalJudge(
+        run: TaskRunResult,
+        evaluate: Evaluate = evaluateSuccess
+      ): JudgeFunction { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatAcceptanceCriteria(criteria: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="packages/agent-core/src/eval/run-detection.ts">
     <item priority="high">
       export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean { /* ... */ }
@@ -2804,6 +2822,16 @@
   <file path="packages/agent-core/src/eval/task-scorer.ts">
     <item priority="high">
       export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Promise<TaskScore> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function inconclusive(reasoning: string): EvaluationResult { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runJudge(
+        prompt: string,
+        criteria: string,
+        judge: JudgeFunction | undefined
+      ): Promise<EvaluationResult> { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/eval/types.ts">
@@ -2844,6 +2872,7 @@
         task: Task;
         session: SessionResult;
         checks: DeterministicChecks;
+        diff?: string;
       }
     </item>
     <item priority="low">
@@ -11927,6 +11956,7 @@
       interface RunGitOptions {
         cwd?: string;
         timeoutMs?: number;
+        maxBuffer?: number;
       }
     </item>
     <item priority="high">
@@ -12011,6 +12041,14 @@
     </item>
     <item priority="medium">
       function readableStreamFromAsyncIterable(iterable: AsyncIterable<string>): ReadableStream<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/session-diff.ts">
+    <item priority="high">
+      export async function getSessionDiff(
+        worktreePath: string,
+        baseBranch: string
+      ): Promise<string | undefined> { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/session-runner.ts">
@@ -12203,8 +12241,12 @@
     <item priority="high">
       export async function getGitDiff(worktreePath: string): Promise<string> { /* ... */ }
     </item>
+    <item priority="high">
+      export const EMPTY_DIFF_MARKER: unknown;
+    </item>
     <item priority="low">
-      type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyInput, "diff">;
+      type EvaluateSuccessConfig = Partial<EvaluationConfig> &
+        Omit<SkipPolicyInput, "diff...;
     </item>
     <item priority="high">
       export async function evaluateSuccess(

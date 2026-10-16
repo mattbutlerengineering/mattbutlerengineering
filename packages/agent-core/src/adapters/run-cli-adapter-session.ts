@@ -38,6 +38,7 @@ import { WorktreePhase, VerificationPhase, PublishPhase, FeedbackPhase } from ".
 import type { PhaseDeps } from "../phases/index.js";
 import type { AdapterResult } from "../cli-adapter.js";
 import type { GatewayVerdict } from "../post-commit-gateway.js";
+import type { EvaluationResult } from "../success-evaluator.js";
 import type { CliAdapterContract } from "./cli-adapter-contract.js";
 import type {
   FailureCategory,
@@ -90,6 +91,7 @@ export async function runCliAdapterSession(
   let threw = false;
   let hasChanges = false;
   let gatewayVerdict: GatewayVerdict | undefined;
+  let gatewayEvaluation: EvaluationResult | undefined;
 
   // A throw anywhere after WorktreePhase (dispatch, verification, publish,
   // feedback) lands in errors[] and falls through to the retention →
@@ -146,6 +148,7 @@ export async function runCliAdapterSession(
       errors.push(...verifyExec.result.errors);
       hasChanges = verifyExec.output?.hasChanges ?? false;
       gatewayVerdict = verifyExec.output?.gatewayVerdict;
+      gatewayEvaluation = verifyExec.output?.gatewayEvaluation;
 
       // A failed CLI dispatch that still wrote changes must always publish via
       // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
@@ -260,6 +263,16 @@ export async function runCliAdapterSession(
     numTurns,
     resultText: "",
     errors,
+    // Same projection as result-builder.ts's evalSummary on the SDK path.
+    ...(gatewayEvaluation
+      ? {
+          evaluation: {
+            passed: gatewayEvaluation.passed,
+            confidence: gatewayEvaluation.confidence,
+            reasoning: gatewayEvaluation.reasoning,
+          },
+        }
+      : {}),
     ...(failureCategory ? { failureCategory } : {}),
     // Present iff the worktree is kept — see SessionResult.worktreePath.
     ...(keepsWorktree && worktree ? { worktreePath: worktree.path } : {}),

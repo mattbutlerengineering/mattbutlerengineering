@@ -38,9 +38,15 @@ export interface EvaluationConfig {
   readonly maxBudgetUsd: number;
 }
 
+/**
+ * $0.05 was too low to ever succeed under the CLI-backed SDK: the fixed
+ * context loaded before the single judge turn consumed the cap, so 3 of 5 eval
+ * tasks died with "Reached maximum budget ($0.05)" (#6846). The evaluator
+ * fails closed on that, so a cap it cannot meet is a permanently-failed gate.
+ */
 export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
   model: resolveModelId("haiku"),
-  maxBudgetUsd: 0.05,
+  maxBudgetUsd: 0.25,
 };
 
 /**
@@ -118,8 +124,15 @@ export async function getGitDiff(worktreePath: string): Promise<string> {
   }
 }
 
+/** Stands in for the diff when a forced evaluation has nothing to show the judge. */
+export const EMPTY_DIFF_MARKER = "(no changes — the session produced an empty diff)";
+
 /** Config for {@link evaluateSuccess}: LLM tuning plus skip-policy inputs. */
-export type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyInput, "diff">;
+export type EvaluateSuccessConfig = Partial<EvaluationConfig> &
+  Omit<SkipPolicyInput, "diff"> & {
+    /** Bypass the skip policy — for callers (the eval judge) that must always get a real verdict. */
+    readonly forceEvaluate?: boolean;
+  };
 
 /**
  * Evaluate whether a diff addresses a task via an LLM judge.
@@ -136,14 +149,18 @@ export type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyI
  * so an outage is never indistinguishable from a genuine pass.
  *
  * The empty-diff branch is preserved unchanged (`passed: false,
- * confidence: 1.0`) and takes precedence over the skip markers.
+ * confidence: 1.0`) and takes precedence over the skip markers — unless
+ * `forceEvaluate` is set, in which case the judge is sent
+ * {@link EMPTY_DIFF_MARKER} and rules on the criteria itself (a correct
+ * no-op can be the right answer to an eval task).
  */
 export async function evaluateSuccess(
   taskDescription: string,
   gitDiff: string,
   config?: EvaluateSuccessConfig
 ): Promise<EvaluationResult> {
-  if (!gitDiff.trim()) {
+  const isEmptyDiff = !gitDiff.trim();
+  if (isEmptyDiff && !config?.forceEvaluate) {
     return {
       passed: false,
       confidence: 1.0,
@@ -157,14 +174,17 @@ export async function evaluateSuccess(
     testsPassed: config?.testsPassed,
     commitTitle: config?.commitTitle,
   });
-  if (skip.skip) {
+  if (skip.skip && !config?.forceEvaluate) {
     return { ...SKIP_RESULT, skipped: true, skipReason: skip.reason };
   }
 
   const mergedConfig = { ...DEFAULT_EVALUATION_CONFIG, ...config };
 
   try {
-    const prompt = buildEvaluationPrompt(taskDescription, gitDiff);
+    const prompt = buildEvaluationPrompt(
+      taskDescription,
+      isEmptyDiff ? EMPTY_DIFF_MARKER : gitDiff
+    );
 
     const conversation = query({
       prompt,
