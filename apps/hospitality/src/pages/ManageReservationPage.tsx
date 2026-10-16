@@ -1,31 +1,27 @@
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { useUrlParams } from "../hooks/use-url-params.js";
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { Stack, Text, Card, Button, EmptyState } from "@mattbutlerengineering/rialto";
 import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog.js";
-import { formatLongDateWithYear, formatTime, formatTimeIn } from "../utils/format.js";
 import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../utils/calendarLinks.js";
 import { specialRequestsText } from "../utils/reservation-display.js";
-import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
+import { WidgetLocaleScope, WidgetLocalePicker } from "../components/booking-widget/index.js";
 import styles from "./ManageReservationPage.module.css";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-/** Default title before the reservation resolves (or on an invalid/expired link) — distinguishes this guest surface from a staff-sounding "Dashboard" tab (#4973). */
-const DEFAULT_TITLE = "Your reservation — Hospitality";
 
 // A guest arriving from an emailed link has no venue-scoped page to route back
 // to (the manage link carries only a token, never a venue slug) — the
 // marketing root is the only guest-readable destination this product has, the
 // same fallback PublicBookingPage.tsx uses for the same reason (#4978).
 const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/";
-const SUPPORT_LINE =
-  "Need help? Contact the venue directly using the details in your confirmation email.";
 
 /** Reservation statuses a guest can still self-service cancel. */
 const CANCELLABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
@@ -51,6 +47,7 @@ const MANAGE_DEFAULTS = manageParamsSchema.parse({});
 
 /** No-dead-end error surface: every failure state offers a way out, not just prose (#4980). */
 function DeadEndRescue({ heading, description }: { heading: string; description: string }) {
+  const { t } = useTranslation();
   return (
     <main>
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
@@ -61,19 +58,29 @@ function DeadEndRescue({ heading, description }: { heading: string; description:
           description={description}
           action={
             <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
-              Back to Matt Butler Engineering
+              {t("manageReservation.homeLink")}
             </a>
           }
         />
         <Text variant="caption" color="secondary">
-          {SUPPORT_LINE}
+          {t("manageReservation.supportLine")}
         </Text>
       </Stack>
     </main>
   );
 }
 
+/** Same guest locale scope as the booking page, so a choice made there carries here. */
 export function ManageReservationPage() {
+  return (
+    <WidgetLocaleScope>
+      <ManageReservationPageContent />
+    </WidgetLocaleScope>
+  );
+}
+
+function ManageReservationPageContent() {
+  const { t } = useTranslation();
   const { params } = useUrlParams(manageParamsSchema, MANAGE_DEFAULTS);
   const token = params.token || null;
   const publicApiClient = usePublicApiClient({ baseUrl: API_BASE, maxRetries: 3 });
@@ -96,7 +103,19 @@ export function ManageReservationPage() {
     retry: false,
   });
 
-  useDocumentTitle(data?.venue ? `${data.venue.name} — Your reservation` : DEFAULT_TITLE);
+  // Money is never shown here; the venue only supplies the clock.
+  const format = useVenueFormat({
+    ianaTimezone: data?.venue?.ianaTimezone ?? "",
+    currencyCode: "USD",
+  });
+
+  // The default title (before the reservation resolves, or on an invalid/expired link)
+  // distinguishes this guest surface from a staff-sounding "Dashboard" tab (#4973).
+  useDocumentTitle(
+    data?.venue
+      ? t("manageReservation.venueDocumentTitle", { venue: data.venue.name })
+      : t("manageReservation.documentTitle")
+  );
 
   const handleCancelConfirm = async (reason: string, note: string): Promise<void> => {
     await publicApiClient.reservations.cancelManaged(token!, {
@@ -111,8 +130,8 @@ export function ManageReservationPage() {
   if (!token) {
     return (
       <DeadEndRescue
-        heading="No Access Link"
-        description="Please check the link in your confirmation email."
+        heading={t("manageReservation.noLinkHeading")}
+        description={t("manageReservation.noLinkDescription")}
       />
     );
   }
@@ -122,7 +141,7 @@ export function ManageReservationPage() {
       <main>
         <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
           <Text as="h1" variant="body" color="secondary">
-            Loading reservation...
+            {t("manageReservation.loading")}
           </Text>
         </Stack>
       </main>
@@ -134,24 +153,24 @@ export function ManageReservationPage() {
 
     return (
       <DeadEndRescue
-        heading={errorType === "expired" ? "Link Expired" : "Invalid Link"}
-        description={
+        heading={t(
           errorType === "expired"
-            ? "This manage link has expired. Please contact the venue for assistance."
-            : "This link has already been used or is invalid."
-        }
+            ? "manageReservation.expiredHeading"
+            : "manageReservation.invalidHeading"
+        )}
+        description={t(
+          errorType === "expired"
+            ? "manageReservation.expiredDescription"
+            : "manageReservation.invalidDescription"
+        )}
       />
     );
   }
 
   const { reservation, venue } = data;
-  const formattedDate = formatLongDateWithYear(reservation.date);
-  const formattedStart = venue
-    ? formatTimeIn(reservation.startTime, venue.ianaTimezone)
-    : formatTime(reservation.startTime);
-  const formattedEnd = venue
-    ? formatTimeIn(reservation.endTime, venue.ianaTimezone)
-    : formatTime(reservation.endTime);
+  const formattedDate = format.formatLongDateWithYear(reservation.date);
+  const formattedStart = format.formatTime(reservation.startTime);
+  const formattedEnd = format.formatTime(reservation.endTime);
   const canCancel = CANCELLABLE_STATUSES.has(reservation.status);
   const requests = specialRequestsText(reservation.notes);
 
@@ -159,44 +178,47 @@ export function ManageReservationPage() {
     <main>
       <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Stack gap="lg" style={{ maxWidth: 600, width: "100%" }}>
+          <WidgetLocalePicker />
           <Text as="h1" variant="display">
-            {venue ? venue.name : "Your reservation"}
+            {venue ? venue.name : t("manageReservation.fallbackTitle")}
           </Text>
 
           <Card>
             <Stack gap="md" style={{ padding: "1.5rem" }}>
               <Text as="h2" variant="label">
-                Reservation Details
+                {t("manageReservation.detailsTitle")}
               </Text>
 
               <Stack gap="sm">
                 <Stack direction="row" justify="between">
                   <Text variant="body" color="secondary">
-                    Guest
+                    {t("manageReservation.guest")}
                   </Text>
                   <Text variant="body">{reservation.guestName}</Text>
                 </Stack>
 
                 <Stack direction="row" justify="between">
                   <Text variant="body" color="secondary">
-                    Party Size
+                    {t("manageReservation.partySize")}
                   </Text>
-                  <Text variant="body">{reservation.partySize} guests</Text>
+                  <Text variant="body">
+                    {t("bookingWidget.guests", { count: reservation.partySize })}
+                  </Text>
                 </Stack>
 
                 <Stack direction="row" justify="between">
                   <Text variant="body" color="secondary">
-                    Date
+                    {t("manageReservation.date")}
                   </Text>
                   <Text variant="body">{formattedDate}</Text>
                 </Stack>
 
                 <Stack direction="row" justify="between">
                   <Text variant="body" color="secondary">
-                    Time
+                    {t("manageReservation.time")}
                   </Text>
                   <Text variant="body">
-                    {formattedStart} – {formattedEnd}
+                    {t("manageReservation.timeRange", { start: formattedStart, end: formattedEnd })}
                   </Text>
                 </Stack>
               </Stack>
@@ -207,11 +229,11 @@ export function ManageReservationPage() {
             <Card role="group" aria-labelledby={specialRequestsId}>
               <Stack gap="md" className={styles.cardInset}>
                 <Text as="h2" id={specialRequestsId} variant="label" color="secondary">
-                  {CONFIRMATION_COPY.specialRequestsLabel}
+                  {t("bookingWidget.specialRequests.label")}
                 </Text>
                 <Stack gap="sm">
                   <Text variant="body" color="secondary">
-                    {CONFIRMATION_COPY.acknowledgement}
+                    {t("bookingWidget.specialRequests.acknowledgement")}
                   </Text>
                   <Text variant="body" dir="auto" className={styles.requestsText}>
                     {requests}
@@ -225,7 +247,7 @@ export function ManageReservationPage() {
             <Card>
               <Stack gap="md" style={{ padding: "1.5rem" }}>
                 <Text as="h2" variant="label">
-                  Add to Calendar
+                  {t("bookingWidget.calendar.title")}
                 </Text>
                 <div className={styles.calendarActions}>
                   <Button
@@ -237,7 +259,7 @@ export function ManageReservationPage() {
                       )
                     }
                   >
-                    Download .ics
+                    {t("bookingWidget.calendar.downloadIcs")}
                   </Button>
                   <a
                     className={styles.calendarLink}
@@ -245,7 +267,7 @@ export function ManageReservationPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Google Calendar
+                    {t("bookingWidget.calendar.google")}
                   </a>
                   <a
                     className={styles.calendarLink}
@@ -253,7 +275,7 @@ export function ManageReservationPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Outlook
+                    {t("bookingWidget.calendar.outlook")}
                   </a>
                 </div>
               </Stack>
@@ -263,17 +285,17 @@ export function ManageReservationPage() {
           <Stack gap="sm">
             {venue?.phone && (
               <a className={styles.callLink} href={`tel:${venue.phone}`}>
-                Call {venue.name}
+                {t("manageReservation.call", { venue: venue.name })}
               </a>
             )}
             {canCancel ? (
               <Button variant="ghost" onClick={() => setShowCancelDialog(true)}>
-                Cancel Reservation
+                {t("manageReservation.cancel")}
               </Button>
             ) : (
               reservation.status === "CANCELLED" && (
                 <Text variant="caption" color="secondary" align="center">
-                  This reservation has been cancelled.
+                  {t("manageReservation.cancelled")}
                 </Text>
               )
             )}

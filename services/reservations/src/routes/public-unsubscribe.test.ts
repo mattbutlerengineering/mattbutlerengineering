@@ -1,7 +1,20 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
+import type { DomainServices } from "../services/domain-services.js";
 import { buildApp } from "../app.js";
 import { generateUnsubscribeToken } from "../services/post-visit-notifier.js";
+
+// Domain services are injected via buildApp({ services }) (issue #6771), so the
+// migrated public routes need no vi.mock of their service modules.
+const guestService = {
+  list: vi.fn(),
+  getById: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  search: vi.fn(),
+  markUnsubscribed: vi.fn(),
+} as unknown as DomainServices["guestService"];
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -13,35 +26,6 @@ vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => vi.fn()),
 }));
 
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    getById: vi.fn(),
-    list: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-  },
-}));
-
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-  },
-}));
-
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    search: vi.fn(),
-    markUnsubscribed: vi.fn(),
-  },
-}));
-
 // ADR-026 §3.3 item 4 / #5369 PR 8: this route now resolves the guest's
 // venue via `resolveVenueId` — see public-venues.test.ts's identical comment
 // for why this is mocked rather than hitting real `$queryRaw`.
@@ -49,7 +33,6 @@ vi.mock("../services/resolve-venue.js", () => ({
   resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
 }));
 
-import { guestService } from "../services/guest.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 
 describe("GET /public/v1/guests/unsubscribe", () => {
@@ -58,7 +41,7 @@ describe("GET /public/v1/guests/unsubscribe", () => {
   beforeAll(async () => {
     process.env.AUTH_AUTHORITY = "https://test.auth0.com";
     process.env.AUTH_AUDIENCE = "https://api.example.com";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { guestService } });
     await app.ready();
   });
 
@@ -137,7 +120,7 @@ describe("GET /public/v1/guests/unsubscribe — rate limiting", () => {
   it("has rate limiting configured at 10 req/min", async () => {
     process.env.AUTH_AUTHORITY = "https://test.auth0.com";
     process.env.AUTH_AUDIENCE = "https://api.example.com";
-    const freshApp = await buildApp({ logger: false });
+    const freshApp = await buildApp({ logger: false, services: { guestService } });
     await freshApp.ready();
 
     // Send 11 requests — the 11th should be rate-limited

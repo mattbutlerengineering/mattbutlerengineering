@@ -38,6 +38,8 @@ import type {
   CreateFloorPlanRequest,
   FloorPlanLayout,
 } from "@mbe/types";
+import { ApiClientError } from "@mbe/api-client";
+import { localeRuntime } from "../../i18n/runtime.js";
 import type { FloorPlanDraft } from "./floor-plan-draft.js";
 import { draftTableToCreateRequest, DUPLICATE_TABLE_NAME_MESSAGE } from "./floor-plan-draft.js";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE } from "../floor-plan/floor-plan-geometry.js";
@@ -152,7 +154,11 @@ export function tablesDoneCount(progress: LaunchProgress): number {
 
 /** True when a 400 is the server's own duplicate-name rejection — i.e. the table already exists. */
 export function isAlreadyCreatedError(err: unknown): boolean {
-  return err instanceof Error && err.message === DUPLICATE_TABLE_NAME_MESSAGE;
+  return (
+    err instanceof ApiClientError &&
+    err.problemDetails.status === 400 &&
+    err.problemDetails.detail === DUPLICATE_TABLE_NAME_MESSAGE
+  );
 }
 
 /** Narrow structural interface, so the test needs no network and no client mock module. */
@@ -180,7 +186,7 @@ async function runVenueStage(
   try {
     venue = await api.venues.create(venuePayload);
   } catch (err) {
-    throw withFallback(err, "Couldn't create the venue");
+    throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.venueFailed"));
   }
   const next: LaunchProgress = { ...progress, venueId: venue.id, inFlightStage: null };
   onProgress(next);
@@ -208,7 +214,7 @@ async function runFloorPlanStage(
       layoutJson: DEFAULT_LAYOUT,
     });
   } catch (err) {
-    throw withFallback(err, "Couldn't create the floor plan");
+    throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
   }
   const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
   onProgress(next);
@@ -257,7 +263,10 @@ async function runTablesStage(
       await api.tables.create(draftTableToCreateRequest(table, venueId, floorPlanId));
     } catch (err) {
       if (!isAlreadyCreatedError(err)) {
-        const fallback = `Stopped at table ${index + 1} of ${total}`;
+        const fallback = localeRuntime.i18n.t("onboarding.errors.stoppedAtTable", {
+          index: index + 1,
+          total,
+        });
         throw new LaunchStageError(withFallback(err, fallback).message, current);
       }
       // A duplicate-name rejection means the table already exists —
@@ -288,7 +297,7 @@ async function runActivateStage(
   try {
     await api.floorPlans.setActive(floorPlanId);
   } catch (err) {
-    throw withFallback(err, "Couldn't make the plan live");
+    throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.activateFailed"));
   }
   const next: LaunchProgress = { ...progress, activated: true, inFlightStage: null };
   onProgress(next);
@@ -352,7 +361,8 @@ export async function runLaunchSequence(
         ...base,
         inFlightStage: null,
         failedStage: stage,
-        errorMessage: err instanceof Error ? err.message : "Something went wrong",
+        errorMessage:
+          err instanceof Error ? err.message : localeRuntime.i18n.t("onboarding.errors.generic"),
       };
       onProgress(current);
       return current;

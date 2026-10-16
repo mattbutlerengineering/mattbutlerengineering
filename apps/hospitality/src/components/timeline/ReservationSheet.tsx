@@ -1,12 +1,18 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 import { Badge, Button, Drawer, Stack, Tag, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
-import { getSegmentLabel, getSegmentVariant, isAllergyTag } from "../crm/guest-signals.js";
+import {
+  getSegmentLabel,
+  getSegmentVariant,
+  isAllergyTag,
+  segmentText,
+} from "../crm/guest-signals.js";
 import { useGuest } from "../../hooks/useGuests.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
-import { formatTime } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
@@ -56,10 +62,12 @@ export function ReservationSheet({
   expanded,
   onToggleExpanded,
 }: ReservationSheetProps) {
+  const fmt = useVenueFormat();
+  const { t } = useTranslation();
   const detailId = useId();
 
   const table = findReservationTable(reservation, tables);
-  const caption = occupiedCaption(reservation, table, now);
+  const caption = occupiedCaption(reservation, table, now, t);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
   const { data: guest } = useGuest(reservation.guestId);
   const {
@@ -77,18 +85,18 @@ export function ReservationSheet({
       onClose={onClose}
       side="bottom"
       size={reservationSheetSize(reservation.notes, expanded)}
-      title={reservation.guestName || "Guest"}
+      title={reservation.guestName || t("timeline.guest")}
     >
       <Stack gap="md">
         <div className={styles.summary}>
           <Text as="span" variant="caption" color="secondary">
-            party of {reservation.partySize}
+            {t("timeline.partyOf", { count: reservation.partySize })}
           </Text>
           <Text as="span" variant="caption" color="tertiary" aria-hidden="true">
             ·
           </Text>
           <Text as="span" variant="caption" color="secondary">
-            {formatTime(reservation.startTime)}
+            {fmt.formatTime(reservation.startTime)}
           </Text>
           <Text as="span" variant="caption" color="tertiary" aria-hidden="true">
             ·
@@ -103,7 +111,7 @@ export function ReservationSheet({
                 —
               </Text>
               <Text as="span" className={styles.visuallyHidden}>
-                table unknown
+                {t("timeline.tableUnknown")}
               </Text>
             </>
           )}
@@ -111,7 +119,7 @@ export function ReservationSheet({
             ·
           </Text>
           <Text as="span" variant="caption" color="primary" className={styles.status}>
-            {statusWord(reservation, seated)}
+            {statusWord(reservation, seated, t)}
           </Text>
         </div>
 
@@ -124,11 +132,11 @@ export function ReservationSheet({
         {segmentLabel && (
           <Stack direction="row" gap="xs" wrap>
             <Badge variant={getSegmentVariant(segmentLabel)} size="sm">
-              {segmentLabel}
+              {segmentText(segmentLabel, t)}
             </Badge>
             {allergies.map((restriction) => (
               <Tag key={restriction} variant="error">
-                {`Allergy: ${restriction}`}
+                {t("timeline.sheet.allergy", { restriction })}
               </Tag>
             ))}
           </Stack>
@@ -138,7 +146,7 @@ export function ReservationSheet({
 
         {failure && (
           <ErrorRetryBanner
-            title="Guest not seated."
+            title={t("timeline.details.seatFailed")}
             error={failure.detail}
             details={failure.raw}
           />
@@ -151,22 +159,22 @@ export function ReservationSheet({
               variant="secondary"
               onClick={() => void seat()}
               isLoading={seating}
-              loadingText="Seating…"
+              loadingText={t("timeline.details.seating")}
             >
-              Seat Guest
+              {t("timeline.details.seat")}
             </Button>
           )}
           <Button variant="primary" onClick={onEdit} disabled={seating}>
-            Edit reservation
+            {t("timeline.sheet.edit")}
           </Button>
           {reservation.status !== "CANCELLED" && (
             <Button variant="ghost" onClick={onCancel} disabled={seating}>
-              Cancel reservation
+              {t("timeline.sheet.cancel")}
             </Button>
           )}
           {reservation.status === "CONFIRMED" && (
             <Button variant="ghost" onClick={onMarkNoShow} disabled={seating}>
-              Mark No-Show
+              {t("timeline.details.noShow")}
             </Button>
           )}
           <Button
@@ -176,7 +184,7 @@ export function ReservationSheet({
             aria-controls={expanded ? detailId : undefined}
             disabled={seating}
           >
-            More{" "}
+            {t("timeline.sheet.more")}{" "}
             <Text as="span" aria-hidden="true">
               ▾
             </Text>
@@ -189,7 +197,7 @@ export function ReservationSheet({
             {reservation.guestEmail && (
               <div>
                 <Text variant="label" color="secondary">
-                  Email
+                  {t("timeline.details.email")}
                 </Text>
                 <Text variant="body" as="div">
                   {reservation.guestEmail}
@@ -199,7 +207,7 @@ export function ReservationSheet({
             {reservation.guestPhone && (
               <div>
                 <Text variant="label" color="secondary">
-                  Phone
+                  {t("timeline.details.phone")}
                 </Text>
                 <Text variant="body" as="div">
                   {reservation.guestPhone}

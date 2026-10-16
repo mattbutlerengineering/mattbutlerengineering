@@ -2,8 +2,22 @@
 .pagination {
   display: flex;
   align-items: center;
-  gap: var(--rialto-space-2xs);
   isolation: isolate;
+}
+
+/* ── List (resets UA list styles; layout matches the old flat nav) ── */
+.list {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
 }
 
 /* ── Shared button base ──────────────────────── */
@@ -75,4 +89,17 @@
   color: var(--rialto-text-tertiary);
   letter-spacing: 0.1em;
   cursor: default;
+}
+
+/* Visually hidden, still announced: the page-change live region. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

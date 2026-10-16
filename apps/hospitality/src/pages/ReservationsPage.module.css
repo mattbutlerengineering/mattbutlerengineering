@@ -90,7 +90,8 @@
 
 /* Table */
 .tableWrapper {
-  overflow: hidden;
+  /* Columns are wider than a phone: scroll, never clip them away. */
+  overflow-x: auto;
 }
 
 .table {

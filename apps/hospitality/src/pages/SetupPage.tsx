@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader.js";
@@ -8,10 +9,10 @@ import styles from "./SetupPage.module.css";
 const STEP_CONFIG = [
   {
     id: "onboarding" as const,
-    label: "Venue Basics",
-    description: "Set up your venue name, timezone, and currency.",
+    labelKey: "setup.steps.onboarding.label" as const,
+    descriptionKey: "setup.steps.onboarding.description" as const,
     path: "/onboarding",
-    ctaLabel: "Review Venue Details",
+    ctaKey: "setup.steps.onboarding.cta" as const,
     // No read-only review view exists yet — /onboarding is create-only, so
     // routing "Review" there re-opens the wizard on a blank Step 1 instead
     // of showing what was already saved (#4984). Render a static Done row
@@ -20,24 +21,25 @@ const STEP_CONFIG = [
   },
   {
     id: "operating-hours" as const,
-    label: "Set Operating Hours",
-    description: "Configure which days and hours your venue is open.",
+    labelKey: "setup.steps.hours.label" as const,
+    descriptionKey: "setup.steps.hours.description" as const,
     path: "/setup/hours",
-    ctaLabel: "Set Operating Hours",
+    ctaKey: "setup.steps.hours.cta" as const,
     reviewPath: "/setup/hours",
   },
   {
     id: "floor-plan" as const,
-    label: "Create Floor Plan",
-    description: "Add a floor plan with at least one table to enable reservations.",
+    labelKey: "setup.steps.floorPlan.label" as const,
+    descriptionKey: "setup.steps.floorPlan.description" as const,
     path: "/floor-plans",
-    ctaLabel: "Create Floor Plan",
+    ctaKey: "setup.steps.floorPlan.cta" as const,
     reviewPath: "/floor-plans",
   },
 ];
 
 export function SetupPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const readiness = useVenueReadiness();
   const { selectedVenue } = useVenue();
 
@@ -56,14 +58,11 @@ export function SetupPage() {
     }
   }, [readiness.status, navigate]);
 
-  const venueName = selectedVenue?.name ?? "your venue";
+  const venueName = selectedVenue?.name ?? t("setup.yourVenue");
 
   return (
     <div className={styles.root}>
-      <PageHeader
-        title={`Welcome to ${venueName}`}
-        description="Complete a few setup steps to start taking reservations."
-      />
+      <PageHeader title={t("setup.welcome", { venueName })} description={t("setup.intro")} />
 
       <div
         className={styles.progressBar}
@@ -74,9 +73,9 @@ export function SetupPage() {
       >
         <div className={styles.progressFill} style={{ width: `${readiness.progress}%` }} />
       </div>
-      <p className={styles.progressLabel}>{readiness.progress}% complete</p>
+      <p className={styles.progressLabel}>{t("setup.progress", { percent: readiness.progress })}</p>
 
-      <ol className={styles.stepList} aria-label="Setup steps">
+      <ol className={styles.stepList} aria-label={t("setup.stepsLabel")}>
         {STEP_CONFIG.map((step) => {
           const isCompleted = readiness.completedSteps.includes(step.id);
           const isCurrent = readiness.nextStep === step.id;
@@ -84,13 +83,13 @@ export function SetupPage() {
           let statusLabel: string;
           let stepClass: string;
           if (isCompleted) {
-            statusLabel = "Completed";
+            statusLabel = t("setup.status.completed");
             stepClass = styles.stepCompleted ?? "";
           } else if (isCurrent) {
-            statusLabel = "Current step";
+            statusLabel = t("setup.status.current");
             stepClass = styles.stepCurrent ?? "";
           } else {
-            statusLabel = "Not yet available";
+            statusLabel = t("setup.status.locked");
             stepClass = styles.stepLocked ?? "";
           }
 
@@ -98,7 +97,7 @@ export function SetupPage() {
             <li
               key={step.id}
               className={`${styles.step} ${stepClass}`}
-              aria-label={`${step.label} — ${statusLabel}`}
+              aria-label={t("setup.stepAria", { label: t(step.labelKey), status: statusLabel })}
             >
               <div className={styles.stepIcon} aria-hidden="true">
                 {isCompleted ? (
@@ -145,8 +144,8 @@ export function SetupPage() {
               </div>
 
               <div className={styles.stepContent}>
-                <h2 className={styles.stepTitle}>{step.label}</h2>
-                <p className={styles.stepDescription}>{step.description}</p>
+                <h2 className={styles.stepTitle}>{t(step.labelKey)}</h2>
+                <p className={styles.stepDescription}>{t(step.descriptionKey)}</p>
 
                 {isCurrent && (
                   <button
@@ -154,7 +153,7 @@ export function SetupPage() {
                     className={styles.ctaButton}
                     onClick={() => navigate(step.path)}
                   >
-                    {step.ctaLabel}
+                    {t(step.ctaKey)}
                   </button>
                 )}
                 {isCompleted && step.reviewPath && (
@@ -163,11 +162,11 @@ export function SetupPage() {
                     className={styles.reviewButton}
                     onClick={() => navigate(step.reviewPath)}
                   >
-                    Review
+                    {t("setup.review")}
                   </button>
                 )}
                 {isCompleted && !step.reviewPath && (
-                  <p className={styles.doneLabel}>Done — {venueName}</p>
+                  <p className={styles.doneLabel}>{t("setup.done", { venueName })}</p>
                 )}
               </div>
             </li>

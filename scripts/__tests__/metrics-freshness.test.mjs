@@ -43,7 +43,10 @@ const FRESH_ROWS = [
     available: true,
     categories: {},
   },
+  { date: "2026-09-20", sensor: "sdlcSpeed", available: true },
 ];
+
+const SDLC_ROW = { date: "2026-09-20", sensor: "sdlcSpeed", available: true };
 
 /** `daysAgo(2)` -> an ISO timestamp two days before NOW. */
 function daysAgo(days) {
@@ -123,7 +126,8 @@ describe("FRESHNESS_POLICY", () => {
   it("no longer watches domain-metrics — the collector was retired (#5561)", () => {
     expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual([
       "ai-issue-feedback",
-      "process-metrics",
+      "process-metrics", // queueEfficiency
+      "process-metrics", // sdlcSpeed (#6654)
       "queue-telemetry",
       "review-burden",
     ]);
@@ -141,15 +145,16 @@ describe("FRESHNESS_POLICY", () => {
     const byMetric = Object.fromEntries(FRESHNESS_POLICY.map((p) => [p.metric, p]));
     // scripts/acmm/review-burden-metrics.js writes `timestamp`.
     expect(byMetric["review-burden"].timestampField).toBe("timestamp");
-    // scripts/collect-queue-telemetry.mjs rows carry `claimed_at` (always set);
+    // scripts/queue-telemetry-store.mjs rows carry `claimed_at` (always set);
     // `merged_at` is null until reconciled, so it must not be the field.
     expect(byMetric["queue-telemetry"].timestampField).toBe("claimed_at");
   });
 
-  it("sets a threshold wider than the daily collection cadence", () => {
+  it("sets a threshold wider than the collection cadence", () => {
     for (const entry of FRESHNESS_POLICY) {
       expect(entry.maxAgeDays).toBeGreaterThanOrEqual(2);
-      expect(entry.maxAgeDays).toBeLessThanOrEqual(7);
+      // sdlcSpeed is weekly (two missed runs = 14); every other entry is daily.
+      expect(entry.maxAgeDays).toBeLessThanOrEqual(entry.label === "sdlcSpeed" ? 14 : 7);
     }
   });
 });
@@ -411,6 +416,28 @@ describe("unconfigured vs. genuinely broken (#5561)", () => {
 
 /* ── #6312: collectors that "ran" but only ever wrote error rows ──────────── */
 
+describe("sdlcSpeed policy entry (#6654)", () => {
+  const assess = (rows) =>
+    assessFreshness({
+      readMetric: (metric) => (metric === "process-metrics" ? rows : FRESH_ROWS),
+      now: NOW,
+    });
+  const sdlcOf = (results) => results.find((r) => r.label === "sdlcSpeed")?.state;
+  const queueRow = { date: "2026-09-20", sensor: "queueEfficiency", available: true };
+
+  it("is fresh with a healthy row inside the weekly window", () => {
+    const row = { date: daysAgo(9).slice(0, 10), sensor: "sdlcSpeed", available: true };
+    expect(sdlcOf(assess([queueRow, row]))).toBe("fresh");
+  });
+  it("goes stale after two missed weekly runs", () => {
+    const row = { date: daysAgo(20).slice(0, 10), sensor: "sdlcSpeed", available: true };
+    expect(sdlcOf(assess([queueRow, row]))).toBe("stale");
+  });
+  it("fails as empty when the sensor never recorded", () => {
+    expect(sdlcOf(assess([queueRow]))).toBe("empty");
+  });
+});
+
 describe("queueEfficiency + ai-issue-feedback policy (#6312)", () => {
   const dayStamp = (days) => daysAgo(days).slice(0, 10);
   const queueRow = (days, fields) => ({
@@ -426,7 +453,7 @@ describe("queueEfficiency + ai-issue-feedback policy (#6312)", () => {
   const assess = ({ queue, feedback }) =>
     assessFreshness({
       readMetric: (metric) => {
-        if (metric === "process-metrics") return queue;
+        if (metric === "process-metrics") return [...queue, SDLC_ROW];
         if (metric === "ai-issue-feedback") return feedback;
         if (metric === "queue-telemetry") return [{ claimed_at: daysAgo(0) }];
         return [{ timestamp: daysAgo(0) }];

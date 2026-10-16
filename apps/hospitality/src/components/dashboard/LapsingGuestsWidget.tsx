@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button, Card, Text } from "@mattbutlerengineering/rialto";
 import type { LapsingGuest } from "@mbe/types";
 import styles from "./LapsingGuestsWidget.module.css";
@@ -8,21 +9,26 @@ interface LapsingGuestsWidgetProps {
 }
 
 export function LapsingGuestsWidget({ guests, onSendWinBack }: LapsingGuestsWidgetProps) {
+  const { t } = useTranslation();
   return (
-    <Card title="Lapsing Guests">
+    <Card title={t("home.lapsing.title")}>
       {guests.length === 0 ? (
         <Text variant="body" color="secondary">
-          No lapsing guests
+          {t("home.lapsing.empty")}
         </Text>
       ) : (
-        <ul className={styles.list} aria-label="Lapsing guests">
+        <ul className={styles.list} aria-label={t("home.lapsing.listLabel")}>
           {guests.map((guest) => (
             <li key={guest.guestId} className={styles.item}>
               <div className={styles.info}>
-                <Text className={styles.name}>{guest.name}</Text>
+                <Text className={styles.name} data-truncate title={guest.name}>
+                  {guest.name}
+                </Text>
                 <Text className={styles.meta}>
-                  Every {Math.round(guest.avgFrequencyDays)} days &middot;{" "}
-                  {Math.round(guest.daysOverdue)} days overdue
+                  {t("home.lapsing.cadence", {
+                    every: t("home.lapsing.every", { count: Math.round(guest.avgFrequencyDays) }),
+                    overdue: t("home.lapsing.overdue", { count: Math.round(guest.daysOverdue) }),
+                  })}
                 </Text>
               </div>
               {guest.communicationPreference !== "transactional_only" && (
@@ -30,9 +36,9 @@ export function LapsingGuestsWidget({ guests, onSendWinBack }: LapsingGuestsWidg
                   variant="secondary"
                   size="sm"
                   onClick={() => onSendWinBack(guest.guestId)}
-                  aria-label={`Send win-back to ${guest.name}`}
+                  aria-label={t("home.lapsing.sendWinBackTo", { name: guest.name })}
                 >
-                  Send win-back
+                  {t("home.lapsing.sendWinBack")}
                 </Button>
               )}
             </li>

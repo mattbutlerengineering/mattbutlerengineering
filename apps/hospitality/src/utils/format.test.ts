@@ -4,8 +4,14 @@ import {
   formatLongDateWithYear,
   formatTime,
   formatLocalTime,
+  formatWallHour,
+  formatWallHourRange,
   formatCurrencyFromCents,
   formatServiceDate,
+  formatInstant,
+  currencyMinorUnits,
+  formatCalendarDate,
+  majorToMinorUnits,
 } from "./format.js";
 
 describe("formatLongDate", () => {
@@ -124,5 +130,79 @@ describe("formatServiceDate", () => {
   it("does not shift the calendar day across the UTC boundary (T00:00:00 local)", () => {
     // 2024-01-01 is a Monday
     expect(formatServiceDate("2024-01-01")).toBe("Monday, Jan 1");
+  });
+});
+
+describe("formatInstant", () => {
+  it("formats in the given zone and locale", () => {
+    expect(
+      formatInstant(
+        "2024-03-15T21:30:00Z",
+        { hour: "numeric", minute: "2-digit" },
+        "en-US",
+        "Asia/Tokyo"
+      )
+    ).toBe("6:30 AM");
+  });
+
+  it("falls back to the device zone for an invalid zone", () => {
+    expect(() =>
+      formatInstant("2024-03-15T21:30:00Z", { hour: "numeric" }, "en-US", "Bad/Zone")
+    ).not.toThrow();
+  });
+
+  it("returns the legacy 'Invalid Date' text instead of throwing", () => {
+    expect(formatInstant("not a date", { hour: "numeric" })).toBe("Invalid Date");
+  });
+});
+
+describe("currency minor units", () => {
+  it("knows each currency's exponent", () => {
+    expect(currencyMinorUnits("USD")).toBe(2);
+    expect(currencyMinorUnits("cad")).toBe(2);
+    expect(currencyMinorUnits("JPY")).toBe(0);
+    expect(currencyMinorUnits("krw")).toBe(0);
+    expect(currencyMinorUnits("KWD")).toBe(3);
+  });
+
+  it("formats zero-decimal minor units without dividing by 100", () => {
+    expect(formatCurrencyFromCents(2500, "jpy", "en-US")).toBe("¥2,500");
+    expect(formatCurrencyFromCents(2500, "usd", "en-US")).toBe("$25.00");
+  });
+
+  it("converts a typed major amount to minor units", () => {
+    expect(majorToMinorUnits(25, "USD")).toBe(2500);
+    expect(majorToMinorUnits(25, "cad")).toBe(2500);
+    expect(majorToMinorUnits(2500, "JPY")).toBe(2500);
+    expect(majorToMinorUnits(2.5, "KWD")).toBe(2500);
+    expect(majorToMinorUnits(19.99, "USD")).toBe(1999);
+  });
+});
+
+describe("formatCalendarDate", () => {
+  it("renders a date-only string as that calendar day, never shifted by the device zone", () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    try {
+      expect(formatCalendarDate("2026-05-10", { month: "short", day: "numeric" })).toBe("May 10");
+      expect(
+        formatCalendarDate("2026-05-10T00:00:00.000Z", { month: "short", day: "numeric" })
+      ).toBe("May 10");
+    } finally {
+      process.env.TZ = previousTz;
+    }
+  });
+});
+
+describe("formatWallHour", () => {
+  it("prints a whole hour in the locale's clock convention", () => {
+    expect(formatWallHour(18)).toBe("6 PM");
+    expect(formatWallHour(18, "fr-CA")).toMatch(/^18\s?h$/);
+  });
+});
+
+describe("formatWallHourRange", () => {
+  it("collapses a shared day period", () => {
+    expect(formatWallHourRange(18, 21).replace(/\s/g, "")).toBe("6–9PM");
   });
 });

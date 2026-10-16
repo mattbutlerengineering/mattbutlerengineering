@@ -1,11 +1,13 @@
 import { useEffect } from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { OnboardingLayout } from "./OnboardingLayout.js";
 import { useOnboardingWizardContext } from "../components/venue-onboarding/OnboardingWizardContext.js";
+import { localeRuntime } from "../i18n/runtime.js";
+import esMX from "../i18n/catalogs/es-MX.json";
 import { INITIAL_LAUNCH_PROGRESS } from "../components/venue-onboarding/launch-sequence.js";
 
 // VenueProvider (wrapped by OnboardingLayout) reads venues via useVenues, which
@@ -133,5 +135,24 @@ describe("OnboardingLayout", () => {
     // would normally render as clickable buttons — none should while a stage
     // is in flight.
     expect(within(rail).queryByRole("button")).toBeNull();
+  });
+});
+
+describe("OnboardingLayout in es-MX", () => {
+  beforeAll(async () => {
+    localeRuntime.i18n.addResourceBundle("es-MX", "translation", esMX, true, true);
+    await localeRuntime.i18n.changeLanguage("es-MX");
+  });
+
+  afterAll(async () => {
+    await localeRuntime.i18n.changeLanguage("en-US");
+  });
+
+  it("translates the brand panel tagline", () => {
+    renderLayout();
+
+    const brand = screen.getByRole("complementary");
+    expect(within(brand).getByText("Gestión de restaurantes, simplificada.")).toBeInTheDocument();
+    expect(within(brand).queryByText(/restaurant management/i)).toBeNull();
   });
 });

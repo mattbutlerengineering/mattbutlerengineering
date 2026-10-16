@@ -8,7 +8,9 @@ import {
   Heading,
   Text,
 } from "@mattbutlerengineering/rialto";
-import { formatLongDate, formatTime, formatTimeIn, getHourIn } from "../../utils/format.js";
+import { useTranslation } from "react-i18next";
+import { getHourIn } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { venueDate } from "../../utils/service-day.js";
 import { TimeSlotListbox } from "./TimeSlotListbox.js";
 import styles from "./TimeSlotPicker.module.css";
@@ -63,7 +65,9 @@ export function TimeSlotPicker({
   onSetHours,
   venueTimezone,
 }: TimeSlotPickerProps) {
-  const formattedDate = formatLongDate(date);
+  const { t } = useTranslation();
+  const format = useVenueFormat({ ianaTimezone: venueTimezone ?? "", currencyCode: "USD" });
+  const formattedDate = format.formatLongDate(date);
 
   // The server owns the booking window; this only guards a slot that went
   // stale while the picker sat open (or a cached response) from being offered.
@@ -103,12 +107,6 @@ export function TimeSlotPicker({
     { lunch: [] as TimeSlot[], dinner: [] as TimeSlot[], late: [] as TimeSlot[] }
   );
 
-  const periodLabels = {
-    lunch: "Lunch",
-    dinner: "Dinner",
-    late: "Late Night",
-  };
-
   if (isLoading) {
     return (
       <SkeletonGroup className={styles.loadingContainer}>
@@ -128,7 +126,7 @@ export function TimeSlotPicker({
           variant="error"
           actions={
             <Button variant="ghost" size="sm" onClick={onBack} type="button">
-              &larr; Change date or party size
+              {t("bookingWidget.timeSlot.changeSearch")}
             </Button>
           }
         >
@@ -142,12 +140,12 @@ export function TimeSlotPicker({
     <div className={styles.container}>
       <div className={styles.topBar}>
         <Button variant="ghost" size="sm" onClick={onBack} type="button">
-          &larr; Back
+          {t("bookingWidget.back")}
         </Button>
         <div className={styles.summaryRight}>
           <div className={styles.summaryDate}>{formattedDate}</div>
           <div className={styles.summaryParty}>
-            {partySize} {partySize === 1 ? "guest" : "guests"}
+            {t("bookingWidget.guests", { count: partySize })}
           </div>
         </div>
       </div>
@@ -156,38 +154,38 @@ export function TimeSlotPicker({
         !hasOperatingHours ? (
           audience === "staff" ? (
             <EmptyState
-              heading="No operating hours set"
-              description="This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table."
+              heading={t("bookingWidget.timeSlot.noHoursStaffHeading")}
+              description={t("bookingWidget.timeSlot.noHoursStaffDescription")}
               action={
                 <Button variant="primary" onClick={onSetHours} type="button">
-                  Set Operating Hours
+                  {t("bookingWidget.timeSlot.setHours")}
                 </Button>
               }
             />
           ) : (
             <EmptyState
-              heading="Online booking isn't available yet"
-              description="This venue hasn't set up online reservations yet. Please contact them directly to book a table."
+              heading={t("bookingWidget.timeSlot.noHoursGuestHeading")}
+              description={t("bookingWidget.timeSlot.noHoursGuestDescription")}
             />
           )
         ) : onJoinWaitlist ? (
           <div className={styles.noAvailabilityContainer}>
             <EmptyState
-              heading="No available times"
+              heading={t("bookingWidget.timeSlot.noTimesHeading")}
               description={
                 estimatedWaitMinutes != null && !isFutureDate
-                  ? `Estimated wait: ~${estimatedWaitMinutes} min`
-                  : "Try a different date or party size."
+                  ? t("bookingWidget.estimatedWait", { minutes: estimatedWaitMinutes })
+                  : t("bookingWidget.timeSlot.tryDifferent")
               }
             />
             <Button variant="primary" onClick={onJoinWaitlist} type="button">
-              Join Waitlist
+              {t("bookingWidget.timeSlot.joinWaitlist")}
             </Button>
           </div>
         ) : (
           <EmptyState
-            heading="No available times"
-            description="Try a different date or party size."
+            heading={t("bookingWidget.timeSlot.noTimesHeading")}
+            description={t("bookingWidget.timeSlot.tryDifferent")}
           />
         )
       ) : (
@@ -198,12 +196,14 @@ export function TimeSlotPicker({
 
             return (
               <div key={period}>
-                <Heading className={styles.periodLabel}>{periodLabels[period]}</Heading>
+                <Heading className={styles.periodLabel}>
+                  {t(`bookingWidget.timeSlot.periods.${period}`)}
+                </Heading>
                 <TimeSlotListbox
                   slots={periodSlots}
                   selectedSlot={selectedSlot}
                   onSelectSlot={onSelectSlot}
-                  label={`Available ${periodLabels[period].toLowerCase()} times`}
+                  label={t(`bookingWidget.timeSlot.periodTimes.${period}`)}
                   venueTimezone={venueTimezone}
                 />
               </div>
@@ -215,17 +215,15 @@ export function TimeSlotPicker({
       {selectedSlot && (
         <div className={styles.selectedSummary}>
           <Text className={styles.selectedSummaryText}>
-            Selected:{" "}
-            <strong>
-              {venueTimezone
-                ? formatTimeIn(selectedSlot.time, venueTimezone)
-                : formatTime(selectedSlot.time)}
-            </strong>
+            {t("bookingWidget.timeSlot.selected")}{" "}
+            <strong>{format.formatTime(selectedSlot.time)}</strong>
             {selectedSlot.tables && selectedSlot.tables.length > 0 && (
               <Text className={styles.selectedSummaryNote}>
                 {" "}
-                - {selectedSlot.tables.length} table{selectedSlot.tables.length > 1 ? "s" : ""}{" "}
-                available
+                -{" "}
+                {t("bookingWidget.timeSlot.tablesAvailable", {
+                  count: selectedSlot.tables.length,
+                })}
               </Text>
             )}
           </Text>

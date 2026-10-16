@@ -1,42 +1,26 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Reservation, Table } from "@mbe/types";
 import { Button, Card, Stack, StatusLED, Text, Tag } from "@mattbutlerengineering/rialto";
-import { formatTime } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { minutesOfDayIn } from "../../utils/service-day.js";
+import { RESERVATION_STATUS_KEYS } from "./status-keys.js";
 import styles from "./TimelineMobileView.module.css";
 
 export type StatusFilter = "ALL" | "CONFIRMED" | "PENDING" | "CANCELLED";
 
-const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: "ALL", label: "All" },
-  { value: "CONFIRMED", label: "Confirmed" },
-  { value: "PENDING", label: "Upcoming" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
+const STATUS_FILTERS = [
+  { value: "ALL", labelKey: "timeline.mobile.all" },
+  { value: "CONFIRMED", labelKey: "timeline.status.confirmed" },
+  { value: "PENDING", labelKey: "timeline.mobile.upcoming" },
+  { value: "CANCELLED", labelKey: "timeline.status.cancelled" },
+] as const satisfies readonly { value: StatusFilter; labelKey: string }[];
 
-function formatSlotLabel(isoString: string): string {
-  const d = new Date(isoString);
-  const hours = d.getHours();
-  const minutes = d.getMinutes();
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const displayHour = hours % 12 || 12;
-  return minutes === 0
-    ? `${displayHour}:00 ${ampm}`
-    : `${displayHour}:${String(minutes).padStart(2, "0")} ${ampm}`;
-}
-
-function getSlotKey(isoString: string): string {
-  const d = new Date(isoString);
-  // Round down to nearest 30 min slot
-  const slot = d.getMinutes() < 30 ? 0 : 30;
-  return `${d.getHours()}:${String(slot).padStart(2, "0")}`;
-}
-
-function getSlotLabel(isoString: string): string {
-  const d = new Date(isoString);
-  const slot = d.getMinutes() < 30 ? 0 : 30;
-  const slotDate = new Date(d);
-  slotDate.setMinutes(slot, 0, 0);
-  return formatSlotLabel(slotDate.toISOString());
+/** The 30-minute slot an instant falls in, on the venue clock, as "H:00" / "H:30". */
+function getSlotKey(isoString: string, timeZone: string): string {
+  const minutes = minutesOfDayIn(new Date(isoString), timeZone);
+  const slot = minutes % 60 < 30 ? 0 : 30;
+  return `${Math.floor(minutes / 60)}:${String(slot).padStart(2, "0")}`;
 }
 
 function statusVariant(status: Reservation["status"]): "default" | "accent" | "success" | "error" {
@@ -52,23 +36,6 @@ function statusVariant(status: Reservation["status"]): "default" | "accent" | "s
       return "error";
     default:
       return "default";
-  }
-}
-
-function statusLabel(status: Reservation["status"]): string {
-  switch (status) {
-    case "CONFIRMED":
-      return "Confirmed";
-    case "PENDING":
-      return "Pending";
-    case "COMPLETED":
-      return "Completed";
-    case "CANCELLED":
-      return "Cancelled";
-    case "NO_SHOW":
-      return "No Show";
-    default:
-      return status;
   }
 }
 
@@ -88,14 +55,23 @@ function ReservationCard({
   isSelected,
   seated,
 }: ReservationCardProps) {
-  const tableLabel = table?.tableNumber || table?.name || "Unassigned";
-  const timeLabel = `${formatTime(reservation.startTime)} – ${formatTime(reservation.endTime)}`;
+  const fmt = useVenueFormat();
+  const { t } = useTranslation();
+  const guest = reservation.guestName || t("timeline.guest");
+  const tableLabel = table?.tableNumber || table?.name || t("timeline.mobile.unassigned");
+  const timeLabel = `${fmt.formatTime(reservation.startTime)} – ${fmt.formatTime(reservation.endTime)}`;
+  const spokenLabel = t("timeline.mobile.cardLabel", {
+    guest,
+    size: reservation.partySize,
+    time: timeLabel,
+    table: tableLabel,
+  });
 
   return (
     <Button
       className={`${styles.card} ${isSelected ? styles.cardSelected : ""}`}
       onClick={() => onClick(reservation)}
-      aria-label={`${reservation.guestName || "Guest"}, party of ${reservation.partySize}, ${timeLabel}, table ${tableLabel}${seated ? ", seated" : ""}`}
+      aria-label={seated ? `${spokenLabel}, ${t("timeline.block.seatedWord")}` : spokenLabel}
       type="button"
       // `useFocusAfter`'s target after seat / cancel / walk-in on phone (B3.2, #5271) — without
       // this, the card that success unmounted (dialog/drawer) has nowhere to hand focus back to.
@@ -103,8 +79,8 @@ function ReservationCard({
     >
       <Stack direction="row" align="center" justify="between" gap="sm" className={styles.cardRow}>
         <Stack gap="2xs" className={styles.cardMain}>
-          <Text variant="label" className={styles.guestName}>
-            {reservation.guestName || "Guest"}
+          <Text variant="label" className={styles.guestName} data-truncate title={guest}>
+            {guest}
           </Text>
           <Stack direction="row" gap="xs" align="center" wrap>
             <Text variant="caption" className={styles.cardMeta}>
@@ -114,7 +90,7 @@ function ReservationCard({
               ·
             </Text>
             <Text variant="caption" className={styles.cardMeta}>
-              {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}
+              {t("timeline.guests", { count: reservation.partySize })}
             </Text>
             <Text variant="caption" className={styles.cardMetaDot}>
               ·
@@ -125,8 +101,10 @@ function ReservationCard({
           </Stack>
         </Stack>
         <Stack direction="row" gap="xs" align="center">
-          {seated && <StatusLED variant="success" size="xs" label="Seated" />}
-          <Tag variant={statusVariant(reservation.status)}>{statusLabel(reservation.status)}</Tag>
+          {seated && <StatusLED variant="success" size="xs" label={t("timeline.mobile.seated")} />}
+          <Tag variant={statusVariant(reservation.status)}>
+            {t(RESERVATION_STATUS_KEYS[reservation.status])}
+          </Tag>
         </Stack>
       </Stack>
     </Button>
@@ -149,6 +127,8 @@ export function TimelineMobileView({
   selectedReservationId,
   seatedIds,
 }: TimelineMobileViewProps) {
+  const { timeZone, formatLocalTime } = useVenueFormat();
+  const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("ALL");
 
   const tableMap = useMemo(() => {
@@ -174,9 +154,9 @@ export function TimelineMobileView({
       (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     );
     for (const r of sorted) {
-      const key = getSlotKey(r.startTime);
+      const key = getSlotKey(r.startTime, timeZone);
       if (!grouped.has(key)) {
-        grouped.set(key, { label: getSlotLabel(r.startTime), reservations: [] });
+        grouped.set(key, { label: formatLocalTime(key), reservations: [] });
       }
       grouped.get(key)!.reservations.push(r);
     }
@@ -185,15 +165,15 @@ export function TimelineMobileView({
       const [bh, bm] = b.split(":").map(Number);
       return ah! * 60 + (am ?? 0) - (bh! * 60 + (bm ?? 0));
     });
-  }, [filtered]);
+  }, [filtered, timeZone, formatLocalTime]);
 
   return (
     <Stack gap="sm" className={styles.root}>
       {/* Status filter chips */}
       <Stack direction="row" gap="xs" wrap className={styles.filterRow}>
-        {STATUS_FILTERS.map(({ value, label }) => (
+        {STATUS_FILTERS.map(({ value, labelKey }) => (
           <Tag key={value} onClick={() => setActiveFilter(value)} selected={activeFilter === value}>
-            {label}
+            {t(labelKey)}
           </Tag>
         ))}
       </Stack>
@@ -202,7 +182,7 @@ export function TimelineMobileView({
       {slots.length === 0 ? (
         <Card variant="flat" className={styles.emptyCard}>
           <Text variant="body" className={styles.emptyText}>
-            No reservations
+            {t("timeline.mobile.empty")}
           </Text>
         </Card>
       ) : (

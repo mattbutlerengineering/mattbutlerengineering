@@ -428,72 +428,98 @@ describe("userService", () => {
   // ── updatePreferencesByEmail ──────────────────────────────────────
 
   describe("updatePreferencesByEmail", () => {
-    it("merges new preferences with existing ones", async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+    function rawRow(overrides: Record<string, unknown> = {}) {
+      return {
         id: "user-1",
-        preferences: { theme: "light", emailNotifications: true },
-      } as never);
-      const updatedUser = makePrismaUser({
-        preferences: { theme: "dark", emailNotifications: true },
-        updatedAt: LATER,
-      });
-      vi.mocked(prisma.user.update).mockResolvedValueOnce(updatedUser as never);
+        email: "alice@example.com",
+        name: "Alice",
+        picture: "https://example.com/alice.jpg",
+        email_verified: true,
+        preferences: { theme: "dark" },
+        created_at: NOW,
+        updated_at: LATER,
+        ...overrides,
+      };
+    }
+
+    it("does not lose a key when two writers interleave", async () => {
+      // In-memory row that supports both the old read-merge-write path and a
+      // single-statement server-side merge. Only the latter is race-free.
+      let stored: Record<string, unknown> = {};
+      const tick = () => new Promise((resolve) => setImmediate(resolve));
+      vi.mocked(prisma.user.findUnique).mockImplementation((async () => {
+        const snapshot = { ...stored };
+        await tick();
+        return { id: "user-1", preferences: snapshot };
+      }) as never);
+      vi.mocked(prisma.user.update).mockImplementation((async (args: {
+        data: { preferences: Record<string, unknown> };
+      }) => {
+        await tick();
+        stored = args.data.preferences;
+        return makePrismaUser({ preferences: stored });
+      }) as never);
+      vi.mocked(prisma.$queryRaw).mockImplementation((async (
+        _strings: TemplateStringsArray,
+        patch: string
+      ) => {
+        stored = { ...stored, ...JSON.parse(patch) };
+        return [rawRow({ preferences: stored })];
+      }) as never);
+
+      await Promise.all([
+        userService.updatePreferencesByEmail("alice@example.com", { theme: "dark" }),
+        userService.updatePreferencesByEmail("alice@example.com", {
+          emailNotifications: false,
+        }),
+      ]);
+
+      expect(stored).toEqual({ theme: "dark", emailNotifications: false });
+    });
+
+    it("returns the merged user mapped from the raw row", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([
+        rawRow({ preferences: { theme: "dark", emailNotifications: true } }),
+      ] as never);
 
       const result = await userService.updatePreferencesByEmail("alice@example.com", {
         theme: "dark",
       });
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: "alice@example.com" },
-        select: { id: true, preferences: true },
+      expect(result).toEqual({
+        id: "user-1",
+        email: "alice@example.com",
+        name: "Alice",
+        picture: "https://example.com/alice.jpg",
+        emailVerified: true,
+        preferences: { theme: "dark", emailNotifications: true },
+        createdAt: NOW.toISOString(),
+        updatedAt: LATER.toISOString(),
       });
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: "user-1" },
-        data: {
-          preferences: { theme: "dark", emailNotifications: true },
-        },
-      });
-      expect(result?.preferences).toEqual({ theme: "dark", emailNotifications: true });
     });
 
-    it("handles user with null/empty preferences", async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
-        id: "user-1",
-        preferences: null,
-      } as never);
-      const updatedUser = makePrismaUser({
-        preferences: { theme: "system" },
-        updatedAt: LATER,
-      });
-      vi.mocked(prisma.user.update).mockResolvedValueOnce(updatedUser as never);
+    it("passes the patch as a JSON string and the email as parameters", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([rawRow()] as never);
 
       await userService.updatePreferencesByEmail("alice@example.com", { theme: "system" });
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: "user-1" },
-        data: {
-          preferences: { theme: "system" },
-        },
-      });
+      const [, patch, email] = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown[];
+      expect(patch).toBe(JSON.stringify({ theme: "system" }));
+      expect(email).toBe("alice@example.com");
     });
 
-    it("returns null when user not found by email", async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null as never);
+    it("returns null when no user has that email", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([] as never);
 
       const result = await userService.updatePreferencesByEmail("unknown@example.com", {
         theme: "dark",
       });
 
       expect(result).toBeNull();
-      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
-    it("returns null when P2025 on update (race condition)", async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
-        id: "user-1",
-        preferences: {},
-      } as never);
-      vi.mocked(prisma.user.update).mockRejectedValueOnce(prismaNotFoundError());
+    it("returns null on P2025", async () => {
+      vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(prismaNotFoundError());
 
       const result = await userService.updatePreferencesByEmail("alice@example.com", {
         theme: "dark",
@@ -502,38 +528,12 @@ describe("userService", () => {
       expect(result).toBeNull();
     });
 
-    it("propagates non-P2025 errors from update", async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
-        id: "user-1",
-        preferences: {},
-      } as never);
-      vi.mocked(prisma.user.update).mockRejectedValueOnce(new Error("DB timeout"));
+    it("propagates non-P2025 errors", async () => {
+      vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(new Error("DB timeout"));
 
       await expect(
         userService.updatePreferencesByEmail("alice@example.com", { theme: "dark" })
       ).rejects.toThrow("DB timeout");
-    });
-
-    it("preserves existing preferences that are not overridden", async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
-        id: "user-1",
-        preferences: { theme: "light", emailNotifications: true, marketingEmails: false },
-      } as never);
-      const updatedUser = makePrismaUser({
-        preferences: { theme: "light", emailNotifications: false, marketingEmails: false },
-      });
-      vi.mocked(prisma.user.update).mockResolvedValueOnce(updatedUser as never);
-
-      await userService.updatePreferencesByEmail("alice@example.com", {
-        emailNotifications: false,
-      });
-
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: "user-1" },
-        data: {
-          preferences: { theme: "light", emailNotifications: false, marketingEmails: false },
-        },
-      });
     });
   });
 

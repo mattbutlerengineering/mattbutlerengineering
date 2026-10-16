@@ -3,7 +3,7 @@ import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import type { DomainServices } from "../services/domain-services.js";
 import { ReservationEventEmitter } from "../services/events.js";
-import { TableTransitionError } from "../services/table.js";
+import { TableTransitionError, TableConcurrentUpdateError } from "../services/table.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { resolveVenueId } from "../services/resolve-venue.js";
@@ -403,6 +403,33 @@ describe("Table Routes", () => {
       });
 
       expect(response.statusCode).toBe(409);
+    });
+
+    it("returns 409 with an RFC 7807 body when the status compare-and-set loses a race", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(tableService.updateStatus).mockRejectedValueOnce(
+        new TableConcurrentUpdateError("table-123", "OCCUPIED")
+      );
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/tables/table-123/status",
+        headers: {
+          "x-auth-bypass": "true",
+        },
+        payload: {
+          status: "OCCUPIED",
+        },
+      });
+
+      expect(response.statusCode).toBe(409);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe(409);
+      expect(body.title).toBe("Conflict");
+      expect(body.detail).toContain("concurrent update conflict");
     });
 
     it("returns 401 without auth", async () => {

@@ -15,6 +15,9 @@
  * vocabulary straight from zone-vocabulary (`WORKSPACE_ROOTS` + `zoneForPath`),
  * so the estimate and the lock always agree.
  *
+ * Shared-registry locks (ADR-027): even when `strictMain` is false, the batch
+ * admits at most one issue per hotspot path, across zones. See `hotspotLocks`.
+ *
  * Public API:
  *   issueZone(issue)                         → string | null   (estimated zone)
  *   selectZoneSpreadBatch(candidates, opts)  → issue[]         (spread batch)
@@ -370,6 +373,39 @@ function isDisjointFromAll(candidate, admitted) {
 }
 
 /**
+ * Registries two open PRs must not edit at once. The lock is the exact path
+ * and is global across the batch, not only inside one zone. Workflow files
+ * lock per file, so two PRs may touch different `.github/workflows/*.yml`
+ * files in one batch.
+ */
+const SHARED_LOCK_PATHS = new Set([
+  ".claude/rules/gotchas.md",
+  "CLAUDE.md",
+  ".claude/settings.json",
+  ".claude/implement-queue.md",
+  "docs/scheduled-tasks.md",
+  "scripts/routine-manifest.mjs",
+  "docs/factory/costs.jsonl",
+]);
+
+const WORKFLOW_FILE = /^\.github\/workflows\/[^/]+\.ya?ml$/;
+
+/**
+ * @param {string[]} paths
+ * @returns {string[]}
+ */
+function hotspotLocks(paths) {
+  const locks = [];
+  for (const raw of paths ?? []) {
+    if (typeof raw !== "string") continue;
+    const p = raw.replace(/\/+$/, "");
+    if (SHARED_LOCK_PATHS.has(p)) locks.push(p);
+    if (WORKFLOW_FILE.test(p)) locks.push(p);
+  }
+  return locks;
+}
+
+/**
  * Composes a claim batch that maximizes distinct merge-train zones.
  *
  * Preserving the caller's priority order, it takes at most one issue per
@@ -385,6 +421,11 @@ function isDisjointFromAll(candidate, admitted) {
  * already admitted in that zone. Only a literal `false` relaxes the rule; the
  * default is `true` (fail closed).
  *
+ * Independently of `strictMain`, at most one admitted issue may list a given
+ * shared-registry path (see `SHARED_LOCK_PATHS`) or a given
+ * `.github/workflows/*.yml` file. The lock is held only when the issue is
+ * admitted, and it applies across zones.
+ *
  * Pure and deterministic: no I/O, no mutation of inputs.
  *
  * @param {Array<object>} candidates — issues in priority order (highest first)
@@ -399,15 +440,19 @@ function selectZoneSpreadBatch(
 
   const batch = [];
   const occupied = new Map(); // zone (or null) → admitted issues' path sets
+  const hotspotHeld = new Set();
   for (const issue of candidates) {
     if (batch.length >= maxWorkers) break;
     const zone = issueZone(issue);
     const paths = extractPathsFromBody(issue && typeof issue === "object" ? issue.body : undefined);
+    const locks = hotspotLocks(paths);
+    if (locks.some((lock) => hotspotHeld.has(lock))) continue;
     if (occupied.has(zone)) {
       const stackable =
         strictMain === false && zone !== null && isDisjointFromAll(paths, occupied.get(zone));
       if (!stackable) continue; // zone already claimed → defer this one
     }
+    for (const lock of locks) hotspotHeld.add(lock);
     occupied.set(zone, [...(occupied.get(zone) ?? []), paths]); // null = single global slot
     batch.push(issue);
   }

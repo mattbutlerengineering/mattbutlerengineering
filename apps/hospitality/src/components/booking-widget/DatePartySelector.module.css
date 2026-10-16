@@ -75,6 +75,13 @@
   min-height: 44px;
 }
 
+/* Button never wraps by default; the widget is as narrow as a phone preview, and a longer
+   locale's label wraps rather than being clipped by the button. `button.` outranks Rialto's rule. */
+button.ctaButton {
+  white-space: normal;
+  text-align: center;
+}
+
 .ctaHint {
   margin-block-start: var(--rialto-space-xs);
   font-size: var(--rialto-text-sm);

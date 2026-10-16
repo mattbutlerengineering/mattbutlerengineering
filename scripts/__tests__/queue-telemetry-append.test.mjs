@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appendTelemetryRow, HUMAN_TOUCH_REASONS } from "../collect-queue-telemetry.mjs";
+import { appendTelemetryRow, HUMAN_TOUCH_REASONS } from "../queue-telemetry-store.mjs";
 
 // ── Helpers ──────────────────────────────────────────────
 

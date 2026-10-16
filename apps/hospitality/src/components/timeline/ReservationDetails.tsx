@@ -1,9 +1,10 @@
+import { useTranslation } from "react-i18next";
 import { Button, Divider, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
-import { formatTime } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
@@ -57,8 +58,10 @@ export function ReservationDetails({
   onCancel,
   onMarkNoShow,
 }: ReservationDetailsProps) {
+  const fmt = useVenueFormat();
+  const { t } = useTranslation();
   const table = findReservationTable(reservation, tables);
-  const caption = occupiedCaption(reservation, table, now);
+  const caption = occupiedCaption(reservation, table, now, t);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
   const {
     data: deposit,
@@ -76,10 +79,10 @@ export function ReservationDetails({
       ) : (
         <div>
           <Text variant="label" color="secondary">
-            Guest
+            {t("timeline.details.guest")}
           </Text>
           <Text variant="display" as="div">
-            {reservation.guestName || "Guest"}
+            {reservation.guestName || t("timeline.guest")}
           </Text>
         </div>
       )}
@@ -87,7 +90,7 @@ export function ReservationDetails({
       {reservation.guestEmail && (
         <div>
           <Text variant="label" color="secondary">
-            Email
+            {t("timeline.details.email")}
           </Text>
           <Text variant="body" as="div">
             {reservation.guestEmail}
@@ -98,7 +101,7 @@ export function ReservationDetails({
       {reservation.guestPhone && (
         <div>
           <Text variant="label" color="secondary">
-            Phone
+            {t("timeline.details.phone")}
           </Text>
           <Text variant="body" as="div">
             {reservation.guestPhone}
@@ -108,27 +111,27 @@ export function ReservationDetails({
 
       <div>
         <Text variant="label" color="secondary">
-          Time
+          {t("timeline.details.time")}
         </Text>
         <Text variant="body" as="div">
-          {formatTime(reservation.startTime)}
+          {fmt.formatTime(reservation.startTime)}
           {" - "}
-          {formatTime(reservation.endTime)}
+          {fmt.formatTime(reservation.endTime)}
         </Text>
       </div>
 
       <div>
         <Text variant="label" color="secondary">
-          Party Size
+          {t("timeline.details.partySize")}
         </Text>
         <Text variant="body" as="div">
-          {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}
+          {t("timeline.guests", { count: reservation.partySize })}
         </Text>
       </div>
 
       <div>
         <Text variant="label" color="secondary">
-          Table
+          {t("timeline.details.table")}
         </Text>
         <Text variant="body" as="div">
           {table ? (
@@ -139,7 +142,7 @@ export function ReservationDetails({
                 —
               </Text>
               <Text as="span" className={styles.visuallyHidden}>
-                table unknown
+                {t("timeline.tableUnknown")}
               </Text>
             </>
           )}
@@ -148,10 +151,10 @@ export function ReservationDetails({
 
       <div>
         <Text variant="label" color="secondary">
-          Status
+          {t("timeline.details.status")}
         </Text>
         <Text className={`${styles.statusBadge} ${getStatusBadgeClass(reservation, seated)}`}>
-          {statusWord(reservation, seated)}
+          {statusWord(reservation, seated, t)}
         </Text>
         {caption && (
           <Text variant="caption" color="secondary" as="div" className={styles.statusCaption}>
@@ -170,12 +173,16 @@ export function ReservationDetails({
       />
 
       {failure && (
-        <ErrorRetryBanner title="Guest not seated." error={failure.detail} details={failure.raw} />
+        <ErrorRetryBanner
+          title={t("timeline.details.seatFailed")}
+          error={failure.detail}
+          details={failure.raw}
+        />
       )}
 
       <Stack gap="sm" className={styles.actionsDivider}>
         <Button variant="primary" onClick={onEdit} className={styles.fullWidth} disabled={seating}>
-          Edit Reservation
+          {t("timeline.details.edit")}
         </Button>
         {canSeat(reservation, table) && (
           <Button
@@ -184,9 +191,9 @@ export function ReservationDetails({
             onClick={() => void seat()}
             className={styles.fullWidth}
             isLoading={seating}
-            loadingText="Seating…"
+            loadingText={t("timeline.details.seating")}
           >
-            Seat Guest
+            {t("timeline.details.seat")}
           </Button>
         )}
         {reservation.status !== "CANCELLED" && (
@@ -196,7 +203,7 @@ export function ReservationDetails({
             className={styles.fullWidth}
             disabled={seating}
           >
-            Cancel Reservation
+            {t("timeline.details.cancel")}
           </Button>
         )}
         {reservation.status === "CONFIRMED" && (
@@ -206,7 +213,7 @@ export function ReservationDetails({
             className={styles.fullWidth}
             disabled={seating}
           >
-            Mark No-Show
+            {t("timeline.details.noShow")}
           </Button>
         )}
       </Stack>

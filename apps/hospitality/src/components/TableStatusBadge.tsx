@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Tag } from "@mattbutlerengineering/rialto";
 import type { TableStatus } from "@mbe/types";
 
@@ -7,12 +8,12 @@ interface TableStatusBadgeProps {
   onClick?: () => void;
 }
 
-const STATUS_LABELS: Record<TableStatus, string> = {
-  AVAILABLE: "Available",
-  OCCUPIED: "Occupied",
-  DIRTY: "Dirty",
-  READY: "Ready",
-};
+const STATUS_LABEL_KEYS = {
+  AVAILABLE: "floorPlan.tableStatus.available",
+  OCCUPIED: "floorPlan.tableStatus.occupied",
+  DIRTY: "floorPlan.tableStatus.dirty",
+  READY: "floorPlan.tableStatus.ready",
+} as const satisfies Record<TableStatus, string>;
 
 const STATUS_VARIANTS: Record<TableStatus, "success" | "error" | "default" | "accent"> = {
   AVAILABLE: "success",
@@ -22,7 +23,8 @@ const STATUS_VARIANTS: Record<TableStatus, "success" | "error" | "default" | "ac
 };
 
 export function TableStatusBadge({ status, size: _size = "md", onClick }: TableStatusBadgeProps) {
-  const label = STATUS_LABELS[status];
+  const { t } = useTranslation();
+  const label = t(STATUS_LABEL_KEYS[status]);
   const variant = STATUS_VARIANTS[status];
 
   return (

@@ -9,10 +9,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth, useAccessToken } from "@mbe/auth/react";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
-import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
+import { getSessionLapseCopy } from "../constants/session-lapse-copy.js";
+import { localeRuntime } from "../i18n/runtime.js";
+
+const SESSION_LAPSE_COPY = getSessionLapseCopy(localeRuntime.i18n.t);
 import { DashboardLayout } from "./DashboardLayout.js";
 import { ChatPage } from "../pages/ChatPage.js";
 import React from "react";
+
+vi.mock("./LocalePicker/index.js", () => ({
+  LocalePicker: () => <div data-testid="locale-picker" />,
+}));
 
 vi.mock("../pages/ChatPage.js", () => ({
   ChatPage: () => <h1>Chat</h1>,

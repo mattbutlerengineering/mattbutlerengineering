@@ -51,6 +51,10 @@ so it still gets one-per-zone treatment. The single-global-slot rule
 input order — zone-spread as tie-breaker still falls out of order
 preservation, not reordering.
 
+### Shared-registry lock
+
+Even when `strictMain` is `false`, `selectZoneSpreadBatch` admits at most one issue per shared registry path, and the lock is global across the batch rather than only inside one zone. The locked paths are `.claude/rules/gotchas.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/implement-queue.md`, `docs/scheduled-tasks.md`, `scripts/routine-manifest.mjs`, and `docs/factory/costs.jsonl`. Each `.github/workflows/*.yml` (or `.yaml`) file is its own lock, so two issues may touch different workflow files in one batch. An issue that is not admitted does not take a lock. The probe's fail-closed behavior is unchanged.
+
 `strictMain` is resolved once per compose iteration, at the call site,
 by a small pure classifier (`scripts/main-strictness.mjs`) wrapping
 `gh api repos/…/branches/main/protection/required_status_checks`:

@@ -465,6 +465,12 @@ export const venueService = {
     return venue ? mapVenuePolicy(venue) : null;
   },
 
+  /** The venue's ISO currency code (as stored), or `null` when the venue does not exist. */
+  async getCurrencyCode(id: string): Promise<string | null> {
+    const venue = await prisma.venue.findUnique({ where: { id }, select: { currencyCode: true } });
+    return venue?.currencyCode ?? null;
+  },
+
   /**
    * Returns the typed public booking-widget config for a venue slug, or `null`
    * when the venue does not exist. Assembles the base config and deposit policy

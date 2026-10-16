@@ -3,7 +3,7 @@ import storybook from "eslint-plugin-storybook";
 
 import reactConfig from "@mbe/config/eslint/react";
 
-const LOCALIZED_FILES = ["src/i18n/**/*.{ts,tsx}"];
+const LOCALIZED_FILES = ["src/**/*.{ts,tsx}"];
 
 export default [
   ...reactConfig,
@@ -13,11 +13,10 @@ export default [
   ...storybook.configs["flat/recommended"],
   {
     // Localization gate (docs/features/localization): hardcoded UI text is an
-    // error in every path already converted to the locale's messages. Each
-    // translation change widens LOCALIZED_FILES; it becomes src/** once the
-    // whole package is localized.
+    // error across the whole package. The showcase app and a11y fixtures are
+    // demo content, not library UI, so they are exempt.
     files: LOCALIZED_FILES,
-    ignores: ["**/*.test.{ts,tsx}", "**/*.stories.tsx"],
+    ignores: ["**/*.test.{ts,tsx}", "**/*.stories.tsx", "src/showcase/**", "src/test/**"],
     rules: { "mbe-local/no-literal-ui-strings": "error" },
   },
 ];

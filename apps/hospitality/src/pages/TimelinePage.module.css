@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-block-end: var(--rialto-space-md);
+  /* PageHeader's own bottom margin already separates it from the date row. */
 }
 
 /* Date navigation row */
@@ -30,6 +30,7 @@
 .dateNavLeft {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--rialto-space-xs);
 }
 
@@ -47,6 +48,12 @@
 .todayButton,
 .walkInButton {
   margin-inline-start: var(--rialto-space-xs);
+}
+
+/* A longer locale's label wraps the row, never squeezes the button until it clips. */
+.todayButton,
+.walkInButton {
+  flex-shrink: 0;
 }
 
 /* Reads as the disabled Walk-in button's description (ux.md Screen 2). */

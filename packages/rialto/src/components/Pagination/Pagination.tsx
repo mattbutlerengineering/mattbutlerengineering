@@ -1,5 +1,6 @@
-import { forwardRef } from "react";
+import { forwardRef, useCallback, useEffect, useRef, type ForwardedRef } from "react";
 import { motion } from "framer-motion";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Pagination.module.css";
@@ -32,6 +33,13 @@ export interface PaginationProps {
    */
   siblingCount?: number;
   className?: string;
+  /**
+   * Accessible name for the nav landmark. Defaults to the locale's "Pagination" label — override
+   * this when a page renders more than one Pagination instance, since axe's
+   * landmark-unique rule requires each nav landmark on a page to have a
+   * distinct accessible name.
+   */
+  ariaLabel?: string;
 }
 
 /* ── Range helper ────────────────────────────── */
@@ -113,58 +121,115 @@ const ChevronRight = (
 );
 
 /* ── Component ──────────────────────────────── */
+type ArrowDirection = "prev" | "next";
+
+function assignRef<T>(ref: ForwardedRef<T>, node: T | null) {
+  if (typeof ref === "function") ref(node);
+  else if (ref) ref.current = node;
+}
+
 export const Pagination = forwardRef<HTMLElement, PaginationProps>(
-  ({ page, totalPages, onChange, siblingCount = 1, className = "" }, ref) => {
+  ({ page, totalPages, onChange, siblingCount = 1, className = "", ariaLabel }, ref) => {
+    const { messages } = useRialtoLocale();
     const pages = buildPages(page, totalPages, siblingCount);
     const motionPreset = useMotionPreset();
     const boopHover = motionPreset.boop;
+    const navRef = useRef<HTMLElement | null>(null);
+    const pendingArrowRef = useRef<{ direction: ArrowDirection; target: number } | null>(null);
+
+    const setNavRef = useCallback(
+      (node: HTMLElement | null) => {
+        navRef.current = node;
+        assignRef(ref, node);
+      },
+      [ref]
+    );
+
+    // Activating an arrow can land on the first/last page and disable that very
+    // button, dropping focus to <body>. Hand focus to the current page instead,
+    // but only if the page really became the clicked target.
+    useEffect(() => {
+      const pending = pendingArrowRef.current;
+      pendingArrowRef.current = null;
+      if (!pending || page !== pending.target) return;
+      const atBound = pending.direction === "prev" ? page <= 1 : page >= totalPages;
+      if (!atBound) return;
+      navRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.focus();
+    }, [page, totalPages]);
+
+    const goTo = (target: number, direction: ArrowDirection | null) => {
+      const pending = direction ? { direction, target } : null;
+      pendingArrowRef.current = pending;
+      onChange(target);
+      // A parent that ignores the click never re-renders us, so the handoff would
+      // linger and fire on a later, unrelated page change. Drop it once the click's
+      // own update cycle is over.
+      setTimeout(() => {
+        if (pendingArrowRef.current === pending) pendingArrowRef.current = null;
+      }, 0);
+    };
 
     return (
-      <nav ref={ref} aria-label="Pagination" className={cn(styles.pagination, className)}>
-        {/* Previous */}
-        <motion.button
-          type="button"
-          className={styles.arrow}
-          onClick={() => onChange(page - 1)}
-          disabled={page <= 1}
-          aria-label="Previous page"
-          whileHover={page <= 1 ? undefined : boopHover}
-        >
-          {ChevronLeft}
-        </motion.button>
-
-        {/* Pages */}
-        {pages.map((item, i) =>
-          item === "ellipsis" ? (
-            <span key={`ellipsis-${i}`} className={styles.ellipsis} aria-hidden="true">
-              &hellip;
-            </span>
-          ) : (
+      <nav
+        ref={setNavRef}
+        aria-label={ariaLabel ?? messages.pagination}
+        className={cn(styles.pagination, className)}
+      >
+        <ul className={styles.list}>
+          {/* Previous */}
+          <li className={styles.listItem}>
             <motion.button
               type="button"
-              key={item}
-              className={cn(styles.page, item === page && styles.active)}
-              onClick={() => onChange(item)}
-              aria-label={`Page ${item}`}
-              aria-current={item === page ? "page" : undefined}
-              whileHover={boopHover}
+              className={styles.arrow}
+              onClick={() => goTo(page - 1, "prev")}
+              disabled={page <= 1}
+              aria-label={messages.previousPage}
+              whileHover={page <= 1 ? undefined : boopHover}
             >
-              {item}
+              {ChevronLeft}
             </motion.button>
-          )
-        )}
+          </li>
 
-        {/* Next */}
-        <motion.button
-          type="button"
-          className={styles.arrow}
-          onClick={() => onChange(page + 1)}
-          disabled={page >= totalPages}
-          aria-label="Next page"
-          whileHover={page >= totalPages ? undefined : boopHover}
-        >
-          {ChevronRight}
-        </motion.button>
+          {/* Pages */}
+          {pages.map((item, i) =>
+            item === "ellipsis" ? (
+              <li key={`ellipsis-${i}`} className={styles.listItem} aria-hidden="true">
+                <span className={styles.ellipsis}>&hellip;</span>
+              </li>
+            ) : (
+              <li key={item} className={styles.listItem}>
+                <motion.button
+                  type="button"
+                  className={cn(styles.page, item === page && styles.active)}
+                  onClick={() => goTo(item, null)}
+                  aria-label={messages.pageNumber(item)}
+                  aria-current={item === page ? "page" : undefined}
+                  whileHover={boopHover}
+                >
+                  {item}
+                </motion.button>
+              </li>
+            )
+          )}
+
+          {/* Next */}
+          <li className={styles.listItem}>
+            <motion.button
+              type="button"
+              className={styles.arrow}
+              onClick={() => goTo(page + 1, "next")}
+              disabled={page >= totalPages}
+              aria-label={messages.nextPage}
+              whileHover={page >= totalPages ? undefined : boopHover}
+            >
+              {ChevronRight}
+            </motion.button>
+          </li>
+        </ul>
+        {/* Announces the new page to screen readers; the text changes, never mounts late. */}
+        <span role="status" aria-live="polite" className={styles.srOnly}>
+          {messages.pageStatus(page, totalPages)}
+        </span>
       </nav>
     );
   }

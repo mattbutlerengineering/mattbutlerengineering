@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { Reservation, Table } from "@mbe/types";
-import { findReservationTable, occupiedCaption, statusWord } from "./seat-guest.js";
+import {
+  findReservationTable,
+  occupiedCaption as occupiedCaptionIn,
+  statusWord as statusWordIn,
+} from "./seat-guest.js";
+import { localeRuntime } from "../../i18n/runtime.js";
+
+const t = localeRuntime.i18n.t.bind(localeRuntime.i18n);
+const occupiedCaption = (reservation: Reservation, table: Table | undefined, now: Date) =>
+  occupiedCaptionIn(reservation, table, now, t);
+const statusWord = (reservation: Reservation, seated: boolean) =>
+  statusWordIn(reservation, seated, t);
 
 const START = "2026-09-04T19:00:00.000Z";
 const END = "2026-09-04T21:00:00.000Z";

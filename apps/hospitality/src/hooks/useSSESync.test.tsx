@@ -920,7 +920,7 @@ describe("useSSESync — per-event invalidation contract", () => {
     ["hold:released", []],
     ["hold:confirmed", ["reservations"]],
     ["table:updated", ["tables"]],
-    ["floor-plan:created", ["floorPlan", "floorPlans"]],
+    ["floor-plan:created", ["floorPlans"]],
     ["guest:lapsing", ["lapsingGuests"]],
     ["table-status:changed", []],
   ];

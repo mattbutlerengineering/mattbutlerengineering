@@ -1178,6 +1178,9 @@
                 .code(422)
                 .send(createProblemDetails(422, "Unprocessable Entity", err.message));
             }
+            if (err instanceof DepositConcurrentUpdateError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+            }
             throw err;
           }
         }
@@ -1239,11 +1242,35 @@
               notFound: "Reservation not found",
             },
           },
-          async (request, reply) => {
+          async (request, reply, { venueId }) => {
+            // The venue owns the currency (same rule as public-deposits.ts): a client
+            // may echo it but never choose it, since `amountCents` is only meaningful
+            // in the venue's minor unit.
+            const venueCurrency = await venueService.getCurrencyCode(venueId);
+            if (venueCurrency === null) {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            }
+            const currency = venueCurrency.toLowerCase();
+            if (
+              request.body.currency !== undefined &&
+              request.body.currency.toLowerCase() !== currency
+            ) {
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    `Deposit currency must match the venue currency (${currency}).`
+                  )
+                );
+            }
             const deposit = await depositService.create({
               reservationId: request.body.reservationId,
               amountCents: request.body.amountCents,
-              currency: request.body.currency,
+              currency,
             });
             return reply.code(201).send({ data: deposit });
           }
@@ -1310,7 +1337,9 @@
               // requireDepositSelector guarantees `venueId` when there is no
               // `reservationId`; only an unresolvable reservation yields null.
               resolve: async ({ query }) =>
-                query.reservationId ? resolveReservationVenueId(query.reservationId) : query.venueId!,
+                query.reservationId
+                  ? resolveVenueId("reservation", query.reservationId)
+                  : query.venueId!,
               label: "reservationId|venueId",
               notFound: "Reservation not found",
             },
@@ -2757,6 +2786,8 @@
   </file>
   <file path="src/routes/public-availability.ts">
     export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
+      const { availabilityService, venueService } = fastify.services;
+    
       fastify.get<{
         Params: { slug: string };
         Querystring: { date: string; partySize: string };
@@ -2844,7 +2875,7 @@
       return sessionIdsMatch(presented, originSessionId);
     }
     export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
-      const { depositService } = fastify.services;
+      const { depositService, reservationService, venueService } = fastify.services;
     
       fastify.post<{
         Params: { slug: string };
@@ -3032,6 +3063,8 @@
   </file>
   <file path="src/routes/public-guest-recognition.ts">
     export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.addSchema(guestRecognitionJsonSchema);
     
       fastify.get<{
@@ -3094,6 +3127,8 @@
   </file>
   <file path="src/routes/public-guest-risk.ts">
     export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService, venueService } = fastify.services;
+    
       fastify.addSchema(guestRiskResultJsonSchema);
     
       fastify.get<{
@@ -3199,6 +3234,8 @@
       return request.headers[SESSION_ID_HEADER] as string;
     }
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
+      const { holdService } = fastify.services;
+    
       fastify.post<{
         Params: { slug: string };
         Body: { date: string; startTime: string; endTime: string; partySize: number };
@@ -3338,7 +3375,14 @@
       // adds slug scoping and drops `guestId` from the accepted body (#4487).
       fastify.post<{
         Params: { slug: string; holdId: string };
-        Body: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string };
+        Body: {
+          guestName?: string;
+          guestEmail?: string;
+          guestPhone?: string;
+          notes?: string;
+          occasion?: Occasion;
+          seatingPreference?: SeatingPreference;
+        };
         Reply:
           | (ApiResponse<Reservation> & { manageToken?: string })
           | ReturnType<typeof createProblemDetails>;
@@ -3373,13 +3417,14 @@
             // Fastify leaves unknown properties on `request.body`, so spreading it
             // would let an anonymous caller smuggle a `guestId` and attach its
             // reservation to someone else's guest record.
-            const { guestName, guestEmail, guestPhone, notes } = request.body;
+            const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
+              request.body;
             const result = await fastify.transitions.confirmHold(
               {
                 holdId,
                 sessionId,
                 venueId,
-                guestDetails: { guestName, guestEmail, guestPhone, notes },
+                guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
               },
               { door: "public-hold" }
             );
@@ -3597,6 +3642,8 @@
     </html>`;
     }
     export const publicUnsubscribeRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService } = fastify.services;
+    
       fastify.get<{ Querystring: { token?: string } }>(
         "/public/v1/guests/unsubscribe",
         {
@@ -3747,6 +3794,8 @@
   </file>
   <file path="src/routes/public-venues.ts">
     export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.addSchema(publicVenueConfigJsonSchema);
     
       fastify.get<{
@@ -3802,6 +3851,8 @@
       guestPhone: string;
     }
     export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService, waitlistService } = fastify.services;
+    
       fastify.addSchema(waitlistJoinResultJsonSchema);
       fastify.addSchema(waitlistEstimateJsonSchema);
     
@@ -5691,7 +5742,7 @@
             fastify.reservationEvents.emitTableUpdated(table);
             return { data: table };
           } catch (err) {
-            if (err instanceof TableTransitionError) {
+            if (err instanceof TableTransitionError || err instanceof TableConcurrentUpdateError) {
               const error = new Error(err.message) as Error & { statusCode?: number };
               error.statusCode = 409;
               throw error;
@@ -7980,6 +8031,8 @@
               guestPhone: guestDetails.guestPhone ?? null,
               guestId: guestDetails.guestId ?? null,
               notes: guestDetails.notes ?? null,
+              occasion: guestDetails.occasion ?? null,
+              seatingPreference: guestDetails.seatingPreference ?? null,
               userId: userId ?? null,
               // Ownership proof for the public deposit route (#6304).
               originSessionId: hold.sessionId,
@@ -8056,11 +8109,6 @@
     export function transitionDeposit(from: DepositStatus, to: DepositStatus): DepositStatus {
       depositMachine.transition(from, to);
       return to;
-    }
-  </file>
-  <file path="src/services/deposit-venue.ts">
-    export async function resolveReservationVenueId(reservationId: string): Promise<string | null> {
-      return resolveVenueId("reservation", reservationId);
     }
   </file>
   <file path="src/services/deposit.ts">
@@ -9341,25 +9389,6 @@
       createdAt: Date;
       updatedAt: Date;
     };
-    function mapPrismaTable(table: PrismaTable): Table {
-      return {
-        id: table.id,
-        name: table.name,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-        minCovers: table.minCovers,
-        maxCovers: table.maxCovers,
-        location: table.location,
-        isActive: table.isActive,
-        priority: table.priority,
-        status: table.status as Table["status"],
-        venueId: table.venueId,
-        floorPlanId: table.floorPlanId,
-        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-        createdAt: table.createdAt.toISOString(),
-        updatedAt: table.updatedAt.toISOString(),
-      };
-    }
     function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
       return {
         id: floorPlan.id,
@@ -9367,7 +9396,7 @@
         name: floorPlan.name,
         isActive: floorPlan.isActive,
         layoutJson: floorPlan.layoutJson as FloorPlanLayout,
-        tables: floorPlan.tables?.map(mapPrismaTable),
+        tables: floorPlan.tables?.map(toTable),
         createdAt: floorPlan.createdAt.toISOString(),
         updatedAt: floorPlan.updatedAt.toISOString(),
       };
@@ -9596,7 +9625,7 @@
             where: { id: tableId },
             data: { shapeMetadata: shapeMetadata as unknown as Prisma.InputJsonValue },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -9674,7 +9703,7 @@
           throw Object.assign(new Error("One or more tables not found"), { code: "P2025" });
         }
     
-        return tables.map(mapPrismaTable);
+        return tables.map(toTable);
       },
     
       async assignTableToFloorPlan(
@@ -9706,7 +9735,7 @@
                 : undefined,
             },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -9722,7 +9751,7 @@
               shapeMetadata: Prisma.DbNull,
             },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -12264,6 +12293,8 @@
             partySize: data.partySize,
             tableId: data.tableId,
             notes: data.notes ?? null,
+            occasion: data.occasion ?? null,
+            seatingPreference: data.seatingPreference ?? null,
             guestName: data.guestName ?? null,
             guestEmail: data.guestEmail ?? null,
             guestPhone: data.guestPhone ?? null,
@@ -12365,6 +12396,8 @@
                 partySize: data.partySize,
                 tableId: data.tableId,
                 notes: data.notes ?? null,
+                occasion: data.occasion ?? null,
+                seatingPreference: data.seatingPreference ?? null,
                 guestName: data.guestName ?? null,
                 guestEmail: data.guestEmail ?? null,
                 guestPhone: data.guestPhone ?? null,
@@ -12404,6 +12437,8 @@
             ...(data.tableId !== undefined && { tableId: data.tableId }),
             ...(data.status !== undefined && { status: data.status }),
             ...(data.notes !== undefined && { notes: data.notes }),
+            ...(data.occasion !== undefined && { occasion: data.occasion }),
+            ...(data.seatingPreference !== undefined && { seatingPreference: data.seatingPreference }),
             ...(data.cancellationReason !== undefined && {
               cancellationReason: data.cancellationReason,
             }),
@@ -12610,6 +12645,8 @@
           ...(data.partySize !== undefined && { partySize: data.partySize }),
           ...(data.tableId !== undefined && { tableId: data.tableId }),
           ...(data.notes !== undefined && { notes: data.notes }),
+          ...(data.occasion !== undefined && { occasion: data.occasion }),
+          ...(data.seatingPreference !== undefined && { seatingPreference: data.seatingPreference }),
         };
     
         const result = await bookSlot({
@@ -12734,6 +12771,8 @@
                 userId: userId ?? null,
                 venueId: data.venueId ?? null,
                 notes: null,
+                occasion: data.occasion ?? null,
+                seatingPreference: data.seatingPreference ?? null,
               },
               include: {
                 table: true,
@@ -12762,7 +12801,7 @@
         return {
           success: true,
           reservation: toReservation(result.value.reservation),
-          table: mapPrismaTable(result.value.table),
+          table: toTable(result.value.table),
         };
       },
     };
@@ -13899,40 +13938,13 @@
     }
   </file>
   <file path="src/services/table.ts">
-    export function mapPrismaTable(table: {
-      id: string;
-      name: string;
-      tableNumber: string | null;
-      capacity: number;
-      minCovers: number;
-      maxCovers: number | null;
-      location: string | null;
-      isActive: boolean;
-      priority: number;
-      status: string;
-      venueId: string | null;
-      floorPlanId: string | null;
-      shapeMetadata: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Table {
-      return {
-        id: table.id,
-        name: table.name,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-        minCovers: table.minCovers,
-        maxCovers: table.maxCovers,
-        location: table.location,
-        isActive: table.isActive,
-        priority: table.priority,
-        status: table.status as TableStatus,
-        venueId: table.venueId,
-        floorPlanId: table.floorPlanId,
-        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-        createdAt: table.createdAt.toISOString(),
-        updatedAt: table.updatedAt.toISOString(),
-      };
+    export class TableConcurrentUpdateError extends Error {
+      constructor(id: string, status: string) {
+        super(
+          `Table ${id} concurrent update conflict: lost race moving to ${status}. Another status change completed first.`
+        );
+        this.name = "TableConcurrentUpdateError";
+      }
     }
     export const tableService = {
       async list(
@@ -13956,14 +13968,14 @@
         ]);
     
         return {
-          data: tables.map(mapPrismaTable),
+          data: tables.map(toTable),
           pagination: toPaginationMeta(page, limit, total),
         };
       },
     
       async getById(id: string): Promise<Table | null> {
         const table = await prisma.table.findUnique({ where: { id } });
-        return table ? mapPrismaTable(table) : null;
+        return table ? toTable(table) : null;
       },
     
       /**
@@ -13995,7 +14007,7 @@
               : Prisma.DbNull,
           },
         });
-        return mapPrismaTable(table);
+        return toTable(table);
       },
     
       async update(id: string, data: UpdateTableRequest): Promise<Table | null> {
@@ -14024,7 +14036,7 @@
             where: { id },
             data: updateData,
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -14038,16 +14050,13 @@
         const current = await prisma.table.findUnique({ where: { id } });
         if (!current) return null;
         transitionTable(current.status, status as TableStatus);
-        try {
-          const table = await prisma.table.update({
-            where: { id },
-            data: { status: status as TableStatus },
-          });
-          return mapPrismaTable(table);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
-        }
+        const { count } = await prisma.table.updateMany({
+          where: { id, status: current.status },
+          data: { status: status as TableStatus },
+        });
+        if (count === 0) throw new TableConcurrentUpdateError(id, status);
+        const table = await prisma.table.findUnique({ where: { id } });
+        return table ? toTable(table) : null;
       },
     
       async delete(id: string): Promise<boolean> {
@@ -14546,6 +14555,12 @@
         return venue ? mapVenuePolicy(venue) : null;
       },
     
+      /** The venue's ISO currency code (as stored), or `null` when the venue does not exist. */
+      async getCurrencyCode(id: string): Promise<string | null> {
+        const venue = await prisma.venue.findUnique({ where: { id }, select: { currencyCode: true } });
+        return venue?.currencyCode ?? null;
+      },
+    
       /**
        * Returns the typed public booking-widget config for a venue slug, or `null`
        * when the venue does not exist. Assembles the base config and deposit policy
@@ -14793,8 +14808,15 @@
       // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
       // the notifier's own public method, so both must accept venueId.
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
-      /** Persists notified state on the row; null if the party is no longer waiting. */
-      markNotified(id: string): Promise<{ id: string } | null>;
+      /**
+       * Persists notified state on the row; null if the party is no longer waiting.
+       * `positionChanges` are the parties behind it that moved up; the notifier texts
+       * them only once the expiry job is scheduled, because a failed schedule reverts
+       * the party and moves everyone back down.
+       */
+      markNotified(
+        id: string
+      ): Promise<{ id: string; positionChanges?: readonly NotifyPositionUpdateInput[] } | null>;
       /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
       revertNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
@@ -14889,7 +14911,8 @@
       async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
         // Record notified state first: a party that was seated/cancelled in the
         // meantime gets no SMS and no expiry job.
-        if (!(await markNotified(input.id))) return;
+        const marked = await markNotified(input.id);
+        if (!marked) return;
     
         if (smsAdapter) {
           try {
@@ -14915,6 +14938,13 @@
         } catch (err) {
           await revertNotified(input.id);
           throw err;
+        }
+    
+        // Queue positions are final only now that the notified state stuck.
+        for (const change of marked.positionChanges ?? []) {
+          notifyPositionUpdate(change).catch(() => {
+            // Already logged inside notifyPositionUpdate
+          });
         }
       }
     
@@ -14952,14 +14982,13 @@
         expireEntry: (id) => waitlistService.expire(id),
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-        markNotified: (id) =>
-          waitlistService.markNotified(id, (changes) => {
-            for (const change of changes) {
-              ref.value?.notifyPositionUpdate(change).catch(() => {
-                // Already logged inside the notifier
-              });
-            }
-          }),
+        markNotified: async (id) => {
+          const positionChanges: NotifyPositionUpdateInput[] = [];
+          const entry = await waitlistService.markNotified(id, (changes) => {
+            positionChanges.push(...changes);
+          });
+          return entry ? { id: entry.id, positionChanges } : null;
+        },
         revertNotified: (id) => waitlistService.revertNotified(id),
         logger: consoleLogger,
       });
@@ -16412,7 +16441,11 @@
           delayMs: number;
           payload: ReminderPayload;
         };
-    export type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    export type LiveEvent = ReservationEvent extends infer E
+      ? E extends ReservationEvent
+        ? Omit<E, "timestamp">
+        : never
+      : never;
     export interface EventsPort {
       publish(event: LiveEvent): void;
     }

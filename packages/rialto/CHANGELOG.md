@@ -1,5 +1,41 @@
 # @mattbutlerengineering/rialto
 
+## 0.6.5
+
+### Patch Changes
+
+- [#6741](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6741) [`42f8107`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/42f81075f4040b25179c7db270136bb41928c746) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav accepts an optional `labels` prop so a consumer can localize the app link labels; omitted apps keep the English defaults.
+
+## 0.6.4
+
+### Patch Changes
+
+- [#6724](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6724) [`7d05cdc`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7d05cdca51e47bf63ae20d0b251eba1998f228a9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tag, Combobox, Autocomplete, Select, Input, TextArea, PinInput, Avatar, Chalkboard, DataTable, Table, ErrorBoundary, CommandPalette, ChatPanel, Footer, MasterOverride, Spinner and the TapeChart list views now read their built-in text from `useRialtoLocale()`. With no `RialtoLocaleProvider` the English output is unchanged. Rialto lint now enforces `no-literal-ui-strings` across all of `src/`.
+
+## 0.6.3
+
+### Patch Changes
+
+- [#6722](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6722) [`b32c622`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b32c622d6a4ce67f64a34223a77a86f928370f51) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NeonSign: the unlit (closed) tube now uses `--rialto-text-secondary` instead of `--rialto-border`, so its text meets WCAG AA 4.5:1 on the recessed housing in both themes. PageHeader: add an optional `breadcrumbLabel` prop to name the breadcrumb `<nav>` so a page with several headers keeps unique landmarks. Defaults to the localized "Breadcrumb" — existing consumers see no change.
+
+## 0.6.2
+
+### Patch Changes
+
+- [#6707](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6707) [`e4e8624`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e4e862425c2d79770574d0ece880bcb5f718024a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add an optional `ariaLabel` prop to `Pagination` so a page rendering more than one instance can give each `<nav>` landmark a distinct accessible name, satisfying axe's `landmark-unique` rule. Defaults to `"Pagination"` — existing consumers see no change.
+
+- [#6693](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6693) [`a262b52`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a262b52f3ca0ca1e6c38d17df2df7db332e8e6fb) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Navigation a11y (audit iteration 5): Breadcrumb hides its collapsed "…" placeholder from the list, collapses correctly at `maxItems={1}`, and now forwards rest props to the `nav` (a consumer `aria-label`/`aria-labelledby` overrides the default "Breadcrumb"). Pagination renders its controls as a list and moves focus to the current page when Next/Previous becomes disabled.
+
+- [#6591](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6591) [`5c53ebf`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5c53ebf86614e1beb6c3199d38ed55da113cec10) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `RialtoLocaleProvider` and `useRialtoLocale()` (from `@mattbutlerengineering/rialto/providers`), plus optional `locale` and `messages` props on `RialtoProvider`, for localizing Rialto's built-in text (ADR-028). The hook never throws: with no provider it returns en-US messages and an `undefined` locale, so existing consumers see no change.
+
+- [#6591](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6591) [`5c53ebf`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5c53ebf86614e1beb6c3199d38ed55da113cec10) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Ship Rialto's built-in text for en-GB, es-MX and fr-CA as subpaths — `@mattbutlerengineering/rialto/locales/en-GB`, `/locales/es-MX`, `/locales/fr-CA` — each typed `RialtoMessages`, for `RialtoProvider`'s `messages` prop (ADR-028). Also fixes missing type declarations for `useRialtoLocale` / `RialtoLocaleProvider` from `./providers`.
+
+- [#6710](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6710) [`aa8eeb2`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/aa8eeb22538b0833f09cad63def7272c94303c92) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Pagination, Calendar, DateRange, DatePicker, DateRangePicker, TimePicker, NumberInput, Breadcrumb, Steps, Timeline, Sidebar, NavigationMenu, GlobalNav, Navbar, Skeleton, ScrollArea, ImageUpload and Odometer now read their built-in text from `useRialtoLocale()`, and the context locale is the `Intl` fallback for the date, time and number components when no `locale` prop is given (an explicit `locale` still wins). With no `RialtoLocaleProvider` the output is unchanged. Pagination also announces page changes through a polite, visually hidden live region ("Page 3 of 20").
+
+  Additive and backwards compatible: DropdownMenu item `label` and Select option `label` now accept any `ReactNode` (strings still work), so consumers can wrap endonyms in `<span lang>`. Select options gain an optional `textValue` used for type-ahead; it is derived from `label` when that is a string, and a node `label` with no `textValue` is skipped by type-ahead.
+
+- [#6689](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6689) [`2bec613`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2bec613c0e6eb9e85aa2143bdd984f8a139b3667) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Alert, Banner, Toast, Dialog, Drawer, Popover, HoverCard and ConfirmDialog now read their built-in text (dismiss/close labels, fallback accessible names, ConfirmDialog default button labels) from `useRialtoLocale()`. With no `RialtoLocaleProvider` the English output is unchanged.
+
 ## 0.6.1
 
 ### Patch Changes

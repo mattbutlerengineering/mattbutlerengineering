@@ -1,5 +1,8 @@
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useCallback, useMemo, useRef, useState, useReducer, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { z } from "zod";
 import type { CreateReservationRequest, Reservation, Table } from "@mbe/types";
 import { useUrlParams } from "../hooks/use-url-params.js";
@@ -21,18 +24,13 @@ import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { NewReservationDialog } from "../components/reservations/NewReservationDialog.js";
-import {
-  STATUS_BADGE_VARIANT,
-  STATUS_LABEL,
-  formatReservationTime,
-} from "../utils/reservation-display.js";
-import { formatServiceDate } from "../utils/format.js";
+import { STATUS_BADGE_VARIANT, formatReservationTime } from "../utils/reservation-display.js";
 import {
   parseReservationsIntent,
   stripReservationsIntent,
   SELECTED_PARAM,
 } from "../utils/timeline-intent.js";
-import { ordinalVisit } from "../utils/ordinal.js";
+import { ordinalVisitLabel } from "../i18n/ordinal-visit.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { KpiStat } from "../components/KpiStat.js";
 import { LiveStatus } from "../components/LiveStatus.js";
@@ -54,12 +52,7 @@ const RESERVATIONS_DEFAULTS = reservationsFilterSchema.parse({});
 
 /* ── Status filter segments ────────────────── */
 
-const STATUS_SEGMENTS = [
-  { id: "all", label: "All" },
-  { id: "CONFIRMED", label: "Confirmed" },
-  { id: "PENDING", label: "Pending" },
-  { id: "CANCELLED", label: "Cancelled" },
-] as const;
+const STATUS_SEGMENT_IDS = ["all", "CONFIRMED", "PENDING", "CANCELLED"] as const;
 
 /* ── Loading rows ───────────────────────────── */
 
@@ -67,10 +60,11 @@ const SKELETON_ROW_COUNT = 5;
 
 /** ux.md Screen 8 loading: five text rows in the table region, one `role=status` sentence. */
 function ReservationsLoadingRows() {
+  const { t } = useTranslation();
   return (
     <div className={styles.loading} role="status" aria-busy="true">
       <Text as="span" className={styles.srOnly}>
-        Loading reservations…
+        {t("reservations.loading")}
       </Text>
       {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
         <Skeleton key={index} variant="text" width="100%" />
@@ -87,28 +81,36 @@ function ReservationsLoadingRows() {
  * endpoint doesn't hydrate the relation. Never falls through to the raw
  * `tableId` — that's the recognition failure this resolver exists to fix.
  */
-function resolveTableName(reservation: Reservation, tablesById: Map<string, Table>): string {
+function resolveTableName(
+  reservation: Reservation,
+  tablesById: Map<string, Table>,
+  t: TFunction
+): string {
   return (
-    reservation.table?.name ?? tablesById.get(reservation.tableId)?.name ?? "Table unavailable"
+    reservation.table?.name ??
+    tablesById.get(reservation.tableId)?.name ??
+    t("reservations.tableUnavailable")
   );
 }
 
 /* ── Relative time formatter ────────────────── */
 
-function formatRelativeTime(date: Date): string {
+function formatRelativeTime(date: Date, t: TFunction): string {
   const seconds = Math.round((Date.now() - date.getTime()) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 5) return t("reservations.relative.justNow");
+  if (seconds < 60) return t("reservations.relative.seconds", { n: seconds });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t("reservations.relative.minutes", { n: minutes });
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+  return t("reservations.relative.hours", { n: hours });
 }
 
 /* ── Main component ─────────────────────────── */
 
 export function ReservationsPage() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const fmt = useVenueFormat();
   const { selectedVenueId } = useVenue();
   const { params, setParam } = useUrlParams(reservationsFilterSchema, RESERVATIONS_DEFAULTS);
   const selectedDate = params.date;
@@ -150,14 +152,14 @@ export function ReservationsPage() {
   const { mutateAsync: createReservation } = useCreateReservation();
 
   const errorDescription = queryError ? describeApiError(queryError) : null;
-  const dateLabel = formatServiceDate(selectedDate);
+  const dateLabel = fmt.formatServiceDate(selectedDate);
 
   const handleRetry = useCallback(async () => {
     const result = await refetch();
     if (result.error) return;
-    announce(`Reservations for ${dateLabel} loaded.`);
+    announce(t("reservations.loaded", { date: dateLabel }));
     focusAfter({ kind: "pageHeading" });
-  }, [refetch, announce, focusAfter, dateLabel]);
+  }, [refetch, announce, focusAfter, dateLabel, t]);
 
   const closeNewReservationDialog = useCallback(() => {
     setShowNewReservationDialog(false);
@@ -195,7 +197,7 @@ export function ReservationsPage() {
     return () => clearInterval(id);
   }, [lastUpdated]);
 
-  const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated) : "";
+  const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated, t) : "";
 
   const showLoading = isLoading && (data === undefined || data.length === 0);
   const loaded = !isLoading && !errorDescription;
@@ -206,28 +208,31 @@ export function ReservationsPage() {
 
   return (
     <div className={styles.container}>
-      <PageHeader title="Reservations" description="View and manage reservations" />
+      <PageHeader title={t("reservations.title")} description={t("reservations.description")} />
       <LiveStatus status={status} />
 
       <div data-testid="primary-content">
         {lastUpdatedDisplay && (
           <div className={styles.statusBar}>
             <Text variant="caption" color="secondary">
-              Updated {lastUpdatedDisplay}
+              {t("reservations.updated", { when: lastUpdatedDisplay })}
             </Text>
           </div>
         )}
 
         <div className={styles.statsRow}>
-          <KpiStat label="Total" value={kpi(stats.total)} />
-          <KpiStat label="Confirmed" value={kpi(stats.confirmed)} />
-          <KpiStat label="Pending" value={kpi(stats.pending)} />
-          <KpiStat label="Cancelled" value={kpi(stats.cancelled)} />
+          <KpiStat label={t("reservations.kpi.total")} value={kpi(stats.total)} />
+          <KpiStat label={t("reservations.kpi.confirmed")} value={kpi(stats.confirmed)} />
+          <KpiStat label={t("reservations.kpi.pending")} value={kpi(stats.pending)} />
+          <KpiStat label={t("reservations.kpi.cancelled")} value={kpi(stats.cancelled)} />
         </div>
 
         <div className={styles.toolbar}>
           <SegmentedControl
-            segments={[...STATUS_SEGMENTS]}
+            segments={STATUS_SEGMENT_IDS.map((id) => ({
+              id,
+              label: t(`reservations.filter.${id}`),
+            }))}
             value={statusFilter}
             onChange={(value) => {
               setParam("status", value as typeof params.status);
@@ -235,13 +240,13 @@ export function ReservationsPage() {
             size="sm"
           />
           <Input
-            aria-label="Search by guest name"
-            placeholder="Search by guest name..."
+            aria-label={t("reservations.search.label")}
+            placeholder={t("reservations.search.placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <Input
-            aria-label="Filter by date"
+            aria-label={t("reservations.filterDate")}
             type="date"
             value={selectedDate}
             onChange={(e) => {
@@ -255,14 +260,14 @@ export function ReservationsPage() {
             onClick={() => setShowNewReservationDialog(true)}
             disabled={!selectedVenueId}
           >
-            New reservation
+            {t("reservations.newReservation")}
           </Button>
         </div>
 
         {errorDescription && (
           <div className={styles.banner}>
             <ErrorRetryBanner
-              title="Couldn't load reservations."
+              title={t("reservations.loadFailed")}
               error={errorDescription.detail}
               details={errorDescription.raw}
               onRetry={handleRetry}
@@ -274,24 +279,22 @@ export function ReservationsPage() {
 
         {loaded && (
           <Text className={styles.srOnly} aria-live="polite" role="status">
-            {`${filteredReservations.length} reservation${
-              filteredReservations.length !== 1 ? "s" : ""
-            } shown`}
+            {t("reservations.shown", { count: filteredReservations.length })}
           </Text>
         )}
 
         {dayIsEmpty && (
           <EmptyState
             variant="flat"
-            heading={`Nothing on the book for ${dateLabel}.`}
-            description="New bookings show here as they land."
+            heading={t("reservations.emptyDay.heading", { date: dateLabel })}
+            description={t("reservations.emptyDay.description")}
             action={
               <Button
                 variant="secondary"
                 onClick={() => setShowNewReservationDialog(true)}
                 disabled={!selectedVenueId}
               >
-                New reservation
+                {t("reservations.newReservation")}
               </Button>
             }
           />
@@ -299,11 +302,11 @@ export function ReservationsPage() {
 
         {loaded && !dayIsEmpty && filteredReservations.length === 0 && (
           <EmptyState
-            heading="No reservations"
+            heading={t("reservations.none.heading")}
             description={
               searchQuery.trim()
-                ? `No reservations matching '${searchQuery.trim()}'.`
-                : `No ${statusFilter.toLowerCase()} reservations found for ${dateLabel}.`
+                ? t("reservations.none.matching", { query: searchQuery.trim() })
+                : t(`reservations.none.forStatus.${statusFilter}`, { date: dateLabel })
             }
           />
         )}
@@ -315,25 +318,25 @@ export function ReservationsPage() {
               <table className={styles.table}>
                 <thead className={styles.thead}>
                   <tr>
-                    <th className={styles.th}>Time</th>
-                    <th className={styles.th}>Guest</th>
-                    <th className={styles.th}>Party Size</th>
-                    <th className={styles.th}>Table</th>
-                    <th className={styles.th}>Status</th>
-                    <th className={styles.th}>Notes</th>
-                    <th className={styles.th}>Actions</th>
+                    <th className={styles.th}>{t("reservations.col.time")}</th>
+                    <th className={styles.th}>{t("reservations.col.guest")}</th>
+                    <th className={styles.th}>{t("reservations.col.partySize")}</th>
+                    <th className={styles.th}>{t("reservations.col.table")}</th>
+                    <th className={styles.th}>{t("reservations.col.status")}</th>
+                    <th className={styles.th}>{t("reservations.col.notes")}</th>
+                    <th className={styles.th}>{t("reservations.col.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className={styles.tbody}>
                   {filteredReservations.map((reservation) => (
                     <tr key={reservation.id}>
                       <td className={styles.td}>
-                        {formatReservationTime(reservation.startTime)} -{" "}
-                        {formatReservationTime(reservation.endTime)}
+                        {formatReservationTime(reservation.startTime, fmt.locale, fmt.timeZone)} -{" "}
+                        {formatReservationTime(reservation.endTime, fmt.locale, fmt.timeZone)}
                       </td>
                       <td className={styles.td}>
                         <Text variant="body" color="primary" className={styles.guestName}>
-                          {reservation.guestName ?? "Guest"}
+                          {reservation.guestName ?? t("reservations.guestFallback")}
                         </Text>
                         {reservation.guestEmail && (
                           <Text variant="caption" color="secondary">
@@ -342,15 +345,15 @@ export function ReservationsPage() {
                         )}
                         {reservation.guest && reservation.guest.visitCount > 1 && (
                           <Badge variant="accent" size="sm">
-                            {ordinalVisit(reservation.guest.visitCount)}
+                            {ordinalVisitLabel(t, i18n.language, reservation.guest.visitCount)}
                           </Badge>
                         )}
                       </td>
                       <td className={styles.td}>{reservation.partySize}</td>
-                      <td className={styles.td}>{resolveTableName(reservation, tablesById)}</td>
+                      <td className={styles.td}>{resolveTableName(reservation, tablesById, t)}</td>
                       <td className={styles.td}>
                         <Badge variant={STATUS_BADGE_VARIANT[reservation.status]}>
-                          {STATUS_LABEL[reservation.status]}
+                          {t(`reservations.status.${reservation.status}`)}
                         </Badge>
                       </td>
                       <td className={styles.tdMuted}>{reservation.notes ?? "-"}</td>
@@ -363,9 +366,11 @@ export function ReservationsPage() {
                               `/timeline?date=${reservation.date}&${SELECTED_PARAM}=${reservation.id}`
                             )
                           }
-                          aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
+                          aria-label={t("reservations.viewAria", {
+                            name: reservation.guestName ?? t("reservations.guestFallback"),
+                          })}
                         >
-                          View
+                          {t("reservations.view")}
                         </Button>
                       </td>
                     </tr>

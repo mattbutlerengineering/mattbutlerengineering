@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button, Text, Heading } from "@mattbutlerengineering/rialto";
 import type { WaitlistStatus } from "@mbe/types";
 import styles from "./WaitlistConfirmationView.module.css";
@@ -11,21 +12,28 @@ export interface WaitlistConfirmationViewProps {
   onNewBooking: () => void;
 }
 
-const OUTCOME_COPY: Partial<Record<WaitlistStatus, { heading: string; body: string }>> = {
+const OUTCOME_KEYS = {
   notified: {
-    heading: "Your table is ready",
-    body: "Please check in with the host now - we can only hold it for a few minutes.",
+    heading: "bookingWidget.waitlist.outcomes.notifiedHeading",
+    body: "bookingWidget.waitlist.outcomes.notifiedBody",
   },
-  seated: { heading: "You've been seated", body: "Enjoy your visit." },
+  seated: {
+    heading: "bookingWidget.waitlist.outcomes.seatedHeading",
+    body: "bookingWidget.waitlist.outcomes.seatedBody",
+  },
   expired: {
-    heading: "Your spot has expired",
-    body: "We couldn't hold your table in time. You can join the waitlist again or make a reservation.",
+    heading: "bookingWidget.waitlist.outcomes.expiredHeading",
+    body: "bookingWidget.waitlist.outcomes.expiredBody",
   },
   cancelled: {
-    heading: "Your waitlist spot was cancelled",
-    body: "You can join the waitlist again or make a reservation.",
+    heading: "bookingWidget.waitlist.outcomes.cancelledHeading",
+    body: "bookingWidget.waitlist.outcomes.cancelledBody",
   },
-};
+} as const;
+
+function outcomeKeys(status: WaitlistStatus) {
+  return status in OUTCOME_KEYS ? OUTCOME_KEYS[status as keyof typeof OUTCOME_KEYS] : undefined;
+}
 
 export function WaitlistConfirmationView({
   position,
@@ -33,14 +41,15 @@ export function WaitlistConfirmationView({
   status = "waiting",
   onNewBooking,
 }: WaitlistConfirmationViewProps) {
-  const outcome = OUTCOME_COPY[status];
+  const { t } = useTranslation();
+  const outcome = outcomeKeys(status);
   if (outcome) {
     return (
       <div className={styles.container}>
-        <Heading className={styles.heading}>{outcome.heading}</Heading>
-        <Text className={styles.smsNote}>{outcome.body}</Text>
+        <Heading className={styles.heading}>{t(outcome.heading)}</Heading>
+        <Text className={styles.smsNote}>{t(outcome.body)}</Text>
         <Button variant="ghost" onClick={onNewBooking} type="button">
-          Make a Reservation Instead
+          {t("bookingWidget.waitlist.reserveInstead")}
         </Button>
       </div>
     );
@@ -48,27 +57,27 @@ export function WaitlistConfirmationView({
 
   return (
     <div className={styles.container}>
-      <Heading className={styles.heading}>Added to Waitlist</Heading>
+      <Heading className={styles.heading}>{t("bookingWidget.waitlist.added")}</Heading>
 
       <div className={styles.details}>
         <div className={styles.positionCard}>
-          <Text className={styles.positionLabel}>Your position</Text>
+          <Text className={styles.positionLabel}>{t("bookingWidget.waitlist.position")}</Text>
           <Text className={styles.positionNumber}>#{position}</Text>
         </div>
         <div className={styles.waitCard}>
-          <Text className={styles.waitLabel}>Estimated wait</Text>
+          <Text className={styles.waitLabel}>{t("bookingWidget.waitlist.estimatedWait")}</Text>
           <Text className={styles.waitTime}>
-            {estimatedWaitMinutes === null ? "Estimate unavailable" : `${estimatedWaitMinutes} min`}
+            {estimatedWaitMinutes === null
+              ? t("bookingWidget.waitlist.estimateUnavailable")
+              : t("bookingWidget.waitlist.waitMinutes", { minutes: estimatedWaitMinutes })}
           </Text>
         </div>
       </div>
 
-      <Text className={styles.smsNote}>
-        We&apos;ll send you an SMS when your table is ready. Please keep your phone nearby.
-      </Text>
+      <Text className={styles.smsNote}>{t("bookingWidget.waitlist.smsNote")}</Text>
 
       <Button variant="ghost" onClick={onNewBooking} type="button">
-        Make a Reservation Instead
+        {t("bookingWidget.waitlist.reserveInstead")}
       </Button>
     </div>
   );

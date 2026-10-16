@@ -220,6 +220,30 @@ describe("confirmHold", () => {
     });
   });
 
+  describe("Slice 1c: occasion and seatingPreference are persisted (#6597)", () => {
+    it("writes both fields from guestDetails onto the reservation", async () => {
+      const hold = makePrismaHold();
+      const create = vi.fn().mockResolvedValue(makeReservationResult(hold));
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: never) => Promise<unknown>) =>
+          fn(makeTxMock({ reservation: { ...makeTxMock().reservation, create } }) as never)
+      );
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        guestDetails: { guestName: "Jane Doe", occasion: "birthday", seatingPreference: "booth" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ occasion: "birthday", seatingPreference: "booth" }),
+        })
+      );
+    });
+  });
+
   describe("Slice 2: Hold not found", () => {
     it("returns NOT_FOUND when hold does not exist", async () => {
       vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(null as never);

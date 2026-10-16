@@ -1,9 +1,12 @@
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Link, useSearchParams } from "react-router";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import { Button, Card, Drawer, EmptyState, IconButton, Text } from "@mattbutlerengineering/rialto";
-import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
+import type { Reservation, TableStatus, UpdateReservationRequest, WalkInRequest } from "@mbe/types";
 import {
   ReservationSheet,
   TimelineGrid,
@@ -15,6 +18,7 @@ import { MarkNoShowDialog } from "../components/timeline/MarkNoShowDialog.js";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { ReservationDetails } from "../components/timeline/ReservationDetails.js";
+import { tableStatusInline } from "../components/timeline/table-status-menu.js";
 // By path, not the barrel: TimelinePage.test.tsx mocks the barrel wholesale.
 import { SHEET_BLOCK_SIZE, reservationSheetSize } from "../components/timeline/sheet-size.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
@@ -31,7 +35,7 @@ import { useNow } from "../hooks/useNow.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError, type ApiErrorDescription } from "../lib/describe-api-error.js";
-import { formatServiceDate } from "../utils/format.js";
+import { formatLongDateWithYear, formatServiceDate } from "../utils/format.js";
 import { deviceDate } from "../utils/service-day.js";
 import { seatedReservationIds } from "../utils/seated.js";
 import { parseTimelineIntent, stripTimelineIntent } from "../utils/timeline-intent.js";
@@ -50,8 +54,6 @@ const TIMELINE_DEFAULTS = timelineFilterSchema.parse({});
 
 /* ── Sentences (ux.md § Copy, `role=status` column) ── */
 
-const WALK_IN_DISABLED_CAPTION = "Walk-ins need the tables loaded — Retry above.";
-
 /** A status change the API refused — the banner's Retry re-sends exactly this transition. */
 interface TableStatusFailure {
   readonly tableId: string;
@@ -59,28 +61,48 @@ interface TableStatusFailure {
   readonly error: ApiErrorDescription;
 }
 
-function atTable(tableName: string | undefined): string {
-  return tableName ? ` at ${tableName}` : "";
+function walkInSentence(created: Reservation, tableName: string | undefined, t: TFunction): string {
+  const who = created.guestName ? created.guestName : t("timeline.announce.aWalkIn");
+  const size = created.partySize;
+  return tableName
+    ? t("timeline.announce.walkInSeatedAt", { who, size, table: tableName })
+    : t("timeline.announce.walkInSeated", { who, size });
 }
 
-function walkInSentence(created: Reservation, tableName: string | undefined): string {
-  const who = created.guestName ? created.guestName : "a walk-in";
-  const where = tableName ? `, at ${tableName}` : "";
-  return `Seated ${who}, party of ${created.partySize}${where}.`;
+function seatedSentence(
+  reservation: Reservation,
+  tableName: string | undefined,
+  t: TFunction
+): string {
+  const guest = reservation.guestName || t("timeline.announce.theGuest");
+  return tableName
+    ? t("timeline.announce.seatedAt", { guest, table: tableName })
+    : t("timeline.announce.seated", { guest });
 }
 
-function seatedSentence(reservation: Reservation, tableName: string | undefined): string {
-  return `Seated ${reservation.guestName || "the guest"}${atTable(tableName)}.`;
+/** One sentence per named/unnamed case — a possessive cannot be assembled across languages. */
+function cancelledSentence(reservation: Reservation, t: TFunction): string {
+  return reservation.guestName
+    ? t("timeline.announce.cancelledNamed", { name: reservation.guestName })
+    : t("timeline.announce.cancelled");
 }
 
-function whoseReservation(reservation: Reservation): string {
-  return reservation.guestName ? `${reservation.guestName}'s reservation` : "the reservation";
+function noShowSentence(reservation: Reservation, t: TFunction): string {
+  return reservation.guestName
+    ? t("timeline.announce.noShowNamed", { name: reservation.guestName })
+    : t("timeline.announce.noShow");
 }
 
-function loadedSentence(date: string, todayStr: string): string {
+function savedSentence(reservation: Reservation, t: TFunction): string {
+  return reservation.guestName
+    ? t("timeline.announce.savedNamed", { name: reservation.guestName })
+    : t("timeline.announce.saved");
+}
+
+function loadedSentence(date: string, todayStr: string, locale: string, t: TFunction): string {
   return date === todayStr
-    ? "Tonight's grid loaded."
-    : `Reservations for ${formatServiceDate(date)} loaded.`;
+    ? t("timeline.announce.loadedTonight")
+    : t("timeline.announce.loadedDate", { date: formatServiceDate(date, locale) });
 }
 
 /** The grid block's test id — `useFocusAfter`'s target after a mutation lands on a party. */
@@ -123,7 +145,9 @@ function CloseIcon() {
  * `role=status` sentence and the focus target that follow a success.
  */
 export function TimelinePage() {
+  const { t } = useTranslation();
   const { selectedVenueId, selectedVenue } = useVenue();
+  const fmt = useVenueFormat();
   const { isConnected } = useSSEStatus();
   const viewport = useViewport();
   const now = useNow();
@@ -262,7 +286,7 @@ export function TimelinePage() {
       // `fetchError` re-renders the banner or empty state; focus stays on Retry (ux.md Flow 2).
       return;
     }
-    announce(loadedSentence(selectedDate, todayStr));
+    announce(loadedSentence(selectedDate, todayStr, fmt.locale, t));
     focusAfter({ kind: "pageHeading" });
   };
 
@@ -270,7 +294,7 @@ export function TimelinePage() {
 
   const handleSeat = async (reservation: Reservation) => {
     await seatGuest(reservation);
-    announce(seatedSentence(reservation, tableName(reservation.tableId)));
+    announce(seatedSentence(reservation, tableName(reservation.tableId), t));
     focusAfter({ kind: "testId", testId: blockTestId(reservation.id) });
   };
 
@@ -279,7 +303,7 @@ export function TimelinePage() {
     await cancelReservation(selectedReservation.id, { reason, note, quote: cancellationQuote });
     setShowCancelDialog(false);
     clearSelection();
-    announce(`Cancelled ${whoseReservation(selectedReservation)}.`);
+    announce(cancelledSentence(selectedReservation, t));
     focusAfter({ kind: "testId", testId: blockTestId(selectedReservation.id) });
   };
 
@@ -293,8 +317,8 @@ export function TimelinePage() {
     const { reservation: updated, warning } = await markNoShow(selectedReservation.id);
     setShowNoShowDialog(false);
     clearSelection();
-    const sentence = `Marked ${whoseReservation(selectedReservation)} as a no-show.`;
-    announce(warning ? `${sentence} ${warning}` : sentence);
+    const sentence = noShowSentence(selectedReservation, t);
+    announce(warning ? t("timeline.announce.withWarning", { sentence, warning }) : sentence);
     focusAfter({ kind: "testId", testId: blockTestId(updated.id) });
   };
 
@@ -307,22 +331,16 @@ export function TimelinePage() {
   const handleEdit = async (id: string, data: UpdateReservationRequest) => {
     const updated = await updateReservation(id, data);
     setShowEditDrawer(false);
-    announce(`Saved changes to ${whoseReservation(updated)}.`);
+    announce(savedSentence(updated, t));
     const opener = editOpenerRef.current;
     if (opener) focusAfter({ kind: "element", element: opener });
   };
 
-  const handleWalkIn = async (data: {
-    partySize: number;
-    tableId: string;
-    venueId: string;
-    guestName?: string;
-    guestId?: string;
-  }) => {
+  const handleWalkIn = async (data: WalkInRequest) => {
     const created = await createWalkIn(data);
     setSelectedIdState(created.id);
     closeWalkInDialog();
-    announce(walkInSentence(created, tableName(created.tableId) ?? created.table?.name));
+    announce(walkInSentence(created, tableName(created.tableId) ?? created.table?.name, t));
     focusAfter({ kind: "testId", testId: blockTestId(created.id) });
   };
 
@@ -331,7 +349,12 @@ export function TimelinePage() {
     setPendingTableId(tableId);
     try {
       await updateTableStatus(tableId, next);
-      announce(`${tableName(tableId) ?? "Table"} is now ${next.toLowerCase()}.`);
+      announce(
+        t("timeline.announce.tableNow", {
+          table: tableName(tableId) ?? t("timeline.announce.aTable"),
+          status: tableStatusInline(next, t, fmt.locale),
+        })
+      );
     } catch (err) {
       setTableStatusFailure({ tableId, next, error: describeApiError(err) });
     } finally {
@@ -343,12 +366,7 @@ export function TimelinePage() {
 
   /* ── Render facts ── */
 
-  const formattedDate = new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const formattedDate = formatLongDateWithYear(selectedDate, fmt.locale);
   const isToday = selectedDate === todayStr;
 
   const loadFailure = fetchError ? describeApiError(fetchError) : null;
@@ -382,11 +400,11 @@ export function TimelinePage() {
       return (
         <EmptyState
           variant="flat"
-          heading="Couldn't load tonight."
+          heading={t("timeline.page.loadFailedHeading")}
           description={loadFailure.detail}
           action={
             <Button variant="secondary" size="md" onClick={handleRetry}>
-              Retry
+              {t("timeline.page.retry")}
             </Button>
           }
         />
@@ -396,11 +414,11 @@ export function TimelinePage() {
       return (
         <EmptyState
           variant="flat"
-          heading="No tables yet."
-          description="Set up a floor plan and the grid fills in."
+          heading={t("timeline.page.noTablesHeading")}
+          description={t("timeline.page.noTablesDescription")}
           action={
             <Link to="/floor-plans" className={styles.emptyStateLink}>
-              Floor plans
+              {t("timeline.page.floorPlans")}
             </Link>
           }
         />
@@ -436,7 +454,7 @@ export function TimelinePage() {
           quietNight
             ? {
                 variant: isToday ? "today" : "otherDate",
-                dateLabel: formatServiceDate(selectedDate),
+                dateLabel: formatServiceDate(selectedDate, fmt.locale),
                 onWalkIn: openWalkInDialog,
                 onToday: handleToday,
               }
@@ -451,7 +469,10 @@ export function TimelinePage() {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTop}>
-          <PageHeader title="Timeline" description="Real-time reservation view" />
+          <PageHeader
+            title={t("timeline.page.title")}
+            description={t("timeline.page.description")}
+          />
         </div>
 
         {/* Date navigation */}
@@ -459,7 +480,7 @@ export function TimelinePage() {
           <div className={styles.dateNavLeft}>
             <IconButton
               icon={<ChevronLeftIcon />}
-              aria-label="Previous day"
+              aria-label={t("timeline.page.previousDay")}
               variant="ghost"
               size="md"
               onClick={handlePreviousDay}
@@ -468,7 +489,7 @@ export function TimelinePage() {
             <div className={styles.dateLabel}>{formattedDate}</div>
             <IconButton
               icon={<ChevronRightIcon />}
-              aria-label="Next day"
+              aria-label={t("timeline.page.nextDay")}
               variant="ghost"
               size="md"
               onClick={handleNextDay}
@@ -481,7 +502,7 @@ export function TimelinePage() {
                 onClick={handleToday}
                 className={styles.todayButton}
               >
-                Today
+                {t("timeline.page.today")}
               </Button>
             )}
             <Button
@@ -493,7 +514,7 @@ export function TimelinePage() {
               disabled={walkInDisabled}
               aria-describedby={walkInDisabled ? walkInCaptionId : undefined}
             >
-              Walk-in
+              {t("timeline.page.walkIn")}
             </Button>
             {walkInDisabled && (
               <Text
@@ -503,7 +524,7 @@ export function TimelinePage() {
                 color="secondary"
                 className={styles.walkInCaption}
               >
-                {WALK_IN_DISABLED_CAPTION}
+                {t("timeline.page.walkInDisabled")}
               </Text>
             )}
           </div>
@@ -516,13 +537,13 @@ export function TimelinePage() {
                 className={`${styles.liveDot} ${isConnected ? styles.liveDotConnected : styles.liveDotOffline}`}
               />
               <Text className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
-                {isConnected ? "Live" : "Offline"}
+                {isConnected ? t("timeline.page.live") : t("timeline.page.offline")}
               </Text>
             </div>
-            <KpiStat label="Reservations" value={kpi(stats.total)} />
-            <KpiStat label="Covers" value={kpi(stats.totalCovers)} />
-            <KpiStat label="Confirmed" value={kpi(stats.confirmed)} />
-            <KpiStat label="Pending" value={kpi(stats.pending)} />
+            <KpiStat label={t("timeline.page.kpiReservations")} value={kpi(stats.total)} />
+            <KpiStat label={t("timeline.page.kpiCovers")} value={kpi(stats.totalCovers)} />
+            <KpiStat label={t("timeline.status.confirmed")} value={kpi(stats.confirmed)} />
+            <KpiStat label={t("timeline.status.pending")} value={kpi(stats.pending)} />
           </div>
         </div>
       </div>
@@ -537,7 +558,7 @@ export function TimelinePage() {
         <div className={styles.timelineArea}>
           {showLoadBanner && loadFailure && (
             <ErrorRetryBanner
-              title="Couldn't load tonight's reservations."
+              title={t("timeline.page.loadBanner")}
               error={loadFailure.detail}
               details={loadFailure.raw}
               onRetry={handleRetry}
@@ -546,7 +567,7 @@ export function TimelinePage() {
           )}
           {tableStatusFailure && (
             <ErrorRetryBanner
-              title="Table status not changed."
+              title={t("timeline.page.tableStatusBanner")}
               error={tableStatusFailure.error.detail}
               details={tableStatusFailure.error.raw}
               onRetry={() =>
@@ -567,11 +588,11 @@ export function TimelinePage() {
           >
             <div className={styles.sidebarHeader}>
               <Text variant="display" as="h2" className={styles.sidebarTitle}>
-                Reservation Details
+                {t("timeline.page.detailsTitle")}
               </Text>
               <IconButton
                 icon={<CloseIcon />}
-                aria-label="Close reservation details"
+                aria-label={t("timeline.page.closeDetails")}
                 variant="ghost"
                 size="md"
                 onClick={clearSelection}
@@ -608,7 +629,7 @@ export function TimelinePage() {
           size="default"
           open={selectedReservation !== null}
           onClose={clearSelection}
-          title="Reservation Details"
+          title={t("timeline.page.detailsTitle")}
         >
           {detailSurface}
         </Drawer>

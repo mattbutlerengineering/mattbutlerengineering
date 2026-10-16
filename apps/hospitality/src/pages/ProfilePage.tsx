@@ -1,5 +1,8 @@
+import { useVenueFormat, type VenueFormat } from "../hooks/useVenueFormat.js";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -36,14 +39,11 @@ interface ProfileFormData {
   picture: string;
 }
 
-function formatMemberSince(date: string | Date): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+function formatMemberSince(date: string | Date, fmt: VenueFormat): string {
+  return fmt.formatInstant(date, { month: "long", year: "numeric" });
 }
 
-function formatRelativeTime(date: string | Date): string {
+function formatRelativeTime(date: string | Date, fmt: VenueFormat, t: TFunction): string {
   const now = Date.now();
   const then = new Date(date).getTime();
   const diffMs = now - then;
@@ -51,25 +51,25 @@ function formatRelativeTime(date: string | Date): string {
   const diffHr = Math.floor(diffMs / 3_600_000);
   const diffDays = Math.floor(diffMs / 86_400_000);
 
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  if (diffMin < 1) return t("profile.relative.justNow");
+  if (diffMin < 60) return t("profile.relative.minutes", { count: diffMin });
+  if (diffHr < 24) return t("profile.relative.hours", { count: diffHr });
+  if (diffDays < 30) return t("profile.relative.days", { count: diffDays });
+  return fmt.formatInstant(date, { month: "short", day: "numeric", year: "numeric" });
 }
 
 /** How each session phase reads on the instrument cluster's telltale LED. */
 const SESSION_LED: Record<
   SessionPhase,
-  { variant: "success" | "warning" | "danger"; pulse: boolean; label: string }
+  {
+    variant: "success" | "warning" | "danger";
+    pulse: boolean;
+    labelKey: "profile.session.active" | "profile.session.refreshing" | "profile.session.expired";
+  }
 > = {
-  fresh: { variant: "success", pulse: true, label: "Session active" },
-  "refresh-window": { variant: "warning", pulse: true, label: "Refreshing soon" },
-  expired: { variant: "danger", pulse: false, label: "Session expired" },
+  fresh: { variant: "success", pulse: true, labelKey: "profile.session.active" },
+  "refresh-window": { variant: "warning", pulse: true, labelKey: "profile.session.refreshing" },
+  expired: { variant: "danger", pulse: false, labelKey: "profile.session.expired" },
 };
 
 interface SessionClusterProps {
@@ -85,6 +85,8 @@ function SessionCluster({ remainingMs, phase, elapsedPercent }: SessionClusterPr
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   const led = SESSION_LED[phase];
+  const { t } = useTranslation();
+  const ledLabel = t(led.labelKey);
 
   return (
     <div className={styles.sessionCluster}>
@@ -92,12 +94,12 @@ function SessionCluster({ remainingMs, phase, elapsedPercent }: SessionClusterPr
         <div
           className={styles.sessionCountdown}
           role="timer"
-          aria-label="Time until the session token expires"
+          aria-label={t("profile.session.timerLabel")}
         >
           <Odometer
             value={minutes}
             formatOptions={{ minimumIntegerDigits: 2, useGrouping: false }}
-            aria-label="Minutes remaining"
+            aria-label={t("profile.session.minutesRemaining")}
           />
           <Text className={styles.sessionSeparator} aria-hidden="true">
             :
@@ -105,22 +107,29 @@ function SessionCluster({ remainingMs, phase, elapsedPercent }: SessionClusterPr
           <Odometer
             value={seconds}
             formatOptions={{ minimumIntegerDigits: 2, useGrouping: false }}
-            aria-label="Seconds remaining"
+            aria-label={t("profile.session.secondsRemaining")}
           />
         </div>
         <div className={styles.sessionStatus}>
-          <StatusLED variant={led.variant} pulse={led.pulse} label={led.label} />
+          <StatusLED variant={led.variant} pulse={led.pulse} label={ledLabel} />
           <Text variant="caption" color="secondary">
-            {led.label}
+            {ledLabel}
           </Text>
         </div>
       </div>
-      <Meter label="Token lifetime elapsed" value={elapsedPercent} showValue size="sm" />
+      <Meter
+        label={t("profile.session.lifetimeElapsed")}
+        value={elapsedPercent}
+        showValue
+        size="sm"
+      />
     </div>
   );
 }
 
 export function ProfilePage() {
+  const fmt = useVenueFormat();
+  const { t } = useTranslation();
   const { user: authUser } = useAuth();
   // Session timing comes from the token claims @mbe/auth/react surfaces via
   // `user.raw` (`exp`/`iat`, epoch seconds). react-oidc-context's access-token
@@ -210,7 +219,7 @@ export function ProfilePage() {
   if (isLoading) {
     return (
       <div>
-        <PageHeader title="Profile" description="Loading your profile..." />
+        <PageHeader title={t("profile.title")} description={t("profile.loading")} />
         <Stack gap="lg">
           <SkeletonGroup>
             <Card>
@@ -237,9 +246,9 @@ export function ProfilePage() {
     const loadFailure = describeApiError(error);
     return (
       <div>
-        <PageHeader title="Profile" description="Manage your profile" />
+        <PageHeader title={t("profile.title")} description={t("profile.manage")} />
         <ErrorRetryBanner
-          title="Couldn't load your profile."
+          title={t("profile.loadError")}
           error={loadFailure.detail}
           details={loadFailure.raw}
           onRetry={refetch}
@@ -248,50 +257,50 @@ export function ProfilePage() {
     );
   }
 
-  const displayName = user?.name ?? authUser?.name ?? "User";
+  const displayName = user?.name ?? authUser?.name ?? t("profile.fallbackName");
   const displayEmail = user?.email ?? authUser?.email ?? "";
   const avatarSrc = user?.picture ?? authUser?.picture;
 
   const accountItems: DataListItem[] = [
-    { label: "User ID", value: user?.id ?? "Unknown" },
+    { label: t("profile.account.userId"), value: user?.id ?? t("profile.unknown") },
     {
-      label: "Email Verified",
+      label: t("profile.account.emailVerified"),
       value: (
         <Badge variant={user?.emailVerified ? "success" : "warning"} dot>
-          {user?.emailVerified ? "Verified" : "Not verified"}
+          {user?.emailVerified ? t("profile.verified") : t("profile.notVerified")}
         </Badge>
       ),
     },
     {
-      label: "Member Since",
-      value: user?.createdAt ? formatMemberSince(user.createdAt) : "Unknown",
+      label: t("profile.memberSince"),
+      value: user?.createdAt ? formatMemberSince(user.createdAt, fmt) : t("profile.unknown"),
     },
     {
-      label: "Last Updated",
-      value: user?.updatedAt ? formatRelativeTime(user.updatedAt) : "Unknown",
+      label: t("profile.lastUpdated"),
+      value: user?.updatedAt ? formatRelativeTime(user.updatedAt, fmt, t) : t("profile.unknown"),
     },
   ];
 
   return (
     <div>
-      <PageHeader title="Profile" description="View and manage your profile information" />
+      <PageHeader title={t("profile.title")} description={t("profile.description")} />
 
       <Stack gap="lg" data-testid="primary-content">
         {saveSuccess && (
           <Alert
             variant="success"
-            title="Profile updated"
+            title={t("profile.saved.title")}
             dismissible
             onDismiss={() => setSaveSuccess(false)}
           >
-            Your changes have been saved successfully.
+            {t("profile.saved.body")}
           </Alert>
         )}
 
         {saveError && (
           <Alert
             variant="error"
-            title="Changes not saved."
+            title={t("profile.saveError")}
             dismissible
             onDismiss={() => setSaveError(null)}
           >
@@ -318,7 +327,7 @@ export function ProfilePage() {
             {!isEditing && (
               <div className={styles.heroAction}>
                 <Button variant="secondary" onClick={handleEdit}>
-                  Edit Profile
+                  {t("profile.edit")}
                 </Button>
               </div>
             )}
@@ -329,12 +338,12 @@ export function ProfilePage() {
         <Card>
           <div className={styles.sectionHeader}>
             <Text variant="label" color="primary">
-              Session
+              {t("profile.session.title")}
             </Text>
           </div>
           {sessionClock.phase === null ? (
             <Text variant="caption" color="secondary">
-              No active session token to read.
+              {t("profile.session.none")}
             </Text>
           ) : (
             <SessionCluster
@@ -352,30 +361,30 @@ export function ProfilePage() {
               <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
                 <div className={styles.editHeader}>
                   <Text variant="label" color="primary">
-                    Edit Profile
+                    {t("profile.edit")}
                   </Text>
                 </div>
                 <Stack gap="md">
                   <Input
-                    label="Name"
+                    label={t("profile.form.name")}
                     value={watchedName}
                     onChange={(e) => setValue("name", e.target.value)}
-                    placeholder="Your name"
+                    placeholder={t("profile.form.namePlaceholder")}
                     error={isNameEmpty}
-                    hint={isNameEmpty ? "Name is required" : undefined}
+                    hint={isNameEmpty ? t("profile.form.nameRequired") : undefined}
                   />
                   <Input
-                    label="Picture URL"
+                    label={t("profile.form.pictureUrl")}
                     type="url"
                     value={watchedPicture}
                     onChange={(e) => setValue("picture", e.target.value)}
-                    placeholder="https://example.com/photo.jpg"
+                    placeholder={t("profile.form.picturePlaceholder")}
                     showOptional
                   />
                   <Divider spacing="compact" />
                   <Stack gap="sm" direction="row">
                     <Button variant="primary" type="submit" disabled={isSaving || isNameEmpty}>
-                      {isSaving ? "Saving..." : "Save Changes"}
+                      {isSaving ? t("profile.form.saving") : t("profile.form.save")}
                     </Button>
                     <Button
                       variant="secondary"
@@ -383,7 +392,7 @@ export function ProfilePage() {
                       onClick={handleCancel}
                       disabled={isSaving}
                     >
-                      Cancel
+                      {t("profile.form.cancel")}
                     </Button>
                   </Stack>
                 </Stack>
@@ -396,7 +405,7 @@ export function ProfilePage() {
         <Card>
           <div className={styles.sectionHeader}>
             <Text variant="label" color="primary">
-              Account Details
+              {t("profile.account.title")}
             </Text>
           </div>
           <DataList items={accountItems} orientation="horizontal" striped />
@@ -406,32 +415,34 @@ export function ProfilePage() {
         <Card>
           <div className={styles.sectionHeader}>
             <Text variant="label" color="primary">
-              Activity Summary
+              {t("profile.activity.title")}
             </Text>
           </div>
           <div className={styles.activityGrid}>
             <div className={styles.activityItem}>
               <Text variant="caption" color="secondary">
-                Member Since
+                {t("profile.memberSince")}
               </Text>
               <Text variant="body" color="primary">
-                {user?.createdAt ? formatMemberSince(user.createdAt) : "Unknown"}
+                {user?.createdAt ? formatMemberSince(user.createdAt, fmt) : t("profile.unknown")}
               </Text>
             </div>
             <div className={styles.activityItem}>
               <Text variant="caption" color="secondary">
-                Last Updated
+                {t("profile.lastUpdated")}
               </Text>
               <Text variant="body" color="primary">
-                {user?.updatedAt ? formatRelativeTime(user.updatedAt) : "Unknown"}
+                {user?.updatedAt
+                  ? formatRelativeTime(user.updatedAt, fmt, t)
+                  : t("profile.unknown")}
               </Text>
             </div>
             <div className={styles.activityItem}>
               <Text variant="caption" color="secondary">
-                Email Status
+                {t("profile.activity.emailStatus")}
               </Text>
               <Badge variant={user?.emailVerified ? "success" : "warning"} dot>
-                {user?.emailVerified ? "Verified" : "Not verified"}
+                {user?.emailVerified ? t("profile.verified") : t("profile.notVerified")}
               </Badge>
             </div>
           </div>

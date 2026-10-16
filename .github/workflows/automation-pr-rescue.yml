@@ -14,6 +14,10 @@ name: Automation PR Rescue
 # merge) — the script's auto-merge-label filter excludes it for free, no
 # separate carve-out needed here.
 #
+# The same script also updates clean BEHIND conductor/* PRs (no auto-merge)
+# and comments once on DIRTY ones. It does not resolve content conflicts.
+# `gh pr update-branch` does not re-run `pnpm regen` and can drift llms.txt.
+#
 # #3982: rescue-automation-prs.mjs also approves any action_required runs
 # the update-branch merge commit itself parks (#3684) — that commit is
 # GITHUB_TOKEN/AUTOMATION_PAT-authored too, so its pull_request synchronize

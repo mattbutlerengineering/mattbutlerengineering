@@ -1,6 +1,6 @@
 import reactConfig from "@mbe/config/eslint/react";
 
-const LOCALIZED_FILES = ["src/i18n/**/*.{ts,tsx}"];
+const LOCALIZED_FILES = ["src/**/*.{ts,tsx}"];
 
 export default [
   ...reactConfig,

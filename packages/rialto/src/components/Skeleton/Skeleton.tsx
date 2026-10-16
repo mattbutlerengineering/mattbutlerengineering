@@ -1,4 +1,5 @@
 import { forwardRef, type CSSProperties } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
 import styles from "./Skeleton.module.css";
 
@@ -103,12 +104,13 @@ export interface SkeletonGroupProps {
 
 export const SkeletonGroup = forwardRef<HTMLDivElement, SkeletonGroupProps>(
   ({ children, className = "" }, ref) => {
+    const { messages } = useRialtoLocale();
     return (
       <div
         ref={ref}
         className={className}
         role="status"
-        aria-label="Loading content"
+        aria-label={messages.loadingContent}
         aria-busy="true"
       >
         {children}

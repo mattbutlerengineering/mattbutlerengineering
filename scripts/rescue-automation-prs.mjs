@@ -31,6 +31,15 @@
  * workflow comment); `selectPrsToRescue`'s label filter excludes it for
  * free, no separate carve-out needed.
  *
+ * Conductor PRs (`conductor/*`) take a separate pass (`runConductorPass`).
+ * GitHub reports a content conflict as `mergeStateStatus` `DIRTY`. A DIRTY
+ * conductor PR gets one comment and is not resolved. A clean BEHIND conductor
+ * PR is update-branched and CI is re-dispatched. Auto-merge stays off:
+ * conductor standing_consent is off, so this pass never calls
+ * `gh pr merge --auto`. `gh pr update-branch` does not re-run `pnpm regen`
+ * and can drift llms.txt; the clean update still runs, and the conflict
+ * comment says so.
+ *
  * #3982: `update-branch`'s merge commit is itself GITHUB_TOKEN/AUTOMATION_PAT
  * -authored, so its own `pull_request` synchronize run parks at
  * `action_required` (#3684) exactly like the PR's original commit did — the
@@ -69,6 +78,25 @@ export { AUTOMATION_BRANCH_PREFIX, AUTOMATION_LABEL, hasLabel };
 /** `gh pr list --json` field set `selectPrsToRescue` needs. */
 export const PR_JSON_FIELDS = "number,headRefName,mergeStateStatus,isDraft,labels";
 
+/** Conductor item and batch branches. No auto-merge label is required. */
+export const CONDUCTOR_BRANCH_PREFIX = "conductor/";
+
+/** Stable marker so the 30-minute cron comments once on a conflicting PR. */
+export const CONFLICT_COMMENT_MARKER = "<!-- conductor-conflict-rescue -->";
+
+/**
+ * Body posted once on a DIRTY conductor PR, and on a BEHIND update that
+ * races into a conflict. This pass does not resolve the conflict.
+ */
+export function conductorConflictComment() {
+  return [
+    CONFLICT_COMMENT_MARKER,
+    "This conductor PR conflicts with main. This rescue pass does not resolve the conflict.",
+    "If the GitHub issue is already closed, close this PR. Otherwise rebase onto main and drop commits whose changes are already on main.",
+    "`gh pr update-branch` does not re-run `pnpm regen` and can drift llms.txt.",
+  ].join("\n\n");
+}
+
 /**
  * Pure: selects open automation/* PRs that need a branch-update rescue.
  *
@@ -90,6 +118,145 @@ export function selectPrsToRescue(prs) {
       hasLabel(pr, AUTOMATION_LABEL) &&
       pr.mergeStateStatus === "BEHIND"
   );
+}
+
+function isConductorPr(pr) {
+  return (
+    typeof pr?.headRefName === "string" &&
+    pr.headRefName.startsWith(CONDUCTOR_BRANCH_PREFIX) &&
+    !pr.isDraft
+  );
+}
+
+/**
+ * Pure: DIRTY conductor PRs that do not already carry the conflict comment.
+ * `conflictNoted` is set by `runConductorPass` after reading comment bodies.
+ * No `auto-merge` label is required.
+ *
+ * @param {Array<{headRefName?:string, mergeStateStatus?:string, isDraft?:boolean, conflictNoted?:boolean}>} prs
+ * @returns {Array}
+ */
+export function selectConductorConflictPrs(prs) {
+  return (prs ?? []).filter(
+    (pr) => isConductorPr(pr) && pr.mergeStateStatus === "DIRTY" && !pr.conflictNoted
+  );
+}
+
+/**
+ * Pure: BEHIND conductor PRs. Clean enough for `gh pr update-branch`.
+ * No `auto-merge` label is required, and this selection never enables it.
+ *
+ * @param {Array<{headRefName?:string, mergeStateStatus?:string, isDraft?:boolean}>} prs
+ * @returns {Array}
+ */
+export function selectConductorBehindPrs(prs) {
+  return (prs ?? []).filter((pr) => isConductorPr(pr) && pr.mergeStateStatus === "BEHIND");
+}
+
+function commentHasMarker(comment) {
+  const text = typeof comment === "string" ? comment : String(comment?.body ?? "");
+  return text.includes(CONFLICT_COMMENT_MARKER);
+}
+
+function looksLikeConflict(err) {
+  const text = String(err?.message ?? err ?? "").toLowerCase();
+  return text.includes("conflict") || text.includes("dirty") || text.includes("not mergeable");
+}
+
+/**
+ * Conductor follow-up. DIRTY PRs get one comment. BEHIND PRs get
+ * update-branch plus a CI dispatch, and never auto-merge.
+ *
+ * A BEHIND update that fails with a conflict-shaped error gets the same
+ * comment, once. Any other error is logged and does not stamp the marker,
+ * so a transient network failure is not recorded as a conflict.
+ *
+ * @param {{
+ *   listPrs: () => Promise<Array>,
+ *   updateBranch: (number:number) => Promise<void>,
+ *   dispatchCi: (headRefName:string) => Promise<void>,
+ *   comment: (number:number, body:string) => Promise<void>,
+ *   commentsFor: (number:number) => Promise<Array>,
+ *   dryRun?: boolean,
+ *   log?: (msg:string) => void,
+ * }} deps
+ * @returns {Promise<{commented:number[], updated:number[]}>}
+ */
+export async function runConductorPass({
+  listPrs,
+  updateBranch,
+  dispatchCi,
+  comment,
+  commentsFor,
+  dryRun = false,
+  log = () => {},
+}) {
+  const prs = (await listPrs()) ?? [];
+  const enriched = [];
+  for (const pr of prs) {
+    if (!isConductorPr(pr) || pr.mergeStateStatus !== "DIRTY") {
+      enriched.push(pr);
+      continue;
+    }
+    try {
+      const comments = await commentsFor(pr.number);
+      enriched.push({ ...pr, conflictNoted: (comments ?? []).some(commentHasMarker) });
+    } catch (err) {
+      log(`failed to read comments on #${pr.number} (${pr.headRefName}): ${err.message}`);
+    }
+  }
+
+  const commented = [];
+  const updated = [];
+  const body = conductorConflictComment();
+
+  for (const pr of selectConductorConflictPrs(enriched)) {
+    if (dryRun) {
+      log(`[dry-run] would comment on conflicting #${pr.number} (${pr.headRefName})`);
+      commented.push(pr.number);
+      continue;
+    }
+    try {
+      await comment(pr.number, body);
+      log(`commented on conflicting #${pr.number} (${pr.headRefName})`);
+      commented.push(pr.number);
+    } catch (err) {
+      log(`failed to comment on #${pr.number} (${pr.headRefName}): ${err.message}`);
+    }
+  }
+
+  for (const pr of selectConductorBehindPrs(enriched)) {
+    if (dryRun) {
+      log(`[dry-run] would update-branch #${pr.number} (${pr.headRefName})`);
+      updated.push(pr.number);
+      continue;
+    }
+    try {
+      await updateBranch(pr.number);
+      await dispatchCi(pr.headRefName);
+      log(`updated #${pr.number} (${pr.headRefName})`);
+      updated.push(pr.number);
+    } catch (err) {
+      if (!looksLikeConflict(err)) {
+        log(`failed to update #${pr.number} (${pr.headRefName}): ${err.message}`);
+        continue;
+      }
+      try {
+        const comments = await commentsFor(pr.number);
+        if ((comments ?? []).some(commentHasMarker)) {
+          log(`#${pr.number} already has a conflict comment`);
+          continue;
+        }
+        await comment(pr.number, body);
+        log(`commented on #${pr.number} after update-branch conflict`);
+        commented.push(pr.number);
+      } catch (commentErr) {
+        log(`failed to comment on #${pr.number} (${pr.headRefName}): ${commentErr.message}`);
+      }
+    }
+  }
+
+  return { commented, updated };
 }
 
 /**
@@ -148,24 +315,31 @@ export async function runRescue({
   return rescued;
 }
 
-/** CLI entry: wires raw `gh` calls to {@link runRescue}. */
+/** CLI entry: wires raw `gh` calls to {@link runRescue} and {@link runConductorPass}. */
 async function run() {
   const dryRun = process.argv.includes("--dry-run");
+  const log = (msg) => console.log(`[rescue-automation-prs] ${msg}`);
+
+  const listPrs = async () =>
+    JSON.parse(
+      execFileSync(
+        "gh",
+        ["pr", "list", "--state", "open", "--json", PR_JSON_FIELDS, "--limit", "50"],
+        { encoding: "utf-8" }
+      )
+    );
+
+  const updateBranch = async (number) => {
+    execFileSync("gh", ["pr", "update-branch", String(number)], { stdio: "inherit" });
+  };
+
+  const dispatchCi = async (headRefName) => {
+    execFileSync("gh", ["workflow", "run", "ci.yml", "--ref", headRefName], { stdio: "inherit" });
+  };
 
   const rescued = await runRescue({
-    listPrs: async () =>
-      JSON.parse(
-        execFileSync(
-          "gh",
-          ["pr", "list", "--state", "open", "--json", PR_JSON_FIELDS, "--limit", "50"],
-          {
-            encoding: "utf-8",
-          }
-        )
-      ),
-    updateBranch: async (number) => {
-      execFileSync("gh", ["pr", "update-branch", String(number)], { stdio: "inherit" });
-    },
+    listPrs,
+    updateBranch,
     approveRuns: async (number) => {
       // The update-branch merge commit above is itself GITHUB_TOKEN/
       // AUTOMATION_PAT-authored, so its own pull_request synchronize run
@@ -208,12 +382,10 @@ async function run() {
             { stdio: "inherit" }
           );
         },
-        log: (msg) => console.log(`[rescue-automation-prs] ${msg}`),
+        log,
       });
     },
-    dispatchCi: async (headRefName) => {
-      execFileSync("gh", ["workflow", "run", "ci.yml", "--ref", headRefName], { stdio: "inherit" });
-    },
+    dispatchCi,
     ensureAutoMerge: async (number) => {
       // Routed through the same eligibility + trusted-author decision the
       // four producer workflows consult (#3982 AC4) — a direct, unconditional
@@ -247,13 +419,53 @@ async function run() {
       });
     },
     dryRun,
-    log: (msg) => console.log(`[rescue-automation-prs] ${msg}`),
+    log,
+  });
+
+  const conductor = await runConductorPass({
+    listPrs,
+    updateBranch,
+    dispatchCi,
+    comment: async (number, body) => {
+      execFileSync(
+        "gh",
+        [
+          "api",
+          "-X",
+          "POST",
+          `repos/{owner}/{repo}/issues/${number}/comments`,
+          "--raw-field",
+          `body=${body}`,
+        ],
+        { stdio: "inherit" }
+      );
+    },
+    commentsFor: async (number) =>
+      JSON.parse(
+        execFileSync(
+          "gh",
+          [
+            "api",
+            `repos/{owner}/{repo}/issues/${number}/comments?per_page=100`,
+            "--jq",
+            "[.[] | {body}]",
+          ],
+          { encoding: "utf-8" }
+        )
+      ),
+    dryRun,
+    log,
   });
 
   console.log(
     `[rescue-automation-prs] ${dryRun ? "[dry-run] " : ""}rescued ${rescued.length} PR(s): ${
       rescued.map((n) => `#${n}`).join(", ") || "none"
     }`
+  );
+  console.log(
+    `[rescue-automation-prs] ${dryRun ? "[dry-run] " : ""}conductor commented ${
+      conductor.commented.length
+    }, updated ${conductor.updated.length}`
   );
 }
 

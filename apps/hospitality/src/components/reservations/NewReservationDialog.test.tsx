@@ -209,8 +209,8 @@ describe("NewReservationDialog", () => {
     const data = defaultProps.onConfirm.mock.calls[0]![0];
     expect(data).toMatchObject({
       date: "2026-04-10",
-      startTime: "2026-04-10T18:30:00",
-      endTime: "2026-04-10T20:00:00",
+      startTime: new Date("2026-04-10T18:30:00").toISOString(),
+      endTime: new Date("2026-04-10T20:00:00").toISOString(),
       partySize: 2,
       tableId: "table-1",
       venueId: "venue-1",
@@ -218,6 +218,24 @@ describe("NewReservationDialog", () => {
       guestEmail: "smith@example.com",
     });
     expect(data.guestPhone).toBeUndefined();
+  });
+
+  it("sends the chosen occasion and seating preference (#6597)", async () => {
+    render(<NewReservationDialog {...defaultProps} />);
+    fillRequiredFields();
+    fireEvent.click(screen.getByRole("combobox", { name: /occasion/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Birthday" }));
+    fireEvent.click(screen.getByRole("combobox", { name: /seating preference/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Booth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
+
+    await waitFor(() => {
+      expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+    });
+    expect(defaultProps.onConfirm.mock.calls[0]![0]).toMatchObject({
+      occasion: "birthday",
+      seatingPreference: "booth",
+    });
   });
 
   it("should roll endTime to the next calendar day when start time is within the duration of midnight", async () => {
@@ -236,8 +254,9 @@ describe("NewReservationDialog", () => {
     });
 
     const data = defaultProps.onConfirm.mock.calls[0]![0];
-    expect(data.startTime).toBe("2026-04-10T23:15:00");
-    expect(data.endTime).toBe("2026-04-11T00:45:00");
+    // No venue selected: the picked time is read on the device clock and sent as a UTC instant.
+    expect(data.startTime).toBe(new Date("2026-04-10T23:15:00").toISOString());
+    expect(data.endTime).toBe(new Date("2026-04-11T00:45:00").toISOString());
     expect(new Date(data.endTime).getTime()).toBeGreaterThan(new Date(data.startTime).getTime());
   });
 
@@ -418,8 +437,8 @@ describe("NewReservationDialog", () => {
       });
       expect(defaultProps.onConfirm.mock.calls[0]![0]).toStrictEqual({
         date: "2026-04-10",
-        startTime: "2026-04-10T18:30:00",
-        endTime: "2026-04-10T20:00:00",
+        startTime: new Date("2026-04-10T18:30:00").toISOString(),
+        endTime: new Date("2026-04-10T20:00:00").toISOString(),
         partySize: 2,
         tableId: "table-1",
         venueId: "venue-1",

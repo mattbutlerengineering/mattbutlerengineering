@@ -1,12 +1,17 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
-import type { ApiResponse, Reservation, ReservationHold } from "@mbe/types";
+import type {
+  ApiResponse,
+  Occasion,
+  Reservation,
+  ReservationHold,
+  SeatingPreference,
+} from "@mbe/types";
 import {
   createProblemDetails,
   publicHoldBodyJsonSchema,
   publicHoldConfirmBodyJsonSchema,
 } from "@mbe/types";
 import { randomUUID } from "crypto";
-import { holdService } from "../services/hold.js";
 import { generateManageToken } from "./public-reservations.js";
 import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
@@ -75,6 +80,8 @@ function sessionIdOf(request: FastifyRequest): string {
 }
 
 export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
+  const { holdService } = fastify.services;
+
   fastify.post<{
     Params: { slug: string };
     Body: { date: string; startTime: string; endTime: string; partySize: number };
@@ -214,7 +221,14 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
   // adds slug scoping and drops `guestId` from the accepted body (#4487).
   fastify.post<{
     Params: { slug: string; holdId: string };
-    Body: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string };
+    Body: {
+      guestName?: string;
+      guestEmail?: string;
+      guestPhone?: string;
+      notes?: string;
+      occasion?: Occasion;
+      seatingPreference?: SeatingPreference;
+    };
     Reply:
       | (ApiResponse<Reservation> & { manageToken?: string })
       | ReturnType<typeof createProblemDetails>;
@@ -249,13 +263,14 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         // Fastify leaves unknown properties on `request.body`, so spreading it
         // would let an anonymous caller smuggle a `guestId` and attach its
         // reservation to someone else's guest record.
-        const { guestName, guestEmail, guestPhone, notes } = request.body;
+        const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
+          request.body;
         const result = await fastify.transitions.confirmHold(
           {
             holdId,
             sessionId,
             venueId,
-            guestDetails: { guestName, guestEmail, guestPhone, notes },
+            guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
           },
           { door: "public-hold" }
         );

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { ChatPanel } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader.js";
@@ -12,12 +13,13 @@ const NOOP = () => {};
 
 export function ChatPage() {
   const { accessToken } = useAuth();
+  const { t } = useTranslation();
 
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
   return (
     <div className={styles.container}>
-      <PageHeader title="Chat" />
+      <PageHeader title={t("chat.title")} />
       <ChatPanel
         standalone
         onClose={NOOP}

@@ -329,6 +329,8 @@ export {
   isLowRiskPR,
   reviewersForDiff,
   qualifiesForLowRiskFastPath,
+  GATE_PATHS,
+  matchesGatePath,
 } from "./pr-risk-classifier.js";
 
 // Change-type classification (ship-loop phase gating)

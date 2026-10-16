@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -18,29 +20,31 @@ import { useCurrentUser, useUpdatePreferences } from "../hooks/useUsers.js";
 import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { LanguageRegionCard } from "../components/LanguageRegionCard.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import styles from "./SettingsPage.module.css";
 
 /* ── Constants ──────────────────────────────── */
 
-const THEME_OPTIONS = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+const themeOptions = (t: TFunction) => [
+  { value: "system", label: t("settings.theme.system") },
+  { value: "light", label: t("settings.theme.light") },
+  { value: "dark", label: t("settings.theme.dark") },
 ];
 
-const DURATION_OPTIONS = [
-  { value: "30", label: "30 minutes" },
-  { value: "45", label: "45 minutes" },
-  { value: "60", label: "1 hour" },
-  { value: "90", label: "1.5 hours" },
-  { value: "120", label: "2 hours" },
+const durationOptions = (t: TFunction) => [
+  { value: "30", label: t("settings.duration.m30") },
+  { value: "45", label: t("settings.duration.m45") },
+  { value: "60", label: t("settings.duration.m60") },
+  { value: "90", label: t("settings.duration.m90") },
+  { value: "120", label: t("settings.duration.m120") },
 ];
 
-const PARTY_SIZE_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
-  value: String(i + 1),
-  label: `${i + 1} ${i === 0 ? "guest" : "guests"}`,
-}));
+const partySizeOptions = (t: TFunction) =>
+  Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1),
+    label: t("settings.partySize", { count: i + 1 }),
+  }));
 
 const LOCAL_STORAGE_KEYS = {
   defaultDuration: "mbe-hospitality-default-duration",
@@ -69,9 +73,10 @@ function writeLocalStorage(key: string, value: string): void {
 /* ── Loading skeleton ───────────────────────── */
 
 function SettingsLoadingSkeleton() {
+  const { t } = useTranslation();
   return (
     <div>
-      <PageHeader title="Settings" description="Manage your account settings and preferences" />
+      <PageHeader title={t("settings.title")} description={t("settings.description")} />
       <SkeletonGroup>
         <div className={styles.layout}>
           <div className={styles.main}>
@@ -95,6 +100,7 @@ function SettingsLoadingSkeleton() {
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { isLoading: isAuthLoading, signOut } = useAuth();
   const { theme: localTheme, setTheme: setLocalTheme } = useTheme();
 
@@ -133,7 +139,7 @@ export function SettingsPage() {
         setSuccessMessage(null);
 
         await updatePreferencesMutation.mutateAsync({ [key]: value });
-        setSuccessMessage("Settings saved");
+        setSuccessMessage(t("settings.saved"));
         if (successMessageTimeoutRef.current !== null) {
           clearTimeout(successMessageTimeoutRef.current);
         }
@@ -147,7 +153,7 @@ export function SettingsPage() {
         setIsSaving(false);
       }
     },
-    [updatePreferencesMutation]
+    [updatePreferencesMutation, t]
   );
 
   // Show skeleton while auth is loading or data is being fetched
@@ -160,9 +166,9 @@ export function SettingsPage() {
     const loadFailure = describeApiError(loadError);
     return (
       <div>
-        <PageHeader title="Settings" description="Manage your account settings and preferences" />
+        <PageHeader title={t("settings.title")} description={t("settings.description")} />
         <ErrorRetryBanner
-          title="Couldn't load settings."
+          title={t("settings.loadError")}
           error={loadFailure.detail}
           details={loadFailure.raw}
           onRetry={refetch}
@@ -190,7 +196,7 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Settings" description="Manage your account settings and preferences" />
+      <PageHeader title={t("settings.title")} description={t("settings.description")} />
 
       <Stack gap="md">
         {error && (
@@ -211,15 +217,15 @@ export function SettingsPage() {
         <div className={styles.main}>
           <Stack gap="lg">
             {/* Appearance */}
-            <Card title="Appearance">
+            <Card title={t("settings.appearance.title")}>
               <Stack gap="sm">
                 <Text variant="caption" color="secondary">
-                  Control how the application looks and feels.
+                  {t("settings.appearance.description")}
                 </Text>
                 <div className={styles.fieldRow}>
                   <Select
-                    label="Theme"
-                    options={THEME_OPTIONS}
+                    label={t("settings.theme.label")}
+                    options={themeOptions(t)}
                     value={localTheme}
                     onChange={(value) => {
                       const next = value as "light" | "dark" | "system";
@@ -233,21 +239,21 @@ export function SettingsPage() {
             </Card>
 
             {/* Notifications */}
-            <Card title="Notifications">
+            <Card title={t("settings.notifications.title")}>
               <Stack gap="sm">
                 <Text variant="caption" color="secondary">
-                  Choose which updates you want to receive.
+                  {t("settings.notifications.description")}
                 </Text>
 
                 <div className={styles.toggleRow}>
                   <Toggle
-                    label="Email notifications"
+                    label={t("settings.notifications.email")}
                     checked={preferences.emailNotifications ?? true}
                     onCheckedChange={(checked) => updatePreference("emailNotifications", checked)}
                     disabled={isSaving}
                   />
                   <Text variant="caption" color="secondary" className={styles.toggleDescription}>
-                    Receive important updates and alerts via email
+                    {t("settings.notifications.emailHint")}
                   </Text>
                 </div>
 
@@ -255,29 +261,31 @@ export function SettingsPage() {
 
                 <div className={styles.toggleRow}>
                   <Toggle
-                    label="Marketing emails"
+                    label={t("settings.notifications.marketing")}
                     checked={preferences.marketingEmails ?? false}
                     onCheckedChange={(checked) => updatePreference("marketingEmails", checked)}
                     disabled={isSaving}
                   />
                   <Text variant="caption" color="secondary" className={styles.toggleDescription}>
-                    Receive news, updates, and promotional content
+                    {t("settings.notifications.marketingHint")}
                   </Text>
                 </div>
               </Stack>
             </Card>
 
+            <LanguageRegionCard />
+
             {/* Venue Defaults */}
-            <Card title="Venue Defaults">
+            <Card title={t("settings.defaults.title")}>
               <Stack gap="sm">
                 <Text variant="caption" color="secondary">
-                  Set default values for new reservations. These are stored locally on this device.
+                  {t("settings.defaults.description")}
                 </Text>
 
                 <div className={styles.fieldRow}>
                   <Select
-                    label="Default reservation duration"
-                    options={DURATION_OPTIONS}
+                    label={t("settings.defaults.duration")}
+                    options={durationOptions(t)}
                     value={defaultDuration}
                     onChange={handleDurationChange}
                   />
@@ -287,8 +295,8 @@ export function SettingsPage() {
 
                 <div className={styles.fieldRow}>
                   <Select
-                    label="Default party size"
-                    options={PARTY_SIZE_OPTIONS}
+                    label={t("settings.defaults.partySize")}
+                    options={partySizeOptions(t)}
                     value={defaultPartySize}
                     onChange={handlePartySizeChange}
                   />
@@ -298,35 +306,35 @@ export function SettingsPage() {
 
                 <div className={styles.toggleRow}>
                   <Toggle
-                    label="Auto-confirm reservations"
+                    label={t("settings.defaults.autoConfirm")}
                     checked={autoConfirm}
                     onCheckedChange={handleAutoConfirmChange}
                   />
                   <Text variant="caption" color="secondary" className={styles.toggleDescription}>
-                    Automatically confirm new reservations without manual review
+                    {t("settings.defaults.autoConfirmHint")}
                   </Text>
                 </div>
               </Stack>
             </Card>
 
             {/* Data & Privacy */}
-            <Card title="Data & Privacy">
+            <Card title={t("settings.privacy.title")}>
               <Stack gap="sm">
                 <Text variant="caption" color="secondary">
-                  Manage your data and account privacy settings.
+                  {t("settings.privacy.description")}
                 </Text>
 
                 <div className={styles.privacyRow}>
                   <div>
                     <Text variant="body" color="primary">
-                      Export my data
+                      {t("settings.privacy.exportTitle")}
                     </Text>
                     <Text variant="caption" color="secondary">
-                      Download a copy of all your data
+                      {t("settings.privacy.exportHint")}
                     </Text>
                   </div>
                   <Button variant="secondary" disabled>
-                    Export
+                    {t("settings.privacy.export")}
                   </Button>
                 </div>
 
@@ -335,14 +343,14 @@ export function SettingsPage() {
                 <div className={styles.privacyRow}>
                   <div>
                     <Text variant="body" color="primary">
-                      Delete my account
+                      {t("settings.privacy.deleteTitle")}
                     </Text>
                     <Text variant="caption" color="secondary">
-                      Contact support to delete your account
+                      {t("settings.privacy.deleteHint")}
                     </Text>
                   </div>
                   <Button variant="secondary" disabled>
-                    Delete
+                    {t("settings.privacy.delete")}
                   </Button>
                 </div>
               </Stack>
@@ -353,22 +361,22 @@ export function SettingsPage() {
         {/* ── Sidebar column ──────────────────── */}
         <div className={styles.sidebar}>
           <Stack gap="lg">
-            <Card title="Venue">
+            <Card title={t("settings.venue.title")}>
               <Stack gap="md">
                 <Text variant="caption" color="secondary">
-                  Manage the days and times your venue is open for reservations.
+                  {t("settings.venue.description")}
                 </Text>
                 <Button variant="secondary" onClick={() => navigate("/setup/hours")}>
-                  Operating Hours
+                  {t("settings.venue.operatingHours")}
                 </Button>
               </Stack>
             </Card>
 
-            <Card title="Account">
+            <Card title={t("settings.account.title")}>
               <Stack gap="md">
                 <div>
                   <Text variant="caption" color="secondary">
-                    Signed in as
+                    {t("settings.account.signedInAs")}
                   </Text>
                   <Text variant="body" color="primary">
                     {user?.email}
@@ -376,7 +384,7 @@ export function SettingsPage() {
                 </div>
                 <Divider spacing="compact" />
                 <Button variant="secondary" onClick={() => signOut()}>
-                  Sign Out
+                  {t("settings.account.signOut")}
                 </Button>
               </Stack>
             </Card>

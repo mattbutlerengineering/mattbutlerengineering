@@ -14,7 +14,7 @@ skill. The skill is the loop; every section below is a **hook** it reads by
 name. The frontmatter is the Owner's standing consent to auto-merge
 (`merge: auto`, skills ADR-0087): a PR merges only with `CI Gate` present and
 green, every reviewer passing, no `needs-review` label, and no gate-path file
-(`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md`).
+(gate paths are `GATE_PATHS` in `@mbe/agent-core`; `qualifiesForLowRiskFastPath` already returns false for them).
 
 Cloud routines and GitHub Actions cannot load the plugin (#6332), so they clone
 the public skills repo and follow `skills/implement-queue/SKILL.md` by path,
@@ -41,7 +41,7 @@ State transitions (`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip`) a
 
 **Compose the batch — spread across zones (ADR-023, amended by ADR-027).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > ci-fix > feature > audit), takes at most one issue per zone when main is strict (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch.
 
-**Probe main's strictness every iteration** (branch protection is repo state, not code) with `scripts/main-strictness.mjs` and pass the result as `strictMain`. The probe fails closed: only a successfully parsed literal `strict: false` yields `strictMain: false`; an error, non-JSON, or missing field yields `true`. When `strictMain` is `false`, a zone may admit further issues whose extracted file paths are non-empty and prefix-aware disjoint from those already admitted in that zone; the per-zone merge-train lock still serializes the merges themselves.
+**Probe main's strictness every iteration** (branch protection is repo state, not code) with `scripts/main-strictness.mjs` and pass the result as `strictMain`. The probe fails closed: only a successfully parsed literal `strict: false` yields `strictMain: false`; an error, non-JSON, or missing field yields `true`. When `strictMain` is `false`, a zone may admit further issues whose extracted file paths are non-empty and prefix-aware disjoint from those already admitted in that zone; the per-zone merge-train lock still serializes the merges themselves. Even when `strictMain` is `false`, `selectZoneSpreadBatch` admits at most one issue per shared registry path — `.claude/rules/gotchas.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/implement-queue.md`, `docs/scheduled-tasks.md`, `scripts/routine-manifest.mjs`, `docs/factory/costs.jsonl` — and per `.github/workflows/*.yml` file, across zones.
 
 ```js
 import { selectZoneSpreadBatch } from "./scripts/issue-zone.mjs";
@@ -157,7 +157,7 @@ node scripts/agent-core-build-freshness.mjs check
 
 `exit 1` means: do **not** trust `isLowRiskPR`/`reviewersForDiff` for this PR at all. Skip the fast path unconditionally (fall through to the `reviewers` hook) and treat its specialist gate as if every specialist reviewer applies — dispatch the full reviewer set rather than trusting an empty/narrow `reviewersForDiff` result. A dist that fails to prove itself fresh must never be read as "low risk" or "no specialists match".
 
-Only when `needs-review` is absent, no changed file matches a gate path (`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md` — those always hold for a human merge, ADR-0087), the freshness check exited 0, AND `qualifiesForLowRiskFastPath(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
+Only when `needs-review` is absent, no changed file matches a gate path (those always hold for a human merge, ADR-0087; gate paths are `GATE_PATHS` in `@mbe/agent-core`; `qualifiesForLowRiskFastPath` already returns false for them), the freshness check exited 0, AND `qualifiesForLowRiskFastPath(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
 
 ```bash
 gh pr merge <N> --auto --squash --delete-branch
@@ -229,7 +229,7 @@ it had already altered.
 
 ## merge-command
 
-**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md`), which holds the PR for a human merge:
+**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (see `GATE_PATHS` in `@mbe/agent-core`), which holds the PR for a human merge:
 
 ```bash
 gh pr merge <N> --auto --squash --delete-branch
@@ -319,10 +319,10 @@ Recurring use: `/loop 30m /idea-to-prod:implement-queue`.
 
 ## telemetry
 
-After each worker completes, append one row to `metrics/queue-telemetry.jsonl` via `appendTelemetryRow` from `scripts/collect-queue-telemetry.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
+After each worker completes, append one row to `metrics/queue-telemetry.jsonl` via `appendTelemetryRow` from `scripts/queue-telemetry-store.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
 
 ```js
-import { appendTelemetryRow } from "./scripts/collect-queue-telemetry.mjs";
+import { appendTelemetryRow } from "./scripts/queue-telemetry-store.mjs";
 
 appendTelemetryRow({
   issue_number: 2747, // required

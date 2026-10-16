@@ -10,3 +10,9 @@
 .header {
   margin-block-end: var(--rialto-space-lg);
 }
+
+.localePicker {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-end: var(--rialto-space-sm);
+}

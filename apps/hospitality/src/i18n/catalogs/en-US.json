@@ -1,5 +1,1585 @@
 {
   "shell": {
-    "skipToMain": "Skip to main content"
+    "skipToMain": "Skip to main content",
+    "skipToContent": "Skip to content",
+    "globalNav": {
+      "marketing": "Home",
+      "hospitality": "Hospitality",
+      "rialto": "Design System"
+    },
+    "copyright": "© {{year}} Matt Butler",
+    "dashboardDocumentTitle": "Dashboard - Matt Butler Engineering"
+  },
+  "onboarding": {
+    "steps": {
+      "welcome": {
+        "label": "Welcome",
+        "description": "Name your venue"
+      },
+      "location": {
+        "label": "Location",
+        "description": "Timezone & currency"
+      },
+      "hours": {
+        "label": "Hours",
+        "description": "When you're open"
+      },
+      "settings": {
+        "label": "Settings",
+        "description": "Reservation defaults"
+      },
+      "floorPlan": {
+        "label": "Floor plan",
+        "description": "Lay out your tables"
+      },
+      "launch": {
+        "label": "Launch",
+        "description": "Review & go live"
+      }
+    },
+    "progress": {
+      "wizard": "Wizard progress",
+      "rail": "Onboarding progress",
+      "stepLabel": "Step {{step}}: {{label}}",
+      "stepLabelNavigable": "Step {{step}}: {{label}} (click to navigate)"
+    },
+    "actions": {
+      "back": "Back",
+      "next": "Next"
+    },
+    "welcome": {
+      "heading": "Let's give your venue a home on the platform",
+      "intro": "Choose a name your guests will recognize and a web address for your booking page."
+    },
+    "basicInfo": {
+      "nameLabel": "Venue Name",
+      "namePlaceholder": "e.g. The Grand Ballroom",
+      "slugLabel": "Slug",
+      "slugPlaceholder": "e.g. the-grand-ballroom",
+      "slugChecking": "Checking availability...",
+      "slugAvailable": "Slug is available",
+      "slugHint": "URL-friendly identifier (auto-generated from name)",
+      "errors": {
+        "nameTooShort": "Name must be at least 2 characters",
+        "slugRequired": "Slug is required",
+        "slugInvalid": "Slug must be URL-safe (lowercase letters, numbers, hyphens)",
+        "slugTaken": "A venue with this slug already exists"
+      }
+    },
+    "locationTime": {
+      "heading": "Location & Time",
+      "intro": "So we show the right time and currency.",
+      "timezoneLabel": "Timezone",
+      "timezonePlaceholder": "Search timezones...",
+      "timezoneEmpty": "No matching timezones",
+      "timezoneHint": "IANA timezone used for scheduling and availability",
+      "currencyLabel": "Currency",
+      "currencyPlaceholder": "Select a currency...",
+      "currencyOption": "{{code}} - {{name}}",
+      "errors": {
+        "timezoneRequired": "Timezone is required",
+        "currencyRequired": "Currency is required"
+      }
+    },
+    "hours": {
+      "heading": "Operating Hours",
+      "intro": "So guests know when you're open.",
+      "instructions": "Toggle each day to set opening and closing times. Days left off will be marked as closed.",
+      "closed": "Closed",
+      "to": "to",
+      "openingTime": "{{day}} opening time",
+      "closingTime": "{{day}} closing time",
+      "closeAfterOpen": "Closing time must be after opening time",
+      "atLeastOne": "At least one day must be open",
+      "closeDayTitle": "Close {{day}}?",
+      "closeDayDescription": "This will clear the custom opening and closing times you set for this day.",
+      "closeDayConfirm": "Close Day",
+      "closeDayCancel": "Keep Open"
+    },
+    "days": {
+      "monday": "monday",
+      "tuesday": "tuesday",
+      "wednesday": "wednesday",
+      "thursday": "thursday",
+      "friday": "friday",
+      "saturday": "saturday",
+      "sunday": "sunday"
+    },
+    "settings": {
+      "heading": "Venue Settings",
+      "intro": "Customize how bookings work — or use our recommended defaults.",
+      "stepIntro": "Customize how bookings work — or skip with our recommended defaults.",
+      "useRecommended": "Use recommended settings",
+      "durationLabel": "Default Reservation Duration (minutes)",
+      "maxPartyLabel": "Maximum Party Size",
+      "advanceLabel": "Advance Booking Window (days)",
+      "defaultPlaceholder": "Default: {{value}}",
+      "durationHint": "If left blank, defaults to {{value}} minutes",
+      "maxPartyHint": "If left blank, defaults to {{value}} guests",
+      "advanceHint": "If left blank, guests can book up to {{value}} days ahead",
+      "errors": {
+        "durationInvalid": "Duration must be a positive number",
+        "maxPartyInvalid": "Party size must be a positive number",
+        "advanceInvalid": "Advance days must be a positive number"
+      }
+    },
+    "floorPlan": {
+      "heading": "Floor Plan",
+      "intro": "Start from a layout like yours, then arrange it.",
+      "required": "Choose a layout to continue — pick Blank to start with an empty floor.",
+      "locked": "Your venue is already being created, so this layout is locked. Finish setting up, then rearrange tables in the floor plan editor.",
+      "layoutLabel": "Floor plan layout",
+      "tableCount_one": "{{count}} table",
+      "tableCount_other": "{{count}} tables",
+      "seatCount_one": "{{count}} seat",
+      "seatCount_other": "{{count}} seats",
+      "summary": "{{tables}} · {{seats}}",
+      "summaryBlank": "No tables",
+      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
+      "cardLabelBlank": "{{name}} — no tables",
+      "layoutApplied": "{{name}} layout applied — {{tables}}",
+      "tableAdded": "{{name}} added",
+      "tableRemoved": "{{name}} removed",
+      "addTable": "Add table",
+      "emptyHeading": "Your floor plan appears here",
+      "emptyBody": "Pick a layout above to start arranging tables.",
+      "emptyFloorHeading": "An empty floor",
+      "emptyFloorBody": "Add tables with the button above, or pick a layout to start from one.",
+      "selected": "{{name}} · {{seats}} · {{shape}}",
+      "removeTable": "Remove table",
+      "selectHintReadOnly": "Select a table to see its details.",
+      "selectHint": "Select a table to move or remove it.",
+      "narrowViewport": "Arranging tables needs a wider screen. Your layout is saved — open it on a desktop to move things around.",
+      "replaceTitle": "Replace your layout?",
+      "replaceDescription": "You've changed this floor plan. Choosing {{name}} replaces your tables with the {{name}} layout.",
+      "replaceConfirm": "Replace layout",
+      "replaceCancel": "Keep mine",
+      "shapes": {
+        "square": "Square",
+        "rectangle": "Rectangle",
+        "circle": "Circle"
+      },
+      "templates": {
+        "restaurant": {
+          "name": "Restaurant",
+          "zoneLine": "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats"
+        },
+        "cafe": {
+          "name": "Cafe",
+          "zoneLine": "5 window 2-tops · 3 café rounds · 2 four-tops"
+        },
+        "bar": {
+          "name": "Bar",
+          "zoneLine": "6 high-tops · 4 standing rounds · 2 booths"
+        },
+        "patio": {
+          "name": "Patio",
+          "zoneLine": "6 umbrella rounds · 2 long tables"
+        },
+        "blank": {
+          "name": "Blank",
+          "zoneLine": "Start empty — add tables yourself"
+        }
+      }
+    },
+    "launch": {
+      "intro": "Review your venue details — you're ready to take reservations.",
+      "launching": "Launching \"{{name}}\"",
+      "basicInfoCard": "Basic Information",
+      "name": "Name",
+      "slug": "Slug",
+      "timezone": "Timezone",
+      "currency": "Currency",
+      "noHours": "No operating hours set",
+      "settingsCard": "Settings",
+      "defaultDuration": "Default Duration",
+      "maxPartySize": "Max Party Size",
+      "advanceBooking": "Advance Booking",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "guests_one": "{{count}} guest",
+      "guests_other": "{{count}} guests",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "defaultTag": "(default)",
+      "floorPlanCard": "Floor Plan",
+      "layout": "Layout",
+      "tables": "Tables",
+      "noTables": "No tables — your Timeline stays empty until you add some",
+      "resumeSaved": "Your venue is saved. Retry picks up at {{stage}}.",
+      "resumeNoVenue": "Retry picks up at {{stage}}.",
+      "launchButton": "Launch Venue",
+      "celebrationTables_one": "Your venue is live with {{count}} table",
+      "celebrationTables_other": "Your venue is live with {{count}} tables",
+      "celebrationEmpty": "Your venue is live — add tables next",
+      "stages": {
+        "venue": "Venue",
+        "floorPlan": "Floor plan",
+        "tables": "Tables",
+        "activate": "Activate"
+      }
+    },
+    "stagePanel": {
+      "label": "Launch progress",
+      "progress": "{{stage}} progress",
+      "creating": "Creating {{name}}",
+      "created": "{{name}} created",
+      "venueFailed": "Couldn't create the venue",
+      "planFailed": "Couldn't create the floor plan",
+      "toPlace": "{{count}} to place",
+      "placed_one": "{{count}} table placed",
+      "placed_other": "{{count}} tables placed",
+      "placing": "Placing table",
+      "stoppedAt": "Stopped at table",
+      "counter": "{{current}} of {{total}}",
+      "activating": "Making the plan live",
+      "live": "Live",
+      "activateFailed": "Couldn't make the plan live",
+      "announcePlacing": "Placing tables",
+      "announceStopped": "Stopped placing tables"
+    },
+    "errors": {
+      "stoppedAtTable": "Stopped at table {{index}} of {{total}}",
+      "generic": "Something went wrong"
+    },
+    "page": {
+      "toastTitle": "Venue is live",
+      "toastReady": "\"{{name}}\" is ready with {{tables}} on {{plan}}.",
+      "toastReadyEmpty": "\"{{name}}\" is ready. Add tables to {{plan}} to start taking reservations."
+    }
+  },
+  "auth": {
+    "stations": {
+      "browser": "Browser",
+      "identity": "Identity",
+      "api": "API",
+      "hospitality": "Hospitality"
+    },
+    "login": {
+      "title": "Hospitality",
+      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "boardPhrases": {
+        "reservations": "RESERVATIONS",
+        "guests": "GUESTS",
+        "floorPlans": "FLOOR PLANS",
+        "waitlist": "WAITLIST",
+        "timeline": "TIMELINE"
+      },
+      "boardLabel": "Reservations, guests, floor plans, waitlist, and timeline",
+      "taglineDefault": "Restaurant management, simplified.",
+      "taglineSignedOut": "You're signed out. Sign in again whenever you're ready.",
+      "taglineReferred": "You came from the portfolio site — take a look inside.",
+      "connecting": "Connecting your browser to Identity",
+      "signIn": "Sign In",
+      "busy": "Heading to sign-in",
+      "caption": "Manage reservations, guests, and floor plans"
+    },
+    "callback": {
+      "label": "Verifying your sign-in",
+      "status": "Exchanging your code for a session"
+    },
+    "signOut": {
+      "label": "Ending your session with Identity",
+      "status": "Signing you out"
+    },
+    "loading": {
+      "label": "Loading",
+      "status": "Setting the table"
+    },
+    "sessionLapse": {
+      "label": "Session with Identity has lapsed",
+      "heading": "Your session ended",
+      "body": "Sign back in to pick up where you left off — this page is preserved.",
+      "refreshFailedLead": "Your session couldn't renew and will end soon.",
+      "action": "Sign back in",
+      "actionBusy": "Heading to sign-in"
+    },
+    "failure": {
+      "connecting": "Connecting your browser to Identity",
+      "failedLabel": "Your sign-in could not be verified",
+      "statusRetrying": "Starting a fresh sign-in",
+      "statusFailed": "The exchange didn't go through",
+      "retry": "Try again",
+      "technicalDetails": "Technical details"
+    },
+    "error": {
+      "accessDenied": {
+        "title": "Access denied",
+        "body": "Your account doesn't have access to Hospitality. Contact your administrator if you think this is a mistake."
+      },
+      "expiredLink": {
+        "title": "That sign-in link expired",
+        "body": "Sign-in links are single-use. Start again and it should go through."
+      },
+      "network": {
+        "title": "Can't reach the sign-in service",
+        "body": "Check your connection and try again in a moment."
+      },
+      "generic": {
+        "title": "Sign-in hit a snag",
+        "body": "Something unexpected happened during sign-in. Trying again usually clears it up."
+      }
+    },
+    "config": {
+      "title": "Configuration Error",
+      "body": "The application is missing required authentication configuration. Please contact the site administrator.",
+      "missing": "Missing environment variables: {{list}}",
+      "returnHome": "Return to Home"
+    }
+  },
+  "nav": {
+    "label": "Dashboard navigation",
+    "sections": {
+      "account": "Account",
+      "admin": "Admin",
+      "getStarted": "Get Started",
+      "manage": "Manage",
+      "tools": "Tools"
+    },
+    "items": {
+      "profile": "Profile",
+      "settings": "Settings",
+      "users": "Users",
+      "venueBasics": "Venue Basics",
+      "setOperatingHours": "Set Operating Hours",
+      "createFloorPlan": "Create Floor Plan",
+      "tonightsService": "Tonight's Service",
+      "timeline": "Timeline",
+      "reservations": "Reservations",
+      "waitlist": "Waitlist",
+      "guests": "Guests",
+      "dashboard": "Dashboard",
+      "floorPlans": "Floor Plans",
+      "bookingWidget": "Booking Widget",
+      "signOut": "Sign Out",
+      "chat": "Chat"
+    }
+  },
+  "layout": {
+    "home": "Home",
+    "details": "Details",
+    "venueFallback": "Hospitality",
+    "documentTitle": "{{page}} · {{venue}}",
+    "routes": {
+      "timeline": "Timeline",
+      "reservations": "Reservations",
+      "guests": "Guests",
+      "waitlist": "Waitlist",
+      "briefing": "Tonight's Service",
+      "floorPlans": "Floor Plans",
+      "bookingWidget": "Booking Widget",
+      "onboarding": "New Venue",
+      "profile": "Profile",
+      "settings": "Settings",
+      "admin": "Admin",
+      "dashboard": "Dashboard",
+      "setup": "Setup",
+      "hours": "Operating Hours"
+    },
+    "venuesNotLoaded": "Venues not loaded.",
+    "searchPlaceholder": "Search pages and actions...",
+    "openSidebar": "Open sidebar",
+    "closeSidebar": "Close sidebar",
+    "openPalette": "Open command palette",
+    "search": "Search",
+    "errorHeading": "Something went wrong",
+    "errorBody": "An unexpected error occurred in this page.",
+    "reload": "Reload"
+  },
+  "floorPlan": {
+    "list": {
+      "title": "Floor Plans",
+      "description": "Design and manage your venue layouts",
+      "newButton": "New Floor Plan",
+      "createButton": "Create Floor Plan",
+      "loadFailed": "Couldn't load floor plans.",
+      "cloneFailed": "Floor plan not cloned.",
+      "cloned": "Floor plan \"{{name}}\" cloned successfully",
+      "emptyHeading": "No floor plans yet",
+      "emptyDescription": "Create a floor plan to start arranging tables for your venue.",
+      "active": "Active",
+      "tableCount_one": "{{count}} table",
+      "tableCount_other": "{{count}} tables",
+      "updated": "Updated {{date}}",
+      "clone": "Clone",
+      "openAria": "Open floor plan: {{name}}",
+      "cloneAria": "Clone floor plan: {{name}}"
+    },
+    "editor": {
+      "loading": "Loading",
+      "notFound": "Floor plan not found",
+      "notLoaded": "Floor plan not loaded",
+      "backToList": "Back to Floor Plans",
+      "backAria": "Back to floor plans",
+      "active": "Active",
+      "setActive": "Set as Active",
+      "addTable": "+ Add Table",
+      "saving": "Saving...",
+      "saveChanges": "Save Changes",
+      "saved": "Saved",
+      "saveFailed": "Failed to save changes — positions reverted",
+      "deleteFailed": "Failed to delete table",
+      "activateFailed": "Failed to activate floor plan",
+      "detailsTitle": "Table Details",
+      "name": "Name",
+      "tableNumber": "Table Number",
+      "capacity": "Capacity",
+      "guests": "{{min}} - {{max}} guests",
+      "location": "Location",
+      "notSet": "Not set",
+      "status": "Status",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "position": "Position",
+      "positionValue": "x: {{x}}, y: {{y}}",
+      "deleteTable": "Delete Table",
+      "noSelection": "Select a table to view details",
+      "allTables": "All Tables ({{n}})",
+      "unsavedTitle": "Unsaved Changes",
+      "unsavedDescription": "You have unsaved changes to this floor plan. Are you sure you want to leave?",
+      "leave": "Leave",
+      "stay": "Stay",
+      "deleteTitle": "Delete this table?",
+      "deleteDescription": "This action cannot be undone.",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    },
+    "newDialog": {
+      "title": "New Floor Plan",
+      "close": "Close dialog",
+      "name": "Name",
+      "placeholder": "e.g. Main Dining Room",
+      "nameRequired": "Floor plan name is required.",
+      "createFailed": "Failed to create floor plan.",
+      "cancel": "Cancel",
+      "create": "Create",
+      "creating": "Creating..."
+    },
+    "addTableDialog": {
+      "title": "Add Table",
+      "close": "Close dialog",
+      "name": "Table Name",
+      "placeholder": "e.g. Table 1",
+      "nameRequired": "Table name is required.",
+      "capacity": "Capacity",
+      "capacityMin": "Capacity must be at least 1.",
+      "minCovers": "Min Covers",
+      "minCoversMin": "Min covers must be at least 1.",
+      "shape": "Shape",
+      "shapes": {
+        "rectangle": "Rectangle",
+        "square": "Square",
+        "circle": "Circle"
+      },
+      "cancel": "Cancel",
+      "submit": "Add Table",
+      "adding": "Adding...",
+      "createFailed": "Failed to create table."
+    },
+    "canvas": {
+      "label": "Floor plan canvas",
+      "instructions": "With a table selected, use the arrow keys to move it by one grid step.",
+      "instructionsWithDelete": "With a table selected, use the arrow keys to move it by one grid step and Delete to remove it.",
+      "active": "(Active)",
+      "stale": "Reconnecting — showing last known status",
+      "emptyTitle": "No tables on this floor plan",
+      "emptyNote": "Add tables from the sidebar",
+      "moved": "{{name}} moved to {{x}}, {{y}}",
+      "tableAria": "Table {{label}}"
+    },
+    "tableStatus": {
+      "available": "Available",
+      "occupied": "Occupied",
+      "dirty": "Dirty",
+      "ready": "Ready"
+    }
+  },
+  "localePicker": {
+    "label": "Language",
+    "triggerName": "Language: {{locale}}",
+    "loading": "Loading {{locale}}…",
+    "loadError": "Couldn't load {{locale}}",
+    "retry": "Retry",
+    "machineTranslated": "Translations are machine-generated."
+  },
+  "home": {
+    "title": "Dashboard",
+    "welcome": "Welcome back",
+    "welcomeNamed": "Welcome back, {{name}}",
+    "loadFailed": "Couldn't load the dashboard.",
+    "actions": {
+      "walkIn": "Walk-in",
+      "floorPlan": "View Floor Plan",
+      "guestLookup": "Guest Lookup",
+      "bookingWidget": "Booking Widget"
+    },
+    "stats": {
+      "reservations": "Today's Reservations",
+      "covers": "Expected Covers",
+      "upcoming": "Upcoming (2 hrs)",
+      "waitlist": "Waitlist",
+      "longestWait": "Longest Wait (min)",
+      "cancellationRate": "Cancellation Rate"
+    },
+    "reservations": {
+      "title": "Today's Reservations",
+      "empty": "No reservations today",
+      "walkIn": "Walk-in",
+      "partyOf": "Party of {{count}}"
+    },
+    "activity": {
+      "title": "Live Activity",
+      "connecting": "Connecting to live updates...",
+      "empty": "No recent activity",
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "events": {
+        "reservationCreated": "New reservation created",
+        "reservationUpdated": "Reservation updated",
+        "reservationCancelled": "Reservation cancelled",
+        "holdCreated": "Table hold placed",
+        "holdReleased": "Table hold released",
+        "holdConfirmed": "Hold confirmed as reservation",
+        "tableUpdated": "Table status changed",
+        "floorPlanCreated": "Floor plan created"
+      }
+    },
+    "lapsing": {
+      "title": "Lapsing Guests",
+      "empty": "No lapsing guests",
+      "listLabel": "Lapsing guests",
+      "every_one": "Every {{count}} day",
+      "every_other": "Every {{count}} days",
+      "overdue_one": "{{count}} day overdue",
+      "overdue_other": "{{count}} days overdue",
+      "cadence": "{{every}} · {{overdue}}",
+      "sendWinBack": "Send win-back",
+      "sendWinBackTo": "Send win-back to {{name}}"
+    },
+    "deposit": {
+      "title": "Deposit Exposure",
+      "atRisk": "Deposits at risk",
+      "noShowExposure": "No-show exposure"
+    }
+  },
+  "timeline": {
+    "page": {
+      "title": "Timeline",
+      "description": "Real-time reservation view",
+      "previousDay": "Previous day",
+      "nextDay": "Next day",
+      "today": "Today",
+      "walkIn": "Walk-in",
+      "walkInDisabled": "Walk-ins need the tables loaded — Retry above.",
+      "live": "Live",
+      "offline": "Offline",
+      "kpiReservations": "Reservations",
+      "kpiCovers": "Covers",
+      "loadFailedHeading": "Couldn't load tonight.",
+      "retry": "Retry",
+      "noTablesHeading": "No tables yet.",
+      "noTablesDescription": "Set up a floor plan and the grid fills in.",
+      "floorPlans": "Floor plans",
+      "detailsTitle": "Reservation Details",
+      "closeDetails": "Close reservation details",
+      "loadBanner": "Couldn't load tonight's reservations.",
+      "tableStatusBanner": "Table status not changed."
+    },
+    "announce": {
+      "loadedTonight": "Tonight's grid loaded.",
+      "loadedDate": "Reservations for {{date}} loaded.",
+      "seated": "Seated {{guest}}.",
+      "seatedAt": "Seated {{guest}} at {{table}}.",
+      "theGuest": "the guest",
+      "walkInSeated": "Seated {{who}}, party of {{size}}.",
+      "walkInSeatedAt": "Seated {{who}}, party of {{size}}, at {{table}}.",
+      "aWalkIn": "a walk-in",
+      "cancelledNamed": "Cancelled {{name}}'s reservation.",
+      "cancelled": "Cancelled the reservation.",
+      "noShowNamed": "Marked {{name}}'s reservation as a no-show.",
+      "noShow": "Marked the reservation as a no-show.",
+      "withWarning": "{{sentence}} {{warning}}",
+      "savedNamed": "Saved changes to {{name}}'s reservation.",
+      "saved": "Saved changes to the reservation.",
+      "tableNow": "{{table}} is now {{status}}.",
+      "aTable": "Table"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "noShow": "No Show",
+      "seated": "Seated"
+    },
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
+    "guest": "Guest",
+    "partyOf": "party of {{count}}",
+    "tableUnknown": "table unknown",
+    "visitOrdinalOne": "{{count}}st visit",
+    "visitOrdinalTwo": "{{count}}nd visit",
+    "visitOrdinalFew": "{{count}}rd visit",
+    "visitOrdinalOther": "{{count}}th visit",
+    "block": {
+      "title": "{{guest}} - {{party}} at {{time}}",
+      "seatedWord": "seated"
+    },
+    "grid": {
+      "label": "Reservation timeline",
+      "tables": "Tables",
+      "rowLabel": "Table {{name}}",
+      "capacity": "{{min}}-{{max}} guests",
+      "navHint": "Use arrow keys to navigate reservations"
+    },
+    "tableMenu": {
+      "mark": "Mark {{status}}",
+      "trigger": "{{table}}: {{status}}. Change status"
+    },
+    "mobile": {
+      "all": "All",
+      "upcoming": "Upcoming",
+      "empty": "No reservations",
+      "unassigned": "Unassigned",
+      "cardLabel": "{{guest}}, party of {{size}}, {{time}}, table {{table}}",
+      "seated": "Seated"
+    },
+    "emptyNight": {
+      "todayHeading": "Quiet so far.",
+      "todayDescription": "Nothing on the book for tonight. Walk-ins go straight to a table.",
+      "otherHeading": "Nothing on the book for {{date}}.",
+      "otherDescription": "Bookings for that night will show here.",
+      "walkIn": "Walk-in",
+      "backToToday": "Back to today"
+    },
+    "skeleton": {
+      "loading": "Loading tonight's grid…"
+    },
+    "details": {
+      "guest": "Guest",
+      "email": "Email",
+      "phone": "Phone",
+      "time": "Time",
+      "partySize": "Party Size",
+      "table": "Table",
+      "status": "Status",
+      "seatFailed": "Guest not seated.",
+      "edit": "Edit Reservation",
+      "seat": "Seat Guest",
+      "seating": "Seating…",
+      "cancel": "Cancel Reservation",
+      "noShow": "Mark No-Show",
+      "occupied": "{{table}} is still occupied — turn it or move the party."
+    },
+    "sheet": {
+      "allergy": "Allergy: {{restriction}}",
+      "edit": "Edit reservation",
+      "cancel": "Cancel reservation",
+      "more": "More"
+    },
+    "deposit": {
+      "title": "Deposit",
+      "collectTitle": "Collect Deposit",
+      "collect": "+ Collect Deposit",
+      "amountLabel": "Amount ({{symbol}})",
+      "invalidAmount": "Enter a valid amount.",
+      "cancel": "Cancel",
+      "create": "Create Deposit",
+      "saving": "Saving...",
+      "statusLine": "{{amount}} — {{status}}",
+      "refundedVia": "Refunded {{amount}} via Stripe",
+      "statuses": {
+        "pending": "Pending",
+        "held": "Authorized",
+        "applied": "Charged",
+        "refunded": "Refunded",
+        "forfeited": "Forfeited",
+        "partialRefunded": "Partially Refunded",
+        "uncollectable": "Uncollectable"
+      }
+    },
+    "cancel": {
+      "title": "Cancel Reservation",
+      "intro": "Cancelling reservation for <strong>{{name}}</strong>",
+      "reasonLabel": "Reason",
+      "reasons": {
+        "guestCancelled": "Guest Cancelled",
+        "noShow": "No Show",
+        "restaurantCancelled": "Restaurant Cancelled",
+        "other": "Other"
+      },
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "Add any additional context...",
+      "failed": "Reservation not cancelled.",
+      "keep": "Keep Reservation",
+      "confirm": "Cancel Reservation",
+      "cancelling": "Cancelling…",
+      "fee": {
+        "none": "No cancellation fee — full refund of {{refund}}",
+        "late": "Late cancellation fee: {{fee}} — refund {{refund}}",
+        "noshow": "No-show fee: {{fee}} forfeited — refund {{refund}}"
+      }
+    },
+    "noShowDialog": {
+      "title": "Mark No-Show",
+      "body": "Marking <strong>{{name}}</strong> as a no-show cannot be undone. If a deposit is on file, the venue's no-show fee policy applies — this may capture some or all of it, or refund it if no fee applies.",
+      "failed": "Reservation not marked as no-show.",
+      "keep": "Keep Reservation",
+      "confirm": "Mark No-Show",
+      "marking": "Marking…"
+    },
+    "edit": {
+      "title": "Edit Reservation",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "partySize": "Party Size",
+      "assignTable": "Assign Table",
+      "tableOption": "{{name}} (cap. {{capacity}})",
+      "notes": "Notes",
+      "timesRequired": "Start and end times are required.",
+      "endAfterStart": "End time must be after start time.",
+      "partySizePositive": "Party size must be a positive number.",
+      "failed": "Changes not saved.",
+      "cancel": "Cancel",
+      "save": "Save Changes",
+      "saving": "Saving…"
+    },
+    "walkInDialog": {
+      "title": "Seat walk-in",
+      "partySize": "Party size",
+      "nothingFree": "Nothing free for a party of {{size}} right now. Try a smaller party, or mark a table Available.",
+      "table": "Table",
+      "tableOption": "{{name}} (seats {{capacity}})",
+      "guestLabel": "Guest name (optional)",
+      "guestHint": "Name or phone — returning guests appear as you type.",
+      "guestPlaceholder": "e.g. Smith",
+      "guestCleared": "Guest cleared.",
+      "failed": "Walk-in not seated.",
+      "cancel": "Cancel",
+      "seatNow": "Seat now",
+      "seating": "Seating…"
+    }
+  },
+  "errorBanner": {
+    "retry": "Retry",
+    "showDetails": "Show details"
+  },
+  "kpi": {
+    "unavailable": "{{label}}, unavailable"
+  },
+  "reservations": {
+    "title": "Reservations",
+    "description": "View and manage reservations",
+    "loading": "Loading reservations…",
+    "tableUnavailable": "Table unavailable",
+    "relative": {
+      "justNow": "just now",
+      "seconds": "{{n}}s ago",
+      "minutes": "{{n}}m ago",
+      "hours": "{{n}}h ago"
+    },
+    "loaded": "Reservations for {{date}} loaded.",
+    "updated": "Updated {{when}}",
+    "kpi": {
+      "total": "Total",
+      "confirmed": "Confirmed",
+      "pending": "Pending",
+      "cancelled": "Cancelled"
+    },
+    "filter": {
+      "all": "All",
+      "CONFIRMED": "Confirmed",
+      "PENDING": "Pending",
+      "CANCELLED": "Cancelled"
+    },
+    "search": {
+      "label": "Search by guest name",
+      "placeholder": "Search by guest name..."
+    },
+    "filterDate": "Filter by date",
+    "newReservation": "New reservation",
+    "loadFailed": "Couldn't load reservations.",
+    "shown_one": "{{count}} reservation shown",
+    "shown_other": "{{count}} reservations shown",
+    "emptyDay": {
+      "heading": "Nothing on the book for {{date}}.",
+      "description": "New bookings show here as they land."
+    },
+    "none": {
+      "heading": "No reservations",
+      "matching": "No reservations matching '{{query}}'.",
+      "forStatus": {
+        "all": "No reservations found for {{date}}.",
+        "CONFIRMED": "No confirmed reservations found for {{date}}.",
+        "PENDING": "No pending reservations found for {{date}}.",
+        "CANCELLED": "No cancelled reservations found for {{date}}."
+      }
+    },
+    "col": {
+      "time": "Time",
+      "guest": "Guest",
+      "partySize": "Party Size",
+      "table": "Table",
+      "status": "Status",
+      "notes": "Notes",
+      "actions": "Actions"
+    },
+    "guestFallback": "Guest",
+    "view": "View",
+    "viewAria": "View {{name}} reservation on timeline",
+    "status": {
+      "PENDING": "Pending",
+      "CONFIRMED": "Confirmed",
+      "CANCELLED": "Cancelled",
+      "COMPLETED": "Completed",
+      "NO_SHOW": "No Show"
+    },
+    "visitOrdinal": {
+      "one": "{{count}}st visit",
+      "two": "{{count}}nd visit",
+      "few": "{{count}}rd visit",
+      "other": "{{count}}th visit"
+    },
+    "occasion": {
+      "label": "Occasion",
+      "none": "None",
+      "birthday": "Birthday",
+      "anniversary": "Anniversary",
+      "business": "Business",
+      "date_night": "Date Night",
+      "other": "Other"
+    },
+    "seating": {
+      "label": "Seating Preference",
+      "no_preference": "No preference",
+      "booth": "Booth",
+      "patio": "Patio",
+      "bar": "Bar",
+      "window": "Window",
+      "quiet": "Quiet"
+    },
+    "live": {
+      "createdTitle": "New reservation",
+      "createdDescription": "{{name}} — {{time}}",
+      "cancelledTitle": "Reservation cancelled",
+      "cancelledDescription": "{{name}}'s reservation was cancelled"
+    }
+  },
+  "newReservation": {
+    "title": "New Reservation",
+    "guestName": "Guest Name",
+    "nameHint": "Name, email or phone — returning guests appear as you type.",
+    "namePlaceholder": "e.g. Smith",
+    "nameRequired": "Guest name is required.",
+    "linkOnlyCaption": "Edits to email or phone below change this booking only — the profile isn't edited.",
+    "guestCleared": "Guest cleared.",
+    "email": "Guest Email",
+    "emailPlaceholder": "guest@example.com",
+    "phone": "Guest Phone",
+    "date": "Date",
+    "dateRequired": "Date is required.",
+    "startTime": "Start Time",
+    "startTimeRequired": "Start time is required.",
+    "partySize": "Party Size",
+    "noTables": "No tables available for a party of {{size}}.",
+    "table": "Table",
+    "tableOption": "{{name}} (seats {{capacity}})",
+    "selectTable": "Please select a table.",
+    "needContact": "Please provide a guest email or phone number.",
+    "cancel": "Cancel",
+    "create": "Create Reservation",
+    "creating": "Creating…"
+  },
+  "crm": {
+    "clear": "Clear",
+    "clearAria": "Clear {{name}}",
+    "allergy": "Allergy: {{restriction}}",
+    "allergyList": "Allergy: {{list}}.",
+    "visit_one": "{{count}} visit",
+    "visit_other": "{{count}} visits",
+    "noVisits": "No visits on record yet",
+    "noVisitsInline": "no visits on record yet",
+    "noShow_one": "{{count}} no-show",
+    "noShow_other": "{{count}} no-shows",
+    "noContact": "no contact on file",
+    "stripLinked": "Using {{name}}'s profile",
+    "stripRecognised": "Recognised {{name}}",
+    "segment": {
+      "VIP": "VIP",
+      "Repeat": "Repeat",
+      "New": "New"
+    },
+    "risk": {
+      "risky": "Risky",
+      "standard": "Standard",
+      "trusted": "Trusted"
+    },
+    "lookup": {
+      "failure": "Can't look up guests right now — type the details as usual.",
+      "loading": "Looking up guests…",
+      "noMatch": "No returning guest matches. Carry on as usual.",
+      "more": "More matches — keep typing to narrow.",
+      "listboxLabel": "Guest suggestions",
+      "results_one": "{{count}} result available",
+      "results_other": "{{count}} results available"
+    },
+    "card": {
+      "specialOccasion": "Special Occasion",
+      "loadFailed": "Failed to load guest profile.",
+      "retry": "Retry",
+      "allergyAlert": "Allergy Alert",
+      "dietary": "Dietary Restrictions",
+      "contact": "Contact",
+      "occasionHistory": "Occasion History",
+      "staffNotes": "Staff Notes",
+      "showAll": "Show All ({{count}})",
+      "newNote": "New Staff Note",
+      "notePlaceholder": "Type a note...",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "saveNote": "Save Note",
+      "addNote": "Add Note",
+      "editProfile": "Edit Profile"
+    },
+    "drawer": {
+      "nameRequired": "Name is required",
+      "invalidEmail": "Please enter a valid email address",
+      "invalidPhone": "Please enter a valid phone number",
+      "updated": "Guest updated",
+      "editTitle": "Edit {{name}}",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "close": "Close",
+      "editGuest": "Edit Guest",
+      "name": "Name",
+      "namePlaceholder": "Full name",
+      "email": "Email",
+      "emailPlaceholder": "guest@example.com",
+      "phone": "Phone",
+      "notes": "Notes",
+      "notesPlaceholder": "Preferences, allergies, etc.",
+      "tags": "Tags",
+      "removeTag": "Remove tag {{tag}}",
+      "addTag": "Add tag (press Enter)",
+      "dietaryOption": {
+        "vegetarian": "vegetarian",
+        "vegan": "vegan",
+        "gluten-free": "gluten-free",
+        "dairy-free": "dairy-free",
+        "nut-free": "nut-free",
+        "halal": "halal",
+        "kosher": "kosher",
+        "shellfish-free": "shellfish-free"
+      },
+      "loadingHistory": "Loading reservation history...",
+      "recent": "Recent Reservations",
+      "partyGuests_one": "{{count}} guest",
+      "partyGuests_other": "{{count}} guests"
+    }
+  },
+  "guests": {
+    "title": "Guests",
+    "description": "Manage your guest directory",
+    "selectVenue": "Please select a venue to view guests.",
+    "loadFailed": "Couldn't load guests.",
+    "shown_one": "{{count}} guest shown",
+    "shown_other": "{{count}} guests shown",
+    "addGuest": "Add Guest",
+    "addAGuest": "Add a Guest",
+    "search": {
+      "label": "Search guests",
+      "placeholder": "Search guests...",
+      "showing": "Showing {{shown}} of {{total}} guests",
+      "noneFound": "No guests found",
+      "noneYet": "No guests yet",
+      "tryAdjusting": "Try adjusting your search query.",
+      "getStarted": "Get started by adding your first guest."
+    },
+    "segments": {
+      "all": "All Guests",
+      "vip": "VIP",
+      "recent": "Recent",
+      "atRisk": "At Risk",
+      "lapsed": "Lapsed",
+      "new": "New"
+    },
+    "table": {
+      "guest": "Guest",
+      "contact": "Contact",
+      "visits": "Visits",
+      "lastVisit": "Last Visit",
+      "tags": "Tags",
+      "never": "Never",
+      "viewDetails": "View details for {{name}}"
+    },
+    "pagination": {
+      "previous": "Previous",
+      "previousAria": "Previous page",
+      "next": "Next",
+      "nextAria": "Next page",
+      "page": "Page {{page}} of {{total}}"
+    },
+    "addDialog": {
+      "title": "Add Guest",
+      "cancel": "Cancel",
+      "adding": "Adding...",
+      "submit": "Add Guest",
+      "name": "Name",
+      "namePlaceholder": "Full name",
+      "email": "Email",
+      "emailPlaceholder": "guest@example.com",
+      "phone": "Phone",
+      "notes": "Notes",
+      "notesPlaceholder": "Preferences, allergies, etc."
+    }
+  },
+  "waitlist": {
+    "title": "Waitlist",
+    "description": "Guests waiting for a table",
+    "loadFailed": "Couldn't load the waitlist.",
+    "empty": {
+      "heading": "No one waiting",
+      "description": "The waitlist is currently empty.",
+      "add": "Add a Guest"
+    },
+    "form": {
+      "heading": "Add to waitlist",
+      "guestName": "Guest Name",
+      "nameHint": "Name or phone — returning guests appear as you type.",
+      "namePlaceholder": "e.g. Smith",
+      "nameRequired": "Guest name is required.",
+      "guestPhone": "Guest Phone",
+      "phoneRequired": "Guest phone is required.",
+      "phoneInvalid": "Enter a valid phone number.",
+      "partySize": "Party Size",
+      "submit": "Add to Waitlist",
+      "adding": "Adding…",
+      "notAdded": "Not added.",
+      "guestCleared": "Guest cleared."
+    },
+    "row": {
+      "party": "Party of {{size}}",
+      "wait": "~{{minutes}} min",
+      "waitUnavailable": "Estimate unavailable",
+      "notified": "Notified",
+      "table": "Table",
+      "tableOption": "{{name}} (seats {{capacity}})",
+      "noTables": "No tables available",
+      "seat": "Seat",
+      "seating": "Seating…",
+      "notify": "Notify",
+      "notifying": "Notifying…",
+      "cancel": "Cancel",
+      "cancelling": "Cancelling…",
+      "selectTable": "Please select a table.",
+      "theTable": "the table",
+      "splitFailure": "Seated at {{table}}, but the waitlist didn't update. Refresh to tidy up.",
+      "notNotified": "Not notified.",
+      "notRemoved": "Not removed.",
+      "notSeated": "Not seated."
+    },
+    "announce": {
+      "added": "Added {{name}}, party of {{size}}, to the waitlist.",
+      "notified": "Notified {{name}}.",
+      "removed": "Removed {{name}} from the waitlist.",
+      "seated": "Seated {{name}} at {{table}}.",
+      "viewOnTimeline": "View on Timeline"
+    }
+  },
+  "staffLocaleSwitcher": {
+    "title": "Language & region",
+    "previewLabel": "Preview"
+  },
+  "bookingWidget": {
+    "title": "Make a Reservation",
+    "subtitle": {
+      "dateParty": "Select your date and party size",
+      "timeSlot": "Choose an available time",
+      "guestDetails": "Enter your details to confirm",
+      "payment": "Secure your reservation with a deposit"
+    },
+    "steps": {
+      "dateParty": "Date & Party",
+      "time": "Time",
+      "details": "Details",
+      "payment": "Payment"
+    },
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
+    "back": "← Back",
+    "estimatedWait": "Estimated wait: ~{{minutes}} min",
+    "dateParty": {
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "date": "Date",
+      "partySize": "Party Size",
+      "largePartyCall": "For parties larger than {{max}}, call us at <phoneLink>{{phone}}</phoneLink>.",
+      "largePartyContact": "For parties larger than {{max}}, please contact the venue directly.",
+      "findTimes": "Find Available Times",
+      "dateHint": "Choose a date from today onward to see available times."
+    },
+    "timeSlot": {
+      "changeSearch": "← Change date or party size",
+      "noHoursStaffHeading": "No operating hours set",
+      "noHoursStaffDescription": "This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table.",
+      "setHours": "Set Operating Hours",
+      "noHoursGuestHeading": "Online booking isn't available yet",
+      "noHoursGuestDescription": "This venue hasn't set up online reservations yet. Please contact them directly to book a table.",
+      "noTimesHeading": "No available times",
+      "tryDifferent": "Try a different date or party size.",
+      "joinWaitlist": "Join Waitlist",
+      "periods": {
+        "lunch": "Lunch",
+        "dinner": "Dinner",
+        "late": "Late Night"
+      },
+      "periodTimes": {
+        "lunch": "Available lunch times",
+        "dinner": "Available dinner times",
+        "late": "Available late night times"
+      },
+      "selected": "Selected:",
+      "tablesAvailable_one": "{{count}} table available",
+      "tablesAvailable_other": "{{count}} tables available"
+    },
+    "details": {
+      "holdExpires": "Hold expires in: {{time}}",
+      "holdExpired": "Expired",
+      "summaryTitle": "Reservation Details",
+      "welcomeBack_ordinal_one": "Welcome back, {{name}} — your {{count}}st visit!",
+      "welcomeBack_ordinal_two": "Welcome back, {{name}} — your {{count}}nd visit!",
+      "welcomeBack_ordinal_few": "Welcome back, {{name}} — your {{count}}rd visit!",
+      "welcomeBack_ordinal_other": "Welcome back, {{name}} — your {{count}}th visit!",
+      "preferencesOnFile": "Preferences on file",
+      "name": "Name",
+      "namePlaceholder": "John Smith",
+      "email": "Email",
+      "emailPlaceholder": "john@example.com",
+      "phone": "Phone",
+      "contactHint": "Please provide either email or phone for confirmation.",
+      "requestsPlaceholder": "Allergies, celebrations, seating preferences...",
+      "confirming": "Confirming...",
+      "complete": "Complete Reservation"
+    },
+    "payment": {
+      "depositRequired": "Deposit Required",
+      "perPerson_one": "({{count}} guest × {{amount}})",
+      "perPerson_other": "({{count}} guests × {{amount}})",
+      "authorizeNotice": "Your card will be authorized for {{amount}}. The charge is only captured if you don't cancel within the policy window.",
+      "cancellationPolicy": "Cancellation Policy",
+      "cardDetails": "Card Details",
+      "processing": "Processing...",
+      "authorize": "Authorize {{amount}}",
+      "sessionExpired": "Your booking session has expired. Please start your booking again.",
+      "failed": "Payment failed"
+    },
+    "cancellationTerms_one": "Free cancellation up to {{count}} hour before your reservation. After that, a {{lateFeePercent}}% fee ({{lateFee}}) applies. If you don't show up for your reservation, a {{noShowFeePercent}}% no-show fee ({{noShowFee}}) applies.",
+    "cancellationTerms_other": "Free cancellation up to {{count}} hours before your reservation. After that, a {{lateFeePercent}}% fee ({{lateFee}}) applies. If you don't show up for your reservation, a {{noShowFeePercent}}% no-show fee ({{noShowFee}}) applies.",
+    "confirmation": {
+      "title": "Reservation Confirmed!",
+      "subtitle": "We look forward to seeing you.",
+      "detailsTitle": "Reservation Details",
+      "confirmationNumber": "Confirmation #",
+      "date": "Date",
+      "time": "Time",
+      "partySize": "Party Size",
+      "name": "Name",
+      "table": "Table",
+      "deposit": "Deposit",
+      "depositNotice": "Your card has been authorized for {{amount}}. The hold will be released or captured based on your cancellation timeline.",
+      "cancellationPolicy": "Cancellation Policy",
+      "contactLine": "No confirmation email or text is sent for this booking, so save these details. The venue has {{contact}} on your reservation.",
+      "cancel": "Cancel Reservation",
+      "another": "Make Another Reservation"
+    },
+    "specialRequests": {
+      "label": "Special Requests",
+      "acknowledgement": "Noted. It's on your reservation for the team."
+    },
+    "calendar": {
+      "title": "Add to Calendar",
+      "downloadIcs": "Download .ics",
+      "google": "Google Calendar",
+      "outlook": "Outlook"
+    },
+    "waitlist": {
+      "noTablesHeading": "No tables available",
+      "noTablesDetail_one": "No tables available on {{date}} for {{count}} guest.",
+      "noTablesDetail_other": "No tables available on {{date}} for {{count}} guests.",
+      "joinPrompt": "Join the waitlist?",
+      "name": "Name",
+      "namePlaceholder": "Your name",
+      "phone": "Phone",
+      "phoneHint": "Required for SMS notifications when your table is ready.",
+      "invalidPhone": "Please enter a valid phone number.",
+      "joining": "Joining...",
+      "join": "Join Waitlist",
+      "added": "Added to Waitlist",
+      "position": "Your position",
+      "estimatedWait": "Estimated wait",
+      "estimateUnavailable": "Estimate unavailable",
+      "waitMinutes": "{{minutes}} min",
+      "smsNote": "We'll send you an SMS when your table is ready. Please keep your phone nearby.",
+      "reserveInstead": "Make a Reservation Instead",
+      "outcomes": {
+        "notifiedHeading": "Your table is ready",
+        "notifiedBody": "Please check in with the host now - we can only hold it for a few minutes.",
+        "seatedHeading": "You've been seated",
+        "seatedBody": "Enjoy your visit.",
+        "expiredHeading": "Your spot has expired",
+        "expiredBody": "We couldn't hold your table in time. You can join the waitlist again or make a reservation.",
+        "cancelledHeading": "Your waitlist spot was cancelled",
+        "cancelledBody": "You can join the waitlist again or make a reservation."
+      }
+    },
+    "errors": {
+      "missingVenueSlug": "Online booking isn't available here. Please contact the venue directly to reserve.",
+      "holdExpired": "Your hold has expired. Please select a new time.",
+      "reloadFailed": "Failed to reload availability"
+    }
+  },
+  "publicBooking": {
+    "documentTitle": "Book a table — Hospitality",
+    "venueDocumentTitle": "Book a table — {{venue}}",
+    "notFoundHeading": "Venue not found",
+    "notFoundDescription": "We couldn't find the booking page you're looking for. Double-check the link, or contact the venue directly to make your reservation.",
+    "goBack": "Go Back",
+    "homeLink": "Back to Matt Butler Engineering",
+    "loading": "Loading venue...",
+    "tagline": "Reserve your table online",
+    "poweredBy": "Powered by Matt Butler Engineering"
+  },
+  "manageReservation": {
+    "documentTitle": "Your reservation — Hospitality",
+    "venueDocumentTitle": "{{venue}} — Your reservation",
+    "supportLine": "Need help? Contact the venue directly using the details in your confirmation email.",
+    "homeLink": "Back to Matt Butler Engineering",
+    "noLinkHeading": "No Access Link",
+    "noLinkDescription": "Please check the link in your confirmation email.",
+    "loading": "Loading reservation...",
+    "expiredHeading": "Link Expired",
+    "expiredDescription": "This manage link has expired. Please contact the venue for assistance.",
+    "invalidHeading": "Invalid Link",
+    "invalidDescription": "This link has already been used or is invalid.",
+    "fallbackTitle": "Your reservation",
+    "detailsTitle": "Reservation Details",
+    "guest": "Guest",
+    "partySize": "Party Size",
+    "date": "Date",
+    "time": "Time",
+    "timeRange": "{{start}} – {{end}}",
+    "call": "Call {{venue}}",
+    "cancel": "Cancel Reservation",
+    "cancelled": "This reservation has been cancelled."
+  },
+  "offlineBanner": {
+    "cached": "Showing cached data from last sync",
+    "cachedWithTime": "Showing cached data from last sync — last synced {{time}}"
+  },
+  "health": {
+    "title": "System Health",
+    "services": "Services",
+    "ci": "CI",
+    "deploys": "Deploys",
+    "updated": "Updated {{time}}",
+    "dotLabel": "System {{status}}",
+    "triggerLabel": "System health: {{status}}",
+    "status": {
+      "healthy": "healthy",
+      "ok": "ok",
+      "degraded": "degraded",
+      "unhealthy": "unhealthy",
+      "error": "error"
+    },
+    "latency": "{{ms}}ms"
+  },
+  "venueSwitcher": {
+    "currentVenue": "Current venue: {{name}}. Click to switch",
+    "selectVenue": "Select venue",
+    "addVenue": "Add Venue"
+  },
+  "notFound": {
+    "message": "This table's not on tonight's floor plan. That page never made the reservation book.",
+    "back": "Back to tonight's service"
+  },
+  "chat": {
+    "title": "Chat"
+  },
+  "setupHours": {
+    "title": "Operating Hours",
+    "description": "Set the days and times your venue is open for reservations.",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "save": "Save Hours"
+  },
+  "setup": {
+    "yourVenue": "your venue",
+    "welcome": "Welcome to {{venueName}}",
+    "intro": "Complete a few setup steps to start taking reservations.",
+    "progress": "{{percent}}% complete",
+    "stepsLabel": "Setup steps",
+    "stepAria": "{{label}} — {{status}}",
+    "review": "Review",
+    "done": "Done — {{venueName}}",
+    "status": {
+      "completed": "Completed",
+      "current": "Current step",
+      "locked": "Not yet available"
+    },
+    "steps": {
+      "onboarding": {
+        "label": "Venue Basics",
+        "description": "Set up your venue name, timezone, and currency.",
+        "cta": "Review Venue Details"
+      },
+      "hours": {
+        "label": "Set Operating Hours",
+        "description": "Configure which days and hours your venue is open.",
+        "cta": "Set Operating Hours"
+      },
+      "floorPlan": {
+        "label": "Create Floor Plan",
+        "description": "Add a floor plan with at least one table to enable reservations.",
+        "cta": "Create Floor Plan"
+      }
+    }
+  },
+  "briefing": {
+    "title": "Tonight's Service",
+    "description": "Service briefing for your team",
+    "loading": "Loading tonight's briefing…",
+    "guest": "Guest",
+    "covers_one": "{{count}} cover",
+    "covers_other": "{{count}} covers",
+    "prefers": "Prefers: {{seating}}",
+    "allergy": "Allergy: {{restriction}}",
+    "loaded": "Briefing for {{date}} loaded.",
+    "serviceDate": "Service date",
+    "loadError": "Couldn't load tonight's briefing.",
+    "segments": {
+      "all": "All",
+      "early": "Early (before {{hour}})",
+      "dinner": "Dinner ({{range}})",
+      "late": "Late (from {{hour}})"
+    },
+    "noSeatings": {
+      "early": "No early seatings tonight.",
+      "dinner": "No dinner seatings tonight.",
+      "late": "No late seatings tonight."
+    },
+    "empty": {
+      "heading": "Nothing on the book for {{date}}.",
+      "description": "Change the date, or seat walk-ins from the Timeline.",
+      "action": "Open Timeline"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "loading": "Loading your profile...",
+    "manage": "Manage your profile",
+    "description": "View and manage your profile information",
+    "loadError": "Couldn't load your profile.",
+    "fallbackName": "User",
+    "unknown": "Unknown",
+    "verified": "Verified",
+    "notVerified": "Not verified",
+    "memberSince": "Member Since",
+    "lastUpdated": "Last Updated",
+    "edit": "Edit Profile",
+    "saveError": "Changes not saved.",
+    "relative": {
+      "justNow": "Just now",
+      "minutes": "{{count}}m ago",
+      "hours": "{{count}}h ago",
+      "days": "{{count}}d ago"
+    },
+    "session": {
+      "title": "Session",
+      "active": "Session active",
+      "refreshing": "Refreshing soon",
+      "expired": "Session expired",
+      "none": "No active session token to read.",
+      "timerLabel": "Time until the session token expires",
+      "minutesRemaining": "Minutes remaining",
+      "secondsRemaining": "Seconds remaining",
+      "lifetimeElapsed": "Token lifetime elapsed"
+    },
+    "saved": {
+      "title": "Profile updated",
+      "body": "Your changes have been saved successfully."
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Your name",
+      "nameRequired": "Name is required",
+      "pictureUrl": "Picture URL",
+      "saving": "Saving...",
+      "save": "Save Changes",
+      "cancel": "Cancel",
+      "picturePlaceholder": "https://example.com/photo.jpg"
+    },
+    "account": {
+      "title": "Account Details",
+      "userId": "User ID",
+      "emailVerified": "Email Verified"
+    },
+    "activity": {
+      "title": "Activity Summary",
+      "emailStatus": "Email Status"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage your account settings and preferences",
+    "saved": "Settings saved",
+    "loadError": "Couldn't load settings.",
+    "partySize_one": "{{count}} guest",
+    "partySize_other": "{{count}} guests",
+    "theme": {
+      "label": "Theme",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "duration": {
+      "m30": "30 minutes",
+      "m45": "45 minutes",
+      "m60": "1 hour",
+      "m90": "1.5 hours",
+      "m120": "2 hours"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Control how the application looks and feels."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Choose which updates you want to receive.",
+      "email": "Email notifications",
+      "emailHint": "Receive important updates and alerts via email",
+      "marketing": "Marketing emails",
+      "marketingHint": "Receive news, updates, and promotional content"
+    },
+    "defaults": {
+      "title": "Venue Defaults",
+      "description": "Set default values for new reservations. These are stored locally on this device.",
+      "duration": "Default reservation duration",
+      "partySize": "Default party size",
+      "autoConfirm": "Auto-confirm reservations",
+      "autoConfirmHint": "Automatically confirm new reservations without manual review"
+    },
+    "privacy": {
+      "title": "Data & Privacy",
+      "description": "Manage your data and account privacy settings.",
+      "exportTitle": "Export my data",
+      "exportHint": "Download a copy of all your data",
+      "export": "Export",
+      "deleteTitle": "Delete my account",
+      "deleteHint": "Contact support to delete your account",
+      "delete": "Delete"
+    },
+    "venue": {
+      "title": "Venue",
+      "description": "Manage the days and times your venue is open for reservations.",
+      "operatingHours": "Operating Hours"
+    },
+    "account": {
+      "title": "Account",
+      "signedInAs": "Signed in as",
+      "signOut": "Sign Out"
+    }
+  },
+  "admin": {
+    "title": "Admin",
+    "loading": "Loading users...",
+    "management": "User management",
+    "description": "Manage users and system settings",
+    "loadError": "Couldn't load users.",
+    "shown_one": "{{count}} user shown",
+    "shown_other": "{{count}} users shown",
+    "filter": {
+      "all": "All",
+      "verified": "Verified",
+      "unverified": "Unverified"
+    },
+    "detail": {
+      "userId": "User ID",
+      "created": "Created",
+      "updated": "Updated",
+      "theme": "Theme"
+    },
+    "stats": {
+      "total": "Total Users",
+      "verified": "Verified",
+      "newThisMonth": "New This Month"
+    },
+    "search": {
+      "label": "Search by name or email",
+      "placeholder": "Search by name or email..."
+    },
+    "col": {
+      "user": "User",
+      "email": "Email",
+      "status": "Status",
+      "joined": "Joined"
+    },
+    "row": {
+      "collapse": "Collapse details for {{name}}",
+      "expand": "Expand details for {{name}}"
+    },
+    "empty": {
+      "filtered": "No users match your filters",
+      "none": "No users found"
+    }
+  },
+  "widgetDemo": {
+    "title": "Booking Widget",
+    "loading": "Preview the embeddable booking widget",
+    "description": "A design preview of the embeddable booking widget. Embedding it on your own site is coming soon.",
+    "comingSoon": "Coming soon",
+    "banner": "Preview only — the embeddable booking widget is not live yet. Everything on this page is a design preview of what is coming; it cannot be added to your website today.",
+    "loadError": "Couldn't load venues.",
+    "selectVenue": "Select Venue",
+    "venue": "Venue",
+    "venuePlaceholder": "Choose a venue...",
+    "noVenues": "No venues found. Create a venue in the onboarding flow first.",
+    "device": {
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Mobile",
+      "fullWidth": "Full width"
+    },
+    "preview": {
+      "title": "Widget Preview",
+      "badge": "Preview",
+      "selectVenue": "Select a venue above to preview the widget.",
+      "note": "This is how the widget looks and behaves for guests. Embedding it on your own site is coming soon."
+    },
+    "embed": {
+      "title": "Embed Code",
+      "alert": "Embedding the booking widget is coming soon. The snippet below is an example of what you will add to your site once the widget launches — it is not functional yet.",
+      "example": "Example snippet (not functional yet)",
+      "note": "The embeddable widget will allow guests to book directly from your website. Styles will be self-contained and will not conflict with your existing CSS."
+    },
+    "features": {
+      "title": "Widget Features",
+      "availability": {
+        "title": "Real-time Availability",
+        "description": "Shows only available time slots based on current reservations and capacity.",
+        "badge": "Core"
+      },
+      "hold": {
+        "title": "10-Minute Hold",
+        "description": "Selected times are held for 10 minutes while guests complete their booking.",
+        "badge": "Smart"
+      },
+      "confirmation": {
+        "title": "Instant Confirmation",
+        "description": "Guests receive immediate confirmation with their reservation details.",
+        "badge": "UX"
+      }
+    }
   }
 }

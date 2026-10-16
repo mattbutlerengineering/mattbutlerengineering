@@ -14,10 +14,15 @@
  * Each entry below either declares a `signature` (how to recognize this
  * routine's expected artifact) or an explicit reason it can't be verified
  * yet. `docs/scheduled-tasks.md`'s routine catalog table is the prose source
- * of truth for the routine list itself — `parseRoutineCatalog()` reads it so
- * a coverage test (`scripts/__tests__/routine-liveness.test.mjs`) can fail
- * when a new catalog row has no manifest entry, the same shape as
- * `scripts/regen-manifest.mjs`'s FAMILIES coverage test.
+ * of truth for routines that already have a row — `parseRoutineCatalog()`
+ * reads it so a coverage test (`scripts/__tests__/routine-liveness.test.mjs`)
+ * can fail when a catalog row has no manifest entry. The check is one way:
+ * a name that arrives only from `scripts/routines/<name>.json` is not
+ * required to appear in that table.
+ *
+ * A new routine is that json fragment (filename stem equals `name`) plus
+ * `docs/routines/<name>.md`. It is not a new catalog row and not an edit of
+ * `BUILTIN_ROUTINES`. `loadRoutineFragments()` appends the fragments.
  *
  * Two distinct reasons a manifest entry can lack a `signature`:
  *   - `outOfScope: true`   — not a RemoteTrigger at all (runs in GitHub
@@ -47,6 +52,12 @@
  *
  * @module routine-manifest
  */
+
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const DEFAULT_ROUTINES_DIR = join(dirname(fileURLToPath(import.meta.url)), "routines");
 
 /**
  * @typedef {{type: "pr-title", pattern: string, searchTerm: string, observe?: "latest-matching-commit"}} PrTitleSignature
@@ -87,7 +98,7 @@ export const HEARTBEAT_ISSUE_NUMBER = 6211;
  */
 
 /** @type {RoutineManifestEntry[]} */
-export const ROUTINE_MANIFEST = [
+const BUILTIN_ROUTINES = [
   {
     name: "mbe-deep-audit",
     triggerId: null,
@@ -268,6 +279,83 @@ export const ROUTINE_MANIFEST = [
     periodDays: 1,
     signature: { type: "heartbeat" },
   },
+  {
+    name: "mbe-feature-drain",
+    // Two live RemoteTriggers share this prompt and this heartbeat name —
+    // trig_01RT7JnCPWyxw4fcKKVmCTb8 (`3 * * * *`, mbe-feature-drain-a) and
+    // trig_013Yd7dJ2X98nAwME7fi7iqx (`33 * * * *`, mbe-feature-drain-b) —
+    // because the API floors a single cron at one hour (measured 2026-10-16).
+    // One manifest entry, one liveness question: did the drain fire today?
+    // The prompt posts `noop` at most once per UTC day to keep #6211 readable;
+    // `ok`/`error`/`throttled` post on every fire.
+    triggerId: "trig_01RT7JnCPWyxw4fcKKVmCTb8",
+    periodDays: 1,
+    activatedAt: "2026-10-16",
+    signature: { type: "heartbeat" },
+  },
+  {
+    name: "mbe-prune",
+    // Four live RemoteTriggers share this prompt and this heartbeat name —
+    // trig_01TBQ4jQS9UGwJTxrWfWBCyQ (`14 * * * *`, mbe-prune-a),
+    // trig_01SoduJryRjjQN5D75h3ZJjv (`29 * * * *`, mbe-prune-b),
+    // trig_01CzgACLRQpi8ApXfSUM7T5q (`44 * * * *`, mbe-prune-c) and
+    // trig_016WxmLRG8kYUymu3QmwEk3P (`59 * * * *`, mbe-prune-d) —
+    // for the same reason as mbe-feature-drain: the API floors a single cron
+    // at one hour. One manifest entry, one liveness question: did the prune
+    // fire today? `noop` posts at most once per UTC day; `ok`/`error`/
+    // `throttled` post on every fire (docs/routines/mbe-prune.md).
+    triggerId: "trig_01TBQ4jQS9UGwJTxrWfWBCyQ",
+    periodDays: 1,
+    activatedAt: "2026-10-16",
+    signature: { type: "heartbeat" },
+  },
+];
+
+/** Names frozen in the builtin array. A new routine does not extend this list. */
+export const BUILTIN_ROUTINE_NAMES = BUILTIN_ROUTINES.map((entry) => entry.name);
+
+/**
+ * Load `scripts/routines/*.json` fragments.
+ *
+ * A missing directory is an empty list. The filename stem must equal
+ * `entry.name`. A name that duplicates a builtin or another fragment throws.
+ *
+ * @param {string} dir
+ * @param {string[]} [reservedNames]
+ * @returns {RoutineManifestEntry[]}
+ */
+export function loadRoutineFragments(dir, reservedNames = BUILTIN_ROUTINE_NAMES) {
+  let names;
+  try {
+    names = readdirSync(dir);
+  } catch (err) {
+    if (err && err.code === "ENOENT") return [];
+    throw err;
+  }
+
+  const reserved = new Set(reservedNames);
+  const fragments = [];
+  for (const filename of names.filter((name) => name.endsWith(".json")).sort()) {
+    const stem = filename.slice(0, -".json".length);
+    const entry = JSON.parse(readFileSync(join(dir, filename), "utf8"));
+    if (!entry || typeof entry !== "object" || entry.name !== stem) {
+      throw new Error(
+        `${filename}: filename must match the name field (got ${JSON.stringify(entry?.name)})`
+      );
+    }
+    if (reserved.has(entry.name)) {
+      throw new Error(`${filename}: duplicate routine name ${entry.name}`);
+    }
+    reserved.add(entry.name);
+    fragments.push(entry);
+  }
+  return fragments;
+}
+
+/** Builtin entries plus every fragment under `scripts/routines/`. */
+export const ROUTINE_MANIFEST = [
+  ...BUILTIN_ROUTINES,
+  ...loadRoutineFragments(DEFAULT_ROUTINES_DIR),
 ];
 
 const CATALOG_ROW_PATTERN = /^\|\s*`([a-z0-9-]+)`/;

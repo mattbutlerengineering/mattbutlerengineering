@@ -1,4 +1,5 @@
 import type { ReservationStatus } from "@mbe/types";
+import { formatInstant } from "./format.js";
 
 /**
  * Maps a reservation status to the Rialto Badge variant prop.
@@ -17,26 +18,15 @@ export const STATUS_BADGE_VARIANT: Record<
 };
 
 /**
- * Human-readable label for each reservation status.
- * Shared between ReservationsPage and TimelinePage.
- */
-export const STATUS_LABEL: Record<ReservationStatus, string> = {
-  PENDING: "Pending",
-  CONFIRMED: "Confirmed",
-  CANCELLED: "Cancelled",
-  COMPLETED: "Completed",
-  NO_SHOW: "No Show",
-};
-
-/**
  * Formats an ISO datetime string to a localised HH:MM time display.
  * Used in reservation list rows (ReservationsPage) and detail views.
  */
-export function formatReservationTime(isoString: string): string {
-  return new Date(isoString).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+export function formatReservationTime(
+  isoString: string,
+  locale?: string,
+  timeZone?: string
+): string {
+  return formatInstant(isoString, { hour: "2-digit", minute: "2-digit" }, locale, timeZone);
 }
 
 /**

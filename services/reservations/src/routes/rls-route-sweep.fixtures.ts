@@ -1457,7 +1457,7 @@ const bookingMetricsFixtures: Record<string, RouteFixture> = {
  * Deposits (ADR-026 §3.2/§3.3 item 6, closed #5369 PR 7): `requireAdmin`
  * only — no `requireVenueAccess`, so there is no member leg to prove for any
  * route in this family — addressed by an opaque deposit/reservation id.
- * `resolveReservationVenueId` (`../services/deposit-venue.ts`) and the
+ * `resolveVenueId("reservation", …)` (`../services/resolve-venue.ts`) and the
  * capture/refund/forfeit family now resolve through the `SECURITY DEFINER`
  * `app_resolve_venue_id` function (`resolveVenueId`/former `loadInVenueContext`)
  * instead of an unscoped `reservation.findUnique`/`deposit.findUnique` read.

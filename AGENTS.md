@@ -148,7 +148,7 @@ Synonyms listed there as "avoid" must not appear in code or API responses.
 ### Database (Prisma)
 
 - `pnpm db:push` (root) — push all schemas, dev only.
-- For prod migrations, run `pnpm db:migrate` from each service dir (`services/users`, `services/reservations`, `services/agent`) — there is no root-level `db:migrate` script.
+- Prod migrations apply automatically: the `db-migrate` DO job runs `prisma migrate deploy` per service (`infrastructure/migrate/migrate.sh`). To apply by hand, run `pnpm db:migrate:deploy` from each service dir (`services/users`, `services/reservations`, `services/agent`) — never `pnpm db:migrate`, which is `prisma migrate dev` and can drop tables on drift. There is no root-level `db:migrate` script.
 - Migrations must be version-controlled in each service's `prisma/migrations/`.
 
 ## Testing & Validation
@@ -206,9 +206,9 @@ To maintain high-velocity engineering without sacrificing quality, agents follow
 1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**
 2.  **Innovate:** Brainstorm multiple approaches, evaluate trade-offs, and select the optimal path.
     - **Approach Score:** For each of 2–3 candidate solutions, score on correctness, code complexity, blast radius, and reversibility. Document trade-offs.
-    - **Decision Log:** Record the chosen approach and rationale for rejected alternatives (in comments, commit message, or `.planning/quick/` doc if complex).
+    - **Decision Log:** Record the chosen approach and rationale for rejected alternatives (in comments, the commit message, or — for a pipeline run — the run's `docs/features/<slug>/architecture.md` or `docs/fixes/<slug>/` artifact if complex).
     - **Time-box:** ~5 minutes for routine tasks; ~20 minutes for architectural decisions. If exceeding time-box, flag for HITL review.
-3.  **Plan:** Create a detailed implementation plan (e.g., `.planning/quick/TASK-PLAN.md`) including file changes and verification steps.
+3.  **Plan:** Create a detailed implementation plan including file changes and verification steps — for a pipeline run, the run's `docs/features/<slug>/breakdown.md` (or `docs/fixes/<slug>/`); for a one-off task, the PR body. There is no `.planning/` directory in this repo and nothing gitignores one, so do not create plan files there.
 4.  **Execute:** Implement the approved plan using **Silent TDD Mode**. Break work into 5-minute micro-tasks.
 5.  **Review:** Run tests, linting, and typechecks. Perform a self-review of the changes against the plan.
 

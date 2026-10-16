@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "../../utils/class-composer";
 import styles from "./Footer.module.css";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -56,7 +57,7 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
       variant = "minimal",
       logo,
       columns,
-      linksLabel = "Footer links",
+      linksLabel: linksLabelProp,
       copyright,
       children,
       className,
@@ -64,6 +65,8 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
     },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
+    const linksLabel = linksLabelProp ?? messages.footerLinks;
     const classes = cn(styles.footer, variant === "rich" ? styles.rich : styles.minimal, className);
 
     if (variant === "rich") {
@@ -71,9 +74,11 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
         <footer ref={ref} className={classes} {...props}>
           <div className={styles.logo}>
             {logo ?? (
+              /* eslint-disable mbe-local/no-literal-ui-strings -- brand wordmark, not translated */
               <>
                 Ri<span className={styles.logoAccent}>a</span>lto
               </>
+              /* eslint-enable mbe-local/no-literal-ui-strings */
             )}
           </div>
 

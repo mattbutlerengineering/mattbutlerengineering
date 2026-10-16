@@ -32,7 +32,9 @@ vi.mock("../hooks/usePublicApiClient.js", () => ({
 // static import cannot be referenced here.
 vi.mock("../components/booking-widget/index.js", async () => {
   const { hasOperatingHours } = await import("../components/booking-widget/hasOperatingHours.js");
+  const { WidgetLocaleScope } = await import("../components/booking-widget/WidgetLocaleScope.js");
   return {
+    WidgetLocaleScope,
     BookingWidget: ({
       venueId,
       hasOperatingHours: hasHours,

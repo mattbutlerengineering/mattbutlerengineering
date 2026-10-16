@@ -35,8 +35,11 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@mattbutlerengineering/rialto";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useVenueFormat } from "./useVenueFormat.js";
+import { liveReservationToast } from "./live-reservation-toast.js";
 import { useApiClient } from "./useApiClient.js";
 import { SseClient } from "../lib/sse-client.js";
 import { getCachedFloorPlanSnapshot, setCachedFloorPlanSnapshot } from "../lib/offline-cache.js";
@@ -45,6 +48,7 @@ import {
   SSE_EVENT_NAMES,
   type Reservation,
   type SseEvent,
+  type SsePayloadMap,
   type SseEventName,
   type TableStatusDelta,
   type TableDisplayStatus,
@@ -151,11 +155,15 @@ export function useSSESync(): { reconnect: () => void } {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { selectedVenueId } = useVenue();
+  const fmt = useVenueFormat();
+  const { t } = useTranslation();
   const { accessToken } = useAuth();
 
   // Keep refs to avoid recreating SseClient on closure changes
   const queryClientRef = useRef(queryClient);
   const toastRef = useRef(toast);
+  const fmtRef = useRef(fmt);
+  const tRef = useRef(t);
   const dispatchRef = useRef(dispatchConnection);
   const selectedVenueIdRef = useRef(selectedVenueId);
   const accessTokenRef = useRef(accessToken);
@@ -163,6 +171,8 @@ export function useSSESync(): { reconnect: () => void } {
   useEffect(() => {
     queryClientRef.current = queryClient;
     toastRef.current = toast;
+    fmtRef.current = fmt;
+    tRef.current = t;
     dispatchRef.current = dispatchConnection;
     selectedVenueIdRef.current = selectedVenueId;
     accessTokenRef.current = accessToken;
@@ -184,12 +194,14 @@ export function useSSESync(): { reconnect: () => void } {
   });
 
   const makeEvent = useCallback(
-    (type: ReservationEvent["type"], data: ReservationEvent["data"]): ReservationEvent => ({
-      type,
-      venueId: selectedVenueIdRef.current ?? "",
-      timestamp: new Date().toISOString(),
-      data,
-    }),
+    <K extends SseEventName>(type: K, data: SsePayloadMap[K]): SseEvent<K> =>
+      // TS cannot prove a generic K's object literal is the K-th union member.
+      ({
+        type,
+        venueId: selectedVenueIdRef.current ?? "",
+        timestamp: new Date().toISOString(),
+        data,
+      }) as SseEvent<K>,
     []
   );
 
@@ -211,8 +223,9 @@ export function useSSESync(): { reconnect: () => void } {
           const reservation = event.data as Reservation;
           if (canShowToastRef.current()) {
             toastRef.current({
-              title: "New reservation",
-              description: `${reservation.guestName ?? "Guest"} — ${new Date(reservation.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+              ...liveReservationToast(eventType, reservation, tRef.current, (iso) =>
+                fmtRef.current.formatInstant(iso, { hour: "2-digit", minute: "2-digit" })
+              ),
               variant: "accent",
               duration: 5000,
             });
@@ -223,8 +236,9 @@ export function useSSESync(): { reconnect: () => void } {
           const reservation = event.data as Reservation;
           if (canShowToastRef.current()) {
             toastRef.current({
-              title: "Reservation cancelled",
-              description: `${reservation.guestName ?? "Guest"}&apos;s reservation was cancelled`,
+              ...liveReservationToast(eventType, reservation, tRef.current, (iso) =>
+                fmtRef.current.formatInstant(iso, { hour: "2-digit", minute: "2-digit" })
+              ),
               variant: "error",
               duration: 5000,
             });

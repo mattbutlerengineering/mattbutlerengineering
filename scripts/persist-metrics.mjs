@@ -21,7 +21,7 @@
  *
  * Design: path selection and naming are pure functions; git/gh live behind
  * injected `runGit`/`runGh` callbacks (the revert-watchdog.mjs /
- * collect-queue-telemetry.mjs pattern), so the selection logic is unit-tested
+ * queue-telemetry-store.mjs pattern), so the selection logic is unit-tested
  * without touching a repo. The CLI wires `runGit` to execFileSync with argv
  * arrays — never a shell string — and `runGh` to `createRunGh()` below.
  *

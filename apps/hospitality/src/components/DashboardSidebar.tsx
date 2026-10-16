@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { NavSection, NavItem } from "../nav-sections.js";
 import type { NavAction } from "../nav-actions.js";
 import styles from "./DashboardSidebar.module.css";
@@ -124,6 +125,8 @@ export interface DashboardSidebarProps {
   onMobileClose?: () => void;
   /** Optional slot rendered above all nav sections (e.g. VenueSwitcher) */
   headerSlot?: ReactNode;
+  /** Optional slot pinned below all nav sections (e.g. the locale picker) */
+  footerSlot?: ReactNode;
 }
 
 /* ── Component ───────────────────────────────── */
@@ -135,7 +138,9 @@ export function DashboardSidebar({
   isMobileOpen = false,
   onMobileClose,
   headerSlot,
+  footerSlot,
 }: DashboardSidebarProps) {
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const sidebarRef = useRef<HTMLElement>(null);
 
@@ -204,11 +209,12 @@ export function DashboardSidebar({
         <div className={styles.backdrop} onClick={onMobileClose} aria-hidden="true" />
       )}
 
-      <nav ref={sidebarRef} className={rootClassName} aria-label="Dashboard navigation">
+      <nav ref={sidebarRef} className={rootClassName} aria-label={t("nav.label")}>
         {headerSlot}
         <div className={styles.sections}>
           {sections.map((section, sectionIndex) => {
-            const sectionKey = section.label ?? `section-${String(sectionIndex)}`;
+            // Collapse state is keyed by the locale-independent id, not the translated label.
+            const sectionKey = section.id ?? section.label ?? `section-${String(sectionIndex)}`;
 
             // Unlabelled sections render flat (no collapsible header)
             if (!section.label) {
@@ -242,13 +248,13 @@ export function DashboardSidebar({
             }
 
             // Named sections are collapsible
-            const isExpanded = !collapsed.has(section.label);
+            const isExpanded = !collapsed.has(sectionKey);
 
             return (
               <div key={sectionKey} className={styles.section}>
                 <button
                   className={styles.sectionHeader}
-                  onClick={() => toggleSection(section.label!)}
+                  onClick={() => toggleSection(sectionKey)}
                   aria-expanded={isExpanded}
                   type="button"
                 >
@@ -287,6 +293,7 @@ export function DashboardSidebar({
             );
           })}
         </div>
+        {footerSlot && <div className={styles.footer}>{footerSlot}</div>}
       </nav>
     </>
   );

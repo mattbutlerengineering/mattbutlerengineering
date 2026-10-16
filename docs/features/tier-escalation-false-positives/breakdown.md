@@ -20,7 +20,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
 
 ## Milestone 1: Policy module exists and pins the motivating cases
 
-- [ ] **Review-surface counting + size escalation** — add
+- [x] **Review-surface counting + size escalation** — add
       `scripts/tier-escalation.mjs` exporting `countReviewSurfaceAdditions`
       and `decideSizeEscalation`, with the exclusion list from
       `architecture.md` § Interfaces.
@@ -29,7 +29,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
     943 docs → counted > 1000, escalates); missing `additions` counts 0;
     `docs/features/**` md excluded while root-level `*.md` counts.
   - Blocked by: —
-- [ ] **Keyword escalation with incident cue** — add
+- [x] **Keyword escalation with incident cue** — add
       `decideKeywordEscalation` (title backstop, same-sentence incident cue,
       `pathTier >= T3` hardset kept verbatim, #5956 hyphen/code-span guards
       preserved).
@@ -43,7 +43,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
 
 ## Milestone 2: Workflow calls the module; docs state the policy
 
-- [ ] **Adapter swap in `tier-classifier.yml`** — replace the inline size
+- [x] **Adapter swap in `tier-classifier.yml`** — replace the inline size
       and keyword escalation blocks with dynamic import of the module;
       gather per-file additions for the size call; keep bypass/fork/path
       rules inline and untouched.
@@ -53,7 +53,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
     all green; a thrown module error fails the step (fail-closed path
     demonstrated in the workflow test).
   - Blocked by: Keyword escalation with incident cue
-- [ ] **`docs/change-tiers.md` policy update** — state that generated files
+- [x] **`docs/change-tiers.md` policy update** — state that generated files
       (the module's exclusion list) don't count toward size escalation and
       that keyword escalation requires an incident signal, linking the
       module as the source of truth.
@@ -64,7 +64,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
 
 ## Milestone 3: Replay gate proves the delta
 
-- [ ] **Replay CLI** — `node scripts/tier-escalation.mjs replay --limit 300`
+- [x] **Replay CLI** — `node scripts/tier-escalation.mjs replay --limit 300`
       fetching title/body/file-additions via GitHub REST, computing
       old-vs-new for both rules, printing a markdown table of changed
       verdicts in both directions.
@@ -72,7 +72,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
     fail-loud path (no credential → non-zero exit with message, never an
     empty table); "0 changed" printed explicitly when nothing changes.
   - Blocked by: Keyword escalation with incident cue
-- [ ] **Run the replay and pin the delta** — execute against the last 300
+- [x] **Run the replay and pin the delta** — execute against the last 300
       PRs in a credentialed environment, paste the table into the
       implementation PR description, and add a pinned test for every PR
       whose tier changes (intended) or fix the rule (unintended).
@@ -90,3 +90,5 @@ Deviations discovered during Implement get logged here, dated. The
 implementation PR is T4 by path rule (`tier-classifier.yml` edit): it waits
 on Matt regardless of these rules' own verdicts, and reserved ADR-110 is the
 number to use if the T4 gate demands an ADR at merge time.
+
+- 2026-10-14: replay over the last 300 PRs run (`node scripts/tier-escalation.mjs replay --limit 300`): 18 changed, all de-escalations (generated-file size churn, descriptive keyword prose), none newly escalated. Table is in the implementation PR description. Replay compares per-rule verdicts, not full tiers (path rules live in the workflow). Changed shapes are pinned in `tier-escalation.test.mjs` / `tier-classifier-workflow.test.mjs`.

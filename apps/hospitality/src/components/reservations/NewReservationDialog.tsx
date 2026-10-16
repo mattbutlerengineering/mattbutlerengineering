@@ -1,8 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
-import type { CreateReservationRequest, Guest, Table } from "@mbe/types";
+import type {
+  CreateReservationRequest,
+  Guest,
+  Occasion,
+  SeatingPreference,
+  Table,
+} from "@mbe/types";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { useStatusMessage } from "../../hooks/useStatusMessage.js";
 import { LiveStatus } from "../LiveStatus.js";
@@ -10,6 +17,9 @@ import { GuestLookup } from "../crm/GuestLookup.js";
 import { GuestHistoryStrip } from "../crm/GuestHistoryStrip.js";
 import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { applyClear, applyPick, type PrefillSnapshot } from "../crm/guest-prefill.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { venueWallTimeToInstant } from "../../utils/venue-wall-time.js";
+import { OccasionSeatingFields } from "./OccasionSeatingFields.js";
 import styles from "./NewReservationDialog.module.css";
 
 interface NewReservationDialogProps {
@@ -30,12 +40,6 @@ interface NewReservationFormData {
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 
-// ux.md § Copy — the lookup field's hint, the linked strip's caption and the clear sentence.
-const GUEST_NAME_HINT = "Name, email or phone — returning guests appear as you type.";
-const LINK_ONLY_CAPTION =
-  "Edits to email or phone below change this booking only — the profile isn't edited.";
-const GUEST_CLEARED = "Guest cleared.";
-
 /** The picked guest plus what the contact fields held before prefill, so Clear can restore them. */
 interface GuestLink {
   guest: Guest;
@@ -53,18 +57,6 @@ function findBestTable(tables: Table[], partySize: number): string {
   return eligible[0]?.id ?? "";
 }
 
-// Formats a Date using its local components (not toISOString, which is UTC)
-// so the result stays in the `YYYY-MM-DDTHH:mm:ss` shape the create payload expects.
-function formatLocalDateTime(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-}
-
 export function NewReservationDialog({
   tables,
   venueId,
@@ -72,8 +64,12 @@ export function NewReservationDialog({
   onConfirm,
   onClose,
 }: NewReservationDialogProps) {
+  const { t } = useTranslation();
+  const { timeZone } = useVenueFormat();
   const [partySize, setPartySize] = useState(2);
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
+  const [occasion, setOccasion] = useState<Occasion>("none");
+  const [seatingPreference, setSeatingPreference] = useState<SeatingPreference>("no_preference");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<GuestLink | null>(null);
@@ -123,7 +119,7 @@ export function NewReservationDialog({
     setValue("guestEmail", next.guestEmail);
     setValue("guestPhone", next.guestPhone);
     setLink({ guest, snapshot });
-    announce(pickAnnouncement("linked", guest));
+    announce(pickAnnouncement("linked", guest, t));
   };
 
   const handleClear = () => {
@@ -136,16 +132,16 @@ export function NewReservationDialog({
     setValue("guestPhone", restored.guestPhone);
     setLink(null);
     setFocus("guestName", { shouldSelect: true });
-    announce(GUEST_CLEARED);
+    announce(t("newReservation.guestCleared"));
   };
 
   const availableTables = tables
-    .filter((t) => t.isActive && t.capacity >= partySize)
+    .filter((table) => table.isActive && table.capacity >= partySize)
     .sort((a, b) => a.capacity - b.capacity);
 
-  const tableOptions = availableTables.map((t) => ({
-    value: t.id,
-    label: `${t.name} (seats ${t.capacity})`,
+  const tableOptions = availableTables.map((table) => ({
+    value: table.id,
+    label: t("newReservation.tableOption", { name: table.name, capacity: table.capacity }),
   }));
 
   const handlePartySizeChange = useCallback(
@@ -158,21 +154,22 @@ export function NewReservationDialog({
 
   const onFormSubmit = async (data: NewReservationFormData) => {
     if (!tableId) {
-      setError("Please select a table.");
+      setError(t("newReservation.selectTable"));
       return;
     }
 
     const guestEmail = data.guestEmail.trim();
     const guestPhone = data.guestPhone.trim();
     if (!guestEmail && !guestPhone) {
-      setError("Please provide a guest email or phone number.");
+      setError(t("newReservation.needContact"));
       return;
     }
 
-    const startDate = new Date(`${data.date}T${data.startTime}:00`);
+    // The picked date and time are the venue's wall clock; the API takes the UTC instant.
+    const startDate = venueWallTimeToInstant(data.date, data.startTime, timeZone);
     const endDate = new Date(startDate.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
-    const startTime = formatLocalDateTime(startDate);
-    const endTime = formatLocalDateTime(endDate);
+    const startTime = startDate.toISOString();
+    const endTime = endDate.toISOString();
 
     setIsLoading(true);
     setError(null);
@@ -189,6 +186,8 @@ export function NewReservationDialog({
         guestPhone: guestPhone || undefined,
         // Only a picked guest links the booking; an ignored lookup leaves today's payload as is.
         ...(link ? { guestId: link.guest.id } : {}),
+        ...(occasion !== "none" ? { occasion } : {}),
+        ...(seatingPreference !== "no_preference" ? { seatingPreference } : {}),
       });
     } catch (err) {
       setError(describeApiError(err).detail);
@@ -219,7 +218,7 @@ export function NewReservationDialog({
           <Stack gap="lg">
             <div className={styles.header}>
               <Text variant="display" id="new-reservation-dialog-title">
-                New Reservation
+                {t("newReservation.title")}
               </Text>
             </div>
 
@@ -232,36 +231,36 @@ export function NewReservationDialog({
             <Stack gap="md">
               <GuestLookup
                 venueId={venueId}
-                label="Guest Name"
-                hint={GUEST_NAME_HINT}
-                placeholder="e.g. Smith"
+                label={t("newReservation.guestName")}
+                hint={t("newReservation.nameHint")}
+                placeholder={t("newReservation.namePlaceholder")}
                 query={guestName}
                 picked={link?.guest ?? null}
                 onPick={handlePick}
                 onClear={handleClear}
                 announce={announce}
                 disabled={isLoading}
-                {...register("guestName", { required: "Guest name is required." })}
+                {...register("guestName", { required: t("newReservation.nameRequired") })}
               />
               {link && (
                 <GuestHistoryStrip
                   guest={link.guest}
                   mode="linked"
-                  caption={LINK_ONLY_CAPTION}
+                  caption={t("newReservation.linkOnlyCaption")}
                   onClear={handleClear}
                 />
               )}
 
               <div className={styles.fieldRow}>
                 <Input
-                  label="Guest Email"
+                  label={t("newReservation.email")}
                   type="email"
-                  placeholder="guest@example.com"
+                  placeholder={t("newReservation.emailPlaceholder")}
                   disabled={isLoading}
                   {...register("guestEmail")}
                 />
                 <Input
-                  label="Guest Phone"
+                  label={t("newReservation.phone")}
                   type="tel"
                   placeholder="(555) 123-4567"
                   disabled={isLoading}
@@ -271,16 +270,16 @@ export function NewReservationDialog({
 
               <div className={styles.fieldRow}>
                 <Input
-                  label="Date"
+                  label={t("newReservation.date")}
                   type="date"
                   disabled={isLoading}
-                  {...register("date", { required: "Date is required." })}
+                  {...register("date", { required: t("newReservation.dateRequired") })}
                 />
                 <Input
-                  label="Start Time"
+                  label={t("newReservation.startTime")}
                   type="time"
                   disabled={isLoading}
-                  {...register("startTime", { required: "Start time is required." })}
+                  {...register("startTime", { required: t("newReservation.startTimeRequired") })}
                 />
               </div>
 
@@ -290,7 +289,7 @@ export function NewReservationDialog({
                   color="secondary"
                   style={{ marginBottom: "var(--rialto-space-xs)" }}
                 >
-                  Party Size
+                  {t("newReservation.partySize")}
                 </Text>
                 <div className={styles.partySizeRow}>
                   {PARTY_SIZE_OPTIONS.map((size) => (
@@ -310,30 +309,38 @@ export function NewReservationDialog({
               </div>
 
               {availableTables.length === 0 ? (
-                <Text color="secondary">No tables available for a party of {partySize}.</Text>
+                <Text color="secondary">{t("newReservation.noTables", { size: partySize })}</Text>
               ) : (
                 <Select
-                  label="Table"
+                  label={t("newReservation.table")}
                   value={tableId}
                   onChange={setTableId}
                   disabled={isLoading}
                   options={tableOptions}
                 />
               )}
+
+              <OccasionSeatingFields
+                occasion={occasion}
+                seatingPreference={seatingPreference}
+                onOccasionChange={setOccasion}
+                onSeatingPreferenceChange={setSeatingPreference}
+                disabled={isLoading}
+              />
             </Stack>
 
             <div className={styles.actions}>
               <Button variant="secondary" type="button" onClick={handleClose} disabled={isLoading}>
-                Cancel
+                {t("newReservation.cancel")}
               </Button>
               <Button
                 variant="primary"
                 type="submit"
                 isLoading={isLoading}
                 disabled={availableTables.length === 0}
-                loadingText="Creating…"
+                loadingText={t("newReservation.creating")}
               >
-                Create Reservation
+                {t("newReservation.create")}
               </Button>
             </div>
           </Stack>

@@ -11,17 +11,14 @@ import { draftTableToCreateRequest } from "./floor-plan-draft.js";
 import { FLOOR_PLAN_TEMPLATES, templateById, tablesForTemplate } from "./floor-plan-templates.js";
 import type { TemplateId } from "./floor-plan-templates.js";
 
-/** Parses "N tables · M seats" out of a summary string. Blank's "No tables" yields {count: 0, seats: 0}. */
-function parseSummary(summary: string): { count: number; seats: number } {
-  if (summary === "No tables") {
-    return { count: 0, seats: 0 };
-  }
-  const match = summary.match(/^(\d+) tables? · (\d+) seats?$/);
-  if (!match || !match[1] || !match[2]) {
-    throw new Error(`parseSummary: could not parse "${summary}"`);
-  }
-  return { count: Number(match[1]), seats: Number(match[2]) };
-}
+/** Table count and seat total each template offers — what the picker card's summary shows. */
+const EXPECTED_TOTALS = {
+  restaurant: { count: 14, seats: 48 },
+  cafe: { count: 10, seats: 24 },
+  bar: { count: 12, seats: 40 },
+  patio: { count: 8, seats: 36 },
+  blank: { count: 0, seats: 0 },
+} as const;
 
 describe("floor-plan-templates", () => {
   describe("FLOOR_PLAN_TEMPLATES", () => {
@@ -133,8 +130,8 @@ describe("floor-plan-templates", () => {
       }
     });
 
-    it("matches the summary's table count and seat total", () => {
-      const { count, seats } = parseSummary(template.summary);
+    it("offers the expected table count and seat total", () => {
+      const { count, seats } = EXPECTED_TOTALS[template.id];
       expect(tables.length).toBe(count);
       expect(tables.reduce((sum, t) => sum + t.capacity, 0)).toBe(seats);
     });

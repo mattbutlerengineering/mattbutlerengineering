@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useRef, useState, type HTMLAttributes } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useDirection } from "../../hooks/useDirection";
 import { cn } from "../../utils/class-composer";
 import {
@@ -75,7 +76,17 @@ function initialFocus(startIso: string | null, month: CalendarMonth, today: stri
 }
 
 export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function DateRange(
-  { value, onChange, min, max, isDateDisabled, locale, weekStartsOn, className, ...rest },
+  {
+    value,
+    onChange,
+    min,
+    max,
+    isDateDisabled,
+    locale: localeProp,
+    weekStartsOn,
+    className,
+    ...rest
+  },
   ref
 ) {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -86,6 +97,8 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
   const startIso = value.start;
   const endIso = value.end;
 
+  const { locale: contextLocale, messages } = useRialtoLocale();
+  const locale = localeProp ?? contextLocale;
   const weekStart = resolveWeekStart(locale, weekStartsOn);
 
   // Visible month is derived once (lazy init) then changed only in event
@@ -219,7 +232,7 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
           type="button"
           className={styles.navButton}
           onClick={() => goToMonth(-1)}
-          aria-label="Previous month"
+          aria-label={messages.previousMonth}
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
@@ -230,7 +243,7 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
           type="button"
           className={styles.navButton}
           onClick={() => goToMonth(1)}
-          aria-label="Next month"
+          aria-label={messages.nextMonth}
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>

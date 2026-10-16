@@ -1,11 +1,9 @@
 import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
 import { describeAuthError } from "../lib/describe-auth-error.js";
 import styles from "./AuthFailurePage.module.css";
-
-/** The parties to an OIDC sign-in, in the order the credential travels. */
-const STATIONS = ["Browser", "Identity", "API"] as const;
 
 /**
  * Renders a failed code exchange in place, on the same machined stage as
@@ -24,9 +22,16 @@ const STATIONS = ["Browser", "Identity", "API"] as const;
  * and body stay put so nothing jumps.
  */
 export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }): JSX.Element {
+  const { t } = useTranslation();
   const { signIn, activeNavigator } = useAuth();
   const inFlight = activeNavigator === "signinRedirect";
-  const described = describeAuthError(error);
+  const described = describeAuthError(error, t);
+  /** The parties to an OIDC sign-in, in the order the credential travels. */
+  const stations = [
+    t("auth.stations.browser"),
+    t("auth.stations.identity"),
+    t("auth.stations.api"),
+  ] as const;
 
   return (
     <div className={styles.gate} data-testid="auth-failure">
@@ -38,8 +43,8 @@ export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }):
           {inFlight ? (
             <Handshake
               className={styles.handshake}
-              aria-label="Connecting your browser to Identity"
-              stations={STATIONS}
+              aria-label={t("auth.failure.connecting")}
+              stations={stations}
               state="negotiating"
               lane={0}
               size="lg"
@@ -47,8 +52,8 @@ export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }):
           ) : (
             <Handshake
               className={styles.handshake}
-              aria-label="Your sign-in could not be verified"
-              stations={STATIONS}
+              aria-label={t("auth.failure.failedLabel")}
+              stations={stations}
               state="failed"
               lane={lane}
               size="lg"
@@ -57,7 +62,7 @@ export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }):
 
           <div role="status" aria-live="polite">
             <Text variant="caption" color="tertiary">
-              {inFlight ? "Starting a fresh sign-in" : "The exchange didn't go through"}
+              {inFlight ? t("auth.failure.statusRetrying") : t("auth.failure.statusFailed")}
             </Text>
           </div>
 
@@ -76,14 +81,14 @@ export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }):
               size="lg"
               onClick={() => signIn()}
               isLoading={inFlight}
-              loadingText="Heading to sign-in"
+              loadingText={t("auth.login.busy")}
             >
-              Try again
+              {t("auth.failure.retry")}
             </Button>
           )}
 
           <details className={styles.errorDetails}>
-            <summary>Technical details</summary>
+            <summary>{t("auth.failure.technicalDetails")}</summary>
             <Text variant="caption" color="tertiary">
               {error.message}
             </Text>

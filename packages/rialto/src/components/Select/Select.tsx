@@ -1,4 +1,4 @@
-import { forwardRef, useRef, useEffect, useLayoutEffect } from "react";
+import { forwardRef, useMemo, useRef, useEffect, useLayoutEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
@@ -8,6 +8,7 @@ import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useCombobox } from "../../hooks/useCombobox";
 import { useField } from "../../hooks/useField";
 import styles from "./Select.module.css";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -16,7 +17,16 @@ import styles from "./Select.module.css";
  */
 export interface SelectOption {
   value: string;
-  label: string;
+  /**
+   * What the option renders. A string, or any node (e.g. an endonym wrapped in
+   * `<span lang>`).
+   */
+  label: ReactNode;
+  /**
+   * Plain-text form of `label` used by type-ahead. Derived from `label` when it
+   * is a string; a node `label` with no `textValue` is skipped by type-ahead.
+   */
+  textValue?: string;
   disabled?: boolean;
 }
 
@@ -66,7 +76,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       options,
       value,
       onChange,
-      placeholder = "Select…",
+      placeholder: placeholderProp,
       label,
       hint,
       error,
@@ -81,6 +91,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
+    const placeholder = placeholderProp ?? messages.selectPlaceholder;
     const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const triggerId = `${field.id}-trigger`;
     const listboxId = `${field.id}-listbox`;
@@ -92,8 +104,20 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     const motionPreset = useMotionPreset();
     const shouldReduceMotion = motionPreset.reduced;
 
+    const comboboxItems = useMemo(
+      () =>
+        options.map(
+          ({ value: optionValue, label: optionLabel, textValue, disabled: isDisabled }) => ({
+            value: optionValue,
+            label: textValue ?? (typeof optionLabel === "string" ? optionLabel : ""),
+            disabled: isDisabled,
+          })
+        ),
+      [options]
+    );
+
     const { open, focusedIndex, toggle, select, setFocusedIndex, handleKeyDown } = useCombobox({
-      items: options,
+      items: comboboxItems,
       value,
       onSelect: onChange,
       containerRef: wrapperRef,
@@ -150,7 +174,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           <label htmlFor={triggerId} className={styles.label}>
             {label}
             {field.requiredMarker}
-            {field.showOptional && <span className={styles.optional}> (optional)</span>}
+            {field.showOptional && <span className={styles.optional}> {messages.optional}</span>}
           </label>
         )}
         <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>

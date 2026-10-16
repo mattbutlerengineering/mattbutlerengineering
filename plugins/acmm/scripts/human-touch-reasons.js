@@ -27,7 +27,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { HUMAN_TOUCH_REASONS } from "../../../scripts/collect-queue-telemetry.mjs";
+import { HUMAN_TOUCH_REASONS } from "../../../scripts/queue-telemetry-store.mjs";
 
 export const QUEUE_TELEMETRY_PATH = "metrics/queue-telemetry.jsonl";
 const WINDOW_DAYS = 30;

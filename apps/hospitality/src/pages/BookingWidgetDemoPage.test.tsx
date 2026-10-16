@@ -72,7 +72,9 @@ let lastOnSetHours: (() => void) | undefined;
 // rest of the heavy booking-widget barrel (Stripe, GuestDetailsForm, etc.).
 vi.mock("../components/booking-widget", async () => {
   const { hasOperatingHours } = await import("../components/booking-widget/hasOperatingHours.js");
+  const { WidgetLocaleScope } = await import("../components/booking-widget/WidgetLocaleScope.js");
   return {
+    WidgetLocaleScope,
     BookingWidget: ({ venueId, audience, hasOperatingHours: hasHours, onSetHours }: any) => {
       lastOnSetHours = onSetHours;
       return (

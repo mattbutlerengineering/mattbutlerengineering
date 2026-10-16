@@ -1,5 +1,1609 @@
 {
   "shell": {
-    "skipToMain": "Passer au contenu principal"
+    "skipToMain": "Passer au contenu principal",
+    "skipToContent": "Passer au contenu",
+    "globalNav": {
+      "marketing": "Accueil",
+      "hospitality": "Hôtellerie",
+      "rialto": "Système de design"
+    },
+    "copyright": "© {{year}} Matt Butler",
+    "dashboardDocumentTitle": "Tableau de bord - Matt Butler Engineering"
+  },
+  "onboarding": {
+    "steps": {
+      "welcome": {
+        "label": "Bienvenue",
+        "description": "Nommez votre établissement"
+      },
+      "location": {
+        "label": "Emplacement",
+        "description": "Fuseau horaire et devise"
+      },
+      "hours": {
+        "label": "Heures",
+        "description": "Vos heures d’ouverture"
+      },
+      "settings": {
+        "label": "Paramètres",
+        "description": "Valeurs par défaut des réservations"
+      },
+      "floorPlan": {
+        "label": "Plan de salle",
+        "description": "Disposez vos tables"
+      },
+      "launch": {
+        "label": "Lancement",
+        "description": "Vérifier et ouvrir"
+      }
+    },
+    "progress": {
+      "wizard": "Progression de l’assistant",
+      "rail": "Progression de la configuration",
+      "stepLabel": "Étape {{step}} : {{label}}",
+      "stepLabelNavigable": "Étape {{step}} : {{label}} (cliquez pour y aller)"
+    },
+    "actions": {
+      "back": "Retour",
+      "next": "Suivant"
+    },
+    "welcome": {
+      "heading": "Donnons à votre établissement une place sur la plateforme",
+      "intro": "Choisissez un nom que vos clients reconnaîtront et une adresse Web pour votre page de réservation."
+    },
+    "basicInfo": {
+      "nameLabel": "Nom de l’établissement",
+      "namePlaceholder": "p. ex. Le Grand Salon",
+      "slugLabel": "Identifiant (slug)",
+      "slugPlaceholder": "p. ex. le-grand-salon",
+      "slugChecking": "Vérification de la disponibilité...",
+      "slugAvailable": "L’identifiant est disponible",
+      "slugHint": "Identifiant compatible avec les URL (généré automatiquement à partir du nom)",
+      "errors": {
+        "nameTooShort": "Le nom doit comporter au moins 2 caractères",
+        "slugRequired": "L’identifiant est obligatoire",
+        "slugInvalid": "L’identifiant doit être compatible avec les URL (lettres minuscules, chiffres, traits d’union)",
+        "slugTaken": "Un établissement avec cet identifiant existe déjà"
+      }
+    },
+    "locationTime": {
+      "heading": "Emplacement et heure",
+      "intro": "Pour afficher la bonne heure et la bonne devise.",
+      "timezoneLabel": "Fuseau horaire",
+      "timezonePlaceholder": "Rechercher un fuseau horaire...",
+      "timezoneEmpty": "Aucun fuseau horaire correspondant",
+      "timezoneHint": "Fuseau horaire IANA utilisé pour la planification et les disponibilités",
+      "currencyLabel": "Devise",
+      "currencyPlaceholder": "Sélectionnez une devise...",
+      "currencyOption": "{{code}} - {{name}}",
+      "errors": {
+        "timezoneRequired": "Le fuseau horaire est obligatoire",
+        "currencyRequired": "La devise est obligatoire"
+      }
+    },
+    "hours": {
+      "heading": "Heures d’ouverture",
+      "intro": "Pour que vos clients sachent quand vous êtes ouvert.",
+      "instructions": "Activez chaque jour pour fixer les heures d’ouverture et de fermeture. Les jours non activés seront marqués comme fermés.",
+      "closed": "Fermé",
+      "to": "à",
+      "openingTime": "Heure d’ouverture du {{day}}",
+      "closingTime": "Heure de fermeture du {{day}}",
+      "closeAfterOpen": "L’heure de fermeture doit être postérieure à l’heure d’ouverture",
+      "atLeastOne": "Au moins un jour doit être ouvert",
+      "closeDayTitle": "Fermer le {{day}} ?",
+      "closeDayDescription": "Cela effacera les heures d’ouverture et de fermeture personnalisées que vous avez définies pour ce jour.",
+      "closeDayConfirm": "Fermer le jour",
+      "closeDayCancel": "Garder ouvert"
+    },
+    "days": {
+      "monday": "lundi",
+      "tuesday": "mardi",
+      "wednesday": "mercredi",
+      "thursday": "jeudi",
+      "friday": "vendredi",
+      "saturday": "samedi",
+      "sunday": "dimanche"
+    },
+    "settings": {
+      "heading": "Paramètres de l’établissement",
+      "intro": "Personnalisez le fonctionnement des réservations, ou utilisez nos valeurs par défaut recommandées.",
+      "stepIntro": "Personnalisez le fonctionnement des réservations, ou passez avec nos valeurs par défaut recommandées.",
+      "useRecommended": "Utiliser les paramètres recommandés",
+      "durationLabel": "Durée de réservation par défaut (minutes)",
+      "maxPartyLabel": "Taille maximale du groupe",
+      "advanceLabel": "Délai de réservation à l’avance (jours)",
+      "defaultPlaceholder": "Par défaut : {{value}}",
+      "durationHint": "Si laissé vide, la valeur par défaut est de {{value}} minutes",
+      "maxPartyHint": "Si laissé vide, la valeur par défaut est de {{value}} convives",
+      "advanceHint": "Si laissé vide, les clients peuvent réserver jusqu’à {{value}} jours à l’avance",
+      "errors": {
+        "durationInvalid": "La durée doit être un nombre positif",
+        "maxPartyInvalid": "La taille du groupe doit être un nombre positif",
+        "advanceInvalid": "Le nombre de jours à l’avance doit être un nombre positif"
+      }
+    },
+    "floorPlan": {
+      "heading": "Plan de salle",
+      "intro": "Partez d’une disposition semblable à la vôtre, puis ajustez-la.",
+      "required": "Choisissez une disposition pour continuer — choisissez Vide pour commencer avec une salle vide.",
+      "locked": "Votre établissement est déjà en cours de création; cette disposition est donc verrouillée. Terminez la configuration, puis réorganisez les tables dans l’éditeur de plan de salle.",
+      "layoutLabel": "Disposition du plan de salle",
+      "tableCount_one": "{{count}} table",
+      "tableCount_many": "{{count}} de tables",
+      "tableCount_other": "{{count}} tables",
+      "seatCount_one": "{{count}} place",
+      "seatCount_many": "{{count}} de places",
+      "seatCount_other": "{{count}} places",
+      "summary": "{{tables}} · {{seats}}",
+      "summaryBlank": "Aucune table",
+      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
+      "cardLabelBlank": "{{name}} — aucune table",
+      "layoutApplied": "Disposition {{name}} appliquée — {{tables}}",
+      "tableAdded": "{{name}} ajoutée",
+      "tableRemoved": "{{name}} supprimée",
+      "addTable": "Ajouter une table",
+      "emptyHeading": "Votre plan de salle s’affichera ici",
+      "emptyBody": "Choisissez une disposition ci-dessus pour commencer à placer des tables.",
+      "emptyFloorHeading": "Une salle vide",
+      "emptyFloorBody": "Ajoutez des tables avec le bouton ci-dessus, ou choisissez une disposition pour partir de celle-ci.",
+      "selected": "{{name}} · {{seats}} · {{shape}}",
+      "removeTable": "Supprimer la table",
+      "selectHintReadOnly": "Sélectionnez une table pour voir ses détails.",
+      "selectHint": "Sélectionnez une table pour la déplacer ou la supprimer.",
+      "narrowViewport": "Le placement des tables nécessite un écran plus large. Votre disposition est enregistrée — ouvrez-la sur un ordinateur pour déplacer les éléments.",
+      "replaceTitle": "Remplacer votre disposition ?",
+      "replaceDescription": "Vous avez modifié ce plan de salle. Choisir {{name}} remplace vos tables par la disposition {{name}}.",
+      "replaceConfirm": "Remplacer la disposition",
+      "replaceCancel": "Garder la mienne",
+      "shapes": {
+        "square": "Carrée",
+        "rectangle": "Rectangulaire",
+        "circle": "Ronde"
+      },
+      "templates": {
+        "restaurant": {
+          "name": "Restaurant",
+          "zoneLine": "4 tables de 2 près des fenêtres · 6 tables de 4 · 2 tables rondes de 6 · 2 places au comptoir"
+        },
+        "cafe": {
+          "name": "Café",
+          "zoneLine": "5 tables de 2 près des fenêtres · 3 tables rondes de café · 2 tables de 4"
+        },
+        "bar": {
+          "name": "Bar",
+          "zoneLine": "6 tables hautes · 4 tables rondes debout · 2 banquettes"
+        },
+        "patio": {
+          "name": "Terrasse",
+          "zoneLine": "6 tables rondes avec parasol · 2 tables longues"
+        },
+        "blank": {
+          "name": "Vide",
+          "zoneLine": "Partez de zéro — ajoutez les tables vous-même"
+        }
+      }
+    },
+    "launch": {
+      "intro": "Vérifiez les détails de votre établissement — vous êtes prêt à prendre des réservations.",
+      "launching": "Lancement de « {{name}} »",
+      "basicInfoCard": "Renseignements de base",
+      "name": "Nom",
+      "slug": "Identifiant (slug)",
+      "timezone": "Fuseau horaire",
+      "currency": "Devise",
+      "noHours": "Aucune heure d’ouverture définie",
+      "settingsCard": "Paramètres",
+      "defaultDuration": "Durée par défaut",
+      "maxPartySize": "Taille maximale du groupe",
+      "advanceBooking": "Réservation à l’avance",
+      "minutes_one": "{{count}} minute",
+      "minutes_many": "{{count}} de minutes",
+      "minutes_other": "{{count}} minutes",
+      "guests_one": "{{count}} convive",
+      "guests_many": "{{count}} de convives",
+      "guests_other": "{{count}} convives",
+      "days_one": "{{count}} jour",
+      "days_many": "{{count}} de jours",
+      "days_other": "{{count}} jours",
+      "defaultTag": "(par défaut)",
+      "floorPlanCard": "Plan de salle",
+      "layout": "Disposition",
+      "tables": "Tables",
+      "noTables": "Aucune table — votre chronologie restera vide tant que vous n’en ajoutez pas",
+      "resumeSaved": "Votre établissement est enregistré. Une nouvelle tentative reprend à l’étape {{stage}}.",
+      "resumeNoVenue": "Une nouvelle tentative reprend à l’étape {{stage}}.",
+      "launchButton": "Lancer l’établissement",
+      "celebrationTables_one": "Votre établissement est en ligne avec {{count}} table",
+      "celebrationTables_many": "Votre établissement est en ligne avec {{count}} de tables",
+      "celebrationTables_other": "Votre établissement est en ligne avec {{count}} tables",
+      "celebrationEmpty": "Votre établissement est en ligne — ajoutez des tables ensuite",
+      "stages": {
+        "venue": "Établissement",
+        "floorPlan": "Plan de salle",
+        "tables": "Tables",
+        "activate": "Activation"
+      }
+    },
+    "stagePanel": {
+      "label": "Progression du lancement",
+      "progress": "Progression : {{stage}}",
+      "creating": "Création de {{name}}",
+      "created": "{{name}} créé",
+      "venueFailed": "Impossible de créer l’établissement",
+      "planFailed": "Impossible de créer le plan de salle",
+      "toPlace": "{{count}} à placer",
+      "placed_one": "{{count}} table placée",
+      "placed_many": "{{count}} de tables placées",
+      "placed_other": "{{count}} tables placées",
+      "placing": "Placement de la table",
+      "stoppedAt": "Arrêt à la table",
+      "counter": "{{current}} sur {{total}}",
+      "activating": "Mise en ligne du plan",
+      "live": "En ligne",
+      "activateFailed": "Impossible de mettre le plan en ligne",
+      "announcePlacing": "Placement des tables",
+      "announceStopped": "Placement des tables interrompu"
+    },
+    "errors": {
+      "stoppedAtTable": "Arrêt à la table {{index}} sur {{total}}",
+      "generic": "Une erreur s’est produite"
+    },
+    "page": {
+      "toastTitle": "L’établissement est en ligne",
+      "toastReady": "« {{name}} » est prêt avec {{tables}} sur {{plan}}.",
+      "toastReadyEmpty": "« {{name}} » est prêt. Ajoutez des tables à {{plan}} pour commencer à prendre des réservations."
+    }
+  },
+  "auth": {
+    "stations": {
+      "browser": "Navigateur",
+      "identity": "Identité",
+      "api": "API",
+      "hospitality": "Hospitality"
+    },
+    "login": {
+      "title": "Hospitality",
+      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "boardPhrases": {
+        "reservations": "RESERVATIONS",
+        "guests": "CLIENTS",
+        "floorPlans": "PLANS DE SALLE",
+        "waitlist": "LISTE D ATTENTE",
+        "timeline": "CHRONOLOGIE"
+      },
+      "boardLabel": "Réservations, clients, plans de salle, liste d'attente et chronologie",
+      "taglineDefault": "La gestion de restaurant, simplifiée.",
+      "taglineSignedOut": "Vous êtes déconnecté. Reconnectez-vous quand vous voulez.",
+      "taglineReferred": "Vous venez du site portfolio — jetez-y un œil.",
+      "connecting": "Connexion de votre navigateur à Identité",
+      "signIn": "Se connecter",
+      "busy": "Direction la connexion",
+      "caption": "Gérez les réservations, les clients et les plans de salle"
+    },
+    "callback": {
+      "label": "Vérification de votre connexion",
+      "status": "Échange de votre code contre une session"
+    },
+    "signOut": {
+      "label": "Fin de votre session avec Identité",
+      "status": "Déconnexion en cours"
+    },
+    "loading": {
+      "label": "Chargement",
+      "status": "On dresse la table"
+    },
+    "sessionLapse": {
+      "label": "La session avec Identité a expiré",
+      "heading": "Votre session est terminée",
+      "body": "Reconnectez-vous pour reprendre où vous en étiez — cette page est conservée.",
+      "refreshFailedLead": "Votre session n'a pas pu être renouvelée et prendra bientôt fin.",
+      "action": "Se reconnecter",
+      "actionBusy": "Direction la connexion"
+    },
+    "failure": {
+      "connecting": "Connexion de votre navigateur à Identité",
+      "failedLabel": "Votre connexion n'a pas pu être vérifiée",
+      "statusRetrying": "Démarrage d'une nouvelle connexion",
+      "statusFailed": "L'échange n'a pas abouti",
+      "retry": "Réessayer",
+      "technicalDetails": "Détails techniques"
+    },
+    "error": {
+      "accessDenied": {
+        "title": "Accès refusé",
+        "body": "Votre compte n'a pas accès à Hospitality. Communiquez avec votre administrateur si vous pensez qu'il s'agit d'une erreur."
+      },
+      "expiredLink": {
+        "title": "Ce lien de connexion a expiré",
+        "body": "Les liens de connexion sont à usage unique. Recommencez et ça devrait fonctionner."
+      },
+      "network": {
+        "title": "Impossible de joindre le service de connexion",
+        "body": "Vérifiez votre connexion et réessayez dans un instant."
+      },
+      "generic": {
+        "title": "La connexion a rencontré un problème",
+        "body": "Un événement inattendu s'est produit pendant la connexion. Réessayer règle généralement le problème."
+      }
+    },
+    "config": {
+      "title": "Erreur de configuration",
+      "body": "L'application ne dispose pas de la configuration d'authentification requise. Veuillez communiquer avec l'administrateur du site.",
+      "missing": "Variables d'environnement manquantes : {{list}}",
+      "returnHome": "Retour à l'accueil"
+    }
+  },
+  "nav": {
+    "label": "Navigation du tableau de bord",
+    "sections": {
+      "account": "Compte",
+      "admin": "Administration",
+      "getStarted": "Pour commencer",
+      "manage": "Gérer",
+      "tools": "Outils"
+    },
+    "items": {
+      "profile": "Profil",
+      "settings": "Paramètres",
+      "users": "Utilisateurs",
+      "venueBasics": "Infos de l'établissement",
+      "setOperatingHours": "Définir les heures d'ouverture",
+      "createFloorPlan": "Créer un plan de salle",
+      "tonightsService": "Service de ce soir",
+      "timeline": "Chronologie",
+      "reservations": "Réservations",
+      "waitlist": "Liste d'attente",
+      "guests": "Clients",
+      "dashboard": "Tableau de bord",
+      "floorPlans": "Plans de salle",
+      "bookingWidget": "Widget de réservation",
+      "signOut": "Se déconnecter",
+      "chat": "Clavardage"
+    }
+  },
+  "layout": {
+    "home": "Accueil",
+    "details": "Détails",
+    "venueFallback": "Hospitality",
+    "documentTitle": "{{page}} · {{venue}}",
+    "routes": {
+      "timeline": "Chronologie",
+      "reservations": "Réservations",
+      "guests": "Clients",
+      "waitlist": "Liste d'attente",
+      "briefing": "Service de ce soir",
+      "floorPlans": "Plans de salle",
+      "bookingWidget": "Widget de réservation",
+      "onboarding": "Nouvel établissement",
+      "profile": "Profil",
+      "settings": "Paramètres",
+      "admin": "Administration",
+      "dashboard": "Tableau de bord",
+      "setup": "Configuration",
+      "hours": "Heures d'ouverture"
+    },
+    "venuesNotLoaded": "Les établissements n'ont pas été chargés.",
+    "searchPlaceholder": "Rechercher des pages et des actions...",
+    "openSidebar": "Ouvrir la barre latérale",
+    "closeSidebar": "Fermer la barre latérale",
+    "openPalette": "Ouvrir la palette de commandes",
+    "search": "Rechercher",
+    "errorHeading": "Une erreur s'est produite",
+    "errorBody": "Une erreur inattendue s'est produite dans cette page.",
+    "reload": "Recharger"
+  },
+  "floorPlan": {
+    "list": {
+      "title": "Plans de salle",
+      "description": "Concevez et gérez l'agencement de votre établissement",
+      "newButton": "Nouveau plan de salle",
+      "createButton": "Créer un plan de salle",
+      "loadFailed": "Impossible de charger les plans de salle.",
+      "cloneFailed": "Le plan de salle n'a pas été cloné.",
+      "cloned": "Plan de salle « {{name}} » cloné avec succès",
+      "emptyHeading": "Aucun plan de salle pour le moment",
+      "emptyDescription": "Créez un plan de salle pour commencer à disposer les tables de votre établissement.",
+      "active": "Actif",
+      "tableCount_one": "{{count}} table",
+      "tableCount_many": "{{count}} de tables",
+      "tableCount_other": "{{count}} tables",
+      "updated": "Mis à jour {{date}}",
+      "clone": "Cloner",
+      "openAria": "Ouvrir le plan de salle : {{name}}",
+      "cloneAria": "Cloner le plan de salle : {{name}}"
+    },
+    "editor": {
+      "loading": "Chargement",
+      "notFound": "Plan de salle introuvable",
+      "notLoaded": "Le plan de salle n'est pas chargé",
+      "backToList": "Retour aux plans de salle",
+      "backAria": "Retour aux plans de salle",
+      "active": "Actif",
+      "setActive": "Définir comme actif",
+      "addTable": "+ Ajouter une table",
+      "saving": "Enregistrement...",
+      "saveChanges": "Enregistrer les modifications",
+      "saved": "Enregistré",
+      "saveFailed": "Échec de l'enregistrement des modifications : positions rétablies",
+      "deleteFailed": "Impossible de supprimer la table",
+      "activateFailed": "Impossible d'activer le plan de salle",
+      "detailsTitle": "Détails de la table",
+      "name": "Nom",
+      "tableNumber": "Numéro de table",
+      "capacity": "Capacité",
+      "guests": "{{min}} - {{max}} convives",
+      "location": "Emplacement",
+      "notSet": "Non défini",
+      "status": "Statut",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "position": "Position",
+      "positionValue": "x : {{x}}, y : {{y}}",
+      "deleteTable": "Supprimer la table",
+      "noSelection": "Sélectionnez une table pour voir ses détails",
+      "allTables": "Toutes les tables ({{n}})",
+      "unsavedTitle": "Modifications non enregistrées",
+      "unsavedDescription": "Vous avez des modifications non enregistrées sur ce plan de salle. Voulez-vous vraiment quitter?",
+      "leave": "Quitter",
+      "stay": "Rester",
+      "deleteTitle": "Supprimer cette table?",
+      "deleteDescription": "Cette action est irréversible.",
+      "delete": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "newDialog": {
+      "title": "Nouveau plan de salle",
+      "close": "Fermer la boîte de dialogue",
+      "name": "Nom",
+      "placeholder": "p. ex., Salle à manger principale",
+      "nameRequired": "Le nom du plan de salle est obligatoire.",
+      "createFailed": "Impossible de créer le plan de salle.",
+      "cancel": "Annuler",
+      "create": "Créer",
+      "creating": "Création..."
+    },
+    "addTableDialog": {
+      "title": "Ajouter une table",
+      "close": "Fermer la boîte de dialogue",
+      "name": "Nom de la table",
+      "placeholder": "p. ex., Table 1",
+      "nameRequired": "Le nom de la table est obligatoire.",
+      "capacity": "Capacité",
+      "capacityMin": "La capacité doit être d'au moins 1.",
+      "minCovers": "Convives minimum",
+      "minCoversMin": "Le nombre minimum de convives doit être d'au moins 1.",
+      "shape": "Forme",
+      "shapes": {
+        "rectangle": "Rectangle",
+        "square": "Carré",
+        "circle": "Cercle"
+      },
+      "cancel": "Annuler",
+      "submit": "Ajouter la table",
+      "adding": "Ajout...",
+      "createFailed": "Impossible de créer la table."
+    },
+    "canvas": {
+      "label": "Canevas du plan de salle",
+      "instructions": "Avec une table sélectionnée, utilisez les flèches pour la déplacer d'un pas de grille.",
+      "instructionsWithDelete": "Avec une table sélectionnée, utilisez les flèches pour la déplacer d'un pas de grille et Suppr pour la supprimer.",
+      "active": "(Actif)",
+      "stale": "Reconnexion : affichage du dernier statut connu",
+      "emptyTitle": "Aucune table sur ce plan de salle",
+      "emptyNote": "Ajoutez des tables depuis la barre latérale",
+      "moved": "{{name}} déplacée à {{x}}, {{y}}",
+      "tableAria": "Table {{label}}"
+    },
+    "tableStatus": {
+      "available": "Disponible",
+      "occupied": "Occupée",
+      "dirty": "À nettoyer",
+      "ready": "Prête"
+    }
+  },
+  "localePicker": {
+    "label": "Langue",
+    "triggerName": "Langue : {{locale}}",
+    "loading": "Chargement de {{locale}}…",
+    "loadError": "Impossible de charger {{locale}}",
+    "retry": "Réessayer",
+    "machineTranslated": "Les traductions sont automatiques."
+  },
+  "home": {
+    "title": "Tableau de bord",
+    "welcome": "Bon retour",
+    "welcomeNamed": "Bon retour, {{name}}",
+    "loadFailed": "Impossible de charger le tableau de bord.",
+    "actions": {
+      "walkIn": "Sans réservation",
+      "floorPlan": "Voir le plan de salle",
+      "guestLookup": "Chercher un client",
+      "bookingWidget": "Widget de réservation"
+    },
+    "stats": {
+      "reservations": "Réservations du jour",
+      "covers": "Couverts prévus",
+      "upcoming": "À venir (2 h)",
+      "waitlist": "Liste d'attente",
+      "longestWait": "Attente la plus longue (min)",
+      "cancellationRate": "Taux d'annulation"
+    },
+    "reservations": {
+      "title": "Réservations du jour",
+      "empty": "Aucune réservation aujourd'hui",
+      "walkIn": "Sans réservation",
+      "partyOf": "Groupe de {{count}}"
+    },
+    "activity": {
+      "title": "Activité en direct",
+      "connecting": "Connexion aux mises à jour en direct...",
+      "empty": "Aucune activité récente",
+      "justNow": "à l'instant",
+      "minutesAgo": "il y a {{count}} min",
+      "hoursAgo": "il y a {{count}} h",
+      "events": {
+        "reservationCreated": "Nouvelle réservation créée",
+        "reservationUpdated": "Réservation mise à jour",
+        "reservationCancelled": "Réservation annulée",
+        "holdCreated": "Table mise de côté",
+        "holdReleased": "Table libérée",
+        "holdConfirmed": "Mise de côté confirmée en réservation",
+        "tableUpdated": "Statut de la table modifié",
+        "floorPlanCreated": "Plan de salle créé"
+      }
+    },
+    "lapsing": {
+      "title": "Clients à reconquérir",
+      "empty": "Aucun client à reconquérir",
+      "listLabel": "Clients à reconquérir",
+      "every_one": "Tous les {{count}} jour",
+      "every_many": "Tous les {{count}} de jours",
+      "every_other": "Tous les {{count}} jours",
+      "overdue_one": "{{count}} jour de retard",
+      "overdue_many": "{{count}} de jours de retard",
+      "overdue_other": "{{count}} jours de retard",
+      "cadence": "{{every}} · {{overdue}}",
+      "sendWinBack": "Envoyer une invitation de retour",
+      "sendWinBackTo": "Envoyer une invitation de retour à {{name}}"
+    },
+    "deposit": {
+      "title": "Exposition aux dépôts",
+      "atRisk": "Dépôts à risque",
+      "noShowExposure": "Exposition aux absences"
+    }
+  },
+  "timeline": {
+    "page": {
+      "title": "Chronologie",
+      "description": "Vue des réservations en temps réel",
+      "previousDay": "Jour précédent",
+      "nextDay": "Jour suivant",
+      "today": "Aujourd'hui",
+      "walkIn": "Sans réservation",
+      "walkInDisabled": "Pour accueillir un client sans réservation, les tables doivent être chargées — réessayez ci-dessus.",
+      "live": "En direct",
+      "offline": "Hors ligne",
+      "kpiReservations": "Réservations",
+      "kpiCovers": "Couverts",
+      "loadFailedHeading": "Impossible de charger la soirée.",
+      "retry": "Réessayer",
+      "noTablesHeading": "Aucune table pour l'instant.",
+      "noTablesDescription": "Configurez un plan de salle et la grille se remplira.",
+      "floorPlans": "Plans de salle",
+      "detailsTitle": "Détails de la réservation",
+      "closeDetails": "Fermer les détails de la réservation",
+      "loadBanner": "Impossible de charger les réservations de ce soir.",
+      "tableStatusBanner": "Le statut de la table n'a pas été modifié."
+    },
+    "announce": {
+      "loadedTonight": "La grille de ce soir est chargée.",
+      "loadedDate": "Les réservations du {{date}} sont chargées.",
+      "seated": "{{guest}} est installé.",
+      "seatedAt": "{{guest}} est installé à {{table}}.",
+      "theGuest": "le client",
+      "walkInSeated": "{{who}} est installé, groupe de {{size}}.",
+      "walkInSeatedAt": "{{who}} est installé, groupe de {{size}}, à {{table}}.",
+      "aWalkIn": "un client sans réservation",
+      "cancelledNamed": "La réservation de {{name}} est annulée.",
+      "cancelled": "La réservation est annulée.",
+      "noShowNamed": "La réservation de {{name}} est marquée comme une absence.",
+      "noShow": "La réservation est marquée comme une absence.",
+      "withWarning": "{{sentence}} {{warning}}",
+      "savedNamed": "Les modifications de la réservation de {{name}} sont enregistrées.",
+      "saved": "Les modifications de la réservation sont enregistrées.",
+      "tableNow": "{{table}} est maintenant {{status}}.",
+      "aTable": "La table"
+    },
+    "status": {
+      "pending": "En attente",
+      "confirmed": "Confirmée",
+      "cancelled": "Annulée",
+      "completed": "Terminée",
+      "noShow": "Absent",
+      "seated": "Installés"
+    },
+    "guests_one": "{{count}} client",
+    "guests_many": "{{count}} de clients",
+    "guests_other": "{{count}} clients",
+    "guest": "Client",
+    "partyOf": "groupe de {{count}}",
+    "tableUnknown": "table inconnue",
+    "visitOrdinalOne": "{{count}}re visite",
+    "visitOrdinalTwo": "{{count}}e visite",
+    "visitOrdinalFew": "{{count}}e visite",
+    "visitOrdinalOther": "{{count}}e visite",
+    "block": {
+      "title": "{{guest}} - {{party}} à {{time}}",
+      "seatedWord": "installés"
+    },
+    "grid": {
+      "label": "Chronologie des réservations",
+      "tables": "Tables",
+      "rowLabel": "Table {{name}}",
+      "capacity": "{{min}}-{{max}} clients",
+      "navHint": "Utilisez les touches fléchées pour parcourir les réservations"
+    },
+    "tableMenu": {
+      "mark": "Marquer comme {{status}}",
+      "trigger": "{{table}} : {{status}}. Modifier le statut"
+    },
+    "mobile": {
+      "all": "Toutes",
+      "upcoming": "À venir",
+      "empty": "Aucune réservation",
+      "unassigned": "Non attribuée",
+      "cardLabel": "{{guest}}, groupe de {{size}}, {{time}}, table {{table}}",
+      "seated": "Installés"
+    },
+    "emptyNight": {
+      "todayHeading": "Calme pour l'instant.",
+      "todayDescription": "Rien à l'agenda pour ce soir. Les clients sans réservation vont directement à une table.",
+      "otherHeading": "Rien à l'agenda pour le {{date}}.",
+      "otherDescription": "Les réservations de cette soirée s'afficheront ici.",
+      "walkIn": "Sans réservation",
+      "backToToday": "Retour à aujourd'hui"
+    },
+    "skeleton": {
+      "loading": "Chargement de la grille de ce soir…"
+    },
+    "details": {
+      "guest": "Client",
+      "email": "Courriel",
+      "phone": "Téléphone",
+      "time": "Heure",
+      "partySize": "Taille du groupe",
+      "table": "Table",
+      "status": "Statut",
+      "seatFailed": "Le client n'a pas été installé.",
+      "edit": "Modifier la réservation",
+      "seat": "Installer le client",
+      "seating": "Installation…",
+      "cancel": "Annuler la réservation",
+      "noShow": "Marquer comme absent",
+      "occupied": "{{table}} est toujours occupée — libérez-la ou déplacez le groupe."
+    },
+    "sheet": {
+      "allergy": "Allergie : {{restriction}}",
+      "edit": "Modifier la réservation",
+      "cancel": "Annuler la réservation",
+      "more": "Plus"
+    },
+    "deposit": {
+      "title": "Dépôt",
+      "collectTitle": "Percevoir un dépôt",
+      "collect": "+ Percevoir un dépôt",
+      "amountLabel": "Montant ({{symbol}})",
+      "invalidAmount": "Saisissez un montant valide.",
+      "cancel": "Annuler",
+      "create": "Créer le dépôt",
+      "saving": "Enregistrement...",
+      "statusLine": "{{amount}} — {{status}}",
+      "refundedVia": "{{amount}} remboursés par Stripe",
+      "statuses": {
+        "pending": "En attente",
+        "held": "Autorisé",
+        "applied": "Débité",
+        "refunded": "Remboursé",
+        "forfeited": "Confisqué",
+        "partialRefunded": "Partiellement remboursé",
+        "uncollectable": "Irrécouvrable"
+      }
+    },
+    "cancel": {
+      "title": "Annuler la réservation",
+      "intro": "Annulation de la réservation de <strong>{{name}}</strong>",
+      "reasonLabel": "Motif",
+      "reasons": {
+        "guestCancelled": "Annulée par le client",
+        "noShow": "Absent",
+        "restaurantCancelled": "Annulée par le restaurant",
+        "other": "Autre"
+      },
+      "noteLabel": "Note (facultatif)",
+      "notePlaceholder": "Ajoutez du contexte...",
+      "failed": "La réservation n'a pas été annulée.",
+      "keep": "Garder la réservation",
+      "confirm": "Annuler la réservation",
+      "cancelling": "Annulation…",
+      "fee": {
+        "none": "Aucuns frais d'annulation — remboursement complet de {{refund}}",
+        "late": "Frais d'annulation tardive : {{fee}} — remboursement de {{refund}}",
+        "noshow": "Frais de non-présentation : {{fee}} retenus — remboursement de {{refund}}"
+      }
+    },
+    "noShowDialog": {
+      "title": "Marquer comme absent",
+      "body": "Marquer <strong>{{name}}</strong> comme absent ne peut pas être annulé. Si un dépôt est au dossier, la politique de frais d'absence de l'établissement s'applique : il peut être perçu en partie ou en totalité, ou remboursé si aucun frais ne s'applique.",
+      "failed": "La réservation n'a pas été marquée comme une absence.",
+      "keep": "Garder la réservation",
+      "confirm": "Marquer comme absent",
+      "marking": "Marquage…"
+    },
+    "edit": {
+      "title": "Modifier la réservation",
+      "startTime": "Heure de début",
+      "endTime": "Heure de fin",
+      "partySize": "Taille du groupe",
+      "assignTable": "Attribuer une table",
+      "tableOption": "{{name}} (cap. {{capacity}})",
+      "notes": "Notes",
+      "timesRequired": "Les heures de début et de fin sont obligatoires.",
+      "endAfterStart": "L'heure de fin doit être postérieure à l'heure de début.",
+      "partySizePositive": "La taille du groupe doit être un nombre positif.",
+      "failed": "Les modifications n'ont pas été enregistrées.",
+      "cancel": "Annuler",
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…"
+    },
+    "walkInDialog": {
+      "title": "Installer un client sans réservation",
+      "partySize": "Taille du groupe",
+      "nothingFree": "Rien de libre pour un groupe de {{size}} en ce moment. Essayez un groupe plus petit ou marquez une table comme disponible.",
+      "table": "Table",
+      "tableOption": "{{name}} ({{capacity}} places)",
+      "guestLabel": "Nom du client (facultatif)",
+      "guestHint": "Nom ou téléphone : les clients connus apparaissent pendant la saisie.",
+      "guestPlaceholder": "p. ex. Tremblay",
+      "guestCleared": "Client retiré.",
+      "failed": "Le client sans réservation n'a pas été installé.",
+      "cancel": "Annuler",
+      "seatNow": "Installer maintenant",
+      "seating": "Installation…"
+    }
+  },
+  "errorBanner": {
+    "retry": "Réessayer",
+    "showDetails": "Afficher les détails"
+  },
+  "kpi": {
+    "unavailable": "{{label}}, non disponible"
+  },
+  "reservations": {
+    "title": "Réservations",
+    "description": "Consultez et gérez les réservations",
+    "loading": "Chargement des réservations…",
+    "tableUnavailable": "Table non disponible",
+    "relative": {
+      "justNow": "à l’instant",
+      "seconds": "il y a {{n}} s",
+      "minutes": "il y a {{n}} min",
+      "hours": "il y a {{n}} h"
+    },
+    "loaded": "Les réservations du {{date}} sont chargées.",
+    "updated": "Mis à jour {{when}}",
+    "kpi": {
+      "total": "Total",
+      "confirmed": "Confirmées",
+      "pending": "En attente",
+      "cancelled": "Annulées"
+    },
+    "filter": {
+      "all": "Toutes",
+      "CONFIRMED": "Confirmées",
+      "PENDING": "En attente",
+      "CANCELLED": "Annulées"
+    },
+    "search": {
+      "label": "Rechercher par nom de client",
+      "placeholder": "Rechercher par nom de client..."
+    },
+    "filterDate": "Filtrer par date",
+    "newReservation": "Nouvelle réservation",
+    "loadFailed": "Impossible de charger les réservations.",
+    "shown_one": "{{count}} réservation affichée",
+    "shown_many": "{{count}} de réservations affichées",
+    "shown_other": "{{count}} réservations affichées",
+    "emptyDay": {
+      "heading": "Rien au registre pour le {{date}}.",
+      "description": "Les nouvelles réservations s’affichent ici dès leur arrivée."
+    },
+    "none": {
+      "heading": "Aucune réservation",
+      "matching": "Aucune réservation ne correspond à « {{query}} ».",
+      "forStatus": {
+        "all": "Aucune réservation trouvée pour le {{date}}.",
+        "CONFIRMED": "Aucune réservation confirmée trouvée pour le {{date}}.",
+        "PENDING": "Aucune réservation en attente trouvée pour le {{date}}.",
+        "CANCELLED": "Aucune réservation annulée trouvée pour le {{date}}."
+      }
+    },
+    "col": {
+      "time": "Heure",
+      "guest": "Client",
+      "partySize": "Convives",
+      "table": "Table",
+      "status": "Statut",
+      "notes": "Notes",
+      "actions": "Actions"
+    },
+    "guestFallback": "Client",
+    "view": "Voir",
+    "viewAria": "Voir la réservation de {{name}} dans la chronologie",
+    "status": {
+      "PENDING": "En attente",
+      "CONFIRMED": "Confirmée",
+      "CANCELLED": "Annulée",
+      "COMPLETED": "Terminée",
+      "NO_SHOW": "Absence"
+    },
+    "visitOrdinal": {
+      "one": "{{count}}re visite",
+      "two": "{{count}}e visite",
+      "few": "{{count}}e visite",
+      "other": "{{count}}e visite"
+    },
+    "occasion": {
+      "label": "Occasion",
+      "none": "Aucune",
+      "birthday": "Anniversaire",
+      "anniversary": "Anniversaire de mariage",
+      "business": "Affaires",
+      "date_night": "Soirée en amoureux",
+      "other": "Autre"
+    },
+    "seating": {
+      "label": "Préférence de placement",
+      "no_preference": "Aucune préférence",
+      "booth": "Banquette",
+      "patio": "Terrasse",
+      "bar": "Bar",
+      "window": "Fenêtre",
+      "quiet": "Coin tranquille"
+    },
+    "live": {
+      "createdTitle": "Nouvelle réservation",
+      "createdDescription": "{{name}} — {{time}}",
+      "cancelledTitle": "Réservation annulée",
+      "cancelledDescription": "La réservation de {{name}} a été annulée"
+    }
+  },
+  "newReservation": {
+    "title": "Nouvelle réservation",
+    "guestName": "Nom du client",
+    "nameHint": "Nom, courriel ou téléphone : les clients connus s’affichent pendant la saisie.",
+    "namePlaceholder": "p. ex. Tremblay",
+    "nameRequired": "Le nom du client est obligatoire.",
+    "linkOnlyCaption": "Les modifications du courriel ou du téléphone ci-dessous ne touchent que cette réservation; le profil n’est pas modifié.",
+    "guestCleared": "Client retiré.",
+    "email": "Courriel du client",
+    "emailPlaceholder": "client@exemple.com",
+    "phone": "Téléphone du client",
+    "date": "Date",
+    "dateRequired": "La date est obligatoire.",
+    "startTime": "Heure de début",
+    "startTimeRequired": "L’heure de début est obligatoire.",
+    "partySize": "Convives",
+    "noTables": "Aucune table disponible pour {{size}} convives.",
+    "table": "Table",
+    "tableOption": "{{name}} ({{capacity}} places)",
+    "selectTable": "Veuillez sélectionner une table.",
+    "needContact": "Veuillez fournir un courriel ou un numéro de téléphone du client.",
+    "cancel": "Annuler",
+    "create": "Créer la réservation",
+    "creating": "Création…"
+  },
+  "crm": {
+    "clear": "Retirer",
+    "clearAria": "Retirer {{name}}",
+    "allergy": "Allergie : {{restriction}}",
+    "allergyList": "Allergie : {{list}}.",
+    "visit_one": "{{count}} visite",
+    "visit_many": "{{count}} de visites",
+    "visit_other": "{{count}} visites",
+    "noVisits": "Aucune visite enregistrée pour l’instant",
+    "noVisitsInline": "aucune visite enregistrée pour l’instant",
+    "noShow_one": "{{count}} absence",
+    "noShow_many": "{{count}} d’absences",
+    "noShow_other": "{{count}} absences",
+    "noContact": "aucun contact au dossier",
+    "stripLinked": "Utilisation du profil de {{name}}",
+    "stripRecognised": "Client reconnu : {{name}}",
+    "segment": {
+      "VIP": "VIP",
+      "Repeat": "Habitué",
+      "New": "Nouveau"
+    },
+    "risk": {
+      "risky": "À risque",
+      "standard": "Standard",
+      "trusted": "Fiable"
+    },
+    "lookup": {
+      "failure": "Impossible de rechercher des clients pour le moment : saisissez les renseignements comme d’habitude.",
+      "loading": "Recherche de clients…",
+      "noMatch": "Aucun client connu ne correspond. Poursuivez comme d’habitude.",
+      "more": "D’autres correspondances existent : continuez à saisir pour préciser.",
+      "listboxLabel": "Suggestions de clients",
+      "results_one": "{{count}} résultat disponible",
+      "results_many": "{{count}} de résultats disponibles",
+      "results_other": "{{count}} résultats disponibles"
+    },
+    "card": {
+      "specialOccasion": "Occasion spéciale",
+      "loadFailed": "Impossible de charger le profil du client.",
+      "retry": "Réessayer",
+      "allergyAlert": "Alerte allergie",
+      "dietary": "Restrictions alimentaires",
+      "contact": "Coordonnées",
+      "occasionHistory": "Historique des occasions",
+      "staffNotes": "Notes du personnel",
+      "showAll": "Tout afficher ({{count}})",
+      "newNote": "Nouvelle note du personnel",
+      "notePlaceholder": "Saisissez une note...",
+      "cancel": "Annuler",
+      "saving": "Enregistrement...",
+      "saveNote": "Enregistrer la note",
+      "addNote": "Ajouter une note",
+      "editProfile": "Modifier le profil"
+    },
+    "drawer": {
+      "nameRequired": "Le nom est obligatoire",
+      "invalidEmail": "Veuillez saisir une adresse courriel valide",
+      "invalidPhone": "Veuillez saisir un numéro de téléphone valide",
+      "updated": "Client mis à jour",
+      "editTitle": "Modifier {{name}}",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement...",
+      "close": "Fermer",
+      "editGuest": "Modifier le client",
+      "name": "Nom",
+      "namePlaceholder": "Nom complet",
+      "email": "Courriel",
+      "emailPlaceholder": "client@exemple.com",
+      "phone": "Téléphone",
+      "notes": "Notes",
+      "notesPlaceholder": "Préférences, allergies, etc.",
+      "tags": "Étiquettes",
+      "removeTag": "Retirer l’étiquette {{tag}}",
+      "addTag": "Ajouter une étiquette (appuyez sur Entrée)",
+      "dietaryOption": {
+        "vegetarian": "végétarien",
+        "vegan": "végétalien",
+        "gluten-free": "sans gluten",
+        "dairy-free": "sans produits laitiers",
+        "nut-free": "sans noix",
+        "halal": "halal",
+        "kosher": "casher",
+        "shellfish-free": "sans fruits de mer"
+      },
+      "loadingHistory": "Chargement de l’historique des réservations...",
+      "recent": "Réservations récentes",
+      "partyGuests_one": "{{count}} convive",
+      "partyGuests_many": "{{count}} de convives",
+      "partyGuests_other": "{{count}} convives"
+    }
+  },
+  "guests": {
+    "title": "Clients",
+    "description": "Gérez votre répertoire de clients",
+    "selectVenue": "Veuillez sélectionner un établissement pour voir les clients.",
+    "loadFailed": "Impossible de charger les clients.",
+    "shown_one": "{{count}} client affiché",
+    "shown_many": "{{count}} de clients affichés",
+    "shown_other": "{{count}} clients affichés",
+    "addGuest": "Ajouter un client",
+    "addAGuest": "Ajouter un client",
+    "search": {
+      "label": "Rechercher des clients",
+      "placeholder": "Rechercher des clients...",
+      "showing": "Affichage de {{shown}} sur {{total}} clients",
+      "noneFound": "Aucun client trouvé",
+      "noneYet": "Aucun client pour l’instant",
+      "tryAdjusting": "Essayez de modifier votre recherche.",
+      "getStarted": "Commencez par ajouter votre premier client."
+    },
+    "segments": {
+      "all": "Tous les clients",
+      "vip": "VIP",
+      "recent": "Récents",
+      "atRisk": "À risque",
+      "lapsed": "Inactifs",
+      "new": "Nouveaux"
+    },
+    "table": {
+      "guest": "Client",
+      "contact": "Coordonnées",
+      "visits": "Visites",
+      "lastVisit": "Dernière visite",
+      "tags": "Étiquettes",
+      "never": "Jamais",
+      "viewDetails": "Voir les détails de {{name}}"
+    },
+    "pagination": {
+      "previous": "Précédent",
+      "previousAria": "Page précédente",
+      "next": "Suivant",
+      "nextAria": "Page suivante",
+      "page": "Page {{page}} sur {{total}}"
+    },
+    "addDialog": {
+      "title": "Ajouter un client",
+      "cancel": "Annuler",
+      "adding": "Ajout...",
+      "submit": "Ajouter le client",
+      "name": "Nom",
+      "namePlaceholder": "Nom complet",
+      "email": "Courriel",
+      "emailPlaceholder": "client@exemple.com",
+      "phone": "Téléphone",
+      "notes": "Notes",
+      "notesPlaceholder": "Préférences, allergies, etc."
+    }
+  },
+  "waitlist": {
+    "title": "Liste d’attente",
+    "description": "Clients en attente d’une table",
+    "loadFailed": "Impossible de charger la liste d’attente.",
+    "empty": {
+      "heading": "Personne en attente",
+      "description": "La liste d’attente est vide pour le moment.",
+      "add": "Ajouter un client"
+    },
+    "form": {
+      "heading": "Ajouter à la liste d’attente",
+      "guestName": "Nom du client",
+      "nameHint": "Nom ou téléphone : les clients connus s’affichent pendant la saisie.",
+      "namePlaceholder": "p. ex. Tremblay",
+      "nameRequired": "Le nom du client est obligatoire.",
+      "guestPhone": "Téléphone du client",
+      "phoneRequired": "Le téléphone du client est obligatoire.",
+      "phoneInvalid": "Saisissez un numéro de téléphone valide.",
+      "partySize": "Convives",
+      "submit": "Ajouter à la liste d’attente",
+      "adding": "Ajout…",
+      "notAdded": "Non ajouté.",
+      "guestCleared": "Client retiré."
+    },
+    "row": {
+      "party": "Groupe de {{size}}",
+      "wait": "~{{minutes}} min",
+      "waitUnavailable": "Estimation non disponible",
+      "notified": "Avisé",
+      "table": "Table",
+      "tableOption": "{{name}} ({{capacity}} places)",
+      "noTables": "Aucune table disponible",
+      "seat": "Installer",
+      "seating": "Installation…",
+      "notify": "Aviser",
+      "notifying": "Envoi de l’avis…",
+      "cancel": "Annuler",
+      "cancelling": "Annulation…",
+      "selectTable": "Veuillez sélectionner une table.",
+      "theTable": "la table",
+      "splitFailure": "Installé à {{table}}, mais la liste d’attente n’a pas été mise à jour. Actualisez pour la remettre en ordre.",
+      "notNotified": "Non avisé.",
+      "notRemoved": "Non retiré.",
+      "notSeated": "Non installé."
+    },
+    "announce": {
+      "added": "{{name}}, groupe de {{size}}, a été ajouté à la liste d’attente.",
+      "notified": "{{name}} a été avisé.",
+      "removed": "{{name}} a été retiré de la liste d’attente.",
+      "seated": "{{name}} a été installé à {{table}}.",
+      "viewOnTimeline": "Voir dans la chronologie"
+    }
+  },
+  "staffLocaleSwitcher": {
+    "title": "Langue et région",
+    "previewLabel": "Aperçu"
+  },
+  "bookingWidget": {
+    "title": "Faire une réservation",
+    "subtitle": {
+      "dateParty": "Choisissez la date et le nombre de personnes",
+      "timeSlot": "Choisissez une heure disponible",
+      "guestDetails": "Entrez vos coordonnées pour confirmer",
+      "payment": "Garantissez votre réservation avec un dépôt"
+    },
+    "steps": {
+      "dateParty": "Date et personnes",
+      "time": "Heure",
+      "details": "Coordonnées",
+      "payment": "Paiement"
+    },
+    "guests_one": "{{count}} convive",
+    "guests_many": "{{count}} de convives",
+    "guests_other": "{{count}} convives",
+    "back": "← Retour",
+    "estimatedWait": "Attente estimée : ~{{minutes}} min",
+    "dateParty": {
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "date": "Date",
+      "partySize": "Nombre de personnes",
+      "largePartyCall": "Pour les groupes de plus de {{max}} personnes, appelez-nous au <phoneLink>{{phone}}</phoneLink>.",
+      "largePartyContact": "Pour les groupes de plus de {{max}} personnes, veuillez communiquer directement avec l’établissement.",
+      "findTimes": "Voir les heures disponibles",
+      "dateHint": "Choisissez une date à partir d’aujourd’hui pour voir les heures disponibles."
+    },
+    "timeSlot": {
+      "changeSearch": "← Changer la date ou le nombre de personnes",
+      "noHoursStaffHeading": "Aucune heure d’ouverture définie",
+      "noHoursStaffDescription": "Cet établissement n’a pas encore configuré ses heures d’ouverture, donc les clients ne peuvent ni voir les disponibilités ni réserver une table.",
+      "setHours": "Définir les heures d’ouverture",
+      "noHoursGuestHeading": "La réservation en ligne n’est pas encore offerte",
+      "noHoursGuestDescription": "Cet établissement n’a pas encore configuré la réservation en ligne. Veuillez communiquer directement avec lui pour réserver une table.",
+      "noTimesHeading": "Aucune heure disponible",
+      "tryDifferent": "Essayez une autre date ou un autre nombre de personnes.",
+      "joinWaitlist": "Rejoindre la liste d’attente",
+      "periods": {
+        "lunch": "Dîner",
+        "dinner": "Souper",
+        "late": "Fin de soirée"
+      },
+      "periodTimes": {
+        "lunch": "Heures disponibles pour le dîner",
+        "dinner": "Heures disponibles pour le souper",
+        "late": "Heures disponibles en fin de soirée"
+      },
+      "selected": "Sélection :",
+      "tablesAvailable_one": "{{count}} table disponible",
+      "tablesAvailable_many": "{{count}} de tables disponibles",
+      "tablesAvailable_other": "{{count}} tables disponibles"
+    },
+    "details": {
+      "holdExpires": "La retenue expire dans : {{time}}",
+      "holdExpired": "Expirée",
+      "summaryTitle": "Détails de la réservation",
+      "welcomeBack_ordinal_one": "Bon retour, {{name}} — c’est votre {{count}}re visite!",
+      "welcomeBack_ordinal_many": "Bon retour, {{name}} — c’est votre {{count}}e visite!",
+      "welcomeBack_ordinal_other": "Bon retour, {{name}} — c’est votre {{count}}e visite!",
+      "preferencesOnFile": "Préférences enregistrées",
+      "name": "Nom",
+      "namePlaceholder": "Jean Tremblay",
+      "email": "Courriel",
+      "emailPlaceholder": "jean@exemple.com",
+      "phone": "Téléphone",
+      "contactHint": "Veuillez fournir un courriel ou un numéro de téléphone pour la confirmation.",
+      "requestsPlaceholder": "Allergies, célébrations, préférences de place...",
+      "confirming": "Confirmation...",
+      "complete": "Confirmer la réservation"
+    },
+    "payment": {
+      "depositRequired": "Dépôt requis",
+      "perPerson_one": "({{count}} convive × {{amount}})",
+      "perPerson_many": "({{count}} de convives × {{amount}})",
+      "perPerson_other": "({{count}} convives × {{amount}})",
+      "authorizeNotice": "Votre carte sera autorisée pour {{amount}}. Le montant n’est prélevé que si vous n’annulez pas dans le délai prévu par la politique.",
+      "cancellationPolicy": "Politique d’annulation",
+      "cardDetails": "Renseignements de la carte",
+      "processing": "Traitement...",
+      "authorize": "Autoriser {{amount}}",
+      "sessionExpired": "Votre session de réservation a expiré. Veuillez recommencer votre réservation.",
+      "failed": "Le paiement a échoué"
+    },
+    "cancellationTerms_one": "Annulation gratuite jusqu’à {{count}} heure avant votre réservation. Ensuite, des frais de {{lateFeePercent}} % ({{lateFee}}) s’appliquent. Si vous ne vous présentez pas à votre réservation, des frais de non-présentation de {{noShowFeePercent}} % ({{noShowFee}}) s’appliquent.",
+    "cancellationTerms_many": "Annulation gratuite jusqu’à {{count}} d’heures avant votre réservation. Ensuite, des frais de {{lateFeePercent}} % ({{lateFee}}) s’appliquent. Si vous ne vous présentez pas à votre réservation, des frais de non-présentation de {{noShowFeePercent}} % ({{noShowFee}}) s’appliquent.",
+    "cancellationTerms_other": "Annulation gratuite jusqu’à {{count}} heures avant votre réservation. Ensuite, des frais de {{lateFeePercent}} % ({{lateFee}}) s’appliquent. Si vous ne vous présentez pas à votre réservation, des frais de non-présentation de {{noShowFeePercent}} % ({{noShowFee}}) s’appliquent.",
+    "confirmation": {
+      "title": "Réservation confirmée!",
+      "subtitle": "Au plaisir de vous accueillir.",
+      "detailsTitle": "Détails de la réservation",
+      "confirmationNumber": "N° de confirmation",
+      "date": "Date",
+      "time": "Heure",
+      "partySize": "Personnes",
+      "name": "Nom",
+      "table": "Table",
+      "deposit": "Dépôt",
+      "depositNotice": "Votre carte a été autorisée pour {{amount}}. La retenue sera libérée ou prélevée selon le délai d’annulation.",
+      "cancellationPolicy": "Politique d’annulation",
+      "contactLine": "Aucun courriel ni texto de confirmation n’est envoyé pour cette réservation, alors conservez ces détails. L’établissement a {{contact}} à votre réservation.",
+      "cancel": "Annuler la réservation",
+      "another": "Faire une autre réservation"
+    },
+    "specialRequests": {
+      "label": "Demandes spéciales",
+      "acknowledgement": "C’est noté. C’est inscrit à votre réservation pour l’équipe."
+    },
+    "calendar": {
+      "title": "Ajouter au calendrier",
+      "downloadIcs": "Télécharger le fichier .ics",
+      "google": "Google Agenda",
+      "outlook": "Outlook"
+    },
+    "waitlist": {
+      "noTablesHeading": "Aucune table disponible",
+      "noTablesDetail_one": "Aucune table disponible le {{date}} pour {{count}} convive.",
+      "noTablesDetail_many": "Aucune table disponible le {{date}} pour {{count}} de convives.",
+      "noTablesDetail_other": "Aucune table disponible le {{date}} pour {{count}} convives.",
+      "joinPrompt": "Rejoindre la liste d’attente?",
+      "name": "Nom",
+      "namePlaceholder": "Votre nom",
+      "phone": "Téléphone",
+      "phoneHint": "Requis pour vous aviser par texto quand votre table est prête.",
+      "invalidPhone": "Veuillez entrer un numéro de téléphone valide.",
+      "joining": "Inscription...",
+      "join": "Rejoindre la liste d’attente",
+      "added": "Ajouté à la liste d’attente",
+      "position": "Votre position",
+      "estimatedWait": "Attente estimée",
+      "estimateUnavailable": "Estimation non disponible",
+      "waitMinutes": "{{minutes}} min",
+      "smsNote": "Nous vous enverrons un texto quand votre table sera prête. Gardez votre téléphone à portée de main.",
+      "reserveInstead": "Plutôt faire une réservation",
+      "outcomes": {
+        "notifiedHeading": "Votre table est prête",
+        "notifiedBody": "Présentez-vous à l’hôte maintenant — nous ne pouvons la garder que quelques minutes.",
+        "seatedHeading": "Vous êtes attablé",
+        "seatedBody": "Bonne visite.",
+        "expiredHeading": "Votre place a expiré",
+        "expiredBody": "Nous n’avons pas pu garder votre table à temps. Vous pouvez rejoindre la liste d’attente de nouveau ou faire une réservation.",
+        "cancelledHeading": "Votre place dans la liste d’attente a été annulée",
+        "cancelledBody": "Vous pouvez rejoindre la liste d’attente de nouveau ou faire une réservation."
+      }
+    },
+    "errors": {
+      "missingVenueSlug": "La réservation en ligne n’est pas offerte ici. Veuillez communiquer directement avec l’établissement pour réserver.",
+      "holdExpired": "Votre retenue a expiré. Veuillez choisir une nouvelle heure.",
+      "reloadFailed": "Impossible de recharger les disponibilités"
+    }
+  },
+  "publicBooking": {
+    "documentTitle": "Réserver une table — Hospitality",
+    "venueDocumentTitle": "Réserver une table — {{venue}}",
+    "notFoundHeading": "Établissement introuvable",
+    "notFoundDescription": "Nous n’avons pas trouvé la page de réservation que vous cherchez. Vérifiez le lien ou communiquez directement avec l’établissement pour réserver.",
+    "goBack": "Retour",
+    "homeLink": "Retour à Matt Butler Engineering",
+    "loading": "Chargement de l’établissement...",
+    "tagline": "Réservez votre table en ligne",
+    "poweredBy": "Propulsé par Matt Butler Engineering"
+  },
+  "manageReservation": {
+    "documentTitle": "Votre réservation — Hospitality",
+    "venueDocumentTitle": "{{venue}} — Votre réservation",
+    "supportLine": "Besoin d’aide? Communiquez directement avec l’établissement à l’aide des coordonnées de votre courriel de confirmation.",
+    "homeLink": "Retour à Matt Butler Engineering",
+    "noLinkHeading": "Aucun lien d’accès",
+    "noLinkDescription": "Veuillez vérifier le lien dans votre courriel de confirmation.",
+    "loading": "Chargement de la réservation...",
+    "expiredHeading": "Lien expiré",
+    "expiredDescription": "Ce lien de gestion a expiré. Veuillez communiquer avec l’établissement pour obtenir de l’aide.",
+    "invalidHeading": "Lien non valide",
+    "invalidDescription": "Ce lien a déjà été utilisé ou n’est pas valide.",
+    "fallbackTitle": "Votre réservation",
+    "detailsTitle": "Détails de la réservation",
+    "guest": "Client",
+    "partySize": "Personnes",
+    "date": "Date",
+    "time": "Heure",
+    "timeRange": "{{start}} – {{end}}",
+    "call": "Appeler {{venue}}",
+    "cancel": "Annuler la réservation",
+    "cancelled": "Cette réservation a été annulée."
+  },
+  "offlineBanner": {
+    "cached": "Affichage des données en cache de la dernière synchronisation",
+    "cachedWithTime": "Affichage des données en cache de la dernière synchronisation — dernière synchronisation : {{time}}"
+  },
+  "health": {
+    "title": "État du système",
+    "services": "Services",
+    "ci": "CI",
+    "deploys": "Déploiements",
+    "updated": "Mis à jour {{time}}",
+    "dotLabel": "Système : {{status}}",
+    "triggerLabel": "État du système : {{status}}",
+    "status": {
+      "healthy": "sain",
+      "ok": "correct",
+      "degraded": "dégradé",
+      "unhealthy": "défaillant",
+      "error": "erreur"
+    },
+    "latency": "{{ms}} ms"
+  },
+  "venueSwitcher": {
+    "currentVenue": "Établissement actuel : {{name}}. Cliquez pour changer",
+    "selectVenue": "Choisir un établissement",
+    "addVenue": "Ajouter un établissement"
+  },
+  "notFound": {
+    "message": "Cette table n'est pas sur le plan de salle de ce soir. Cette page n'a jamais été inscrite au livre des réservations.",
+    "back": "Retour au service de ce soir"
+  },
+  "chat": {
+    "title": "Clavardage"
+  },
+  "setupHours": {
+    "title": "Heures d'ouverture",
+    "description": "Définissez les jours et les heures où votre établissement accepte les réservations.",
+    "cancel": "Annuler",
+    "saving": "Enregistrement...",
+    "save": "Enregistrer les heures"
+  },
+  "setup": {
+    "yourVenue": "votre établissement",
+    "welcome": "Bienvenue à {{venueName}}",
+    "intro": "Terminez quelques étapes de configuration pour commencer à prendre des réservations.",
+    "progress": "{{percent}} % terminé",
+    "stepsLabel": "Étapes de configuration",
+    "stepAria": "{{label}} — {{status}}",
+    "review": "Réviser",
+    "done": "Terminé — {{venueName}}",
+    "status": {
+      "completed": "Terminé",
+      "current": "Étape en cours",
+      "locked": "Pas encore disponible"
+    },
+    "steps": {
+      "onboarding": {
+        "label": "Infos de base de l'établissement",
+        "description": "Configurez le nom, le fuseau horaire et la devise de votre établissement.",
+        "cta": "Réviser les détails de l'établissement"
+      },
+      "hours": {
+        "label": "Définir les heures d'ouverture",
+        "description": "Configurez les jours et les heures d'ouverture de votre établissement.",
+        "cta": "Définir les heures d'ouverture"
+      },
+      "floorPlan": {
+        "label": "Créer un plan de salle",
+        "description": "Ajoutez un plan de salle avec au moins une table pour activer les réservations.",
+        "cta": "Créer un plan de salle"
+      }
+    }
+  },
+  "briefing": {
+    "title": "Service de ce soir",
+    "description": "Aperçu du service pour votre équipe",
+    "loading": "Chargement de l'aperçu de ce soir…",
+    "guest": "Client",
+    "covers_one": "{{count}} couvert",
+    "covers_many": "{{count}} de couverts",
+    "covers_other": "{{count}} couverts",
+    "prefers": "Préférence : {{seating}}",
+    "allergy": "Allergie : {{restriction}}",
+    "loaded": "L'aperçu du {{date}} est chargé.",
+    "serviceDate": "Date du service",
+    "loadError": "Impossible de charger l'aperçu de ce soir.",
+    "segments": {
+      "all": "Tous",
+      "early": "Tôt (avant {{hour}})",
+      "dinner": "Souper ({{range}})",
+      "late": "Tard (à partir de {{hour}})"
+    },
+    "noSeatings": {
+      "early": "Aucun service tôt ce soir.",
+      "dinner": "Aucun service de souper ce soir.",
+      "late": "Aucun service tardif ce soir."
+    },
+    "empty": {
+      "heading": "Rien au livre pour le {{date}}.",
+      "description": "Changez la date ou placez des clients sans réservation depuis la Chronologie.",
+      "action": "Ouvrir la Chronologie"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "loading": "Chargement de votre profil...",
+    "manage": "Gérez votre profil",
+    "description": "Consultez et gérez les renseignements de votre profil",
+    "loadError": "Impossible de charger votre profil.",
+    "fallbackName": "Utilisateur",
+    "unknown": "Inconnu",
+    "verified": "Vérifié",
+    "notVerified": "Non vérifié",
+    "memberSince": "Membre depuis",
+    "lastUpdated": "Dernière mise à jour",
+    "edit": "Modifier le profil",
+    "saveError": "Les modifications n'ont pas été enregistrées.",
+    "relative": {
+      "justNow": "À l'instant",
+      "minutes": "il y a {{count}} min",
+      "hours": "il y a {{count}} h",
+      "days": "il y a {{count}} j"
+    },
+    "session": {
+      "title": "Session",
+      "active": "Session active",
+      "refreshing": "Renouvellement bientôt",
+      "expired": "Session expirée",
+      "none": "Aucun jeton de session actif à lire.",
+      "timerLabel": "Temps avant l'expiration du jeton de session",
+      "minutesRemaining": "Minutes restantes",
+      "secondsRemaining": "Secondes restantes",
+      "lifetimeElapsed": "Durée de vie du jeton écoulée"
+    },
+    "saved": {
+      "title": "Profil mis à jour",
+      "body": "Vos modifications ont été enregistrées."
+    },
+    "form": {
+      "name": "Nom",
+      "namePlaceholder": "Votre nom",
+      "nameRequired": "Le nom est obligatoire",
+      "pictureUrl": "URL de la photo",
+      "saving": "Enregistrement...",
+      "save": "Enregistrer les modifications",
+      "cancel": "Annuler",
+      "picturePlaceholder": "https://example.com/photo.jpg"
+    },
+    "account": {
+      "title": "Détails du compte",
+      "userId": "ID d'utilisateur",
+      "emailVerified": "Courriel vérifié"
+    },
+    "activity": {
+      "title": "Résumé de l'activité",
+      "emailStatus": "État du courriel"
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "description": "Gérez les paramètres et les préférences de votre compte",
+    "saved": "Paramètres enregistrés",
+    "loadError": "Impossible de charger les paramètres.",
+    "partySize_one": "{{count}} personne",
+    "partySize_many": "{{count}} de personnes",
+    "partySize_other": "{{count}} personnes",
+    "theme": {
+      "label": "Thème",
+      "system": "Système",
+      "light": "Clair",
+      "dark": "Sombre"
+    },
+    "duration": {
+      "m30": "30 minutes",
+      "m45": "45 minutes",
+      "m60": "1 heure",
+      "m90": "1,5 heure",
+      "m120": "2 heures"
+    },
+    "appearance": {
+      "title": "Apparence",
+      "description": "Contrôlez l'apparence de l'application."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Choisissez les mises à jour que vous souhaitez recevoir.",
+      "email": "Notifications par courriel",
+      "emailHint": "Recevez les mises à jour et alertes importantes par courriel",
+      "marketing": "Courriels promotionnels",
+      "marketingHint": "Recevez des nouvelles, des mises à jour et du contenu promotionnel"
+    },
+    "defaults": {
+      "title": "Valeurs par défaut de l'établissement",
+      "description": "Définissez les valeurs par défaut des nouvelles réservations. Elles sont stockées localement sur cet appareil.",
+      "duration": "Durée de réservation par défaut",
+      "partySize": "Taille du groupe par défaut",
+      "autoConfirm": "Confirmer les réservations automatiquement",
+      "autoConfirmHint": "Confirme les nouvelles réservations sans vérification manuelle"
+    },
+    "privacy": {
+      "title": "Données et confidentialité",
+      "description": "Gérez vos données et la confidentialité de votre compte.",
+      "exportTitle": "Exporter mes données",
+      "exportHint": "Téléchargez une copie de toutes vos données",
+      "export": "Exporter",
+      "deleteTitle": "Supprimer mon compte",
+      "deleteHint": "Communiquez avec le soutien pour supprimer votre compte",
+      "delete": "Supprimer"
+    },
+    "venue": {
+      "title": "Établissement",
+      "description": "Gérez les jours et les heures où votre établissement accepte les réservations.",
+      "operatingHours": "Heures d'ouverture"
+    },
+    "account": {
+      "title": "Compte",
+      "signedInAs": "Connecté en tant que",
+      "signOut": "Se déconnecter"
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "loading": "Chargement des utilisateurs...",
+    "management": "Gestion des utilisateurs",
+    "description": "Gérez les utilisateurs et les paramètres du système",
+    "loadError": "Impossible de charger les utilisateurs.",
+    "shown_one": "{{count}} utilisateur affiché",
+    "shown_many": "{{count}} d'utilisateurs affichés",
+    "shown_other": "{{count}} utilisateurs affichés",
+    "filter": {
+      "all": "Tous",
+      "verified": "Vérifiés",
+      "unverified": "Non vérifiés"
+    },
+    "detail": {
+      "userId": "ID d'utilisateur",
+      "created": "Créé",
+      "updated": "Mis à jour",
+      "theme": "Thème"
+    },
+    "stats": {
+      "total": "Total des utilisateurs",
+      "verified": "Vérifiés",
+      "newThisMonth": "Nouveaux ce mois-ci"
+    },
+    "search": {
+      "label": "Rechercher par nom ou courriel",
+      "placeholder": "Rechercher par nom ou courriel..."
+    },
+    "col": {
+      "user": "Utilisateur",
+      "email": "Courriel",
+      "status": "État",
+      "joined": "Inscription"
+    },
+    "row": {
+      "collapse": "Réduire les détails de {{name}}",
+      "expand": "Afficher les détails de {{name}}"
+    },
+    "empty": {
+      "filtered": "Aucun utilisateur ne correspond à vos filtres",
+      "none": "Aucun utilisateur trouvé"
+    }
+  },
+  "widgetDemo": {
+    "title": "Widget de réservation",
+    "loading": "Aperçu du widget de réservation intégrable",
+    "description": "Un aperçu de conception du widget de réservation intégrable. Vous pourrez bientôt l'intégrer à votre propre site.",
+    "comingSoon": "Bientôt disponible",
+    "banner": "Aperçu seulement : le widget de réservation intégrable n'est pas encore en ligne. Tout ce qui figure sur cette page est un aperçu de conception de ce qui s'en vient; il ne peut pas être ajouté à votre site Web aujourd'hui.",
+    "loadError": "Impossible de charger les établissements.",
+    "selectVenue": "Choisir un établissement",
+    "venue": "Établissement",
+    "venuePlaceholder": "Choisissez un établissement...",
+    "noVenues": "Aucun établissement trouvé. Créez d'abord un établissement dans le parcours d'accueil.",
+    "device": {
+      "desktop": "Ordinateur",
+      "tablet": "Tablette",
+      "mobile": "Mobile",
+      "fullWidth": "Pleine largeur"
+    },
+    "preview": {
+      "title": "Aperçu du widget",
+      "badge": "Aperçu",
+      "selectVenue": "Choisissez un établissement ci-dessus pour afficher l'aperçu du widget.",
+      "note": "Voici l'apparence et le comportement du widget pour vos clients. Vous pourrez bientôt l'intégrer à votre propre site."
+    },
+    "embed": {
+      "title": "Code d'intégration",
+      "alert": "L'intégration du widget de réservation s'en vient. L'extrait ci-dessous est un exemple de ce que vous ajouterez à votre site au lancement du widget; il n'est pas encore fonctionnel.",
+      "example": "Extrait d'exemple (pas encore fonctionnel)",
+      "note": "Le widget intégrable permettra à vos clients de réserver directement depuis votre site Web. Ses styles seront autonomes et n'entreront pas en conflit avec votre CSS existant."
+    },
+    "features": {
+      "title": "Fonctionnalités du widget",
+      "availability": {
+        "title": "Disponibilité en temps réel",
+        "description": "N'affiche que les créneaux disponibles selon les réservations actuelles et la capacité.",
+        "badge": "Essentiel"
+      },
+      "hold": {
+        "title": "Blocage de 10 minutes",
+        "description": "Les heures choisies sont bloquées pendant 10 minutes, le temps que le client termine sa réservation.",
+        "badge": "Intelligent"
+      },
+      "confirmation": {
+        "title": "Confirmation instantanée",
+        "description": "Les clients reçoivent immédiatement la confirmation avec les détails de leur réservation.",
+        "badge": "UX"
+      }
+    }
   }
 }

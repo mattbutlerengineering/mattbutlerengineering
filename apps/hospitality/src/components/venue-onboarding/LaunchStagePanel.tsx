@@ -12,6 +12,8 @@
  * itself composes.
  */
 import type { ReactNode } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { StatusLED, Progress, Text } from "@mattbutlerengineering/rialto";
 import type { StatusLEDProps } from "@mattbutlerengineering/rialto";
 import type { FloorPlanDraft } from "./floor-plan-draft.js";
@@ -25,13 +27,6 @@ export interface LaunchStagePanelProps {
   /** For the Venue row's detail lines. */
   venueName: string;
 }
-
-const STAGE_LABEL: Record<LaunchStageId, string> = {
-  venue: "Venue",
-  floorPlan: "Floor plan",
-  tables: "Tables",
-  activate: "Activate",
-};
 
 const LED_VARIANT: Record<LaunchStageState, NonNullable<StatusLEDProps["variant"]>> = {
   pending: "off",
@@ -49,36 +44,48 @@ interface DetailContext {
   done: number;
 }
 
-/** The row's visible detail line — verbatim copy from ux.md § Copy → Launch stages. */
-function detailFor(stage: LaunchStageId, state: LaunchStageState, ctx: DetailContext): ReactNode {
+/** The row's visible detail line — copy from ux.md § Copy → Launch stages, via the locale's catalog. */
+function detailFor(
+  t: TFunction,
+  stage: LaunchStageId,
+  state: LaunchStageState,
+  ctx: DetailContext
+): ReactNode {
   if (stage === "venue") {
     if (state === "pending") return EM_DASH;
-    if (state === "in-flight") return `Creating ${ctx.venueName}`;
-    if (state === "done") return `${ctx.venueName} created`;
-    return "Couldn't create the venue";
+    if (state === "in-flight") return t("onboarding.stagePanel.creating", { name: ctx.venueName });
+    if (state === "done") return t("onboarding.stagePanel.created", { name: ctx.venueName });
+    return t("onboarding.stagePanel.venueFailed");
   }
   if (stage === "floorPlan") {
     if (state === "pending") return EM_DASH;
-    if (state === "in-flight") return `Creating ${ctx.planName}`;
-    if (state === "done") return `${ctx.planName} created`;
-    return "Couldn't create the floor plan";
+    if (state === "in-flight") return t("onboarding.stagePanel.creating", { name: ctx.planName });
+    if (state === "done") return t("onboarding.stagePanel.created", { name: ctx.planName });
+    return t("onboarding.stagePanel.planFailed");
   }
   if (stage === "tables") {
-    if (state === "pending") return `${ctx.total} to place`;
-    if (state === "done") return `${ctx.total} tables placed`;
-    const k = ctx.done + 1;
+    if (state === "pending") return t("onboarding.stagePanel.toPlace", { count: ctx.total });
+    if (state === "done") return t("onboarding.stagePanel.placed", { count: ctx.total });
     const counter = (
       <Text variant="detail" aria-hidden="true" data-testid="tables-counter">
-        {k} of {ctx.total}
+        {t("onboarding.stagePanel.counter", { current: ctx.done + 1, total: ctx.total })}
       </Text>
     );
-    return state === "in-flight" ? <>Placing table {counter}</> : <>Stopped at table {counter}</>;
+    const lead =
+      state === "in-flight"
+        ? t("onboarding.stagePanel.placing")
+        : t("onboarding.stagePanel.stoppedAt");
+    return (
+      <>
+        {lead} {counter}
+      </>
+    );
   }
   // activate
   if (state === "pending") return EM_DASH;
-  if (state === "in-flight") return "Making the plan live";
-  if (state === "done") return "Live";
-  return "Couldn't make the plan live";
+  if (state === "in-flight") return t("onboarding.stagePanel.activating");
+  if (state === "done") return t("onboarding.stagePanel.live");
+  return t("onboarding.stagePanel.activateFailed");
 }
 
 /**
@@ -89,20 +96,23 @@ function detailFor(stage: LaunchStageId, state: LaunchStageState, ctx: DetailCon
  * not per table" (ux.md S6/S7).
  */
 function announcementFor(
+  t: TFunction,
   progress: LaunchProgress,
   stages: readonly LaunchStageId[],
   ctx: DetailContext
 ): string {
   const activeStage = progress.failedStage ?? progress.inFlightStage;
   if (activeStage === "tables") {
-    return progress.failedStage === "tables" ? "Stopped placing tables" : "Placing tables";
+    return progress.failedStage === "tables"
+      ? t("onboarding.stagePanel.announceStopped")
+      : t("onboarding.stagePanel.announcePlacing");
   }
   if (activeStage !== null) {
-    const text = detailFor(activeStage, stageStateOf(progress, activeStage), ctx);
+    const text = detailFor(t, activeStage, stageStateOf(progress, activeStage), ctx);
     return typeof text === "string" ? text : "";
   }
   const complete = stages.every((stage) => stageStateOf(progress, stage) === "done");
-  return complete ? "Live" : "";
+  return complete ? t("onboarding.stagePanel.live") : "";
 }
 
 function grooveClass(precedingState: LaunchStageState): string {
@@ -112,6 +122,7 @@ function grooveClass(precedingState: LaunchStageState): string {
 }
 
 export function LaunchStagePanel({ progress, draft, venueName }: LaunchStagePanelProps) {
+  const { t } = useTranslation();
   const stages = stagesFor(draft);
   const ctx: DetailContext = {
     venueName,
@@ -122,9 +133,9 @@ export function LaunchStagePanel({ progress, draft, venueName }: LaunchStagePane
   const tablesPercent = ctx.total > 0 ? Math.round((ctx.done / ctx.total) * 100) : 0;
 
   return (
-    <section className={styles.panel} aria-label="Launch progress">
+    <section className={styles.panel} aria-label={t("onboarding.stagePanel.label")}>
       <Text className={styles.srOnly} variant="detail" aria-live="polite">
-        {announcementFor(progress, stages, ctx)}
+        {announcementFor(t, progress, stages, ctx)}
       </Text>
       <ol className={styles.rows}>
         {stages.map((stage, index) => {
@@ -143,10 +154,10 @@ export function LaunchStagePanel({ progress, draft, venueName }: LaunchStagePane
               </div>
               <div className={styles.rowBody}>
                 <Text className={styles.label} variant="detail">
-                  {STAGE_LABEL[stage]}
+                  {t(`onboarding.launch.stages.${stage}`)}
                 </Text>
                 <Text className={styles.detail} variant="detail">
-                  {detailFor(stage, state, ctx)}
+                  {detailFor(t, stage, state, ctx)}
                 </Text>
                 {showProgress && (
                   <Progress
@@ -154,7 +165,9 @@ export function LaunchStagePanel({ progress, draft, venueName }: LaunchStagePane
                     value={tablesPercent}
                     showValue
                     aria-hidden="true"
-                    aria-label={`${STAGE_LABEL[stage]} progress`}
+                    aria-label={t("onboarding.stagePanel.progress", {
+                      stage: t(`onboarding.launch.stages.${stage}`),
+                    })}
                   />
                 )}
               </div>

@@ -1,5 +1,5 @@
 {
-  "version": "0.6.1",
+  "version": "0.6.5",
   "components": [
     {
       "name": "Accordion",
@@ -2090,6 +2090,12 @@
           "type": "(() => void) | undefined",
           "required": false,
           "description": "Called when the user clicks the theme toggle."
+        },
+        {
+          "name": "labels",
+          "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\", string>> | undefined",
+          "required": false,
+          "description": "Link labels per app, for consumers that localize them. Omitted apps keep the English defaults."
         }
       ],
       "slots": []
@@ -3016,6 +3022,12 @@
           "description": "Breadcrumb trail rendered above the title."
         },
         {
+          "name": "breadcrumbLabel",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name of the breadcrumb `<nav>`. Give each header on a page its own\nname when more than one renders, so the landmarks stay unique."
+        },
+        {
           "name": "actions",
           "type": "ReactNode",
           "required": false,
@@ -3065,6 +3077,12 @@
           "name": "className",
           "type": "string | undefined",
           "required": false
+        },
+        {
+          "name": "ariaLabel",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name for the nav landmark. Defaults to the locale's \"Pagination\" label — override\nthis when a page renders more than one Pagination instance, since axe's\nlandmark-unique rule requires each nav landmark on a page to have a\ndistinct accessible name."
         }
       ],
       "slots": []

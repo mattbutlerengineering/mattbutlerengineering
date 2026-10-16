@@ -40,30 +40,35 @@ const WORKFLOW_PATHS = [
  * see that PR's body for the full tradeoff.
  */
 describe("hospitality e2e workflow coverage", () => {
-  it("offline-shell.spec.ts exists in e2e/", () => {
+  const AUTO_DISCOVERED_SPECS = ["offline-shell.spec.ts", "locale-sweep.spec.ts"];
+
+  it.each(AUTO_DISCOVERED_SPECS)("%s exists in e2e/", (spec) => {
     const specs = readdirSync(__dirname).filter((f) => f.endsWith(".spec.ts"));
-    expect(specs).toContain("offline-shell.spec.ts");
+    expect(specs).toContain(spec);
   });
 
-  it("offline-shell.spec.ts is not excluded by playwright.config.ts's testIgnore", () => {
-    const config = readFileSync(CONFIG_PATH, "utf8");
-    const testIgnoreMatch = config.match(/testIgnore:\s*\[([^\]]*)\]/);
-    expect(
-      testIgnoreMatch,
-      "playwright.config.ts must declare testIgnore as an array literal for this check to parse it"
-    ).not.toBeNull();
+  it.each(AUTO_DISCOVERED_SPECS)(
+    "%s is not excluded by playwright.config.ts's testIgnore",
+    (spec) => {
+      const config = readFileSync(CONFIG_PATH, "utf8");
+      const testIgnoreMatch = config.match(/testIgnore:\s*\[([^\]]*)\]/);
+      expect(
+        testIgnoreMatch,
+        "playwright.config.ts must declare testIgnore as an array literal for this check to parse it"
+      ).not.toBeNull();
 
-    const patterns = (testIgnoreMatch?.[1] ?? "")
-      .split(",")
-      .map((p) => p.trim().replace(/^["']|["']$/g, ""))
-      .filter(Boolean);
+      const patterns = (testIgnoreMatch?.[1] ?? "")
+        .split(",")
+        .map((p) => p.trim().replace(/^["']|["']$/g, ""))
+        .filter(Boolean);
 
-    const globToRegExp = (glob: string): RegExp =>
-      new RegExp(`^${glob.replace(/\*\*/g, ".*").replace(/(?<!\.)\*/g, "[^/]*")}$`);
+      const globToRegExp = (glob: string): RegExp =>
+        new RegExp(`^${glob.replace(/\*\*/g, ".*").replace(/(?<!\.)\*/g, "[^/]*")}$`);
 
-    const excluded = patterns.some((glob) => globToRegExp(glob).test("e2e/offline-shell.spec.ts"));
-    expect(excluded).toBe(false);
-  });
+      const excluded = patterns.some((glob) => globToRegExp(glob).test(`e2e/${spec}`));
+      expect(excluded).toBe(false);
+    }
+  );
 
   it("every hospitality e2e workflow step runs the bare test:e2e script, not a narrowed file list", () => {
     for (const workflowPath of WORKFLOW_PATHS) {

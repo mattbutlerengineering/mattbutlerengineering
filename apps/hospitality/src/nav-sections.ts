@@ -3,8 +3,13 @@
  *
  * Each section groups related pages. Items without a section label
  * are top-level navigation (no collapsible header).
+ *
+ * Labels are resolved through the caller's `t` (default: the dashboard's
+ * runtime) so the sidebar and command palette follow the active locale.
  */
 
+import type { TFunction } from "i18next";
+import { localeRuntime } from "./i18n/runtime.js";
 import type { NavAction } from "./nav-actions.js";
 import type { VenueReadiness, SetupStep } from "./hooks/useVenueReadiness.js";
 
@@ -19,36 +24,62 @@ export interface NavItem {
 }
 
 export interface NavSection {
+  /**
+   * Locale-independent identity (collapse state is persisted under it, so a
+   * language switch doesn't reset it). Falls back to `label` when absent.
+   */
+  id?: string;
   label?: string;
   items: NavItem[];
 }
 
+/** Section ids — the en-US labels, which is what collapse state was first persisted under. */
+export const ACCOUNT_SECTION_ID = "Account";
+
+const defaultT = (): TFunction => localeRuntime.i18n.t;
+
 /* ── Account ────────────────────────────────── */
 
-const ACCOUNT: NavSection = {
-  label: "Account",
-  items: [
-    { id: "profile", label: "Profile", action: { type: "route", path: "/profile" } },
-    { id: "settings", label: "Settings", action: { type: "route", path: "/settings" } },
-  ],
-};
+function buildAccount(t: TFunction): NavSection {
+  return {
+    id: ACCOUNT_SECTION_ID,
+    label: t("nav.sections.account"),
+    items: [
+      { id: "profile", label: t("nav.items.profile"), action: { type: "route", path: "/profile" } },
+      {
+        id: "settings",
+        label: t("nav.items.settings"),
+        action: { type: "route", path: "/settings" },
+      },
+    ],
+  };
+}
 
 /* ── Admin ──────────────────────────────────── */
 
-const ADMIN: NavSection = {
-  label: "Admin",
-  items: [{ id: "admin", label: "Users", action: { type: "route", path: "/admin" } }],
-};
+function buildAdmin(t: TFunction): NavSection {
+  return {
+    id: "Admin",
+    label: t("nav.sections.admin"),
+    items: [
+      { id: "admin", label: t("nav.items.users"), action: { type: "route", path: "/admin" } },
+    ],
+  };
+}
 
 /* ── Setup nav sections ─────────────────────── */
 
-function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readonly NavSection[] {
+function buildSetupSections(
+  readiness: VenueReadiness,
+  isAdmin: boolean,
+  t: TFunction
+): readonly NavSection[] {
   const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
 
   const STEP_LABELS: Record<SetupStep, string> = {
-    onboarding: "Venue Basics",
-    "operating-hours": "Set Operating Hours",
-    "floor-plan": "Create Floor Plan",
+    onboarding: t("nav.items.venueBasics"),
+    "operating-hours": t("nav.items.setOperatingHours"),
+    "floor-plan": t("nav.items.createFloorPlan"),
   };
 
   const STEP_PATHS: Record<SetupStep, string> = {
@@ -72,54 +103,57 @@ function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readon
   });
 
   const setupSection: NavSection = {
-    label: "Get Started",
+    id: "Get Started",
+    label: t("nav.sections.getStarted"),
     items,
   };
 
-  return isAdmin ? [setupSection, ACCOUNT, ADMIN] : [setupSection, ACCOUNT];
+  const account = buildAccount(t);
+  return isAdmin ? [setupSection, account, buildAdmin(t)] : [setupSection, account];
 }
 
 /* ── Operational nav sections ───────────────── */
 
-function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
+function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavSection[] {
+  const route = (id: string, label: string, path: string): NavItem => ({
+    id,
+    label,
+    action: { type: "route", path },
+  });
+
   const PRIMARY: NavSection = {
     items: [
-      { id: "briefing", label: "Tonight's Service", action: { type: "route", path: "/briefing" } },
-      { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
-      {
-        id: "reservations",
-        label: "Reservations",
-        action: { type: "route", path: "/reservations" },
-      },
-      { id: "waitlist", label: "Waitlist", action: { type: "route", path: "/waitlist" } },
-      { id: "guests", label: "Guests", action: { type: "route", path: "/guests" } },
-      { id: "home", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
+      route("briefing", t("nav.items.tonightsService"), "/briefing"),
+      route("timeline", t("nav.items.timeline"), "/timeline"),
+      route("reservations", t("nav.items.reservations"), "/reservations"),
+      route("waitlist", t("nav.items.waitlist"), "/waitlist"),
+      route("guests", t("nav.items.guests"), "/guests"),
+      route("home", t("nav.items.dashboard"), "/dashboard"),
     ],
   };
 
   const MANAGE: NavSection = {
-    label: "Manage",
+    id: "Manage",
+    label: t("nav.sections.manage"),
     items: [
-      { id: "floor-plans", label: "Floor Plans", action: { type: "route", path: "/floor-plans" } },
-      {
-        id: "booking-widget",
-        label: "Booking Widget",
-        action: { type: "route", path: "/booking-widget" },
-      },
+      route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+      route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
     ],
   };
 
-  return isAdmin ? [PRIMARY, MANAGE, ACCOUNT, ADMIN] : [PRIMARY, MANAGE, ACCOUNT];
+  const account = buildAccount(t);
+  return isAdmin ? [PRIMARY, MANAGE, account, buildAdmin(t)] : [PRIMARY, MANAGE, account];
 }
 
 /* ── Public API ─────────────────────────────── */
 
 export function buildNavSections(
   readiness: VenueReadiness,
-  isAdmin: boolean
+  isAdmin: boolean,
+  t: TFunction = defaultT()
 ): readonly NavSection[] {
   if (readiness.status !== "operational") {
-    return buildSetupSections(readiness, isAdmin);
+    return buildSetupSections(readiness, isAdmin, t);
   }
-  return buildOperationalSections(isAdmin);
+  return buildOperationalSections(isAdmin, t);
 }

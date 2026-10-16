@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useId, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Plus } from "lucide-react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./ImageUpload.module.css";
@@ -84,6 +85,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
     },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
     const autoId = useId();
     const inputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
@@ -95,18 +97,16 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
     const validate = useCallback(
       (file: File): boolean => {
         if (maxSize && file.size > maxSize) {
-          onValidationError?.(
-            `File exceeds maximum size of ${formatBytes(maxSize)} — this file is ${formatBytes(file.size)}`
-          );
+          onValidationError?.(messages.fileTooLarge(formatBytes(maxSize), formatBytes(file.size)));
           return false;
         }
         if (accept && !matchesAccept(file, accept)) {
-          onValidationError?.(`File type not accepted. Accepted: ${accept}`);
+          onValidationError?.(messages.fileTypeNotAccepted(accept));
           return false;
         }
         return true;
       },
-      [accept, maxSize, onValidationError]
+      [accept, maxSize, messages, onValidationError]
     );
 
     const handleFile = useCallback(
@@ -193,7 +193,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
           className={tileClass}
           role="button"
           tabIndex={disabled ? -1 : 0}
-          aria-label={label ?? "Upload image"}
+          aria-label={label ?? messages.uploadImage}
           aria-describedby={error ? `${autoId}-error` : undefined}
           aria-disabled={disabled || undefined}
           onClick={hasPreview ? undefined : openPicker}
@@ -215,7 +215,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
               <img
                 className={styles.preview}
                 src={value}
-                alt={label ?? "Uploaded image"}
+                alt={label ?? messages.uploadedImage}
                 width="100%"
                 height="100%"
                 style={isUploading ? { opacity: 0.5 } : undefined}
@@ -228,7 +228,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
                     aria-valuenow={progress}
                     aria-valuemin={0}
                     aria-valuemax={100}
-                    aria-label="Upload progress"
+                    aria-label={messages.uploadProgress}
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -238,7 +238,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
                   className={styles.checkmark}
                   role="status"
                   aria-live="polite"
-                  aria-label="Upload complete"
+                  aria-label={messages.uploadComplete}
                 >
                   <Check size={14} aria-hidden="true" />
                 </span>
@@ -250,7 +250,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
                   onClick={handleReplace}
                   tabIndex={0}
                 >
-                  Replace
+                  {messages.replaceImage}
                 </button>
               )}
             </>
@@ -259,7 +259,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
               <div className={styles.addIcon}>
                 <Plus size={20} aria-hidden="true" />
               </div>
-              <span className={styles.addLabel}>Add image</span>
+              <span className={styles.addLabel}>{messages.addImage}</span>
             </div>
           )}
           {error && !hasPreview && (

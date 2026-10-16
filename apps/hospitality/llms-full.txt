@@ -1,4 +1,12 @@
 <codebase path="apps/hospitality">
+  <section priority="medium" role="LocalePicker">
+  <file path="src/components/LocalePicker/machine-translation-tags.ts">
+    export const MACHINE_TRANSLATION_TAGS: Readonly<Partial<Record<LocaleTag, string>>> = {
+      "es-MX": "Traducción autom.",
+      "fr-CA": "Traduction autom.",
+    };
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">
     export interface EffectiveDepositPolicyParams {
@@ -40,18 +48,38 @@
     }
   </file>
   <file path="src/components/booking-widget/formatDepositCancellationTerms.ts">
-    export function formatDepositCancellationTerms(
+    type FreeWindow = Extract<CancellationPolicyDescription, { kind: "free-window" }>;
+    export function describeDepositCancellation(
       config: DepositConfig | null,
       partySize: number
-    ): string | null {
+    ): FreeWindow | null {
       if (!config || config.freeCancellationHours == null) return null;
-      const policy: CancellationPolicy = {
+      const description = describeCancellationPolicy({
         depositAmountCents: quoteDeposit(config, partySize),
         freeCancellationHours: config.freeCancellationHours,
         lateCancellationFeePercent: config.lateCancellationFeePercent,
         noShowFeePercent: config.noShowFeePercent,
-      };
-      return formatCancellationTerms(policy, config.currency);
+      });
+      return description.kind === "free-window" ? description : null;
+    }
+    export function useDepositCancellationTerms(
+      config: DepositConfig | null,
+      partySize: number
+    ): string | null {
+      const { t } = useTranslation();
+      const { formatMoney } = useVenueFormat({
+        ianaTimezone: "",
+        currencyCode: config?.currency ?? "usd",
+      });
+      const terms = describeDepositCancellation(config, partySize);
+      if (!terms) return null;
+      return t("bookingWidget.cancellationTerms", {
+        count: terms.freeHours,
+        lateFeePercent: terms.lateFeePercent,
+        lateFee: formatMoney(terms.lateFeeAmountCents),
+        noShowFeePercent: terms.noShowFeePercent,
+        noShowFee: formatMoney(terms.noShowFeeAmountCents),
+      });
     }
   </file>
   <file path="src/components/booking-widget/hasOperatingHours.ts">
@@ -144,7 +172,7 @@
       | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
       | { type: "CONFIRM_ERROR"; error: string }
       | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
-      | { type: "EXPIRE_HOLD" }
+      | { type: "EXPIRE_HOLD"; error: string }
       | { type: "RESET"; selectedDate: string }
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
       | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
@@ -157,8 +185,7 @@
         data: { ...INITIAL_DATA, selectedDate: venueDate(new Date(), venueTimezone) },
       };
     }
-    export const MISSING_VENUE_SLUG_ERROR =
-      "Online booking isn't available here. Please contact the venue directly to reserve.";
+    export const MISSING_VENUE_SLUG_ERROR = enUS.bookingWidget.errors.missingVenueSlug;
     export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
     export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
       "date-party",
@@ -300,7 +327,7 @@
             data: {
               ...state.data,
               hold: null,
-              holdError: "Your hold has expired. Please select a new time.",
+              holdError: action.error,
               slotsLoading: true,
             },
           };
@@ -410,6 +437,9 @@
       venueTimezone,
     }: UseBookingFlowDeps): BookingFlowResult {
       const [flowState, dispatch] = useReducer(reducer, venueTimezone, createInitialState);
+      // The i18n instance is stable, so callbacks reading it don't churn on a
+      // language switch; each message is resolved in the locale active when it fires.
+      const { i18n } = useTranslation();
     
       // Ref pattern (see hospitality app conventions) — onHoldChange is commonly
       // passed as a fresh inline arrow on every render; reading it through a ref
@@ -527,7 +557,7 @@
         }
         dispatch({ type: "GO_TO_TIME_SLOT" });
         if (!venueSlug) {
-          dispatch({ type: "SET_SLOTS_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+          dispatch({ type: "SET_SLOTS_ERROR", error: i18n.t("bookingWidget.errors.missingVenueSlug") });
           return;
         }
         fetchSlots()
@@ -535,7 +565,7 @@
           .catch((err: unknown) => {
             dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
           });
-      }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug]);
+      }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug, i18n]);
     
       const goToDateParty = useCallback(() => {
         const holdId = flowState.data.hold?.id;
@@ -550,7 +580,7 @@
           if (!flowState.data.selectedDate) return;
           dispatch({ type: "HOLD_START", slot });
           if (!venueSlug) {
-            dispatch({ type: "HOLD_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+            dispatch({ type: "HOLD_ERROR", error: i18n.t("bookingWidget.errors.missingVenueSlug") });
             return;
           }
           try {
@@ -567,7 +597,7 @@
             dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
           }
         },
-        [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]
+        [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize, i18n]
       );
     
       const confirmReservation = useCallback(
@@ -668,17 +698,20 @@
     
         const interval = setInterval(() => {
           if (new Date() >= new Date(capturedHold.expiresAt)) {
-            dispatch({ type: "EXPIRE_HOLD" });
+            dispatch({ type: "EXPIRE_HOLD", error: i18n.t("bookingWidget.errors.holdExpired") });
             fetchSlots()
               .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
               .catch(() =>
-                dispatch({ type: "SET_SLOTS_ERROR", error: "Failed to reload availability" })
+                dispatch({
+                  type: "SET_SLOTS_ERROR",
+                  error: i18n.t("bookingWidget.errors.reloadFailed"),
+                })
               );
           }
         }, 1000);
     
         return () => clearInterval(interval);
-      }, [flowState.data.hold, fetchSlots]);
+      }, [flowState.data.hold, fetchSlots, i18n]);
     
       // Notifies onHoldChange whenever the "releasable" hold changes. The reducer
       // clears `data.hold` once it becomes a reservation, so any hold left is
@@ -761,9 +794,6 @@
       acknowledgement,
       hostCaption: `Guests see this with: “${acknowledgement}”`,
     });
-    export function contactLine(contact: string): string {
-      return `No confirmation email or text is sent for this booking, so save these details. The venue has ${contact} on your reservation.`;
-    }
   </file>
   <file path="src/constants/copilotContext.ts">
     export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
@@ -789,46 +819,69 @@
     };
   </file>
   <file path="src/constants/session-lapse-copy.ts">
-    export const SESSION_LAPSE_COPY = Object.freeze({
-      heading: "Your session ended",
-      body: "Sign back in to pick up where you left off — this page is preserved.",
-      refreshFailedLead: "Your session couldn't renew and will end soon.",
-      action: "Sign back in",
-      actionBusy: "Heading to sign-in",
-    });
+    export function getSessionLapseCopy(t: TFunction) {
+      return Object.freeze({
+        heading: t("auth.sessionLapse.heading"),
+        body: t("auth.sessionLapse.body"),
+        refreshFailedLead: t("auth.sessionLapse.refreshFailedLead"),
+        action: t("auth.sessionLapse.action"),
+        actionBusy: t("auth.sessionLapse.actionBusy"),
+      });
+    }
+  </file>
+  </section>
+  <section priority="medium" role="contexts">
+  <file path="src/contexts/venue-context-object.ts">
+    export interface VenueContextValue {
+      venues: readonly Venue[];
+      selectedVenueId: string | null;
+      selectedVenue: Venue | null;
+      setVenueId: (id: string) => void;
+      isLoading: boolean;
+      /** Set when the venues fetch failed — distinct from an operator who genuinely has no venues. */
+      venuesError: Error | null;
+      isMultiVenue: boolean;
+      refetchVenues: () => Promise<void>;
+    }
+    export const VenueContext = createContext<VenueContextValue | null>(null);
+    export function useOptionalVenue(): VenueContextValue | null {
+      return useContext(VenueContext);
+    }
   </file>
   </section>
   <section priority="medium" role="crm">
   <file path="src/components/crm/guest-lookup-rows.ts">
     export type GuestLookupMode = "linked" | "recognised";
-    function plural(count: number, noun: string): string {
-      return `${count} ${noun}${count === 1 ? "" : "s"}`;
+    export function visitsSentence(visitCount: number, t: TFunction = defaultT): string {
+      return visitCount > 0 ? t("crm.visit", { count: visitCount }) : t("crm.noVisits");
     }
-    export function visitsSentence(visitCount: number): string {
-      return visitCount > 0 ? plural(visitCount, "visit") : ZERO_VISITS;
+    export function noShowsSentence(noShowCount: number, t: TFunction = defaultT): string | null {
+      return noShowCount > 0 ? t("crm.noShow", { count: noShowCount }) : null;
     }
-    export function noShowsSentence(noShowCount: number): string | null {
-      return noShowCount > 0 ? plural(noShowCount, "no-show") : null;
-    }
-    export function formatGuestRowDetail(guest: Guest): string {
+    export function formatGuestRowDetail(guest: Guest, t: TFunction = defaultT): string {
       const contacts = [guest.phone, guest.email].filter((part): part is string => Boolean(part));
-      if (contacts.length === 0 && guest.visitCount === 0) return "no contact on file";
-      const visits = guest.visitCount > 0 ? [plural(guest.visitCount, "visit")] : [];
+      if (contacts.length === 0 && guest.visitCount === 0) return t("crm.noContact");
+      const visits = guest.visitCount > 0 ? [t("crm.visit", { count: guest.visitCount })] : [];
       return [...contacts, ...visits].join(" · ");
     }
-    export function stripTitle(mode: GuestLookupMode, name: string): string {
-      return mode === "linked" ? `Using ${name}'s profile` : `Recognised ${name}`;
+    export function stripTitle(mode: GuestLookupMode, name: string, t: TFunction = defaultT): string {
+      return mode === "linked" ? t("crm.stripLinked", { name }) : t("crm.stripRecognised", { name });
     }
-    export function pickAnnouncement(mode: GuestLookupMode, guest: Guest): string {
+    export function pickAnnouncement(
+      mode: GuestLookupMode,
+      guest: Guest,
+      t: TFunction = defaultT
+    ): string {
       const history = [
-        guest.visitCount > 0 ? plural(guest.visitCount, "visit") : ZERO_VISITS.toLowerCase(),
-        noShowsSentence(guest.noShowCount),
+        guest.visitCount > 0 ? t("crm.visit", { count: guest.visitCount }) : t("crm.noVisitsInline"),
+        noShowsSentence(guest.noShowCount, t),
       ]
         .filter((part) => part !== null)
         .join(", ");
       const allergies = (guest.dietaryRestrictions ?? []).filter(isAllergyTag);
-      const allergyClause = allergies.length > 0 ? ` Allergy: ${allergies.join(", ")}.` : "";
-      return `${stripTitle(mode, guest.name)} — ${history}.${allergyClause}`;
+      const allergyClause =
+        allergies.length > 0 ? ` ${t("crm.allergyList", { list: allergies.join(", ") })}` : "";
+      return `${stripTitle(mode, guest.name, t)} — ${history}.${allergyClause}`;
     }
   </file>
   <file path="src/components/crm/guest-prefill.ts">
@@ -890,10 +943,16 @@
       if (score === "standard") return "warning";
       return "neutral";
     }
-    export function getRiskLabel(score: GuestRiskScore): string {
-      if (score === "risky") return "Risky";
-      if (score === "standard") return "Standard";
-      return "Trusted";
+    export function segmentText(label: string, t: TFunction = defaultT): string {
+      if (label === "VIP") return t("crm.segment.VIP");
+      if (label === "Repeat") return t("crm.segment.Repeat");
+      if (label === "New") return t("crm.segment.New");
+      return label;
+    }
+    export function riskText(score: GuestRiskScore, t: TFunction = defaultT): string {
+      if (score === "risky") return t("crm.risk.risky");
+      if (score === "standard") return t("crm.risk.standard");
+      return t("crm.risk.trusted");
     }
   </file>
   </section>
@@ -2227,12 +2286,35 @@
       }
     }
   </file>
+  <file path="src/hooks/live-reservation-toast.ts">
+    export type LiveToastEvent = "reservation:created" | "reservation:cancelled";
+    export function liveReservationToast(
+      type: LiveToastEvent,
+      reservation: Reservation,
+      t: TFunction,
+      formatTime: (iso: string) => string
+    ): { title: string; description: string } {
+      const name = reservation.guestName ?? t("reservations.guestFallback");
+      if (type === "reservation:created") {
+        return {
+          title: t("reservations.live.createdTitle"),
+          description: t("reservations.live.createdDescription", {
+            name,
+            time: formatTime(reservation.startTime),
+          }),
+        };
+      }
+      return {
+        title: t("reservations.live.cancelledTitle"),
+        description: t("reservations.live.cancelledDescription", { name }),
+      };
+    }
+  </file>
   <file path="src/hooks/sse-query-keys.ts">
     export const SSE_INVALIDATION_QUERY_KEYS = [
       RESERVATIONS_QUERY_KEY,
       TABLES_QUERY_KEY,
       FLOOR_PLANS_QUERY_KEY,
-      FLOOR_PLAN_QUERY_KEY,
       LAPSING_GUESTS_QUERY_KEY,
     ] as const satisfies readonly SseQueryKey[];
   </file>
@@ -2517,16 +2599,22 @@
       /** ISO currency code used to format the label (e.g. "usd"). */
       currency: string;
     }
-    function buildFeeLabel(fee: CancellationFeeResult, currency: string): string {
-      const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency);
-      const refundAmount = formatCurrencyFromCents(fee.refundAmountCents, currency);
+    function buildFeeLabel(
+      fee: CancellationFeeResult,
+      currency: string,
+      locale: string = localeRuntime.i18n.language
+    ): string {
+      const t =
+        locale === localeRuntime.i18n.language ? defaultT : localeRuntime.i18n.getFixedT(locale);
+      const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency, locale);
+      const refund = formatCurrencyFromCents(fee.refundAmountCents, currency, locale);
       switch (fee.feeType) {
         case "none":
-          return `No cancellation fee — full refund of ${refundAmount}`;
+          return t("timeline.cancel.fee.none", { refund });
         case "late":
-          return `Late cancellation fee: ${feeAmount} — refund ${refundAmount}`;
+          return t("timeline.cancel.fee.late", { fee: feeAmount, refund });
         case "noshow":
-          return `No-show fee: ${feeAmount} forfeited — refund ${refundAmount}`;
+          return t("timeline.cancel.fee.noshow", { fee: feeAmount, refund });
       }
     }
     export type CancellationInitiator = "staff" | "guest";
@@ -2551,7 +2639,7 @@
     }
     export function withQuotedFeeNote(note: string, quote: CancellationQuote | null): string {
       if (!quote || quote.fee.feeType === "none") return note;
-      const audit = `Quoted at cancellation: ${quote.label}`;
+      const audit = `Quoted at cancellation: ${buildFeeLabel(quote.fee, quote.currency, AUDIT_LOCALE)}`;
       return note ? `${note}\n${audit}` : audit;
     }
     export interface UseCancellationQuoteParams {
@@ -3648,13 +3736,7 @@
       cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
       updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
       markNoShow: (id: string) => Promise<{ reservation: Reservation; warning?: string }>;
-      createWalkIn: (data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestName?: string;
-        guestId?: string;
-      }) => Promise<Reservation>;
+      createWalkIn: (data: WalkInRequest) => Promise<Reservation>;
       updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
     }
     export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTimelineDataResult {
@@ -3769,13 +3851,7 @@
         return result;
       };
     
-      const createWalkIn = async (data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestName?: string;
-        guestId?: string;
-      }): Promise<Reservation> => {
+      const createWalkIn = async (data: WalkInRequest): Promise<Reservation> => {
         const created = await api.reservations.walkIn(data);
         invalidateAll();
         return created;
@@ -3973,6 +4049,55 @@
         error: result.error,
         refetch: result.refetch,
       };
+    }
+  </file>
+  <file path="src/hooks/useVenueFormat.ts">
+    export interface VenueFormatSource {
+      readonly ianaTimezone: string;
+      readonly currencyCode: string;
+    }
+    export interface VenueFormat {
+      readonly locale: string;
+      readonly timeZone: string;
+      readonly currency: string;
+      /** Venue-clock time from an ISO instant. */
+      formatTime(isoString: string): string;
+      /** Cents in the venue's currency. */
+      formatMoney(amountCents: number): string;
+      formatLongDate(dateStr: string): string;
+      formatLongDateWithYear(dateStr: string): string;
+      formatServiceDate(dateStr: string): string;
+      formatShortDate(dateStr: string): string;
+      /** Any instant with caller-chosen `Intl` fields, on the venue clock. */
+      formatInstant(value: string | number | Date, options: Intl.DateTimeFormatOptions): string;
+      /** A calendar date (`YYYY-MM-DD`) with caller-chosen fields, never zone-shifted. */
+      formatCalendarDate(dateStr: string, options: Intl.DateTimeFormatOptions): string;
+      /** Venue-local "HH:MM" wall-clock string (an opening hour, not an instant). */
+      formatLocalTime(hhmm: string): string;
+    }
+    export function useVenueFormat(venue?: VenueFormatSource | null): VenueFormat {
+      const { i18n } = useTranslation();
+      const selected = useOptionalVenue()?.selectedVenue;
+      const locale = i18n.language;
+      const { ianaTimezone: timeZone, currencyCode: currency } = venue ?? selected ?? NO_VENUE;
+    
+      return useMemo(
+        () => ({
+          locale,
+          timeZone,
+          currency,
+          formatTime: (iso) => formatTimeIn(iso, timeZone, locale),
+          formatMoney: (cents) => formatCurrencyFromCents(cents, currency, locale),
+          formatLongDate: (d) => formatLongDate(d, locale),
+          formatLongDateWithYear: (d) => formatLongDateWithYear(d, locale),
+          formatServiceDate: (d) => formatServiceDate(d, locale),
+          formatShortDate: (d) => formatShortDate(d, locale),
+          formatInstant: (value, options) => formatInstant(value, options, locale, timeZone),
+          formatCalendarDate: (dateStr, options) => formatCalendarDate(dateStr, options, locale),
+          formatLocalTime: (hhmm) => formatLocalTime(hhmm, locale),
+        }),
+        [locale, timeZone, currency]
+      );
     }
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
@@ -4191,6 +4316,9 @@
   </file>
   </section>
   <section priority="medium" role="i18n">
+  <file path="src/i18n/default-t.ts">
+    export const defaultT: TFunction = localeRuntime.i18n.t.bind(localeRuntime.i18n);
+  </file>
   <file path="src/i18n/locales.ts">
     export type LocaleTag = "en-US" | "en-GB" | "es-MX" | "fr-CA";
     export interface SupportedLocale {
@@ -4240,6 +4368,16 @@
         if (match) return match;
       }
       return DEFAULT_LOCALE;
+    }
+  </file>
+  <file path="src/i18n/ordinal-visit.ts">
+    type OrdinalCategory = "one" | "two" | "few" | "other";
+    function ordinalCategory(language: string, n: number): OrdinalCategory {
+      const category = new Intl.PluralRules(language, { type: "ordinal" }).select(n);
+      return category === "one" || category === "two" || category === "few" ? category : "other";
+    }
+    export function ordinalVisitLabel(t: TFunction, language: string, n: number): string {
+      return t(`reservations.visitOrdinal.${ordinalCategory(language, n)}`, { count: n });
     }
   </file>
   <file path="src/i18n/typed-keys.typecheck.ts">
@@ -4690,36 +4828,39 @@
       const code = (error as Error & { error?: unknown }).error;
       return typeof code === "string" ? code : "";
     }
-    export function describeAuthError(error: Error): AuthErrorDescription {
+    export function describeAuthError(
+      error: Error,
+      t: TFunction = localeRuntime.i18n.t
+    ): AuthErrorDescription {
       const haystack = `${oidcErrorCode(error)} ${error.message}`;
     
       if (ACCESS_DENIED_PATTERN.test(haystack)) {
         return {
-          title: "Access denied",
-          body: "Your account doesn't have access to Hospitality. Contact your administrator if you think this is a mistake.",
+          title: t("auth.error.accessDenied.title"),
+          body: t("auth.error.accessDenied.body"),
           canRetry: false,
         };
       }
     
       if (EXPIRED_FLOW_PATTERN.test(haystack)) {
         return {
-          title: "That sign-in link expired",
-          body: "Sign-in links are single-use. Start again and it should go through.",
+          title: t("auth.error.expiredLink.title"),
+          body: t("auth.error.expiredLink.body"),
           canRetry: true,
         };
       }
     
       if (NETWORK_PATTERN.test(haystack)) {
         return {
-          title: "Can't reach the sign-in service",
-          body: "Check your connection and try again in a moment.",
+          title: t("auth.error.network.title"),
+          body: t("auth.error.network.body"),
           canRetry: true,
         };
       }
     
       return {
-        title: "Sign-in hit a snag",
-        body: "Something unexpected happened during sign-in. Trying again usually clears it up.",
+        title: t("auth.error.generic.title"),
+        body: t("auth.error.generic.body"),
         canRetry: true,
       };
     }
@@ -5013,16 +5154,49 @@
       disabled?: boolean;
     }
     export interface NavSection {
+      /**
+       * Locale-independent identity (collapse state is persisted under it, so a
+       * language switch doesn't reset it). Falls back to `label` when absent.
+       */
+      id?: string;
       label?: string;
       items: NavItem[];
     }
-    function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readonly NavSection[] {
+    export const ACCOUNT_SECTION_ID = "Account";
+    function buildAccount(t: TFunction): NavSection {
+      return {
+        id: ACCOUNT_SECTION_ID,
+        label: t("nav.sections.account"),
+        items: [
+          { id: "profile", label: t("nav.items.profile"), action: { type: "route", path: "/profile" } },
+          {
+            id: "settings",
+            label: t("nav.items.settings"),
+            action: { type: "route", path: "/settings" },
+          },
+        ],
+      };
+    }
+    function buildAdmin(t: TFunction): NavSection {
+      return {
+        id: "Admin",
+        label: t("nav.sections.admin"),
+        items: [
+          { id: "admin", label: t("nav.items.users"), action: { type: "route", path: "/admin" } },
+        ],
+      };
+    }
+    function buildSetupSections(
+      readiness: VenueReadiness,
+      isAdmin: boolean,
+      t: TFunction
+    ): readonly NavSection[] {
       const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
     
       const STEP_LABELS: Record<SetupStep, string> = {
-        onboarding: "Venue Basics",
-        "operating-hours": "Set Operating Hours",
-        "floor-plan": "Create Floor Plan",
+        onboarding: t("nav.items.venueBasics"),
+        "operating-hours": t("nav.items.setOperatingHours"),
+        "floor-plan": t("nav.items.createFloorPlan"),
       };
     
       const STEP_PATHS: Record<SetupStep, string> = {
@@ -5046,50 +5220,53 @@
       });
     
       const setupSection: NavSection = {
-        label: "Get Started",
+        id: "Get Started",
+        label: t("nav.sections.getStarted"),
         items,
       };
     
-      return isAdmin ? [setupSection, ACCOUNT, ADMIN] : [setupSection, ACCOUNT];
+      const account = buildAccount(t);
+      return isAdmin ? [setupSection, account, buildAdmin(t)] : [setupSection, account];
     }
-    function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
+    function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavSection[] {
+      const route = (id: string, label: string, path: string): NavItem => ({
+        id,
+        label,
+        action: { type: "route", path },
+      });
+    
       const PRIMARY: NavSection = {
         items: [
-          { id: "briefing", label: "Tonight's Service", action: { type: "route", path: "/briefing" } },
-          { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
-          {
-            id: "reservations",
-            label: "Reservations",
-            action: { type: "route", path: "/reservations" },
-          },
-          { id: "waitlist", label: "Waitlist", action: { type: "route", path: "/waitlist" } },
-          { id: "guests", label: "Guests", action: { type: "route", path: "/guests" } },
-          { id: "home", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
+          route("briefing", t("nav.items.tonightsService"), "/briefing"),
+          route("timeline", t("nav.items.timeline"), "/timeline"),
+          route("reservations", t("nav.items.reservations"), "/reservations"),
+          route("waitlist", t("nav.items.waitlist"), "/waitlist"),
+          route("guests", t("nav.items.guests"), "/guests"),
+          route("home", t("nav.items.dashboard"), "/dashboard"),
         ],
       };
     
       const MANAGE: NavSection = {
-        label: "Manage",
+        id: "Manage",
+        label: t("nav.sections.manage"),
         items: [
-          { id: "floor-plans", label: "Floor Plans", action: { type: "route", path: "/floor-plans" } },
-          {
-            id: "booking-widget",
-            label: "Booking Widget",
-            action: { type: "route", path: "/booking-widget" },
-          },
+          route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+          route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
         ],
       };
     
-      return isAdmin ? [PRIMARY, MANAGE, ACCOUNT, ADMIN] : [PRIMARY, MANAGE, ACCOUNT];
+      const account = buildAccount(t);
+      return isAdmin ? [PRIMARY, MANAGE, account, buildAdmin(t)] : [PRIMARY, MANAGE, account];
     }
     export function buildNavSections(
       readiness: VenueReadiness,
-      isAdmin: boolean
+      isAdmin: boolean,
+      t: TFunction = defaultT()
     ): readonly NavSection[] {
       if (readiness.status !== "operational") {
-        return buildSetupSections(readiness, isAdmin);
+        return buildSetupSections(readiness, isAdmin, t);
       }
-      return buildOperationalSections(isAdmin);
+      return buildOperationalSections(isAdmin, t);
     }
   </file>
   <file path="src/vite-env.d.ts">
@@ -5120,6 +5297,8 @@
       startHour: number;
       hourWidth: number;
       isMobile: boolean;
+      /** The venue's IANA zone; positions are venue wall-clock. Omitted: the device clock. */
+      timeZone?: string;
     }
     export interface ReservationLayoutResult {
       left: number;
@@ -5128,13 +5307,13 @@
     export function computeReservationLayout(
       startTime: string,
       endTime: string,
-      { startHour, hourWidth, isMobile }: ReservationLayoutParams
+      { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
     ): ReservationLayoutResult {
       const start = new Date(startTime);
       const end = new Date(endTime);
     
-      const startMinutes = start.getHours() * 60 + start.getMinutes();
-      const endMinutes = end.getHours() * 60 + end.getMinutes();
+      const startMinutes = minutesOfDayIn(start, timeZone);
+      const endMinutes = minutesOfDayIn(end, timeZone);
       const startOffset = startMinutes - startHour * 60;
       const duration = endMinutes - startMinutes;
     
@@ -5151,8 +5330,8 @@
     ): Table | undefined {
       return tables.find((table) => table.id === reservation.tableId);
     }
-    export function statusWord(reservation: Reservation, seated: boolean): string {
-      return seated ? "Seated" : STATUS_LABEL[reservation.status];
+    export function statusWord(reservation: Reservation, seated: boolean, t: TFunction): string {
+      return t(seated ? "timeline.status.seated" : RESERVATION_STATUS_KEYS[reservation.status]);
     }
     function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
       if (reservation.status !== "CONFIRMED") return false;
@@ -5164,11 +5343,12 @@
     export function occupiedCaption(
       reservation: Reservation,
       table: Table | undefined,
-      now: Date
+      now: Date,
+      t: TFunction
     ): string | null {
       if (!isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
       if (isOccupiedByThisReservation(reservation, now)) return null;
-      return `${table.name} is still occupied — turn it or move the party.`;
+      return t("timeline.details.occupied", { table: table.name });
     }
     export interface SeatGuestState {
       /** True while `onSeat` is pending — Seat Guest reads "Seating…" and the other actions rest. */
@@ -5215,21 +5395,39 @@
       default: "min(50vh, 480px)",
     });
   </file>
+  <file path="src/components/timeline/status-keys.ts">
+    export const RESERVATION_STATUS_KEYS = {
+      PENDING: "timeline.status.pending",
+      CONFIRMED: "timeline.status.confirmed",
+      CANCELLED: "timeline.status.cancelled",
+      COMPLETED: "timeline.status.completed",
+      NO_SHOW: "timeline.status.noShow",
+    } as const satisfies Record<ReservationStatus, string>;
+  </file>
   <file path="src/components/timeline/table-status-menu.ts">
     export interface TableStatusMenuItem {
       id: TableStatus;
       label: string;
     }
-    export function tableStatusMenuItems(status: TableStatus): TableStatusMenuItem[] {
+    export function tableStatusWord(status: TableStatus, t: TFunction): string {
+      if (status in TABLE_STATUS_KEYS) return t(TABLE_STATUS_KEYS[status]);
+      // A status this build does not know (an API ahead of it): title-case the raw value.
+      const lower = status.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    }
+    export function tableStatusInline(status: TableStatus, t: TFunction, locale: string): string {
+      return tableStatusWord(status, t).toLocaleLowerCase(locale);
+    }
+    export function tableStatusMenuItems(
+      status: TableStatus,
+      t: TFunction,
+      locale: string
+    ): TableStatusMenuItem[] {
       if (!(status in TABLE_VALID_TRANSITIONS)) return [];
       return TABLE_VALID_TRANSITIONS[status].map((next) => ({
         id: next,
-        label: `Mark ${next.toLowerCase()}`,
+        label: t("timeline.tableMenu.mark", { status: tableStatusInline(next, t, locale) }),
       }));
-    }
-    export function tableStatusWord(status: TableStatus): string {
-      const lower = status.toLowerCase();
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
     }
   </file>
   <file path="src/components/timeline/useGridFocus.ts">
@@ -5343,6 +5541,21 @@
       }, [hasNowLine, scrollRef]);
     }
   </file>
+  <file path="src/components/timeline/visit-label.ts">
+    export function visitLabel(visitCount: number, t: TFunction, locale: string): string {
+      const category = new Intl.PluralRules(locale, { type: "ordinal" }).select(visitCount);
+      switch (category) {
+        case "one":
+          return t("timeline.visitOrdinalOne", { count: visitCount });
+        case "two":
+          return t("timeline.visitOrdinalTwo", { count: visitCount });
+        case "few":
+          return t("timeline.visitOrdinalFew", { count: visitCount });
+        default:
+          return t("timeline.visitOrdinalOther", { count: visitCount });
+      }
+    }
+  </file>
   </section>
   <section priority="medium" role="utils">
   <file path="src/utils/calendarLinks.ts">
@@ -5419,46 +5632,88 @@
     }
   </file>
   <file path="src/utils/format.ts">
-    export function formatLongDate(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    function defaultReport(timeZone: string): void {
+      console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
+    }
+    export function resolveTimeZone(
+      timeZone: string | undefined,
+      report: (timeZone: string) => void = defaultReport
+    ): string | undefined {
+      if (!timeZone) return undefined;
+      try {
+        new Intl.DateTimeFormat(LOCALE, { timeZone });
+        return timeZone;
+      } catch {
+        if (!warnedZones.has(timeZone)) {
+          warnedZones.add(timeZone);
+          report(timeZone);
+        }
+        return undefined;
+      }
+    }
+    export function resetTimeZoneReports(): void {
+      warnedZones.clear();
+    }
+    export function formatLongDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "long",
         day: "numeric",
       });
     }
-    export function formatLongDateWithYear(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    export function formatLongDateWithYear(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "long",
         day: "numeric",
         year: "numeric",
       });
     }
-    export function formatServiceDate(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    export function formatServiceDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "short",
         day: "numeric",
       });
     }
-    export function formatTime(isoString: string): string {
-      return new Date(isoString).toLocaleTimeString(LOCALE, {
+    export function formatInstant(
+      value: string | number | Date,
+      options: Intl.DateTimeFormatOptions,
+      locale: string = LOCALE,
+      timeZone?: string
+    ): string {
+      const date = new Date(value);
+      // `Intl` throws on an invalid date where `toLocale*String` printed "Invalid Date"; a
+      // malformed SSE/API timestamp must degrade to a bad label, not crash the handler.
+      if (Number.isNaN(date.getTime())) return "Invalid Date";
+      return new Intl.DateTimeFormat(locale, {
+        ...options,
+        timeZone: resolveTimeZone(timeZone),
+      }).format(date);
+    }
+    export function formatCalendarDate(
+      dateStr: string,
+      options: Intl.DateTimeFormatOptions,
+      locale: string = LOCALE
+    ): string {
+      return formatInstant(`${dateStr.slice(0, 10)}T00:00:00Z`, options, locale, "UTC");
+    }
+    export function formatTime(isoString: string, locale: string = LOCALE): string {
+      return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
       });
     }
-    export function formatTimeIn(isoString: string, timeZone: string): string {
-      return new Date(isoString).toLocaleTimeString(LOCALE, {
+    export function formatTimeIn(isoString: string, timeZone: string, locale: string = LOCALE): string {
+      return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
-        timeZone,
+        timeZone: resolveTimeZone(timeZone),
       });
     }
     export function getHourIn(isoString: string, timeZone: string): number {
       const hour = new Intl.DateTimeFormat("en-US", {
-        timeZone,
+        timeZone: resolveTimeZone(timeZone),
         hour: "2-digit",
         hourCycle: "h23",
       })
@@ -5466,20 +5721,72 @@
         .find((part) => part.type === "hour")?.value;
       return hour ? Number(hour) : 0;
     }
-    export function formatLocalTime(hhmm: string): string {
+    export function formatLocalTime(hhmm: string, locale: string = LOCALE): string {
       const [hours = 0, minutes = 0] = hhmm.split(":").map(Number);
-      return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(LOCALE, {
+      return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
         timeZone: "UTC",
       });
     }
-    export function formatCurrencyFromCents(amountCents: number, currency: string): string {
+    export function formatWallHour(hour24: number, locale: string = LOCALE): string {
+      return new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" }).format(
+        new Date(Date.UTC(1970, 0, 1, hour24))
+      );
+    }
+    export function formatWallHourRange(
+      fromHour24: number,
+      toHour24: number,
+      locale: string = LOCALE
+    ): string {
+      return new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" }).formatRange(
+        new Date(Date.UTC(1970, 0, 1, fromHour24)),
+        new Date(Date.UTC(1970, 0, 1, toHour24))
+      );
+    }
+    export function currencyMinorUnits(currency: string): number {
       return new Intl.NumberFormat(LOCALE, {
         style: "currency",
         currency: currency.toUpperCase(),
-      }).format(amountCents / 100);
+      }).resolvedOptions().maximumFractionDigits as number;
+    }
+    export function currencySymbol(currency: string, locale: string = LOCALE): string {
+      const parts = new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: currency.toUpperCase(),
+        currencyDisplay: "narrowSymbol",
+      }).formatToParts(0);
+      return parts.find((part) => part.type === "currency")?.value ?? currency.toUpperCase();
+    }
+    export function majorToMinorUnits(amount: number, currency: string): number {
+      return Math.round(amount * 10 ** currencyMinorUnits(currency));
+    }
+    export function formatCurrencyFromCents(
+      amountMinor: number,
+      currency: string,
+      locale: string = LOCALE
+    ): string {
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: currency.toUpperCase(),
+      }).format(amountMinor / 10 ** currencyMinorUnits(currency));
+    }
+    export function formatCurrencyName(currency: string, locale: string = LOCALE): string {
+      const code = currency.toUpperCase();
+      return new Intl.DisplayNames(locale, { type: "currency" }).of(code) ?? code;
+    }
+    export function formatShortDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+    }
+    export function formatHourLabel(hour: number, locale: string, compact: boolean): string {
+      const formatter = new Intl.DateTimeFormat(locale, { hour: "numeric", timeZone: "UTC" });
+      const instant = new Date(Date.UTC(1970, 0, 1, hour));
+      if (!compact) return formatter.format(instant);
+      return formatter.formatToParts(instant).find((part) => part.type === "hour")?.value ?? "";
     }
   </file>
   <file path="src/utils/ics.ts">
@@ -5606,18 +5913,12 @@
       COMPLETED: "neutral",
       NO_SHOW: "error",
     };
-    export const STATUS_LABEL: Record<ReservationStatus, string> = {
-      PENDING: "Pending",
-      CONFIRMED: "Confirmed",
-      CANCELLED: "Cancelled",
-      COMPLETED: "Completed",
-      NO_SHOW: "No Show",
-    };
-    export function formatReservationTime(isoString: string): string {
-      return new Date(isoString).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    export function formatReservationTime(
+      isoString: string,
+      locale?: string,
+      timeZone?: string
+    ): string {
+      return formatInstant(isoString, { hour: "2-digit", minute: "2-digit" }, locale, timeZone);
     }
     export function specialRequestsText(notes: string | null | undefined): string | null {
       const text = notes?.trim() ?? "";
@@ -5704,6 +6005,10 @@
       /** Minutes since venue-local midnight. */
       readonly nowMin: number;
     }
+    export function minutesOfDayIn(instant: Date, timeZone?: string): number {
+      const clock = timeZone ? venueWallClock(timeZone, instant) : null;
+      return clock ? clock.nowMin : instant.getHours() * 60 + instant.getMinutes();
+    }
     export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
       try {
         const parts = new Intl.DateTimeFormat("en-US", {
@@ -5761,6 +6066,44 @@
       return next;
     }
   </file>
+  <file path="src/utils/venue-wall-time.ts">
+    function zoneOffsetMs(instantMs: number, timeZone: string): number {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hourCycle: "h23",
+      }).formatToParts(new Date(instantMs));
+      const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value);
+      const wallAsUtc = Date.UTC(
+        get("year"),
+        get("month") - 1,
+        get("day"),
+        get("hour"),
+        get("minute"),
+        get("second")
+      );
+      return wallAsUtc - Math.floor(instantMs / 1000) * 1000;
+    }
+    export function venueWallTimeToInstant(date: string, hhmm: string, timeZone?: string): Date {
+      const zone = resolveTimeZone(timeZone);
+      if (!zone) return new Date(`${date}T${hhmm}:00`);
+      const wallAsUtc = Date.parse(`${date}T${hhmm}:00Z`);
+      // One pass lands within an hour of the answer; the second corrects across a DST edge.
+      const first = wallAsUtc - zoneOffsetMs(wallAsUtc, zone);
+      return new Date(wallAsUtc - zoneOffsetMs(first, zone));
+    }
+    export function wallTimeInputValue(isoString: string, timeZone?: string): string {
+      const minutes = minutesOfDayIn(new Date(isoString), resolveTimeZone(timeZone));
+      const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
+      const mm = String(minutes % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+  </file>
   <file path="src/utils/venueOpenLabel.ts">
     export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
       monday: "Monday",
@@ -5771,16 +6114,19 @@
       saturday: "Saturday",
       sunday: "Sunday",
     };
-    export function formatVenueOpenLabel(s: VenueOpenState): string {
+    export function formatVenueOpenLabel(
+      s: VenueOpenState,
+      formatClock: (hhmm: string) => string = formatLocalTime
+    ): string {
       switch (s.state) {
         case "open":
-          return `Open until ${formatLocalTime(s.closesAt)}`;
+          return `Open until ${formatClock(s.closesAt)}`;
         case "opening-soon":
-          return `Opens at ${formatLocalTime(s.opensAt)}`;
+          return `Opens at ${formatClock(s.opensAt)}`;
         case "closed":
           return s.opensOn === null
-            ? `Closed, opens at ${formatLocalTime(s.opensAt)}`
-            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatLocalTime(s.opensAt)}`;
+            ? `Closed, opens at ${formatClock(s.opensAt)}`
+            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatClock(s.opensAt)}`;
         case "unset":
           return UNSET_LABEL;
       }
@@ -5897,6 +6243,23 @@
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
+  <file path="src/components/venue-onboarding/floor-plan-copy.ts">
+    export function layoutCounts(
+      t: TFunction,
+      tables: readonly DraftTable[]
+    ): { tables: string; seats: string } {
+      const seats = tables.reduce((sum, table) => sum + table.capacity, 0);
+      return {
+        tables: t("onboarding.floorPlan.tableCount", { count: tables.length }),
+        seats: t("onboarding.floorPlan.seatCount", { count: seats }),
+      };
+    }
+    export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string {
+      return tables.length === 0
+        ? t("onboarding.floorPlan.summaryBlank")
+        : t("onboarding.floorPlan.summary", layoutCounts(t, tables));
+    }
+  </file>
   <file path="src/components/venue-onboarding/floor-plan-draft.ts">
     export type DraftTableShape = TableShapeMetadata["shape"];
     export interface DraftTable {
@@ -6038,14 +6401,13 @@
     }
     export interface FloorPlanTemplate {
       id: TemplateId;
-      /** Picker card label. */
-      name: string;
-      /** The floor plan's name once created — fixed per template, not editable in the wizard. */
+      /**
+       * The floor plan's name once created — fixed per template, not editable in the wizard. It is
+       * saved data (the plan's name on the server), so it stays the same in every locale; the
+       * picker's own copy (card name, zone line) lives in the catalog under
+       * `onboarding.floorPlan.templates.<id>`.
+       */
       planName: string;
-      /** Card summary line, e.g. "14 tables · 48 seats". */
-      summary: string;
-      /** Card zone line, e.g. "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats". */
-      zoneLine: string;
       zones: readonly Zone[];
     }
     function tablesForZone(zone: Zone): DraftTable[] {
@@ -6073,10 +6435,7 @@
     export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
       {
         id: "restaurant",
-        name: "Restaurant",
         planName: "Main Dining Room",
-        summary: "14 tables · 48 seats",
-        zoneLine: "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats",
         zones: [
           {
             prefix: "W",
@@ -6123,10 +6482,7 @@
       },
       {
         id: "cafe",
-        name: "Cafe",
         planName: "Main Floor",
-        summary: "10 tables · 24 seats",
-        zoneLine: "5 window 2-tops · 3 café rounds · 2 four-tops",
         zones: [
           {
             prefix: "W",
@@ -6162,10 +6518,7 @@
       },
       {
         id: "bar",
-        name: "Bar",
         planName: "Bar Floor",
-        summary: "12 tables · 40 seats",
-        zoneLine: "6 high-tops · 4 standing rounds · 2 booths",
         zones: [
           {
             prefix: "H",
@@ -6201,10 +6554,7 @@
       },
       {
         id: "patio",
-        name: "Patio",
         planName: "Patio",
-        summary: "8 tables · 36 seats",
-        zoneLine: "6 umbrella rounds · 2 long tables",
         zones: [
           {
             prefix: "P",
@@ -6231,10 +6581,7 @@
       },
       {
         id: "blank",
-        name: "Blank",
         planName: "Main Floor",
-        summary: "No tables",
-        zoneLine: "Start empty — add tables yourself",
         zones: [],
       },
     ] as const;
@@ -6335,7 +6682,11 @@
       return progress.createdTableNames.length;
     }
     export function isAlreadyCreatedError(err: unknown): boolean {
-      return err instanceof Error && err.message === DUPLICATE_TABLE_NAME_MESSAGE;
+      return (
+        err instanceof ApiClientError &&
+        err.problemDetails.status === 400 &&
+        err.problemDetails.detail === DUPLICATE_TABLE_NAME_MESSAGE
+      );
     }
     export interface LaunchApi {
       venues: { create(data: CreateVenueRequest): Promise<Venue> };
@@ -6358,7 +6709,7 @@
       try {
         venue = await api.venues.create(venuePayload);
       } catch (err) {
-        throw withFallback(err, "Couldn't create the venue");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.venueFailed"));
       }
       const next: LaunchProgress = { ...progress, venueId: venue.id, inFlightStage: null };
       onProgress(next);
@@ -6385,7 +6736,7 @@
           layoutJson: DEFAULT_LAYOUT,
         });
       } catch (err) {
-        throw withFallback(err, "Couldn't create the floor plan");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
       }
       const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
       onProgress(next);
@@ -6426,7 +6777,10 @@
           await api.tables.create(draftTableToCreateRequest(table, venueId, floorPlanId));
         } catch (err) {
           if (!isAlreadyCreatedError(err)) {
-            const fallback = `Stopped at table ${index + 1} of ${total}`;
+            const fallback = localeRuntime.i18n.t("onboarding.errors.stoppedAtTable", {
+              index: index + 1,
+              total,
+            });
             throw new LaunchStageError(withFallback(err, fallback).message, current);
           }
           // A duplicate-name rejection means the table already exists —
@@ -6456,7 +6810,7 @@
       try {
         await api.floorPlans.setActive(floorPlanId);
       } catch (err) {
-        throw withFallback(err, "Couldn't make the plan live");
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.activateFailed"));
       }
       const next: LaunchProgress = { ...progress, activated: true, inFlightStage: null };
       onProgress(next);
@@ -6513,7 +6867,8 @@
             ...base,
             inFlightStage: null,
             failedStage: stage,
-            errorMessage: err instanceof Error ? err.message : "Something went wrong",
+            errorMessage:
+              err instanceof Error ? err.message : localeRuntime.i18n.t("onboarding.errors.generic"),
           };
           onProgress(current);
           return current;
@@ -6522,19 +6877,18 @@
     }
   </file>
   <file path="src/components/venue-onboarding/onboarding-steps.ts">
+    export type OnboardingStepId =
+      "welcome" | "location" | "hours" | "settings" | "floorPlan" | "launch";
     export interface OnboardingStep {
-      /** Short step name shown as the rail heading. */
-      label: string;
-      /** One-line description of what the step captures. */
-      description: string;
+      readonly id: OnboardingStepId;
     }
     export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
-      { label: "Welcome", description: "Name your venue" },
-      { label: "Location", description: "Timezone & currency" },
-      { label: "Hours", description: "When you're open" },
-      { label: "Settings", description: "Reservation defaults" },
-      { label: "Floor plan", description: "Lay out your tables" },
-      { label: "Launch", description: "Review & go live" },
+      { id: "welcome" },
+      { id: "location" },
+      { id: "hours" },
+      { id: "settings" },
+      { id: "floorPlan" },
+      { id: "launch" },
     ];
   </file>
   <file path="src/components/venue-onboarding/useOnboardingWizard.ts">
@@ -6615,7 +6969,10 @@
           return {
             state: {
               ...state,
-              errors: { ...state.errors, floorPlan: valid ? null : FLOOR_PLAN_REQUIRED_MESSAGE },
+              errors: {
+                ...state.errors,
+                floorPlan: valid ? null : localeRuntime.i18n.t("onboarding.floorPlan.required"),
+              },
             },
             valid,
           };

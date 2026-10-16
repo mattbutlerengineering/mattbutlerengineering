@@ -1,9 +1,17 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Button, Input, Alert, Text } from "@mattbutlerengineering/rialto";
 import type { Deposit } from "@mbe/types";
 import { useCreateDeposit } from "../../hooks/useDeposits.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { formatCurrencyFromCents } from "../../utils/format.js";
+import {
+  currencyMinorUnits,
+  currencySymbol,
+  formatCurrencyFromCents,
+  majorToMinorUnits,
+} from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./StaffDepositSection.module.css";
 
 interface StaffDepositSectionProps {
@@ -15,17 +23,20 @@ interface StaffDepositSectionProps {
   fetchError?: unknown;
 }
 
-function depositStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    held: "Authorized",
-    applied: "Charged",
-    refunded: "Refunded",
-    forfeited: "Forfeited",
-    partial_refunded: "Partially Refunded",
-    uncollectable: "Uncollectable",
-  };
-  return labels[status] ?? status;
+const DEPOSIT_STATUS_KEYS = {
+  pending: "timeline.deposit.statuses.pending",
+  held: "timeline.deposit.statuses.held",
+  applied: "timeline.deposit.statuses.applied",
+  refunded: "timeline.deposit.statuses.refunded",
+  forfeited: "timeline.deposit.statuses.forfeited",
+  partial_refunded: "timeline.deposit.statuses.partialRefunded",
+  uncollectable: "timeline.deposit.statuses.uncollectable",
+} as const;
+
+function depositStatusLabel(status: string, t: TFunction): string {
+  return status in DEPOSIT_STATUS_KEYS
+    ? t(DEPOSIT_STATUS_KEYS[status as keyof typeof DEPOSIT_STATUS_KEYS])
+    : status;
 }
 
 export function StaffDepositSection({
@@ -34,7 +45,9 @@ export function StaffDepositSection({
   isLoading,
   fetchError,
 }: StaffDepositSectionProps) {
+  const { t } = useTranslation();
   const createDeposit = useCreateDeposit();
+  const fmt = useVenueFormat();
   const [amountInput, setAmountInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -46,10 +59,10 @@ export function StaffDepositSection({
   const handleCollect = useCallback(async () => {
     const amountDollars = parseFloat(amountInput);
     if (isNaN(amountDollars) || amountDollars <= 0) {
-      setError("Enter a valid amount.");
+      setError(t("timeline.deposit.invalidAmount"));
       return;
     }
-    const amountCents = Math.round(amountDollars * 100);
+    const amountCents = majorToMinorUnits(amountDollars, fmt.currency);
 
     setError(null);
 
@@ -57,13 +70,13 @@ export function StaffDepositSection({
       await createDeposit.mutateAsync({
         reservationId,
         amountCents,
-        currency: "usd",
+        currency: fmt.currency.toLowerCase(),
       });
       setShowForm(false);
     } catch (err) {
       setError(describeApiError(err).detail);
     }
-  }, [amountInput, reservationId, createDeposit]);
+  }, [amountInput, reservationId, createDeposit, fmt.currency, t]);
 
   // The lookup owns this section's visibility before anything else does: a
   // stale fetchError from a prior render must never outrank a fresh
@@ -90,12 +103,18 @@ export function StaffDepositSection({
     return (
       <div className={styles.section}>
         <Text variant="label" as="h4">
-          Deposit
+          {t("timeline.deposit.title")}
         </Text>
         <div className={styles.statusRow}>
           <Text variant="caption" color="secondary">
-            {formatCurrencyFromCents(existingDeposit.amountCents, existingDeposit.currency)} —{" "}
-            {depositStatusLabel(existingDeposit.status)}
+            {t("timeline.deposit.statusLine", {
+              amount: formatCurrencyFromCents(
+                existingDeposit.amountCents,
+                existingDeposit.currency,
+                fmt.locale
+              ),
+              status: depositStatusLabel(existingDeposit.status, t),
+            })}
           </Text>
         </div>
         {/* A refund issued in the Stripe dashboard after our own capture is
@@ -103,12 +122,13 @@ export function StaffDepositSection({
         {existingDeposit.postCaptureRefundCents != null &&
           existingDeposit.postCaptureRefundCents > 0 && (
             <Text variant="caption" color="secondary">
-              Refunded{" "}
-              {formatCurrencyFromCents(
-                existingDeposit.postCaptureRefundCents,
-                existingDeposit.currency
-              )}{" "}
-              via Stripe
+              {t("timeline.deposit.refundedVia", {
+                amount: formatCurrencyFromCents(
+                  existingDeposit.postCaptureRefundCents,
+                  existingDeposit.currency,
+                  fmt.locale
+                ),
+              })}
             </Text>
           )}
       </div>
@@ -119,16 +139,18 @@ export function StaffDepositSection({
     return (
       <div className={styles.section}>
         <Text variant="label" as="h4">
-          Collect Deposit
+          {t("timeline.deposit.collectTitle")}
         </Text>
         {error && <Alert variant="error">{error}</Alert>}
         <div className={styles.formRow}>
           <Input
-            label="Amount ($)"
+            label={t("timeline.deposit.amountLabel", {
+              symbol: currencySymbol(fmt.currency, fmt.locale),
+            })}
             type="number"
             value={amountInput}
             onChange={(e) => setAmountInput(e.target.value)}
-            placeholder="25.00"
+            placeholder={(25).toFixed(currencyMinorUnits(fmt.currency))}
             disabled={isCreating}
           />
         </div>
@@ -139,7 +161,7 @@ export function StaffDepositSection({
             onClick={() => setShowForm(false)}
             disabled={isCreating}
           >
-            Cancel
+            {t("timeline.deposit.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -147,7 +169,7 @@ export function StaffDepositSection({
             onClick={handleCollect}
             disabled={isCreating || !amountInput}
           >
-            {isCreating ? "Saving..." : "Create Deposit"}
+            {isCreating ? t("timeline.deposit.saving") : t("timeline.deposit.create")}
           </Button>
         </div>
       </div>
@@ -157,7 +179,7 @@ export function StaffDepositSection({
   return (
     <div className={styles.section}>
       <Button variant="ghost" size="sm" onClick={() => setShowForm(true)}>
-        + Collect Deposit
+        {t("timeline.deposit.collect")}
       </Button>
     </div>
   );

@@ -1,33 +1,42 @@
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Card, Text } from "@mattbutlerengineering/rialto";
 import type { ReservationEvent, ReservationEventType } from "../../hooks/useSSESync.js";
+import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "../../pages/HomePage.module.css";
 
-function formatEventTimestamp(timestamp: string): string {
+function formatEventTimestamp(timestamp: string, fmt: VenueFormat, t: TFunction): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);
 
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return t("home.activity.justNow");
+  if (diffMin < 60) return t("home.activity.minutesAgo", { count: diffMin });
   const diffHrs = Math.floor(diffMin / 60);
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  return date.toLocaleDateString();
+  if (diffHrs < 24) return t("home.activity.hoursAgo", { count: diffHrs });
+  return fmt.formatInstant(date, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
-const EVENT_LABELS: Partial<Record<ReservationEventType, string>> = {
-  "reservation:created": "New reservation created",
-  "reservation:updated": "Reservation updated",
-  "reservation:cancelled": "Reservation cancelled",
-  "hold:created": "Table hold placed",
-  "hold:released": "Table hold released",
-  "hold:confirmed": "Hold confirmed as reservation",
-  "table:updated": "Table status changed",
-  "floor-plan:created": "Floor plan created",
-};
+const EVENT_LABEL_KEYS = {
+  "reservation:created": "home.activity.events.reservationCreated",
+  "reservation:updated": "home.activity.events.reservationUpdated",
+  "reservation:cancelled": "home.activity.events.reservationCancelled",
+  "hold:created": "home.activity.events.holdCreated",
+  "hold:released": "home.activity.events.holdReleased",
+  "hold:confirmed": "home.activity.events.holdConfirmed",
+  "table:updated": "home.activity.events.tableUpdated",
+  "floor-plan:created": "home.activity.events.floorPlanCreated",
+} as const satisfies Partial<Record<ReservationEventType, string>>;
 
-function describeEvent(event: ReservationEvent): string {
-  return EVENT_LABELS[event.type] ?? event.type;
+type LabelledEventType = keyof typeof EVENT_LABEL_KEYS;
+
+function isLabelled(type: string): type is LabelledEventType {
+  return type in EVENT_LABEL_KEYS;
+}
+
+function describeEvent(event: ReservationEvent, t: TFunction): string {
+  return isLabelled(event.type) ? t(EVENT_LABEL_KEYS[event.type]) : event.type;
 }
 
 interface ActivityFeedProps {
@@ -36,13 +45,17 @@ interface ActivityFeedProps {
 }
 
 export function ActivityFeed({ events, isConnected }: ActivityFeedProps) {
+  const fmt = useVenueFormat();
+  const { t } = useTranslation();
+  const title = t("home.activity.title");
+
   if (!isConnected && events.length === 0) {
     return (
-      <Card title="Live Activity">
+      <Card title={title}>
         <div className={styles.connectingMessage}>
           <Text className={styles.connectingDot} />
           <Text variant="body" color="secondary">
-            Connecting to live updates...
+            {t("home.activity.connecting")}
           </Text>
         </div>
       </Card>
@@ -51,16 +64,16 @@ export function ActivityFeed({ events, isConnected }: ActivityFeedProps) {
 
   if (events.length === 0) {
     return (
-      <Card title="Live Activity">
+      <Card title={title}>
         <Text variant="body" color="secondary">
-          No recent activity
+          {t("home.activity.empty")}
         </Text>
       </Card>
     );
   }
 
   return (
-    <Card title="Live Activity">
+    <Card title={title}>
       <ul className={styles.activityFeed} aria-live="polite" role="status">
         {events.map((event) => (
           <li
@@ -69,9 +82,9 @@ export function ActivityFeed({ events, isConnected }: ActivityFeedProps) {
           >
             <Text className={styles.activityDot} />
             <div className={styles.activityContent}>
-              <div className={styles.activityMessage}>{describeEvent(event)}</div>
+              <div className={styles.activityMessage}>{describeEvent(event, t)}</div>
               <div className={styles.activityTimestamp}>
-                {formatEventTimestamp(event.timestamp)}
+                {formatEventTimestamp(event.timestamp, fmt, t)}
               </div>
             </div>
           </li>

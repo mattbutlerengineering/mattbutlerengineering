@@ -63,4 +63,19 @@ describe("auto-label.yml", () => {
     expect(WORKFLOW).not.toMatch(/\\b\(documentation\|README\|docs\?\)\\b/);
     expect(WORKFLOW).toMatch(/\^docs\[\(:\]/);
   });
+
+  it("routes the `feature` label on a title prefix, not a body keyword", () => {
+    // The `\bfeature\b` body keyword was applied to 12 issues between
+    // 2026-10-13 and 2026-10-16 and all 12 were wrong (/ideate proposals,
+    // ideation batches, a docs meta-improvement, a ci-fix citing "the original
+    // feature"). /decompose already labels genuine features at creation, so the
+    // body rule could only add false positives, and a second type label makes
+    // the conductor refuse to plan the issue.
+    const featureLine = WORKFLOW.split("\n").find(
+      (l) => l.includes("labels.add('feature')") && !l.trim().startsWith("//")
+    );
+    expect(featureLine, "auto-label.yml no longer adds `feature`").toBeDefined();
+    expect(featureLine).toContain("^feat\\(");
+    expect(featureLine).not.toContain("\\bfeature\\b");
+  });
 });

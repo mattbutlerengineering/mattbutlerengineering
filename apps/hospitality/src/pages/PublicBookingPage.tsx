@@ -1,20 +1,18 @@
 import { useRef, useEffect } from "react";
 import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { EmptyState, Button, Text } from "@mattbutlerengineering/rialto";
-import { BookingWidget, hasOperatingHours } from "../components/booking-widget/index.js";
+import {
+  BookingWidget,
+  WidgetLocaleScope,
+  hasOperatingHours,
+} from "../components/booking-widget/index.js";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import styles from "./PublicBookingPage.module.css";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
-
-/** Default title while the venue is still resolving (or on a not-found slug) — distinguishes this guest surface from a staff-sounding "Dashboard" tab (#4973). */
-const DEFAULT_TITLE = "Book a table — Hospitality";
-
-const NOT_FOUND_HEADING = "Venue not found";
-const NOT_FOUND_DESCRIPTION =
-  "We couldn't find the booking page you're looking for. Double-check the link, or contact the venue directly to make your reservation.";
 
 // A guest arriving from an external link (email, social bio, QR code) has no
 // browser history to go back to — window.history.back() on an empty stack
@@ -26,7 +24,17 @@ const NOT_FOUND_DESCRIPTION =
 // marketing root is the only guest-readable destination this product has.
 const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/";
 
+/** The guest's page locale is the widget's own (stored choice, else browser) — never the dashboard's. */
 export function PublicBookingPage() {
+  return (
+    <WidgetLocaleScope>
+      <PublicBookingPageContent />
+    </WidgetLocaleScope>
+  );
+}
+
+function PublicBookingPageContent() {
+  const { t } = useTranslation();
   const { venueSlug } = useParams<{ venueSlug: string }>();
   // Guests resolve the venue through the unauthenticated by-slug read
   // (getBySlug -> /api/v1/venues/by-slug/:slug), the endpoint dedicated to
@@ -54,7 +62,13 @@ export function PublicBookingPage() {
     retry: false,
   });
 
-  useDocumentTitle(venue ? `Book a table — ${venue.name}` : DEFAULT_TITLE);
+  // The default title (venue still resolving, or a not-found slug) distinguishes this guest
+  // surface from a staff-sounding "Dashboard" tab (#4973).
+  useDocumentTitle(
+    venue
+      ? t("publicBooking.venueDocumentTitle", { venue: venue.name })
+      : t("publicBooking.documentTitle")
+  );
 
   // Release the active hold when the guest closes/navigates away before
   // confirming — a `pagehide` handler firing a `DELETE` (release is DELETE,
@@ -94,16 +108,16 @@ export function PublicBookingPage() {
         <div className={styles.errorCenter}>
           <EmptyState
             variant="elevated"
-            heading={NOT_FOUND_HEADING}
-            description={NOT_FOUND_DESCRIPTION}
+            heading={t("publicBooking.notFoundHeading")}
+            description={t("publicBooking.notFoundDescription")}
             action={
               canGoBack ? (
                 <Button variant="primary" onClick={() => window.history.back()}>
-                  Go Back
+                  {t("publicBooking.goBack")}
                 </Button>
               ) : (
                 <a className={styles.notFoundLink} href={FALLBACK_HOME_URL}>
-                  Back to Matt Butler Engineering
+                  {t("publicBooking.homeLink")}
                 </a>
               )
             }
@@ -120,7 +134,7 @@ export function PublicBookingPage() {
       <main className={styles.page}>
         <div className={styles.loadingCenter}>
           <Text variant="body" color="secondary">
-            Loading venue...
+            {t("publicBooking.loading")}
           </Text>
         </div>
       </main>
@@ -136,7 +150,7 @@ export function PublicBookingPage() {
           {venue.name}
         </Text>
         <Text variant="body" color="secondary" align="center">
-          Reserve your table online
+          {t("publicBooking.tagline")}
         </Text>
       </header>
 
@@ -157,7 +171,7 @@ export function PublicBookingPage() {
 
       <footer className={styles.footer}>
         <Text variant="caption" color="tertiary" align="center">
-          Powered by Matt Butler Engineering
+          {t("publicBooking.poweredBy")}
         </Text>
       </footer>
     </main>

@@ -1,4 +1,5 @@
 import { forwardRef, useId, useState, useCallback, type HTMLAttributes } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import { cn } from "../../utils/class-composer";
 import styles from "./GlobalNav.module.css";
@@ -36,10 +37,16 @@ export interface GlobalNavProps extends Pick<
   theme?: "light" | "dark";
   /** Called when the user clicks the theme toggle. */
   onThemeToggle?: () => void;
+  /** Link labels per app, for consumers that localize them. Omitted apps keep the English defaults. */
+  labels?: Partial<Record<NavItem["app"], string>>;
 }
 
+/** Product name, not translatable text. */
+const BRAND_NAME = "MBE";
+
 export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
-  ({ currentApp, theme, onThemeToggle, className, ...props }, ref) => {
+  ({ currentApp, theme, onThemeToggle, labels, className, ...props }, ref) => {
+    const { messages } = useRialtoLocale();
     const [menuOpen, setMenuOpen] = useState(false);
     const mobileMenuId = useId();
 
@@ -57,18 +64,19 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
     );
 
     const classes = cn(styles.globalNav, className);
+    const items = NAV_ITEMS.map((item) => ({ ...item, label: labels?.[item.app] ?? item.label }));
 
     return (
-      <nav ref={ref} className={classes} aria-label="Global navigation" {...props}>
+      <nav ref={ref} className={classes} aria-label={messages.globalNavigation} {...props}>
         <div className={styles.inner}>
           {/* ── Brand ──────────────────────────────── */}
           <a href="/" className={styles.brand}>
-            MBE
+            {BRAND_NAME}
           </a>
 
           {/* ── Desktop links ─────────────────────── */}
           <ul className={styles.desktopLinks}>
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <li key={item.app}>
                 <a
                   href={item.href}
@@ -93,7 +101,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               onKeyDown={handleKeyDown}
               aria-expanded={menuOpen}
               aria-controls={mobileMenuId}
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-label={menuOpen ? messages.closeMenu : messages.openMenu}
             >
               <span className={cn(styles.hamburgerBar, menuOpen && styles.open)} />
             </button>
@@ -103,7 +111,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
         {/* ── Mobile menu ─────────────────────────── */}
         {menuOpen && (
           <ul id={mobileMenuId} className={styles.mobileMenu}>
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <li key={item.app}>
                 <a
                   href={item.href}

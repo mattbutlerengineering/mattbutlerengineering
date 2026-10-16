@@ -478,6 +478,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="LocalePicker">
+  <file path="apps/hospitality/src/components/LocalePicker/machine-translation-tags.ts">
+    <item priority="high">
+      export const MACHINE_TRANSLATION_TAGS: Readonly<Partial<Record<LocaleTag, string>>>;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="NavigationMenu">
   <file path="packages/rialto/src/components/NavigationMenu/NavigationMenu.catalog.ts">
     <item priority="high">
@@ -1338,7 +1345,16 @@
   </file>
   <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
     <item priority="high">
-      export function formatDepositCancellationTerms(
+      type FreeWindow = Extract<CancellationPolicyDescription, { kind: "free-wind...;
+    </item>
+    <item priority="high">
+      export function describeDepositCancellation(
+        config: DepositConfig | null,
+        partySize: number
+      ): FreeWindow | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useDepositCancellationTerms(
         config: DepositConfig | null,
         partySize: number
       ): string | null { /* ... */ }
@@ -1376,7 +1392,7 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD" } | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
     </item>
     <item priority="medium">
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
@@ -1798,9 +1814,6 @@
     <item priority="high">
       export const CONFIRMATION_COPY: unknown;
     </item>
-    <item priority="high">
-      export function contactLine(contact: string): string { /* ... */ }
-    </item>
   </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     <item priority="high">
@@ -1809,7 +1822,26 @@
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
     <item priority="high">
-      export const SESSION_LAPSE_COPY: unknown;
+      export function getSessionLapseCopy(t: TFunction) { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="contexts">
+  <file path="apps/hospitality/src/contexts/venue-context-object.ts">
+    <item priority="low">
+      interface VenueContextValue {
+        venues: readonly Venue[];
+        selectedVenueId: string | null;
+        selectedVenue: Venue | null;
+        setVenueId: (id: string) => void;
+        isLoading: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const VenueContext: unknown;
+    </item>
+    <item priority="high">
+      export function useOptionalVenue(): VenueContextValue | null { /* ... */ }
     </item>
   </file>
   </section>
@@ -1818,23 +1850,24 @@
     <item priority="low">
       type GuestLookupMode = "linked" | "recognised";
     </item>
-    <item priority="medium">
-      function plural(count: number, noun: string): string { /* ... */ }
+    <item priority="high">
+      export function visitsSentence(visitCount: number, t: TFunction = defaultT): string { /* ... */ }
     </item>
     <item priority="high">
-      export function visitsSentence(visitCount: number): string { /* ... */ }
+      export function noShowsSentence(noShowCount: number, t: TFunction = defaultT): string | null { /* ... */ }
     </item>
     <item priority="high">
-      export function noShowsSentence(noShowCount: number): string | null { /* ... */ }
+      export function formatGuestRowDetail(guest: Guest, t: TFunction = defaultT): string { /* ... */ }
     </item>
     <item priority="high">
-      export function formatGuestRowDetail(guest: Guest): string { /* ... */ }
+      export function stripTitle(mode: GuestLookupMode, name: string, t: TFunction = defaultT): string { /* ... */ }
     </item>
     <item priority="high">
-      export function stripTitle(mode: GuestLookupMode, name: string): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function pickAnnouncement(mode: GuestLookupMode, guest: Guest): string { /* ... */ }
+      export function pickAnnouncement(
+        mode: GuestLookupMode,
+        guest: Guest,
+        t: TFunction = defaultT
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/crm/guest-prefill.ts">
@@ -1895,7 +1928,10 @@
       export function getRiskVariant(score: GuestRiskScore): GuestRiskVariant { /* ... */ }
     </item>
     <item priority="high">
-      export function getRiskLabel(score: GuestRiskScore): string { /* ... */ }
+      export function segmentText(label: string, t: TFunction = defaultT): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function riskText(score: GuestRiskScore, t: TFunction = defaultT): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -3623,6 +3659,19 @@
       export function draftReducer(state: DraftState, action: DraftAction): DraftState { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/live-reservation-toast.ts">
+    <item priority="low">
+      type LiveToastEvent = "reservation:created" | "reservation:cancelled";
+    </item>
+    <item priority="high">
+      export function liveReservationToast(
+        type: LiveToastEvent,
+        reservation: Reservation,
+        t: TFunction,
+        formatTime: (iso: string) => string
+      ): { title: string; description: string } { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
     <item priority="high">
       export const SSE_INVALIDATION_QUERY_KEYS: unknown;
@@ -3764,7 +3813,11 @@
       }
     </item>
     <item priority="medium">
-      function buildFeeLabel(fee: CancellationFeeResult, currency: string): string { /* ... */ }
+      function buildFeeLabel(
+        fee: CancellationFeeResult,
+        currency: string,
+        locale: string = localeRuntime.i18n.language
+      ): string { /* ... */ }
     </item>
     <item priority="low">
       type CancellationInitiator = "staff" | "guest";
@@ -4396,6 +4449,24 @@
       export function useUsers(params: UseUsersParams = {}): UseUsersResult { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useVenueFormat.ts">
+    <item priority="low">
+      interface VenueFormatSource {
+        ianaTimezone: string;
+        currencyCode: string;
+      }
+    </item>
+    <item priority="low">
+      interface VenueFormat {
+        locale: string;
+        timeZone: string;
+        currency: string;
+      }
+    </item>
+    <item priority="high">
+      export function useVenueFormat(venue?: VenueFormatSource | null): VenueFormat { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useVenuePolicy.ts">
     <item priority="high">
       export const VENUE_POLICY_QUERY_KEY: unknown;
@@ -4795,6 +4866,11 @@
   </file>
   </section>
   <section priority="medium" role="i18n">
+  <file path="apps/hospitality/src/i18n/default-t.ts">
+    <item priority="high">
+      export const defaultT: TFunction;
+    </item>
+  </file>
   <file path="apps/hospitality/src/i18n/locales.ts">
     <item priority="low">
       type LocaleTag = "en-US" | "en-GB" | "es-MX" | "fr-CA";
@@ -4831,6 +4907,17 @@
       }): LocaleTag { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/i18n/ordinal-visit.ts">
+    <item priority="high">
+      type OrdinalCategory = "one" | "two" | "few" | "other";
+    </item>
+    <item priority="medium">
+      function ordinalCategory(language: string, n: number): OrdinalCategory { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ordinalVisitLabel(t: TFunction, language: string, n: number): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/i18n/typed-keys.typecheck.ts">
     <item priority="high">
       export function typedKeysContract(t: TFunction): string[] { /* ... */ }
@@ -4841,6 +4928,9 @@
       interface RialtoMessages {
         dismiss: string;
         close: string;
+        closeDialog: string;
+        dialog: string;
+        drawer: string;
       }
     </item>
     <item priority="high">
@@ -5083,7 +5173,10 @@
       function oidcErrorCode(error: Error): string { /* ... */ }
     </item>
     <item priority="high">
-      export function describeAuthError(error: Error): AuthErrorDescription { /* ... */ }
+      export function describeAuthError(
+        error: Error,
+        t: TFunction = localeRuntime.i18n.t
+      ): AuthErrorDescription { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
@@ -8576,11 +8669,6 @@
       export function transitionDeposit(from: DepositStatus, to: DepositStatus): DepositStatus { /* ... */ }
     </item>
   </file>
-  <file path="services/reservations/src/services/deposit-venue.ts">
-    <item priority="high">
-      export async function resolveReservationVenueId(reservationId: string): Promise<string | null> { /* ... */ }
-    </item>
-  </file>
   <file path="services/reservations/src/services/deposit.ts">
     <item priority="low">
       type StripePort = Omit<PaymentsPort, "createPaymentIntent">;
@@ -8702,9 +8790,6 @@
         id: string;
         name: string;
         tableNumber: string | n...;
-    </item>
-    <item priority="medium">
-      function mapPrismaTable(table: PrismaTable): Table { /* ... */ }
     </item>
     <item priority="medium">
       function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* ... */ }
@@ -9685,23 +9770,9 @@
   </file>
   <file path="services/reservations/src/services/table.ts">
     <item priority="high">
-      export function mapPrismaTable(table: {
-        id: string;
-        name: string;
-        tableNumber: string | null;
-        capacity: number;
-        minCovers: number;
-        maxCovers: number | null;
-        location: string | null;
-        isActive: boolean;
-        priority: number;
-        status: string;
-        venueId: string | null;
-        floorPlanId: string | null;
-        shapeMetadata: unknown;
-        createdAt: Date;
-        updatedAt: Date;
-      }): Table { /* ... */ }
+      class TableConcurrentUpdateError {
+        
+      }
     </item>
     <item priority="high">
       export const tableService: unknown;
@@ -10048,6 +10119,15 @@
       }): User { /* ... */ }
     </item>
     <item priority="high">
+      interface RawUserRow {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        email_verified: boolean;
+      }
+    </item>
+    <item priority="high">
       export const userService: unknown;
     </item>
   </file>
@@ -10212,20 +10292,35 @@
     </item>
     <item priority="low">
       interface NavSection {
+        id?: string;
         label?: string;
         items: NavItem[];
       }
     </item>
-    <item priority="medium">
-      function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readonly NavSection[] { /* ... */ }
+    <item priority="high">
+      export const ACCOUNT_SECTION_ID: unknown;
     </item>
     <item priority="medium">
-      function buildOperationalSections(isAdmin: boolean): readonly NavSection[] { /* ... */ }
+      function buildAccount(t: TFunction): NavSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAdmin(t: TFunction): NavSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildSetupSections(
+        readiness: VenueReadiness,
+        isAdmin: boolean,
+        t: TFunction
+      ): readonly NavSection[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavSection[] { /* ... */ }
     </item>
     <item priority="high">
       export function buildNavSections(
         readiness: VenueReadiness,
-        isAdmin: boolean
+        isAdmin: boolean,
+        t: TFunction = defaultT()
       ): readonly NavSection[] { /* ... */ }
     </item>
   </file>
@@ -11514,6 +11609,14 @@
     </item>
     <item priority="high">
       export function qualifiesForLowRiskFastPath(files: readonly string[]): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const GATE_PATHS: readonly {
+        readonly pattern: string;
+        readonly matches...;
+    </item>
+    <item priority="high">
+      export function matchesGatePath(file: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/prompt-builder.ts">
@@ -13330,6 +13433,16 @@
         reservationTime: Date,
         cancellationTime: Date
       ): CancellationFeeResult { /* ... */ }
+    </item>
+    <item priority="low">
+      type CancellationPolicyDescription = { kind: "no-fees" } | {
+            kind: "free-window";
+       ;
+    </item>
+    <item priority="high">
+      export function describeCancellationPolicy(
+        policy: CancellationPolicy | null
+      ): CancellationPolicyDescription { /* ... */ }
     </item>
     <item priority="high">
       export function formatCancellationTerms(
@@ -16094,7 +16207,7 @@
       type SseEventName = keyof SsePayloadMap;
     </item>
     <item priority="low">
-      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
     </item>
     <item priority="low">
       interface SseEventDefinition {
@@ -16108,12 +16221,11 @@
       export const SSE_EVENT_NAMES: unknown;
     </item>
     <item priority="low">
-      interface SseEvent {
-        type: SseEventName;
-        venueId: string;
-        timestamp: string;
-        data: SsePayloadMap[SseEventName];
-      }
+      type SseEvent = {
+        [N in K]: {
+          type: N;
+          venueId: string;
+          tim...;
     </item>
   </file>
   <file path="packages/types/src/table-status.ts">
@@ -17221,6 +17333,7 @@
         startHour: number;
         hourWidth: number;
         isMobile: boolean;
+        timeZone?: string;
       }
     </item>
     <item priority="low">
@@ -17233,7 +17346,7 @@
       export function computeReservationLayout(
         startTime: string,
         endTime: string,
-        { startHour, hourWidth, isMobile }: ReservationLayoutParams
+        { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
       ): ReservationLayoutResult { /* ... */ }
     </item>
   </file>
@@ -17245,7 +17358,7 @@
       ): Table | undefined { /* ... */ }
     </item>
     <item priority="high">
-      export function statusWord(reservation: Reservation, seated: boolean): string { /* ... */ }
+      export function statusWord(reservation: Reservation, seated: boolean, t: TFunction): string { /* ... */ }
     </item>
     <item priority="medium">
       function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
@@ -17254,7 +17367,8 @@
       export function occupiedCaption(
         reservation: Reservation,
         table: Table | undefined,
-        now: Date
+        now: Date,
+        t: TFunction
       ): string | null { /* ... */ }
     </item>
     <item priority="low">
@@ -17283,6 +17397,11 @@
       export const SHEET_BLOCK_SIZE: Readonly<Record<ReservationSheetSize, string>>;
     </item>
   </file>
+  <file path="apps/hospitality/src/components/timeline/status-keys.ts">
+    <item priority="high">
+      export const RESERVATION_STATUS_KEYS: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/timeline/table-status-menu.ts">
     <item priority="low">
       interface TableStatusMenuItem {
@@ -17291,10 +17410,17 @@
       }
     </item>
     <item priority="high">
-      export function tableStatusMenuItems(status: TableStatus): TableStatusMenuItem[] { /* ... */ }
+      export function tableStatusWord(status: TableStatus, t: TFunction): string { /* ... */ }
     </item>
     <item priority="high">
-      export function tableStatusWord(status: TableStatus): string { /* ... */ }
+      export function tableStatusInline(status: TableStatus, t: TFunction, locale: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tableStatusMenuItems(
+        status: TableStatus,
+        t: TFunction,
+        locale: string
+      ): TableStatusMenuItem[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/timeline/useGridFocus.ts">
@@ -17341,6 +17467,11 @@
         currentTimeOffset: number | null,
         tableColumnWidth: number
       ): void { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/timeline/visit-label.ts">
+    <item priority="high">
+      export function visitLabel(visitCount: number, t: TFunction, locale: string): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -17705,7 +17836,8 @@
             op: "replace-if-presen;
     </item>
     <item priority="low">
-      type LiveEvent = Omit<ReservationEvent, "timestamp">;
+      type LiveEvent = ReservationEvent extends infer E
+        ? E extends Reservatio...;
     </item>
     <item priority="low">
       interface EventsPort {
@@ -17862,29 +17994,88 @@
     </item>
   </file>
   <file path="apps/hospitality/src/utils/format.ts">
-    <item priority="high">
-      export function formatLongDate(dateStr: string): string { /* ... */ }
+    <item priority="medium">
+      function defaultReport(timeZone: string): void { /* ... */ }
     </item>
     <item priority="high">
-      export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
+      export function resolveTimeZone(
+        timeZone: string | undefined,
+        report: (timeZone: string) => void = defaultReport
+      ): string | undefined { /* ... */ }
     </item>
     <item priority="high">
-      export function formatServiceDate(dateStr: string): string { /* ... */ }
+      export function resetTimeZoneReports(): void { /* ... */ }
     </item>
     <item priority="high">
-      export function formatTime(isoString: string): string { /* ... */ }
+      export function formatLongDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
-      export function formatTimeIn(isoString: string, timeZone: string): string { /* ... */ }
+      export function formatLongDateWithYear(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatServiceDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatInstant(
+        value: string | number | Date,
+        options: Intl.DateTimeFormatOptions,
+        locale: string = LOCALE,
+        timeZone?: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCalendarDate(
+        dateStr: string,
+        options: Intl.DateTimeFormatOptions,
+        locale: string = LOCALE
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTime(isoString: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimeIn(isoString: string, timeZone: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
       export function getHourIn(isoString: string, timeZone: string): number { /* ... */ }
     </item>
     <item priority="high">
-      export function formatLocalTime(hhmm: string): string { /* ... */ }
+      export function formatLocalTime(hhmm: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
-      export function formatCurrencyFromCents(amountCents: number, currency: string): string { /* ... */ }
+      export function formatWallHour(hour24: number, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatWallHourRange(
+        fromHour24: number,
+        toHour24: number,
+        locale: string = LOCALE
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currencyMinorUnits(currency: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currencySymbol(currency: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function majorToMinorUnits(amount: number, currency: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCurrencyFromCents(
+        amountMinor: number,
+        currency: string,
+        locale: string = LOCALE
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCurrencyName(currency: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatShortDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatHourLabel(hour: number, locale: string, compact: boolean): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">
@@ -17942,10 +18133,11 @@
         "warning" | "success" | "e...;
     </item>
     <item priority="high">
-      export const STATUS_LABEL: Record<ReservationStatus, string>;
-    </item>
-    <item priority="high">
-      export function formatReservationTime(isoString: string): string { /* ... */ }
+      export function formatReservationTime(
+        isoString: string,
+        locale?: string,
+        timeZone?: string
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function specialRequestsText(notes: string | null | undefined): string | null { /* ... */ }
@@ -18015,6 +18207,9 @@
       }
     </item>
     <item priority="high">
+      export function minutesOfDayIn(instant: Date, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }
     </item>
   </file>
@@ -18052,12 +18247,26 @@
       export function stripReservationsIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/venue-wall-time.ts">
+    <item priority="medium">
+      function zoneOffsetMs(instantMs: number, timeZone: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueWallTimeToInstant(date: string, hhmm: string, timeZone?: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function wallTimeInputValue(isoString: string, timeZone?: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
     <item priority="high">
       export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
     </item>
     <item priority="high">
-      export function formatVenueOpenLabel(s: VenueOpenState): string { /* ... */ }
+      export function formatVenueOpenLabel(
+        s: VenueOpenState,
+        formatClock: (hhmm: string) => string = formatLocalTime
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/venueOpenState.ts">
@@ -18199,6 +18408,17 @@
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
+  <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-copy.ts">
+    <item priority="high">
+      export function layoutCounts(
+        t: TFunction,
+        tables: readonly DraftTable[]
+      ): { tables: string; seats: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-draft.ts">
     <item priority="low">
       type DraftTableShape = TableShapeMetadata["shape"];
@@ -18272,10 +18492,8 @@
     <item priority="low">
       interface FloorPlanTemplate {
         id: TemplateId;
-        name: string;
         planName: string;
-        summary: string;
-        zoneLine: string;
+        zones: readonly Zone[];
       }
     </item>
     <item priority="medium">
@@ -18412,9 +18630,11 @@
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/onboarding-steps.ts">
     <item priority="low">
+      type OnboardingStepId = "welcome" | "location" | "hours" | "settings" | "floorPlan" | "launch";
+    </item>
+    <item priority="low">
       interface OnboardingStep {
-        label: string;
-        description: string;
+        id: OnboardingStepId;
       }
     </item>
     <item priority="high">

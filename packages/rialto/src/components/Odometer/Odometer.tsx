@@ -1,5 +1,6 @@
 import { forwardRef, useMemo, type HTMLAttributes } from "react";
 import { motion } from "framer-motion";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { SplitFlap } from "../SplitFlap";
@@ -66,7 +67,7 @@ export const Odometer = forwardRef<HTMLDivElement, OdometerProps>(
   (
     {
       value,
-      locale,
+      locale: localeProp,
       formatOptions,
       size = "md",
       flipInterval = 60,
@@ -78,6 +79,8 @@ export const Odometer = forwardRef<HTMLDivElement, OdometerProps>(
     },
     ref
   ) => {
+    const { locale: contextLocale } = useRialtoLocale();
+    const locale = localeProp ?? contextLocale;
     const motionPreset = useMotionPreset();
     const shouldReduceMotion = motionPreset.reduced;
 

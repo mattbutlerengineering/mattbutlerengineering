@@ -72,7 +72,9 @@
   letter-spacing: var(--rialto-tracking-wide);
   text-transform: uppercase;
   line-height: 1;
-  color: var(--rialto-border);
+  /* Unlit glass is still text to axe: text-secondary keeps 4.5:1 on the recessed
+     plate while reading as dim next to the lit success/accent states. */
+  color: var(--rialto-text-secondary);
   transition: color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 

@@ -6,8 +6,9 @@ import { ApiClientError, type createApiClient } from "@mbe/api-client";
 import { Button, Alert, Text } from "@mattbutlerengineering/rialto";
 import type { DepositConfig } from "@mbe/types";
 import { quoteDeposit } from "@mbe/cancellation-policy";
-import { formatCurrencyFromCents } from "../../utils/format.js";
-import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
+import { useTranslation } from "react-i18next";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./PaymentStep.module.css";
 
 export type BookingWidgetApiClient = ReturnType<typeof createApiClient>;
@@ -44,10 +45,12 @@ function CardForm({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { t } = useTranslation();
   const amountCents = quoteDeposit(depositConfig, partySize);
   const currency = depositConfig.currency ?? "usd";
-  const displayAmount = formatCurrencyFromCents(amountCents, currency);
-  const cancellationTerms = formatDepositCancellationTerms(depositConfig, partySize);
+  const { formatMoney } = useVenueFormat({ ianaTimezone: "", currencyCode: currency });
+  const displayAmount = formatMoney(amountCents);
+  const cancellationTerms = useDepositCancellationTerms(depositConfig, partySize);
 
   const handleSubmit = useCallback(async () => {
     if (!stripe || !elements) return;
@@ -63,7 +66,7 @@ function CardForm({
       // proof of ownership for the deposit (#6304).
       const sessionId = api.holds.getSessionId();
       if (!sessionId) {
-        setError("Your booking session has expired. Please start your booking again.");
+        setError(t("bookingWidget.payment.sessionExpired"));
         return;
       }
 
@@ -79,7 +82,7 @@ function CardForm({
       });
 
       if (result.error) {
-        setError(result.error.message ?? "Payment failed");
+        setError(result.error.message ?? t("bookingWidget.payment.failed"));
       } else if (result.paymentIntent) {
         onSuccess(result.paymentIntent.id);
       }
@@ -89,18 +92,18 @@ function CardForm({
           ? err.problemDetails.detail
           : err instanceof Error
             ? err.message
-            : "Payment failed";
+            : t("bookingWidget.payment.failed");
       setError(message);
     } finally {
       setIsProcessing(false);
     }
-  }, [stripe, elements, api, venueSlug, reservationId, onSuccess]);
+  }, [stripe, elements, api, venueSlug, reservationId, onSuccess, t]);
 
   return (
     <div className={styles.container}>
       <div className={styles.depositSummary}>
         <Text variant="label" as="h3">
-          Deposit Required
+          {t("bookingWidget.payment.depositRequired")}
         </Text>
         <div className={styles.amountRow}>
           <Text variant="display" as="p">
@@ -108,21 +111,22 @@ function CardForm({
           </Text>
           {depositConfig.depositType === "per_person" && (
             <Text variant="caption" color="secondary">
-              ({partySize} {partySize === 1 ? "guest" : "guests"} ×{" "}
-              {formatCurrencyFromCents(depositConfig.amountCents ?? 0, currency)})
+              {t("bookingWidget.payment.perPerson", {
+                count: partySize,
+                amount: formatMoney(depositConfig.amountCents ?? 0),
+              })}
             </Text>
           )}
         </div>
         <Text variant="caption" color="secondary">
-          Your card will be authorized for {displayAmount}. The charge is only captured if you
-          don&apos;t cancel within the policy window.
+          {t("bookingWidget.payment.authorizeNotice", { amount: displayAmount })}
         </Text>
       </div>
 
       {cancellationTerms && (
         <div className={styles.policyCard}>
           <Text variant="label" as="h4">
-            Cancellation Policy
+            {t("bookingWidget.payment.cancellationPolicy")}
           </Text>
           <Text variant="caption">{cancellationTerms}</Text>
         </div>
@@ -132,7 +136,7 @@ function CardForm({
 
       <div className={styles.cardElementWrapper}>
         <Text variant="label" as="label" id="card-details-label">
-          Card Details
+          {t("bookingWidget.payment.cardDetails")}
         </Text>
         <div className={styles.cardElement} aria-labelledby="card-details-label">
           <CardElement
@@ -150,7 +154,9 @@ function CardForm({
       </div>
 
       <Button variant="primary" onClick={handleSubmit} disabled={!stripe || isProcessing}>
-        {isProcessing ? "Processing..." : `Authorize ${displayAmount}`}
+        {isProcessing
+          ? t("bookingWidget.payment.processing")
+          : t("bookingWidget.payment.authorize", { amount: displayAmount })}
       </Button>
     </div>
   );

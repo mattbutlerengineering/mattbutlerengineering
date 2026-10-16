@@ -101,6 +101,18 @@ describe("extractHookField", () => {
   it("returns an empty string for an unknown field", () => {
     expect(extractHookField(payloadFor("/a.ts"), "nope")).toBe("");
   });
+
+  // The envelope's top-level `cwd` is the only field that tells a hook which
+  // TREE a tool call runs in: hooks themselves always run with CWD =
+  // $CLAUDE_PROJECT_DIR = the main checkout, even for a worktree-isolated
+  // subagent (measured 2026-10-15).
+  it("reads the session working directory from the top of the envelope", () => {
+    const payload = JSON.stringify({
+      ...JSON.parse(payloadFor("/a.ts")),
+      cwd: "/repo/.claude/worktrees/agent-x",
+    });
+    expect(extractHookField(payload, "cwd")).toBe("/repo/.claude/worktrees/agent-x");
+  });
 });
 
 describe("parseHookPayload", () => {
@@ -263,13 +275,14 @@ const bashCommandContaining = (needle) => bashHookCommands().find((cmd) => cmd.i
  */
 const REPAIRED_BASH_HOOKS = ["pre-bash-guard.sh", "pre-push-typecheck.sh", "verify-push-sha.sh"];
 
-const bashPayloadFor = (command) =>
+const bashPayloadFor = (command, cwd) =>
   JSON.stringify({
     session_id: "test-session",
     hook_event_name: "PreToolUse",
     tool_name: "Bash",
     tool_input: { command, description: "test" },
     tool_use_id: "toolu_test",
+    ...(cwd ? { cwd } : {}),
   });
 
 describe("hook seam: Bash hooks read the command from the stdin payload", () => {
@@ -297,9 +310,9 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
     pnpmLog = join(sandbox, "pnpm-calls.log");
 
     // The hooks resolve their input adapter via $CLAUDE_PROJECT_DIR, and
-    // pre-bash-guard checks $CLAUDE_PROJECT_DIR/node_modules — so the project
-    // dir is the sandbox (no node_modules), with the real hook and adapter
-    // sources linked in. Node realpaths the adapter on execution, so its
+    // pre-bash-guard falls back to $CLAUDE_PROJECT_DIR/node_modules when the
+    // payload names no cwd — so the project dir is the sandbox (no
+    // node_modules), with the real hook and adapter sources linked in. Node realpaths the adapter on execution, so its
     // relative import of scripts/hook-input.mjs still resolves in the repo.
     symlinkSync(join(REPO_ROOT, ".claude"), join(sandbox, ".claude"));
     symlinkSync(join(REPO_ROOT, "scripts"), join(sandbox, "scripts"));
@@ -350,6 +363,10 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
     writeFileSync(join(work, "a.ts"), "export const a = 2;\n");
     git(work, "add", "a.ts");
     git(work, "commit", "-qm", "unpushed ts change");
+    // An installed tree: pre-push-typecheck now refuses to typecheck a tree
+    // with no node_modules (see the install-hint test below), and this
+    // fixture is the one whose typecheck must actually reach `pnpm`.
+    mkdirSync(join(work, "node_modules"));
     return work;
   }
 
@@ -503,6 +520,122 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
       );
       expect(result.stderr).toBe("");
       expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  /**
+   * The worktree-isolated subagent case, as measured 2026-10-15: hooks run
+   * with CWD = $CLAUDE_PROJECT_DIR = the main checkout (an installed tree on
+   * some unrelated branch), while the command they are guarding runs in a
+   * bare linked worktree. Only the payload's top-level `cwd` names that tree.
+   */
+  function gitFixtureWithUnpushedWorktreeChange() {
+    const { work, tree } = gitFixtureWithPushedWorktree();
+    writeFileSync(join(tree, "b.ts"), "export const b = 2;\n");
+    git(tree, "add", "b.ts");
+    git(tree, "commit", "-qm", "unpushed worktree ts change");
+    git(tree, "branch", "--set-upstream-to=origin/feature");
+    return { work, tree };
+  }
+
+  it(
+    "pre-bash-guard checks node_modules in the tree named by the payload cwd, not the project dir",
+    () => {
+      // Before the fix the guard read $CLAUDE_PROJECT_DIR/node_modules — the
+      // main checkout's, which exist — and let `pnpm test` in a bare worktree
+      // through: the exact case its own header says it blocks.
+      mkdirSync(join(sandbox, "node_modules"));
+      const { tree } = gitFixtureWithPushedWorktree();
+      const result = run("pre-bash-guard.sh", bashPayloadFor("pnpm test", tree));
+      expect(result.stderr).toContain("node_modules missing");
+      expect(result.stderr).toContain("linked");
+      expect(result.status).toBe(2);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-bash-guard allows `pnpm test` in an installed worktree even when the project dir is bare",
+    () => {
+      const { tree } = gitFixtureWithPushedWorktree();
+      mkdirSync(join(tree, "node_modules"));
+      const result = run("pre-bash-guard.sh", bashPayloadFor("pnpm test", tree));
+      expect(result.stderr).toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck typechecks the worktree named by the payload cwd, not the hook's own tree",
+    () => {
+      // Before the fix the hook resolved upstream, unpushed commits and the
+      // typecheck itself in its own CWD. For a push from a linked worktree
+      // that is the main checkout — here on `local-only-branch` with no
+      // upstream at all — so the guard exited 0 without typechecking anything.
+      const { work, tree } = gitFixtureWithUnpushedWorktreeChange();
+      mkdirSync(join(tree, "node_modules"));
+      const result = run(
+        "pre-push-typecheck.sh",
+        bashPayloadFor("git push -u origin feature", tree),
+        work
+      );
+      expect(result.stderr).toContain("BLOCK: typecheck failed");
+      expect(result.status).toBe(2);
+      expect(readFileSync(pnpmLog, "utf8")).toContain("-r --parallel typecheck");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck blocks with the install hint when the pushed tree has no node_modules",
+    () => {
+      // Reachable only now that the hook looks at the right tree: a worktree
+      // that never ran `pnpm install` cannot typecheck, and "fix the type
+      // errors above" would blame the wrong thing.
+      const { work, tree } = gitFixtureWithUnpushedWorktreeChange();
+      const result = run(
+        "pre-push-typecheck.sh",
+        bashPayloadFor("git push origin feature", tree),
+        work
+      );
+      expect(result.stderr).toContain("node_modules missing");
+      expect(result.status).toBe(2);
+      expect(existsSync(pnpmLog), "typecheck ran in a tree with no node_modules").toBe(false);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck ignores a command that only mentions a push in its text",
+    () => {
+      // Same bare-substring regression verify-push-sha fixed: a heredoc or
+      // echo containing the words ran a 30-60s typecheck for nothing.
+      const work = gitFixtureAheadOfOrigin();
+      const result = run(
+        "pre-push-typecheck.sh",
+        bashPayloadFor('echo "reminder: git push origin main later"'),
+        work
+      );
+      expect(result.stderr).toBe("");
+      expect(result.status).toBe(0);
+      expect(existsSync(pnpmLog), "typechecked a command that pushes nothing").toBe(false);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha resolves a bare `git push` against the worktree named by the payload cwd",
+    () => {
+      // Closes the residual the hook's own header recorded: a bare push names
+      // no branch, so HEAD is the only answer — and the hook's HEAD was the
+      // main checkout's, reporting on `local-only-branch` after a worktree push.
+      const { work, tree } = gitFixtureWithUnpushedWorktreeChange();
+      const result = run("verify-push-sha.sh", bashPayloadFor("git push", tree), work);
+      expect(result.stderr).toContain("remote 'feature' is BEHIND local");
+      expect(result.stderr).not.toContain("local-only-branch");
+      expect(result.status).toBe(2);
     },
     SEAM_TIMEOUT_MS
   );

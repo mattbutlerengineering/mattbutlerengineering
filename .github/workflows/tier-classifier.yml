@@ -70,22 +70,22 @@ jobs:
         run: |
           base_sha=$(git merge-base "origin/${PR_BASE_REF}" HEAD)
           git diff --name-only "${base_sha}...HEAD" > /tmp/changed-files.txt
-          added=$(git diff --shortstat "${base_sha}...HEAD" | awk '{print $4+0}')
-          {
-            echo "added=${added}"
-            echo "count=$(wc -l < /tmp/changed-files.txt)"
-          } >> "$GITHUB_OUTPUT"
+          # Per-file additions (path = 3rd tab column); the size rule in
+          # scripts/tier-escalation.mjs needs them to exclude generated files.
+          git diff --numstat "${base_sha}...HEAD" > /tmp/numstat.txt
+          echo "count=$(wc -l < /tmp/changed-files.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Classify
         id: classify
         env:
-          ADDED_LINES: ${{ steps.diff.outputs.added }}
           PR_TITLE: ${{ steps.pr.outputs.title }}
           PR_BODY: ${{ steps.pr.outputs.body }}
           PR_IS_FORK: ${{ steps.pr.outputs.is_fork }}
         run: |
           node - <<'NODE'
           const fs = require('node:fs');
+          const path = require('node:path');
+          const { pathToFileURL } = require('node:url');
           const files = fs.readFileSync('/tmp/changed-files.txt', 'utf-8').split('\n').filter(Boolean);
 
           const T1 = 1, T2 = 2, T3 = 3, T4 = 4;
@@ -126,6 +126,19 @@ jobs:
             { tier: T1, when: (f) => /\.test\.[tj]sx?$/.test(f), why: 'test-only' },
           ];
 
+          // Dynamic import: this heredoc is CommonJS. A thrown error fails the
+          // step -> no tier label -> merge-queue-eligibility fails closed.
+          const numstatPath = '/tmp/numstat.txt';
+          const numstat = fs.existsSync(numstatPath) ? fs.readFileSync(numstatPath, 'utf-8') : '';
+          const additions = numstat.split('\n').filter(Boolean).map((l) => {
+            const [n, , ...rest] = l.split('\t');
+            return { path: rest.join('\t'), additions: parseInt(n, 10) };
+          });
+
+          main().catch((e) => { console.error(e); process.exit(1); });
+          async function main() {
+          const escalation = await import(pathToFileURL(path.resolve('scripts/tier-escalation.mjs')).href);
+
           let highest = 0;
           const reasons = new Set();
           for (const f of files) {
@@ -148,7 +161,6 @@ jobs:
 
           const title = process.env.PR_TITLE || '';
           const body = process.env.PR_BODY || '';
-          const added = parseInt(process.env.ADDED_LINES || '0', 10);
           const isFork = process.env.PR_IS_FORK === 'true';
 
           // PULL_REQUEST_TEMPLATE.md's own checklist item "No hardcoded
@@ -204,17 +216,16 @@ jobs:
           // flanked by `-` + a word char (a longer hyphenated identifier).
           // Tradeoff: code spans are excluded by design (#5956 option 1), so
           // a real secrets mention written inside backticks won't escalate.
-          const scanText = (title + ' ' + bodyProse)
-            .replace(/```[\s\S]*?```/g, ' ')
-            .replace(/`[^`\n]*`/g, ' ');
-          if (/(?<!\w-)\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b(?!-\w)/i.test(scanText)) {
-            if (pathTier >= T3) {
-              highest = T4;
-              reasons.add('escalate to T4: title/body mentions secrets or incident (sensitive path already matched)');
-            } else if (highest < T4) {
-              highest = Math.min(T4, highest + 1);
-              reasons.add('escalate one tier: title/body mentions secrets or incident');
-            }
+          // The keyword decision (title backstop, incident cue, hyphen and
+          // code-span guards, sensitive-path hard-set) lives in
+          // scripts/tier-escalation.mjs; this step only applies the verdict.
+          const kw = escalation.decideKeywordEscalation({ title, bodyProse, pathTier });
+          if (kw.action === 'hardset-T4') {
+            highest = T4;
+            reasons.add(kw.reason);
+          } else if (kw.action === 'bump' && highest < T4) {
+            highest = Math.min(T4, highest + 1);
+            reasons.add(kw.reason);
           }
           // docs/change-tiers.md: "PR body explicitly asks reviewers to
           // bypass a check." The old /bypass.*check|skip.*review/i matched any
@@ -247,9 +258,10 @@ jobs:
             highest = T4;
             reasons.add('escalate to T4: PR body asks reviewers to bypass a check');
           }
-          if (added > 1000 && highest < T4) {
+          const size = escalation.decideSizeEscalation({ files: additions, highestTier: highest });
+          if (size.escalate) {
             highest = Math.min(T4, highest + 1);
-            reasons.add(`escalate one tier: ${added} lines added`);
+            reasons.add(size.reason);
           }
           if (isFork && highest < T4) {
             highest = Math.min(T4, highest + 1);
@@ -260,6 +272,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `tier=${highest}\nlabel=${labelName}\nreasons=${[...reasons].join(' · ')}\n`);
           console.log(`Classified: ${labelName} (T${highest})`);
           for (const r of reasons) console.log(`  - ${r}`);
+          }
           NODE
 
       - name: Ensure tier labels exist

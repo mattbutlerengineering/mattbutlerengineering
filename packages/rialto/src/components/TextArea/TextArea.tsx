@@ -4,6 +4,7 @@ import { cn } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useField } from "../../hooks/useField";
 import styles from "./TextArea.module.css";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -63,6 +64,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
     },
     ref
   ) => {
+    const { messages } = useRialtoLocale();
     const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [internalLength, setInternalLength] = useState(0);
@@ -101,7 +103,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
             <label {...field.labelProps} className={styles.label}>
               {label}
               {field.requiredMarker}
-              {field.showOptional && <span className={styles.optional}> (optional)</span>}
+              {field.showOptional && <span className={styles.optional}> {messages.optional}</span>}
             </label>
           )}
           <div className={styles.textareaContainer}>

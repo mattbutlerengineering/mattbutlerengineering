@@ -7,6 +7,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { Heading } from "../Heading/Heading";
 import { cn, variantClass } from "../../utils/class-composer";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./Drawer.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -62,6 +63,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   { open, onClose, title, description, children, footer, side = "right", size = "default" },
   ref
 ) {
+  const { messages } = useRialtoLocale();
   const motionPreset = useMotionPreset();
   const shouldReduceMotion = motionPreset.reduced;
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -120,7 +122,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               role="dialog"
               aria-modal="true"
               aria-labelledby={title ? titleId : undefined}
-              aria-label={title ? undefined : "Drawer"}
+              aria-label={title ? undefined : messages.drawer}
               aria-describedby={description ? descriptionId : undefined}
               initial={panelInitial}
               animate={panelAnimate}
@@ -146,7 +148,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
                     type="button"
                     className={styles.close}
                     onClick={onClose}
-                    aria-label="Close"
+                    aria-label={messages.close}
                     data-focus-trap-skip-initial="true"
                   >
                     <svg className={styles.closeIcon} viewBox="0 0 14 14" aria-hidden="true">

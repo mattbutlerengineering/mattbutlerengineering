@@ -1,7 +1,7 @@
 import type { SseQueryKey } from "@mbe/types";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { TABLES_QUERY_KEY } from "./useTables.js";
-import { FLOOR_PLANS_QUERY_KEY, FLOOR_PLAN_QUERY_KEY } from "./useFloorPlans.js";
+import { FLOOR_PLANS_QUERY_KEY } from "./useFloorPlans.js";
 import { LAPSING_GUESTS_QUERY_KEY } from "./useGuests.js";
 
 /**
@@ -15,6 +15,5 @@ export const SSE_INVALIDATION_QUERY_KEYS = [
   RESERVATIONS_QUERY_KEY,
   TABLES_QUERY_KEY,
   FLOOR_PLANS_QUERY_KEY,
-  FLOOR_PLAN_QUERY_KEY,
   LAPSING_GUESTS_QUERY_KEY,
 ] as const satisfies readonly SseQueryKey[];

@@ -886,11 +886,16 @@
       guestPhone: z.string().describe("Guest phone number").optional(),
       guestId: z.string().describe("ID of existing guest record").optional(),
       notes: z.string().describe("Special requests or notes").optional(),
+      occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+      seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
     });
     export const CreateDepositBodySchema = z.object({
       reservationId: z.string().describe("ID of the reservation"),
       amountCents: z.number().int().min(1).describe("Deposit amount in cents"),
-      currency: z.string().default("usd").describe("ISO currency code"),
+      currency: z
+        .string()
+        .optional()
+        .describe("ISO currency code; must match the venue's currency, which is used when omitted"),
     });
     export const ListTablesQuerySchema = z.object({
       page: z.string().default("1").describe("Page number (1-indexed)"),
@@ -951,7 +956,11 @@
         name: z.string().describe("Venue name"),
         slug: z.string().describe("URL-friendly identifier for public booking URLs (must be unique)"),
         ianaTimezone: z.string().describe("IANA timezone identifier (e.g., 'America/Los_Angeles')"),
-        currencyCode: z.string().default("USD").describe("ISO 4217 currency code"),
+        currencyCode: z
+          .string()
+          .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
+          .default("USD")
+          .describe("ISO 4217 currency code"),
         operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
         settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
       })
@@ -962,7 +971,10 @@
         name: z.string().optional(),
         slug: z.string().optional(),
         ianaTimezone: z.string().optional(),
-        currencyCode: z.string().optional(),
+        currencyCode: z
+          .string()
+          .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
+          .optional(),
         operatingHours: JsonObjectSchema.nullable().optional(),
         settings: JsonObjectSchema.nullable().optional(),
       })
@@ -1008,6 +1020,8 @@
       guestEmail: z.email().describe("Guest email").optional(),
       guestPhone: z.string().describe("Guest phone number").optional(),
       notes: z.string().describe("Special requests or notes").optional(),
+      occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+      seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
     });
     export const PublicReservationBodySchema = z.object({
       holdId: z.string().min(1),
@@ -1448,6 +1462,8 @@
       guestPhone?: string;
       guestId?: string;
       notes?: string;
+      occasion?: Occasion;
+      seatingPreference?: SeatingPreference;
     }
     export interface ConflictCheckResult {
       hasConflict: boolean;
@@ -1880,7 +1896,7 @@
       "table-status:changed": TableStatusDelta[];
     }
     export type SseEventName = keyof SsePayloadMap;
-    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
     export interface SseEventDefinition {
       /** Query-key roots to invalidate when this event arrives (may be empty). */
       readonly invalidates: readonly SseQueryKey[];
@@ -1893,17 +1909,19 @@
       "hold:released": { invalidates: [] },
       "hold:confirmed": { invalidates: ["reservations"] },
       "table:updated": { invalidates: ["tables"] },
-      "floor-plan:created": { invalidates: ["floorPlans", "floorPlan"] },
+      "floor-plan:created": { invalidates: ["floorPlans"] },
       "guest:lapsing": { invalidates: ["lapsingGuests"] },
       "table-status:changed": { invalidates: [] },
     } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
     export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
-    export interface SseEvent {
-      type: SseEventName;
-      venueId: string;
-      timestamp: string;
-      data: SsePayloadMap[SseEventName];
-    }
+    export type SseEvent<K extends SseEventName = SseEventName> = {
+      [N in K]: {
+        type: N;
+        venueId: string;
+        timestamp: string;
+        data: SsePayloadMap[N];
+      };
+    }[K];
   </file>
   <file path="src/table-status.ts">
     export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";

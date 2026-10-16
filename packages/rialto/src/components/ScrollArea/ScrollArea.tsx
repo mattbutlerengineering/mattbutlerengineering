@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
 import styles from "./ScrollArea.module.css";
 
@@ -23,6 +24,7 @@ export interface ScrollAreaProps extends HTMLAttributes<HTMLDivElement> {
 
 export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(
   ({ maxHeight, children, className, style, ...props }, ref) => {
+    const { messages } = useRialtoLocale();
     const heightStyle = typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight;
 
     return (
@@ -33,7 +35,7 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         role="region"
-        aria-label="Scrollable content"
+        aria-label={messages.scrollableContent}
         {...props}
       >
         {children}

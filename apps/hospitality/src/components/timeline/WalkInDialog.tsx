@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { Button, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
-import type { Guest, Table } from "@mbe/types";
+import type { Guest, Occasion, SeatingPreference, Table, WalkInRequest } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { LiveStatus } from "../LiveStatus.js";
 import { GuestLookup } from "../crm/GuestLookup.js";
@@ -12,20 +13,14 @@ import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { useStatusMessage } from "../../hooks/useStatusMessage.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { tablesThatFit } from "../../utils/seating.js";
+import { OccasionSeatingFields } from "../reservations/OccasionSeatingFields.js";
 import styles from "./WalkInDialog.module.css";
 
 interface WalkInDialogProps {
   tables: Table[];
   venueId: string;
   /** Rejects on failure — the dialog owns showing it (architecture § Dialog contracts). */
-  onConfirm: (data: {
-    partySize: number;
-    tableId: string;
-    venueId: string;
-    guestName?: string;
-    /** Present only when the Host picked a returning guest from the lookup (SC7/SC8). */
-    guestId?: string;
-  }) => Promise<void>;
+  onConfirm: (data: WalkInRequest) => Promise<void>;
   onClose: () => void;
 }
 
@@ -34,11 +29,6 @@ interface WalkInFormData {
 }
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
-
-// ux.md § Copy — the walk-in lookup hint and the clear sentence. No caption on this surface:
-// there are no contact fields below the strip for one to describe.
-const GUEST_NAME_HINT = "Name or phone — returning guests appear as you type.";
-const GUEST_CLEARED = "Guest cleared.";
 
 function findBestTable(tables: Table[], partySize: number): string {
   return tablesThatFit(tables, partySize)[0]?.id ?? "";
@@ -52,8 +42,11 @@ function findBestTable(tables: Table[], partySize: number): string {
  * (`useFocusAfter`, captured at event time), so there is no restore code here.
  */
 export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDialogProps) {
+  const { t } = useTranslation();
   const [partySize, setPartySize] = useState(2);
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
+  const [occasion, setOccasion] = useState<Occasion>("none");
+  const [seatingPreference, setSeatingPreference] = useState<SeatingPreference>("no_preference");
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
   // The picked returning guest. Nothing here gates seating: no pick, no `guestId`, same payload
@@ -91,15 +84,17 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
     setPickedGuest(null);
     // The typed name stays; selecting it makes "type a different name" a single keystroke.
     setFocus("guestName", { shouldSelect: true });
-    announce(GUEST_CLEARED);
+    // ux.md § Copy — the clear sentence. No caption on this surface: there are no contact fields
+    // below the strip for one to describe.
+    announce(t("timeline.walkInDialog.guestCleared"));
   };
 
   const availableTables = tablesThatFit(tables, partySize);
   const noTableFits = availableTables.length === 0;
 
-  const tableOptions = availableTables.map((t) => ({
-    value: t.id,
-    label: `${t.name} (seats ${t.capacity})`,
+  const tableOptions = availableTables.map((table) => ({
+    value: table.id,
+    label: t("timeline.walkInDialog.tableOption", { name: table.name, capacity: table.capacity }),
   }));
 
   const handlePartySizeChange = useCallback(
@@ -123,6 +118,8 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
         venueId,
         guestName: data.guestName.trim() || undefined,
         ...(pickedGuest ? { guestId: pickedGuest.id } : {}),
+        ...(occasion !== "none" ? { occasion } : {}),
+        ...(seatingPreference !== "no_preference" ? { seatingPreference } : {}),
       });
     } catch (err) {
       const description = describeApiError(err);
@@ -162,7 +159,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
           <Stack gap="lg">
             <div className={styles.header}>
               <Text variant="display" id="walkin-dialog-title">
-                Seat walk-in
+                {t("timeline.walkInDialog.title")}
               </Text>
             </div>
 
@@ -174,7 +171,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
                   id="walkin-party-size-label"
                   style={{ marginBottom: "var(--rialto-space-xs)" }}
                 >
-                  Party size
+                  {t("timeline.walkInDialog.partySize")}
                 </Text>
                 <div
                   className={styles.partySizeRow}
@@ -200,13 +197,12 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
 
               {noTableFits ? (
                 <Text variant="caption" color="secondary" id={noTableCaptionId}>
-                  Nothing free for a party of {partySize} right now. Try a smaller party, or mark a
-                  table Available.
+                  {t("timeline.walkInDialog.nothingFree", { size: partySize })}
                 </Text>
               ) : (
                 <Select
                   ref={tableFieldRef}
-                  label="Table"
+                  label={t("timeline.walkInDialog.table")}
                   value={tableId}
                   onChange={setTableId}
                   disabled={isLoading}
@@ -216,9 +212,9 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
 
               <GuestLookup
                 venueId={venueId}
-                label="Guest name (optional)"
-                hint={GUEST_NAME_HINT}
-                placeholder="e.g. Smith"
+                label={t("timeline.walkInDialog.guestLabel")}
+                hint={t("timeline.walkInDialog.guestHint")}
+                placeholder={t("timeline.walkInDialog.guestPlaceholder")}
                 query={guestName}
                 picked={pickedGuest}
                 onPick={handlePick}
@@ -230,11 +226,19 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
               {pickedGuest && (
                 <GuestHistoryStrip guest={pickedGuest} mode="linked" onClear={handleClear} />
               )}
+
+              <OccasionSeatingFields
+                occasion={occasion}
+                seatingPreference={seatingPreference}
+                onOccasionChange={setOccasion}
+                onSeatingPreferenceChange={setSeatingPreference}
+                disabled={isLoading}
+              />
             </Stack>
 
             {failure && (
               <ErrorRetryBanner
-                title="Walk-in not seated."
+                title={t("timeline.walkInDialog.failed")}
                 error={failure.detail}
                 details={failure.raw}
               />
@@ -242,7 +246,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
 
             <div className={styles.actions}>
               <Button variant="secondary" type="button" onClick={onClose} disabled={isLoading}>
-                Cancel
+                {t("timeline.walkInDialog.cancel")}
               </Button>
               <Button
                 ref={submitRef}
@@ -251,9 +255,9 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
                 isLoading={isLoading}
                 disabled={noTableFits}
                 aria-describedby={noTableFits ? noTableCaptionId : undefined}
-                loadingText="Seating…"
+                loadingText={t("timeline.walkInDialog.seating")}
               >
-                Seat now
+                {t("timeline.walkInDialog.seatNow")}
               </Button>
             </div>
           </Stack>

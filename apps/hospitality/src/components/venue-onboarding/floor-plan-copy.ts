@@ -1,0 +1,21 @@
+import type { TFunction } from "i18next";
+import type { DraftTable } from "./floor-plan-draft.js";
+
+/** "14 tables" and "48 seats" for a layout, pluralized by the active locale. */
+export function layoutCounts(
+  t: TFunction,
+  tables: readonly DraftTable[]
+): { tables: string; seats: string } {
+  const seats = tables.reduce((sum, table) => sum + table.capacity, 0);
+  return {
+    tables: t("onboarding.floorPlan.tableCount", { count: tables.length }),
+    seats: t("onboarding.floorPlan.seatCount", { count: seats }),
+  };
+}
+
+/** "14 tables · 48 seats", or "No tables" for an empty layout. */
+export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string {
+  return tables.length === 0
+    ? t("onboarding.floorPlan.summaryBlank")
+    : t("onboarding.floorPlan.summary", layoutCounts(t, tables));
+}

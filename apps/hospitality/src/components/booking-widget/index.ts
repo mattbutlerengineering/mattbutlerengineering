@@ -17,3 +17,9 @@ export {
   WaitlistConfirmationView,
   type WaitlistConfirmationViewProps,
 } from "./WaitlistConfirmationView";
+export { WidgetLocalePicker } from "./WidgetLocalePicker.js";
+export {
+  WidgetLocaleScope,
+  useWidgetLocaleRuntime,
+  type WidgetLocaleScopeProps,
+} from "./WidgetLocaleScope.js";

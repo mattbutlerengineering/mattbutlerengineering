@@ -1,8 +1,10 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { StatusLED } from "@mattbutlerengineering/rialto";
 import type { Reservation, ReservationStatus } from "@mbe/types";
-import { ordinalVisit } from "../../utils/ordinal.js";
-import { formatTime } from "../../utils/format.js";
+import { RESERVATION_STATUS_KEYS } from "./status-keys.js";
+import { visitLabel } from "./visit-label.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./ReservationBlock.module.css";
 
 export interface ReservationBlockProps {
@@ -31,13 +33,35 @@ function ReservationBlockComponent({
   isSeated = false,
   onClick,
 }: ReservationBlockProps) {
+  const fmt = useVenueFormat();
+  const { t } = useTranslation();
   const statusClass = STATUS_CLASS[reservation.status];
 
-  const startTime = formatTime(reservation.startTime);
-  const guestName = reservation.guestName || "Guest";
+  const startTime = fmt.formatTime(reservation.startTime);
+  const guestName = reservation.guestName || t("timeline.guest");
   const visitCount =
     reservation.guest && reservation.guest.visitCount > 1 ? reservation.guest.visitCount : null;
-  const visitLabel = visitCount !== null ? ordinalVisit(visitCount) : null;
+  const visitText = visitCount !== null ? visitLabel(visitCount, t, fmt.locale) : null;
+  const title = [
+    t("timeline.block.title", {
+      guest: guestName,
+      party: t("timeline.guests", { count: reservation.partySize }),
+      time: startTime,
+    }),
+    visitText,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const spokenLabel = [
+    guestName,
+    t("timeline.partyOf", { count: reservation.partySize }),
+    startTime,
+    t(RESERVATION_STATUS_KEYS[reservation.status]).toLocaleLowerCase(fmt.locale),
+    isSeated ? t("timeline.block.seatedWord") : null,
+    visitText,
+  ]
+    .filter(Boolean)
+    .join(", ");
   const handleClick = () => onClick?.(reservation);
 
   return (
@@ -56,18 +80,18 @@ function ReservationBlockComponent({
         left: style.left,
         width: style.width,
       }}
-      title={`${guestName} - ${reservation.partySize} guests at ${startTime}${visitLabel ? ` · ${visitLabel}` : ""}`}
-      aria-label={`${guestName}, party of ${reservation.partySize}, ${startTime}, ${reservation.status.toLowerCase()}${isSeated ? ", seated" : ""}${visitLabel ? `, ${visitLabel}` : ""}`}
+      title={title}
+      aria-label={spokenLabel}
       aria-pressed={isSelected}
     >
       <div className={styles.content}>
-        <div className={styles.guestName}>
+        <div className={styles.guestName} data-truncate>
           {isSeated && <StatusLED variant="success" size="xs" className={styles.seatedLed} />}
           <span>{guestName}</span>
         </div>
-        <div className={styles.details}>
+        <div className={styles.details} data-truncate>
           {reservation.partySize} · {startTime}
-          {visitLabel !== null && ` · ${visitLabel}`}
+          {visitText !== null && ` · ${visitText}`}
         </div>
       </div>
     </button>
