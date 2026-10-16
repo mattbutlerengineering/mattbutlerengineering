@@ -78,7 +78,7 @@ test --affected`) ran it against the current single-job `ci.yml` —
       (`check-destructive-migrations.test.mjs` CLI exit-code seam,
       `rialto-plugin-hook.test.mjs` stdin timeout) — both pass in
       isolation, neither touches `ci.yml`.
-- [ ] **WO-0058 — Add `test-coverage-gate`** — `needs: [test]` (no
+- [x] **WO-0058 — Add `test-coverage-gate`** — `needs: [test]` (no
       `if: always()`), env `COVERAGE_THRESHOLD: 60`; checkout, download
       `pattern: coverage-*` with `merge-multiple: true` into the workspace
       root, then the three moved steps verbatim (repo-wide gate, agent-core
@@ -86,6 +86,38 @@ test --affected`) ran it against the current single-job `ci.yml` —
       now-meaningless `matrix.node-version == 22` conditions. AC: gate steps
       byte-equivalent to the moved originals aside from those drops;
       fail-closed `TOTAL_LINES -eq 0` path intact.
+      Done: `test-coverage-gate` landed in `.github/workflows/ci.yml` —
+      `needs: [test]`, plain (no `if: always()`), `env.COVERAGE_THRESHOLD:
+  60` — with checkout, a `download-artifact` step (`pattern:
+  coverage-*`, `merge-multiple: true`, `path: .`), then the three moved
+      steps verbatim: codecov upload (unchanged `files:` list and token),
+      the repo-wide `TOTAL_LINES`-gated threshold check, and the agent-core
+      80%-gated check — each with its `if: matrix.node-version == 22` guard
+      dropped (the gate job carries no matrix) and otherwise byte-identical
+      to what WO-0057 moved out of `test`. `ci-coverage-upload-paths.test.mjs`
+      re-pointed its `getJob` lookup from `test` to `test-coverage-gate`
+      per its own WO-0058 comment, un-skipping its 18 cases (now passing).
+      `ci-test-shards.test.mjs`'s "coverage threshold ownership" block (all
+      3 assertions: gate owns `COVERAGE_THRESHOLD: 60`, `test` no longer
+      does, agent-core keeps the literal 80) is GREEN. `actionlint` and the
+      project's own `loadWorkflow`/YAML parse are both clean on the new job.
+      Two guard assertions stay RED by design, routed to WO-0059 per the
+      breakdown's own sequencing: "ci-gate needs test-coverage-gate" (not
+      wired yet) and `check-ci-gate-coverage.test.mjs`'s unreachable-job
+      check (same cause — `test-coverage-gate` isn't in `ci-gate`'s
+      `needs:` yet). One unrelated pre-existing failure observed and left
+      alone as out of this item's scope: `ci-test-shards.test.mjs`'s
+      "zero-or-two-leg coverage is impossible by construction" assertion
+      fails on 28 on-disk packages regardless of this change — the test's
+      own `uncoveredOnDisk` filter reduces to "every non-named package" once
+      its `excluded` set is asserted equal to `NAMED_PACKAGES`, so it cannot
+      pass as written; it does not touch `test-coverage-gate` and predates
+      this item (confirmed: neither this item's `ci.yml` diff nor its test
+      diff touches the `test` job's leg filters). Flagged for Architect
+      rather than silently fixed. Full gate (`bash scripts/conductor-gate.sh`)
+      run: 280/282 test files green (5260/5263 tests), the 3 failing cases
+      being exactly the two WO-0059-routed assertions above plus this
+      pre-existing one; lint and typecheck green across all packages.
 - [ ] **WO-0059 — Wire `ci-gate` and sweep consumers** — add
       `test-coverage-gate` to `ci-gate`'s inline `needs:` (keeping `test`);
       confirm `report-health`'s `needs` untouched and resolving; run

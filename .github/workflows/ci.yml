@@ -616,6 +616,98 @@ jobs:
             */*/coverage/coverage-final.json
           retention-days: 1
 
+  test-coverage-gate:
+    name: Test Coverage Gate
+    needs: [test]
+    runs-on: ubuntu-latest
+    # Single source of truth for the repo-wide coverage threshold. The
+    # stricter agent-core package gate (80%) below is a deliberately
+    # separate, package-specific rule — not a competing repo number.
+    env:
+      COVERAGE_THRESHOLD: 60
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Download coverage reports
+        # Every leg's raw coverage-final.json, merged into the workspace
+        # root so paths are repo-relative — same layout the steps below
+        # (and the codecov file list) always assumed when this ran inline
+        # in a single `test` job (architecture.md decision 4).
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: .
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./packages/auth/coverage/coverage-final.json,./packages/config/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./packages/api-client/coverage/coverage-final.json,./packages/observability/coverage/coverage-final.json,./packages/mcp-server/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./tools/cli/coverage/coverage-final.json,./tools/route-contract/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json,./infrastructure/worker/coverage/coverage-final.json,./scripts/coverage/coverage-final.json
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Enforce repo-wide coverage threshold
+        run: |
+          # Repo-wide statement coverage across every package's coverage-final.json,
+          # folded in from the retired coverage-gate.yml so the suite runs at most
+          # once per required Node version. Threshold source: COVERAGE_THRESHOLD env.
+          TOTAL_LINES=0
+          COVERED_LINES=0
+          for REPORT in $(find . -path '*/coverage/coverage-final.json' -not -path '*/node_modules/*' | sort); do
+            PKG_TOTAL=$(node -e "
+              const c = require('./$REPORT');
+              let t=0, cov=0;
+              for (const f of Object.values(c)) {
+                for (const v of Object.values(f.s)) { t++; if (v>0) cov++; }
+              }
+              console.log(t + ',' + cov);
+            ")
+            PKG_T=$(echo "$PKG_TOTAL" | cut -d',' -f1)
+            PKG_C=$(echo "$PKG_TOTAL" | cut -d',' -f2)
+            TOTAL_LINES=$((TOTAL_LINES + PKG_T))
+            COVERED_LINES=$((COVERED_LINES + PKG_C))
+          done
+          if [ "$TOTAL_LINES" -eq 0 ]; then
+            echo "::error::No coverage statements found across the repo"
+            exit 1
+          fi
+          PERCENT=$((COVERED_LINES * 100 / TOTAL_LINES))
+          echo "Repo-wide coverage: ${PERCENT}% (${COVERED_LINES}/${TOTAL_LINES} statements, threshold: ${COVERAGE_THRESHOLD}%)"
+          if [ "$PERCENT" -lt "$COVERAGE_THRESHOLD" ]; then
+            echo "::error::Coverage ${PERCENT}% is below threshold of ${COVERAGE_THRESHOLD}%"
+            exit 1
+          fi
+          echo "Repo-wide coverage threshold met"
+
+      - name: Enforce agent-core coverage threshold
+        run: |
+          COVERAGE_FILE="./packages/agent-core/coverage/coverage-final.json"
+          if [ ! -f "$COVERAGE_FILE" ]; then
+            echo "ERROR: agent-core coverage report not found at $COVERAGE_FILE"
+            exit 1
+          fi
+          TOTAL_STMTS=0
+          COVERED_STMTS=0
+          while IFS= read -r line; do
+            file_total=$(echo "$line" | jq -r ".s | to_entries | length")
+            file_covered=$(echo "$line" | jq -r "[.s | to_entries[] | select(.value > 0)] | length")
+            TOTAL_STMTS=$((TOTAL_STMTS + file_total))
+            COVERED_STMTS=$((COVERED_STMTS + file_covered))
+          done < <(jq -c ".[]" "$COVERAGE_FILE")
+          if [ "$TOTAL_STMTS" -eq 0 ]; then
+            echo "ERROR: No statements found in coverage report"
+            exit 1
+          fi
+          PCT=$((COVERED_STMTS * 100 / TOTAL_STMTS))
+          echo "agent-core statement coverage: ${PCT}% (${COVERED_STMTS}/${TOTAL_STMTS})"
+          if [ "$PCT" -lt 80 ]; then
+            echo "ERROR: agent-core coverage ${PCT}% is below the 80% threshold"
+            exit 1
+          fi
+          echo "agent-core coverage threshold met"
+
   migrations:
     name: Validate Migrations
     runs-on: ubuntu-latest
