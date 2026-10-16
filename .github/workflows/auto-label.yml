@@ -45,7 +45,11 @@ jobs:
           if (/^\[audit\]/i.test(title)) labels.add('audit');
           if (/^\[acmm/i.test(title)) labels.add('acmm');
           if (/^\[ci-fix\]/i.test(title)) labels.add('ci-fix');
-          if (/^feat\(/i.test(title) || /\bfeature\b/.test(text)) labels.add('feature');
+          // Title prefix only. The body keyword `\bfeature\b` applied `feature`
+          // to 12 issues from 2026-10-13 to 2026-10-16 and 12 of 12 were wrong
+          // (ideation proposals, batch issues, a ci-fix citing "the original
+          // feature"). /decompose labels genuine features itself at creation.
+          if (/^feat\(/i.test(title)) labels.add('feature');
           if (/^chore\(deps\)/i.test(title) || /\bdependabot\b/i.test(title)) labels.add('dependencies');
 
           // Body keyword routing.
