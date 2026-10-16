@@ -163,6 +163,13 @@ jobs:
       - name: Check formatting
         run: pnpm check:prettier
 
+      # #6854: `.cursorrules` is generated from AGENTS.md, so an AGENTS.md-only
+      # edit is the one change that causes this drift AND skips Build (where
+      # repo-audit runs it) -- #6845 reddened main that way. The check is a
+      # pure file compare; it needs no CLI build.
+      - name: Check .cursorrules drift
+        run: node scripts/check-cursorrules-drift.mjs
+
   hadolint:
     name: Dockerfile Lint
     needs: [detect-changes]
