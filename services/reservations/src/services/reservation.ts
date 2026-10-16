@@ -66,6 +66,16 @@ export interface CreateReservationResult {
   partyDoesNotFit?: boolean;
 }
 
+/** True when the patch moves the reservation's slot (date, time or table). */
+function isSlotMove(data: UpdateReservationRequest): boolean {
+  return (
+    data.date !== undefined ||
+    data.startTime !== undefined ||
+    data.endTime !== undefined ||
+    data.tableId !== undefined
+  );
+}
+
 export interface UpdateReservationResult {
   success: boolean;
   reservation?: Reservation;
@@ -467,6 +477,18 @@ export const reservationService = {
       return { success: false, error: "Reservation not found" };
     }
 
+    // The move path below writes no status (no state-machine check, status CAS
+    // or NO_SHOW/COMPLETED guest side effects), so a payload carrying both
+    // would persist the move and silently drop the status (#6882). Refuse it;
+    // the caller sends the status change as its own PATCH.
+    if (data.status !== undefined && isSlotMove(data)) {
+      return {
+        success: false,
+        error:
+          "A status change cannot be combined with a table or time change; send them as separate requests",
+      };
+    }
+
     // A move onto another venue's table is refused before the capacity and
     // conflict checks, either of which would reveal that table's size or
     // bookings. (A reservation with no venueId never reaches this through a
@@ -501,11 +523,7 @@ export const reservationService = {
     }
 
     // Determine if we need to check for conflicts
-    const timeOrTableChanged =
-      data.date !== undefined ||
-      data.startTime !== undefined ||
-      data.endTime !== undefined ||
-      data.tableId !== undefined;
+    const timeOrTableChanged = isSlotMove(data);
 
     // Notes / party-size / preference edits are not slot moves — no lock needed.
     if (!timeOrTableChanged) {

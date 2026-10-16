@@ -1178,6 +1178,24 @@ describe("reservationService", () => {
       expect(result.error).toBe("Reservation not found");
     });
 
+    it("rejects a status change combined with a table or time move instead of dropping the status (#6882)", async () => {
+      for (const move of [{ tableId: "table-2" }, { startTime: "2026-05-05T19:00:00Z" }]) {
+        vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+          makePrismaReservation() as never
+        );
+
+        const result = await reservationService.updateWithConflictCheck("res-1", {
+          status: "COMPLETED",
+          ...move,
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/status.*separate/i);
+        expect(prisma.reservation.update).not.toHaveBeenCalled();
+        expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
+      }
+    });
+
     it("rejects a partySize-only update that exceeds the assigned table's capacity", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
