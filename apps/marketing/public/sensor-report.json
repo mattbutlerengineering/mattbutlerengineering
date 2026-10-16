@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-15T18:05:06.064Z",
+  "generated_at": "2026-10-16T00:25:35.661Z",
   "period": {
-    "start": "2026-10-08",
-    "end": "2026-10-15"
+    "start": "2026-10-09",
+    "end": "2026-10-16"
   },
   "sensors": {
     "acmm": {
@@ -42,36 +42,36 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.1,
+          "age_days": 0.37,
           "latest": "2026-10-15T15:39:59.341Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.14,
+          "age_days": 0.4,
           "latest": "2026-10-15T14:48:21.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 0.75,
+          "age_days": 1.02,
           "latest": "2026-10-15T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 0.75,
+          "age_days": 1.02,
           "latest": "2026-10-15T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.1,
-          "latest": "2026-10-15T15:40:40.766Z",
+          "age_days": 0.26,
+          "latest": "2026-10-15T18:14:10.278Z",
           "max_age_days": 5
         }
       ]
@@ -91,44 +91,49 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 99,
-      "total_merged": 94,
+      "total_prs": 100,
+      "total_merged": 95,
       "total_closed_without_merge": 5,
       "by_category": {
-        "tier:standard": {
-          "merged": 27,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.96
-        },
         "tier:trivial": {
-          "merged": 34,
+          "merged": 30,
           "closed_without_merge": 0,
           "acceptance_rate": 1
+        },
+        "tier:standard": {
+          "merged": 34,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.97
         },
         "tier:sensitive": {
-          "merged": 18,
+          "merged": 22,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:critical": {
-          "merged": 6,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "dependencies": {
-          "merged": 8,
-          "closed_without_merge": 3,
-          "acceptance_rate": 0.73
-        },
-        "unlabeled": {
-          "merged": 1,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
+        "agent-regression": {
+          "merged": 0,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0
         },
         "priority:critical": {
           "merged": 0,
           "closed_without_merge": 1,
           "acceptance_rate": 0
+        },
+        "unlabeled": {
+          "merged": 2,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "tier:critical": {
+          "merged": 5,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "dependencies": {
+          "merged": 2,
+          "closed_without_merge": 2,
+          "acceptance_rate": 0.5
         }
       }
     },
@@ -155,35 +160,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 992298,
-      "output_tokens": 1109,
-      "cache_creation_tokens": 89711,
-      "cache_hit_rate": 0.9171,
+      "cache_read_tokens": 10346424,
+      "output_tokens": 24556,
+      "cache_creation_tokens": 214144,
+      "cache_hit_rate": 0.9797,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 16,
-          "output_tokens": 1109,
-          "cache_read_tokens": 992298,
-          "cache_creation_tokens": 89711
+          "input_tokens": 104,
+          "output_tokens": 24556,
+          "cache_read_tokens": 10346424,
+          "cache_creation_tokens": 214144
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 20,
-      "passed": 13,
+      "completed": 29,
+      "passed": 21,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 38782645874,
-        "status": "queued",
-        "conclusion": null,
-        "createdAt": "2026-10-15T18:04:55Z",
-        "name": "Deploy Static Sites",
+        "databaseId": 38829310651,
+        "status": "completed",
+        "conclusion": "success",
+        "createdAt": "2026-10-16T00:24:34Z",
+        "name": "Revert Watchdog",
         "headBranch": "main",
-        "headSha": "212a59b1c324c947371d4a3495816312a4a4325b"
+        "headSha": "ddf0bd3b4eb6fc2f78cf2c6ebb82f32024b8a175"
       }
     },
     "lighthouse": {
@@ -191,39 +196,39 @@
     },
     "issues": {
       "available": true,
-      "open": 24,
+      "open": 8,
       "created_7d": 200,
       "closed_7d": 200,
       "closure_rate": 100,
-      "queue_depth": 3,
+      "queue_depth": 0,
       "agent_failed": 0
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-10-15T15:40:40.766Z",
+      "collected_at": "2026-10-15T18:14:10.278Z",
       "category_count": 7,
       "unhealthy_categories": [],
       "categories": {
         "feature": {
-          "total": 80,
+          "total": 79,
           "accepted": 0,
           "rejected": 5,
-          "wontfix": 75,
-          "rejection_rate": 0.0625
-        },
-        "ci-fix": {
-          "total": 48,
-          "accepted": 0,
-          "rejected": 5,
-          "wontfix": 43,
-          "rejection_rate": 0.10416666666666667
+          "wontfix": 74,
+          "rejection_rate": 0.06329113924050633
         },
         "audit": {
-          "total": 35,
+          "total": 33,
           "accepted": 0,
           "rejected": 5,
-          "wontfix": 30,
-          "rejection_rate": 0.14285714285714285
+          "wontfix": 28,
+          "rejection_rate": 0.15151515151515152
+        },
+        "ci-fix": {
+          "total": 51,
+          "accepted": 0,
+          "rejected": 7,
+          "wontfix": 44,
+          "rejection_rate": 0.13725490196078433
         },
         "acmm": {
           "total": 11,
@@ -239,18 +244,18 @@
           "wontfix": 18,
           "rejection_rate": 0.05263157894736842
         },
-        "sentry": {
-          "total": 6,
-          "accepted": 0,
-          "rejected": 0,
-          "wontfix": 6,
-          "rejection_rate": 0
-        },
         "dependencies": {
           "total": 1,
           "accepted": 0,
           "rejected": 0,
           "wontfix": 1,
+          "rejection_rate": 0
+        },
+        "sentry": {
+          "total": 6,
+          "accepted": 0,
+          "rejected": 0,
+          "wontfix": 6,
           "rejection_rate": 0
         }
       },
@@ -275,9 +280,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.003,
-      "total_lines_added_7d": 754701,
-      "lines_churned_7d": 2399,
+      "churn_rate": 0.005,
+      "total_lines_added_7d": 763068,
+      "lines_churned_7d": 3469,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -289,48 +294,48 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 38629,
-      "window_shas": 2
+      "total_runs": 35214,
+      "window_shas": 3
     },
     "e2eStability": {
       "available": false
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.958,
+      "composite": 0.955,
       "sub_metrics": {
-        "issues_merged": 182,
-        "first_pass_success_rate": 0.896,
+        "issues_merged": 194,
+        "first_pass_success_rate": 0.887,
         "median_time_to_merge_hours": 0.3,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
-        "review_coverage": 0.132
+        "review_coverage": 0.124
       },
       "distribution": {
+        "size:l": {
+          "count": 23,
+          "avg_commits": 1.9,
+          "avg_ttm_hours": 4.6
+        },
+        "size:s": {
+          "count": 51,
+          "avg_commits": 1.5,
+          "avg_ttm_hours": 6.1
+        },
+        "size:xl": {
+          "count": 22,
+          "avg_commits": 2.8,
+          "avg_ttm_hours": 2.4
+        },
+        "size:m": {
+          "count": 53,
+          "avg_commits": 2,
+          "avg_ttm_hours": 3.9
+        },
         "size:xs": {
           "count": 45,
           "avg_commits": 1.2,
           "avg_ttm_hours": 10.9
-        },
-        "size:m": {
-          "count": 50,
-          "avg_commits": 2.1,
-          "avg_ttm_hours": 4.2
-        },
-        "size:xl": {
-          "count": 17,
-          "avg_commits": 2.7,
-          "avg_ttm_hours": 2.9
-        },
-        "size:l": {
-          "count": 22,
-          "avg_commits": 1.8,
-          "avg_ttm_hours": 4.8
-        },
-        "size:s": {
-          "count": 48,
-          "avg_commits": 1.4,
-          "avg_ttm_hours": 6.4
         }
       },
       "baseline": null,
