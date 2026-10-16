@@ -21,13 +21,22 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { APPS, appPaths, PROVENANCE_FIELDS } from "./visual-noise-floor.mjs";
 
-/** The regenerable suites. Apps derive from `appPaths()`; a non-app target can be added alongside. */
+/** The regenerable suites. Apps derive from `appPaths()`; rialto is added alongside. */
 export const TARGETS = Object.fromEntries(
   APPS.map((app) => {
     const { config, spec, screenshots, packageJson } = appPaths(app);
     return [app, { config, spec, screenshots, packageJson }];
   })
 );
+
+// The rialto Storybook suite is not an `apps/*` target; its webServer is
+// `storybook dev`, so it needs no rialto build or vite build before capture.
+TARGETS.rialto = {
+  config: "packages/rialto/playwright.visual.config.ts",
+  spec: "packages/rialto/src/test/visual/visual.spec.ts",
+  screenshots: "packages/rialto/src/test/visual/__screenshots__",
+  packageJson: "packages/rialto/package.json",
+};
 
 /** A baseline PR is a human decision: it only ever carries this label. */
 const LABELS = ["needs-review"];

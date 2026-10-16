@@ -18,6 +18,19 @@ describe("visual-baseline-regen workflow", () => {
     expect(wf.on.workflow_dispatch.inputs.app.options).toEqual(Object.keys(TARGETS));
   });
 
+  it("skips the rialto and marketing builds for the rialto target", () => {
+    const rialtoBuild = steps.find((s) => /^Build rialto/.test(s.name ?? ""));
+    expect(rialtoBuild.if).toMatch(/inputs\.app != 'rialto'/);
+    const marketingBuild = steps.find((s) => /^Build marketing/.test(s.name ?? ""));
+    expect(marketingBuild.if).toBe("inputs.app == 'marketing'");
+  });
+
+  it("installs Playwright browsers in the planned package dir", () => {
+    const install = steps.find((s) => /^Install Playwright/.test(s.name ?? ""));
+    expect(install.env.PACKAGE_JSON).toBe("${{ steps.plan.outputs.package_json }}");
+    expect(install.run).toMatch(/dirname "\$PACKAGE_JSON"/);
+  });
+
   it("takes capture and verify args from the plan, verify after capture", () => {
     const capture = indexOfStep(/^Capture/);
     const verify = indexOfStep(/^Verify/);

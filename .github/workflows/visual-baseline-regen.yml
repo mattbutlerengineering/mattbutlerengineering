@@ -21,6 +21,7 @@ on:
           - rialto-web
           - marketing
           - hospitality
+          - rialto
       grep:
         description: Optional Playwright --grep to regenerate a subset
         type: string
@@ -79,12 +80,16 @@ jobs:
           fi
 
       - name: Build rialto (styles + dist export required by every app)
+        # The rialto target runs Storybook from source: no build needed.
+        if: inputs.app != 'rialto'
         run: pnpm build --filter @mattbutlerengineering/rialto
       - name: Build marketing (its visual config serves dist via vite preview)
         if: inputs.app == 'marketing'
         run: pnpm --dir apps/marketing exec vite build
       - name: Install Playwright browsers
-        run: pnpm --dir "apps/$APP" exec playwright install --with-deps chromium
+        env:
+          PACKAGE_JSON: ${{ steps.plan.outputs.package_json }}
+        run: pnpm --dir "$(dirname "$PACKAGE_JSON")" exec playwright install --with-deps chromium
 
       - name: Capture baselines
         # --update-snapshots (in capture_args) WRITES every screenshot instead
