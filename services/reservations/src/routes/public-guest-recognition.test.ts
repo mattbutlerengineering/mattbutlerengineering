@@ -1,74 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { DomainServices } from "../services/domain-services.js";
 
-// Mock all services needed for app registration
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  venueGroupService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("../services/table.js", () => ({
-  tableService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    listByUserId: vi.fn(),
-  },
-}));
-
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    search: vi.fn(),
-    findOrCreate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getSegments: vi.fn(),
-  },
-}));
-
-vi.mock("../services/floor-plan.js", () => ({
-  floorPlanService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getActiveByVenueId: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    bulkUpdatePositions: vi.fn(),
-    assignTable: vi.fn(),
-    removeTable: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #6771), so the
+// migrated public routes need no vi.mock of their service modules.
+const venueService = {
+  list: vi.fn(),
+  getById: vi.fn(),
+  getBySlug: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+} as unknown as DomainServices["venueService"];
 
 vi.mock("../services/guest-recognition.js", () => ({
   recognizeGuest: vi.fn(),
@@ -90,7 +34,6 @@ vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => vi.fn()),
 }));
 
-import { venueService } from "../services/venue.js";
 import { recognizeGuest } from "../services/guest-recognition.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { GuestRecognitionSchema } from "@mbe/types/schemas";
@@ -113,7 +56,7 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
 
   beforeEach(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { venueService } });
     await app.ready();
   });
 

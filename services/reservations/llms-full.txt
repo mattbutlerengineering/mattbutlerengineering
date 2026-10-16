@@ -2786,6 +2786,8 @@
   </file>
   <file path="src/routes/public-availability.ts">
     export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
+      const { availabilityService, venueService } = fastify.services;
+    
       fastify.get<{
         Params: { slug: string };
         Querystring: { date: string; partySize: string };
@@ -2873,7 +2875,7 @@
       return sessionIdsMatch(presented, originSessionId);
     }
     export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
-      const { depositService } = fastify.services;
+      const { depositService, reservationService, venueService } = fastify.services;
     
       fastify.post<{
         Params: { slug: string };
@@ -3061,6 +3063,8 @@
   </file>
   <file path="src/routes/public-guest-recognition.ts">
     export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.addSchema(guestRecognitionJsonSchema);
     
       fastify.get<{
@@ -3123,6 +3127,8 @@
   </file>
   <file path="src/routes/public-guest-risk.ts">
     export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService, venueService } = fastify.services;
+    
       fastify.addSchema(guestRiskResultJsonSchema);
     
       fastify.get<{
@@ -3228,6 +3234,8 @@
       return request.headers[SESSION_ID_HEADER] as string;
     }
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
+      const { holdService } = fastify.services;
+    
       fastify.post<{
         Params: { slug: string };
         Body: { date: string; startTime: string; endTime: string; partySize: number };
@@ -3634,6 +3642,8 @@
     </html>`;
     }
     export const publicUnsubscribeRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService } = fastify.services;
+    
       fastify.get<{ Querystring: { token?: string } }>(
         "/public/v1/guests/unsubscribe",
         {
@@ -3784,6 +3794,8 @@
   </file>
   <file path="src/routes/public-venues.ts">
     export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.addSchema(publicVenueConfigJsonSchema);
     
       fastify.get<{
@@ -3839,6 +3851,8 @@
       guestPhone: string;
     }
     export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService, waitlistService } = fastify.services;
+    
       fastify.addSchema(waitlistJoinResultJsonSchema);
       fastify.addSchema(waitlistEstimateJsonSchema);
     

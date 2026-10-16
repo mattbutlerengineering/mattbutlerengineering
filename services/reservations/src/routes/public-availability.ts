@@ -2,12 +2,12 @@ import type { FastifyPluginAsync } from "fastify";
 import type { TimeSlot, ApiResponse } from "@mbe/types";
 import { createProblemDetails, publicAvailabilityQueryJsonSchema } from "@mbe/types";
 import { validatePartySize } from "@mbe/database";
-import { venueService } from "../services/venue.js";
-import { availabilityService } from "../services/availability.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
 
 export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
+  const { availabilityService, venueService } = fastify.services;
+
   fastify.get<{
     Params: { slug: string };
     Querystring: { date: string; partySize: string };

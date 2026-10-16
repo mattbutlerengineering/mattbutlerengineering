@@ -1,10 +1,8 @@
 import { createHash, timingSafeEqual } from "crypto";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { createProblemDetails, publicDepositBodyJsonSchema } from "@mbe/types";
-import { venueService } from "../services/venue.js";
 import { calculateDepositAmount } from "../services/deposit.js";
 import { StripeOperationError } from "../services/stripe.js";
-import { reservationService } from "../services/reservation.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
 
 interface CreatePublicPaymentIntentBody {
@@ -59,7 +57,7 @@ function ownsReservation(request: FastifyRequest, originSessionId: string | null
  * 5. Returns the client_secret for Stripe.js to confirm on the frontend.
  */
 export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
-  const { depositService } = fastify.services;
+  const { depositService, reservationService, venueService } = fastify.services;
 
   fastify.post<{
     Params: { slug: string };

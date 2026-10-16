@@ -5,12 +5,12 @@ import {
   guestRiskResultJsonSchema,
   publicGuestRiskQueryJsonSchema,
 } from "@mbe/types";
-import { venueService } from "../services/venue.js";
-import { guestService } from "../services/guest.js";
 import { assessGuestReliability } from "../services/guest-reliability.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
 
 export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
+  const { guestService, venueService } = fastify.services;
+
   fastify.addSchema(guestRiskResultJsonSchema);
 
   fastify.get<{

@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { DomainServices } from "../services/domain-services.js";
+
+// Domain services are injected via buildApp({ services }) (issue #6771), so the
+// migrated public routes need no vi.mock of their service modules.
+const holdService = {
+  create: vi.fn(),
+  release: vi.fn(),
+  confirm: vi.fn(),
+  getById: vi.fn(),
+  maybeCleanup: vi.fn(),
+} as unknown as DomainServices["holdService"];
 
 vi.mock("../services/venue.js", () => ({
   venueService: {
@@ -20,64 +31,8 @@ vi.mock("../services/venue.js", () => ({
     delete: vi.fn(),
   },
 }));
-vi.mock("../services/hold.js", () => ({
-  holdService: {
-    create: vi.fn(),
-    release: vi.fn(),
-    confirm: vi.fn(),
-    getById: vi.fn(),
-    maybeCleanup: vi.fn(),
-  },
-}));
 vi.mock("../services/confirm-hold.js", () => ({
   confirmHold: vi.fn(),
-}));
-vi.mock("../services/availability.js", () => ({
-  availabilityService: { getTimeSlots: vi.fn(), getDateAvailability: vi.fn() },
-}));
-vi.mock("../services/table.js", () => ({
-  tableService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    listByUserId: vi.fn(),
-  },
-}));
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    search: vi.fn(),
-    findOrCreate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getSegments: vi.fn(),
-  },
-}));
-vi.mock("../services/floor-plan.js", () => ({
-  floorPlanService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getActiveByVenueId: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    bulkUpdatePositions: vi.fn(),
-    assignTable: vi.fn(),
-    removeTable: vi.fn(),
-  },
 }));
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -97,7 +52,6 @@ vi.mock("jose", () => ({
 }));
 
 import { venueService } from "../services/venue.js";
-import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { resetRateLimitState, MAX_ACTIVE_HOLDS } from "../middleware/public-rate-limit.js";
@@ -133,7 +87,7 @@ describe("POST /public/v1/venues/:slug/holds", () => {
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { holdService } });
     await app.ready();
   });
 
@@ -294,7 +248,7 @@ describe("DELETE /public/v1/venues/:slug/holds/:holdId", () => {
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { holdService } });
     await app.ready();
   });
 
@@ -406,7 +360,7 @@ describe("GET /public/v1/venues/:slug/holds/:holdId", () => {
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { holdService } });
     await app.ready();
   });
 
@@ -490,7 +444,7 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { holdService } });
     await app.ready();
   });
 
@@ -717,7 +671,7 @@ describe("public hold routes behind two async onSend hooks", () => {
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { holdService } });
     for (const name of ["x-probe-a", "x-probe-b"]) {
       app.addHook("onSend", async (_request, reply) => {
         reply.header(name, "1");
