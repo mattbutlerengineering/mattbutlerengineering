@@ -22,9 +22,8 @@ import { getCurrentVenueId, runWithVenueContext } from "./venue-context-store.js
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
 import { venueLocalDateString } from "./slot-rules.js";
-import { mapPrismaTable } from "./table.js";
 import { bookSlot } from "./book-slot.js";
-import { toReservation } from "./serializers.js";
+import { toReservation, toTable } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import { guestService } from "./guest.js";
 import { isTableInVenue, loadTableFit, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
@@ -725,7 +724,7 @@ export const reservationService = {
     return {
       success: true,
       reservation: toReservation(result.value.reservation),
-      table: mapPrismaTable(result.value.table),
+      table: toTable(result.value.table),
     };
   },
 };
