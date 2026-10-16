@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.7.1
+
+### Patch Changes
+
+- [#6883](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6883) [`bc9d76d`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/bc9d76d1a7f22c51a068b22bc2faf2e9b25cc5ac) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A11y audit iteration 6: fix axe `color-contrast` failures. Pagination's active page now uses `--rialto-text-on-accent` instead of white on the gold fill, the accent Divider label is a darkened accent mix that clears 4.5:1, and DataList labels on striped rows use `--rialto-text-secondary`.
+
 ## 0.7.0
 
 ### Minor Changes
