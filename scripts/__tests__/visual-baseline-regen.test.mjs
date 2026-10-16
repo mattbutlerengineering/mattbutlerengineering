@@ -28,6 +28,18 @@ describe("planBaselineRegen", () => {
     expect(plan.labels).toEqual(["needs-review"]);
   });
 
+  it("plans the rialto Storybook suite from its own dir", () => {
+    const plan = planBaselineRegen({ app: "rialto" });
+    expect(plan.config).toBe("packages/rialto/playwright.visual.config.ts");
+    expect(plan.spec).toBe("packages/rialto/src/test/visual/visual.spec.ts");
+    expect(plan.screenshots).toBe("packages/rialto/src/test/visual/__screenshots__");
+    expect(plan.packageJson).toBe("packages/rialto/package.json");
+    expect(plan.addPaths).toBe("packages/rialto/src/test/visual/__screenshots__/*.png");
+    expect(plan.branch).toBe("automation/visual-baseline-regen/rialto");
+    expect(plan.captureArgs).toContain("--update-snapshots");
+    expect(plan.verifyArgs).not.toContain("--update-snapshots");
+  });
+
   it("exposes every app as a target", () => {
     for (const app of APPS) expect(Object.keys(TARGETS)).toContain(app);
   });
