@@ -31,6 +31,17 @@ function mapPrismaUser(user: {
   };
 }
 
+interface RawUserRow {
+  id: string;
+  email: string;
+  name: string | null;
+  picture: string | null;
+  email_verified: boolean;
+  preferences: unknown;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export const userService = {
   async list(page: number, limit: number): Promise<PaginatedResponse<User>> {
     const [users, total] = await Promise.all([
@@ -113,29 +124,35 @@ export const userService = {
   },
 
   /**
-   * Merges the given preferences into the user identified by email in a
-   * single identity lookup, then writes the merge. Returns null if no user
-   * has that email (or if it disappears between lookup and write).
+   * Merges the given preferences into the user identified by email in one
+   * SQL statement (`jsonb ||` is a shallow merge), so concurrent writers with
+   * different keys cannot erase each other. Returns null if no user has that
+   * email.
    */
   async updatePreferencesByEmail(
     email: string,
     preferences: UpdatePreferencesRequest
   ): Promise<User | null> {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true, preferences: true },
-    });
-    if (!user) return null;
-
-    const currentPrefs = (user.preferences as UserPreferences) ?? {};
-    const newPrefs = { ...currentPrefs, ...preferences };
-
     try {
-      const updated = await prisma.user.update({
-        where: { id: user.id },
-        data: { preferences: newPrefs },
+      const rows = await prisma.$queryRaw<RawUserRow[]>`
+        UPDATE "users"
+        SET "preferences" = "preferences" || ${JSON.stringify(preferences)}::jsonb,
+            "updated_at" = now()
+        WHERE "email" = ${email}
+        RETURNING "id", "email", "name", "picture", "email_verified",
+                  "preferences", "created_at", "updated_at"`;
+      const row = rows[0];
+      if (!row) return null;
+      return mapPrismaUser({
+        id: row.id,
+        email: row.email,
+        name: row.name,
+        picture: row.picture,
+        emailVerified: row.email_verified,
+        preferences: row.preferences,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
       });
-      return mapPrismaUser(updated);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
