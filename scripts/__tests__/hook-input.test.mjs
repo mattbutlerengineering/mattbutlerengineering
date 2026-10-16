@@ -932,6 +932,30 @@ describe("hook seam: path hooks act on the tree the edited file lives in", () =>
     SEAM_TIMEOUT_MS
   );
 
+  it.each(["regen-dep-graph.sh", "regen-llms.sh"])(
+    "%s hands the manifest a repo-root-relative path when the edit reaches the tree through a symlink",
+    (hook) => {
+      // `rev-parse --show-toplevel` reports a realpath; a payload path spelled
+      // through a symlink must still strip down to the repo-root-relative form,
+      // or the manifest matches nothing and the hook silently no-ops.
+      const { work } = fixtureWithWorktree();
+      const link = join(sandbox, "via-link");
+      symlinkSync(work, link);
+      const file =
+        hook === "regen-llms.sh"
+          ? join(link, "packages", "rialto", "src", "index.ts")
+          : join(link, "packages", "rialto", "package.json");
+
+      const result = runHook(hook, file, work);
+
+      expect(result.status).toBe(0);
+      const [args] = readFileSync(pnpmLog, "utf8").split(" @ ");
+      expect(args, "manifest was handed a path through the symlink").not.toContain(link);
+      expect(args).toMatch(/ packages\/rialto\/(src\/index\.ts|package\.json)\n?$/);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
   it(
     "falls back to the project dir when the path names no git tree",
     () => {

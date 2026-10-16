@@ -33,8 +33,13 @@ fi
 [[ -z "$root" || ! -d "$root" ]] && exit 0
 cd "$root" || exit 0
 
-# Manifest paths/families are repo-root-relative.
-rel_path="${file_path#"$root"/}"
+# Manifest paths/families are repo-root-relative. $root is a realpath, so
+# realpath the edited file's directory too — a payload path spelled through a
+# symlink (macOS /var -> /private/var) would otherwise leave the strip a no-op.
+real_dir=$(cd "$(dirname "$file_path")" 2>/dev/null && pwd -P)
+real_path="${real_dir:+$real_dir/$(basename "$file_path")}"
+rel_path="${real_path:-$file_path}"
+rel_path="${rel_path#"$root"/}"
 
 families_json=$(node scripts/regen-manifest.mjs --families-for "$rel_path" --hook-mode stage 2>/dev/null)
 [[ -z "$families_json" || "$families_json" == "[]" ]] && exit 0
