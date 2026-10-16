@@ -96,6 +96,8 @@ export const DECLARED_NON_REPO_REFERENCES = Object.freeze({
     "retired in #6332 for /idea-to-prod:knowledge-base's transcript harvest; referenced only in prose recording that retirement",
   "implement-queue":
     "moved in #6332 to the plugin as /idea-to-prod:implement-queue (skills#720); referenced only in prose recording that move",
+  "prisma-migrations":
+    "retired for the plugin's /idea-to-prod:prisma-migrations (skills#691, skills#934); referenced only in prose recording that retirement",
 
   // --- HTTP routes and placeholders written in the same `/name` shape.
   health: "HTTP liveness route, not a slash command",

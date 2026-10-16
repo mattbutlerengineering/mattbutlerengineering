@@ -40,7 +40,7 @@ pnpm db:push
 pnpm db:migrate
 ```
 
-See `.claude/skills/prisma-migrations/SKILL.md`.
+See the `idea-to-prod` plugin's `prisma-migrations` skill (`/idea-to-prod:prisma-migrations`).
 
 ### Common Errors
 
