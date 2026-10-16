@@ -23,3 +23,4 @@
 {"at": "2026-10-16T01:30:44Z", "kind": "state", "item": "#6580", "from": "stalled", "to": "blocked", "reason": "answer to ask-5: block (issue already closed completed outside the batch)"}
 {"at": "2026-10-16T02:43:38Z", "kind": "close", "item": null, "merged": [], "blocked": ["#6580"]}
 {"at": "2026-10-16T02:43:38Z", "kind": "ask", "item": null, "id": "ask-6", "ask_kind": "merge", "question": "Merge batch b20261014's closing PR (conductor/b20261014): its ledger, run evidence and scorecard?", "options": ["merge", "hold"], "recommended": "merge", "why": "every item is merged or blocked, and the scorecard computed from the ledger"}
+{"at": "2026-10-16T02:46:39Z", "kind": "answer", "item": null, "ask": "ask-6", "choice": "merge", "note": ""}
