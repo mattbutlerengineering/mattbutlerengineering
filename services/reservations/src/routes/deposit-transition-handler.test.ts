@@ -9,7 +9,11 @@ vi.mock("../services/resolve-venue.js", () => ({
   resolveVenueId: mockResolveVenueId,
 }));
 
-import { DepositTransitionError, type DepositService } from "../services/deposit.js";
+import {
+  DepositConcurrentUpdateError,
+  DepositTransitionError,
+  type DepositService,
+} from "../services/deposit.js";
 import { getCurrentVenueId } from "../services/venue-context-store.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
 
@@ -123,6 +127,20 @@ describe("depositTransitionHandler", () => {
         title: "Unprocessable Entity",
         detail: transitionError.message,
       })
+    );
+  });
+
+  it("returns 409 when the transition throws DepositConcurrentUpdateError", async () => {
+    vi.mocked(depositService.getById).mockResolvedValueOnce({ id: "dep-1" } as never);
+    const raceError = new DepositConcurrentUpdateError("dep-1", "capture");
+    const transition = vi.fn().mockRejectedValueOnce(raceError);
+    const reply = makeReply();
+
+    await handlerFor(transition)(makeRequest("dep-1"), reply);
+
+    expect(reply.code).toHaveBeenCalledWith(409);
+    expect(reply.send).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 409, title: "Conflict", detail: raceError.message })
     );
   });
 

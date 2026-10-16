@@ -1178,6 +1178,9 @@
                 .code(422)
                 .send(createProblemDetails(422, "Unprocessable Entity", err.message));
             }
+            if (err instanceof DepositConcurrentUpdateError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+            }
             throw err;
           }
         }
