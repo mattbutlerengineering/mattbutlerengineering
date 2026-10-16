@@ -19,9 +19,4 @@ describe("DropdownMenu surface", () => {
     const rule = /^\.wrapper \.menu\s*\{([^}]*)\}/m.exec(css)?.[1] ?? "";
     expect(rule).toMatch(/background:\s*var\(--rialto-surface-elevated\)/);
   });
-
-  it("keeps the shortcut hint on one line", () => {
-    const rule = /^\.shortcut\s*\{([^}]*)\}/m.exec(css)?.[1] ?? "";
-    expect(rule).toMatch(/white-space:\s*nowrap/);
-  });
 });

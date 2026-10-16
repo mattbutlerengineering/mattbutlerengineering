@@ -137,7 +137,6 @@
   font-family: var(--rialto-font-mono);
   color: var(--rialto-text-tertiary);
   letter-spacing: 0.02em;
-  white-space: nowrap;
 }
 
 /* ── Label (sub-section heading) ─────────────── */
