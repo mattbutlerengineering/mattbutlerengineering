@@ -3,7 +3,7 @@ import { requireAuth, requireAdmin } from "@mbe/auth/fastify";
 import { createProblemDetails, createDepositBodyJsonSchema } from "@mbe/types";
 import { DepositNotFoundError } from "../services/deposit.js";
 import { venueService } from "../services/venue.js";
-import { resolveReservationVenueId } from "../services/deposit-venue.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import { venueScoped } from "./venue-scope.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
 import type { Deposit } from "../generated/prisma/index.js";
@@ -84,13 +84,13 @@ const depositProperties = {
  *
  * Closed (ADR-026 §3.3 item 6 / #5369 PR 7): the lookup that determines the
  * scope used to be an unscoped read of the addressed deposit (or the
- * reservation `resolveReservationVenueId` loaded), which is itself one of the
+ * reservation the old resolver loaded), which is itself one of the
  * seven RLS-scoped tables — the same "lookup can't run inside the scope it's
  * computing" shape as the old `venueIdFromEntity` resolver (deleted), and measured
  * broken under FORCE (ADR-026 §3.2's blockquote). Every route now resolves
  * through the `SECURITY DEFINER` `app_resolve_venue_id` function instead
  * (`resolveVenueId`, `../services/resolve-venue.ts`, called by `venueScoped`
- * or by `resolveReservationVenueId`), which performs the reservation join
+ * or by a direct `resolveVenueId("reservation", …)` call), which performs the reservation join
  * inside its own definer body rather than as a separate unscoped Prisma read.
  */
 export const depositRoutes: FastifyPluginAsync = async (fastify) => {
@@ -226,7 +226,9 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
           // requireDepositSelector guarantees `venueId` when there is no
           // `reservationId`; only an unresolvable reservation yields null.
           resolve: async ({ query }) =>
-            query.reservationId ? resolveReservationVenueId(query.reservationId) : query.venueId!,
+            query.reservationId
+              ? resolveVenueId("reservation", query.reservationId)
+              : query.venueId!,
           label: "reservationId|venueId",
           notFound: "Reservation not found",
         },

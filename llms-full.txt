@@ -21589,7 +21589,9 @@
               // requireDepositSelector guarantees `venueId` when there is no
               // `reservationId`; only an unresolvable reservation yields null.
               resolve: async ({ query }) =>
-                query.reservationId ? resolveReservationVenueId(query.reservationId) : query.venueId!,
+                query.reservationId
+                  ? resolveVenueId("reservation", query.reservationId)
+                  : query.venueId!,
               label: "reservationId|venueId",
               notFound: "Reservation not found",
             },
@@ -32629,11 +32631,6 @@
       return to;
     }
   </file>
-  <file path="services/reservations/src/services/deposit-venue.ts">
-    export async function resolveReservationVenueId(reservationId: string): Promise<string | null> {
-      return resolveVenueId("reservation", reservationId);
-    }
-  </file>
   <file path="services/reservations/src/services/deposit.ts">
     export type StripePort = Omit<PaymentsPort, "createPaymentIntent">;
     export type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
@@ -33912,25 +33909,6 @@
       createdAt: Date;
       updatedAt: Date;
     };
-    function mapPrismaTable(table: PrismaTable): Table {
-      return {
-        id: table.id,
-        name: table.name,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-        minCovers: table.minCovers,
-        maxCovers: table.maxCovers,
-        location: table.location,
-        isActive: table.isActive,
-        priority: table.priority,
-        status: table.status as Table["status"],
-        venueId: table.venueId,
-        floorPlanId: table.floorPlanId,
-        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-        createdAt: table.createdAt.toISOString(),
-        updatedAt: table.updatedAt.toISOString(),
-      };
-    }
     function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
       return {
         id: floorPlan.id,
@@ -33938,7 +33916,7 @@
         name: floorPlan.name,
         isActive: floorPlan.isActive,
         layoutJson: floorPlan.layoutJson as FloorPlanLayout,
-        tables: floorPlan.tables?.map(mapPrismaTable),
+        tables: floorPlan.tables?.map(toTable),
         createdAt: floorPlan.createdAt.toISOString(),
         updatedAt: floorPlan.updatedAt.toISOString(),
       };
@@ -34167,7 +34145,7 @@
             where: { id: tableId },
             data: { shapeMetadata: shapeMetadata as unknown as Prisma.InputJsonValue },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -34245,7 +34223,7 @@
           throw Object.assign(new Error("One or more tables not found"), { code: "P2025" });
         }
     
-        return tables.map(mapPrismaTable);
+        return tables.map(toTable);
       },
     
       async assignTableToFloorPlan(
@@ -34277,7 +34255,7 @@
                 : undefined,
             },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -34293,7 +34271,7 @@
               shapeMetadata: Prisma.DbNull,
             },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -37343,7 +37321,7 @@
         return {
           success: true,
           reservation: toReservation(result.value.reservation),
-          table: mapPrismaTable(result.value.table),
+          table: toTable(result.value.table),
         };
       },
     };
@@ -38488,41 +38466,6 @@
         this.name = "TableConcurrentUpdateError";
       }
     }
-    export function mapPrismaTable(table: {
-      id: string;
-      name: string;
-      tableNumber: string | null;
-      capacity: number;
-      minCovers: number;
-      maxCovers: number | null;
-      location: string | null;
-      isActive: boolean;
-      priority: number;
-      status: string;
-      venueId: string | null;
-      floorPlanId: string | null;
-      shapeMetadata: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Table {
-      return {
-        id: table.id,
-        name: table.name,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-        minCovers: table.minCovers,
-        maxCovers: table.maxCovers,
-        location: table.location,
-        isActive: table.isActive,
-        priority: table.priority,
-        status: table.status as TableStatus,
-        venueId: table.venueId,
-        floorPlanId: table.floorPlanId,
-        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-        createdAt: table.createdAt.toISOString(),
-        updatedAt: table.updatedAt.toISOString(),
-      };
-    }
     export const tableService = {
       async list(
         page: number,
@@ -38545,14 +38488,14 @@
         ]);
     
         return {
-          data: tables.map(mapPrismaTable),
+          data: tables.map(toTable),
           pagination: toPaginationMeta(page, limit, total),
         };
       },
     
       async getById(id: string): Promise<Table | null> {
         const table = await prisma.table.findUnique({ where: { id } });
-        return table ? mapPrismaTable(table) : null;
+        return table ? toTable(table) : null;
       },
     
       /**
@@ -38584,7 +38527,7 @@
               : Prisma.DbNull,
           },
         });
-        return mapPrismaTable(table);
+        return toTable(table);
       },
     
       async update(id: string, data: UpdateTableRequest): Promise<Table | null> {
@@ -38613,7 +38556,7 @@
             where: { id },
             data: updateData,
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -38633,7 +38576,7 @@
         });
         if (count === 0) throw new TableConcurrentUpdateError(id, status);
         const table = await prisma.table.findUnique({ where: { id } });
-        return table ? mapPrismaTable(table) : null;
+        return table ? toTable(table) : null;
       },
     
       async delete(id: string): Promise<boolean> {

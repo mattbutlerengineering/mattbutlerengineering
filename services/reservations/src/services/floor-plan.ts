@@ -11,6 +11,7 @@ import type {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { toTable } from "./serializers.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
 type PrismaFloorPlan = {
@@ -42,26 +43,6 @@ type PrismaTable = {
   updatedAt: Date;
 };
 
-function mapPrismaTable(table: PrismaTable): Table {
-  return {
-    id: table.id,
-    name: table.name,
-    tableNumber: table.tableNumber,
-    capacity: table.capacity,
-    minCovers: table.minCovers,
-    maxCovers: table.maxCovers,
-    location: table.location,
-    isActive: table.isActive,
-    priority: table.priority,
-    status: table.status as Table["status"],
-    venueId: table.venueId,
-    floorPlanId: table.floorPlanId,
-    shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-    createdAt: table.createdAt.toISOString(),
-    updatedAt: table.updatedAt.toISOString(),
-  };
-}
-
 function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
   return {
     id: floorPlan.id,
@@ -69,7 +50,7 @@ function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
     name: floorPlan.name,
     isActive: floorPlan.isActive,
     layoutJson: floorPlan.layoutJson as FloorPlanLayout,
-    tables: floorPlan.tables?.map(mapPrismaTable),
+    tables: floorPlan.tables?.map(toTable),
     createdAt: floorPlan.createdAt.toISOString(),
     updatedAt: floorPlan.updatedAt.toISOString(),
   };
@@ -299,7 +280,7 @@ export const floorPlanService = {
         where: { id: tableId },
         data: { shapeMetadata: shapeMetadata as unknown as Prisma.InputJsonValue },
       });
-      return mapPrismaTable(table);
+      return toTable(table);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
@@ -377,7 +358,7 @@ export const floorPlanService = {
       throw Object.assign(new Error("One or more tables not found"), { code: "P2025" });
     }
 
-    return tables.map(mapPrismaTable);
+    return tables.map(toTable);
   },
 
   async assignTableToFloorPlan(
@@ -409,7 +390,7 @@ export const floorPlanService = {
             : undefined,
         },
       });
-      return mapPrismaTable(table);
+      return toTable(table);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
@@ -425,7 +406,7 @@ export const floorPlanService = {
           shapeMetadata: Prisma.DbNull,
         },
       });
-      return mapPrismaTable(table);
+      return toTable(table);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
