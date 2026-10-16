@@ -82,15 +82,23 @@ jobs:
             SEVERITY="warning"
           fi
 
+          # Checks 2 and 3 only make sense for code. Narrow the diff to code
+          # files (Check 7's extension set, plus mjs/cjs) so docs/data PRs that
+          # merely quote `console.log` or TODO get no false finding (#6849).
+          CODE_DIFF=$(echo "$DIFF" | awk '
+            /^diff --git / { f = $4; sub(/^b\//, "", f); keep = (f ~ /\.(ts|tsx|js|jsx|mjs|cjs)$/) }
+            keep { print }
+          ')
+
           # Check 2: Console.log statements added
-          CONSOLE_LOGS=$(echo "$DIFF" | grep -c '^\+.*console\.log' 2>/dev/null || echo 0)
+          CONSOLE_LOGS=$(echo "$CODE_DIFF" | grep -c '^\+.*console\.log' 2>/dev/null || echo 0)
           if [ "$CONSOLE_LOGS" -gt 0 ]; then
             FINDINGS="${FINDINGS}### Debug Statements\n- Found **${CONSOLE_LOGS}** added \`console.log\` statement(s). Remove before merging or convert to structured logging.\n\n"
             SEVERITY="warning"
           fi
 
           # Check 3: TODO/FIXME/HACK comments added
-          TODO_COUNT=$(echo "$DIFF" | grep -cE '^\+.*(TODO|FIXME|HACK|XXX)' 2>/dev/null || echo 0)
+          TODO_COUNT=$(echo "$CODE_DIFF" | grep -cE '^\+.*(TODO|FIXME|HACK|XXX)' 2>/dev/null || echo 0)
           if [ "$TODO_COUNT" -gt 0 ]; then
             FINDINGS="${FINDINGS}### TODO/FIXME Comments\n- Found **${TODO_COUNT}** new TODO/FIXME/HACK comment(s). Consider creating issues to track these.\n\n"
           fi
