@@ -32,7 +32,7 @@ implementation PR (see frontmatter).
       `@types/*` from `dev-deps` patterns, per architecture § 1. Accept: each
       affected package name matches exactly one group by inspection against
       the file's own pattern-matching comment. (tracker: #6650)
-- [ ] **WO-38 — workflow rewire** — `dependabot-auto-merge.yml` per
+- [x] **WO-38 — workflow rewire** — `dependabot-auto-merge.yml` per
       architecture § 3: pinned base-ref checkout, metadata passed via `env:`,
       `set -o pipefail`, branch on the CLI's printed `action`, comment posts
       the policy `reason`. Accept: `on: pull_request_target` and the

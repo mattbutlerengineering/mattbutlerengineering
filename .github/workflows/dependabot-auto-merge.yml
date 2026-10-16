@@ -11,23 +11,48 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
+      # Base ref only (pull_request_target's default) — never the PR head.
+      # The policy script lives in the trusted base repo, not PR-controlled
+      # content; no `ref:` is ever set here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          persist-credentials: false
+
       - name: Fetch Dependabot metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         id: metadata
 
-      - name: Auto-merge dev-deps (patch and minor only)
-        if: >-
-          steps.metadata.outputs.dependency-group == 'dev-deps' &&
-          steps.metadata.outputs.update-type != 'version-update:semver-major'
+      - name: Decide
+        id: decide
+        env:
+          ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          GROUP: ${{ steps.metadata.outputs.dependency-group }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+        run: |
+          set -o pipefail
+          RESULT=$(node scripts/dependabot-auto-merge-policy.mjs decide \
+            --ecosystem "$ECOSYSTEM" \
+            --group "$GROUP" \
+            --update-type "$UPDATE_TYPE" \
+            --dependency-names "$DEPENDENCY_NAMES")
+          echo "$RESULT"
+          ACTION=$(echo "$RESULT" | jq -r '.action')
+          REASON=$(echo "$RESULT" | jq -r '.reason')
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+
+      - name: Auto-merge
+        if: steps.decide.outputs.action == 'merge'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Comment on production dependency PRs
-        if: steps.metadata.outputs.dependency-group != 'dev-deps'
-        run: |
-          gh pr comment "$PR_URL" --body "⚠️ This is a production dependency update and requires manual review."
+      - name: Comment with the policy's reason
+        if: steps.decide.outputs.action == 'manual'
+        run: gh pr comment "$PR_URL" --body "⚠️ $REASON."
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          REASON: ${{ steps.decide.outputs.reason }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
