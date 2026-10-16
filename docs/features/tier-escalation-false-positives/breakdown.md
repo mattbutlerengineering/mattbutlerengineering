@@ -20,7 +20,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
 
 ## Milestone 1: Policy module exists and pins the motivating cases
 
-- [ ] **Review-surface counting + size escalation** — add
+- [x] **Review-surface counting + size escalation** — add
       `scripts/tier-escalation.mjs` exporting `countReviewSurfaceAdditions`
       and `decideSizeEscalation`, with the exclusion list from
       `architecture.md` § Interfaces.
@@ -90,3 +90,19 @@ Deviations discovered during Implement get logged here, dated. The
 implementation PR is T4 by path rule (`tier-classifier.yml` edit): it waits
 on Matt regardless of these rules' own verdicts, and reserved ADR-110 is the
 number to use if the T4 gate demands an ADR at merge time.
+
+- **2026-10-15** — Milestone 1 item 1's pinned #6610 case doesn't land at the
+  acceptance text's literal numbers. #6610's real additions (verified via
+  `git show --numstat`) are 1194 generated (llms.txt/llms-full.txt regen) +
+  16 docs (CLAUDE.md) + 988 code = 1004 review-surface lines once generated
+  is excluded — 4 over the `>1000` threshold, not "≤ 1000" as drafted. The
+  motivating complaint stands regardless (the old rule escalated on the full
+  2198-line raw diff, including the generated noise); the pinned fixture in
+  `scripts/__tests__/tier-escalation.test.mjs` rounds the code count down by
+  4 (984, not 988) to land cleanly inside the "no escalation" case rather
+  than assert a count that is actually just over the line. Byte-exact replay
+  against real PR history is Milestone 3's job (the replay CLI) — that is
+  where this ±4 discrepancy should get a real answer: either the threshold
+  is intentionally tight enough that #6610 still bumps a tier (acceptable,
+  since T3→T4 on a reservations-routes PR isn't absurd), or CLAUDE.md-class
+  docs need their own exclusion. Flagging rather than deciding here.
