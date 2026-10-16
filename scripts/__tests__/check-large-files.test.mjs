@@ -4,6 +4,7 @@ import { resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { isExemptLargeFile, filterLargeFiles, countLines } from "../check-large-files.mjs";
+import { artifactPaths } from "../regen-manifest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -22,7 +23,7 @@ describe("isExemptLargeFile", () => {
   });
 
   it("does not exempt an arbitrary oversized markdown file", () => {
-    expect(isExemptLargeFile("docs/architecture/dependency-graph.md")).toBe(false);
+    expect(isExemptLargeFile("docs/change-tiers.md")).toBe(false);
   });
 
   it("does not exempt an arbitrary oversized source file", () => {
@@ -57,10 +58,10 @@ describe("filterLargeFiles", () => {
 
   it("reports a genuinely oversized non-exempt markdown file, proving this isn't a blanket .md carve-out", () => {
     const result = filterLargeFiles([
-      { path: "docs/architecture/dependency-graph.md", lines: 2272 },
+      { path: "docs/change-tiers.md", lines: 2272 },
       { path: ".claude/improvement-loop/log.md", lines: 2264 },
     ]);
-    expect(result).toEqual([{ path: "docs/architecture/dependency-graph.md", lines: 2272 }]);
+    expect(result).toEqual([{ path: "docs/change-tiers.md", lines: 2272 }]);
   });
 });
 
@@ -94,5 +95,30 @@ describe("countLines", () => {
 describe("auto-review.yml — large-file check wiring (#5786)", () => {
   it("delegates the large-file check to the pure, testable script", () => {
     expect(AUTO_REVIEW_WORKFLOW).toContain("scripts/check-large-files.mjs");
+  });
+});
+
+describe("generated artifacts (#6790)", () => {
+  it("exempts every output path the regen manifest declares", () => {
+    for (const path of artifactPaths()) {
+      expect(isExemptLargeFile(path), path).toBe(true);
+    }
+  });
+
+  it("does not report an oversized manifest output", () => {
+    const result = filterLargeFiles([{ path: "llms-full.txt", lines: 5000 }]);
+    expect(result).toEqual([]);
+  });
+
+  it("does not report an oversized lockfile", () => {
+    expect(filterLargeFiles([{ path: "pnpm-lock.yaml", lines: 20000 }])).toEqual([]);
+  });
+
+  it("still reports a hand-written source file and a translation catalog", () => {
+    const files = [
+      { path: "packages/rialto/src/huge.ts", lines: 900 },
+      { path: "apps/hospitality/src/i18n/catalogs/en-US.json", lines: 1200 },
+    ];
+    expect(filterLargeFiles(files)).toEqual(files);
   });
 });
