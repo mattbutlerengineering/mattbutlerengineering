@@ -26,7 +26,7 @@ mechanism below is Architect's.
 
 ## Milestone 1: the topology is pinned by a red guard
 
-- [ ] **WO-0056 — Write `scripts/__tests__/ci-test-shards.test.mjs`, prove
+- [x] **WO-0056 — Write `scripts/__tests__/ci-test-shards.test.mjs`, prove
       it RED** — textual parse of the real `ci.yml` (pattern:
       `ci-lint-critical-path.test.mjs` `needsOf`). Asserts: (a) the `test`
       job declares `matrix.leg` with named legs
@@ -41,6 +41,16 @@ mechanism below is Architect's.
       agent-core step keeps the literal 80 (SC-2). AC: suite fails against
       current single-job `ci.yml` (RED run quoted in the commit/PR), and
       each assertion fails independently when its target is perturbed.
+      Done: 18 cases across 4 `describe` blocks; `bash
+  scripts/conductor-gate.sh` (full install + `turbo run lint typecheck
+  test --affected`) ran it against the current single-job `ci.yml` —
+      14/18 RED (every topology/wiring/threshold-ownership assertion that
+      depends on the not-yet-built leg matrix or `test-coverage-gate` job),
+      4 green (facts already true today: `ci-gate` already needs `test`,
+      the three named packages still exist on disk with `test:coverage`,
+      they're mutually distinct, and no stray inclusion filter exists yet
+      to violate exactly-one-leg coverage). Lint and typecheck passed
+      (6/7 tasks green, only `@mbe/scripts#test` red).
 
 ## Milestone 2: ci.yml satisfies the guard
 
