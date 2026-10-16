@@ -52,7 +52,6 @@ flowchart TD
   gen --> rialto
   gen --> api_client
   gen --> auth
-  gen --> observability
   gen --> rialto_catalog
   gen --> sentry
   gen --> config
@@ -60,20 +59,17 @@ flowchart TD
   hospitality --> api_client
   hospitality --> auth
   hospitality --> cancellation_policy
-  hospitality --> observability
   hospitality --> rialto_catalog
   hospitality --> sentry
   hospitality --> types
   hospitality --> config
   hospitality --> test_fixtures
   marketing --> rialto
-  marketing --> observability
   marketing --> sentry
   marketing --> config
   marketing --> test_fixtures
   rialto_web --> rialto
   rialto_web --> api_client
-  rialto_web --> observability
   rialto_web --> sentry
   rialto_web --> config
   rialto_web --> test_fixtures
@@ -111,7 +107,6 @@ flowchart TD
   agent_core --> types
   agent_core --> agent_test_utils
   agent_core --> config
-  agent_test_utils --> types
   agent_test_utils --> config
   api_client --> types
   api_client --> config
@@ -125,7 +120,6 @@ flowchart TD
   notifications --> api_client
   notifications --> types
   notifications --> config
-  observability --> types
   observability --> config
   rialto --> api_client
   rialto --> config
@@ -134,7 +128,6 @@ flowchart TD
   rialto_plugin --> rialto
   rialto_plugin --> config
   sentry --> observability
-  sentry --> types
   sentry --> config
   service_bootstrap --> auth
   service_bootstrap --> database

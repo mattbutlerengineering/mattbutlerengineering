@@ -923,7 +923,6 @@
   </file>
   <file path="src/components/crm/guest-signals.ts">
     export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
-    export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
     export type GuestSegmentVariant = "accent" | "success" | "neutral";
     export type GuestRiskVariant = "error" | "warning" | "neutral";
     export function isAllergyTag(tag: string): boolean {
@@ -2574,7 +2573,6 @@
   </file>
   <file path="src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;
-    export type BriefingGuest = ApiBriefingGuest;
     export type BriefingEntry = ApiBriefingEntry;
     export interface UseBriefingParams {
       date: string;
@@ -2910,12 +2908,6 @@
       venueId?: string | null;
       limit?: number;
       enabled?: boolean;
-    }
-    export interface UseFloorPlansResult {
-      data: FloorPlan[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
     }
     export const useFloorPlans = createQueryHook<FloorPlan[], UseFloorPlansParams>({
       key: FLOOR_PLANS_QUERY_KEY,
@@ -3686,12 +3678,6 @@
     export interface UseTablesParams extends ListTablesParams {
       enabled?: boolean;
     }
-    export interface UseTablesResult {
-      data: Table[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
-    }
     export const useTables = createQueryHook<Table[], UseTablesParams>({
       key: TABLES_QUERY_KEY,
       fetcher: async (params, api) => {
@@ -4231,12 +4217,6 @@
     export interface UseVenuesParams {
       limit?: number;
       enabled?: boolean;
-    }
-    export interface UseVenuesResult {
-      data: Venue[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
     }
     export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
       key: VENUES_QUERY_KEY,

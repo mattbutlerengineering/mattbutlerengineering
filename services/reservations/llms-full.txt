@@ -1511,14 +1511,6 @@
     };
   </file>
   <file path="src/routes/events.ts">
-    export function getConnectionManager(): SseConnectionManager {
-      return connectionManager;
-    }
-    export function createConnectionManager(
-      config?: Partial<SseConnectionConfig>
-    ): SseConnectionManager {
-      return new SseConnectionManager(config);
-    }
     function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] {
       if (!RESERVATION_TRANSITION_EVENT_TYPES.has(event.type)) {
         return [];
@@ -4909,8 +4901,6 @@
        */
       lastRlsErrorName: string | null;
     }
-    export type PayloadOrFactory =
-      InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
     export function inWindowDate(daysAhead: number): string {
       return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     }
@@ -9248,7 +9238,6 @@
     };
   </file>
   <file path="src/services/events.ts">
-    export type ReservationEventType = SseEventName;
     export type ReservationEvent = SseEvent;
     export class ReservationEventEmitter extends EventEmitter {
       private connectionCount = 0;

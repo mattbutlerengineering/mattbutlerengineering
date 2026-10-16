@@ -192,11 +192,6 @@
     },
     {
       "from": "@mbe/gen",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/gen",
       "to": "@mbe/rialto-catalog",
       "type": "dependency"
     },
@@ -232,11 +227,6 @@
     },
     {
       "from": "@mbe/hospitality",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/hospitality",
       "to": "@mbe/rialto-catalog",
       "type": "dependency"
     },
@@ -267,11 +257,6 @@
     },
     {
       "from": "@mbe/marketing",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/marketing",
       "to": "@mbe/sentry",
       "type": "dependency"
     },
@@ -293,11 +278,6 @@
     {
       "from": "@mbe/rialto-web",
       "to": "@mbe/api-client",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/rialto-web",
-      "to": "@mbe/observability",
       "type": "dependency"
     },
     {
@@ -492,11 +472,6 @@
     },
     {
       "from": "@mbe/agent-test-utils",
-      "to": "@mbe/types",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/agent-test-utils",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -562,11 +537,6 @@
     },
     {
       "from": "@mbe/observability",
-      "to": "@mbe/types",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/observability",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -603,11 +573,6 @@
     {
       "from": "@mbe/sentry",
       "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/sentry",
-      "to": "@mbe/types",
       "type": "dependency"
     },
     {

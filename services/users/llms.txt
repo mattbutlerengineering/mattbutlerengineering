@@ -84,9 +84,6 @@
   <section priority="medium" role="test">
   <file path="src/test/fixtures.ts">
     <item priority="high">
-      export const MOCK_USER: unknown;
-    </item>
-    <item priority="high">
       export const MOCK_JWT_PAYLOAD: unknown;
     </item>
     <item priority="high">

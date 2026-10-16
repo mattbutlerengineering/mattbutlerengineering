@@ -314,15 +314,6 @@
   <section priority="medium" role="src">
   <file path="src/types.ts">
     <item priority="low">
-      interface HistoryEntry {
-        id: string;
-        prompt: string;
-        spec: Spec;
-        rawLines: string[];
-        timestamp: Date;
-      }
-    </item>
-    <item priority="low">
       type EntryKind = "generate" | "refine" | "recover" | "failed";
     </item>
     <item priority="low">

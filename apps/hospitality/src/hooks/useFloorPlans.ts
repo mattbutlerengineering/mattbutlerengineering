@@ -14,13 +14,6 @@ export interface UseFloorPlansParams {
   enabled?: boolean;
 }
 
-export interface UseFloorPlansResult {
-  data: FloorPlan[] | undefined;
-  isLoading: boolean;
-  error: Error | null;
-  refetch: () => void;
-}
-
 export const useFloorPlans = createQueryHook<FloorPlan[], UseFloorPlansParams>({
   key: FLOOR_PLANS_QUERY_KEY,
   fetcher: async (params, api) => {

@@ -233,14 +233,6 @@
     </item>
   </file>
   <file path="src/routes/events.ts">
-    <item priority="high">
-      export function getConnectionManager(): SseConnectionManager { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createConnectionManager(
-        config?: Partial<SseConnectionConfig>
-      ): SseConnectionManager { /* ... */ }
-    </item>
     <item priority="medium">
       function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] { /* ... */ }
     </item>
@@ -606,9 +598,6 @@
         venueB: { id: string; slug: string };
         venueC: { id: string };
       }
-    </item>
-    <item priority="low">
-      type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
     </item>
     <item priority="high">
       export function inWindowDate(daysAhead: number): string { /* ... */ }
@@ -1286,9 +1275,6 @@
     </item>
   </file>
   <file path="src/services/events.ts">
-    <item priority="low">
-      type ReservationEventType = SseEventName;
-    </item>
     <item priority="low">
       type ReservationEvent = SseEvent;
     </item>

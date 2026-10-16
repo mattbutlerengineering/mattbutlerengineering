@@ -10,10 +10,5 @@
  * Backend-specific deposit state-machine logic (refund/forfeit/capture calls)
  * remains in services/deposit.ts.
  */
-export type {
-  CancellationPolicy,
-  FeeType,
-  DepositAction,
-  CancellationFeeResult,
-} from "@mbe/cancellation-policy";
+export type { CancellationPolicy } from "@mbe/cancellation-policy";
 export { evaluateCancellationFee, formatCancellationTerms } from "@mbe/cancellation-policy";

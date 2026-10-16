@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { requireAuth, requireAdmin } from "@mbe/auth/fastify";
 import { createProblemDetails, createDepositBodyJsonSchema } from "@mbe/types";
-import { DepositNotFoundError } from "../services/deposit.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { venueScoped } from "./venue-scope.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
@@ -395,6 +394,3 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     depositTransitionHandler(depositService, (id) => depositService.forfeit(id, "staff"))
   );
 };
-
-// Export error class for use in other places
-export { DepositNotFoundError };
