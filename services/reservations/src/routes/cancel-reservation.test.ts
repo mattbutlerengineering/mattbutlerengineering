@@ -22,6 +22,9 @@ vi.mock("../services/venue.js", () => ({
     getBySlug: vi.fn(),
     getPolicyById: vi.fn(),
   },
+  // buildApp eagerly composes defaultDomainServices, which now includes
+  // venueGroupService; this suite never calls it.
+  venueGroupService: {},
 }));
 
 vi.mock("jose", () => ({

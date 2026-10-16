@@ -212,8 +212,9 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // Wire the domain-service seam (issue #3357) — resolve the injectable services
   // once (production singletons by default, test fakes via options.services) and
   // decorate them so route plugins resolve dependencies from `fastify.services`
-  // instead of importing the sibling singleton at module scope. Decorated before
-  // route registration so child route plugins inherit it.
+  // instead of importing the sibling singleton at module scope. Adoption is
+  // complete and `routes/domain-services-adoption.test.ts` enforces it. Decorated
+  // before route registration so child route plugins inherit it.
   //
   // Payments are constructed exactly once, here: one StripeService (same env
   // name and placeholder fallback as before; getStripeConfig above still
