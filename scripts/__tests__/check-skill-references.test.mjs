@@ -14,7 +14,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   DECLARED_NON_REPO_REFERENCES,
+  DECLARED_PLUGIN_NAME_COLLISIONS,
   classifySkillReference,
+  findPluginNameCollisions,
   extractSkillReferences,
   collectInstructionFiles,
   findUnresolvedReferences,
@@ -177,7 +179,38 @@ describe("findUnresolvedReferences", () => {
   });
 });
 
+describe("findPluginNameCollisions", () => {
+  // A repo-local skill that shares a plugin skill's bare name shadows it in a
+  // local session (#6835 retired `prisma-migrations` for exactly this).
+  it("flags a repo skill named like a plugin skill", () => {
+    const root = makeRepo();
+    addSkill(root, "review");
+    addSkill(root, "site-audit");
+
+    expect(findPluginNameCollisions(root, {})).toEqual([
+      { name: "review", plugin: "idea-to-prod" },
+    ]);
+  });
+
+  it("passes a collision allowlisted with a reason", () => {
+    const root = makeRepo();
+    addSkill(root, "review");
+
+    expect(findPluginNameCollisions(root, { review: "a different skill on purpose" })).toEqual([]);
+  });
+});
+
 describe("the real repo", () => {
+  it("has no repo-local skill shadowing a plugin skill unless declared", () => {
+    expect(findPluginNameCollisions()).toEqual([]);
+  });
+
+  it("gives every declared collision a reviewable reason", () => {
+    for (const [name, reason] of Object.entries(DECLARED_PLUGIN_NAME_COLLISIONS)) {
+      expect(reason.length, `${name} collision reason is too terse to review`).toBeGreaterThan(20);
+    }
+  });
+
   it("names no slash-command that resolves to nothing", () => {
     expect(findUnresolvedReferences()).toEqual([]);
   });
