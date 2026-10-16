@@ -11628,6 +11628,14 @@
     <item priority="high">
       export function qualifiesForLowRiskFastPath(files: readonly string[]): boolean { /* ... */ }
     </item>
+    <item priority="high">
+      export const GATE_PATHS: readonly {
+        readonly pattern: string;
+        readonly matches...;
+    </item>
+    <item priority="high">
+      export function matchesGatePath(file: string): boolean { /* ... */ }
+    </item>
   </file>
   <file path="packages/agent-core/src/prompt-builder.ts">
     <item priority="low">

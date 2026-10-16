@@ -14,7 +14,7 @@ skill. The skill is the loop; every section below is a **hook** it reads by
 name. The frontmatter is the Owner's standing consent to auto-merge
 (`merge: auto`, skills ADR-0087): a PR merges only with `CI Gate` present and
 green, every reviewer passing, no `needs-review` label, and no gate-path file
-(`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md`).
+(gate paths are `GATE_PATHS` in `@mbe/agent-core`; `qualifiesForLowRiskFastPath` already returns false for them).
 
 Cloud routines and GitHub Actions cannot load the plugin (#6332), so they clone
 the public skills repo and follow `skills/implement-queue/SKILL.md` by path,
@@ -157,7 +157,7 @@ node scripts/agent-core-build-freshness.mjs check
 
 `exit 1` means: do **not** trust `isLowRiskPR`/`reviewersForDiff` for this PR at all. Skip the fast path unconditionally (fall through to the `reviewers` hook) and treat its specialist gate as if every specialist reviewer applies — dispatch the full reviewer set rather than trusting an empty/narrow `reviewersForDiff` result. A dist that fails to prove itself fresh must never be read as "low risk" or "no specialists match".
 
-Only when `needs-review` is absent, no changed file matches a gate path (`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md` — those always hold for a human merge, ADR-0087), the freshness check exited 0, AND `qualifiesForLowRiskFastPath(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
+Only when `needs-review` is absent, no changed file matches a gate path (those always hold for a human merge, ADR-0087; gate paths are `GATE_PATHS` in `@mbe/agent-core`; `qualifiesForLowRiskFastPath` already returns false for them), the freshness check exited 0, AND `qualifiesForLowRiskFastPath(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
 
 ```bash
 gh pr merge <N> --auto --squash --delete-branch
@@ -229,7 +229,7 @@ it had already altered.
 
 ## merge-command
 
-**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md`), which holds the PR for a human merge:
+**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (see `GATE_PATHS` in `@mbe/agent-core`), which holds the PR for a human merge:
 
 ```bash
 gh pr merge <N> --auto --squash --delete-branch

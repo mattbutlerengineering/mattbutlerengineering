@@ -83,8 +83,7 @@ step on anything but a clean pass.
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
-   A changed file matching a gate path (`docs/adr/**`, `docs/design/**`,
-   `**/prd.md`, `**/architecture.md`) holds the PR for a human merge instead
+   A changed file matching a gate path (`GATE_PATHS` in `@mbe/agent-core`) holds the PR for a human merge instead
    — do not run the merge command; report `held for human merge — gate
 path` (per that section, not re-derived here). If GitHub reports the PR
    `CLEAN` and refuses `--auto`, merge directly with the same command minus
