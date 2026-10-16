@@ -33,7 +33,7 @@ reserved block (26-35). Every item: TDD (failing test first), `pnpm lint`
       existing suite untouched), three disjoint same-zone → one batch,
       overlapping pair → deferred, pathless same-zone pair → deferred,
       global pair → still single slot. Acceptance: SC-1, SC-2, SC-3.
-- [ ] **WO-28: fail-closed strict probe** — New
+- [x] **WO-28: fail-closed strict probe** — New
       `scripts/main-strictness.mjs`: pure `classifyMainStrictness()`
       (only a parsed literal `strict: false` yields
       `strictMain: false`; error/non-JSON/missing field → `true`) + thin
