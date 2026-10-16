@@ -38,6 +38,7 @@ import type {
   CreateFloorPlanRequest,
   FloorPlanLayout,
 } from "@mbe/types";
+import { ApiClientError } from "@mbe/api-client";
 import { localeRuntime } from "../../i18n/runtime.js";
 import type { FloorPlanDraft } from "./floor-plan-draft.js";
 import { draftTableToCreateRequest, DUPLICATE_TABLE_NAME_MESSAGE } from "./floor-plan-draft.js";
@@ -153,7 +154,11 @@ export function tablesDoneCount(progress: LaunchProgress): number {
 
 /** True when a 400 is the server's own duplicate-name rejection — i.e. the table already exists. */
 export function isAlreadyCreatedError(err: unknown): boolean {
-  return err instanceof Error && err.message === DUPLICATE_TABLE_NAME_MESSAGE;
+  return (
+    err instanceof ApiClientError &&
+    err.problemDetails.status === 400 &&
+    err.problemDetails.detail === DUPLICATE_TABLE_NAME_MESSAGE
+  );
 }
 
 /** Narrow structural interface, so the test needs no network and no client mock module. */
