@@ -87,9 +87,9 @@ to advance. L2 is special — needs only 1 (it's a single OR-group of agent-inst
 
 ## Where this repo currently is
 
-The current level is shown in the README badge between the
-`<!-- acmm:begin -->` / `<!-- acmm:end -->` markers, kept in sync by the
-audit script.
+The README carries no ACMM badge (removed in #6872 — it kept showing a stale
+level). The audit's `--badge` flag is a no-op here because the README has no
+`<!-- acmm:begin -->` / `<!-- acmm:end -->` markers.
 
 Live state lives at `.claude/acmm/state.json` and the human-readable
 scorecard at `.claude/acmm/report.md` (both gitignored — they're
