@@ -1,0 +1,224 @@
+name: Visual Baseline Regen
+
+# Turns the hand recipe for regenerating Linux-runner visual baselines (#6644)
+# into one workflow_dispatch. It captures on the runner, verifies the capture
+# in compare mode on that same runner, and opens a `needs-review` PR carrying
+# only the PNGs. It NEVER merges: whether the new pixels are the intended look
+# is a human decision, made by looking at the images in Files changed.
+#
+# workflow_dispatch only. visual-diff-ref-trigger-safety.test.mjs requires
+# exactly one workflow to fire for `measure/**`; adding push/pull_request here
+# would break that. Per-target paths and argv come from
+# scripts/visual-baseline-regen.mjs (`plan`), never restated below.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App whose visual baselines to regenerate
+        type: choice
+        required: true
+        options:
+          - rialto-web
+          - marketing
+          - hospitality
+      grep:
+        description: Optional Playwright --grep to regenerate a subset
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+  # `gh workflow run` below needs actions:write (GITHUB_TOKEN dispatch).
+  actions: write
+
+concurrency:
+  group: visual-baseline-regen-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  regen:
+    name: Regenerate (${{ inputs.app }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      APP: ${{ inputs.app }}
+      GREP: ${{ inputs.grep }}
+      # The Auth0 E2E credential reaches hospitality only (its `setup` project
+      # signs in; same values as apps-visual.yml's hospitality-visual job);
+      # every other app gets empty strings.
+      E2E_AUTH0_DOMAIN: ${{ inputs.app == 'hospitality' && secrets.E2E_AUTH0_DOMAIN || '' }}
+      E2E_AUTH0_CLIENT_ID: ${{ inputs.app == 'hospitality' && secrets.E2E_AUTH0_CLIENT_ID || '' }}
+      E2E_AUTH0_AUDIENCE: ${{ inputs.app == 'hospitality' && secrets.E2E_AUTH0_AUDIENCE || '' }}
+      E2E_AUTH_EMAIL: ${{ inputs.app == 'hospitality' && secrets.E2E_AUTH_EMAIL || '' }}
+      E2E_AUTH_PASSWORD: ${{ inputs.app == 'hospitality' && secrets.E2E_AUTH_PASSWORD || '' }}
+      VITE_AUTH_AUTHORITY: ${{ inputs.app == 'hospitality' && format('https://{0}', secrets.E2E_AUTH0_DOMAIN) || '' }}
+      VITE_AUTH_CLIENT_ID: ${{ inputs.app == 'hospitality' && secrets.E2E_AUTH0_CLIENT_ID || '' }}
+      VITE_AUTH_AUDIENCE: ${{ inputs.app == 'hospitality' && secrets.E2E_AUTH0_AUDIENCE || '' }}
+      VITE_AUTH_REDIRECT_URI: ${{ inputs.app == 'hospitality' && 'http://localhost:3002/hospitality/callback' || '' }}
+      VITE_API_URL: ${{ inputs.app == 'hospitality' && 'http://localhost:3002' || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Plan
+        id: plan
+        run: |
+          set -o pipefail
+          if [ -n "$GREP" ]; then
+            node scripts/visual-baseline-regen.mjs plan --app "$APP" --grep "$GREP" >> "$GITHUB_OUTPUT"
+          else
+            node scripts/visual-baseline-regen.mjs plan --app "$APP" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build rialto (styles + dist export required by every app)
+        run: pnpm build --filter @mattbutlerengineering/rialto
+      - name: Build marketing (its visual config serves dist via vite preview)
+        if: inputs.app == 'marketing'
+        run: pnpm --dir apps/marketing exec vite build
+      - name: Install Playwright browsers
+        run: pnpm --dir "apps/$APP" exec playwright install --with-deps chromium
+
+      - name: Capture baselines
+        # --update-snapshots (in capture_args) WRITES every screenshot instead
+        # of comparing it.
+        env:
+          PW_ARGS: ${{ steps.plan.outputs.capture_args }}
+        run: |
+          set -o pipefail
+          mapfile -t ARGS < <(node -e 'JSON.parse(process.env.PW_ARGS).forEach((a) => console.log(a))')
+          pnpm exec "${ARGS[@]}"
+
+      - name: Verify baselines in compare mode
+        # A red verify fails the job and no PR is opened: a baseline that does
+        # not pass on the runner that produced it is noise above tolerance.
+        env:
+          PW_ARGS: ${{ steps.plan.outputs.verify_args }}
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/verify-report.json
+        run: |
+          set -o pipefail
+          mapfile -t ARGS < <(node -e 'JSON.parse(process.env.PW_ARGS).forEach((a) => console.log(a))')
+          pnpm exec "${ARGS[@]}" --reporter=line,json
+          node -e '
+            const s = JSON.parse(require("fs").readFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, "utf8")).stats;
+            const passed = s.expected;
+            const total = s.expected + s.unexpected + s.flaky + s.skipped;
+            process.stdout.write(JSON.stringify({ passed, total }));
+          ' > "$RUNNER_TEMP/verify.json"
+
+      - name: Record provenance
+        # Outside the screenshots dir, which must stay PNG-only.
+        env:
+          PACKAGE_JSON: ${{ steps.plan.outputs.package_json }}
+        run: |
+          set -o pipefail
+          node - > "$RUNNER_TEMP/provenance.json" <<'JS'
+          const path = require("path");
+          const { createRequire } = require("module");
+          const require_ = createRequire(path.join(process.cwd(), process.env.PACKAGE_JSON));
+          const coreDir = path.dirname(
+            require_.resolve("playwright-core/package.json", {
+              paths: [path.dirname(require_.resolve("@playwright/test"))],
+            })
+          );
+          const chromium = require(path.join(coreDir, "browsers.json")).browsers.find(
+            (b) => b.name === "chromium"
+          );
+          process.stdout.write(
+            `${JSON.stringify(
+              {
+                imageOs: process.env.ImageOS ?? null,
+                imageVersion: process.env.ImageVersion ?? null,
+                playwrightVersion: require_("@playwright/test/package.json").version,
+                chromiumBuild: `chromium-${chromium.revision} (${chromium.browserVersion})`,
+              },
+              null,
+              2
+            )}\n`
+          );
+          JS
+          cat "$RUNNER_TEMP/provenance.json"
+
+      - name: Summarize changes
+        id: summary
+        env:
+          SCREENSHOTS: ${{ steps.plan.outputs.screenshots }}
+        run: |
+          set -o pipefail
+          git status --porcelain -- "$SCREENSHOTS" | node scripts/visual-baseline-regen.mjs summarize --app "$APP" > "$RUNNER_TEMP/changes.json"
+          COUNT=$(node -e 'const c = JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/changes.json", "utf8")); console.log(c.added.length + c.modified.length + c.deleted.length)')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" = "0" ]; then
+            echo "baselines already match — nothing to open" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Render PR body
+        if: steps.summary.outputs.count != '0'
+        run: |
+          set -o pipefail
+          node scripts/visual-baseline-regen.mjs body --app "$APP" \
+            --changes "$RUNNER_TEMP/changes.json" \
+            --provenance "$RUNNER_TEMP/provenance.json" \
+            --verify "$RUNNER_TEMP/verify.json" \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            > "$RUNNER_TEMP/pr-body.md"
+
+      - name: Open PR with regenerated baselines
+        id: create-pr
+        if: steps.summary.outputs.count != '0'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        env:
+          HUSKY: "0"
+        with:
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          commit-message: "test(${{ inputs.app }}): regenerate visual baselines (${{ steps.summary.outputs.count }} snapshots)"
+          title: "test(${{ inputs.app }}): regenerate visual baselines (${{ steps.summary.outputs.count }} snapshots)"
+          body-path: ${{ runner.temp }}/pr-body.md
+          branch: ${{ steps.plan.outputs.branch }}
+          delete-branch: true
+          # The screenshots glob only: `pnpm install` reflows ~150 tracked
+          # files and none of that may ride along.
+          add-paths: ${{ steps.plan.outputs.add_paths }}
+          labels: needs-review
+
+      - name: Dispatch CI on the baseline branch
+        # GITHUB_TOKEN-authored pushes never fire pull_request workflows.
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.plan.outputs.branch }}
+        run: gh workflow run ci.yml --ref "$BRANCH"
+
+      - name: Dispatch tier-classifier on the baseline branch
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: gh workflow run tier-classifier.yml --ref "$BRANCH" -f pr="$PR_NUMBER"
+
+      - name: Approve pending automation workflow runs
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: node scripts/approve-automation-runs.mjs approve --pr "$PR_NUMBER"
+
+      - name: Report outcome
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          PR_URL: ${{ steps.create-pr.outputs.pull-request-url }}
+          COUNT: ${{ steps.summary.outputs.count }}
+        run: |
+          {
+            echo "## Visual baseline regen ($APP)"
+            echo
+            echo "- Opened $PR_URL with $COUNT changed snapshot(s). Review the images, then merge by hand."
+          } >> "$GITHUB_STEP_SUMMARY"
