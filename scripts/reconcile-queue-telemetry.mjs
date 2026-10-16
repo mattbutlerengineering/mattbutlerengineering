@@ -3,7 +3,7 @@
  * reconcile-queue-telemetry.mjs — fill the outcome fields queue-telemetry rows
  * are written without.
  *
- * collect-queue-telemetry.mjs appends rows at worker-completion time, when
+ * queue-telemetry-store.mjs appends rows at worker-completion time, when
  * merged/merged_at/ci_first_pass/rework_cycles are unknowable. This script is
  * the reconciliation pass those fields have always promised: for each pending
  * row with a PR, it asks GitHub what became of that PR and rewrites the sink.
@@ -28,7 +28,7 @@
  * Idempotent: already-reconciled rows are never re-fetched. GitHub lookups are
  * capped per run (default 50); remaining rows reconcile on the next run.
  *
- * Pure core with dependency injection, matching collect-queue-telemetry.mjs.
+ * Pure core with dependency injection, matching queue-telemetry-store.mjs.
  */
 
 import { createGhClient } from "@mbe/gh-client";

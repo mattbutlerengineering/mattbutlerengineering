@@ -112,7 +112,7 @@ describe("findLiveRoots", () => {
   it("does not treat a one-time script nothing invokes as live", () => {
     const roots = findLiveRoots({
       scriptPaths: ["scripts/backfill-human-touch-reasons.mjs"],
-      referenceTexts: ["run: node scripts/collect-queue-telemetry.mjs"],
+      referenceTexts: ["run: node scripts/queue-telemetry-store.mjs"],
     });
     expect(roots.size).toBe(0);
   });

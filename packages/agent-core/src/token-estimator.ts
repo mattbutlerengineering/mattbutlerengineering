@@ -5,7 +5,7 @@ import type { IssueInput, ModelTier } from "./model-router.js";
 
 /**
  * One historical row from `metrics/queue-telemetry.jsonl` (written by
- * `appendTelemetryRow` in `scripts/collect-queue-telemetry.mjs`). Only the
+ * `appendTelemetryRow` in `scripts/queue-telemetry-store.mjs`). Only the
  * fields this estimator reads are typed; other schema fields are ignored.
  *
  * This is external, untrusted data: every field is optional/nullable and the

@@ -194,6 +194,32 @@ describe("path ownership", () => {
   });
 });
 
+describe("one I/O path (#6770)", () => {
+  const memStore = (initial = "") => {
+    let content = initial;
+    return {
+      readFile: () => (content === "" ? null : content),
+      writeFile: (_p, c) => {
+        content = c;
+      },
+      content: () => content,
+    };
+  };
+
+  it("a row written by appendTelemetryRow reads back through readTelemetryRows on the same injected I/O", () => {
+    const io = memStore();
+    appendTelemetryRow(row(7, 70), { root: "/nowhere", ...io });
+    expect(readTelemetryRows({ root: "/nowhere", readFile: io.readFile })).toEqual([row(7, 70)]);
+  });
+
+  it("appendTelemetryRow writes the canonical metrics-store form, not a spliced copy of the raw file", () => {
+    const io = memStore("not-valid-json\n");
+    appendTelemetryRow(row(7, 70), { root: "/nowhere", ...io });
+    const lines = io.content().split("\n").filter(Boolean);
+    expect(lines.map((l) => JSON.parse(l))).toEqual([row(7, 70)]);
+  });
+});
+
 describe("append contract", () => {
   it("rejects unknown fields before touching disk", () => {
     const root = tempRoot();

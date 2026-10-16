@@ -14,7 +14,7 @@ import {
   UnshapedCommitsError,
 } from "../backfill-human-touch-reasons.mjs";
 import { append, read } from "../metrics-store.mjs";
-import { HUMAN_TOUCH_REASONS } from "../collect-queue-telemetry.mjs";
+import { HUMAN_TOUCH_REASONS } from "../queue-telemetry-store.mjs";
 
 // ── Helpers ──────────────────────────────────────────────
 
