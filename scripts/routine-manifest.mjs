@@ -282,6 +282,18 @@ export const ROUTINE_MANIFEST = [
     activatedAt: "2026-10-16",
     signature: { type: "heartbeat" },
   },
+  {
+    name: "mbe-swarm",
+    // Ten lanes (mbe-swarm-01..10) share one prompt (docs/routines/mbe-swarm.md)
+    // and are fired together by .github/workflows/swarm.yml; lane 01's id stands
+    // for the pack here, the full map lives in the prompt file and the workflow
+    // matrix (pinned against each other by scripts/__tests__/swarm-workflow.test.mjs).
+    triggerId: "trig_012VzcF9GaMqsqdVE8zX4zKK",
+    periodDays: 1,
+    outOfScope: true,
+    outOfScopeReason:
+      "On-demand pack with no schedule: the ten mbe-swarm-NN RemoteTriggers fire only when swarm.yml POSTs their /fire endpoints after an issue is labeled `swarm`, so there is no cadence for this check to measure — a quiet week is the normal state, not a dark routine. Each fire leaves its evidence on the swarmed issue instead: swarm.yml's one `swarm: fired N/10 lanes` comment and each lane's `swarm: mbe-swarm-NN <ok|noop|error>` line.",
+  },
 ];
 
 const CATALOG_ROW_PATTERN = /^\|\s*`([a-z0-9-]+)`/;
