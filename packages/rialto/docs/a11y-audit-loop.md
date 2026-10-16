@@ -226,10 +226,52 @@ Pagination.tsx - the controls were flat children of the `nav`, not a list. **FIX
 
 ---
 
+## Iteration 6: axe-core against the component showcase pages (#6715)
+
+Re-ran axe (full rule set, `@axe-core/playwright`) against the built rialto-web pages for the 10 `"carrier": "seed"` P2 findings in `metrics/ui-quality-findings.json`, in light and dark. The JSON carries only the impact level, so the real rule ids below come from that re-run. `color-contrast` was the cause of 6 of the 10; the other two are `landmark-unique`.
+
+| Page          | Finding      | axe rule                  | Outcome                                                                                                                                                   |
+| ------------- | ------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| aspect-ratio  | axe-serious  | `color-contrast` (3.31:1) | **FIXED** (showcase): ratio label used tertiary text on the matte tile; now primary                                                                       |
+| avatar        | axe-serious  | none reproducible         | **No change**: last seen 2026-10-01, clean in both themes now; covered by the new regression spec                                                         |
+| breadcrumb    | axe-moderate | `landmark-unique`         | **FIXED** (showcase): five trails shared one `nav` name; each now passes its own `aria-label` (supported since Iteration 5)                               |
+| data-list     | axe-serious  | `color-contrast` (4.07:1) | **FIXED** (component): `.striped .label` uses secondary text on the recessed stripe                                                                       |
+| dialog        | axe-serious  | none reproducible         | **No change**: last seen 2026-10-01, clean now; Iteration 1 already linked title and description                                                          |
+| divider       | axe-serious  | `color-contrast` (3.15:1) | **FIXED** (component): accent label is `color-mix(accent 70%, text-primary)` (5.1:1 light); the hue is kept, only darkened                                |
+| drawer        | axe-serious  | none reproducible         | **No change**: last seen 2026-10-01, clean now                                                                                                            |
+| dropdown-menu | axe-serious  | none reproducible         | **No change**: last seen 2026-10-01, clean now; Iteration 3 added `aria-controls` / `aria-labelledby`                                                     |
+| pagination    | axe-serious  | `color-contrast` (3.4:1)  | **FIXED** (component): active page text was `white` on the gold fill (2.3:1 in dark); now `--rialto-text-on-accent`, matching SegmentedControl and Button |
+| scroll-area   | axe-moderate | `landmark-unique`         | **FIXED** (showcase): four `role="region"` areas all named "Scrollable content"; each now passes a distinct `aria-label` (props spread, no new API)       |
+| scroll-area   | axe-serious  | `color-contrast` (2.83:1) | **FIXED** (showcase): lap-time text used the accent colour; now primary                                                                                   |
+
+Notes:
+
+- No public API change. Pagination, Divider and DataList change colour only: the active page label goes from white to the dark on-accent text (the fill is unchanged), and the DataList label on odd rows is one text tier darker. These may move rialto-web visual baselines; they were not regenerated here (baselines are Linux-runner-specific, see the repo gotchas).
+- The two overlay pages (dialog, drawer) and dropdown-menu are audited closed, as the loop captures them. The open states are not covered by axe on the showcase and remain a gap.
+- **Deferred:** none needed a design call. The rule that gold is not a text colour (`packages/rialto/CLAUDE.md`) is still bent by the accent Divider label; it is now darkened enough to pass but a design decision on whether it should be gold at all is left open.
+
+### Regression tests
+
+- `src/test/iteration-6-contrast.test.ts`: reads the real stylesheets and token files and asserts 4.5:1 for the Pagination active page, Divider accent label and DataList striped label in both themes (jsdom cannot resolve custom-property contrast).
+- `apps/rialto-web/e2e/a11y-pages.spec.ts`: all 10 pages, light and dark, zero violations of any impact with `color-contrast` enabled.
+
+---
+
+## Fixes applied this iteration (Iteration 6)
+
+- Pagination: active page text uses `--rialto-text-on-accent` (1 fix)
+- Divider: accent label contrast (1 fix)
+- DataList: striped-row label contrast (1 fix)
+- Showcase pages: AspectRatio and ScrollArea text colours, Breadcrumb and ScrollArea unique landmark names (4 fixes)
+- Avatar, Dialog, Drawer, DropdownMenu: no reproducible finding (4 pages, regression spec only)
+
+---
+
 ## Queue for next iterations
 
 - ~~**Iteration 2**: Form components — Input, TextArea, Checkbox, Select, NumberInput, PinInput, Autocomplete~~ **Done** (see Iteration 2 above)
 - ~~**Iteration 3**: Invasive wrapper refactors — Popover, DropdownMenu, Tooltip (cloneElement patterns)~~ **Done** (see Iteration 3 above)
 - ~~**Iteration 4**: Non-overlay interactive — Slider, Tabs, Accordion, SegmentedControl~~ **Done** (see Iteration 4 above)
 - ~~**Iteration 5**: Navigation — Navbar, Sidebar, Breadcrumb, Pagination~~ **Done** (see Iteration 5 above)
-- **Iteration 6**: Verify fixes with axe-core against showcase pages
+- ~~**Iteration 6**: Verify fixes with axe-core against showcase pages~~ **Done for the 10 component pages** (see Iteration 6 above)
+- **Iteration 7**: the 14 remaining seed findings on `examples/*`, `demos/*` and standalone pages (`visual-test`, `privacy`), composition-level rather than per-component

@@ -34,7 +34,7 @@ export function ScrollAreaPage() {
       <Section title="Vertical Scroll">
         <Stack direction="row" gap="sm" align="start" wrap>
           <Card style={{ flex: 1 }}>
-            <ScrollArea maxHeight={200}>
+            <ScrollArea aria-label="Telemetry channels" maxHeight={200}>
               {TELEMETRY_CHANNELS.map((channel, i) => (
                 <div
                   key={channel}
@@ -51,7 +51,7 @@ export function ScrollAreaPage() {
             </ScrollArea>
           </Card>
           <Card style={{ flex: 1 }}>
-            <ScrollArea maxHeight={200}>
+            <ScrollArea aria-label="Short content" maxHeight={200}>
               <Text
                 style={{
                   padding: "var(--rialto-space-sm)",
@@ -70,7 +70,7 @@ export function ScrollAreaPage() {
       {/* ── Horizontal Scroll ─────────────────────────────────────── */}
       <Section title="Horizontal Scroll">
         <Card>
-          <ScrollArea>
+          <ScrollArea aria-label="Session times">
             <div
               style={{ display: "flex", gap: "var(--rialto-space-sm)", minWidth: "max-content" }}
             >
@@ -100,7 +100,7 @@ export function ScrollAreaPage() {
                       margin: 0,
                       fontFamily: "var(--rialto-font-mono)",
                       fontSize: "var(--rialto-text-sm)",
-                      color: "var(--rialto-accent)",
+                      color: "var(--rialto-text-primary)",
                     }}
                   >
                     1:24.892
@@ -121,7 +121,7 @@ export function ScrollAreaPage() {
             begins scrolling.
           </Text>
           <Card style={{ width: 280 }}>
-            <ScrollArea maxHeight={160}>
+            <ScrollArea aria-label="Lap times" maxHeight={160}>
               <Stack gap="xs">
                 {Array.from({ length: 10 }, (_, i) => (
                   <div

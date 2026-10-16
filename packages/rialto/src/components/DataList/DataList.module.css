@@ -18,6 +18,11 @@
   background: var(--rialto-surface-recessed);
 }
 
+/* Tertiary falls to 4.07:1 on the recessed stripe; secondary holds AA. */
+.striped .label {
+  color: var(--rialto-text-secondary);
+}
+
 /* ── Horizontal ─────────────────────────────── */
 
 .horizontal .row {
