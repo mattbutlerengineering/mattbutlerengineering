@@ -113,3 +113,77 @@ export function decideSizeEscalation({ files = [], highestTier = T1 } = {}) {
     : `no size escalation: ${counted} review-surface lines added`;
   return { escalate, counted, reason };
 }
+
+/**
+ * Same keyword set and #5956 guards as tier-classifier.yml's inline rule:
+ * masks code spans before matching, and excludes a keyword flanked by a
+ * hyphen + word char on either side (a longer hyphenated identifier like
+ * `check-deploy-secret-provisioning`) via the lookaround pair below.
+ */
+const KEYWORD_RE =
+  /(?<!\w-)\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b(?!-\w)/i;
+
+/**
+ * Same-sentence incident cue: distinguishes a real incident report ("we
+ * leaked the Stripe key") from a bare descriptive mention ("…credentials or
+ * CI/artifact access…", #6541).
+ */
+const INCIDENT_CUE_RE =
+  /leaked|exposed|compromised|breached|revoked|rotat(?:e|ed|ing)\s+(?:the|our|this|all|its)\b|incident\s+(?:report|response|review)|security incident/i;
+
+/**
+ * @param {string} [text]
+ * @returns {string} `text` with fenced and inline code spans masked out, so a
+ *   keyword written inside backticks can't escalate (#5956).
+ */
+function maskCodeSpans(text) {
+  return (text ?? "").replace(/```[\s\S]*?```/g, " ").replace(/`[^`\n]*`/g, " ");
+}
+
+/**
+ * Pure decision: does a secrets/incident keyword mention escalate this PR?
+ * Mirrors tier-classifier.yml's inline rule, split into three outcomes
+ * instead of mutating `highest` directly — the workflow adapter applies
+ * `hardset-T4` as `highest = T4` and `bump` as `highest = min(T4, highest+1)`,
+ * matching the existing gate verbatim.
+ *
+ * @param {{ title?: string, bodyProse?: string, pathTier?: number }} [input]
+ * @returns {{ action: 'none'|'bump'|'hardset-T4', reason: string }}
+ */
+export function decideKeywordEscalation({ title = "", bodyProse = "", pathTier = T1 } = {}) {
+  const maskedTitle = maskCodeSpans(title);
+  const maskedBody = maskCodeSpans(bodyProse);
+
+  if (!KEYWORD_RE.test(`${maskedTitle} ${maskedBody}`)) {
+    return { action: "none", reason: "no secrets/incident keyword found" };
+  }
+
+  // Existing gate, kept verbatim: a keyword mention plus a changed file that
+  // already matched a T3/T4 sensitive-path rule hard-sets T4 regardless of
+  // an incident cue — a keyword on a sensitive path is the signal this rule
+  // exists to catch.
+  if (pathTier >= T3) {
+    return {
+      action: "hardset-T4",
+      reason:
+        "escalate to T4: title/body mentions secrets or incident (sensitive path already matched)",
+    };
+  }
+
+  if (KEYWORD_RE.test(maskedTitle)) {
+    return { action: "bump", reason: "escalate one tier: title mentions secrets or incident" };
+  }
+
+  const sentences = maskedBody.split(/(?<=[.!?])\s+|\n/);
+  const hasIncidentSentence = sentences.some(
+    (sentence) => KEYWORD_RE.test(sentence) && INCIDENT_CUE_RE.test(sentence)
+  );
+  if (hasIncidentSentence) {
+    return {
+      action: "bump",
+      reason: "escalate one tier: title/body mentions secrets or incident with an incident cue",
+    };
+  }
+
+  return { action: "none", reason: "keyword mentioned without an incident cue or sensitive path" };
+}

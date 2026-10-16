@@ -29,7 +29,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
     943 docs → counted > 1000, escalates); missing `additions` counts 0;
     `docs/features/**` md excluded while root-level `*.md` counts.
   - Blocked by: —
-- [ ] **Keyword escalation with incident cue** — add
+- [x] **Keyword escalation with incident cue** — add
       `decideKeywordEscalation` (title backstop, same-sentence incident cue,
       `pathTier >= T3` hardset kept verbatim, #5956 hyphen/code-span guards
       preserved).

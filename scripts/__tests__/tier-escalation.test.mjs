@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   countReviewSurfaceAdditions,
+  decideKeywordEscalation,
   decideSizeEscalation,
   isExcludedFromReviewSurface,
   T1,
+  T2,
   T3,
   T4,
 } from "../tier-escalation.mjs";
@@ -141,5 +143,76 @@ describe("decideSizeEscalation — pins #6610 and #6591", () => {
     const result = decideSizeEscalation({ files, highestTier: T1 });
     expect(result.reason).toContain("1200");
     expect(result.reason).not.toContain("9000");
+  });
+});
+
+describe("decideKeywordEscalation — title backstop, same-sentence incident cue, pathTier hardset", () => {
+  it("#6541: a bare credentials mention with no incident cue and no sensitive path is none", () => {
+    const result = decideKeywordEscalation({
+      title: "Document the E2E auth setup",
+      bodyProse:
+        "This PR documents that CI needs `E2E_AUTH0_*` credentials or CI/artifact access to run the suite.",
+      pathTier: T2,
+    });
+    expect(result.action).toBe("none");
+  });
+
+  it('"we leaked the Stripe key and must rotate it" on a sensitive path lands T4 via hardset', () => {
+    const result = decideKeywordEscalation({
+      title: "Rotate staging config",
+      bodyProse: "We leaked the Stripe key and must rotate it immediately.",
+      pathTier: T3,
+    });
+    expect(result.action).toBe("hardset-T4");
+  });
+
+  it("keyword in the title alone bumps one tier even off a non-sensitive path", () => {
+    const result = decideKeywordEscalation({
+      title: "Rotate secrets for the staging environment",
+      bodyProse: "Routine maintenance, no behaviour change.",
+      pathTier: T1,
+    });
+    expect(result.action).toBe("bump");
+  });
+
+  it("a descriptive keyword mention on a sensitive path still hardsets to T4 (cue not required)", () => {
+    const result = decideKeywordEscalation({
+      title: "Update auth config",
+      bodyProse: "Documents the credentials rotation process for ops.",
+      pathTier: T3,
+    });
+    expect(result.action).toBe("hardset-T4");
+  });
+
+  it("#5956: a hyphenated identifier mention (check-deploy-secret-provisioning) in prose is none", () => {
+    const result = decideKeywordEscalation({
+      title: "Wire up deploy checks",
+      bodyProse: "This already works via check-deploy-secret-provisioning.",
+      pathTier: T1,
+    });
+    expect(result.action).toBe("none");
+  });
+
+  it("#5956: a real secrets mention inside a code span does not escalate", () => {
+    const result = decideKeywordEscalation({
+      title: "Add helper",
+      bodyProse: "Calls `rotateSecrets()` internally.",
+      pathTier: T1,
+    });
+    expect(result.action).toBe("none");
+  });
+
+  it("a body sentence with an incident cue but no keyword in the title still bumps off a non-sensitive path", () => {
+    const result = decideKeywordEscalation({
+      title: "Fix staging config",
+      bodyProse: "A credential was exposed in the build log and needs attention.",
+      pathTier: T2,
+    });
+    expect(result.action).toBe("bump");
+  });
+
+  it("defaults title/bodyProse to empty string and pathTier to T1 when omitted — never throws", () => {
+    expect(() => decideKeywordEscalation()).not.toThrow();
+    expect(decideKeywordEscalation().action).toBe("none");
   });
 });
