@@ -13,6 +13,15 @@ import { transitionTable, TableTransitionError } from "./table-state-machine.js"
 
 export { TableTransitionError };
 
+export class TableConcurrentUpdateError extends Error {
+  constructor(id: string, status: string) {
+    super(
+      `Table ${id} concurrent update conflict: lost race moving to ${status}. Another status change completed first.`
+    );
+    this.name = "TableConcurrentUpdateError";
+  }
+}
+
 const VALID_TABLE_STATUSES: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"];
 
 export function mapPrismaTable(table: {
@@ -155,16 +164,13 @@ export const tableService = {
     const current = await prisma.table.findUnique({ where: { id } });
     if (!current) return null;
     transitionTable(current.status, status as TableStatus);
-    try {
-      const table = await prisma.table.update({
-        where: { id },
-        data: { status: status as TableStatus },
-      });
-      return mapPrismaTable(table);
-    } catch (err: unknown) {
-      if (isPrismaNotFound(err)) return null;
-      throw err;
-    }
+    const { count } = await prisma.table.updateMany({
+      where: { id, status: current.status },
+      data: { status: status as TableStatus },
+    });
+    if (count === 0) throw new TableConcurrentUpdateError(id, status);
+    const table = await prisma.table.findUnique({ where: { id } });
+    return table ? mapPrismaTable(table) : null;
   },
 
   async delete(id: string): Promise<boolean> {
