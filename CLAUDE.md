@@ -12,6 +12,7 @@ Always use caveman mode (full intensity) for all responses — ultra-compressed,
 - **Primary Source of Truth:** [AGENTS.md](./AGENTS.md)
 - **Design System Specs:** [packages/rialto/CLAUDE.md](./packages/rialto/CLAUDE.md)
 - **Domain Context:** See `CLAUDE.md` files in each `services/*` or `packages/*` directory.
+- **UI rules:** [.claude/rules/ui-quality.md](./.claude/rules/ui-quality.md) — the agent-built tells the daily UI-quality loop files, checked against `docs/ui-quality/rubric.md`. It loads automatically for `apps/**/*.{tsx,css}` and `packages/rialto/**`; read it before writing UI anywhere else.
 
 ## Behavioral Guidelines
 
