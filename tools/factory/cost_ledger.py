@@ -27,6 +27,13 @@ from knowledge_plane import WO_TOKEN
 # The append-only cost ledger (ADR-0034). The outcome vocabulary is
 # deliberately open — ADR-0034 fixes the field set, not its values.
 COST_LEDGER = "docs/factory/costs.jsonl"
+# One file per run. Parallel item branches never share a path, so a
+# merge does not depend on a union driver — GitHub ignores custom merge
+# drivers, and a shared append stays CONFLICTING. The aggregate above
+# stays the historical ledger; read() sees both.
+RUNS_DIR = "docs/factory/costs/runs"
+# A run id used as a filename: no slash, no dot-dot, no leading dot.
+RUN_FILE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$")
 LEDGER_FIELDS = ("wo", "run_id", "model", "tokens", "cost", "outcome")
 LEDGER_TEXT_FIELDS = ("run_id", "model", "outcome")
 
@@ -190,6 +197,64 @@ def record(root, entry):
     return []
 
 
+def run_ledger_path(run_id):
+    """The per-run ledger path for `run_id`, or None when that id is not
+    a safe filename (a slash, a leading dot, or anything outside
+    RUN_FILE_ID). Callers refuse None before they write."""
+    if not isinstance(run_id, str) or RUN_FILE_ID.fullmatch(run_id) is None:
+        return None
+    return f"{RUNS_DIR}/{run_id}.jsonl"
+
+
+def record_isolated(root, entry, skip_existing=False):
+    """(problems): write `entry` to its own file under RUNS_DIR, never to
+    the shared aggregate. The same refusals as record() — a bad shape, an
+    unreadable ledger, an unsafe run_id, a row_key already recorded —
+    happen before the write. `skip_existing` skips a duplicate instead of
+    refusing it: carry hands over rows the batch branch may already hold.
+    A second row with the same run_id and a different wo appends to that
+    run's file; row_key, not the filename, is the identity."""
+    shape = line_problems(entry)
+    if shape:
+        return shape
+    rel = run_ledger_path(entry.get("run_id"))
+    if rel is None:
+        return [f"run_id {entry.get('run_id')!r} is not a safe ledger"
+                " filename"]
+    entries, problems = read(root)
+    if problems:
+        return problems
+    if row_key(entry) in {row_key(existing) for existing in entries}:
+        if skip_existing:
+            return []
+        return [f"run_id {entry['run_id']!r} is already in the ledger —"
+                " recording it twice would double-count the run against"
+                " the monthly cap"]
+    path = Path(root) / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry) + "\n")
+    return []
+
+
+def tracked_ledger_paths(root):
+    """Ledger paths that exist under `root`: the aggregate when it is a
+    file, then each per-run file, in name order. Close stages these so
+    blocked-item spend reaches main without appending the aggregate."""
+    root = Path(root)
+    paths = []
+    if (root / COST_LEDGER).is_file():
+        paths.append(COST_LEDGER)
+    runs = root / RUNS_DIR
+    if runs.is_dir():
+        paths.extend(
+            f"{RUNS_DIR}/{path.name}"
+            for path in sorted(runs.iterdir(), key=lambda item: item.name)
+            if path.is_file() and path.suffix == ".jsonl"
+            and run_ledger_path(path.name[:-len(".jsonl")]) is not None)
+    return paths
+
+
 def record_new(root, rows):
     """(landed, problems): the guarded write for a batch writer (#772) —
     record()'s rules over many rows with ONE read. A row whose row_key
@@ -326,6 +391,22 @@ def parse(text):
     return parsed
 
 
+def _load_one(path, shown, label):
+    """(rows, problems) for one ledger file. rows is None when the file
+    is absent. An explicit shown name keeps an injected ledger_path's
+    problems worded as COST_LEDGER, which is what its callers pin."""
+    text, problem = read_file(path, shown, str)
+    if problem:
+        return None, [f"{label}: {problem}"]
+    if text is None:
+        return None, []
+    rows = [(lineno, record,
+             [f"{label}: {shown}:{lineno} {suffix}"
+              for suffix in suffixes])
+            for lineno, record, suffixes in parse(text)]
+    return rows, []
+
+
 def load(root, label, ledger_path=None):
     """(rows, problems): the labelled ledger read every reader is built
     on — one existence check, one guarded read (cli.read_file), one
@@ -336,18 +417,34 @@ def load(root, label, ledger_path=None):
     ledger exists (detector G's merged-row cross-check) can tell an
     absent ledger from an empty one. problems carries only the file-level
     failure ("<label>: cannot read …"), so read() and detector G report
-    an unreadable ledger with the same body under their own prefix."""
-    path = Path(ledger_path) if ledger_path else Path(root) / COST_LEDGER
-    text, problem = read_file(path, COST_LEDGER, str)
-    if problem:
-        return None, [f"{label}: {problem}"]
-    if text is None:
+    an unreadable ledger with the same body under their own prefix.
+
+    With no ledger_path, the aggregate and every file under RUNS_DIR are
+    one ledger: historical rows stay in the aggregate, and a per-run file
+    counts the same. An explicit ledger_path reads that file alone."""
+    if ledger_path:
+        return _load_one(Path(ledger_path), COST_LEDGER, label)
+    root = Path(root)
+    rows, problems = _load_one(root / COST_LEDGER, COST_LEDGER, label)
+    if problems:
+        return None, problems
+    found = []
+    runs = root / RUNS_DIR
+    if runs.is_dir():
+        for path in sorted(runs.iterdir(), key=lambda item: item.name):
+            if not path.is_file() or path.suffix != ".jsonl":
+                continue
+            if run_ledger_path(path.name[:-len(".jsonl")]) is None:
+                return None, [f"{label}: {RUNS_DIR}/{path.name} is not a"
+                              " safe run-file name"]
+            extra, problems = _load_one(path, f"{RUNS_DIR}/{path.name}",
+                                        label)
+            if problems:
+                return None, problems
+            found.extend(extra or [])
+    if rows is None and not found:
         return None, []
-    rows = [(lineno, record,
-             [f"{label}: {COST_LEDGER}:{lineno} {suffix}"
-              for suffix in suffixes])
-            for lineno, record, suffixes in parse(text)]
-    return rows, []
+    return (rows or []) + found, []
 
 
 def read(root, ledger_path=None):

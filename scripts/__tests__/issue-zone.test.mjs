@@ -535,3 +535,108 @@ describe("selectZoneSpreadBatch — strictMain: false (ADR-027)", () => {
     expect(numbers(batch)).toEqual([1, 2]);
   });
 });
+
+describe("selectZoneSpreadBatch — shared-registry locks", () => {
+  const filesBody = (...paths) =>
+    `## Files to Modify/Create\n\n${paths.map((p) => `- ${p}`).join("\n")}\n`;
+  const numbers = (batch) => batch.map((i) => i.number);
+  const pair = (lock) => [
+    issue("feat(hospitality): a", {
+      number: 1,
+      body: filesBody("apps/hospitality/src/a.ts", lock),
+    }),
+    issue("fix(rialto): b", {
+      number: 2,
+      body: filesBody("packages/rialto/src/b.ts", lock),
+    }),
+  ];
+
+  test.each([
+    ".claude/rules/gotchas.md",
+    "CLAUDE.md",
+    ".claude/settings.json",
+    ".claude/implement-queue.md",
+    "docs/scheduled-tasks.md",
+    "scripts/routine-manifest.mjs",
+    "docs/factory/costs.jsonl",
+  ])("%s is one lock across zones when main is non-strict", (lock) => {
+    const batch = selectZoneSpreadBatch(pair(lock), { strictMain: false });
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("gotchas.md stays one lock across zones when main is strict", () => {
+    const batch = selectZoneSpreadBatch(pair(".claude/rules/gotchas.md"), { strictMain: true });
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("different workflow files in one zone still stack", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        issue("fix(ci): a", { number: 1, body: filesBody(".github/workflows/ci.yml") }),
+        issue("fix(ci): b", { number: 2, body: filesBody(".github/workflows/deploy.yml") }),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1, 2]);
+  });
+
+  test("a .yaml workflow file is its own lock across zones", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        issue("fix(ci): a", { number: 1, body: filesBody(".github/workflows/deploy.yaml") }),
+        issue("feat(hospitality): b", {
+          number: 2,
+          body: filesBody(".github/workflows/deploy.yaml", "apps/hospitality/src/a.ts"),
+        }),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("a workflow file in a subdirectory is not a shared lock", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        issue("fix(ci): a", { number: 1, body: filesBody(".github/workflows/nested/ci.yml") }),
+        issue("feat(hospitality): b", {
+          number: 2,
+          body: filesBody(".github/workflows/nested/ci.yml", "apps/hospitality/src/a.ts"),
+        }),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1, 2]);
+  });
+
+  test("the same workflow file does not stack across zones", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        issue("fix(ci): a", { number: 1, body: filesBody(".github/workflows/ci.yml") }),
+        issue("feat(hospitality): b", {
+          number: 2,
+          body: filesBody(".github/workflows/ci.yml", "apps/hospitality/src/a.ts"),
+        }),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("an issue deferred by its zone does not take a hotspot lock", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        issue("fix(rialto): pathless", { number: 1 }),
+        issue("fix(rialto): gotchas", {
+          number: 2,
+          body: filesBody(".claude/rules/gotchas.md", "packages/rialto/src/a.ts"),
+        }),
+        issue("feat(hospitality): also gotchas", {
+          number: 3,
+          body: filesBody(".claude/rules/gotchas.md", "apps/hospitality/src/a.ts"),
+        }),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1, 3]);
+  });
+});

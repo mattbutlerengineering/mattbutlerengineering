@@ -298,6 +298,8 @@ describe("ROUTINE_MANIFEST coverage of docs/scheduled-tasks.md's catalog", () =>
   });
 
   it("has a manifest entry for every catalogued routine", () => {
+    // One direction only. A name that arrives from scripts/routines/<name>.json
+    // is not required to appear in this table.
     const manifestNames = new Set(ROUTINE_MANIFEST.map((entry) => entry.name));
     const missing = catalogRows
       .filter((row) => !manifestNames.has(row.name))

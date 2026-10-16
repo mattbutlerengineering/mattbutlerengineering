@@ -39,7 +39,10 @@ version-controlled under [`docs/routines/`](./routines/) (#3582) — see
 **Prompt file** is the version-controlled, byte-for-byte copy of the trigger's
 live prompt (`job_config.ccr.events[0]`) — see [Prompt files](#prompt-files)
 below. It is the authoritative definition of the routine; the prose sections
-further down describe _why_, not _what_.
+further down describe _why_, not _what_. A new routine is a
+`scripts/routines/<name>.json` fragment plus `docs/routines/<name>.md`. It is
+not a new row in the catalog below and not an edit of the builtin array in
+`scripts/routine-manifest.mjs`.
 
 | Routine                      | Trigger ID                                                                                                                                                            | Prompt file                                                                  | Cadence (PT)        | Cron (UTC)                                                | Model    | Output                                                    | Purpose                                                                                                                                                                                            |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------- | -------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
