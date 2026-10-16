@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { ApiClientError } from "@mbe/api-client";
 import type { CreateVenueRequest, Venue, FloorPlan, Table } from "@mbe/types";
 import type { DraftTable, FloorPlanDraft } from "./floor-plan-draft.js";
 import {
@@ -12,6 +13,16 @@ import {
   runLaunchSequence,
 } from "./launch-sequence.js";
 import type { LaunchApi, LaunchProgress, LaunchStageId } from "./launch-sequence.js";
+
+const DUPLICATE_DETAIL = "A table with this name already exists";
+
+function apiError(status: number, detail: string): ApiClientError {
+  return new ApiClientError(
+    { type: "about:blank", title: "Bad Request", status, detail },
+    "POST",
+    "/api/v1/tables"
+  );
+}
 
 function makeDraftTable(overrides: Partial<DraftTable> = {}): DraftTable {
   return {
@@ -264,7 +275,16 @@ describe("launch-sequence", () => {
 
   describe("isAlreadyCreatedError", () => {
     it("is true for the server's duplicate-name rejection", () => {
-      expect(isAlreadyCreatedError(new Error("A table with this name already exists"))).toBe(true);
+      expect(isAlreadyCreatedError(apiError(400, DUPLICATE_DETAIL))).toBe(true);
+    });
+
+    it("is false for a 400 with a different detail and for a non-400 with the same detail", () => {
+      expect(isAlreadyCreatedError(apiError(400, "Name is required"))).toBe(false);
+      expect(isAlreadyCreatedError(apiError(409, DUPLICATE_DETAIL))).toBe(false);
+    });
+
+    it("is false for a plain Error that merely carries the duplicate message", () => {
+      expect(isAlreadyCreatedError(new Error(DUPLICATE_DETAIL))).toBe(false);
     });
 
     it("is false for a generic Error, null, undefined and a string", () => {
@@ -454,7 +474,7 @@ describe("launch-sequence", () => {
           api.callLog.push(`tables.create:${data.name}`);
           return makeTable(data.name);
         })
-        .mockRejectedValueOnce(new Error("A table with this name already exists"))
+        .mockRejectedValueOnce(apiError(400, DUPLICATE_DETAIL))
         .mockImplementationOnce(async (data: { name: string }) => {
           api.callLog.push(`tables.create:${data.name}`);
           return makeTable(data.name);
