@@ -16,7 +16,7 @@ import {
 import { randomUUID } from "crypto";
 import { requireAuth } from "@mbe/auth/fastify";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
-import { holdService } from "../services/hold.js";
+import type { DomainServices } from "../services/domain-services.js";
 import { venueScoped, type VenueSource } from "./venue-scope.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { generateManageToken } from "./public-reservations.js";
@@ -98,7 +98,10 @@ type ConfirmRoute = HoldIdRoute & {
  * `venueScoped` turns into a 403 for non-admins (so hold existence never
  * leaks) and a 404 `notFound` for platform admins.
  */
-const holdVenue = <RG extends HoldIdRoute>(notFound: string): VenueSource<RG, undefined> => ({
+const holdVenue = <RG extends HoldIdRoute>(
+  holdService: DomainServices["holdService"],
+  notFound: string
+): VenueSource<RG, undefined> => ({
   // RG is only known to carry `Params: { id }`; the cast restates that for the compiler.
   resolve: async (request) => holdService.getVenueId((request.params as HoldIdRoute["Params"]).id),
   label: "hold.venueId",
@@ -120,6 +123,8 @@ const holdVenue = <RG extends HoldIdRoute>(notFound: string): VenueSource<RG, un
  * per-IP active-hold cap. This file stays as the staff surface.
  */
 export const holdRoutes: FastifyPluginAsync = async (fastify) => {
+  const { holdService } = fastify.services;
+
   // Register schemas
   fastify.addSchema(HoldSchema);
 
@@ -241,7 +246,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped<GetRoute>(
-      { venue: holdVenue("Hold not found or expired") },
+      { venue: holdVenue(holdService, "Hold not found or expired") },
       async (request, reply) => {
         const hold = await holdService.getById(request.params.id);
 
@@ -298,7 +303,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped<ReleaseRoute>(
-      { venue: holdVenue("Hold not found or not owned by this session") },
+      { venue: holdVenue(holdService, "Hold not found or not owned by this session") },
       async (request, reply) => {
         const sessionId = request.headers[SESSION_ID_HEADER];
 
@@ -373,7 +378,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped<ConfirmRoute>(
-      { venue: holdVenue("Hold not found") },
+      { venue: holdVenue(holdService, "Hold not found") },
       async (request, reply, { venueId }) => {
         const sessionId = request.headers[SESSION_ID_HEADER];
 

@@ -8,7 +8,6 @@ import type {
   RouteHandlerMethod,
 } from "fastify";
 import type { Reservation } from "@mbe/types";
-import { reservationService } from "../services/reservation.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
 import { verifyManageToken } from "./public-reservations.js";
@@ -99,7 +98,7 @@ export function manageTokenScoped<RG extends RouteGenericInterface = RouteGeneri
     if (!venueId) return spec.missing(reply, request);
 
     return runWithVenueContext(venueId, async () => {
-      const reservation = await reservationService.getById(reservationId);
+      const reservation = await request.server.services.reservationService.getById(reservationId);
       if (!reservation) return spec.missing(reply, request);
       if (reservation.guestEmail !== result.guestEmail) {
         return deny(reply, 403, "Forbidden", "Token does not match reservation");

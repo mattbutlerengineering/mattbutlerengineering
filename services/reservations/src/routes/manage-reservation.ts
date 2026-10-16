@@ -1,10 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
-import { venueService } from "../services/venue.js";
 import { serializeManagedReservation } from "../services/serializers.js";
 import { manageTokenScoped } from "./manage-token-scope.js";
 import { reservationNotFoundProblem } from "./load-reservation-for-manage.js";
 
 export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
+  const { venueService } = fastify.services;
+
   fastify.get<{ Querystring: { token?: string } }>(
     "/public/v1/reservations/manage",
     {
