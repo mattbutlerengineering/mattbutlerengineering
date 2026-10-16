@@ -174,6 +174,8 @@ These are the labels that actually decide whether a PR merges. `tier:*` is appli
 
 Managed at https://claude.ai/code/routines. See [docs/scheduled-tasks.md](./docs/scheduled-tasks.md) for full schedule and prompts.
 
+`docs/routines/<name>.md` is the authoritative, byte-for-byte prompt of each `mbe-*` routine ([Prompt files](./docs/scheduled-tasks.md#prompt-files)). To change one: merge a docs PR editing that file first, then apply it to the live trigger, then `get_trigger` to verify the change landed ([Editing a routine](./docs/scheduled-tasks.md#editing-a-routine)). Never edit a live trigger directly.
+
 **Key principle:** Trust live output. For any actionable decision (which issues to close, what to build next), re-run source-of-truth checks (e.g., `node plugins/acmm/scripts/audit.js`) instead of recalling earlier summaries from conversation history.
 
 ## Dispatching Worktree Agents
