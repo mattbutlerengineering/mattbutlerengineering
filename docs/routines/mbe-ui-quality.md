@@ -16,7 +16,9 @@ creates the trigger with this prompt byte for byte and then writes its
 `scripts/routine-manifest.mjs`. If this file and the live trigger ever
 disagree, this file wins — see
 [`docs/scheduled-tasks.md`](../scheduled-tasks.md#editing-a-routine) for the
-rule for editing the live trigger.
+rule for editing the live trigger. Re-synced from the live trigger on
+2026-10-16 (#6831): its 2026-10-12 edit had already folded the step-(8)
+heartbeat into the always-run rule and step (7c), which this file had not.
 
 Every `node scripts/ui-quality/…` line below is pinned against that CLI's own
 usage text, and every ordering the loop depends on, by
@@ -35,7 +37,7 @@ Hard rules, for the whole fire:
 - At most ONE fix PR per fire. Never merge a pull request, never enable auto-merge.
 - If an issue you created comes back without the `ui-quality` label, stop filing for the rest of the fire (skip the remaining creates, the fix PR and the escalations), and say so in the log entry.
 - Commit only `metrics/ui-quality-*`, `docs/backlog.md` and `.claude/improvement-loop/log.md` (plus, on a fix-PR branch, that fix's own files). Stage by explicit path, never `git add -A`.
-- Steps (1)–(6) can fail; step (7) always runs. A fire that did nothing must still leave a ledger row and a dated log entry.
+- Steps (1)–(6) can fail; steps (7) and (8) always run. A fire that did nothing must still leave a ledger row, a dated log entry and a heartbeat.
 
 (0) Setup. `pnpm install --frozen-lockfile`, then `pnpm build --filter @mbe/cli...`, `pnpm build --filter @mattbutlerengineering/rialto`, and `pnpm build --filter @mbe/marketing --filter @mbe/rialto-web --filter @mbe/hospitality`. A failed app build is not a stop: that app's capture will fail and step (7) records its due rows `unreachable:build`. Then `node scripts/ui-quality/state.mjs checkout`: it fetches `origin`, checks out `ui-quality/ledger` (creating it from `origin/main` when it does not exist) and merges `origin/main` into it, and prints `{ source, branch, head, merged_main, resolved }` — keep `source` for the log entry. On `state.mjs checkout` exit 2 (`state-unavailable`: a failed fetch, or a conflict it cannot resolve by rule) skip (1)–(6) entirely — no capture, no calibration, no filing — and in step (7) write only the log entry, saying `state-unavailable` and the reason it printed.
 
@@ -74,7 +76,7 @@ Each writes `.ui-quality/captures/<app>/manifest.jsonl` plus screenshots. A fail
 (7) Record, log, PR — always.
   a. `node scripts/ui-quality/ledger.mjs record` (no flags: it reads the rubric version and `.ui-quality/judge-status.json` itself and appends the runs row with `unjudged` and `dropped_tells`). An exit 2 (the rubric changed mid-fire, or bad input) writes nothing: log it as a pipeline bug.
   b. Append a dated entry to `.claude/improvement-loop/log.md` headed `## <YYYY-MM-DD> — mbe-ui-quality`: routes due / captured / audited, the unjudged count, dropped tells, the calibration stamp, issues created / reopened / commented, seeds, the fix PR (or "none" and why), P1 breaches escalated, coverage before this fire, and any `blocker: no-browser`, stopped filing or pipeline bug. A fire with no findings or no browser says exactly that — a no-op fire is a logged signal, never a silent absence.
-  c. On `ui-quality/ledger` (where step (0) left you), stage only `metrics/ui-quality-*`, `docs/backlog.md` and `.claude/improvement-loop/log.md` by explicit path and commit in place on `ui-quality/ledger` with the message `chore(ui-quality): ledger <YYYY-MM-DD>` — this commit is the fire's liveness signal, so make it on every fire, a no-op or `state-unavailable` fire included. `git push origin ui-quality/ledger` — never force; a rejected push is logged, not retried with force. Then `mcp__github__list_pull_requests` for open PRs with head `ui-quality/ledger`, and only if none is open, `mcp__github__create_pull_request` titled `chore(ui-quality): ledger <YYYY-MM-DD>` from `ui-quality/ledger` against `main`, labelled `has-pr`. An open one is left as it is — the push already refreshed it. Never merge a pull request, never enable auto-merge; nothing in this loop waits for that PR to merge.
+  c. On `ui-quality/ledger` (where step (0) left you), stage only `metrics/ui-quality-*`, `docs/backlog.md` and `.claude/improvement-loop/log.md` by explicit path and commit in place on `ui-quality/ledger` with the message `chore(ui-quality): ledger <YYYY-MM-DD>`, on every fire, a no-op or `state-unavailable` fire included. `git push origin ui-quality/ledger` — never force; a rejected push is logged, not retried with force. Then `mcp__github__list_pull_requests` for open PRs with head `ui-quality/ledger`, and only if none is open, `mcp__github__create_pull_request` titled `chore(ui-quality): ledger <YYYY-MM-DD>` from `ui-quality/ledger` against `main`, labelled `has-pr`. An open one is left as it is — the push already refreshed it. Never merge a pull request, never enable auto-merge; nothing in this loop waits for that PR to merge.
 
 (8) FINAL STEP — heartbeat, on every fire without exception. As your very last action, post exactly one comment on issue #6211 (an intentionally CLOSED issue; comment anyway, do not reopen it) using `mcp__github__add_issue_comment`, with this exact body on a single line: `heartbeat: mbe-ui-quality <YYYY-MM-DD> <ok|noop|throttled|error> [note]` — `<YYYY-MM-DD>` is today's UTC date; use `ok` when the fire completed, `noop` for a fire with no findings or no browser, `error` if the pipeline failed, `throttled` if the fire was rate-limited or cut short by limits; the optional note is free text. The liveness sensor (scripts/routine-liveness.mjs) reads these comments, so a fire that posts no line reads as dark.
 ```
