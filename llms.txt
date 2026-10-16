@@ -9312,6 +9312,9 @@
         conflict?: ConflictCheckResult;
       }
     </item>
+    <item priority="medium">
+      function isSlotMove(data: UpdateReservationRequest): boolean { /* ... */ }
+    </item>
     <item priority="low">
       interface UpdateReservationResult {
         success: boolean;
