@@ -260,6 +260,9 @@
         evaluate: Evaluate = evaluateSuccess
       ): JudgeFunction { /* ... */ }
     </item>
+    <item priority="medium">
+      function formatAcceptanceCriteria(criteria: string): string { /* ... */ }
+    </item>
   </file>
   <file path="src/eval/run-detection.ts">
     <item priority="high">
@@ -2566,6 +2569,9 @@
     </item>
     <item priority="high">
       export async function getGitDiff(worktreePath: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const EMPTY_DIFF_MARKER: unknown;
     </item>
     <item priority="low">
       type EvaluateSuccessConfig = Partial<EvaluationConfig> &

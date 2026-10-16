@@ -124,6 +124,9 @@ export async function getGitDiff(worktreePath: string): Promise<string> {
   }
 }
 
+/** Stands in for the diff when a forced evaluation has nothing to show the judge. */
+export const EMPTY_DIFF_MARKER = "(no changes — the session produced an empty diff)";
+
 /** Config for {@link evaluateSuccess}: LLM tuning plus skip-policy inputs. */
 export type EvaluateSuccessConfig = Partial<EvaluationConfig> &
   Omit<SkipPolicyInput, "diff"> & {
@@ -146,14 +149,18 @@ export type EvaluateSuccessConfig = Partial<EvaluationConfig> &
  * so an outage is never indistinguishable from a genuine pass.
  *
  * The empty-diff branch is preserved unchanged (`passed: false,
- * confidence: 1.0`) and takes precedence over the skip markers.
+ * confidence: 1.0`) and takes precedence over the skip markers — unless
+ * `forceEvaluate` is set, in which case the judge is sent
+ * {@link EMPTY_DIFF_MARKER} and rules on the criteria itself (a correct
+ * no-op can be the right answer to an eval task).
  */
 export async function evaluateSuccess(
   taskDescription: string,
   gitDiff: string,
   config?: EvaluateSuccessConfig
 ): Promise<EvaluationResult> {
-  if (!gitDiff.trim()) {
+  const isEmptyDiff = !gitDiff.trim();
+  if (isEmptyDiff && !config?.forceEvaluate) {
     return {
       passed: false,
       confidence: 1.0,
@@ -174,7 +181,10 @@ export async function evaluateSuccess(
   const mergedConfig = { ...DEFAULT_EVALUATION_CONFIG, ...config };
 
   try {
-    const prompt = buildEvaluationPrompt(taskDescription, gitDiff);
+    const prompt = buildEvaluationPrompt(
+      taskDescription,
+      isEmptyDiff ? EMPTY_DIFF_MARKER : gitDiff
+    );
 
     const conversation = query({
       prompt,

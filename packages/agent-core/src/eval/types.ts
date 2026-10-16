@@ -90,10 +90,12 @@ export interface TaskScore {
   readonly score: number;
   readonly deterministic: DeterministicChecks;
   /**
-   * Self-reported agent evaluation — used for calibration. Only the SDK
-   * session pipeline populates it; adapters that do not self-evaluate (e.g.
-   * `claude-cli`) leave it absent. The suite's authoritative semantic verdict
-   * is {@link TaskScore.judgeResult}, not this.
+   * Self-reported agent evaluation — used for calibration. Both the SDK
+   * pipeline and the CLI-adapter pipeline (e.g. `claude-cli`) populate it from
+   * the post-commit gateway's LLM evaluation; it is absent whenever that gate
+   * did not run (e.g. no changes or a failed dispatch). The
+   * suite's authoritative semantic verdict is {@link TaskScore.judgeResult},
+   * not this.
    */
   readonly selfEvaluation?: SessionResult["evaluation"];
   /**

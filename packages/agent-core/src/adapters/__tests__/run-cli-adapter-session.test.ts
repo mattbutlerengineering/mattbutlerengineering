@@ -152,6 +152,35 @@ describe("runCliAdapterSession", () => {
     expect(result.prUrl).toBe("https://github.com/repo/pull/1");
   });
 
+  it("surfaces the gateway's LLM evaluation as SessionResult.evaluation, matching the SDK path", async () => {
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
+      evaluation: { passed: true, confidence: 0.8, reasoning: "addresses the task", issues: [] },
+    });
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(result.evaluation).toEqual({
+      passed: true,
+      confidence: 0.8,
+      reasoning: "addresses the task",
+    });
+  });
+
+  it("omits SessionResult.evaluation when the gateway produced none", async () => {
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(result).not.toHaveProperty("evaluation");
+  });
+
   it("passes the adapter's real costUsd (not a literal 0) to buildPrBody when gates pass", async () => {
     const adapter = makeCliAdapter("opencode", {
       success: true,

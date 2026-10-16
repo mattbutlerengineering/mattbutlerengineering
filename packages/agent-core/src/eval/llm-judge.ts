@@ -16,8 +16,9 @@ type Evaluate = (
  * cannot run comes back `evaluationFailed` (fail closed) from `evaluateSuccess`.
  *
  * `run.diff === undefined` means the runner could not capture the diff, which
- * is inconclusive — distinct from `""` (captured, nothing changed), which the
- * evaluator scores as a genuine empty-diff fail.
+ * is inconclusive — distinct from `""` (captured, nothing changed), which is
+ * still judged: under `forceEvaluate` the evaluator shows the judge an
+ * explicit no-changes marker, so a task whose criteria allow a no-op can pass.
  *
  * `evaluate` is injectable so tests never make live LLM calls.
  */
@@ -35,10 +36,22 @@ export function createEvalJudge(
         evaluationFailed: true,
       };
     }
-    return evaluate(
-      `${taskPrompt}\n\nAcceptance criteria (every one must hold):\n${criteria}`,
-      run.diff,
-      { forceEvaluate: true }
-    );
+    return evaluate(`${taskPrompt}\n\n${formatAcceptanceCriteria(criteria)}`, run.diff, {
+      forceEvaluate: true,
+    });
   };
+}
+
+/**
+ * Renders newline-joined criteria as the `## Acceptance Criteria` checkbox
+ * list `extractAcceptanceCriteria` parses, so the evaluator prompt gets its
+ * per-criterion section.
+ */
+function formatAcceptanceCriteria(criteria: string): string {
+  const items = criteria
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `- [ ] ${line}`);
+  return ["## Acceptance Criteria", ...items].join("\n");
 }

@@ -2945,6 +2945,7 @@
       let threw = false;
       let hasChanges = false;
       let gatewayVerdict: GatewayVerdict | undefined;
+      let gatewayEvaluation: EvaluationResult | undefined;
     
       // A throw anywhere after WorktreePhase (dispatch, verification, publish,
       // feedback) lands in errors[] and falls through to the retention →
@@ -3001,6 +3002,7 @@
           errors.push(...verifyExec.result.errors);
           hasChanges = verifyExec.output?.hasChanges ?? false;
           gatewayVerdict = verifyExec.output?.gatewayVerdict;
+          gatewayEvaluation = verifyExec.output?.gatewayEvaluation;
     
           // A failed CLI dispatch that still wrote changes must always publish via
           // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
@@ -3115,6 +3117,16 @@
         numTurns,
         resultText: "",
         errors,
+        // Same projection as result-builder.ts's evalSummary on the SDK path.
+        ...(gatewayEvaluation
+          ? {
+              evaluation: {
+                passed: gatewayEvaluation.passed,
+                confidence: gatewayEvaluation.confidence,
+                reasoning: gatewayEvaluation.reasoning,
+              },
+            }
+          : {}),
         ...(failureCategory ? { failureCategory } : {}),
         // Present iff the worktree is kept — see SessionResult.worktreePath.
         ...(keepsWorktree && worktree ? { worktreePath: worktree.path } : {}),
@@ -9634,12 +9646,18 @@
             evaluationFailed: true,
           };
         }
-        return evaluate(
-          `${taskPrompt}\n\nAcceptance criteria (every one must hold):\n${criteria}`,
-          run.diff,
-          { forceEvaluate: true }
-        );
+        return evaluate(`${taskPrompt}\n\n${formatAcceptanceCriteria(criteria)}`, run.diff, {
+          forceEvaluate: true,
+        });
       };
+    }
+    function formatAcceptanceCriteria(criteria: string): string {
+      const items = criteria
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => `- [ ] ${line}`);
+      return ["## Acceptance Criteria", ...items].join("\n");
     }
   </file>
   <file path="packages/agent-core/src/eval/run-detection.ts">
@@ -9774,10 +9792,12 @@
       readonly score: number;
       readonly deterministic: DeterministicChecks;
       /**
-       * Self-reported agent evaluation — used for calibration. Only the SDK
-       * session pipeline populates it; adapters that do not self-evaluate (e.g.
-       * `claude-cli`) leave it absent. The suite's authoritative semantic verdict
-       * is {@link TaskScore.judgeResult}, not this.
+       * Self-reported agent evaluation — used for calibration. Both the SDK
+       * pipeline and the CLI-adapter pipeline (e.g. `claude-cli`) populate it from
+       * the post-commit gateway's LLM evaluation; it is absent whenever that gate
+       * did not run (e.g. no changes or a failed dispatch). The
+       * suite's authoritative semantic verdict is {@link TaskScore.judgeResult},
+       * not this.
        */
       readonly selfEvaluation?: SessionResult["evaluation"];
       /**
@@ -47466,6 +47486,7 @@
         return "";
       }
     }
+    export const EMPTY_DIFF_MARKER = "(no changes — the session produced an empty diff)";
     export type EvaluateSuccessConfig = Partial<EvaluationConfig> &
       Omit<SkipPolicyInput, "diff"> & {
         /** Bypass the skip policy — for callers (the eval judge) that must always get a real verdict. */
@@ -47476,7 +47497,8 @@
       gitDiff: string,
       config?: EvaluateSuccessConfig
     ): Promise<EvaluationResult> {
-      if (!gitDiff.trim()) {
+      const isEmptyDiff = !gitDiff.trim();
+      if (isEmptyDiff && !config?.forceEvaluate) {
         return {
           passed: false,
           confidence: 1.0,
@@ -47497,7 +47519,10 @@
       const mergedConfig = { ...DEFAULT_EVALUATION_CONFIG, ...config };
     
       try {
-        const prompt = buildEvaluationPrompt(taskDescription, gitDiff);
+        const prompt = buildEvaluationPrompt(
+          taskDescription,
+          isEmptyDiff ? EMPTY_DIFF_MARKER : gitDiff
+        );
     
         const conversation = query({
           prompt,
