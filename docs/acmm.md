@@ -130,7 +130,7 @@ ACMM runs once, at the repo root, and scores the whole monorepo. There is no per
 3. Computes the level via threshold walk — **only `acmm`-source criteria at L2–L6 gate it**; `local`, `fullsend`, `agentic-engineering-framework`, `claude-reflect`, and `meta` never do (see [Upstream parity](#upstream-parity-and-local-extensions)).
 4. Writes `.claude/acmm/state.json` (full computation) and `.claude/acmm/report.md` (scorecard).
 5. With `--apply`, files GitHub issues only for **next-level gaps** — dedupes via `state.issuesCreated[criterionId]` so re-runs don't spam.
-6. With `--badge`, rewrites the README shields.io badge in place.
+6. With `--badge`, rewrites the README shields.io badge in place — only when the README has the `acmm:begin`/`acmm:end` fence, which it currently lacks.
 
 The audit always shows a **"since last run" diff** at the top of both
 the console output and `report.md`: level delta, count delta, and the
@@ -222,7 +222,7 @@ This:
 
 1. Re-runs detection on every commit landed since the last run.
 2. Files GitHub issues for any new next-level gaps (label `acmm`, label `ready`).
-3. Updates the README badge if the level changed.
+3. Passes `--badge`, which does nothing while the README carries no `acmm:begin`/`acmm:end` fence (see [Where this repo currently is](#where-this-repo-currently-is)).
 
 The agent-issue-worker (`mbe-issue-worker`, every 2h) then picks up the
 `ready`-labeled gap issues and tries to close them.
