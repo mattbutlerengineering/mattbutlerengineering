@@ -77,6 +77,11 @@ export const REPO_AUDIT_CHECKS = [
   { name: "check-hook-wiring", command: "node", args: ["scripts/check-hook-wiring.mjs"] },
   { name: "check-hooks-active", command: "node", args: ["scripts/check-hooks-active.mjs"] },
   {
+    name: "check-cursorrules-drift",
+    command: "node",
+    args: ["scripts/check-cursorrules-drift.mjs"],
+  },
+  {
     name: "check-deploy-secret-provisioning",
     command: "node",
     args: ["scripts/check-deploy-secret-provisioning.mjs"],

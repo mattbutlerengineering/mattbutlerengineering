@@ -12,13 +12,14 @@
 - **Name:** mattbutlerengineering
 - **Type:** Monorepo (Turborepo + pnpm)
 - **Package Prefix:** `@mbe/`
+- **Naming Exception:** `packages/rialto` publishes as `@mattbutlerengineering/rialto`, not `@mbe/rialto` — it's the design system's external npm publish scope (GitHub Packages), since it's consumed outside the monorepo as a public-facing package name.
 - **External Prefix:** `mattbutlerengineering-` (for Auth0, DigitalOcean, DBs)
 
 ## Project Structure
 
 - `apps/` — Frontend React (Vite) applications: `marketing` (/), `hospitality` (/hospitality), `rialto-web` (/rialto), `gen` (/gen).
 - `services/` — Backend Fastify/Node APIs: `users` (3001), `agent` (3003), `reservations` (3004).
-- `packages/` — Shared libraries: `agent-core`, `api-client`, `api-versioning`, `auth`, `config`, `observability`, `rialto` (Design System) + `rialto-catalog`/`rialto-plugin`, `sentry`, `types`. Each has its own `CLAUDE.md`.
+- `packages/` — Shared libraries: `agent-core`, `agent-test-utils` (deterministic test doubles for agent-core), `api-client`, `auth`, `cancellation-policy` (pure cancellation-fee/deposit decision engine), `config`, `database` (Prisma/Postgres pool wrapper), `gh-client` (typed GitHub wrapper + coordination-label state machine), `jobs` (BullMQ scheduling), `mcp-server` (infra MCP server), `notifications` (email/SMS delivery), `observability`, `rialto` (Design System) + `rialto-catalog`/`rialto-plugin`, `sentry`, `service-bootstrap` (API versioning, service scaffolding), `supply-chain-scanner` (pre-install skill/MCP package scanner), `test-fixtures` (shared mock-data factories), `types`. Each has its own `CLAUDE.md`.
 - `infrastructure/` — Pulumi (IaC) and Docker configuration.
 - `tools/` — Developer CLI (`mbe`).
 
@@ -40,11 +41,11 @@ pnpm clean          # Wipe artifacts and node_modules
 
 ## Development Flow with Metrics & Continuous Improvement
 
-The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. See [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop-ship-loop) for the full skill catalog and scheduling.
+The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. Claude Code loads project skills from `.claude/skills/` (both project automation and general engineering advice). See [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop) for the full skill catalog and scheduling.
 
 Quick reference:
 
-- `/ship-loop` — full local cycle (audit → fix → push → CI → deploy)
+- `/idea-to-prod:implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
 - `/site-audit [smoke|sweep|scout]` — crawl live site
 - `/ci-monitor` — auto-fix simple CI failures
 - `/progress-tracker` — metrics + circuit breaker
@@ -73,9 +74,18 @@ The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high sig
 - **Revert RCA Loop:** Automatic trigger (`scripts/revert-rca.mjs`) that fires when an AI PR is reverted. It creates a critical RCA issue tasked for an agent to perform a Root Cause Analysis and update `.claude/rules/gotchas.md`.
 
 `mbe` CLI subcommands (real binary):
-`agent`, `pack`, `check-adr`, `check-deps`, `check-model`, `loop`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
+`agent`, `pack`, `pack-changed`, `check-adr`, `check-deps`, `check-model`, `issue`, `loop`, `mcp`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
 
 ---
+
+## CI Policy (Green Main)
+
+Main must always be green. All PRs require **CI Gate** to pass before merge.
+
+- **No admin-merge through red checks.** Emergency revert is the only exception.
+- **If main breaks, fix is top priority.** Drop current work and restore green.
+- **Node 22 is pinned via `.nvmrc`.** Run `nvm use` before generating llms.txt files.
+- **Revert watchdog** monitors every commit to main and files CRITICAL issues if CI fails.
 
 ## Zero-Touch Audit (Quality Mandate)
 
@@ -93,6 +103,16 @@ To minimize human intervention and maintain a low human-touch ratio, agents must
 - [ ] **No Linting Hacks:** Do NOT use `eslint-disable` or `@ts-ignore` to "fix" violations. Resolve the root cause.
 - [ ] **No Silent TDD:** Do not skip the Red-Green-Refactor cycle. A change is not "done" until a failing test has been made to pass.
 - [ ] **Verified verification:** Don't just run tests; provide the command output showing they passed.
+
+---
+
+## Domain Language
+
+Core concepts are defined in the canonical glossary:
+[`docs/domain/ubiquitous-language.md`](docs/domain/ubiquitous-language.md)
+
+When naming a symbol or writing docs, check the glossary first.
+Synonyms listed there as "avoid" must not appear in code or API responses.
 
 ---
 
@@ -138,6 +158,8 @@ To minimize human intervention and maintain a low human-touch ratio, agents must
 
 - **Framework:** Vitest.
 - **Patterns:** `*.test.ts` for unit/integration.
+- **Location:** Colocate test files next to the source they test (`foo.ts` → `foo.test.ts` in the same directory). This is the repo-wide majority convention — new packages and new test files should follow it.
+  - **Grandfather clause:** Packages that are already fully `__tests__/`-based (e.g. `packages/agent-core`, `tools/cli`) keep that style — do not migrate them to colocated. Within a package, pick one style and stay internally consistent; don't mix both in the same package.
 - **Mandate:** All logic changes must be verified via automated tests.
 - **UI:** Playwright for E2E and visual regression.
 
@@ -160,12 +182,6 @@ The `.husky/pre-commit` hook runs `semgrep --config semgrep.yml --error` on stag
 ```bash
 semgrep --config semgrep.yml --error .           # Custom rules
 semgrep --config "p/security-audit" --error .  # Semgrep registry rules
-```
-
-### Skip in Emergencies
-
-```bash
-SKIP=semgrep git commit -m "emergency fix"
 ```
 
 ## Model Governance
@@ -192,8 +208,10 @@ To maintain high-velocity engineering without sacrificing quality, agents follow
 
 1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**
 2.  **Innovate:** Brainstorm multiple approaches, evaluate trade-offs, and select the optimal path.
-    ...
-3.  **Plan:** Create a detailed implementation plan (e.g., `.planning/quick/TASK-PLAN.md`) including file changes and verification steps.
+    - **Approach Score:** For each of 2–3 candidate solutions, score on correctness, code complexity, blast radius, and reversibility. Document trade-offs.
+    - **Decision Log:** Record the chosen approach and rationale for rejected alternatives (in comments, the commit message, or — for a pipeline run — the run's `docs/features/<slug>/architecture.md` or `docs/fixes/<slug>/` artifact if complex).
+    - **Time-box:** ~5 minutes for routine tasks; ~20 minutes for architectural decisions. If exceeding time-box, flag for HITL review.
+3.  **Plan:** Create a detailed implementation plan including file changes and verification steps — for a pipeline run, the run's `docs/features/<slug>/breakdown.md` (or `docs/fixes/<slug>/`); for a one-off task, the PR body. There is no `.planning/` directory in this repo and nothing gitignores one, so do not create plan files there.
 4.  **Execute:** Implement the approved plan using **Silent TDD Mode**. Break work into 5-minute micro-tasks.
 5.  **Review:** Run tests, linting, and typechecks. Perform a self-review of the changes against the plan.
 
@@ -217,5 +235,30 @@ Files agents should know about (in load order):
 - `.codex/config.toml` — Codex CLI configuration (model, approval policy, sandbox).
 - `.claude/rules/gotchas.md` — session-tested traps (pre-commit, CI, releases, Prisma).
 - `packages/*/CLAUDE.md` and `services/*/CLAUDE.md` — domain-specific authoring rules.
-- `llms.txt` — Rialto component catalog (UI patterns), regenerated by `pack-changed` pre-commit hook.
+- `llms.txt` — Rialto component catalog (UI patterns), regenerated by `pack-changed` post-commit hook.
+
+## AI Tooling Adoption Gate
+
+Before adding any new tool, skill, plugin, or MCP server to the workflow, run `/evaluate-tool <repo-url>` from the [`ai-tooling`](https://github.com/mattbutlerengineering/ai-tooling) plugin. It checks overlap against the catalog, maps the tool to a dev loop stage and quality signal, and outputs an ADOPT / REPLACE / SKIP / DEFER verdict.
+
+The authoritative installed-vs-STACK gap report is at [`docs/ai-tooling-audit.md`](docs/ai-tooling-audit.md). Keep the report current whenever you add or remove tools. `/audit-workflow` does **not** resolve from a session here — it lives in the external `ai-tooling` marketplace, which that report itself records as not registered; the current report was produced by following its `SKILL.md` protocol by hand.
+
+**Install the ai-tooling marketplace:**
+
+```bash
+claude plugin marketplace add https://github.com/mattbutlerengineering/ai-tooling.git
+claude plugin install ai-tooling
+```
+
 - `llms-full.txt` — Detailed prop tables and advanced examples.
+
+<!-- BEGIN:turborepo-agent-rules -->
+
+# This is NOT the Turborepo you know
+
+Turborepo configuration, task behavior, and CLI commands can vary between installed versions and may differ from your training data. Resolve the `turbo` package from this file's directory or relevant workspace; in monorepos, it may not be visible from the repository root. For example, run `node -p "require.resolve('turbo/package.json')"` from a workspace that depends on `turbo`.
+
+Read `docs/README.md` inside that installed package first, then read the relevant pages from its `docs/` directory before changing Turborepo configuration or commands. Heed deprecation notices. These bundled docs match the installed package version and are available without network access.
+
+This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
+<!-- END:turborepo-agent-rules -->
