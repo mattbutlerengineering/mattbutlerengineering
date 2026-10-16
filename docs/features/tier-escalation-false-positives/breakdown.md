@@ -43,7 +43,7 @@ the module, never a follow-up); gates before check-off are `pnpm lint`,
 
 ## Milestone 2: Workflow calls the module; docs state the policy
 
-- [ ] **Adapter swap in `tier-classifier.yml`** — replace the inline size
+- [x] **Adapter swap in `tier-classifier.yml`** — replace the inline size
       and keyword escalation blocks with dynamic import of the module;
       gather per-file additions for the size call; keep bypass/fork/path
       rules inline and untouched.

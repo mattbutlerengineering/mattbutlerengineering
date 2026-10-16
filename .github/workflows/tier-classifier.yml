@@ -70,23 +70,39 @@ jobs:
         run: |
           base_sha=$(git merge-base "origin/${PR_BASE_REF}" HEAD)
           git diff --name-only "${base_sha}...HEAD" > /tmp/changed-files.txt
-          added=$(git diff --shortstat "${base_sha}...HEAD" | awk '{print $4+0}')
-          {
-            echo "added=${added}"
-            echo "count=$(wc -l < /tmp/changed-files.txt)"
-          } >> "$GITHUB_OUTPUT"
+          # Per-file additions (path, "+N", "-N"), feeding
+          # scripts/tier-escalation.mjs's decideSizeEscalation via the
+          # Classify step below — see #6655. Replaces the old raw
+          # `git diff --shortstat` total, which counted generated-artifact
+          # lines (llms.txt regen, lockfile churn) nobody reviews.
+          git diff --numstat "${base_sha}...HEAD" > /tmp/changed-files-numstat.txt
+          echo "count=$(wc -l < /tmp/changed-files.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Classify
         id: classify
         env:
-          ADDED_LINES: ${{ steps.diff.outputs.added }}
           PR_TITLE: ${{ steps.pr.outputs.title }}
           PR_BODY: ${{ steps.pr.outputs.body }}
           PR_IS_FORK: ${{ steps.pr.outputs.is_fork }}
         run: |
           node - <<'NODE'
           const fs = require('node:fs');
+          const path = require('node:path');
+          const { pathToFileURL } = require('node:url');
+
+          async function main() {
           const files = fs.readFileSync('/tmp/changed-files.txt', 'utf-8').split('\n').filter(Boolean);
+          // numstat lines are "additions\tdeletions\tpath" (binary files show
+          // "-\t-\tpath", which Number() turns into NaN —
+          // countReviewSurfaceAdditions treats that as 0, never poisoning the
+          // sum).
+          const fileAdditions = fs.readFileSync('/tmp/changed-files-numstat.txt', 'utf-8')
+            .split('\n')
+            .filter(Boolean)
+            .map((line) => {
+              const [additions, , ...pathParts] = line.split('\t');
+              return { path: pathParts.join('\t'), additions: Number(additions) };
+            });
 
           const T1 = 1, T2 = 2, T3 = 3, T4 = 4;
           const TIER_NAMES = { 1: 'trivial', 2: 'standard', 3: 'sensitive', 4: 'critical' };
@@ -148,7 +164,6 @@ jobs:
 
           const title = process.env.PR_TITLE || '';
           const body = process.env.PR_BODY || '';
-          const added = parseInt(process.env.ADDED_LINES || '0', 10);
           const isFork = process.env.PR_IS_FORK === 'true';
 
           // PULL_REQUEST_TEMPLATE.md's own checklist item "No hardcoded
@@ -162,59 +177,29 @@ jobs:
             .filter((line) => !/^\s*-\s\[[ xX]\]/.test(line))
             .join('\n');
 
-          // #4879 is a 19-line docs-only PR that escalated to tier:critical
-          // because its body said "returned one incidental hit" — the
-          // unbounded alternation above substring-matched "incident" inside
-          // "incidental" (and would equally match "leak" inside "leaky" or
-          // "rotate" inside a word like "gyrated"... sorry, "rotated"). This
-          // is a different mechanism than #3606 (checklist-line stripping,
-          // still intact below): the false positive here comes from prose
-          // the stripper legitimately keeps. Fixed with \b word boundaries,
-          // same pattern as the BYPASS_PHRASE rule a few lines down.
-          // `rotate` and `incident`/`secret`/`credential` stay bare (no
-          // inflections) rather than mechanically enumerating every form —
-          // "rotated" deliberately does NOT match, because this repo's own
-          // PR prose regularly says "the rotated baseline was regenerated"
-          // (visual-snapshot rotation, see #3919-era gotchas), which is not
-          // a secrets-rotation signal. `leak` keeps its real inflections
-          // (leaked/leaking/leaks) since those stay unambiguous.
-          // #5082: this used to hard-set `highest = T4` unconditionally, so a
-          // PR that only TALKS about secrets/incidents (e.g. a retro doc, or
-          // a template checklist item) jumped straight to tier:critical even
-          // when every changed file was markdown — #4710 was a one-file
-          // docs/process-retro.md PR that got escalated this way purely on
-          // prose, and blocked auto-merge for 44.8 hours. Every other
-          // escalation rule in this file (added-lines, fork) uses
-          // `Math.min(T4, highest + 1)` — bump by one tier, never hard-set.
-          // This rule now does the same UNLESS a changed file already
-          // matched a T3/T4 sensitive-path rule above (`pathTier >= T3`): a
-          // keyword plus a sensitive path is exactly the signal this rule
-          // exists to catch (e.g. a PR touching services/users/src/auth/**
-          // that also discusses a credential leak), so that case keeps the
-          // hard-set-to-T4 behaviour. See
-          // scripts/__tests__/tier-classifier-workflow.test.mjs for both
-          // directions (#3606, #4279, #4883 are the earlier fixes to this
-          // same rule's keyword matching, not its escalation strength).
-          // #5956: `\b` does NOT mean "whole identifier" when hyphens are in
-          // play — `-` is a non-word char, so `-secret-` in the repo's own
-          // script name `check-deploy-secret-provisioning` sits between two
-          // word boundaries and matched. Three fixes in a row (#3606, #4879,
-          // #5082) missed this. Two guards: (1) mask fenced and inline
-          // code spans before scanning; (2) require the keyword not be
-          // flanked by `-` + a word char (a longer hyphenated identifier).
-          // Tradeoff: code spans are excluded by design (#5956 option 1), so
-          // a real secrets mention written inside backticks won't escalate.
-          const scanText = (title + ' ' + bodyProse)
-            .replace(/```[\s\S]*?```/g, ' ')
-            .replace(/`[^`\n]*`/g, ' ');
-          if (/(?<!\w-)\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b(?!-\w)/i.test(scanText)) {
-            if (pathTier >= T3) {
-              highest = T4;
-              reasons.add('escalate to T4: title/body mentions secrets or incident (sensitive path already matched)');
-            } else if (highest < T4) {
-              highest = Math.min(T4, highest + 1);
-              reasons.add('escalate one tier: title/body mentions secrets or incident');
-            }
+          // Size and keyword escalation are decided by
+          // scripts/tier-escalation.mjs (#6655) — a dependency-free, unit-
+          // tested, replayable ES module. This adapter only gathers inputs
+          // (file additions above, title/bodyProse/pathTier here) and applies
+          // the module's verdict; see that file's own header comment for the
+          // motivating bugs (#6610/#6591 for size, #6541/#5956/#5082/#4879
+          // for keyword) and docs/features/tier-escalation-false-positives/
+          // architecture.md for the full module shape. A thrown import or
+          // verdict error fails this step — no `tier:*` label is applied, and
+          // merge-queue-eligibility.mjs already fails closed on a missing
+          // label ("awaiting tier classification"), so a module bug can never
+          // under-review a PR.
+          const tierEscalation = await import(
+            pathToFileURL(path.resolve(process.cwd(), 'scripts/tier-escalation.mjs')).href
+          );
+
+          const keywordVerdict = tierEscalation.decideKeywordEscalation({ title, bodyProse, pathTier });
+          if (keywordVerdict.action === 'hardset-T4') {
+            highest = T4;
+            reasons.add(keywordVerdict.reason);
+          } else if (keywordVerdict.action === 'bump' && highest < T4) {
+            highest = Math.min(T4, highest + 1);
+            reasons.add(keywordVerdict.reason);
           }
           // docs/change-tiers.md: "PR body explicitly asks reviewers to
           // bypass a check." The old /bypass.*check|skip.*review/i matched any
@@ -247,9 +232,11 @@ jobs:
             highest = T4;
             reasons.add('escalate to T4: PR body asks reviewers to bypass a check');
           }
-          if (added > 1000 && highest < T4) {
+
+          const sizeVerdict = tierEscalation.decideSizeEscalation({ files: fileAdditions, highestTier: highest });
+          if (sizeVerdict.escalate) {
             highest = Math.min(T4, highest + 1);
-            reasons.add(`escalate one tier: ${added} lines added`);
+            reasons.add(sizeVerdict.reason);
           }
           if (isFork && highest < T4) {
             highest = Math.min(T4, highest + 1);
@@ -260,6 +247,12 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `tier=${highest}\nlabel=${labelName}\nreasons=${[...reasons].join(' · ')}\n`);
           console.log(`Classified: ${labelName} (T${highest})`);
           for (const r of reasons) console.log(`  - ${r}`);
+          }
+
+          main().catch((err) => {
+            console.error('tier-classifier: module import or verdict failed:', err);
+            process.exit(1);
+          });
           NODE
 
       - name: Ensure tier labels exist

@@ -39,32 +39,41 @@ afterEach(() => {
 /**
  * Execute the real classifier script (extracted from the workflow file) in a
  * child Node process, wired up the same way the Classify step wires it: a
- * changed-files list on disk, PR_TITLE / PR_BODY / ADDED_LINES / PR_IS_FORK
- * env vars, and a GITHUB_OUTPUT file to capture `tier=` / `label=` / `reasons=`.
+ * changed-files list on disk, a numstat-shaped per-file-additions list on
+ * disk (the adapter's gather step for `decideSizeEscalation`, #6655),
+ * PR_TITLE / PR_BODY / PR_IS_FORK env vars, and a GITHUB_OUTPUT file to
+ * capture `tier=` / `label=` / `reasons=`.
  *
- * The script's own `/tmp/changed-files.txt` literal is substituted for a
- * per-test temp path so parallel test runs cannot collide — this is the only
- * deviation from the committed script text.
+ * `files` entries may be a plain path string (additions defaults to 0 — the
+ * shape every path-rule test here only cares about) or `{ path, additions }`
+ * when a test needs to drive the size-escalation module through the
+ * adapter.
+ *
+ * The script's own `/tmp/changed-files.txt` and `/tmp/changed-files-numstat.txt`
+ * literals are substituted for per-test temp paths so parallel test runs
+ * cannot collide — this is the only deviation from the committed script text.
  */
-function runClassifier({ title = "", body = "", files = [], added = 0, isFork = false }) {
+function runClassifier({ title = "", body = "", files = [], isFork = false }) {
   const dir = mkdtempSync(join(tmpdir(), "tier-classifier-test-"));
   tmpDirs.push(dir);
 
-  const changedFilesPath = join(dir, "changed-files.txt");
-  const outputPath = join(dir, "github-output.txt");
-  writeFileSync(changedFilesPath, files.join("\n"));
+  const normalized = files.map((f) => (typeof f === "string" ? { path: f, additions: 0 } : f));
 
-  const script = extractClassifierScript(WORKFLOW).replace(
-    "/tmp/changed-files.txt",
-    changedFilesPath
-  );
+  const changedFilesPath = join(dir, "changed-files.txt");
+  const numstatPath = join(dir, "changed-files-numstat.txt");
+  const outputPath = join(dir, "github-output.txt");
+  writeFileSync(changedFilesPath, normalized.map((f) => f.path).join("\n"));
+  writeFileSync(numstatPath, normalized.map((f) => `${f.additions ?? 0}\t0\t${f.path}`).join("\n"));
+
+  const script = extractClassifierScript(WORKFLOW)
+    .replace("/tmp/changed-files-numstat.txt", numstatPath)
+    .replace("/tmp/changed-files.txt", changedFilesPath);
 
   const result = spawnSync(process.execPath, ["-e", script], {
     env: {
       ...process.env,
       PR_TITLE: title,
       PR_BODY: body,
-      ADDED_LINES: String(added),
       PR_IS_FORK: String(isFork),
       GITHUB_OUTPUT: outputPath,
     },
@@ -113,7 +122,7 @@ describe("tier-classifier keyword escalation vs. the PR template", () => {
 
     expect(tier).not.toBe(4);
     expect(label).not.toBe("tier:critical");
-    expect(reasons).toMatch(/escalate one tier: title\/body mentions secrets or incident/);
+    expect(reasons).toMatch(/escalate one tier: title mentions secrets or incident/);
   });
 
   it("still hard-escalates to T4 when the body prose describes a credential leak AND a changed file matched a sensitive path", () => {
@@ -377,9 +386,61 @@ describe("tier-classifier path rules: ACMM automation output", () => {
     const { tier } = runClassifier({
       title: "chore(acmm): daily audit",
       body: PR_TEMPLATE,
-      files: [".claude/acmm/state.json"],
-      added: 1001,
+      files: [{ path: ".claude/acmm/state.json", additions: 1001 }],
     });
     expect(tier).toBe(2);
+  });
+});
+
+// #6655: the size-escalation decision moved into scripts/tier-escalation.mjs
+// (decideSizeEscalation) — this adapter's job is only to gather per-file
+// additions and apply the module's verdict, never to re-derive it. These
+// pin that the module, not a re-implementation in the heredoc, is what
+// decides: generated-excluded lines don't count, and the threshold is on the
+// counted (review-surface) total, not the raw diff.
+describe("tier-classifier size escalation: the module decides, not a raw line count", () => {
+  it("does not escalate when the raw diff exceeds 1000 lines but review-surface lines stay at or under it (generated excluded, #6610)", () => {
+    // The route file's own T3 path rule sets the baseline here — the point
+    // under test is that size escalation does NOT add a further bump on top
+    // (the raw total is 2194 lines; the counted review-surface total is
+    // exactly 1000, which does not exceed the threshold).
+    const { tier, reasons } = runClassifier({
+      title: "chore: regenerate llms output",
+      body: PR_TEMPLATE,
+      files: [
+        { path: "services/reservations/llms.txt", additions: 1194 },
+        { path: "services/reservations/CLAUDE.md", additions: 16 },
+        { path: "services/reservations/src/routes/public-holds.ts", additions: 984 },
+      ],
+    });
+    expect(reasons).not.toMatch(/lines added/);
+    expect(tier).toBe(3);
+  });
+
+  it("escalates one tier when review-surface additions alone exceed 1000, even with docs/features/** excluded on top", () => {
+    // The route file alone already matches the T3 path rule; size escalation
+    // then bumps it one further tier to T4 — same "escalate by one, never
+    // hard-set" shape as every other escalation rule here.
+    const { tier, label, reasons } = runClassifier({
+      title: "feat: add public deposits route",
+      body: PR_TEMPLATE,
+      files: [
+        { path: "services/reservations/src/routes/public-deposits.ts", additions: 1387 },
+        { path: "docs/features/booking-guest-reuse/breakdown.md", additions: 943 },
+      ],
+    });
+    expect(tier).toBe(4);
+    expect(label).toBe("tier:critical");
+    expect(reasons).toMatch(/escalate one tier: 1387 review-surface lines added/);
+  });
+
+  it("caps at T4 — a T3 path rule plus a huge review-surface total bumps once, not past critical", () => {
+    const { tier, label } = runClassifier({
+      title: "feat: large route rewrite",
+      body: PR_TEMPLATE,
+      files: [{ path: "services/reservations/src/routes/public-holds.ts", additions: 5000 }],
+    });
+    expect(tier).toBe(4);
+    expect(label).toBe("tier:critical");
   });
 });
