@@ -43,7 +43,7 @@ their acceptance criteria are met.
     new skill present; the row's purpose text matches the SKILL.md
     description.
   - Blocked by: WO-0016
-- [ ] **WO-0018 — Run the repo gates over both surfaces** — drift checks
+- [x] **WO-0018 — Run the repo gates over both surfaces** — drift checks
       plus the standard affected gates. (tracker: #6639)
   - Accept: `node scripts/check-claude-md-table-drift.mjs`,
     `node scripts/check-skill-references.mjs`, and
