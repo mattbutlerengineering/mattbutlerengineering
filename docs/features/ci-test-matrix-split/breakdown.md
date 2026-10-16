@@ -42,8 +42,8 @@ mechanism below is Architect's.
       current single-job `ci.yml` (RED run quoted in the commit/PR), and
       each assertion fails independently when its target is perturbed.
       Done: 18 cases across 4 `describe` blocks; `bash
-  scripts/conductor-gate.sh` (full install + `turbo run lint typecheck
-  test --affected`) ran it against the current single-job `ci.yml` —
+scripts/conductor-gate.sh` (full install + `turbo run lint typecheck
+test --affected`) ran it against the current single-job `ci.yml` —
       14/18 RED (every topology/wiring/threshold-ownership assertion that
       depends on the not-yet-built leg matrix or `test-coverage-gate` job),
       4 green (facts already true today: `ci-gate` already needs `test`,
@@ -54,7 +54,7 @@ mechanism below is Architect's.
 
 ## Milestone 2: ci.yml satisfies the guard
 
-- [ ] **WO-0057 — Split `test` into the leg matrix** — add `leg` axis
+- [x] **WO-0057 — Split `test` into the leg matrix** — add `leg` axis
       (`node-version: [22]` stays), per-leg turbo command keeping
       `--concurrency=2`; per-leg uploads: `coverage-${{ matrix.leg }}`
       (fixed-depth `*/coverage/coverage-final.json`,
@@ -64,6 +64,20 @@ mechanism below is Architect's.
       coverage/codecov steps and job-level `COVERAGE_THRESHOLD`. AC:
       `ci-test-results-glob.test.mjs` and
       `nightly-compliance-workflow.test.mjs` still green; no `**` globs.
+      Done: the leg matrix (`reservations|hospitality|rialto|rest`,
+      exclusion-derived `rest`) landed in `.github/workflows/ci.yml`'s
+      `test` job; both named AC suites green, no `**` glob introduced.
+      `ci-coverage-upload-paths.test.mjs` targeted the codecov step this
+      item removes from `test` (it moves to `test-coverage-gate` wholesale
+      in WO-0058) — `describe.skipIf`'d with a comment rather than left to
+      fail suite-load, so the gate signal stays honest instead of cryptic.
+      `ci-test-shards.test.mjs` (WO-0056's guard) stays red on the three
+      `test-coverage-gate`-shaped assertions by design — WO-0058/WO-0059
+      turn it GREEN, per the breakdown's own sequencing. One unrelated
+      pre-existing flake observed under full-suite parallel load
+      (`check-destructive-migrations.test.mjs` CLI exit-code seam,
+      `rialto-plugin-hook.test.mjs` stdin timeout) — both pass in
+      isolation, neither touches `ci.yml`.
 - [ ] **WO-0058 — Add `test-coverage-gate`** — `needs: [test]` (no
       `if: always()`), env `COVERAGE_THRESHOLD: 60`; checkout, download
       `pattern: coverage-*` with `merge-multiple: true` into the workspace
