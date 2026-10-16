@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -15,6 +16,10 @@ export default defineConfig({
     // __tests__/scripts-coverage-exclusions.test.mjs): it adds no coverage and
     // timed out under it on main once #5931 doubled its baselines to 99.
     testTimeout: 60000,
+    // This config runs vitest directly, not through turbo's ^build, so fail
+    // fast naming any unbuilt workspace dist instead of a bare resolver error
+    // (#6840).
+    globalSetup: [fileURLToPath(new URL("./scripts-test-dist-preflight.mjs", import.meta.url))],
     include: ["scripts/__tests__/**/*.test.mjs"],
     reporters: ["default", "junit"],
     outputFile: { junit: "scripts/test-results/junit.xml" },
