@@ -88,8 +88,8 @@ test --affected`) ran it against the current single-job `ci.yml` —
       fail-closed `TOTAL_LINES -eq 0` path intact.
       Done: `test-coverage-gate` landed in `.github/workflows/ci.yml` —
       `needs: [test]`, plain (no `if: always()`), `env.COVERAGE_THRESHOLD:
-  60` — with checkout, a `download-artifact` step (`pattern:
-  coverage-*`, `merge-multiple: true`, `path: .`), then the three moved
+60` — with checkout, a `download-artifact` step (`pattern:
+coverage-*`, `merge-multiple: true`, `path: .`), then the three moved
       steps verbatim: codecov upload (unchanged `files:` list and token),
       the repo-wide `TOTAL_LINES`-gated threshold check, and the agent-core
       80%-gated check — each with its `if: matrix.node-version == 22` guard
@@ -118,12 +118,33 @@ test --affected`) ran it against the current single-job `ci.yml` —
       run: 280/282 test files green (5260/5263 tests), the 3 failing cases
       being exactly the two WO-0059-routed assertions above plus this
       pre-existing one; lint and typecheck green across all packages.
-- [ ] **WO-0059 — Wire `ci-gate` and sweep consumers** — add
+- [x] **WO-0059 — Wire `ci-gate` and sweep consumers** — add
       `test-coverage-gate` to `ci-gate`'s inline `needs:` (keeping `test`);
       confirm `report-health`'s `needs` untouched and resolving; run
       WO-0056's guard (now GREEN) plus `ci-lint-critical-path.test.mjs`,
       `ci-turbo-cache.test.mjs` if it reads the test job, actionlint on
       `ci.yml`, and the affected lint/typecheck/test gates (SC-4, SC-5).
+      Done: `test-coverage-gate` added to `ci-gate`'s inline `needs:` in
+      `.github/workflows/ci.yml`, alongside (not replacing) `test`.
+      `report-health`'s `needs: [detect-changes, lint, typecheck, build,
+  test, migrations]` was confirmed unchanged and still resolving — it
+      never referenced `test-coverage-gate`, so nothing there needed
+      editing. WO-0056's guard (`ci-test-shards.test.mjs`) is now GREEN on
+      both previously-red ci-gate-wiring assertions ("ci-gate needs
+      test-coverage-gate", "ci-gate still needs test") and on coverage-
+      threshold ownership; `ci-lint-critical-path.test.mjs` (10/10),
+      `ci-turbo-cache.test.mjs` (16/16, does not read the test job), and
+      `check-ci-gate-coverage.test.mjs`'s unreachable-job check (18/18) are
+      all green. `actionlint` on `ci.yml` reports only two pre-existing
+      shellcheck infos (SC2086 at line 582, SC2015 at line 1011) — neither
+      touches the `ci-gate` block edited here. Full gate
+      (`bash scripts/conductor-gate.sh`) ran: 281/282 test files green
+      (5262/5263 tests), lint and typecheck green across all packages; the
+      sole failure is `ci-test-shards.test.mjs`'s "zero-or-two-leg coverage
+      is impossible by construction" assertion — the same pre-existing,
+      out-of-scope defect WO-0058 flagged (its own `uncoveredOnDisk` filter
+      cannot pass as written; untouched by this item's `ci.yml` or test
+      diff) — still routed to Architect, not silently fixed here.
 
 ## Milestone 3: the split is measured, not assumed
 

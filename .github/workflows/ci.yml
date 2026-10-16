@@ -1102,6 +1102,7 @@ jobs:
         architecture-audit,
         build,
         test,
+        test-coverage-gate,
         hadolint,
         trivy,
         migrations,
