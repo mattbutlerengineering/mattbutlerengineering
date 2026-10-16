@@ -6,8 +6,6 @@ import {
   waitlistEstimateJsonSchema,
   publicWaitlistBodyJsonSchema,
 } from "@mbe/types";
-import { venueService } from "../services/venue.js";
-import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import {
@@ -33,6 +31,8 @@ interface PublicWaitlistJoinBody {
  * shape the widget needs — no guest PII in the response.
  */
 export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
+  const { venueService, waitlistService } = fastify.services;
+
   fastify.addSchema(waitlistJoinResultJsonSchema);
   fastify.addSchema(waitlistEstimateJsonSchema);
 

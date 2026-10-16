@@ -12,7 +12,6 @@ import {
   publicHoldConfirmBodyJsonSchema,
 } from "@mbe/types";
 import { randomUUID } from "crypto";
-import { holdService } from "../services/hold.js";
 import { generateManageToken } from "./public-reservations.js";
 import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
@@ -81,6 +80,8 @@ function sessionIdOf(request: FastifyRequest): string {
 }
 
 export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
+  const { holdService } = fastify.services;
+
   fastify.post<{
     Params: { slug: string };
     Body: { date: string; startTime: string; endTime: string; partySize: number };

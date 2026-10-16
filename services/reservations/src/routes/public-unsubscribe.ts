@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { createProblemDetails, titleForStatus, publicUnsubscribeQueryJsonSchema } from "@mbe/types";
 import { verifyUnsubscribeToken } from "../services/post-visit-notifier.js";
-import { guestService } from "../services/guest.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
 
@@ -30,6 +29,8 @@ function renderConfirmationPage(): string {
 }
 
 export const publicUnsubscribeRoutes: FastifyPluginAsync = async (fastify) => {
+  const { guestService } = fastify.services;
+
   fastify.get<{ Querystring: { token?: string } }>(
     "/public/v1/guests/unsubscribe",
     {
