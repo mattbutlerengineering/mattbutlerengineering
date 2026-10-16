@@ -109,7 +109,16 @@ scripts/conductor-gate.sh), git add/commit/status/diff/log` — no
   measurement's acceptance criterion needs `gh run view <id> --json
 jobs` and a real Test-job "Run tests with coverage" log to count
   `cache hit, replaying` vs `cache miss, executing` `#build` lines —
-  none of that is reachable from here. `docs/audits/ci-conditional-steps-2026-10-10.md`
+  none of that is reachable from here.
+- 2026-10-15 (19:54 PT) — WO-0066 re-dispatched to the same Implement
+  Worker role on `conductor/sdlc-ci-6665` a second time; tool grant
+  and blocker are byte-identical to the attempt above (no `gh`, no
+  `WebFetch`, no push). The gap is structural to this Worker role,
+  not transient — re-dispatching it again will reproduce the same
+  blocked outcome, not resolve it. WO-0066 needs a session with a
+  real GitHub credential and Actions log access (a human-driven
+  session, or a Worker role granted `gh`); route it there instead of
+  back to this role. `docs/audits/ci-conditional-steps-2026-10-10.md`
   was checked as a possible substitute (it already reads 25 real
   `ci.yml` PR runs via `gh run view`) but only times Test as a whole
   job (median 6.1 min / 7 billed) — it does not break out `^build`
