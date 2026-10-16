@@ -43,6 +43,11 @@ describe("Input", () => {
       expect(screen.getByTestId("end-icon")).toBeInTheDocument();
     });
 
+    it("keeps an interactive endIcon in the accessibility tree", () => {
+      render(<Input label="Password" endIcon={<button type="button">Show password</button>} />);
+      expect(screen.getByRole("button", { name: "Show password" })).toBeInTheDocument();
+    });
+
     it("shows (optional) suffix when showOptional and not required", () => {
       render(<Input label="Phone" showOptional />);
       expect(screen.getByText("(optional)", { exact: false })).toBeInTheDocument();
