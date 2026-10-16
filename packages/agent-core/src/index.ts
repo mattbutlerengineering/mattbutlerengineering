@@ -416,6 +416,7 @@ export { loadSuite } from "./eval/golden-task-set.js";
 export { resolveSuitePath, COST_SUITE_DIR } from "./eval/cost-suite.js";
 export { scoreTask } from "./eval/task-scorer.js";
 export { runEvalSuite } from "./eval/eval-harness.js";
+export { createEvalJudge } from "./eval/llm-judge.js";
 export type { RunEvalSuiteOptions } from "./eval/eval-harness.js";
 export { taskSchema, rubricSchema, taskBudgetSchema, TASK_CATEGORIES } from "./eval/types.js";
 export type {

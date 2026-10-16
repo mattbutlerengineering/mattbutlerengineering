@@ -7,6 +7,8 @@ import {
   runAgentSession,
   resolveSessionAdapter,
   runEvalSuite,
+  createEvalJudge,
+  getGitDiff,
   loadSuite,
   calibrate,
   removeWorktree,
@@ -130,6 +132,7 @@ export const agentEvalCommand = new Command("eval")
         runId: `eval-${process.pid}`,
         only: options.task,
         runTask,
+        judgeFor: (run) => createEvalJudge(run),
       });
 
       if (suiteDidNotRun(report)) {
@@ -335,9 +338,12 @@ function makeAgentTaskRunner(
       ...(await verifyInWorktree(task, session)),
     };
 
+    // Captured before the worktree is released: the LLM judge scores this diff.
+    const diff = session.worktreePath === undefined ? "" : await getGitDiff(session.worktreePath);
+
     await releaseWorktree(repoPath, task.id, session);
 
-    return { task, session, checks };
+    return { task, session, checks, diff };
   };
 }
 
@@ -500,8 +506,16 @@ function printReport(report: EvalReport, costBasis: CostBasis): void {
     console.log(
       `${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`
     );
-    if (t.sessionErrors && t.sessionErrors.length > 0) {
-      console.log(`    session errors: ${t.sessionErrors.join("; ")}`);
+    const notes = [
+      ...(t.judgeResult?.evaluationFailed
+        ? [`judge inconclusive (scored as fail): ${t.judgeResult.reasoning}`]
+        : []),
+      ...(t.sessionErrors && t.sessionErrors.length > 0
+        ? [`session errors: ${t.sessionErrors.join("; ")}`]
+        : []),
+    ];
+    for (const note of notes) {
+      console.log(`    ${note}`);
     }
   }
   console.log("");

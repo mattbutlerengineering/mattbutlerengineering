@@ -207,3 +207,70 @@ describe("runEvalSuite", () => {
     });
   });
 });
+
+describe("runEvalSuite — judgeCriteria gate the score", () => {
+  const judged = (id: string): Task =>
+    makeTask(id, {
+      rubric: {
+        testsMustPass: true,
+        typecheckMustPass: true,
+        lintMustPass: false,
+        judgeCriteria: ["no production code is changed"],
+      },
+    });
+
+  it("does not score 1.0 for a task whose judgeCriteria are unmet", async () => {
+    const report = await runEvalSuite([judged("a")], {
+      runId: "r",
+      runTask: runnerFrom({ a: { checks: PASS } }),
+      judgeFor: () => async () => ({
+        passed: false,
+        confidence: 0.9,
+        reasoning: "production code was changed",
+        issues: ["prod change"],
+      }),
+    });
+    expect(report.tasks[0]!.passed).toBe(false);
+    expect(report.tasks[0]!.score).toBeLessThan(1);
+    expect(report.tasks[0]!.judgeResult?.passed).toBe(false);
+  });
+
+  it("fails closed, distinguishably, when criteria exist but no judge is wired", async () => {
+    const report = await runEvalSuite([judged("a")], {
+      runId: "r",
+      runTask: runnerFrom({ a: { checks: PASS } }),
+    });
+    const t = report.tasks[0]!;
+    expect(t.passed).toBe(false);
+    expect(t.score).toBeLessThan(1);
+    expect(t.judgeResult?.evaluationFailed).toBe(true);
+  });
+
+  it("fails closed when the judge throws, without voiding the suite", async () => {
+    const report = await runEvalSuite([judged("a")], {
+      runId: "r",
+      runTask: runnerFrom({ a: { checks: PASS } }),
+      judgeFor: () => async () => {
+        throw new Error("budget exhausted");
+      },
+    });
+    const t = report.tasks[0]!;
+    expect(t.passed).toBe(false);
+    expect(t.error).toBeUndefined();
+    expect(t.judgeResult?.evaluationFailed).toBe(true);
+    expect(t.judgeResult?.reasoning).toMatch(/budget exhausted/);
+  });
+
+  it("passes the run to judgeFor so the judge can see that run's diff", async () => {
+    const seen: string[] = [];
+    await runEvalSuite([judged("a")], {
+      runId: "r",
+      runTask: async (task) => ({ task, session: session(), checks: PASS, diff: "DIFF-A" }),
+      judgeFor: (run) => async () => {
+        seen.push(run.diff ?? "");
+        return { passed: true, confidence: 1, reasoning: "", issues: [] };
+      },
+    });
+    expect(seen).toEqual(["DIFF-A"]);
+  });
+});

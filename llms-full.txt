@@ -5578,6 +5578,7 @@
             runId: `eval-${process.pid}`,
             only: options.task,
             runTask,
+            judgeFor: (run) => createEvalJudge(run),
           });
     
           if (suiteDidNotRun(report)) {
@@ -5715,9 +5716,12 @@
           ...(await verifyInWorktree(task, session)),
         };
     
+        // Captured before the worktree is released: the LLM judge scores this diff.
+        const diff = session.worktreePath === undefined ? "" : await getGitDiff(session.worktreePath);
+    
         await releaseWorktree(repoPath, task.id, session);
     
-        return { task, session, checks };
+        return { task, session, checks, diff };
       };
     }
     type FixtureScript = "test" | "typecheck" | "lint";
@@ -5844,8 +5848,16 @@
         console.log(
           `${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`
         );
-        if (t.sessionErrors && t.sessionErrors.length > 0) {
-          console.log(`    session errors: ${t.sessionErrors.join("; ")}`);
+        const notes = [
+          ...(t.judgeResult?.evaluationFailed
+            ? [`judge inconclusive (scored as fail): ${t.judgeResult.reasoning}`]
+            : []),
+          ...(t.sessionErrors && t.sessionErrors.length > 0
+            ? [`session errors: ${t.sessionErrors.join("; ")}`]
+            : []),
+        ];
+        for (const note of notes) {
+          console.log(`    ${note}`);
         }
       }
       console.log("");
@@ -9464,6 +9476,12 @@
       readonly runTask: TaskRunner;
       /** Stable id for this run (callers pass a timestamp/uuid — kept injectable for determinism in tests). */
       readonly runId: string;
+      /**
+       * Builds the LLM judge for one run (it needs that run's diff). Omit and any
+       * task with `judgeCriteria` fails closed as inconclusive — never silently
+       * scores on the deterministic checks alone.
+       */
+      readonly judgeFor?: (run: TaskRunResult) => JudgeFunction;
       /** When set, run only the task with this id. */
       readonly only?: string;
     }
@@ -9477,7 +9495,7 @@
       for (const task of selected) {
         try {
           const runResult = await opts.runTask(task);
-          scores.push(await scoreTask(runResult));
+          scores.push(await scoreTask(runResult, opts.judgeFor?.(runResult)));
         } catch (err) {
           scores.push(failedScore(task, err));
         }
@@ -9592,6 +9610,26 @@
       return parsed.data;
     }
   </file>
+  <file path="packages/agent-core/src/eval/llm-judge.ts">
+    type Evaluate = (
+      task: string,
+      diff: string,
+      config?: { readonly forceEvaluate?: boolean }
+    ) => Promise<EvaluationResult>;
+    export function createEvalJudge(
+      run: TaskRunResult,
+      evaluate: Evaluate = evaluateSuccess
+    ): JudgeFunction {
+      return (taskPrompt, criteria) =>
+        evaluate(
+          `${taskPrompt}\n\nAcceptance criteria (every one must hold):\n${criteria}`,
+          run.diff ?? "",
+          {
+            forceEvaluate: true,
+          }
+        );
+    }
+  </file>
   <file path="packages/agent-core/src/eval/run-detection.ts">
     export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean {
       return score.turns === 0 && score.costUsd === 0;
@@ -9614,9 +9652,8 @@
     
       // LLM-judge signals — only when criteria are specified and a judge is injected.
       let judgeResult: TaskScore["judgeResult"];
-      if (rubric.judgeCriteria.length > 0 && judge !== undefined) {
-        const criteria = rubric.judgeCriteria.join("\n");
-        judgeResult = await judge(task.prompt, criteria);
+      if (rubric.judgeCriteria.length > 0) {
+        judgeResult = await runJudge(task.prompt, rubric.judgeCriteria.join("\n"), judge);
         signals.push(judgeResult.passed);
       }
     
@@ -9636,6 +9673,27 @@
         turns: session.numTurns,
         ...(session.errors?.length ? { sessionErrors: session.errors } : {}),
       };
+    }
+    function inconclusive(reasoning: string): EvaluationResult {
+      return {
+        passed: false,
+        confidence: 0,
+        reasoning,
+        issues: ["LLM judge could not run"],
+        evaluationFailed: true,
+      };
+    }
+    async function runJudge(
+      prompt: string,
+      criteria: string,
+      judge: JudgeFunction | undefined
+    ): Promise<EvaluationResult> {
+      if (judge === undefined) return inconclusive("No judge configured — judgeCriteria not evaluated");
+      try {
+        return await judge(prompt, criteria);
+      } catch (err) {
+        return inconclusive(`Judge threw: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   </file>
   <file path="packages/agent-core/src/eval/types.ts">
@@ -9689,6 +9747,8 @@
       readonly task: Task;
       readonly session: SessionResult;
       readonly checks: DeterministicChecks;
+      /** The agent's change as a unified diff, captured by the runner for the LLM judge. */
+      readonly diff?: string;
     }
     export interface TaskScore {
       readonly taskId: string;
@@ -9697,9 +9757,18 @@
       /** 0..1 — fraction of applicable rubric signals satisfied. */
       readonly score: number;
       readonly deterministic: DeterministicChecks;
-      /** Self-reported agent evaluation, when present — used for calibration. */
+      /**
+       * Self-reported agent evaluation — used for calibration. Only the SDK
+       * session pipeline populates it; adapters that do not self-evaluate (e.g.
+       * `claude-cli`) leave it absent. The suite's authoritative semantic verdict
+       * is {@link TaskScore.judgeResult}, not this.
+       */
       readonly selfEvaluation?: SessionResult["evaluation"];
-      /** LLM-judge result, present when `rubric.judgeCriteria` is non-empty and a judge was provided. */
+      /**
+       * LLM-judge result, present whenever `rubric.judgeCriteria` is non-empty.
+       * `evaluationFailed: true` marks an inconclusive judge (it could not run, or
+       * none was wired) — fails closed, and is distinct from a genuine fail.
+       */
       readonly judgeResult?: EvaluationResult;
       readonly costUsd: number;
       readonly turns: number;
@@ -47338,7 +47407,7 @@
     }
     export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
       model: resolveModelId("haiku"),
-      maxBudgetUsd: 0.05,
+      maxBudgetUsd: 0.25,
     };
     function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult {
       const detail =
@@ -47364,7 +47433,11 @@
         return "";
       }
     }
-    export type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyInput, "diff">;
+    export type EvaluateSuccessConfig = Partial<EvaluationConfig> &
+      Omit<SkipPolicyInput, "diff"> & {
+        /** Bypass the skip policy — for callers (the eval judge) that must always get a real verdict. */
+        readonly forceEvaluate?: boolean;
+      };
     export async function evaluateSuccess(
       taskDescription: string,
       gitDiff: string,
@@ -47384,7 +47457,7 @@
         testsPassed: config?.testsPassed,
         commitTitle: config?.commitTitle,
       });
-      if (skip.skip) {
+      if (skip.skip && !config?.forceEvaluate) {
         return { ...SKIP_RESULT, skipped: true, skipReason: skip.reason };
       }
     

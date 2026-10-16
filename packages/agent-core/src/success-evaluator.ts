@@ -38,9 +38,15 @@ export interface EvaluationConfig {
   readonly maxBudgetUsd: number;
 }
 
+/**
+ * $0.05 was too low to ever succeed under the CLI-backed SDK: the fixed
+ * context loaded before the single judge turn consumed the cap, so 3 of 5 eval
+ * tasks died with "Reached maximum budget ($0.05)" (#6846). The evaluator
+ * fails closed on that, so a cap it cannot meet is a permanently-failed gate.
+ */
 export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
   model: resolveModelId("haiku"),
-  maxBudgetUsd: 0.05,
+  maxBudgetUsd: 0.25,
 };
 
 /**
@@ -119,7 +125,11 @@ export async function getGitDiff(worktreePath: string): Promise<string> {
 }
 
 /** Config for {@link evaluateSuccess}: LLM tuning plus skip-policy inputs. */
-export type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyInput, "diff">;
+export type EvaluateSuccessConfig = Partial<EvaluationConfig> &
+  Omit<SkipPolicyInput, "diff"> & {
+    /** Bypass the skip policy — for callers (the eval judge) that must always get a real verdict. */
+    readonly forceEvaluate?: boolean;
+  };
 
 /**
  * Evaluate whether a diff addresses a task via an LLM judge.
@@ -157,7 +167,7 @@ export async function evaluateSuccess(
     testsPassed: config?.testsPassed,
     commitTitle: config?.commitTitle,
   });
-  if (skip.skip) {
+  if (skip.skip && !config?.forceEvaluate) {
     return { ...SKIP_RESULT, skipped: true, skipReason: skip.reason };
   }
 

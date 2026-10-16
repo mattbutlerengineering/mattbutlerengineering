@@ -3,7 +3,9 @@ import type {
   EvalReport,
   Task,
   TaskCategory,
+  JudgeFunction,
   TaskRunner,
+  TaskRunResult,
   TaskScore,
 } from "./types.js";
 import { scoreTask } from "./task-scorer.js";
@@ -14,6 +16,12 @@ export interface RunEvalSuiteOptions {
   readonly runTask: TaskRunner;
   /** Stable id for this run (callers pass a timestamp/uuid — kept injectable for determinism in tests). */
   readonly runId: string;
+  /**
+   * Builds the LLM judge for one run (it needs that run's diff). Omit and any
+   * task with `judgeCriteria` fails closed as inconclusive — never silently
+   * scores on the deterministic checks alone.
+   */
+  readonly judgeFor?: (run: TaskRunResult) => JudgeFunction;
   /** When set, run only the task with this id. */
   readonly only?: string;
 }
@@ -34,7 +42,7 @@ export async function runEvalSuite(
   for (const task of selected) {
     try {
       const runResult = await opts.runTask(task);
-      scores.push(await scoreTask(runResult));
+      scores.push(await scoreTask(runResult, opts.judgeFor?.(runResult)));
     } catch (err) {
       scores.push(failedScore(task, err));
     }

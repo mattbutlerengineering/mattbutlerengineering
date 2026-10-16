@@ -73,6 +73,8 @@ export interface TaskRunResult {
   readonly task: Task;
   readonly session: SessionResult;
   readonly checks: DeterministicChecks;
+  /** The agent's change as a unified diff, captured by the runner for the LLM judge. */
+  readonly diff?: string;
 }
 
 /** A task's score after applying its rubric to the run result. */
@@ -83,9 +85,18 @@ export interface TaskScore {
   /** 0..1 — fraction of applicable rubric signals satisfied. */
   readonly score: number;
   readonly deterministic: DeterministicChecks;
-  /** Self-reported agent evaluation, when present — used for calibration. */
+  /**
+   * Self-reported agent evaluation — used for calibration. Only the SDK
+   * session pipeline populates it; adapters that do not self-evaluate (e.g.
+   * `claude-cli`) leave it absent. The suite's authoritative semantic verdict
+   * is {@link TaskScore.judgeResult}, not this.
+   */
   readonly selfEvaluation?: SessionResult["evaluation"];
-  /** LLM-judge result, present when `rubric.judgeCriteria` is non-empty and a judge was provided. */
+  /**
+   * LLM-judge result, present whenever `rubric.judgeCriteria` is non-empty.
+   * `evaluationFailed: true` marks an inconclusive judge (it could not run, or
+   * none was wired) — fails closed, and is distinct from a genuine fail.
+   */
   readonly judgeResult?: EvaluationResult;
   readonly costUsd: number;
   readonly turns: number;
