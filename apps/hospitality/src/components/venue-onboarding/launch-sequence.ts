@@ -22,13 +22,16 @@
  *
  * Pure core (stagesFor / nextStage / stageStateOf / tablesDoneCount /
  * isAlreadyCreatedError) + a thin impure loop (runLaunchSequence). The
- * impure half never imports `@mbe/api-client` directly — the caller
+ * impure half never calls `@mbe/api-client` directly — the caller
  * injects the live client via the structural `LaunchApi` interface, so
- * this module needs no network and no client mock to test.
+ * this module needs no network and no client mock to test. The only
+ * import is the `ApiClientError` class, so the duplicate-name rejection
+ * is matched on its `problemDetails`, never on message text.
  *
  * No React, no react-konva.
  */
 
+import { ApiClientError } from "@mbe/api-client";
 import type {
   CreateVenueRequest,
   Venue,
@@ -153,7 +156,11 @@ export function tablesDoneCount(progress: LaunchProgress): number {
 
 /** True when a 400 is the server's own duplicate-name rejection — i.e. the table already exists. */
 export function isAlreadyCreatedError(err: unknown): boolean {
-  return err instanceof Error && err.message === DUPLICATE_TABLE_NAME_MESSAGE;
+  return (
+    err instanceof ApiClientError &&
+    err.problemDetails.status === 400 &&
+    err.problemDetails.detail === DUPLICATE_TABLE_NAME_MESSAGE
+  );
 }
 
 /** Narrow structural interface, so the test needs no network and no client mock module. */

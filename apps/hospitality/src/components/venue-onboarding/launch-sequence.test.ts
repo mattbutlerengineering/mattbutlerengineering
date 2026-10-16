@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { ApiClientError } from "@mbe/api-client";
 import type { CreateVenueRequest, Venue, FloorPlan, Table } from "@mbe/types";
 import type { DraftTable, FloorPlanDraft } from "./floor-plan-draft.js";
 import {
@@ -12,6 +13,14 @@ import {
   runLaunchSequence,
 } from "./launch-sequence.js";
 import type { LaunchApi, LaunchProgress, LaunchStageId } from "./launch-sequence.js";
+
+function makeClientError(status: number, detail: string): ApiClientError {
+  return new ApiClientError(
+    { type: "about:blank", title: "Bad Request", status, detail },
+    "POST",
+    "/api/v1/tables"
+  );
+}
 
 function makeDraftTable(overrides: Partial<DraftTable> = {}): DraftTable {
   return {
@@ -264,11 +273,18 @@ describe("launch-sequence", () => {
 
   describe("isAlreadyCreatedError", () => {
     it("is true for the server's duplicate-name rejection", () => {
-      expect(isAlreadyCreatedError(new Error("A table with this name already exists"))).toBe(true);
+      expect(
+        isAlreadyCreatedError(makeClientError(400, "A table with this name already exists"))
+      ).toBe(true);
     });
 
     it("is false for a generic Error, null, undefined and a string", () => {
       expect(isAlreadyCreatedError(new Error("Network error"))).toBe(false);
+      expect(isAlreadyCreatedError(new Error("A table with this name already exists"))).toBe(false);
+      expect(isAlreadyCreatedError(makeClientError(400, "Name is required"))).toBe(false);
+      expect(
+        isAlreadyCreatedError(makeClientError(500, "A table with this name already exists"))
+      ).toBe(false);
       expect(isAlreadyCreatedError(null)).toBe(false);
       expect(isAlreadyCreatedError(undefined)).toBe(false);
       expect(isAlreadyCreatedError("A table with this name already exists")).toBe(false);
@@ -454,7 +470,7 @@ describe("launch-sequence", () => {
           api.callLog.push(`tables.create:${data.name}`);
           return makeTable(data.name);
         })
-        .mockRejectedValueOnce(new Error("A table with this name already exists"))
+        .mockRejectedValueOnce(makeClientError(400, "A table with this name already exists"))
         .mockImplementationOnce(async (data: { name: string }) => {
           api.callLog.push(`tables.create:${data.name}`);
           return makeTable(data.name);

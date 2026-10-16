@@ -6682,7 +6682,11 @@
       return progress.createdTableNames.length;
     }
     export function isAlreadyCreatedError(err: unknown): boolean {
-      return err instanceof Error && err.message === DUPLICATE_TABLE_NAME_MESSAGE;
+      return (
+        err instanceof ApiClientError &&
+        err.problemDetails.status === 400 &&
+        err.problemDetails.detail === DUPLICATE_TABLE_NAME_MESSAGE
+      );
     }
     export interface LaunchApi {
       venues: { create(data: CreateVenueRequest): Promise<Venue> };
