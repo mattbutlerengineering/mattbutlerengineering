@@ -93,6 +93,9 @@ for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ reducedMotion: "reduce", colorScheme: scheme });
       await page.goto(`components/${slug}`);
       await page.waitForLoadState("networkidle");
+      // Without this the dark arm would silently audit the light theme if the
+      // colorScheme -> data-theme pipeline ever regressed.
+      await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
 
       const { violations } = await new AxeBuilder({ page }).analyze();
 
