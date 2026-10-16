@@ -1,10 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, PublicVenueConfig } from "@mbe/types";
 import { createProblemDetails, publicVenueConfigJsonSchema } from "@mbe/types";
-import { venueService } from "../services/venue.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
 
 export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
+  const { venueService } = fastify.services;
+
   fastify.addSchema(publicVenueConfigJsonSchema);
 
   fastify.get<{

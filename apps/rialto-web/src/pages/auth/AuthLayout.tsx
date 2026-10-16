@@ -16,7 +16,7 @@ export function AuthLayout({ title, footer, children }: AuthLayoutProps) {
 
       <div className={styles.card}>
         <p className={styles.logotype}>Rialto</p>
-        <p className={styles.title}>{title}</p>
+        <h1 className={styles.title}>{title}</h1>
         {children}
       </div>
 

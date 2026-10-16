@@ -36,7 +36,7 @@
  * scripts/__tests__/durable-manifest.test.mjs.
  *
  * Pure-function / DI style mirrors merge-train-lock.mjs and
- * collect-queue-telemetry.mjs: filesystem access is injectable per call.
+ * queue-telemetry-store.mjs: filesystem access is injectable per call.
  */
 
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync } from "node:fs";

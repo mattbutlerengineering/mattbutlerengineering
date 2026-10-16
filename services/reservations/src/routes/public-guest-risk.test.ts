@@ -1,79 +1,33 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { DomainServices } from "../services/domain-services.js";
 
-// Mock all services needed for app registration
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  venueGroupService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("../services/table.js", () => ({
-  tableService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    listByUserId: vi.fn(),
-  },
-}));
-
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    search: vi.fn(),
-    findOrCreate: vi.fn(),
-    findByEmail: vi.fn(),
-    findByPhone: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    addNote: vi.fn(),
-    getSegments: vi.fn(),
-    recordVisit: vi.fn(),
-    scanLapsedGuests: vi.fn(),
-  },
-}));
-
-vi.mock("../services/floor-plan.js", () => ({
-  floorPlanService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getActiveByVenueId: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    bulkUpdatePositions: vi.fn(),
-    assignTable: vi.fn(),
-    removeTable: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #6771), so the
+// migrated public routes need no vi.mock of their service modules.
+const venueService = {
+  list: vi.fn(),
+  getById: vi.fn(),
+  getBySlug: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+} as unknown as DomainServices["venueService"];
+const guestService = {
+  list: vi.fn(),
+  getById: vi.fn(),
+  search: vi.fn(),
+  findOrCreate: vi.fn(),
+  findByEmail: vi.fn(),
+  findByPhone: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  addNote: vi.fn(),
+  getSegments: vi.fn(),
+  recordVisit: vi.fn(),
+  scanLapsedGuests: vi.fn(),
+} as unknown as DomainServices["guestService"];
 
 vi.mock("../services/guest-recognition.js", () => ({
   recognizeGuest: vi.fn(),
@@ -91,8 +45,6 @@ vi.mock("../services/resolve-venue.js", () => ({
 }));
 
 // Import after mocks
-import { venueService } from "../services/venue.js";
-import { guestService } from "../services/guest.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import type { Guest } from "@mbe/types";
 import { GuestRiskResultSchema } from "@mbe/types/schemas";
@@ -133,7 +85,7 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { venueService, guestService } });
     await app.ready();
   });
 
@@ -426,7 +378,7 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
 
 describe("GET /public/v1/venues/:slug/guest-risk — rate limiting", () => {
   it("has rate limiting configured at 20 req/min", async () => {
-    const freshApp = await buildApp({ logger: false });
+    const freshApp = await buildApp({ logger: false, services: { venueService, guestService } });
     await freshApp.ready();
 
     // Send 21 requests — the 21st should be rate-limited

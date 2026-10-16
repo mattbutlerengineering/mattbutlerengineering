@@ -129,8 +129,32 @@ export const DIFF_REVIEWER_NAMES: readonly string[] = DIFF_REVIEWERS.map((r) => 
  * can both fire on the same diff — e.g. a pure dependency bump (every file
  * matches `isLowRiskFile`) that also matches `dependency-update-reviewer`.
  * The fast path must never enqueue a PR whose own specialist gate matched a
- * reviewer; the specialist wins. See #4063.
+ * reviewer; the specialist wins. See #4063. A changed gate path (`GATE_PATHS`)
+ * also disqualifies: those PRs always hold for a human merge (ADR-0087).
  */
 export function qualifiesForLowRiskFastPath(files: readonly string[]): boolean {
-  return isLowRiskPR(files) && reviewersForDiff(files).length === 0;
+  return isLowRiskPR(files) && reviewersForDiff(files).length === 0 && !files.some(matchesGatePath);
+}
+
+/**
+ * Paths whose changes always hold a PR for a human merge (ADR-0087): ADRs,
+ * design docs, PRDs and architecture docs. Single source of the list —
+ * prose in the queue profile and skills points here instead of restating it.
+ */
+export const GATE_PATHS: readonly {
+  readonly pattern: string;
+  readonly matches: (f: string) => boolean;
+}[] = [
+  { pattern: "docs/adr/**", matches: (f) => f.startsWith("docs/adr/") },
+  { pattern: "docs/design/**", matches: (f) => f.startsWith("docs/design/") },
+  { pattern: "**/prd.md", matches: (f) => f === "prd.md" || f.endsWith("/prd.md") },
+  {
+    pattern: "**/architecture.md",
+    matches: (f) => f === "architecture.md" || f.endsWith("/architecture.md"),
+  },
+];
+
+/** True when `file` matches any entry in `GATE_PATHS`. */
+export function matchesGatePath(file: string): boolean {
+  return GATE_PATHS.some((g) => g.matches(file));
 }

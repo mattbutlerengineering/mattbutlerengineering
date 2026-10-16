@@ -145,7 +145,7 @@ describe("FRESHNESS_POLICY", () => {
     const byMetric = Object.fromEntries(FRESHNESS_POLICY.map((p) => [p.metric, p]));
     // scripts/acmm/review-burden-metrics.js writes `timestamp`.
     expect(byMetric["review-burden"].timestampField).toBe("timestamp");
-    // scripts/collect-queue-telemetry.mjs rows carry `claimed_at` (always set);
+    // scripts/queue-telemetry-store.mjs rows carry `claimed_at` (always set);
     // `merged_at` is null until reconciled, so it must not be the field.
     expect(byMetric["queue-telemetry"].timestampField).toBe("claimed_at");
   });

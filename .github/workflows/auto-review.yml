@@ -23,6 +23,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      # check-large-files.mjs imports regen-manifest.mjs, whose import graph
+      # reaches bare specifiers — a bare checkout has no node_modules (#6790).
+      - uses: ./.github/actions/setup-workspace
+
       - name: Get changed files
         id: changes
         env:

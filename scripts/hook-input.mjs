@@ -23,11 +23,22 @@
  *     { "hook_event_name": "PreToolUse",   // or "PostToolUse"
  *       "tool_name": "Write",
  *       "tool_input": { "file_path": "/abs/path.ts", "content": "…" },
- *       "tool_use_id": "…" }
+ *       "tool_use_id": "…",
+ *       "cwd": "/abs/dir" }                  // the tree the tool call runs in
  *
  * Bash tool calls carry `tool_input.command` in the same envelope, so the hooks
  * still broken under the fictional `$CLAUDE_BASH_COMMAND` can adopt this adapter
  * unchanged via `extractHookField(payload, "command")`.
+ *
+ * The top-level `cwd` is the ONLY field that says which TREE a tool call runs
+ * in. Hooks themselves run with CWD = `$CLAUDE_PROJECT_DIR` = the main checkout
+ * even for a worktree-isolated subagent (measured 2026-10-15: inside one linked
+ * worktree a `.env` Write was blocked by the path guard, so hooks fire there —
+ * while `pnpm test` in that same bare worktree sailed past pre-bash-guard's
+ * node_modules check, because the check looked at the main checkout's). A hook
+ * whose decision depends on the tree — node_modules, upstream, unpushed
+ * commits, HEAD — must resolve it from `cwd`, never from `$CLAUDE_PROJECT_DIR`
+ * or its own `pwd`. Path-only guards are unaffected: `file_path` is absolute.
  *
  * Every field accessor returns `""` rather than throwing, so a caller can treat
  * the empty string as "no input — do nothing". Callers must never treat it as
@@ -35,7 +46,13 @@
  */
 
 /** Fields that live at the top of the envelope rather than inside `tool_input`. */
-const TOP_LEVEL_FIELDS = new Set(["tool_name", "hook_event_name", "tool_use_id", "session_id"]);
+const TOP_LEVEL_FIELDS = new Set([
+  "tool_name",
+  "hook_event_name",
+  "tool_use_id",
+  "session_id",
+  "cwd",
+]);
 
 /**
  * Safely parse a hook payload.

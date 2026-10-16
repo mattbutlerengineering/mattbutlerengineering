@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { isLowRiskPR, qualifiesForLowRiskFastPath } from "../pr-risk-classifier.js";
+import {
+  isLowRiskPR,
+  matchesGatePath,
+  qualifiesForLowRiskFastPath,
+} from "../pr-risk-classifier.js";
 
 // ── Test files ──────────────────────────────────────────────────────────────
 
@@ -315,5 +319,35 @@ describe("qualifiesForLowRiskFastPath", () => {
 
   it("returns false for an empty file list", () => {
     expect(qualifiesForLowRiskFastPath([])).toBe(false);
+  });
+});
+
+// ── GATE_PATHS ──────────────────────────────────────────────────────────────
+
+describe("qualifiesForLowRiskFastPath — gate paths", () => {
+  it("holds an ADR", () => {
+    expect(qualifiesForLowRiskFastPath(["docs/adr/ADR-0099.md"])).toBe(false);
+  });
+
+  it("holds an architecture.md", () => {
+    expect(qualifiesForLowRiskFastPath(["docs/features/x/architecture.md"])).toBe(false);
+  });
+
+  it("holds a prd.md", () => {
+    expect(qualifiesForLowRiskFastPath(["docs/features/x/prd.md"])).toBe(false);
+  });
+
+  it("holds a mixed diff containing a design doc", () => {
+    expect(qualifiesForLowRiskFastPath(["src/a.ts", "docs/design/y.md"])).toBe(false);
+  });
+
+  it("still passes an ordinary doc", () => {
+    expect(qualifiesForLowRiskFastPath(["README.md"])).toBe(true);
+  });
+
+  it("matchesGatePath matches a root-level prd.md and rejects lookalikes", () => {
+    expect(matchesGatePath("prd.md")).toBe(true);
+    expect(matchesGatePath("docs/features/x/my-prd.md")).toBe(false);
+    expect(matchesGatePath("docs/adrs/x.md")).toBe(false);
   });
 });

@@ -1,7 +1,6 @@
 import type {
   Table,
   TableStatus,
-  TableShapeMetadata,
   CreateTableRequest,
   UpdateTableRequest,
   PaginatedResponse,
@@ -9,47 +8,21 @@ import type {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { toTable } from "./serializers.js";
 import { transitionTable, TableTransitionError } from "./table-state-machine.js";
 
 export { TableTransitionError };
 
-const VALID_TABLE_STATUSES: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"];
-
-export function mapPrismaTable(table: {
-  id: string;
-  name: string;
-  tableNumber: string | null;
-  capacity: number;
-  minCovers: number;
-  maxCovers: number | null;
-  location: string | null;
-  isActive: boolean;
-  priority: number;
-  status: string;
-  venueId: string | null;
-  floorPlanId: string | null;
-  shapeMetadata: unknown;
-  createdAt: Date;
-  updatedAt: Date;
-}): Table {
-  return {
-    id: table.id,
-    name: table.name,
-    tableNumber: table.tableNumber,
-    capacity: table.capacity,
-    minCovers: table.minCovers,
-    maxCovers: table.maxCovers,
-    location: table.location,
-    isActive: table.isActive,
-    priority: table.priority,
-    status: table.status as TableStatus,
-    venueId: table.venueId,
-    floorPlanId: table.floorPlanId,
-    shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-    createdAt: table.createdAt.toISOString(),
-    updatedAt: table.updatedAt.toISOString(),
-  };
+export class TableConcurrentUpdateError extends Error {
+  constructor(id: string, status: string) {
+    super(
+      `Table ${id} concurrent update conflict: lost race moving to ${status}. Another status change completed first.`
+    );
+    this.name = "TableConcurrentUpdateError";
+  }
 }
+
+const VALID_TABLE_STATUSES: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"];
 
 export const tableService = {
   async list(
@@ -73,14 +46,14 @@ export const tableService = {
     ]);
 
     return {
-      data: tables.map(mapPrismaTable),
+      data: tables.map(toTable),
       pagination: toPaginationMeta(page, limit, total),
     };
   },
 
   async getById(id: string): Promise<Table | null> {
     const table = await prisma.table.findUnique({ where: { id } });
-    return table ? mapPrismaTable(table) : null;
+    return table ? toTable(table) : null;
   },
 
   /**
@@ -112,7 +85,7 @@ export const tableService = {
           : Prisma.DbNull,
       },
     });
-    return mapPrismaTable(table);
+    return toTable(table);
   },
 
   async update(id: string, data: UpdateTableRequest): Promise<Table | null> {
@@ -141,7 +114,7 @@ export const tableService = {
         where: { id },
         data: updateData,
       });
-      return mapPrismaTable(table);
+      return toTable(table);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
@@ -155,16 +128,13 @@ export const tableService = {
     const current = await prisma.table.findUnique({ where: { id } });
     if (!current) return null;
     transitionTable(current.status, status as TableStatus);
-    try {
-      const table = await prisma.table.update({
-        where: { id },
-        data: { status: status as TableStatus },
-      });
-      return mapPrismaTable(table);
-    } catch (err: unknown) {
-      if (isPrismaNotFound(err)) return null;
-      throw err;
-    }
+    const { count } = await prisma.table.updateMany({
+      where: { id, status: current.status },
+      data: { status: status as TableStatus },
+    });
+    if (count === 0) throw new TableConcurrentUpdateError(id, status);
+    const table = await prisma.table.findUnique({ where: { id } });
+    return table ? toTable(table) : null;
   },
 
   async delete(id: string): Promise<boolean> {

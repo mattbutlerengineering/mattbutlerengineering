@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { buildApp } from "../app.js";
+import type { DomainServices } from "../services/domain-services.js";
 import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "./public-reservations.js";
 
@@ -24,23 +25,21 @@ vi.mock("@mbe/notifications", () => {
   };
 });
 
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    getById: vi.fn(),
-    list: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    cancel: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #6772), so the
+// migrated routes need no vi.mock of their service modules.
+const reservationService = {
+  getById: vi.fn(),
+  list: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  cancel: vi.fn(),
+} as unknown as DomainServices["reservationService"];
 
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-  },
-}));
+const venueService = {
+  list: vi.fn(),
+  getById: vi.fn(),
+  getBySlug: vi.fn(),
+} as unknown as DomainServices["venueService"];
 
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
@@ -62,9 +61,7 @@ vi.mock("../services/resolve-venue.js", () => ({
   resolveVenueId: vi.fn().mockResolvedValue("venue_1"),
 }));
 
-import { reservationService } from "../services/reservation.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
-import { venueService } from "../services/venue.js";
 
 const mockReservation = {
   id: "res_1",
@@ -101,7 +98,7 @@ describe("GET /public/v1/reservations/manage", () => {
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { reservationService, venueService } });
     await app.ready();
   });
 
@@ -186,7 +183,10 @@ describe("GET /public/v1/reservations/manage", () => {
 describe("GET /public/v1/reservations/manage — rate limiting", () => {
   it("has rate limiting configured at 10 req/min", async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    const freshApp = await buildApp({ logger: false });
+    const freshApp = await buildApp({
+      logger: false,
+      services: { reservationService, venueService },
+    });
     await freshApp.ready();
 
     // Send 11 requests — the 11th should be rate-limited

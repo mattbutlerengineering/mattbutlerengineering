@@ -9,6 +9,7 @@ vi.mock("./database.js", async () => {
         findUnique: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
         delete: vi.fn(),
         count: vi.fn(),
       },
@@ -16,7 +17,7 @@ vi.mock("./database.js", async () => {
   });
 });
 
-import { tableService } from "./table.js";
+import { tableService, TableConcurrentUpdateError } from "./table.js";
 import { prisma } from "./database.js";
 
 const NOW = new Date("2026-05-01T12:00:00Z");
@@ -239,18 +240,36 @@ describe("tableService", () => {
   });
 
   describe("updateStatus", () => {
+    it("throws TableConcurrentUpdateError when the compare-and-set loses the race", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "AVAILABLE" }) as never
+      );
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 0 } as never);
+
+      await expect(tableService.updateStatus("table-1", "OCCUPIED")).rejects.toThrow(
+        TableConcurrentUpdateError
+      );
+      expect(prisma.table.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.table.updateMany).toHaveBeenCalledWith({
+        where: { id: "table-1", status: "AVAILABLE" },
+        data: { status: "OCCUPIED" },
+      });
+      expect(prisma.table.update).not.toHaveBeenCalled();
+    });
+
     it("transitions AVAILABLE to OCCUPIED", async () => {
       vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
         makePrismaTable({ status: "AVAILABLE" }) as never
       );
       const dbTable = makePrismaTable({ status: "OCCUPIED" });
-      vi.mocked(prisma.table.update).mockResolvedValueOnce(dbTable as never);
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 1 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(dbTable as never);
 
       const result = await tableService.updateStatus("table-1", "OCCUPIED");
 
       expect(result!.status).toBe("OCCUPIED");
-      expect(prisma.table.update).toHaveBeenCalledWith({
-        where: { id: "table-1" },
+      expect(prisma.table.updateMany).toHaveBeenCalledWith({
+        where: { id: "table-1", status: "AVAILABLE" },
         data: { status: "OCCUPIED" },
       });
     });
@@ -260,7 +279,8 @@ describe("tableService", () => {
         makePrismaTable({ status: "OCCUPIED" }) as never
       );
       const dbTable = makePrismaTable({ status: "DIRTY" });
-      vi.mocked(prisma.table.update).mockResolvedValueOnce(dbTable as never);
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 1 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(dbTable as never);
 
       const result = await tableService.updateStatus("table-1", "DIRTY");
 
@@ -272,7 +292,8 @@ describe("tableService", () => {
         makePrismaTable({ status: "DIRTY" }) as never
       );
       const dbTable = makePrismaTable({ status: "READY" });
-      vi.mocked(prisma.table.update).mockResolvedValueOnce(dbTable as never);
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 1 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(dbTable as never);
 
       const result = await tableService.updateStatus("table-1", "READY");
 
@@ -284,7 +305,8 @@ describe("tableService", () => {
         makePrismaTable({ status: "READY" }) as never
       );
       const dbTable = makePrismaTable({ status: "AVAILABLE" });
-      vi.mocked(prisma.table.update).mockResolvedValueOnce(dbTable as never);
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 1 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(dbTable as never);
 
       const result = await tableService.updateStatus("table-1", "AVAILABLE");
 
@@ -295,7 +317,7 @@ describe("tableService", () => {
       const result = await tableService.updateStatus("table-1", "BROKEN");
 
       expect(result).toBeNull();
-      expect(prisma.table.update).not.toHaveBeenCalled();
+      expect(prisma.table.updateMany).not.toHaveBeenCalled();
     });
 
     it("returns null when table not found on lookup", async () => {
@@ -304,14 +326,14 @@ describe("tableService", () => {
       const result = await tableService.updateStatus("missing", "OCCUPIED");
 
       expect(result).toBeNull();
-      expect(prisma.table.update).not.toHaveBeenCalled();
+      expect(prisma.table.updateMany).not.toHaveBeenCalled();
     });
 
-    it("returns null for P2025 (table not found on update)", async () => {
-      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
-        makePrismaTable({ status: "AVAILABLE" }) as never
-      );
-      vi.mocked(prisma.table.update).mockRejectedValueOnce({ code: "P2025" } as never);
+    it("returns null when the table is deleted between the CAS and the re-read", async () => {
+      vi.mocked(prisma.table.findUnique)
+        .mockResolvedValueOnce(makePrismaTable({ status: "AVAILABLE" }) as never)
+        .mockResolvedValueOnce(null as never);
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 1 } as never);
 
       const result = await tableService.updateStatus("missing", "OCCUPIED");
 
@@ -327,7 +349,7 @@ describe("tableService", () => {
       await expect(tableService.updateStatus("table-1", "DIRTY")).rejects.toThrow(
         TableTransitionError
       );
-      expect(prisma.table.update).not.toHaveBeenCalled();
+      expect(prisma.table.updateMany).not.toHaveBeenCalled();
     });
 
     it("throws TableTransitionError for invalid transition OCCUPIED -> AVAILABLE (backward)", async () => {
@@ -353,7 +375,8 @@ describe("tableService", () => {
         vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
           makePrismaTable({ status: current }) as never
         );
-        vi.mocked(prisma.table.update).mockResolvedValueOnce(
+        vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 1 } as never);
+        vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
           makePrismaTable({ status: next }) as never
         );
         const result = await tableService.updateStatus("table-1", next);

@@ -61,6 +61,15 @@
       }): User { /* ... */ }
     </item>
     <item priority="high">
+      interface RawUserRow {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        email_verified: boolean;
+      }
+    </item>
+    <item priority="high">
       export const userService: unknown;
     </item>
   </file>

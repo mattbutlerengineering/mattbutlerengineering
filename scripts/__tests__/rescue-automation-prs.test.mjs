@@ -4,9 +4,15 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   selectPrsToRescue,
+  selectConductorConflictPrs,
+  selectConductorBehindPrs,
   runRescue,
+  runConductorPass,
+  conductorConflictComment,
   AUTOMATION_BRANCH_PREFIX,
   AUTOMATION_LABEL,
+  CONDUCTOR_BRANCH_PREFIX,
+  CONFLICT_COMMENT_MARKER,
   PR_JSON_FIELDS,
 } from "../rescue-automation-prs.mjs";
 
@@ -324,6 +330,198 @@ describe("approveRuns CLI wiring (#4009)", () => {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
+
+describe("selectConductorConflictPrs", () => {
+  const conductor = (overrides = {}) =>
+    makePr({
+      headRefName: "conductor/batch-12",
+      mergeStateStatus: "DIRTY",
+      labels: [],
+      ...overrides,
+    });
+
+  it("selects a DIRTY conductor PR that has not been noted", () => {
+    expect(selectConductorConflictPrs([conductor({ number: 9 })]).map((pr) => pr.number)).toEqual([
+      9,
+    ]);
+  });
+
+  it("does not require the auto-merge label", () => {
+    expect(selectConductorConflictPrs([conductor({ labels: [] })])).toHaveLength(1);
+  });
+
+  it("skips a PR that already carries the conflict note", () => {
+    expect(selectConductorConflictPrs([conductor({ conflictNoted: true })])).toEqual([]);
+  });
+
+  it("skips drafts, non-conductor branches, and non-DIRTY states", () => {
+    expect(
+      selectConductorConflictPrs([
+        conductor({ isDraft: true }),
+        conductor({ headRefName: "automation/drift-fix" }),
+        conductor({ mergeStateStatus: "BEHIND" }),
+        conductor({ mergeStateStatus: "CLEAN" }),
+      ])
+    ).toEqual([]);
+  });
+});
+
+describe("selectConductorBehindPrs", () => {
+  it("selects a BEHIND conductor PR with no auto-merge label", () => {
+    const prs = [
+      makePr({
+        number: 4,
+        headRefName: "conductor/batch-4",
+        mergeStateStatus: "BEHIND",
+        labels: [],
+      }),
+    ];
+    expect(selectConductorBehindPrs(prs).map((pr) => pr.number)).toEqual([4]);
+  });
+
+  it("skips DIRTY, draft, and automation PRs", () => {
+    expect(
+      selectConductorBehindPrs([
+        makePr({ headRefName: "conductor/batch", mergeStateStatus: "DIRTY", labels: [] }),
+        makePr({ headRefName: "conductor/batch", mergeStateStatus: "BEHIND", isDraft: true }),
+        makePr({ number: 3 }),
+      ])
+    ).toEqual([]);
+  });
+});
+
+describe("runConductorPass", () => {
+  const conductor = (overrides = {}) =>
+    makePr({
+      headRefName: "conductor/batch-1",
+      labels: [],
+      ...overrides,
+    });
+
+  it("comments once on a DIRTY conductor PR and does not update it", async () => {
+    const comment = vi.fn();
+    const updateBranch = vi.fn();
+    const dispatchCi = vi.fn();
+    const result = await runConductorPass({
+      listPrs: async () => [conductor({ number: 8, mergeStateStatus: "DIRTY" })],
+      updateBranch,
+      dispatchCi,
+      comment,
+      commentsFor: async () => [],
+    });
+
+    expect(comment).toHaveBeenCalledWith(8, conductorConflictComment());
+    expect(conductorConflictComment()).toContain(CONFLICT_COMMENT_MARKER);
+    expect(conductorConflictComment()).toContain("already closed");
+    expect(conductorConflictComment()).toContain("pnpm regen");
+    expect(updateBranch).not.toHaveBeenCalled();
+    expect(dispatchCi).not.toHaveBeenCalled();
+    expect(result).toEqual({ commented: [8], updated: [] });
+  });
+
+  it("does not comment again when the marker is already present", async () => {
+    const comment = vi.fn();
+    const result = await runConductorPass({
+      listPrs: async () => [conductor({ number: 8, mergeStateStatus: "DIRTY" })],
+      updateBranch: vi.fn(),
+      dispatchCi: vi.fn(),
+      comment,
+      commentsFor: async () => [{ body: conductorConflictComment() }],
+    });
+    expect(comment).not.toHaveBeenCalled();
+    expect(result.commented).toEqual([]);
+  });
+
+  it("update-branches a clean BEHIND conductor PR and dispatches CI without auto-merge", async () => {
+    const updateBranch = vi.fn();
+    const dispatchCi = vi.fn();
+    const comment = vi.fn();
+    const result = await runConductorPass({
+      listPrs: async () => [
+        conductor({ number: 5, headRefName: "conductor/batch-5", mergeStateStatus: "BEHIND" }),
+      ],
+      updateBranch,
+      dispatchCi,
+      comment,
+      commentsFor: async () => [],
+    });
+    expect(updateBranch).toHaveBeenCalledWith(5);
+    expect(dispatchCi).toHaveBeenCalledWith("conductor/batch-5");
+    expect(comment).not.toHaveBeenCalled();
+    expect(result).toEqual({ commented: [], updated: [5] });
+  });
+
+  it("comments when update-branch fails with a conflict and stays quiet on a network error", async () => {
+    const comment = vi.fn();
+    const updateBranch = vi.fn(async (number) => {
+      throw new Error(number === 1 ? "merge conflict between base and head" : "connect ETIMEDOUT");
+    });
+    const log = vi.fn();
+    const result = await runConductorPass({
+      listPrs: async () => [
+        conductor({ number: 1, headRefName: "conductor/a", mergeStateStatus: "BEHIND" }),
+        conductor({ number: 2, headRefName: "conductor/b", mergeStateStatus: "BEHIND" }),
+      ],
+      updateBranch,
+      dispatchCi: vi.fn(),
+      comment,
+      commentsFor: async () => [],
+      log,
+    });
+    expect(comment).toHaveBeenCalledTimes(1);
+    expect(comment).toHaveBeenCalledWith(1, conductorConflictComment());
+    expect(result.commented).toEqual([1]);
+    expect(result.updated).toEqual([]);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("ETIMEDOUT"));
+  });
+
+  it("does not stamp a second conflict comment when the race already noted the PR", async () => {
+    const comment = vi.fn();
+    await runConductorPass({
+      listPrs: async () => [conductor({ number: 1, mergeStateStatus: "BEHIND" })],
+      updateBranch: vi.fn(async () => {
+        throw new Error("pull request is not mergeable");
+      }),
+      dispatchCi: vi.fn(),
+      comment,
+      commentsFor: async () => [{ body: CONFLICT_COMMENT_MARKER }],
+    });
+    expect(comment).not.toHaveBeenCalled();
+  });
+
+  it("dry-run reports both kinds of conductor PR without mutating", async () => {
+    const updateBranch = vi.fn();
+    const comment = vi.fn();
+    const result = await runConductorPass({
+      listPrs: async () => [
+        conductor({ number: 1, mergeStateStatus: "DIRTY" }),
+        conductor({ number: 2, headRefName: "conductor/behind", mergeStateStatus: "BEHIND" }),
+      ],
+      updateBranch,
+      dispatchCi: vi.fn(),
+      comment,
+      commentsFor: async () => [],
+      dryRun: true,
+    });
+    expect(result).toEqual({ commented: [1], updated: [2] });
+    expect(updateBranch).not.toHaveBeenCalled();
+    expect(comment).not.toHaveBeenCalled();
+  });
+});
+
+describe("conductor CLI wiring", () => {
+  it("comments through the issues REST route and runs the conductor pass", () => {
+    expect(CONDUCTOR_BRANCH_PREFIX).toBe("conductor/");
+    expect(SOURCE).toContain("runConductorPass(");
+    expect(SOURCE).toContain("repos/{owner}/{repo}/issues/${number}/comments");
+    expect(SOURCE).toContain(CONFLICT_COMMENT_MARKER);
+    const passAt = SOURCE.indexOf("export async function runConductorPass");
+    const nextDocAt = SOURCE.indexOf("\n/**", passAt + 10);
+    const pass = SOURCE.slice(passAt, nextDocAt === -1 ? undefined : nextDocAt);
+    expect(pass).not.toContain("pr merge");
+    expect(pass).not.toContain("ensureAutoMerge");
+  });
+});
 
 describe("constants", () => {
   it("AUTOMATION_BRANCH_PREFIX matches the branch every producer opens PRs from", () => {

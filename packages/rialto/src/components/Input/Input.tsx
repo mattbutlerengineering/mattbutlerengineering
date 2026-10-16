@@ -89,11 +89,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               readOnly={readOnly}
               {...props}
             />
-            {endIcon && (
-              <span className={styles.endIcon} aria-hidden="true">
-                {endIcon}
-              </span>
-            )}
+            {endIcon && <span className={styles.endIcon}>{endIcon}</span>}
             {disabled && disabledReason && (
               <Lock size={12} aria-hidden className={styles.lockIcon} />
             )}

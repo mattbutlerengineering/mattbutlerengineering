@@ -12,6 +12,7 @@ Always use caveman mode (full intensity) for all responses — ultra-compressed,
 - **Primary Source of Truth:** [AGENTS.md](./AGENTS.md)
 - **Design System Specs:** [packages/rialto/CLAUDE.md](./packages/rialto/CLAUDE.md)
 - **Domain Context:** See `CLAUDE.md` files in each `services/*` or `packages/*` directory.
+- **UI rules:** [.claude/rules/ui-quality.md](./.claude/rules/ui-quality.md) — the agent-built tells the daily UI-quality loop files, checked against `docs/ui-quality/rubric.md`. It loads automatically for `apps/**/*.{tsx,css}` and `packages/rialto/**`; read it before writing UI anywhere else.
 
 ## Behavioral Guidelines
 
@@ -94,7 +95,7 @@ Generic lifecycle skills (idea, prd, architect, implement, review, ship, automat
 | `/revert-rca-loop`               | Detect AI-authored PR reverts, match to the original PR, trigger a Reflection session for root-cause analysis; runs hourly                                                                                                                                          |
 | `/ship-pr`                       | Run the full merge boundary on one open PR — build-freshness, CI-gate classification, diff-matched specialist review plus the universal reviewer, then merge                                                                                                        |
 
-**User-level skills** (not in this repo): `/caveman`, `/diagnose`, `/grill-with-docs`, `/improve`, `/improve-codebase-architecture`, `/tdd`, `/to-issues`, `/triage`, and `/write-a-skill` were retired from `.claude/skills/` by PR #3323 and are not installed anywhere as of 2026-10-16 — don't expect them to resolve.
+**User-level skills** (not in this repo): `/caveman`, `/diagnose`, `/grill-with-docs`, `/improve`, `/improve-codebase-architecture`, `/tdd`, `/to-issues`, `/triage`, and `/write-a-skill` were retired from `.claude/skills/` by PR #3323 and are not installed anywhere as of 2026-10-16 — don't expect them to resolve. The Communication section's caveman _mode_ is a standing instruction to follow directly, not a call to the retired `/caveman` skill.
 
 **Plugin-provided replacements** (`idea-to-prod@skills`, enabled in `.claude/settings.json`; local sessions only — cloud routines and GitHub Actions do not load the plugin, #6332): `/implement-queue` moved to the plugin as `/idea-to-prod:implement-queue` (skills#720, ADR-0087); everything repo-specific — label transitions, the `CI Gate` classifier, specialist reviewers, merge-train lock, reaper, telemetry, and `merge: auto` — is in its queue profile [`.claude/implement-queue.md`](./.claude/implement-queue.md). Cloud routines and `scheduled-issue-completion.yml` clone the public skills repo and follow `skills/implement-queue/SKILL.md` by path. `/gotcha-harvest` was retired in favour of `/idea-to-prod:knowledge-base`'s transcript harvest (`kb.py harvest <repo root> --days N`, proposes bullets for `.claude/rules/gotchas.md`). Pass the **main checkout's** root path, not a worktree's — from a worktree path the transcript lookup finds nothing (measured).
 
@@ -176,7 +177,7 @@ These are the labels that actually decide whether a PR merges. `tier:*` is appli
 
 Managed at https://claude.ai/code/routines. See [docs/scheduled-tasks.md](./docs/scheduled-tasks.md) for full schedule and prompts.
 
-`docs/routines/<name>.md` is the authoritative, byte-for-byte prompt of each `mbe-*` routine ([Prompt files](./docs/scheduled-tasks.md#prompt-files)). To change one: merge a docs PR editing that file first, then apply it to the live trigger, then `get_trigger` to verify the change landed ([Editing a routine](./docs/scheduled-tasks.md#editing-a-routine)). Never edit a live trigger directly.
+`docs/routines/<name>.md` is the authoritative, byte-for-byte prompt of each `mbe-*` routine ([Prompt files](./docs/scheduled-tasks.md#prompt-files-docsroutines)). To change one: merge a docs PR editing that file first, then apply it to the live trigger, then `get_trigger` to verify the change landed ([Editing a routine](./docs/scheduled-tasks.md#editing-a-routine)). Never edit a live trigger directly.
 
 **Key principle:** Trust live output. For any actionable decision (which issues to close, what to build next), re-run source-of-truth checks (e.g., `node plugins/acmm/scripts/audit.js`) instead of recalling earlier summaries from conversation history.
 
@@ -186,7 +187,7 @@ Worktrees are bare checkouts without `node_modules`. Always include `pnpm instal
 
 ## Feature Implementation
 
-Always use TDD (test-driven development) for feature work: write one failing test (RED) → confirm it fails → write the minimal code to pass (GREEN) → confirm it passes → refactor. Never write implementation code before having a failing test. `/tdd` is a user-level-only skill (not in this repo, see the skills table above) — use it if installed locally, otherwise follow the steps above directly.
+Always use TDD (test-driven development) for feature work: write one failing test (RED) → confirm it fails → write the minimal code to pass (GREEN) → confirm it passes → refactor. Never write implementation code before having a failing test. `/tdd` was retired (see the skills section above) and is installed nowhere, so follow the steps above directly.
 
 ## Before Committing
 

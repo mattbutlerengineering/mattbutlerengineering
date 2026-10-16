@@ -1016,6 +1016,8 @@
   </file>
   <file path="src/routes/briefing.ts">
     export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
+      const { briefingService } = fastify.services;
+    
       fastify.get<{
         Querystring: { date?: string; venueId?: string };
         Reply: { data: BriefingEntry[] } | ProblemDetails;
@@ -1178,6 +1180,9 @@
                 .code(422)
                 .send(createProblemDetails(422, "Unprocessable Entity", err.message));
             }
+            if (err instanceof DepositConcurrentUpdateError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+            }
             throw err;
           }
         }
@@ -1334,7 +1339,9 @@
               // requireDepositSelector guarantees `venueId` when there is no
               // `reservationId`; only an unresolvable reservation yields null.
               resolve: async ({ query }) =>
-                query.reservationId ? resolveReservationVenueId(query.reservationId) : query.venueId!,
+                query.reservationId
+                  ? resolveVenueId("reservation", query.reservationId)
+                  : query.venueId!,
               label: "reservationId|venueId",
               notFound: "Reservation not found",
             },
@@ -1960,6 +1967,8 @@
   </file>
   <file path="src/routes/guests.ts">
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService, venueService } = fastify.services;
+    
       // List guests for a venue
       registerEndpoint(fastify, guestsEndpoints.list, {
         docs: {
@@ -2248,6 +2257,8 @@
       Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
     };
     export const holdRoutes: FastifyPluginAsync = async (fastify) => {
+      const { holdService } = fastify.services;
+    
       // Register schemas
       fastify.addSchema(HoldSchema);
     
@@ -2369,7 +2380,7 @@
           },
         },
         venueScoped<GetRoute>(
-          { venue: holdVenue("Hold not found or expired") },
+          { venue: holdVenue(holdService, "Hold not found or expired") },
           async (request, reply) => {
             const hold = await holdService.getById(request.params.id);
     
@@ -2426,7 +2437,7 @@
           },
         },
         venueScoped<ReleaseRoute>(
-          { venue: holdVenue("Hold not found or not owned by this session") },
+          { venue: holdVenue(holdService, "Hold not found or not owned by this session") },
           async (request, reply) => {
             const sessionId = request.headers[SESSION_ID_HEADER];
     
@@ -2501,7 +2512,7 @@
           },
         },
         venueScoped<ConfirmRoute>(
-          { venue: holdVenue("Hold not found") },
+          { venue: holdVenue(holdService, "Hold not found") },
           async (request, reply, { venueId }) => {
             const sessionId = request.headers[SESSION_ID_HEADER];
     
@@ -2599,6 +2610,8 @@
   </file>
   <file path="src/routes/manage-reservation.ts">
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.get<{ Querystring: { token?: string } }>(
         "/public/v1/reservations/manage",
         {
@@ -2689,7 +2702,7 @@
         if (!venueId) return spec.missing(reply, request);
     
         return runWithVenueContext(venueId, async () => {
-          const reservation = await reservationService.getById(reservationId);
+          const reservation = await request.server.services.reservationService.getById(reservationId);
           if (!reservation) return spec.missing(reply, request);
           if (reservation.guestEmail !== result.guestEmail) {
             return deny(reply, 403, "Forbidden", "Token does not match reservation");
@@ -2781,6 +2794,8 @@
   </file>
   <file path="src/routes/public-availability.ts">
     export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
+      const { availabilityService, venueService } = fastify.services;
+    
       fastify.get<{
         Params: { slug: string };
         Querystring: { date: string; partySize: string };
@@ -2868,7 +2883,7 @@
       return sessionIdsMatch(presented, originSessionId);
     }
     export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
-      const { depositService } = fastify.services;
+      const { depositService, reservationService, venueService } = fastify.services;
     
       fastify.post<{
         Params: { slug: string };
@@ -3056,6 +3071,8 @@
   </file>
   <file path="src/routes/public-guest-recognition.ts">
     export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.addSchema(guestRecognitionJsonSchema);
     
       fastify.get<{
@@ -3118,6 +3135,8 @@
   </file>
   <file path="src/routes/public-guest-risk.ts">
     export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService, venueService } = fastify.services;
+    
       fastify.addSchema(guestRiskResultJsonSchema);
     
       fastify.get<{
@@ -3223,6 +3242,8 @@
       return request.headers[SESSION_ID_HEADER] as string;
     }
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
+      const { holdService } = fastify.services;
+    
       fastify.post<{
         Params: { slug: string };
         Body: { date: string; startTime: string; endTime: string; partySize: number };
@@ -3629,6 +3650,8 @@
     </html>`;
     }
     export const publicUnsubscribeRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService } = fastify.services;
+    
       fastify.get<{ Querystring: { token?: string } }>(
         "/public/v1/guests/unsubscribe",
         {
@@ -3779,6 +3802,8 @@
   </file>
   <file path="src/routes/public-venues.ts">
     export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.addSchema(publicVenueConfigJsonSchema);
     
       fastify.get<{
@@ -3834,6 +3859,8 @@
       guestPhone: string;
     }
     export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService, waitlistService } = fastify.services;
+    
       fastify.addSchema(waitlistJoinResultJsonSchema);
       fastify.addSchema(waitlistEstimateJsonSchema);
     
@@ -4006,6 +4033,10 @@
   </file>
   <file path="src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
+      const { reservationService, guestService } = fastify.services;
+      const listVenueId = resolveReservationsListVenueId(guestService);
+      const ownerScope = reservationOwnerScope(reservationService);
+    
       /**
        * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
        * routes below. Both routes are scoped by `reservationOwnerScope`, which
@@ -4055,10 +4086,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveReservationsListVenueId),
-          ],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
           schema: {
             summary: "List reservations",
             operationId: "listReservations",
@@ -4270,7 +4298,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (_request, _reply, { entity: reservation }) => ({
+        venueScoped(ownerScope, async (_request, _reply, { entity: reservation }) => ({
           data: reservation,
         }))
       );
@@ -4482,7 +4510,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+        venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
           if (request.body.status === "CANCELLED") {
             try {
               const result = await cancelReservationForRequest(
@@ -4663,7 +4691,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+        venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
           try {
             const result = await cancelReservationForRequest(
               reservation,
@@ -5723,7 +5751,7 @@
             fastify.reservationEvents.emitTableUpdated(table);
             return { data: table };
           } catch (err) {
-            if (err instanceof TableTransitionError) {
+            if (err instanceof TableTransitionError || err instanceof TableConcurrentUpdateError) {
               const error = new Error(err.message) as Error & { statusCode?: number };
               error.statusCode = 409;
               throw error;
@@ -6781,6 +6809,8 @@
   </file>
   <file path="src/routes/waitlist.ts">
     export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      const { waitlistService } = fastify.services;
+    
       // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
       // the seat/cancel that triggered it, and runs after the queue is recalculated.
       const notifyImproved: OnPositionsImproved = (changes) => {
@@ -8092,11 +8122,6 @@
       return to;
     }
   </file>
-  <file path="src/services/deposit-venue.ts">
-    export async function resolveReservationVenueId(reservationId: string): Promise<string | null> {
-      return resolveVenueId("reservation", reservationId);
-    }
-  </file>
   <file path="src/services/deposit.ts">
     export type StripePort = Omit<PaymentsPort, "createPaymentIntent">;
     export type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
@@ -9375,25 +9400,6 @@
       createdAt: Date;
       updatedAt: Date;
     };
-    function mapPrismaTable(table: PrismaTable): Table {
-      return {
-        id: table.id,
-        name: table.name,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-        minCovers: table.minCovers,
-        maxCovers: table.maxCovers,
-        location: table.location,
-        isActive: table.isActive,
-        priority: table.priority,
-        status: table.status as Table["status"],
-        venueId: table.venueId,
-        floorPlanId: table.floorPlanId,
-        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-        createdAt: table.createdAt.toISOString(),
-        updatedAt: table.updatedAt.toISOString(),
-      };
-    }
     function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
       return {
         id: floorPlan.id,
@@ -9401,7 +9407,7 @@
         name: floorPlan.name,
         isActive: floorPlan.isActive,
         layoutJson: floorPlan.layoutJson as FloorPlanLayout,
-        tables: floorPlan.tables?.map(mapPrismaTable),
+        tables: floorPlan.tables?.map(toTable),
         createdAt: floorPlan.createdAt.toISOString(),
         updatedAt: floorPlan.updatedAt.toISOString(),
       };
@@ -9630,7 +9636,7 @@
             where: { id: tableId },
             data: { shapeMetadata: shapeMetadata as unknown as Prisma.InputJsonValue },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -9708,7 +9714,7 @@
           throw Object.assign(new Error("One or more tables not found"), { code: "P2025" });
         }
     
-        return tables.map(mapPrismaTable);
+        return tables.map(toTable);
       },
     
       async assignTableToFloorPlan(
@@ -9740,7 +9746,7 @@
                 : undefined,
             },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -9756,7 +9762,7 @@
               shapeMetadata: Prisma.DbNull,
             },
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -12806,7 +12812,7 @@
         return {
           success: true,
           reservation: toReservation(result.value.reservation),
-          table: mapPrismaTable(result.value.table),
+          table: toTable(result.value.table),
         };
       },
     };
@@ -13943,40 +13949,13 @@
     }
   </file>
   <file path="src/services/table.ts">
-    export function mapPrismaTable(table: {
-      id: string;
-      name: string;
-      tableNumber: string | null;
-      capacity: number;
-      minCovers: number;
-      maxCovers: number | null;
-      location: string | null;
-      isActive: boolean;
-      priority: number;
-      status: string;
-      venueId: string | null;
-      floorPlanId: string | null;
-      shapeMetadata: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Table {
-      return {
-        id: table.id,
-        name: table.name,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-        minCovers: table.minCovers,
-        maxCovers: table.maxCovers,
-        location: table.location,
-        isActive: table.isActive,
-        priority: table.priority,
-        status: table.status as TableStatus,
-        venueId: table.venueId,
-        floorPlanId: table.floorPlanId,
-        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-        createdAt: table.createdAt.toISOString(),
-        updatedAt: table.updatedAt.toISOString(),
-      };
+    export class TableConcurrentUpdateError extends Error {
+      constructor(id: string, status: string) {
+        super(
+          `Table ${id} concurrent update conflict: lost race moving to ${status}. Another status change completed first.`
+        );
+        this.name = "TableConcurrentUpdateError";
+      }
     }
     export const tableService = {
       async list(
@@ -14000,14 +13979,14 @@
         ]);
     
         return {
-          data: tables.map(mapPrismaTable),
+          data: tables.map(toTable),
           pagination: toPaginationMeta(page, limit, total),
         };
       },
     
       async getById(id: string): Promise<Table | null> {
         const table = await prisma.table.findUnique({ where: { id } });
-        return table ? mapPrismaTable(table) : null;
+        return table ? toTable(table) : null;
       },
     
       /**
@@ -14039,7 +14018,7 @@
               : Prisma.DbNull,
           },
         });
-        return mapPrismaTable(table);
+        return toTable(table);
       },
     
       async update(id: string, data: UpdateTableRequest): Promise<Table | null> {
@@ -14068,7 +14047,7 @@
             where: { id },
             data: updateData,
           });
-          return mapPrismaTable(table);
+          return toTable(table);
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -14082,16 +14061,13 @@
         const current = await prisma.table.findUnique({ where: { id } });
         if (!current) return null;
         transitionTable(current.status, status as TableStatus);
-        try {
-          const table = await prisma.table.update({
-            where: { id },
-            data: { status: status as TableStatus },
-          });
-          return mapPrismaTable(table);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
-        }
+        const { count } = await prisma.table.updateMany({
+          where: { id, status: current.status },
+          data: { status: status as TableStatus },
+        });
+        if (count === 0) throw new TableConcurrentUpdateError(id, status);
+        const table = await prisma.table.findUnique({ where: { id } });
+        return table ? toTable(table) : null;
       },
     
       async delete(id: string): Promise<boolean> {

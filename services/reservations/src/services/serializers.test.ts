@@ -8,7 +8,7 @@ import {
 
 const NOW = new Date("2026-06-14T18:00:00Z");
 
-function makePrismaTable() {
+function makePrismaTable(overrides: Record<string, unknown> = {}) {
   return {
     id: "table-1",
     name: "Table 1",
@@ -25,6 +25,7 @@ function makePrismaTable() {
     shapeMetadata: null,
     createdAt: NOW,
     updatedAt: NOW,
+    ...overrides,
   };
 }
 
@@ -65,6 +66,62 @@ describe("toTable", () => {
     expect(result.status).toBe("AVAILABLE");
     expect(result.createdAt).toBe(NOW.toISOString());
     expect(result.updatedAt).toBe(NOW.toISOString());
+  });
+});
+
+describe("toTable characterization", () => {
+  it("emits all 15 fields with ISO timestamps and passes nullable and JSON fields through", () => {
+    const shapeMetadata = { shape: "round", x: 10, y: 20, width: 80, height: 80, rotation: 0 };
+    const row = makePrismaTable({
+      tableNumber: "12",
+      maxCovers: 6,
+      location: "patio",
+      isActive: false,
+      priority: 3,
+      status: "DIRTY",
+      floorPlanId: "fp-1",
+      shapeMetadata,
+    });
+
+    expect(toTable(row)).toEqual({
+      id: row.id,
+      name: row.name,
+      tableNumber: "12",
+      capacity: row.capacity,
+      minCovers: row.minCovers,
+      maxCovers: 6,
+      location: "patio",
+      isActive: false,
+      priority: 3,
+      status: "DIRTY",
+      venueId: row.venueId,
+      floorPlanId: "fp-1",
+      shapeMetadata,
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
+    });
+    expect(Object.keys(toTable(row))).toHaveLength(15);
+  });
+
+  it("keeps nulls as null", () => {
+    const result = toTable(
+      makePrismaTable({
+        tableNumber: null,
+        maxCovers: null,
+        location: null,
+        venueId: null,
+        floorPlanId: null,
+        shapeMetadata: null,
+      })
+    );
+    expect(result).toMatchObject({
+      tableNumber: null,
+      maxCovers: null,
+      location: null,
+      venueId: null,
+      floorPlanId: null,
+      shapeMetadata: null,
+    });
   });
 });
 

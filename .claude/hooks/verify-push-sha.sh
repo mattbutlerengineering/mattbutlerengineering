@@ -8,8 +8,9 @@
 # old SHA — so auto-merge fires on stale code or a fix never lands.
 #
 # Wired via .claude/settings.json PostToolUse Bash matcher.
-# Receives the hook payload as JSON on stdin; the just-executed command
-# is read via hook-input.mjs (measured contract: scripts/hook-input.mjs).
+# Receives the hook payload as JSON on stdin; the just-executed command and
+# the tree it ran in (`cwd`) are read via hook-input.mjs (measured contract:
+# scripts/hook-input.mjs).
 #
 # Behavior:
 #   - Only fires for `git push` (skips --dry-run, --delete, tag-only pushes)
@@ -21,7 +22,10 @@
 # visible so Claude re-pushes instead of arming auto-merge on stale code.
 set -uo pipefail
 
-cmd=$(node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
+# Read the payload once — stdin can only be consumed once, and the adapter is
+# asked for two fields: the command now, the tree it ran in further down.
+payload=$(cat)
+cmd=$(printf '%s' "$payload" | node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
 [ -n "$cmd" ] || exit 0
 
 # Only intercept git push; skip non-pushing / destructive / dry forms.
@@ -42,7 +46,12 @@ case "$cmd" in
   *"--dry-run"*|*"--delete"*|*" :"*) exit 0 ;;  # dry run or branch deletion
 esac
 
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+# The tree the push came from is the payload's `cwd`. This hook's own CWD is
+# $CLAUDE_PROJECT_DIR (the main checkout) even for a worktree-isolated
+# subagent — the branch-resolution note below records how that misfired.
+tree=$(printf '%s' "$payload" | node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" cwd)
+[[ -n "$tree" && -d "$tree" ]] || tree=$(pwd)
+git -C "$tree" rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
 # Resolve the remote and the branch being pushed, in one pass over the command.
 #
@@ -67,7 +76,7 @@ for tok in $cmd; do
   if [[ -z "$seen_remote" ]]; then
     # -F/-- so flag tokens are matched literally rather than parsed as
     # grep options.
-    if git remote 2>/dev/null | grep -qxF -- "$tok"; then
+    if git -C "$tree" remote 2>/dev/null | grep -qxF -- "$tok"; then
       remote="$tok"; seen_remote=1
     fi
     continue
@@ -86,27 +95,22 @@ branch="${branch#refs/heads/}"
 local_ref="${local_ref#refs/heads/}"
 
 # Bare `git push`, or an explicit `HEAD` refspec: no branch name was given,
-# so HEAD is the only answer available.
-#
-# KNOWN RESIDUAL: this is still the HOOK's HEAD — the main checkout's — so a
-# *bare* push from a linked worktree can mis-resolve exactly as described
-# above. Only the named form is fully fixed, and that is the form everything
-# in this repo actually uses. Measured while fixing this: the hook payload
-# carries a top-level `cwd` (alongside `session_id`, `transcript_path`,
-# `scratchpad_dir`, `permission_mode`), which would let a later change resolve
-# HEAD in the session's own tree and close this case too.
+# so HEAD is the only answer available — the HEAD of the tree the push came
+# from (`$tree`, from the payload's `cwd`), never this hook's own. The hook's
+# HEAD is the main checkout's, which is exactly the mis-resolution described
+# above; reading `cwd` closes the bare-push case the named form had escaped.
 if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  branch=$(git -C "$tree" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
   local_ref="HEAD"
 fi
 
 # Detached HEAD or unknown — can't map to a remote branch reliably; skip.
 [[ -z "$branch" || "$branch" == "HEAD" ]] && exit 0
 
-local_sha=$(git rev-parse "$local_ref" 2>/dev/null || true)
+local_sha=$(git -C "$tree" rev-parse "$local_ref" 2>/dev/null || true)
 [[ -z "$local_sha" ]] && exit 0
 
-remote_sha=$(git ls-remote "$remote" "refs/heads/$branch" 2>/dev/null | awk '{print $1}')
+remote_sha=$(git -C "$tree" ls-remote "$remote" "refs/heads/$branch" 2>/dev/null | awk '{print $1}')
 
 if [[ -z "$remote_sha" ]]; then
   cat >&2 <<EOF
@@ -121,7 +125,7 @@ fi
 if [[ "$remote_sha" != "$local_sha" ]]; then
   # Classify the mismatch so the message matches reality instead of always
   # claiming "push failed" (a stale local with remote ahead is different).
-  if git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+  if git -C "$tree" merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
     # remote is behind local → the push genuinely did not land.
     cat >&2 <<EOF
 PUSH VERIFY: remote '$branch' is BEHIND local — the push did NOT land.
@@ -131,7 +135,7 @@ Silent failure, non-fast-forward, or pre-push hook rejection. Do NOT arm
 auto-merge. Re-push (add --no-verify if a pre-push hook is the blocker) and
 re-verify the remote advanced to the local SHA.
 EOF
-  elif git merge-base --is-ancestor "$local_sha" "$remote_sha" 2>/dev/null; then
+  elif git -C "$tree" merge-base --is-ancestor "$local_sha" "$remote_sha" 2>/dev/null; then
     # remote is ahead → concurrent push landed, or local was never the tip.
     cat >&2 <<EOF
 PUSH VERIFY: remote '$branch' is AHEAD of local.

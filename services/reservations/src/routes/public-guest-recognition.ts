@@ -5,11 +5,12 @@ import {
   guestRecognitionJsonSchema,
   publicGuestRecognitionQueryJsonSchema,
 } from "@mbe/types";
-import { venueService } from "../services/venue.js";
 import { recognizeGuest } from "../services/guest-recognition.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
 
 export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
+  const { venueService } = fastify.services;
+
   fastify.addSchema(guestRecognitionJsonSchema);
 
   fastify.get<{

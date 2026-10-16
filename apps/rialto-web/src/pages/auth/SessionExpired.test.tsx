@@ -75,6 +75,14 @@ describe("SessionExpired", () => {
     expect(screen.queryByText(/this page is preserved/i)).not.toBeInTheDocument();
   });
 
+  it("leaves the layout title as the only level-one heading", () => {
+    renderPage();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Your session ended" })
+    ).toBeInTheDocument();
+  });
+
   it("shows the Handshake idle beside the warning StatusLED", () => {
     renderPage();
     const handshake = screen.getByRole("img", {

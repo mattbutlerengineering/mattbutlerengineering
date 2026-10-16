@@ -180,8 +180,8 @@ describe("name registry (guards #3079)", () => {
 
   // read()/readWeekly() → a metric is CONSUMED. append()/write()/writeWeekly()
   // → PRODUCED through the store. resolvePath()/resolveWeeklyPath() → PRODUCED
-  // by a caller that manages its own file handle (collect-queue-telemetry's
-  // dedup-aware appender), which still owns no path knowledge of its own.
+  // by a caller that manages its own file handle, which still owns no path
+  // knowledge of its own.
   const READER_RE = /\b(?:read|readWeekly)\(\s*["']([a-z0-9-]+)["']/g;
   const WRITER_RE =
     /\b(?:append|write|writeWeekly|resolvePath|resolveWeeklyPath)\(\s*["']([a-z0-9-]+)["']/g;

@@ -5,7 +5,7 @@
  * (issue, PR).
  *
  * One row per PR is the file's invariant, not a convention: `appendTelemetryRow`
- * in `collect-queue-telemetry.mjs` has enforced it on the append path since it
+ * in `queue-telemetry-store.mjs` has enforced it on the append path since it
  * was written. Both consumers count rows and treat each as one merged PR —
  * `plugins/acmm/scripts/human-touch-reasons.js` (the 30-day human_touch_reason
  * breakdown) and `scripts/collect-queue-efficiency.mjs` (the queueEfficiency

@@ -293,7 +293,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-04",
-    "last_seen": "2026-10-04",
+    "last_seen": "2026-10-16",
     "escalated_at": null
   },
   "rialto-web|examples/pricing-table|r1|accessibility/axe-serious": {
@@ -320,7 +320,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-04",
-    "last_seen": "2026-10-04",
+    "last_seen": "2026-10-16",
     "escalated_at": null
   },
   "rialto-web|examples/reservation-timeline|r1|accessibility/axe-serious": {
@@ -455,7 +455,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-15",
-    "last_seen": "2026-10-15",
+    "last_seen": "2026-10-16",
     "escalated_at": null
   },
   "rialto-web|components/scroll-area|r1|accessibility/axe-moderate": {
@@ -474,6 +474,60 @@
     "severity": "P2",
     "first_seen": "2026-10-15",
     "last_seen": "2026-10-15",
+    "escalated_at": null
+  },
+  "rialto-web|demos/login|r1|accessibility/axe-moderate": {
+    "issue": 6816,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-16",
+    "last_seen": "2026-10-16",
+    "escalated_at": null
+  },
+  "rialto-web|demos/login|r1|accessibility/axe-serious": {
+    "issue": 6817,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-16",
+    "last_seen": "2026-10-16",
+    "escalated_at": null
+  },
+  "rialto-web|demos/signup|r1|accessibility/axe-moderate": {
+    "issue": 6818,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-16",
+    "last_seen": "2026-10-16",
+    "escalated_at": null
+  },
+  "rialto-web|demos/signup|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-16",
+    "last_seen": "2026-10-16",
+    "escalated_at": null
+  },
+  "rialto-web|examples/checkout|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-16",
+    "last_seen": "2026-10-16",
+    "escalated_at": null
+  },
+  "rialto-web|examples/form|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-16",
+    "last_seen": "2026-10-16",
     "escalated_at": null
   }
 }

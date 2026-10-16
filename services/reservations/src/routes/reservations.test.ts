@@ -11,7 +11,10 @@ import {
   ERROR_FORBIDDEN,
 } from "../test/mocks.js";
 
-// Mock the reservation service
+// Mock the reservation service. The module mocks stay (issue #6772) because the
+// un-migrated reservation-cancellation / no-show / modification / guest-link
+// services import these singletons directly; the same mocked objects are also
+// injected through buildApp({ services }) for the migrated routes.
 vi.mock("../services/reservation.js", () => ({
   reservationService: {
     list: vi.fn(),
@@ -187,7 +190,12 @@ describe("Reservation Routes", () => {
     // reconnect loop (no Redis in CI) whose console output can race vitest's
     // worker teardown after the file's tests finish (issue #2956).
     app = await buildApp({
-      services: { depositService: injectedDeposits },
+      services: {
+        reservationService,
+        guestService,
+        venueService,
+        depositService: injectedDeposits,
+      },
       logger: false,
       reservationEvents: stubEvents,
       jobs: {
@@ -1916,7 +1924,12 @@ describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
       AUTH_AUDIENCE: "https://api.example.com",
     };
     const built = await buildApp({
-      services: { depositService: injectedDeposits },
+      services: {
+        reservationService,
+        guestService,
+        venueService,
+        depositService: injectedDeposits,
+      },
       logger: false,
       venueMembershipLookup: lookup,
     });
@@ -2034,7 +2047,12 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
       AUTH_AUDIENCE: "https://api.example.com",
     };
     const built = await buildApp({
-      services: { depositService: injectedDeposits },
+      services: {
+        reservationService,
+        guestService,
+        venueService,
+        depositService: injectedDeposits,
+      },
       logger: false,
       venueMembershipLookup: lookup,
     });
@@ -2388,7 +2406,12 @@ describe("Reservation Routes — venue authorization pins (ADR-020)", () => {
       protectedHeader: { alg: "RS256" },
     } as never);
     app = await buildApp({
-      services: { depositService: injectedDeposits },
+      services: {
+        reservationService,
+        guestService,
+        venueService,
+        depositService: injectedDeposits,
+      },
       logger: false,
       venueMembershipLookup: lookup,
       jobs: {

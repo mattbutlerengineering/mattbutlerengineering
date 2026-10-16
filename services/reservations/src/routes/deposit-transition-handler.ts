@@ -1,5 +1,9 @@
 import { createProblemDetails } from "@mbe/types";
-import { DepositTransitionError, type DepositService } from "../services/deposit.js";
+import {
+  DepositConcurrentUpdateError,
+  DepositTransitionError,
+  type DepositService,
+} from "../services/deposit.js";
 import { venueScoped } from "./venue-scope.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
@@ -54,6 +58,9 @@ export function depositTransitionHandler(
           return reply
             .code(422)
             .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+        }
+        if (err instanceof DepositConcurrentUpdateError) {
+          return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
         }
         throw err;
       }

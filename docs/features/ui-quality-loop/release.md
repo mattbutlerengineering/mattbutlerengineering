@@ -138,7 +138,7 @@ None of these could run before this artifact was written, because the first fire
   - In hospitality at 375 px, the floor-plan canvas and `setup/hours` overflow.
   - The hospitality setup checklist renders its progress as "66.666…%" instead of rounding it.
   - `useScrollReveal` leaves content hidden under `prefers-reduced-motion`.
-- **Rialto-web visual baselines are red on `main`.** 46/49 snapshots have failed since 2026-09-23 (run 36481971063). Regenerate them from a `visual-actuals-replica-a` artifact per gotchas § CI.
+- **Rialto-web visual baselines are red on `main`.** 46/49 snapshots have failed since 2026-09-23 (run 36481971063). Regenerate them from a `visual-actuals-replica-a` artifact per gotchas § CI. The regen is now a dispatch: run [`visual-baseline-regen.yml`](../../../.github/workflows/visual-baseline-regen.yml) and review the PR it opens.
 - **The fix-PR path is unreachable.** Findings carry no `evidence.file`, so the routine's "at most one fix PR" branch can never select a finding. Either populate `evidence.file` from capture, or drop the branch from the prompt.
 
 ## Outcome
