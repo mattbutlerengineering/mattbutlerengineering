@@ -154,6 +154,35 @@ function confirmationChain(
   ];
 }
 
+/**
+ * The legacy `public-booking` door sends the confirmation and schedules both
+ * reminders. The widget's `public-hold` door (#6713) sends the confirmation
+ * only: reminders are a separate concern (they need Redis) and stay unwired
+ * there. No manage token (phone-only guest) means no email to send.
+ */
+function holdConfirmedMessages(
+  fact: Extract<TransitionFact, { kind: "hold-confirmed" }>,
+  now: Date
+): PlannedEffect[] {
+  if (fact.manageToken === undefined) return [];
+  if (fact.door === "public-booking") {
+    return confirmationChain(fact.reservation, fact.manageToken, now);
+  }
+  if (fact.door === "public-hold") {
+    return [
+      background(
+        message({
+          kind: "booking-confirmation",
+          reservation: fact.reservation,
+          manageToken: fact.manageToken,
+        }),
+        "propagate"
+      ),
+    ];
+  }
+  return [];
+}
+
 function isStaffTimeChange(patch: UpdateReservationRequest): boolean {
   return patch.date !== undefined || patch.startTime !== undefined || patch.endTime !== undefined;
 }
@@ -225,9 +254,7 @@ function planForFact(fact: TransitionFact, now: Date): PlannedEffect[] {
 
     case "hold-confirmed":
       return [
-        ...(fact.door === "public-booking" && fact.manageToken !== undefined
-          ? confirmationChain(fact.reservation, fact.manageToken, now)
-          : []),
+        ...holdConfirmedMessages(fact, now),
         live(reservationEvent("hold:confirmed", fact.reservation)),
       ];
 

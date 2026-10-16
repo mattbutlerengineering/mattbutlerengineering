@@ -3431,6 +3431,12 @@
             // reservation to someone else's guest record.
             const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
               request.body;
+            // Only mint a manage token when an email was actually supplied: a
+            // phone-only booking is stored with `guestEmail: null`, and a token
+            // signed with "" could never validate against it. Minted once, for the
+            // confirmed reservation, and shared by the confirmation email and the
+            // response.
+            let manageToken: string | undefined;
             const result = await fastify.transitions.confirmHold(
               {
                 holdId,
@@ -3438,7 +3444,13 @@
                 venueId,
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
               },
-              { door: "public-hold" }
+              {
+                door: "public-hold",
+                manageToken: (reservation) =>
+                  guestEmail
+                    ? (manageToken = generateManageToken(reservation.id, guestEmail))
+                    : undefined,
+              }
             );
     
             if (!result.success) {
@@ -3452,13 +3464,6 @@
             // The hold is consumed, so it no longer counts against the per-IP
             // active-hold cap — same bookkeeping the release path does.
             decrementHoldCount(ip);
-    
-            // Only mint a manage token when an email was actually supplied: a
-            // phone-only booking is stored with `guestEmail: null`, and a token
-            // signed with "" could never validate against it.
-            const manageToken = guestEmail
-              ? generateManageToken(result.reservation.id, guestEmail)
-              : undefined;
     
             return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
           }
@@ -16342,6 +16347,28 @@
         ...reminderOps(reservation, now, "schedule").map((op) => background(job(op), "propagate")),
       ];
     }
+    function holdConfirmedMessages(
+      fact: Extract<TransitionFact, { kind: "hold-confirmed" }>,
+      now: Date
+    ): PlannedEffect[] {
+      if (fact.manageToken === undefined) return [];
+      if (fact.door === "public-booking") {
+        return confirmationChain(fact.reservation, fact.manageToken, now);
+      }
+      if (fact.door === "public-hold") {
+        return [
+          background(
+            message({
+              kind: "booking-confirmation",
+              reservation: fact.reservation,
+              manageToken: fact.manageToken,
+            }),
+            "propagate"
+          ),
+        ];
+      }
+      return [];
+    }
     function isStaffTimeChange(patch: UpdateReservationRequest): boolean {
       return patch.date !== undefined || patch.startTime !== undefined || patch.endTime !== undefined;
     }
@@ -16410,9 +16437,7 @@
     
         case "hold-confirmed":
           return [
-            ...(fact.door === "public-booking" && fact.manageToken !== undefined
-              ? confirmationChain(fact.reservation, fact.manageToken, now)
-              : []),
+            ...holdConfirmedMessages(fact, now),
             live(reservationEvent("hold:confirmed", fact.reservation)),
           ];
     

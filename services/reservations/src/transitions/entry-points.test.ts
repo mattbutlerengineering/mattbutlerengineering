@@ -643,17 +643,26 @@ describe("reservation transitions — effects per entry point", () => {
       expect(rec.effects.jobs).toEqual([]);
     });
 
-    it.each(["staff-hold", "public-hold"] as const)(
-      "%s sends no message and schedules no job (D4 kept)",
-      async (door) => {
-        arrangeConfirm();
-        const response = await send(doors[door]());
-        expect(response.statusCode).toBe(201);
-        expect(rec.effects.messages).toEqual([]);
-        expect(rec.effects.jobs).toEqual([]);
-        expect(rec.effects.depositOps).toEqual([]);
-      }
-    );
+    it("staff-hold sends no message and schedules no job (D4 kept)", async () => {
+      arrangeConfirm();
+      const response = await send(doors["staff-hold"]());
+      expect(response.statusCode).toBe(201);
+      expect(rec.effects.messages).toEqual([]);
+      expect(rec.effects.jobs).toEqual([]);
+      expect(rec.effects.depositOps).toEqual([]);
+    });
+
+    it("public-hold sends exactly one confirmation and schedules no reminder (#6713)", async () => {
+      arrangeConfirm();
+      const response = await send(doors["public-hold"]());
+      expect(response.statusCode).toBe(201);
+      expect(response.json().manageToken).toEqual(expect.any(String));
+      expect(rec.effects.messages).toEqual([
+        { kind: "booking-confirmation", reservationId: RES_ID, guestEmail: GUEST_EMAIL },
+      ]);
+      expect(rec.effects.jobs).toEqual([]);
+      expect(rec.effects.depositOps).toEqual([]);
+    });
 
     it("public-booking delivers hold:confirmed to live subscribers (D5)", async () => {
       arrangeConfirm();
