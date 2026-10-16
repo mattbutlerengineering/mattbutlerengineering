@@ -263,6 +263,13 @@ jobs:
 
       - run: pnpm lint
 
+      # #6887: dead code / unused deps fail the gate. knip needs no build
+      # output (knip.jsonc lists rialto-web's entries explicitly instead of
+      # loading its manifest-reading vite config). A bare command, so a
+      # non-zero exit fails the step.
+      - name: Dead code and unused dependencies (knip)
+        run: pnpm check:knip
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest

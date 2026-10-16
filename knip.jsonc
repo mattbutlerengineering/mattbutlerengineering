@@ -31,9 +31,6 @@
         ".claude/hooks/*.mjs",
         ".claude/skills/*/scripts/*.mjs",
       ],
-      // glob: imported by tools/cli, which declares no `glob` of its own and
-      // resolves it from the root node_modules.
-      "ignoreDependencies": ["glob"],
     },
     "apps/*": {
       "entry": ["playwright*.config.ts", "e2e/**/*.{ts,tsx}"],
@@ -45,7 +42,19 @@
       "ignoreDependencies": ["@json-render/react", "axe-core"],
     },
     "apps/rialto-web": {
-      "entry": ["playwright*.config.ts", "e2e/**/*.{ts,tsx}"],
+      "entry": [
+        "playwright*.config.ts",
+        "e2e/**/*.{ts,tsx}",
+        "src/main.tsx",
+        "src/**/*.test.{ts,tsx}",
+        "src/setupTests.ts",
+        "*.config.test.ts",
+      ],
+      // The vite/vitest config resolves the gitignored packages/rialto/dist/manifest.json
+      // at load time; knip must run with no build, so skip the plugins' config loading
+      // (the app entry, tests and setup file are listed explicitly instead).
+      "vite": false,
+      "vitest": false,
       // @mbe/api-client: rialto's ChatPanel imports it; kept as a workspace dep
       // so turbo's prebuild chain (types -> api-client -> app) holds
       // (see e2e/build-script.test.ts).
