@@ -406,23 +406,34 @@ export const reservationService = {
             await guestService.recordNoShow(existing.guestId, existing.startTime, client);
           }
 
+          if (data.status === "COMPLETED" && existing.guestId) {
+            // Count the visit in the SAME transaction as the status CAS. The
+            // CAS (`count === 0` returns above) plus the state machine's
+            // terminal COMPLETED state mean exactly one caller ever reaches
+            // this line per reservation, so visitCount cannot double-count.
+            // spendAmount is deliberately omitted: no source captures spend
+            // on completion yet, so lifetimeSpend stays untouched.
+            await guestService.recordVisit(existing.guestId, existing.startTime, undefined, client);
+          }
+
           return client.reservation.findUnique({
             where: { id },
             include: { table: true },
           });
         };
 
-        const updated =
-          data.status === "NO_SHOW" && existing.guestId
-            ? await prisma.$transaction(async (tx) => {
-                // This `prisma.$transaction` call bypasses the per-call
-                // auto-wrap `services/venue-scoped-prisma.ts` gives the
-                // `prisma` export — set app.venue_id on THIS transaction's
-                // own `tx` explicitly (ADR-026 part 6).
-                await setVenueContext(tx, getCurrentVenueId());
-                return writeStatusChange(tx);
-              })
-            : await writeStatusChange(prisma);
+        const touchesGuest =
+          (data.status === "NO_SHOW" || data.status === "COMPLETED") && existing.guestId;
+        const updated = touchesGuest
+          ? await prisma.$transaction(async (tx) => {
+              // This `prisma.$transaction` call bypasses the per-call
+              // auto-wrap `services/venue-scoped-prisma.ts` gives the
+              // `prisma` export — set app.venue_id on THIS transaction's
+              // own `tx` explicitly (ADR-026 part 6).
+              await setVenueContext(tx, getCurrentVenueId());
+              return writeStatusChange(tx);
+            })
+          : await writeStatusChange(prisma);
 
         return updated ? toReservation(updated) : null;
       }

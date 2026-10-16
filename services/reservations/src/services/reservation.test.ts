@@ -914,6 +914,83 @@ describe("reservationService", () => {
       expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
     });
 
+    it("records a guest visit inside the same transaction as the COMPLETED status CAS (#6714)", async () => {
+      const startTime = new Date("2026-05-05T18:00:00Z");
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED", guestId: "guest-1", startTime }) as never
+      );
+      const guestUpdate = vi.fn().mockResolvedValue({
+        id: "guest-1",
+        venueId: "venue-1",
+        email: null,
+        phone: null,
+        name: "Jane Doe",
+        notes: null,
+        visitCount: 1,
+        noShowCount: 0,
+        lastNoShowAt: null,
+        lifetimeSpend: null,
+        lastVisit: startTime,
+        tags: null,
+        dietaryRestrictions: null,
+        staffNotes: null,
+        communicationPreference: "both",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(((
+        fn: (client: unknown) => Promise<unknown>
+      ) =>
+        fn({
+          $executeRaw: vi.fn().mockResolvedValue(0),
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+          reservation: {
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+            findUnique: vi.fn().mockResolvedValue(makePrismaReservation({ status: "COMPLETED" })),
+          },
+          guest: { update: guestUpdate },
+        })) as never);
+
+      const result = await reservationService.update("res-1", { status: "COMPLETED" });
+
+      expect(result!.status).toBe("COMPLETED");
+      expect(guestUpdate).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: { visitCount: { increment: 1 }, lastVisit: startTime },
+      });
+      expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("does not record a visit when the COMPLETED CAS loses the race (#6714)", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED", guestId: "guest-1" }) as never
+      );
+      const guestUpdate = vi.fn();
+      vi.mocked(prisma.$transaction).mockImplementationOnce(((
+        fn: (client: unknown) => Promise<unknown>
+      ) =>
+        fn({
+          $executeRaw: vi.fn().mockResolvedValue(0),
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+          reservation: { updateMany: vi.fn().mockResolvedValue({ count: 0 }), findUnique: vi.fn() },
+          guest: { update: guestUpdate },
+        })) as never);
+
+      const result = await reservationService.update("res-1", { status: "COMPLETED" });
+
+      expect(result).toBeNull();
+      expect(guestUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rejects a second COMPLETED transition before any guest write (#6714)", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "COMPLETED", guestId: "guest-1" }) as never
+      );
+
+      await expect(reservationService.update("res-1", { status: "COMPLETED" })).rejects.toThrow();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it("persists cancellationReason and cancellationNote when cancelling", async () => {
       vi.mocked(prisma.reservation.findUnique)
         .mockResolvedValueOnce(makePrismaReservation({ status: "PENDING" }) as never)
