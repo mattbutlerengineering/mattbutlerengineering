@@ -50,7 +50,7 @@ their acceptance criteria are met.
     `pnpm lint && pnpm typecheck && pnpm test` (affected packages) all exit
     0, outputs quoted in the PR.
   - Blocked by: WO-0016, WO-0017
-- [ ] **WO-0019 — Dry walk-through on PR #6591, recorded in the PR body** —
+- [x] **WO-0019 — Dry walk-through on PR #6591, recorded in the PR body** —
       without merging anything: name the CI classification #6591's head
       would get, the specialists `reviewersForDiff` names for its changed
       files, and the merge action the skill would take. (tracker: #6639)
