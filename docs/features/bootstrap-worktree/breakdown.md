@@ -33,7 +33,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 2: the command works end to end (SC-1, SC-2)
 
-- [ ] **WO-7. Probes + CLI + `bootstrap:worktree` script** — fs probe layer
+- [x] **WO-7. Probes + CLI + `bootstrap:worktree` script** — fs probe layer
       (workspace globs, mtime staleness via `.modules.yaml` receipt, dist
       existence), `--check` mode, step execution via `execFileSync`
       (`pnpm install --frozen-lockfile`; `pnpm exec turbo run build` with one
