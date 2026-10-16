@@ -268,6 +268,20 @@ export const ROUTINE_MANIFEST = [
     periodDays: 1,
     signature: { type: "heartbeat" },
   },
+  {
+    name: "mbe-feature-drain",
+    // Two live RemoteTriggers share this prompt and this heartbeat name —
+    // trig_01RT7JnCPWyxw4fcKKVmCTb8 (`3 * * * *`, mbe-feature-drain-a) and
+    // trig_013Yd7dJ2X98nAwME7fi7iqx (`33 * * * *`, mbe-feature-drain-b) —
+    // because the API floors a single cron at one hour (measured 2026-10-16).
+    // One manifest entry, one liveness question: did the drain fire today?
+    // The prompt posts `noop` at most once per UTC day to keep #6211 readable;
+    // `ok`/`error`/`throttled` post on every fire.
+    triggerId: "trig_01RT7JnCPWyxw4fcKKVmCTb8",
+    periodDays: 1,
+    activatedAt: "2026-10-16",
+    signature: { type: "heartbeat" },
+  },
 ];
 
 const CATALOG_ROW_PATTERN = /^\|\s*`([a-z0-9-]+)`/;
