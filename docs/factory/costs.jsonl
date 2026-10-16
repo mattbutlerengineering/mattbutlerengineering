@@ -18,3 +18,4 @@
 {"wo": "#6634", "run_id": "conductor-b20261014c-6634-build-5", "model": "claude-sonnet-5", "tokens": 901871, "cost": 1.9773618000000002, "outcome": "completed", "at": "2026-10-16"}
 {"wo": "#6634", "run_id": "conductor-b20261014c-6634-build-6", "model": "claude-sonnet-5", "tokens": 1722525, "cost": 0.7731982, "outcome": "completed", "at": "2026-10-16"}
 {"wo": "#6634", "run_id": "conductor-b20261014c-6634-verify-1", "model": "claude-sonnet-5", "tokens": 2963405, "cost": 1.0839636000000001, "outcome": "completed", "at": "2026-10-16"}
+{"wo": "#6634", "run_id": "conductor-b20261014c-6634-review-1", "model": "claude-fable-5", "tokens": 205821, "cost": 2.26013, "outcome": "agent-failed", "at": "2026-10-16"}
