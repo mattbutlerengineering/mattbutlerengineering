@@ -78,7 +78,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 5: acceptance sweep (SC-5)
 
-- [ ] **WO-10. Gates + issue verification commands** — run the issue's
+- [x] **WO-10. Gates + issue verification commands** — run the issue's
       verification block verbatim (`pnpm install --frozen-lockfile`; the
       vitest run of `bootstrap-worktree.test.mjs`;
       `node scripts/check-hook-wiring.mjs`) plus
