@@ -52,7 +52,21 @@ jobs:
       ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
       LANE: ${{ matrix.lane }}
       ROUTINE_ID: ${{ matrix.routine }}
-      ROUTINE_FIRE_TOKEN: ${{ secrets[format('SWARM_FIRE_TOKEN_{0}', matrix.lane)] }}
+      # Named statically: indexing secrets by a computed name makes Actions pass
+      # every repo secret to the runner. The trailing `|| ''` keeps an unset
+      # token empty instead of the string "false".
+      ROUTINE_FIRE_TOKEN: >-
+        ${{
+          matrix.lane == '01' && secrets.SWARM_FIRE_TOKEN_01 ||
+          matrix.lane == '02' && secrets.SWARM_FIRE_TOKEN_02 ||
+          matrix.lane == '03' && secrets.SWARM_FIRE_TOKEN_03 ||
+          matrix.lane == '04' && secrets.SWARM_FIRE_TOKEN_04 ||
+          matrix.lane == '05' && secrets.SWARM_FIRE_TOKEN_05 ||
+          matrix.lane == '06' && secrets.SWARM_FIRE_TOKEN_06 ||
+          matrix.lane == '07' && secrets.SWARM_FIRE_TOKEN_07 ||
+          matrix.lane == '08' && secrets.SWARM_FIRE_TOKEN_08 ||
+          matrix.lane == '09' && secrets.SWARM_FIRE_TOKEN_09 ||
+          matrix.lane == '10' && secrets.SWARM_FIRE_TOKEN_10 || '' }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
     steps:

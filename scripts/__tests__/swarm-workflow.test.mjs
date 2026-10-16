@@ -103,9 +103,17 @@ describe("each lane fires through its own per-routine token and never a shared k
   const fire = jobOf("fire");
 
   it("reads the token from SWARM_FIRE_TOKEN_<lane> and nothing named ANTHROPIC_API_KEY", () => {
-    expect(fire.env.ROUTINE_FIRE_TOKEN).toBe(
-      "${{ secrets[format('SWARM_FIRE_TOKEN_{0}', matrix.lane)] }}"
-    );
+    // A dynamic `secrets[...]` index makes Actions hand EVERY repo secret to
+    // the runner (CodeQL "Excessive Secrets Exposure"), so each lane's token
+    // is named statically, guarded by its lane.
+    expect(RAW).not.toMatch(/secrets\[/);
+    const expr = fire.env.ROUTINE_FIRE_TOKEN.replace(/\s+/g, " ");
+    for (const { lane } of matrix) {
+      expect(expr).toContain(`matrix.lane == '${lane}' && secrets.SWARM_FIRE_TOKEN_${lane}`);
+    }
+    // Without the trailing `|| ''`, an unset token falls through the chain to
+    // `false`, and the lane would fire with the literal string "false".
+    expect(expr).toMatch(/\|\| '' \}\}$/);
     expect(RAW).not.toContain("ANTHROPIC_API_KEY");
   });
 
