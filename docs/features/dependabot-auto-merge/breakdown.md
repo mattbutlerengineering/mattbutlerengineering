@@ -26,7 +26,7 @@ implementation PR (see frontmatter).
       names, prefix mismatch) and npm-vs-non-npm reason wording; then
       `scripts/dependabot-auto-merge-policy.mjs` (`decideDependabotMerge` +
       `decide` CLI, no dependencies) goes GREEN. (tracker: #6650)
-- [ ] **WO-37 — dependabot.yml groups** — add `official-actions`
+- [x] **WO-37 — dependabot.yml groups** — add `official-actions`
       (`actions/*`, `github/*`) under the `github-actions` ecosystem; add npm
       group `types` (`@types/*`, no `dependency-type` key) and remove
       `@types/*` from `dev-deps` patterns, per architecture § 1. Accept: each

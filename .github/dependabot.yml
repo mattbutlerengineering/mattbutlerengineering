@@ -19,7 +19,12 @@ updates:
           ["@types/*", "eslint*", "prettier*", "vitest*", "@vitest/*", "playwright*"]
       dev-deps:
         dependency-type: "development"
-        patterns: ["@types/*", "eslint*", "prettier*", "vitest*", "@vitest/*", "playwright*"]
+        patterns: ["eslint*", "prettier*", "vitest*", "@vitest/*", "playwright*"]
+      # No `dependency-type` key, so this captures `@types/*` wherever it's
+      # declared (dependencies or devDependencies) — see
+      # dependabot-auto-merge-policy.mjs (#6650), which auto-merges this group.
+      types:
+        patterns: ["@types/*"]
     ignore:
       # TypeScript 7 removes the JavaScript Compiler API, breaking unplugin-dts
       # (rialto lib build) and typescript-eslint. Remove once #3253 lands.
@@ -36,6 +41,11 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    groups:
+      # Third-party actions match no group -> empty dependency-group -> manual
+      # (unchanged behavior for them, now by policy rather than accident).
+      official-actions:
+        patterns: ["actions/*", "github/*"]
     labels:
       - "dependencies"
       - "ci-fix"
