@@ -282,6 +282,22 @@ export const ROUTINE_MANIFEST = [
     activatedAt: "2026-10-16",
     signature: { type: "heartbeat" },
   },
+  {
+    name: "mbe-prune",
+    // Four live RemoteTriggers share this prompt and this heartbeat name —
+    // trig_01TBQ4jQS9UGwJTxrWfWBCyQ (`14 * * * *`, mbe-prune-a),
+    // trig_01SoduJryRjjQN5D75h3ZJjv (`29 * * * *`, mbe-prune-b),
+    // trig_01CzgACLRQpi8ApXfSUM7T5q (`44 * * * *`, mbe-prune-c) and
+    // trig_016WxmLRG8kYUymu3QmwEk3P (`59 * * * *`, mbe-prune-d) —
+    // for the same reason as mbe-feature-drain: the API floors a single cron
+    // at one hour. One manifest entry, one liveness question: did the prune
+    // fire today? `noop` posts at most once per UTC day; `ok`/`error`/
+    // `throttled` post on every fire (docs/routines/mbe-prune.md).
+    triggerId: "trig_01TBQ4jQS9UGwJTxrWfWBCyQ",
+    periodDays: 1,
+    activatedAt: "2026-10-16",
+    signature: { type: "heartbeat" },
+  },
 ];
 
 const CATALOG_ROW_PATTERN = /^\|\s*`([a-z0-9-]+)`/;
