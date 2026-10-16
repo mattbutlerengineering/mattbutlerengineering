@@ -8,7 +8,7 @@ import {
   resolveSessionAdapter,
   runEvalSuite,
   createEvalJudge,
-  getGitDiff,
+  getSessionDiff,
   loadSuite,
   calibrate,
   removeWorktree,
@@ -339,7 +339,11 @@ function makeAgentTaskRunner(
     };
 
     // Captured before the worktree is released: the LLM judge scores this diff.
-    const diff = session.worktreePath === undefined ? "" : await getGitDiff(session.worktreePath);
+    // The whole session vs its base; `undefined` = could not capture (inconclusive, not a fail).
+    const diff =
+      session.worktreePath === undefined
+        ? undefined
+        : await getSessionDiff(session.worktreePath, config.baseBranch);
 
     await releaseWorktree(repoPath, task.id, session);
 

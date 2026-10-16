@@ -73,7 +73,11 @@ export interface TaskRunResult {
   readonly task: Task;
   readonly session: SessionResult;
   readonly checks: DeterministicChecks;
-  /** The agent's change as a unified diff, captured by the runner for the LLM judge. */
+  /**
+   * The whole session's change as a unified diff, captured by the runner for
+   * the LLM judge. `""` = captured, nothing changed; `undefined` = could not
+   * be captured (judge is inconclusive).
+   */
   readonly diff?: string;
 }
 

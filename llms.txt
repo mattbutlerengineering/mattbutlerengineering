@@ -12039,6 +12039,14 @@
       function readableStreamFromAsyncIterable(iterable: AsyncIterable<string>): ReadableStream<string> { /* ... */ }
     </item>
   </file>
+  <file path="packages/agent-core/src/session-diff.ts">
+    <item priority="high">
+      export async function getSessionDiff(
+        worktreePath: string,
+        baseBranch: string
+      ): Promise<string | undefined> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/agent-core/src/session-runner.ts">
     <item priority="high">
       type PipelineRun = { readonly ok: true; readonly  | {

@@ -17,9 +17,17 @@ describe("createEvalJudge", () => {
     expect(config).toEqual({ forceEvaluate: true });
   });
 
-  it("passes an empty diff through when the runner captured none", async () => {
+  it("passes a captured-but-empty diff through so the evaluator reports a genuine empty-diff fail", async () => {
     const evaluate = vi.fn().mockResolvedValue({ passed: false });
-    await createEvalJudge({} as TaskRunResult, evaluate)("p", "c");
+    await createEvalJudge({ diff: "" } as TaskRunResult, evaluate)("p", "c");
     expect(evaluate.mock.calls[0]![1]).toBe("");
+  });
+
+  it("is inconclusive (evaluationFailed) without calling the evaluator when the diff was not captured", async () => {
+    const evaluate = vi.fn();
+    const result = await createEvalJudge({} as TaskRunResult, evaluate)("p", "c");
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(result.passed).toBe(false);
+    expect(result.evaluationFailed).toBe(true);
   });
 });

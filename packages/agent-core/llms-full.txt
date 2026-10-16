@@ -1168,14 +1168,22 @@
       run: TaskRunResult,
       evaluate: Evaluate = evaluateSuccess
     ): JudgeFunction {
-      return (taskPrompt, criteria) =>
-        evaluate(
+      return async (taskPrompt, criteria) => {
+        if (run.diff === undefined) {
+          return {
+            passed: false,
+            confidence: 0,
+            reasoning: "The session's diff could not be captured — judgeCriteria not evaluated",
+            issues: ["LLM judge could not run"],
+            evaluationFailed: true,
+          };
+        }
+        return evaluate(
           `${taskPrompt}\n\nAcceptance criteria (every one must hold):\n${criteria}`,
-          run.diff ?? "",
-          {
-            forceEvaluate: true,
-          }
+          run.diff,
+          { forceEvaluate: true }
         );
+      };
     }
   </file>
   <file path="src/eval/run-detection.ts">
@@ -1295,7 +1303,11 @@
       readonly task: Task;
       readonly session: SessionResult;
       readonly checks: DeterministicChecks;
-      /** The agent's change as a unified diff, captured by the runner for the LLM judge. */
+      /**
+       * The whole session's change as a unified diff, captured by the runner for
+       * the LLM judge. `""` = captured, nothing changed; `undefined` = could not
+       * be captured (judge is inconclusive).
+       */
       readonly diff?: string;
     }
     export interface TaskScore {
@@ -8214,6 +8226,20 @@
           controller.enqueue(value);
         },
       });
+    }
+  </file>
+  <file path="src/session-diff.ts">
+    export async function getSessionDiff(
+      worktreePath: string,
+      baseBranch: string
+    ): Promise<string | undefined> {
+      try {
+        const mergeBase = await runGit(["merge-base", baseBranch, "HEAD"], { cwd: worktreePath });
+        await runGit(["add", "--intent-to-add", "--all"], { cwd: worktreePath });
+        return await runGit(["diff", mergeBase], { cwd: worktreePath });
+      } catch {
+        return undefined;
+      }
     }
   </file>
   <file path="src/session-runner.ts">

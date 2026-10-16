@@ -9,6 +9,7 @@ const mockMkdirSync = vi.fn();
 const mockExistsSync = vi.fn();
 const mockReadFileSync = vi.fn();
 const mockRemoveWorktree = vi.fn();
+const mockGetSessionDiff = vi.fn();
 // Every execFile call the verifier makes: (cmd, args, opts) → an Error to
 // reject with, or null to resolve. Reset to "always resolve" in beforeEach.
 const mockExecFile = vi.fn<(cmd: string, args: string[], opts: unknown) => Error | null>();
@@ -36,6 +37,7 @@ vi.mock("@mbe/agent-core", async (orig) => {
     },
     runAgentSession: (...a: unknown[]) => mockRunAgentSession(...a),
     removeWorktree: (...a: unknown[]) => mockRemoveWorktree(...a),
+    getSessionDiff: (...a: unknown[]) => mockGetSessionDiff(...a),
   };
 });
 
@@ -104,6 +106,7 @@ describe("agent eval command", () => {
     mockExistsSync.mockReturnValue(true);
     mockExecFile.mockImplementation(() => null);
     mockRemoveWorktree.mockResolvedValue(undefined);
+    mockGetSessionDiff.mockResolvedValue("");
   });
 
   it("runs the suite and prints a report", async () => {
@@ -217,6 +220,40 @@ describe("agent eval command", () => {
       expect(mockAppendFileSync).not.toHaveBeenCalled();
       const errOut = errSpy.mock.calls.flat().join("\n");
       expect(errOut.toLowerCase()).toContain("anthropic_api_key");
+    });
+  });
+
+  describe("judge diff capture", () => {
+    it("captures the whole-session diff against the base branch before the worktree is released", async () => {
+      const order: string[] = [];
+      mockGetSessionDiff.mockImplementation(async () => {
+        order.push("diff");
+        return "";
+      });
+      mockRemoveWorktree.mockImplementation(async () => {
+        order.push("remove");
+      });
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "succeeded" }));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(mockGetSessionDiff).toHaveBeenCalledWith("/repo/.agent-worktrees/t1", "main");
+      expect(order).toEqual(["diff", "remove"]);
+    });
+
+    it("scores a task with unmet judgeCriteria as inconclusive, not a pass, when the diff cannot be captured", async () => {
+      mockGetSessionDiff.mockResolvedValue(undefined);
+      mockLoadSuite.mockResolvedValue([
+        { ...task, rubric: { ...task.rubric, judgeCriteria: ["no production code changed"] } },
+      ]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "succeeded" }));
+
+      await agentEvalCommand.parseAsync(["--json"], { from: "user" });
+
+      const row = JSON.parse(logSpy.mock.calls.flat().join("\n")).tasks[0];
+      expect(row.passed).toBe(false);
+      expect(row.judgeResult.evaluationFailed).toBe(true);
     });
   });
 
