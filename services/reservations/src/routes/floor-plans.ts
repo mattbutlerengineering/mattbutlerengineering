@@ -18,8 +18,6 @@ import {
 } from "@mbe/types";
 import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import { parsePaginationQuery } from "@mbe/database";
-import { floorPlanService } from "../services/floor-plan.js";
-import { tableService } from "../services/table.js";
 import { inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -51,6 +49,10 @@ const tableParamVenue = {
 } as const;
 
 export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
+  // Domain services come from the buildApp seam (issue #3357); tests inject fakes
+  // via buildApp({ services }).
+  const { floorPlanService, tableService } = fastify.services;
+
   fastify.get<{
     Querystring: { venueId?: string; page?: string; limit?: string };
     Reply: PaginatedResponse<FloorPlan> | ProblemDetails;

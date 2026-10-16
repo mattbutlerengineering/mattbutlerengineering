@@ -1276,9 +1276,9 @@
       interface DomainServices {
         availabilityService: typeof availabilityService;
         venueService: typeof venueService;
+        venueGroupService: typeof venueGroupService;
         tableService: typeof tableService;
         reservationService: typeof reservationService;
-        guestService: typeof guestService;
       }
     </item>
     <item priority="high">

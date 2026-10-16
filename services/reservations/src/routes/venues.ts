@@ -29,11 +29,7 @@ import {
   hasPermission,
 } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
-import {
-  venueService,
-  venueGroupService,
-  VenueBootstrapForbiddenError,
-} from "../services/venue.js";
+import { VenueBootstrapForbiddenError } from "../services/venue.js";
 import { tableStatusService } from "../services/table-status.js";
 import { venueScoped } from "./venue-scope.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
@@ -74,6 +70,10 @@ function isWriteConflict(error: unknown): boolean {
 }
 
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+  // Domain services come from the buildApp seam (issue #3357); tests inject fakes
+  // via buildApp({ services }).
+  const { venueService, venueGroupService } = fastify.services;
+
   // Enforced by hand through `createRateLimit` rather than as a second
   // rate-limit hook, because @fastify/rate-limit runs at most ONE limiter per
   // request: `rateLimitRequestHandler` sets a `rateLimitRan` flag on the

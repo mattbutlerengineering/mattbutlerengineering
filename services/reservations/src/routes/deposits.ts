@@ -2,7 +2,6 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { requireAuth, requireAdmin } from "@mbe/auth/fastify";
 import { createProblemDetails, createDepositBodyJsonSchema } from "@mbe/types";
 import { DepositNotFoundError } from "../services/deposit.js";
-import { venueService } from "../services/venue.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { venueScoped } from "./venue-scope.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
@@ -94,7 +93,7 @@ const depositProperties = {
  * inside its own definer body rather than as a separate unscoped Prisma read.
  */
 export const depositRoutes: FastifyPluginAsync = async (fastify) => {
-  const { depositService } = fastify.services;
+  const { depositService, venueService } = fastify.services;
 
   // POST /api/v1/deposits — create a deposit
   fastify.post<{

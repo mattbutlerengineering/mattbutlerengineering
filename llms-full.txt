@@ -21459,7 +21459,7 @@
         );
     }
     export const depositRoutes: FastifyPluginAsync = async (fastify) => {
-      const { depositService } = fastify.services;
+      const { depositService, venueService } = fastify.services;
     
       // POST /api/v1/deposits — create a deposit
       fastify.post<{
@@ -21890,6 +21890,10 @@
   </file>
   <file path="services/reservations/src/routes/floor-plans.ts">
     export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
+      // Domain services come from the buildApp seam (issue #3357); tests inject fakes
+      // via buildApp({ services }).
+      const { floorPlanService, tableService } = fastify.services;
+    
       fastify.get<{
         Querystring: { venueId?: string; page?: string; limit?: string };
         Reply: PaginatedResponse<FloorPlan> | ProblemDetails;
@@ -26288,6 +26292,10 @@
       return code === "P2034" || code === "40001";
     }
     export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+      // Domain services come from the buildApp seam (issue #3357); tests inject fakes
+      // via buildApp({ services }).
+      const { venueService, venueGroupService } = fastify.services;
+    
       // Enforced by hand through `createRateLimit` rather than as a second
       // rate-limit hook, because @fastify/rate-limit runs at most ONE limiter per
       // request: `rateLimitRequestHandler` sets a `rateLimitRan` flag on the
@@ -33749,6 +33757,7 @@
     export interface DomainServices {
       availabilityService: typeof availabilityService;
       venueService: typeof venueService;
+      venueGroupService: typeof venueGroupService;
       tableService: typeof tableService;
       reservationService: typeof reservationService;
       guestService: typeof guestService;
@@ -33762,6 +33771,7 @@
     export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
       venueService,
+      venueGroupService,
       tableService,
       reservationService,
       guestService,
@@ -58312,8 +58322,9 @@
       // Wire the domain-service seam (issue #3357) — resolve the injectable services
       // once (production singletons by default, test fakes via options.services) and
       // decorate them so route plugins resolve dependencies from `fastify.services`
-      // instead of importing the sibling singleton at module scope. Decorated before
-      // route registration so child route plugins inherit it.
+      // instead of importing the sibling singleton at module scope. Adoption is
+      // complete and `routes/domain-services-adoption.test.ts` enforces it. Decorated
+      // before route registration so child route plugins inherit it.
       //
       // Payments are constructed exactly once, here: one StripeService (same env
       // name and placeholder fallback as before; getStripeConfig above still
