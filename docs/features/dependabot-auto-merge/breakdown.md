@@ -42,13 +42,17 @@ implementation PR (see frontmatter).
 
 ## Milestone 2: evidence
 
-- [ ] **WO-39 — measurement note** — replay the 30 PRs measured in #6650
+- [x] **WO-39 — measurement note** — replay the 30 PRs measured in #6650
       (their group/update-type under the NEW dependabot.yml grouping) through
       `decideDependabotMerge` and state in the implementation PR body how
       many would have auto-merged; needs `gh` access to enumerate the 30 PRs
       — if the implementing session lacks it, compute from the PR list
       quoted in #6650 and label the count as derived from that sample.
-      (tracker: #6650)
+      (tracker: #6650) — this session has no `gh`/API access (implement's
+      tool allowlist excludes it); computed from the 11 PR numbers quoted by
+      name in `idea.md` (the slow outliers of the 30-PR sample, each already
+      categorized there by the issue's own text) — see the PR body for the
+      replay.
 
 ## Notes
 
