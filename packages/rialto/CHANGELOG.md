@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 0.7.0
+
+### Minor Changes
+
+- [#6865](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6865) [`3240235`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3240235b7573e7e84bc5c6403ec817db570b6753) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DropdownMenu: add `side` prop (`"bottom"` default, `"top"`) so menus whose trigger is pinned to the bottom of a container can open upward instead of being clipped or covered.
+
+### Patch Changes
+
+- [#6868](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6868) [`dba88e3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dba88e32e946855173c33d688eeadd41c2419388) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DropdownMenu: the open menu is now opaque in the light theme too (it used the translucent glass surface, so content behind it showed through).
+
 ## 0.6.6
 
 ### Patch Changes
