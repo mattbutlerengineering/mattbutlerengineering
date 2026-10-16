@@ -16,7 +16,7 @@ implementation PR (see frontmatter).
 
 ## Milestone 1: policy + wiring
 
-- [ ] **WO-36 — pure policy module + tests** — RED first:
+- [x] **WO-36 — pure policy module + tests** — RED first:
       `scripts/__tests__/dependabot-auto-merge-policy.test.mjs` pins the six
       acceptance cases (`actions/setup-node` minor → merge;
       `github/codeql-action/upload-sarif` patch → merge;
