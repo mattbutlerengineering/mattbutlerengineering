@@ -35,6 +35,19 @@ describe("DropdownMenu", () => {
     expect(screen.getByText("Delete")).toBeInTheDocument();
   });
 
+  it('opens below the trigger by default and above it with side="top"', async () => {
+    const { unmount } = render(
+      <DropdownMenu trigger={<Button>Actions</Button>} items={basicItems} />
+    );
+    await user.click(screen.getByRole("button", { name: /actions/i }));
+    expect(screen.getByRole("menu")).toHaveAttribute("data-side", "bottom");
+    unmount();
+
+    render(<DropdownMenu trigger={<Button>Actions</Button>} items={basicItems} side="top" />);
+    await user.click(screen.getByRole("button", { name: /actions/i }));
+    expect(screen.getByRole("menu")).toHaveAttribute("data-side", "top");
+  });
+
   it("closes when trigger is clicked again", async () => {
     render(<DropdownMenu trigger={<Button>Actions</Button>} items={basicItems} />);
     const btn = screen.getByRole("button", { name: /actions/i });

@@ -63,6 +63,10 @@ export function LocalePicker({
           />
         ) : (
           <DropdownMenu
+            // The sidebar picker sits at the bottom of a clipped column (over the
+            // command-palette hint), so it opens upward; the header-style compact
+            // picker has room below.
+            side={variant === "sidebar" ? "top" : "bottom"}
             trigger={
               <Button variant="ghost" size="sm" className={styles.trigger} aria-label={triggerName}>
                 <Text as="span" aria-hidden>
