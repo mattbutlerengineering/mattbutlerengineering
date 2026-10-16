@@ -22,6 +22,17 @@
   transform-origin: top right;
 }
 
+/* Opens upward for triggers pinned to the bottom of a container */
+.menu[data-side="top"] {
+  top: auto;
+  bottom: calc(100% + 4px);
+  transform-origin: bottom left;
+}
+
+[dir="rtl"] .menu[data-side="top"] {
+  transform-origin: bottom right;
+}
+
 :global([data-theme="dark"]) .menu {
   background: var(--rialto-surface-elevated);
 }
@@ -34,6 +45,14 @@
 
 [dir="rtl"] .menuRight {
   transform-origin: top left;
+}
+
+.menuRight[data-side="top"] {
+  transform-origin: bottom right;
+}
+
+[dir="rtl"] .menuRight[data-side="top"] {
+  transform-origin: bottom left;
 }
 
 /* ── Item ────────────────────────────────────── */

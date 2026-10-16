@@ -1747,6 +1747,12 @@
           "type": "\"right\" | \"left\" | undefined",
           "required": false,
           "description": "Align dropdown to left (default) or right edge of trigger"
+        },
+        {
+          "name": "side",
+          "type": "\"bottom\" | \"top\" | undefined",
+          "required": false,
+          "description": "Open below the trigger (default) or above it — use `top` for triggers pinned to the bottom of a container"
         }
       ],
       "slots": []

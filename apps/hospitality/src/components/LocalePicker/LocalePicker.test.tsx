@@ -43,6 +43,18 @@ function openMenu() {
 }
 
 describe("LocalePicker", () => {
+  it("opens the sidebar menu upward (the picker is pinned to the sidebar bottom) and the compact menu downward", () => {
+    const { runtime } = makeRuntime();
+    const { unmount } = renderPicker(runtime);
+    openMenu();
+    expect(screen.getByRole("menu")).toHaveAttribute("data-side", "top");
+    unmount();
+
+    renderPicker(runtime, { variant: "compact" });
+    openMenu();
+    expect(screen.getByRole("menu")).toHaveAttribute("data-side", "bottom");
+  });
+
   it("lists all four endonyms, machine-translation tags on es-MX and fr-CA only", () => {
     const { runtime } = makeRuntime();
     renderPicker(runtime);
