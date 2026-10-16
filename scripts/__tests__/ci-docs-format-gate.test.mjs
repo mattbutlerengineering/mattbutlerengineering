@@ -45,6 +45,14 @@ describe("ci.yml docs-only formatting gate", () => {
     expect(jobRunText(requireJob(JOB))).toMatch(/^pnpm check:prettier\s*$/m);
   });
 
+  it("also runs the .cursorrules drift check, which an AGENTS.md-only PR can trip (#6854)", () => {
+    // `.cursorrules` is generated from AGENTS.md (a docs file), so an
+    // AGENTS.md-only edit is the one change that causes the drift AND skips
+    // Build, where repo-audit would otherwise catch it (#6845 -> red main).
+    // The check is a pure file compare and needs no CLI build.
+    expect(jobRunText(requireJob(JOB))).toMatch(/^node scripts\/check-cursorrules-drift\.mjs\s*$/m);
+  });
+
   it("runs exactly when the Build chain does NOT, so it is not redundant work", () => {
     const block = requireJob(JOB);
     expect(block.needs).toEqual(["detect-changes"]);
