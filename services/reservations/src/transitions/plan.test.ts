@@ -192,7 +192,7 @@ describe("planEffects — the effects table", () => {
       kind: "hold-confirmed",
       door,
       reservation: res(overrides),
-      manageToken: door === "public-booking" ? "tok" : undefined,
+      manageToken: door === "public-booking" || door === "public-hold" ? "tok" : undefined,
     });
 
     it("public-booking: confirmation then reminders in one background chain, hold:confirmed (D5)", () => {
@@ -202,6 +202,19 @@ describe("planEffects — the effects table", () => {
         "jobs:schedule day-of-reminder:res-1 @70h [background/propagate]",
         "events:hold:confirmed [await/log]",
       ]);
+    });
+
+    it("public-hold: exactly one confirmation, no reminders, hold:confirmed (#6713)", () => {
+      expect(view(plan(fact("public-hold")))).toEqual([
+        "messaging:booking-confirmation [background/propagate]",
+        "events:hold:confirmed [await/log]",
+      ]);
+    });
+
+    it("public-hold without a manage token (phone-only guest) sends nothing", () => {
+      expect(
+        view(plan({ ...fact("public-hold"), manageToken: undefined } as TransitionFact))
+      ).toEqual(["events:hold:confirmed [await/log]"]);
     });
 
     it("public-booking starting within 24h schedules only the day-of reminder", () => {
@@ -219,12 +232,9 @@ describe("planEffects — the effects table", () => {
       ]);
     });
 
-    it.each(["staff-hold", "public-hold"] as const)(
-      "%s: hold:confirmed only — no message, no job (D4 kept)",
-      (door) => {
-        expect(view(plan(fact(door)))).toEqual(["events:hold:confirmed [await/log]"]);
-      }
-    );
+    it("staff-hold: hold:confirmed only — no message, no job (D4 kept)", () => {
+      expect(view(plan(fact("staff-hold")))).toEqual(["events:hold:confirmed [await/log]"]);
+    });
   });
 
   describe("created", () => {

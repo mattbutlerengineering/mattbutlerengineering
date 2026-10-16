@@ -74,7 +74,7 @@
 }
 
 .accent .label {
-  color: var(--rialto-accent);
+  color: color-mix(in srgb, var(--rialto-accent) 70%, var(--rialto-text-primary));
 }
 
 /* ── Spacing variants ────────────────────────── */

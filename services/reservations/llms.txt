@@ -2887,6 +2887,12 @@
       ): PlannedEffect[] { /* ... */ }
     </item>
     <item priority="medium">
+      function holdConfirmedMessages(
+        fact: Extract<TransitionFact, { kind: "hold-confirmed" }>,
+        now: Date
+      ): PlannedEffect[] { /* ... */ }
+    </item>
+    <item priority="medium">
       function isStaffTimeChange(patch: UpdateReservationRequest): boolean { /* ... */ }
     </item>
     <item priority="medium">

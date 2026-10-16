@@ -265,6 +265,12 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         // reservation to someone else's guest record.
         const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
           request.body;
+        // Only mint a manage token when an email was actually supplied: a
+        // phone-only booking is stored with `guestEmail: null`, and a token
+        // signed with "" could never validate against it. Minted once, for the
+        // confirmed reservation, and shared by the confirmation email and the
+        // response.
+        let manageToken: string | undefined;
         const result = await fastify.transitions.confirmHold(
           {
             holdId,
@@ -272,7 +278,13 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
             venueId,
             guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
           },
-          { door: "public-hold" }
+          {
+            door: "public-hold",
+            manageToken: (reservation) =>
+              guestEmail
+                ? (manageToken = generateManageToken(reservation.id, guestEmail))
+                : undefined,
+          }
         );
 
         if (!result.success) {
@@ -286,13 +298,6 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         // The hold is consumed, so it no longer counts against the per-IP
         // active-hold cap — same bookkeeping the release path does.
         decrementHoldCount(ip);
-
-        // Only mint a manage token when an email was actually supplied: a
-        // phone-only booking is stored with `guestEmail: null`, and a token
-        // signed with "" could never validate against it.
-        const manageToken = guestEmail
-          ? generateManageToken(result.reservation.id, guestEmail)
-          : undefined;
 
         return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
       }
