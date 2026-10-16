@@ -1,44 +1,36 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
+import type { DomainServices } from "../services/domain-services.js";
 import type { FastifyInstance } from "fastify";
 
 // Mock the guest service
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    findByEmail: vi.fn(),
-    findByPhone: vi.fn(),
-    findOrCreate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    recordVisit: vi.fn(),
-    search: vi.fn(),
-    getSegments: vi.fn(),
-    addNote: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #6772), so the
+// migrated routes need no vi.mock of their service modules.
+const guestService = {
+  list: vi.fn(),
+  getById: vi.fn(),
+  findByEmail: vi.fn(),
+  findByPhone: vi.fn(),
+  findOrCreate: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  recordVisit: vi.fn(),
+  search: vi.fn(),
+  getSegments: vi.fn(),
+  addNote: vi.fn(),
+} as unknown as DomainServices["guestService"];
+
+const venueService = {
+  list: vi.fn(),
+  getById: vi.fn(),
+  getBySlug: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+} as unknown as DomainServices["venueService"];
 
 // Mock the venue service (needed for app registration)
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  venueGroupService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
 
 // Mock the table service (needed for app registration)
 vi.mock("../services/table.js", () => ({
@@ -104,7 +96,6 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
-import { guestService } from "../services/guest.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { resolveVenueId } from "../services/resolve-venue.js";
@@ -162,7 +153,7 @@ describe("Guest Routes", () => {
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { guestService, venueService } });
     await app.ready();
   });
 
@@ -719,7 +710,11 @@ describe("Guest Routes — staff authorization (issue #3101)", () => {
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
     };
-    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    const built = await buildApp({
+      logger: false,
+      venueMembershipLookup: lookup,
+      services: { guestService, venueService },
+    });
     await built.ready();
     return built;
   }
@@ -819,7 +814,11 @@ describe("Guest Routes — venue-scope pins", () => {
       payload: { ...mockJWTPayload, sub: "auth0|operator", permissions },
       protectedHeader: { alg: "RS256" },
     } as never);
-    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    app = await buildApp({
+      logger: false,
+      venueMembershipLookup: lookup,
+      services: { guestService, venueService },
+    });
     await app.ready();
   }
 

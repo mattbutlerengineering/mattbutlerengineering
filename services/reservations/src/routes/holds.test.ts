@@ -1,19 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
+import type { DomainServices } from "../services/domain-services.js";
 import type { FastifyInstance, InjectOptions } from "fastify";
 
 // Mock the hold service
-vi.mock("../services/hold.js", () => ({
-  holdService: {
-    create: vi.fn(),
-    getById: vi.fn(),
-    getVenueId: vi.fn(),
-    getBySessionId: vi.fn(),
-    release: vi.fn(),
-    cleanupExpired: vi.fn(),
-    maybeCleanup: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #6772), so the
+// migrated routes need no vi.mock of their service modules.
+const holdService = {
+  create: vi.fn(),
+  getById: vi.fn(),
+  getVenueId: vi.fn(),
+  getBySessionId: vi.fn(),
+  release: vi.fn(),
+  cleanupExpired: vi.fn(),
+  maybeCleanup: vi.fn(),
+} as unknown as DomainServices["holdService"];
 
 // Mock the confirm-hold orchestrator
 vi.mock("../services/confirm-hold.js", () => ({
@@ -119,7 +120,6 @@ vi.mock("jose", () => ({
 
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
-import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { getCurrentVenueId } from "../services/venue-context-store.js";
 import { resetRateLimitState } from "../middleware/public-rate-limit.js";
@@ -176,7 +176,7 @@ describe("Hold Routes", () => {
     process.env.AUTH_AUTHORITY = "https://test.auth0.com";
     process.env.AUTH_AUDIENCE = "https://api.example.com";
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { holdService } });
     await app.ready();
     vi.clearAllMocks();
     // The public rate-limit hook's counters are module-global (unlike the
@@ -793,7 +793,11 @@ describe("Hold Routes", () => {
     /** Builds an app whose membership lookup answers `isMember` for every venue. */
     const buildScopedApp = async (isMember: boolean) => {
       lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(isMember);
-      scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
+      scopedApp = await buildApp({
+        logger: false,
+        venueMembershipLookup: lookup,
+        services: { holdService },
+      });
       await scopedApp.ready();
       return scopedApp;
     };

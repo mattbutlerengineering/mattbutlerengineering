@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
+import type { DomainServices } from "../services/domain-services.js";
 import { getCurrentVenueId } from "../services/venue-context-store.js";
 
 vi.mock("../services/resolve-venue.js", () => ({ resolveVenueId: vi.fn() }));
-vi.mock("../services/reservation.js", () => ({ reservationService: { getById: vi.fn() } }));
+
+// The scope reads the reservation service from `request.server.services` (issue #6772).
+const reservationService = {
+  getById: vi.fn(),
+} as unknown as DomainServices["reservationService"];
 
 const { resolveVenueId } = await import("../services/resolve-venue.js");
-const { reservationService } = await import("../services/reservation.js");
 const { generateManageToken } = await import("./public-reservations.js");
 const { manageTokenScoped } = await import("./manage-token-scope.js");
 const { venueScopeOf } = await import("./venue-scope.js");
@@ -25,6 +29,7 @@ describe("manageTokenScoped", () => {
     resolveMock.mockResolvedValue("venue_1");
     getByIdMock.mockResolvedValue(reservation as never);
     app = Fastify();
+    app.decorate("services", { reservationService } as unknown as DomainServices);
     const wrapped = manageTokenScoped(
       {
         missing: (reply) =>

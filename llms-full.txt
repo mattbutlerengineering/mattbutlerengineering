@@ -21268,6 +21268,8 @@
   </file>
   <file path="services/reservations/src/routes/briefing.ts">
     export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
+      const { briefingService } = fastify.services;
+    
       fastify.get<{
         Querystring: { date?: string; venueId?: string };
         Reply: { data: BriefingEntry[] } | ProblemDetails;
@@ -22217,6 +22219,8 @@
   </file>
   <file path="services/reservations/src/routes/guests.ts">
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService, venueService } = fastify.services;
+    
       // List guests for a venue
       registerEndpoint(fastify, guestsEndpoints.list, {
         docs: {
@@ -22505,6 +22509,8 @@
       Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
     };
     export const holdRoutes: FastifyPluginAsync = async (fastify) => {
+      const { holdService } = fastify.services;
+    
       // Register schemas
       fastify.addSchema(HoldSchema);
     
@@ -22626,7 +22632,7 @@
           },
         },
         venueScoped<GetRoute>(
-          { venue: holdVenue("Hold not found or expired") },
+          { venue: holdVenue(holdService, "Hold not found or expired") },
           async (request, reply) => {
             const hold = await holdService.getById(request.params.id);
     
@@ -22683,7 +22689,7 @@
           },
         },
         venueScoped<ReleaseRoute>(
-          { venue: holdVenue("Hold not found or not owned by this session") },
+          { venue: holdVenue(holdService, "Hold not found or not owned by this session") },
           async (request, reply) => {
             const sessionId = request.headers[SESSION_ID_HEADER];
     
@@ -22758,7 +22764,7 @@
           },
         },
         venueScoped<ConfirmRoute>(
-          { venue: holdVenue("Hold not found") },
+          { venue: holdVenue(holdService, "Hold not found") },
           async (request, reply, { venueId }) => {
             const sessionId = request.headers[SESSION_ID_HEADER];
     
@@ -22856,6 +22862,8 @@
   </file>
   <file path="services/reservations/src/routes/manage-reservation.ts">
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.get<{ Querystring: { token?: string } }>(
         "/public/v1/reservations/manage",
         {
@@ -22946,7 +22954,7 @@
         if (!venueId) return spec.missing(reply, request);
     
         return runWithVenueContext(venueId, async () => {
-          const reservation = await reservationService.getById(reservationId);
+          const reservation = await request.server.services.reservationService.getById(reservationId);
           if (!reservation) return spec.missing(reply, request);
           if (reservation.guestEmail !== result.guestEmail) {
             return deny(reply, 403, "Forbidden", "Token does not match reservation");
@@ -24277,6 +24285,10 @@
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
+      const { reservationService, guestService } = fastify.services;
+      const listVenueId = resolveReservationsListVenueId(guestService);
+      const ownerScope = reservationOwnerScope(reservationService);
+    
       /**
        * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
        * routes below. Both routes are scoped by `reservationOwnerScope`, which
@@ -24326,10 +24338,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveReservationsListVenueId),
-          ],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
           schema: {
             summary: "List reservations",
             operationId: "listReservations",
@@ -24541,7 +24550,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (_request, _reply, { entity: reservation }) => ({
+        venueScoped(ownerScope, async (_request, _reply, { entity: reservation }) => ({
           data: reservation,
         }))
       );
@@ -24753,7 +24762,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+        venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
           if (request.body.status === "CANCELLED") {
             try {
               const result = await cancelReservationForRequest(
@@ -24934,7 +24943,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+        venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
           try {
             const result = await cancelReservationForRequest(
               reservation,
@@ -27052,6 +27061,8 @@
   </file>
   <file path="services/reservations/src/routes/waitlist.ts">
     export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      const { waitlistService } = fastify.services;
+    
       // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
       // the seat/cancel that triggered it, and runs after the queue is recalculated.
       const notifyImproved: OnPositionsImproved = (changes) => {

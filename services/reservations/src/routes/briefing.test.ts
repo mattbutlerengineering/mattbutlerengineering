@@ -2,88 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import type { DomainServices } from "../services/domain-services.js";
 import { createMockReservation, createMockJWTPayload } from "../test/mocks.js";
 
-// Mock the briefing service
-vi.mock("../services/briefing.js", () => ({
-  briefingService: {
-    getBriefing: vi.fn(),
-  },
-}));
-
-// Mock all other services required by buildApp
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    list: vi.fn(),
-    listByUserId: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    createWithConflictCheck: vi.fn(),
-    createWalkIn: vi.fn(),
-    update: vi.fn(),
-    updateWithConflictCheck: vi.fn(),
-    cancel: vi.fn(),
-  },
-}));
-
-vi.mock("../services/table.js", () => ({
-  tableService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    updateStatus: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  venueGroupService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    search: vi.fn(),
-    findOrCreate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getSegments: vi.fn(),
-  },
-}));
-
-vi.mock("../services/floor-plan.js", () => ({
-  floorPlanService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getActiveByVenueId: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    setActive: vi.fn(),
-    updateTablePosition: vi.fn(),
-    bulkUpdateTablePositions: vi.fn(),
-    assignTableToFloorPlan: vi.fn(),
-    removeTableFromFloorPlan: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #6772), so the
+// migrated briefing route needs no vi.mock of its service module.
+const briefingService = {
+  getBriefing: vi.fn(),
+} as unknown as DomainServices["briefingService"];
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -95,7 +21,6 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
-import { briefingService } from "../services/briefing.js";
 import { jwtVerify } from "jose";
 
 const BRIEFING_URL = "/api/v1/briefing";
@@ -137,7 +62,7 @@ describe("GET /api/v1/briefing", () => {
       payload: mockJWTPayload,
       protectedHeader: { alg: "RS256" },
     } as never);
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { briefingService } });
     await app.ready();
   });
 
@@ -259,7 +184,11 @@ describe("GET /api/v1/briefing — venue authorization (ADR-020)", () => {
       payload: createMockJWTPayload({ sub: "auth0|operator", permissions }),
       protectedHeader: { alg: "RS256" },
     } as never);
-    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    app = await buildApp({
+      logger: false,
+      venueMembershipLookup: lookup,
+      services: { briefingService },
+    });
     await app.ready();
   }
 

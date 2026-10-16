@@ -21,9 +21,9 @@ import {
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
-import { reservationService, ReservationTransitionError } from "../services/reservation.js";
+import { ReservationTransitionError } from "../services/reservation.js";
+import type { DomainServices } from "../services/domain-services.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
-import { guestService } from "../services/guest.js";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
 import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { generateManageToken } from "./public-reservations.js";
@@ -41,17 +41,19 @@ import { venueScoped } from "./venue-scope.js";
  * reservations at that venue, so falling through to a 403 (never guessing) is
  * deliberate.
  */
-const resolveReservationsListVenueId: VenueIdResolver = async (request) => {
-  const query = request.query as { venueId?: unknown; guestId?: unknown } | null | undefined;
-  if (typeof query?.venueId === "string") {
-    return query.venueId;
-  }
-  if (typeof query?.guestId === "string") {
-    const guest = await guestService.getById(query.guestId);
-    return guest?.venueId ?? null;
-  }
-  return null;
-};
+const resolveReservationsListVenueId =
+  (guestService: DomainServices["guestService"]): VenueIdResolver =>
+  async (request) => {
+    const query = request.query as { venueId?: unknown; guestId?: unknown } | null | undefined;
+    if (typeof query?.venueId === "string") {
+      return query.venueId;
+    }
+    if (typeof query?.guestId === "string") {
+      const guest = await guestService.getById(query.guestId);
+      return guest?.venueId ?? null;
+    }
+    return null;
+  };
 
 /**
  * The `/:id` routes' venue scope (ADR-020 ownership, ADR-026 context): the
@@ -63,17 +65,22 @@ const resolveReservationsListVenueId: VenueIdResolver = async (request) => {
  * existence. The handler then runs in the same context, so every transition
  * and effect it starts is venue-scoped.
  */
-const reservationOwnerScope = {
-  venue: {
-    entity: "reservation",
-    key: (request: { params: { id: string } }) => request.params.id,
-    load: (id: string) => reservationService.getById(id),
-    notFound: "Reservation not found",
-  },
-  access: { owner: (reservation: Reservation) => reservation.guestEmail ?? null },
-} as const;
+const reservationOwnerScope = (reservationService: DomainServices["reservationService"]) =>
+  ({
+    venue: {
+      entity: "reservation",
+      key: (request: { params: { id: string } }) => request.params.id,
+      load: (id: string) => reservationService.getById(id),
+      notFound: "Reservation not found",
+    },
+    access: { owner: (reservation: Reservation) => reservation.guestEmail ?? null },
+  }) as const;
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
+  const { reservationService, guestService } = fastify.services;
+  const listVenueId = resolveReservationsListVenueId(guestService);
+  const ownerScope = reservationOwnerScope(reservationService);
+
   /**
    * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
    * routes below. Both routes are scoped by `reservationOwnerScope`, which
@@ -123,10 +130,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveReservationsListVenueId),
-      ],
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
       schema: {
         summary: "List reservations",
         operationId: "listReservations",
@@ -338,7 +342,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    venueScoped(reservationOwnerScope, async (_request, _reply, { entity: reservation }) => ({
+    venueScoped(ownerScope, async (_request, _reply, { entity: reservation }) => ({
       data: reservation,
     }))
   );
@@ -550,7 +554,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+    venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
       if (request.body.status === "CANCELLED") {
         try {
           const result = await cancelReservationForRequest(
@@ -731,7 +735,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+    venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
       try {
         const result = await cancelReservationForRequest(
           reservation,

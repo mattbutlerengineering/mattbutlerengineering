@@ -8,8 +8,6 @@ import {
 import { parsePaginationQuery } from "@mbe/database";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
-import { guestService } from "../services/guest.js";
-import { venueService } from "../services/venue.js";
 import { sendWinBack } from "../services/win-back.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -22,6 +20,8 @@ import { venueScoped } from "./venue-scope.js";
 const GUEST_NOT_FOUND = "Guest not found";
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
+  const { guestService, venueService } = fastify.services;
+
   // List guests for a venue
   registerEndpoint(fastify, guestsEndpoints.list, {
     docs: {

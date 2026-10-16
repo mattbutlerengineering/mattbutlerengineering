@@ -1,23 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
+import type { DomainServices } from "../services/domain-services.js";
 import type { FastifyInstance } from "fastify";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { createMockJWTPayload } from "../test/mocks.js";
 
 // Mock the waitlist service
-vi.mock("../services/waitlist.js", () => ({
-  waitlistService: {
-    create: vi.fn(),
-    listWaiting: vi.fn(),
-    listActive: vi.fn(),
-    getById: vi.fn(),
-    withLiveEstimates: vi.fn(async (entries: unknown[]) => entries),
-    seat: vi.fn(),
-    cancel: vi.fn(),
-    expire: vi.fn(),
-    markNotified: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #6772), so the
+// migrated routes need no vi.mock of their service modules.
+const waitlistService = {
+  create: vi.fn(),
+  listWaiting: vi.fn(),
+  listActive: vi.fn(),
+  getById: vi.fn(),
+  withLiveEstimates: vi.fn(async (entries: unknown[]) => entries),
+  seat: vi.fn(),
+  cancel: vi.fn(),
+  expire: vi.fn(),
+  markNotified: vi.fn(),
+} as unknown as DomainServices["waitlistService"];
 
 // Mock the waitlist notifier
 vi.mock("../services/waitlist-notifier.js", () => ({
@@ -156,7 +157,6 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
-import { waitlistService } from "../services/waitlist.js";
 import { holdService } from "../services/hold.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { jwtVerify } from "jose";
@@ -206,7 +206,7 @@ describe("Waitlist Routes", () => {
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { waitlistService } });
     await app.ready();
     vi.clearAllMocks();
     vi.mocked(holdService.maybeCleanup).mockResolvedValue(false);
@@ -627,7 +627,11 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
       payload: createMockJWTPayload({ sub: "auth0|operator", permissions }),
       protectedHeader: { alg: "RS256" },
     } as never);
-    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    app = await buildApp({
+      logger: false,
+      venueMembershipLookup: lookup,
+      services: { waitlistService },
+    });
     await app.ready();
   }
 

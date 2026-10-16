@@ -3,9 +3,11 @@ import type { ProblemDetails } from "@mbe/types";
 import { createProblemDetails, briefingQueryJsonSchema } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { venueScoped } from "./venue-scope.js";
-import { briefingService, type BriefingEntry } from "../services/briefing.js";
+import type { BriefingEntry } from "../services/briefing.js";
 
 export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
+  const { briefingService } = fastify.services;
+
   fastify.get<{
     Querystring: { date?: string; venueId?: string };
     Reply: { data: BriefingEntry[] } | ProblemDetails;

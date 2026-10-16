@@ -5,7 +5,6 @@ import {
   listWaitlistQueryJsonSchema,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { waitlistService } from "../services/waitlist.js";
 import type { OnPositionsImproved } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
 import { venueScoped } from "./venue-scope.js";
@@ -47,6 +46,8 @@ const WaitlistEntrySchema = {
 };
 
 export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+  const { waitlistService } = fastify.services;
+
   // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
   // the seat/cancel that triggered it, and runs after the queue is recalculated.
   const notifyImproved: OnPositionsImproved = (changes) => {
