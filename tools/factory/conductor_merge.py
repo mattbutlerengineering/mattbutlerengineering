@@ -191,9 +191,11 @@ def _written(worktree, *paths):
 
 
 def update_branch(git, tool, worktree, branch):
-    """Steps 1-2: merge origin/main into the item branch. costs.jsonl
-    merges by union (.gitattributes); a conflict in the manifest alone
-    is resolved by regeneration in the factory source repo; any other
+    """Steps 1-2: merge origin/main into the item branch. Item branches
+    do not edit docs/factory/costs.jsonl — spend is a per-run file — so a
+    conflict in that aggregate is a real conflict and aborts. GitHub does
+    not honor a merge=union driver. A conflict in the manifest alone is
+    resolved by regeneration in the factory source repo; any other
     conflict, or a manifest conflict in a consumer repo, aborts the
     merge."""
     _git(git, worktree, ["fetch", "origin", "main"], "fetching origin/main",

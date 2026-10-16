@@ -355,9 +355,60 @@ def _meter(root, batch, run_id, event, ended, ceiling, model):
     return 0, float(ceiling), CEILING_OUTCOME[ended], [], reason
 
 
+def feature_slugs(paths):
+    """docs/features/<slug> directories a change touches, in order."""
+    slugs = []
+    for path in paths:
+        parts = path.split("/")
+        if (len(parts) >= 3 and parts[0] == "docs" and parts[1] == "features"
+                and parts[2] and parts[2] not in slugs):
+            slugs.append(parts[2])
+    return slugs
+
+
+def _pr_create_refusal(git, gh, branch, item):
+    """A reason not to open a new PR, else None. An already-open PR is
+    updated and never reaches here. A `#N` item whose issue is closed, or
+    whose state cannot be read, is refused: re-opening a finished issue
+    is how duplicate feature directories landed on main. A branch that
+    touches docs/features/<slug> when that directory already exists on
+    origin/main is refused the same way. Anything that is not `#N` skips
+    the issue check and still gets the directory check."""
+    if cost_ledger.ISSUE_KEY.fullmatch(item):
+        viewed = gh_read(["issue", "view", item[1:], "--json", "state"],
+                         f"gh issue view {item}", "cd", run=gh, expect=dict)
+        if viewed.problems:
+            return (f"refusing to open a PR for {item}: "
+                    + viewed.problems[0])
+        state = (viewed.value.get("state")
+                 if isinstance(viewed.value, dict) else None)
+        if not isinstance(state, str) or not state.strip():
+            return (f"refusing to open a PR for {item}: its issue state"
+                    " could not be read")
+        if state.lower() == "closed":
+            return (f"refusing to open a PR for {item}: the issue is"
+                    " already closed")
+    changed, problems = flow.changed_files(git, branch)
+    if problems:
+        return problems[0]
+    for slug in feature_slugs(changed):
+        path = f"docs/features/{slug}"
+        listed, problems = _git(
+            git, ["ls-tree", "--name-only", "origin/main", "--", path],
+            f"listing {path} on origin/main")
+        if problems:
+            return problems[0]
+        if listed.strip():
+            return (f"refusing to open a PR for {item}: {path} already"
+                    " exists on origin/main")
+    return None
+
+
 def _deliver(git, gh, worktree, branch, item, batch):
     """Push the item branch (never forced) and open or update its PR from
-    pr-body.md. A stall reason on failure, else None."""
+    pr-body.md. A stall reason on failure, else None. A new PR is refused
+    when the issue is already closed or its feature directory is already
+    on main; an open PR is still updated."""
     _, problems = _git(git, ["-C", str(worktree), "push", "-u", "origin",
                              branch], f"pushing {branch}")
     if problems:
@@ -374,6 +425,9 @@ def _deliver(git, gh, worktree, branch, item, batch):
             gh(["api", "-X", "PATCH", "repos/{owner}/{repo}/pulls/"
                 f"{listed.value[0]['number']}", "-F", f"body=@{body}"])
         else:
+            refusal = _pr_create_refusal(git, gh, branch, item)
+            if refusal:
+                return refusal
             gh(["pr", "create", "--head", branch, "--base", "main",
                 "--title", f"{item}: conductor batch {batch}",
                 "--body-file", str(body)])
@@ -383,15 +437,17 @@ def _deliver(git, gh, worktree, branch, item, batch):
 
 
 def _spend(git, worktree, wo, run_id, model, tokens, cost, outcome, now):
-    """Commit the run's one spend row on the item branch, written through
-    cost_ledger.record, the one guarded write (#736). A stall reason on
-    failure, else None."""
-    refused = cost_ledger.record(worktree, cost_ledger.entry(
+    """Commit the run's one spend row on the item branch, as its own file
+    under docs/factory/costs/runs/ (cost_ledger.record_isolated). The
+    shared aggregate is not touched, so parallel item branches do not
+    conflict on it. A stall reason on failure, else None."""
+    refused = cost_ledger.record_isolated(worktree, cost_ledger.entry(
         wo, run_id, model, tokens, cost, outcome, now.strftime("%Y-%m-%d")))
     if refused:
         return (f"refusing to record the spend row of {run_id}: "
                 + "; ".join(refused))
-    for args in (["add", cost_ledger.COST_LEDGER],
+    rel = cost_ledger.run_ledger_path(run_id)
+    for args in (["add", rel],
                  ["commit", "-m", f"{SPEND_SUBJECT}{run_id}"]):
         _, problems = _git(git, ["-C", str(worktree), *args],
                            f"committing the spend row of {run_id}")
@@ -484,29 +540,48 @@ def _left_unchecked(git, branch, briefed, wo):
     return None
 
 
+def _ref_entries(git, ref, path, recursive=False):
+    """(rows, problems a retry may fix, problems it cannot) for one path
+    on `ref`. An absent path holds none. A directory is listed with -r so
+    the blobs under it are shown, not the tree itself. A malformed file
+    is never read as empty, and it fails before any later file."""
+    args = ["ls-tree", *(["-r"] if recursive else []), "--name-only", ref,
+            "--", path]
+    listed, problems = _git(git, args, f"cd: git ls-tree {ref}")
+    if problems:
+        return None, problems, []
+    names = [line.strip() for line in listed.splitlines() if line.strip()]
+    if not recursive:
+        names = [path] if names else []
+    entries = []
+    for name in names:
+        shown = f"{ref}:{name}"
+        text, problems = _git(git, ["show", shown], f"cd: git show {shown}")
+        if problems:
+            return None, problems, []
+        for lineno, entry, suffixes in cost_ledger.parse(text):
+            if suffixes:
+                return None, [], [f"cd: {shown}:{lineno} {suffixes[0]}"]
+            entries.append(entry)
+    return entries, [], []
+
+
 def ref_rows(git, ref):
     """(the spend rows the ref's cost ledger holds, problems a retry may
-    fix, problems it cannot). An absent ledger holds none (#708):
-    nothing seeds docs/factory/costs.jsonl in a consumer repo, so its
-    first run finds none on main. A malformed one is never read as
-    empty."""
-    path = cost_ledger.COST_LEDGER
-    listed, problems = _git(git, ["ls-tree", "--name-only", ref, "--",
-                                  path], f"cd: git ls-tree {ref}")
-    if problems:
-        return None, problems, []
-    if not listed.strip():
-        return [], [], []
-    shown = f"{ref}:{path}"
-    text, problems = _git(git, ["show", shown], f"cd: git show {shown}")
-    if problems:
-        return None, problems, []
-    entries = []
-    for lineno, entry, suffixes in cost_ledger.parse(text):
-        if suffixes:
-            return None, [], [f"cd: {shown}:{lineno} {suffixes[0]}"]
-        entries.append(entry)
-    return entries, [], []
+    fix, problems it cannot). The aggregate and every per-run file count.
+    An absent aggregate holds none (#708): nothing seeds
+    docs/factory/costs.jsonl in a consumer repo, so its first run finds
+    none on main. A malformed aggregate fails before the run files are
+    read, and a malformed run file is never read as empty."""
+    entries, problems, malformed = _ref_entries(
+        git, ref, cost_ledger.COST_LEDGER)
+    if problems or malformed:
+        return None, problems, malformed
+    runs, problems, malformed = _ref_entries(
+        git, ref, cost_ledger.RUNS_DIR, recursive=True)
+    if problems or malformed:
+        return None, problems, malformed
+    return entries + runs, [], []
 
 
 def month_spend(git, rows, batch, now):

@@ -4,17 +4,19 @@ close <batch>` (PRD-0013, WO-0162, WO-0163), split from conductor.py by
 capability (breakdown assumption 6). It imports conductor.py's row
 grammar, which keeps one owner.
 
-The scorecard is computed from the batch ledger and docs/factory/
-costs.jsonl alone. It fails loudly, never reporting a number, when a
+The scorecard is computed from the batch ledger and the cost ledger
+(the aggregate plus each per-run file). It fails loudly, never reporting
+a number, when a
 ledger line does not parse or breaks its kind's rules, when a `run` row
 has no spend row of the same run_id, or when the plan row is missing:
 each a cd: problem naming the file (and line). The Conductor's own
 session is outside every dollar figure, and the row says so.
 
 `close` runs once every item is merged or blocked. It merges origin/main
-into conductor/<batch> (so the merged items' spend rows are in its
-costs.jsonl), carries the blocked items' spend rows over from their
-branches, and appends the scorecard to docs/factory/scorecards.jsonl only
+into conductor/<batch> (so the merged items' spend, including their
+per-run files, is present), copies the blocked items' spend onto the
+batch branch as per-run files — never by appending the shared aggregate —
+and appends the scorecard to docs/factory/scorecards.jsonl only
 when it computes, append-only under the evals/results/ discipline. Then
 it writes the close row and the closing merge ask, commits the ledger,
 run evidence and scorecard, pushes (never forced), opens the closing PR,
@@ -328,22 +330,27 @@ def _refused(problems):
 
 
 def carry_blocked_spend(git, root, batch, blocked):
-    """Append to the batch branch's costs.jsonl every spend row a blocked
-    item's branch holds for its runs: so all spend reaches main. The
-    rows are read by conductor_run.ref_rows, where an absent ledger holds
-    none (#708, #772), and land through cost_ledger.record_new, which
-    skips a row the batch branch already holds (row_key, ADR-0049), so a
-    re-run never appends a row twice."""
-    rows = []
+    """Copy onto the batch branch, as per-run files, every spend row a
+    blocked item's branch holds for its runs: so all spend reaches main
+    without another writer of the shared aggregate. The rows are read by
+    conductor_run.ref_rows, where an absent ledger holds none (#708,
+    #772), and land through cost_ledger.record_isolated, which skips a
+    row the batch branch already holds (row_key, ADR-0049), so a re-run
+    never writes a row twice."""
     for item in blocked:
         found, unread, malformed = conductor_run.ref_rows(
             _at(git, root), flow.item_branch(batch, item))
         if unread or malformed:
             return _refused(unread) + malformed
-        rows += [entry for entry in found
-                 if run_item(batch, entry["run_id"]) == item]
-    _, problems = cost_ledger.record_new(root, rows)
-    return problems
+        for entry in found:
+            if run_item(batch, entry["run_id"]) != item:
+                continue
+            problems = cost_ledger.record_isolated(
+                root, entry, skip_existing=True)
+            if problems:
+                return [f"cd: close refused: {problem}"
+                        for problem in problems]
+    return []
 
 
 def sort_blocked_branches(git, root, batch, blocked):
@@ -506,7 +513,8 @@ def _publish(root, batch, git, gh, finals, reasons, branches):
     branch = batch_branch(batch)
     for args, what in (
             (["add", "--", batch_dir(batch),
-              cost_ledger.COST_LEDGER, SCORECARDS], "staging the close"),
+              *cost_ledger.tracked_ledger_paths(root), SCORECARDS],
+             "staging the close"),
             (["commit", "-m", f"chore(conductor): close batch {batch}"],
              "committing the close"),
             (["push", "-u", "origin", branch], f"pushing {branch}")):

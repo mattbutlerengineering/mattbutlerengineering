@@ -36,15 +36,17 @@ closing a batch) and conductor_calibrate (calibrate).
   python3 conductor.py merge <batch> <#N>
         One merge turn, refused unless the item is reviewed with a pass
         from a distinct reviewer and an answer covers it: merge
-        origin/main in, resolve only costs.jsonl and the manifest, bump
-        the plugin patch version for a skills/ change (both in this
+        origin/main in, resolve only the manifest (a conflict in
+        docs/factory/costs.jsonl aborts; item spend is a per-run file),
+        bump the plugin patch version for a skills/ change (both in this
         plugin's repo only), confirm the item's reserved numbers, run
         the gate command, push (never forced), wait
         for the head's checks, then squash-merge or enqueue. Any other
         outcome queues a stall ask.
   python3 conductor.py scorecard <batch>
         Print the batch's scorecard row as JSON, computed from its ledger
-        and docs/factory/costs.jsonl alone; appends nothing. A malformed
+        and the cost ledger (the aggregate plus each per-run file);
+        appends nothing. A malformed
         ledger line, a run with no spend row or a missing plan row fails
         with a problem and no number.
   python3 conductor.py calibrate
