@@ -61,11 +61,11 @@ step on anything but a clean pass.
    `failed`/`pending`/`gate-missing`/`gate-unattributed`/`unknown` here.
 
 4. **Review.** First read the changed files (`gh pr diff <N> --name-only`)
-   and the labels from step 1. `qualifiesForLowRiskFastPath` returns `true`
-   for a docs-only diff that touches `**/prd.md` or `**/architecture.md`,
-   yet the profile holds those for a human merge (ADR-0087) — so a gate-path
-   match or a `needs-review` label is checked **before** the fast path is
-   consulted, not after (found in the #6639 dry walk-through on #6674). A
+   and the labels from step 1. The profile holds gate-path PRs (`GATE_PATHS`)
+   for a human merge (ADR-0087), so a gate-path match or a `needs-review`
+   label is checked **before** the fast path is consulted, not after (found
+   in the #6639 dry walk-through on #6674); since #6769
+   `qualifiesForLowRiskFastPath` also returns `false` for gate paths. A
    gate-path PR still gets the review below, then step 5 holds it. Follow `.claude/implement-queue.md` § reviewers (and the
    `fast-path` hook's `qualifiesForLowRiskFastPath` short-circuit, which
    composes `isLowRiskPR` with `reviewersForDiff` and already decides when
@@ -83,8 +83,7 @@ step on anything but a clean pass.
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
-   A changed file matching a gate path (`docs/adr/**`, `docs/design/**`,
-   `**/prd.md`, `**/architecture.md`) holds the PR for a human merge instead
+   A changed file matching a gate path (`GATE_PATHS` in `@mbe/agent-core`) holds the PR for a human merge instead
    — do not run the merge command; report `held for human merge — gate
 path` (per that section, not re-derived here). If GitHub reports the PR
    `CLEAN` and refuses `--auto`, merge directly with the same command minus

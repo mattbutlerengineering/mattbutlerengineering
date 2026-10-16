@@ -6641,7 +6641,22 @@
     }
     export const DIFF_REVIEWER_NAMES: readonly string[] = DIFF_REVIEWERS.map((r) => r.name);
     export function qualifiesForLowRiskFastPath(files: readonly string[]): boolean {
-      return isLowRiskPR(files) && reviewersForDiff(files).length === 0;
+      return isLowRiskPR(files) && reviewersForDiff(files).length === 0 && !files.some(matchesGatePath);
+    }
+    export const GATE_PATHS: readonly {
+      readonly pattern: string;
+      readonly matches: (f: string) => boolean;
+    }[] = [
+      { pattern: "docs/adr/**", matches: (f) => f.startsWith("docs/adr/") },
+      { pattern: "docs/design/**", matches: (f) => f.startsWith("docs/design/") },
+      { pattern: "**/prd.md", matches: (f) => f === "prd.md" || f.endsWith("/prd.md") },
+      {
+        pattern: "**/architecture.md",
+        matches: (f) => f === "architecture.md" || f.endsWith("/architecture.md"),
+      },
+    ];
+    export function matchesGatePath(file: string): boolean {
+      return GATE_PATHS.some((g) => g.matches(file));
     }
   </file>
   <file path="src/prompt-builder.ts">
