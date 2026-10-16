@@ -498,7 +498,7 @@ jobs:
             });
 
   test:
-    name: Test (Node ${{ matrix.node-version }})
+    name: Test (Node ${{ matrix.node-version }}, ${{ matrix.leg }})
     runs-on: ubuntu-latest
     # Not `lint`: ESLint produces nothing this job consumes, and the turbo
     # `^build` cache it reuses comes from Typecheck. CI Gate still requires
@@ -506,12 +506,6 @@ jobs:
     # `architecture-audit` either: it builds the CLI on its own runner and
     # hands this job nothing; CI Gate still requires it.
     needs: [typecheck]
-
-    # Single source of truth for the repo-wide coverage threshold, enforced on
-    # the Node-22 leg below. The stricter agent-core package gate (80%) is a
-    # deliberately separate, package-specific rule — not a competing repo number.
-    env:
-      COVERAGE_THRESHOLD: 60
 
     strategy:
       fail-fast: false
@@ -521,6 +515,12 @@ jobs:
         # non-PR events, which let a Node-20-only failure land on main before
         # anyone saw it (#3558) — see #3570 and .claude/rules/gotchas.md.
         node-version: [22]
+        # Four legs: three named heavy packages plus an exclusion-derived
+        # `rest` (architecture.md decision 1). `rest`'s filters exclude
+        # exactly the named three, so a package can never fall outside every
+        # leg (zero-leg) or inside two (double-counted) — the guard
+        # (scripts/__tests__/ci-test-shards.test.mjs) pins this topology.
+        leg: [reservations, hospitality, rialto, rest]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -579,13 +579,21 @@ jobs:
         # this line still declares a cap and fails if the nightly runs the
         # suite more parallel than this job — the mismatch behind ten red
         # nights (#5203 … #5517).
-        run: pnpm turbo test:coverage --concurrency=2
+        run: |
+          set -o pipefail
+          case "${{ matrix.leg }}" in
+            reservations) FILTER="--filter=@mbe/reservations-service " ;;
+            hospitality) FILTER="--filter=@mbe/hospitality " ;;
+            rialto) FILTER="--filter=@mattbutlerengineering/rialto " ;;
+            rest) FILTER="--filter=!@mbe/reservations-service --filter=!@mbe/hospitality --filter=!@mattbutlerengineering/rialto " ;;
+          esac
+          pnpm turbo test:coverage --concurrency=2 $FILTER
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-results-node${{ matrix.node-version }}
+          name: test-results-node${{ matrix.node-version }}-${{ matrix.leg }}
           # Fixed depths, not `**`: a recursive pattern makes the glob walk all
           # of node_modules (73s for one file on run 37527830915). Covers the
           # root and every workspace package (ci-test-results-glob.test.mjs).
@@ -596,74 +604,17 @@ jobs:
           retention-days: 14
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        # Raw coverage-final.json per leg, consumed by test-coverage-gate's
+        # repo-wide/agent-core threshold checks and codecov upload — moved
+        # there wholesale (architecture.md decision 3) since a single leg's
+        # coverage is not a meaningful repo-wide percentage on its own.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./packages/auth/coverage/coverage-final.json,./packages/config/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./packages/api-client/coverage/coverage-final.json,./packages/observability/coverage/coverage-final.json,./packages/mcp-server/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./tools/cli/coverage/coverage-final.json,./tools/route-contract/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json,./infrastructure/worker/coverage/coverage-final.json,./scripts/coverage/coverage-final.json
-          fail_ci_if_error: false
-          verbose: true
-
-      - name: Enforce repo-wide coverage threshold
-        if: matrix.node-version == 22
-        run: |
-          # Repo-wide statement coverage across every package's coverage-final.json,
-          # folded in from the retired coverage-gate.yml so the suite runs at most
-          # once per required Node version. Threshold source: COVERAGE_THRESHOLD env.
-          TOTAL_LINES=0
-          COVERED_LINES=0
-          for REPORT in $(find . -path '*/coverage/coverage-final.json' -not -path '*/node_modules/*' | sort); do
-            PKG_TOTAL=$(node -e "
-              const c = require('./$REPORT');
-              let t=0, cov=0;
-              for (const f of Object.values(c)) {
-                for (const v of Object.values(f.s)) { t++; if (v>0) cov++; }
-              }
-              console.log(t + ',' + cov);
-            ")
-            PKG_T=$(echo "$PKG_TOTAL" | cut -d',' -f1)
-            PKG_C=$(echo "$PKG_TOTAL" | cut -d',' -f2)
-            TOTAL_LINES=$((TOTAL_LINES + PKG_T))
-            COVERED_LINES=$((COVERED_LINES + PKG_C))
-          done
-          if [ "$TOTAL_LINES" -eq 0 ]; then
-            echo "::error::No coverage statements found across the repo"
-            exit 1
-          fi
-          PERCENT=$((COVERED_LINES * 100 / TOTAL_LINES))
-          echo "Repo-wide coverage: ${PERCENT}% (${COVERED_LINES}/${TOTAL_LINES} statements, threshold: ${COVERAGE_THRESHOLD}%)"
-          if [ "$PERCENT" -lt "$COVERAGE_THRESHOLD" ]; then
-            echo "::error::Coverage ${PERCENT}% is below threshold of ${COVERAGE_THRESHOLD}%"
-            exit 1
-          fi
-          echo "Repo-wide coverage threshold met"
-
-      - name: Enforce agent-core coverage threshold
-        if: matrix.node-version == 22
-        run: |
-          COVERAGE_FILE="./packages/agent-core/coverage/coverage-final.json"
-          if [ ! -f "$COVERAGE_FILE" ]; then
-            echo "ERROR: agent-core coverage report not found at $COVERAGE_FILE"
-            exit 1
-          fi
-          TOTAL_STMTS=0
-          COVERED_STMTS=0
-          while IFS= read -r line; do
-            file_total=$(echo "$line" | jq -r ".s | to_entries | length")
-            file_covered=$(echo "$line" | jq -r "[.s | to_entries[] | select(.value > 0)] | length")
-            TOTAL_STMTS=$((TOTAL_STMTS + file_total))
-            COVERED_STMTS=$((COVERED_STMTS + file_covered))
-          done < <(jq -c ".[]" "$COVERAGE_FILE")
-          if [ "$TOTAL_STMTS" -eq 0 ]; then
-            echo "ERROR: No statements found in coverage report"
-            exit 1
-          fi
-          PCT=$((COVERED_STMTS * 100 / TOTAL_STMTS))
-          echo "agent-core statement coverage: ${PCT}% (${COVERED_STMTS}/${TOTAL_STMTS})"
-          if [ "$PCT" -lt 80 ]; then
-            echo "ERROR: agent-core coverage ${PCT}% is below the 80% threshold"
-            exit 1
-          fi
-          echo "agent-core coverage threshold met"
+          name: coverage-${{ matrix.leg }}
+          path: |
+            */coverage/coverage-final.json
+            */*/coverage/coverage-final.json
+          retention-days: 1
 
   migrations:
     name: Validate Migrations
