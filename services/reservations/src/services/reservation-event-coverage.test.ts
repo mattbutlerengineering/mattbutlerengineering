@@ -36,11 +36,6 @@ const ALLOWLIST: AllowlistEntry[] = [
     site: "prisma.deposit.updateMany",
     reason: "`recordPostCaptureRefund` annotates `postCaptureRefundCents`, not a status transition",
   },
-  {
-    file: "services/move-to-hold.ts",
-    site: "tx.reservation.update",
-    reason: "atomic hold-backed move predates the event log; its `moved` event is tracked in #7001",
-  },
 ];
 
 /** Replaces comments with spaces (offsets and newlines preserved). */

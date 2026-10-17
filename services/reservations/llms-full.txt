@@ -11288,12 +11288,14 @@
       venueId: string;
       /** Written in the same transaction as the move when provided. */
       notes?: string;
+      /** Who moved it; recorded on the `moved` event. Defaults to {@link SYSTEM_ACTOR}. */
+      actor?: ReservationEventActor;
     }
     export type MoveToHoldResult =
       | { success: true; reservation: Reservation }
       | { success: false; error: string; errorCode: MoveToHoldErrorCode };
     export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
-      const { reservation, holdId, sessionId, venueId, notes } = input;
+      const { reservation, holdId, sessionId, venueId, notes, actor = SYSTEM_ACTOR } = input;
     
       const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
       if (!hold || hold.venueId !== venueId) {
@@ -11334,6 +11336,19 @@
               table: true,
               guest: { select: { visitCount: true, communicationPreference: true } },
             },
+          });
+          await recordReservationEvent(tx, {
+            reservationId: reservation.id,
+            venueId: reservation.venueId,
+            kind: "moved",
+            actor,
+            from: toEventState({
+              ...reservation,
+              date: new Date(reservation.date),
+              startTime: new Date(reservation.startTime),
+              endTime: new Date(reservation.endTime),
+            }),
+            to: toEventState(updated),
           });
           await tx.reservationHold.delete({ where: { id: holdId } });
           return updated;
@@ -12136,7 +12151,7 @@
       }
     
       if (hold) {
-        return modifyViaHold(reservation, changes, deposits, hold);
+        return modifyViaHold(reservation, changes, deposits, hold, actor);
       }
     
       // Only a specialRequests edit reaches here: it needs no hold, no venue and
@@ -12161,7 +12176,8 @@
       reservation: Reservation,
       changes: ReservationChanges,
       deposits: DepositService,
-      { holdId, sessionId }: ModifyHold
+      { holdId, sessionId }: ModifyHold,
+      actor?: ReservationEventActor
     ): Promise<ModifyReservationResult> {
       const venueId = reservation.venueId;
       const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
@@ -12203,6 +12219,7 @@
         sessionId,
         venueId: venueId,
         notes: changes.specialRequests,
+        actor,
       });
       if (!moved.success) {
         return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };

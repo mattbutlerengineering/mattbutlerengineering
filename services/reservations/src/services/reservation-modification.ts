@@ -225,7 +225,7 @@ export async function modifyReservation(
   }
 
   if (hold) {
-    return modifyViaHold(reservation, changes, deposits, hold);
+    return modifyViaHold(reservation, changes, deposits, hold, actor);
   }
 
   // Only a specialRequests edit reaches here: it needs no hold, no venue and
@@ -256,7 +256,8 @@ async function modifyViaHold(
   reservation: Reservation,
   changes: ReservationChanges,
   deposits: DepositService,
-  { holdId, sessionId }: ModifyHold
+  { holdId, sessionId }: ModifyHold,
+  actor?: ReservationEventActor
 ): Promise<ModifyReservationResult> {
   const venueId = reservation.venueId;
   const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
@@ -298,6 +299,7 @@ async function modifyViaHold(
     sessionId,
     venueId: venueId,
     notes: changes.specialRequests,
+    actor,
   });
   if (!moved.success) {
     return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
