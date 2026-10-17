@@ -24,7 +24,7 @@ export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
         operationId: "getDailyBookingMetrics",
         description:
           "Internal aggregation route for booking-funnel telemetry. Returns counts-only " +
-          "reservation and deposit aggregates for a given day and venue — never a " +
+          "reservation, deposit and reservation-event aggregates for a given day and venue — never a " +
           "reservation id, guest name, email, or phone number.",
         tags: ["Metrics"],
         security: [{ bearerAuth: [] }],
