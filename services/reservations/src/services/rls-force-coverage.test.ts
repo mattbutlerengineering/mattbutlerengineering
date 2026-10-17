@@ -105,11 +105,12 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
 
   const declarations = parseRlsDeclarations(sqlFiles);
 
-  it("enables RLS on exactly the seven venue-scoped tables ADR-026 §1 lists", () => {
+  it("enables RLS on exactly the venue-scoped tables ADR-026 §1 lists plus reservation_events", () => {
     expect([...declarations.enabled].sort()).toEqual([
       "deposits",
       "floor_plans",
       "guests",
+      "reservation_events",
       "reservations",
       "tables",
       "venues",
@@ -128,7 +129,7 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
     expect(unforcedRlsTables(declarations, PENDING_FORCE_TABLES)).toEqual([]);
   });
 
-  it("forces the seven venue tables and keeps the pending list empty", () => {
+  it("forces every RLS table and keeps the pending list empty", () => {
     expect([...declarations.forced].sort()).toEqual([...declarations.enabled].sort());
     expect([...PENDING_FORCE_TABLES]).toEqual([]);
   });
@@ -229,6 +230,20 @@ describe("app_reservations role and FORCE migrations", () => {
     }
 
     expect(grantSql.toLowerCase()).not.toMatch(/password|bypassrls|grant usage on sequence/);
+  });
+
+  it("grants app_reservations SELECT and INSERT only on reservation_events (append-only)", () => {
+    const sql = readFileSync(
+      join(MIGRATIONS_DIR, "20261016000000_add_reservation_events", "migration.sql"),
+      "utf8"
+    );
+    const grants = sqlStatements(sql).filter((stmt) => /^grant\b/i.test(stmt));
+    expect(grants.map((stmt) => stmt.replace(/\s+/g, " "))).toEqual([
+      'GRANT SELECT, INSERT ON TABLE "reservation_events" TO app_reservations',
+    ]);
+    expect(sql.replace(/--[^\n]*/g, "")).not.toMatch(
+      /\b(drop|update|delete)\b[^;]*TO app_reservations/i
+    );
   });
 
   it("does not grant BYPASSRLS from seed", () => {
