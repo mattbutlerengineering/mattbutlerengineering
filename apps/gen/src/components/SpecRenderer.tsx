@@ -3,7 +3,11 @@ import type { Spec } from "@json-render/react";
 import { useMemo, useState } from "react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { registry } from "@mbe/rialto-catalog";
-import { NodeSelectionContext, createSelectableRegistry } from "./selectable-registry.js";
+import {
+  NodeSelectionContext,
+  createSelectableRegistry,
+  stampNodeKeys,
+} from "./selectable-registry.js";
 
 export interface SpecProviderProps {
   children: ReactNode;
@@ -35,7 +39,11 @@ export function SpecRenderer({
   selectableClassName,
 }: SpecRendererProps) {
   const activeRegistry = useMemo(
-    () => (selectable && spec ? createSelectableRegistry(registry, spec) : registry),
+    () => (selectable ? createSelectableRegistry(registry) : registry),
+    [selectable]
+  );
+  const activeSpec = useMemo(
+    () => (selectable && spec ? stampNodeKeys(spec) : spec),
     [selectable, spec]
   );
   const [cursor, setCursor] = useState<{ spec: Spec | null; key: string | null }>({
@@ -45,7 +53,7 @@ export function SpecRenderer({
   // A cursor on a previous spec's node is meaningless; derive it away at render time.
   const cursorKey = cursor.spec === spec ? cursor.key : null;
 
-  const renderer = <Renderer spec={spec} registry={activeRegistry} loading={loading} />;
+  const renderer = <Renderer spec={activeSpec} registry={activeRegistry} loading={loading} />;
   if (!selectable) return renderer;
 
   function nodeKeys(container: HTMLElement): string[] {

@@ -25,7 +25,8 @@ vi.mock("@json-render/react", () => ({
         children?: React.ReactNode;
       }>;
       const kids = element.children?.map((child) => <span key={child}>{renderKey(child)}</span>);
-      return Component ? <Component element={element}>{kids}</Component> : kids;
+      // Copy like json-render does when props hold expressions: identity must not be relied on.
+      return Component ? <Component element={{ ...element }}>{kids}</Component> : kids;
     };
     return <div data-testid="renderer">{spec ? renderKey(spec.root) : null}</div>;
   },
@@ -328,6 +329,23 @@ describe("PreviewPane", () => {
         (node) => (node as HTMLElement).dataset.genNode
       );
       expect(keys.sort()).toEqual(["box", "button", "text"]);
+    });
+
+    it("tags leaves that share a type even when json-render copies the element", () => {
+      const spec: Spec = {
+        root: "box",
+        elements: {
+          box: { type: "Box", props: {}, children: ["a", "b"] },
+          a: { type: "Text", props: { text: { $state: "/x" } } },
+          b: { type: "Text", props: { text: { $state: "/y" } } },
+        },
+      };
+      const { container } = renderSelectable({ spec });
+      fireEvent.click(screen.getByRole("button", { name: "Select component" }));
+      const keys = Array.from(container.querySelectorAll("[data-gen-node]")).map(
+        (node) => (node as HTMLElement).dataset.genNode
+      );
+      expect(keys.sort()).toEqual(["a", "b", "box"]);
     });
 
     it("selects the innermost node on click without triggering the component", () => {
