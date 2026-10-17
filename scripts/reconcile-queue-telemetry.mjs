@@ -60,6 +60,20 @@ const missingFields = (row) =>
   RECONCILABLE_FIELDS.filter((f) => isNull(row[f]) && !row.unknown_reasons?.[f]);
 
 /**
+ * A PR-less row with no parseable claimed_at can never age into the stale
+ * window, so say why its PR-derived fields stay null (merged is left null:
+ * without a claim time nothing shows the issue was abandoned).
+ */
+function reconcileWithoutClaimedAt(row, cost) {
+  const out = reconcileTelemetryRow(row, { pr: null, cost });
+  const reasons = { ...out.unknown_reasons };
+  for (const f of PR_FIELDS) {
+    if (reasons[f]) reasons[f] = "no-claimed-at";
+  }
+  return Object.keys(reasons).length > 0 ? { ...out, unknown_reasons: reasons } : out;
+}
+
+/**
  * Reconcile outcome fields on telemetry rows. Pure — returns new row objects,
  * never mutates the input.
  *
@@ -94,7 +108,11 @@ export function reconcileTelemetry(
 
     if (row.pr_number == null) {
       const claimedMs = Date.parse(row.claimed_at ?? "");
-      if (!Number.isFinite(claimedMs) || claimedMs >= staleCutoffMs) return { ...row };
+      if (!Number.isFinite(claimedMs)) {
+        reconciled += 1;
+        return reconcileWithoutClaimedAt(row, cost);
+      }
+      if (claimedMs >= staleCutoffMs) return { ...row };
       reconciled += 1;
       const base = isNull(row.merged) ? { ...row, merged: false } : row;
       return reconcileTelemetryRow(base, { pr: null, cost });
