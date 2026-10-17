@@ -62,6 +62,10 @@ vi.mock("./database.js", async () => {
         return store.rows[index];
       }),
       findMany: vi.fn(async () => store.rows),
+      findUnique: vi.fn(
+        async ({ where }: { where: { id: string } }) =>
+          store.rows.find((r) => r.id === where.id) ?? null
+      ),
     },
   };
   return createMockDatabaseService({ prisma });
