@@ -22,7 +22,7 @@ import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { ReservationTransitionError } from "../services/reservation.js";
-import { SYSTEM_ACTOR, type ReservationEventActor } from "../services/reservation-events.js";
+import { staffActor, type ReservationEventActor } from "../services/reservation-events.js";
 import type { DomainServices } from "../services/domain-services.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
@@ -32,8 +32,8 @@ import { bodyVenueId, inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 
 /** The authenticated user as the reservation event log's staff actor. */
-const staffActor = (request: FastifyRequest): ReservationEventActor =>
-  request.user?.id ? { type: "staff", id: request.user.id } : SYSTEM_ACTOR;
+const requestActor = (request: FastifyRequest): ReservationEventActor =>
+  staffActor(request.user?.id);
 
 /**
  * Venue-id resolver for the staff reservations list (#4865, Sentry
@@ -291,7 +291,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       const result = await fastify.transitions.createWalkIn(
         request.body,
         userId,
-        staffActor(request)
+        requestActor(request)
       );
       if (result.tableNotInVenue) {
         return reply
@@ -458,7 +458,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           }
         }
 
-        const result = await fastify.transitions.createByStaff(body, userId, staffActor(request));
+        const result = await fastify.transitions.createByStaff(body, userId, requestActor(request));
 
         if (result.tableNotInVenue) {
           return reply
@@ -579,7 +579,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             {
               cancellationReason: request.body.cancellationReason,
               cancellationNote: request.body.cancellationNote,
-              actor: isAdmin ? staffActor(request) : undefined,
+              actor: isAdmin ? requestActor(request) : undefined,
             }
           );
 
@@ -603,7 +603,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           const result = await fastify.transitions.noShow(
             reservation,
             request.log,
-            isAdmin ? staffActor(request) : undefined
+            isAdmin ? requestActor(request) : undefined
           );
 
           if (!result.success) {
@@ -658,7 +658,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         const result = await fastify.transitions.updateByStaff(
           reservation,
           request.body,
-          isAdmin ? staffActor(request) : undefined
+          isAdmin ? requestActor(request) : undefined
         );
 
         if (!result.success) {
@@ -765,7 +765,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           request.log,
           isAdmin,
           "staff-delete",
-          { actor: isAdmin ? staffActor(request) : undefined }
+          { actor: isAdmin ? requestActor(request) : undefined }
         );
         if (!result.success) {
           return reply

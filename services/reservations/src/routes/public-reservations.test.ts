@@ -380,6 +380,21 @@ describe("guest link on the public confirm (M5.2)", () => {
     expect(lastGuestDetails()?.guestId).toBe("gst_by_phone");
   });
 
+  it("attributes the booking to the linked guest, or to a guest with no id when unlinked", async () => {
+    vi.mocked(guestService.findByEmail).mockResolvedValueOnce(emailGuest);
+    await confirm(knownContact, linkedReservation);
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].actor).toEqual({
+      type: "guest",
+      id: "gst_by_email",
+    });
+
+    await confirm(knownContact);
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].actor).toEqual({
+      type: "guest",
+      id: null,
+    });
+  });
+
   it("SC10: no match passes no guestId to confirmHold", async () => {
     const response = await confirm(knownContact);
 

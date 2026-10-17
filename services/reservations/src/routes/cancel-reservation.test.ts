@@ -321,8 +321,25 @@ describe("DELETE /public/v1/reservations/manage", () => {
         cancellationReason: "guest_cancelled",
         cancellationNote: "Change of plans",
       },
-      undefined
+      { type: "guest", id: null }
     );
+  });
+
+  it("attributes the cancel to the reservation's guest, never the manage token", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+    const owned = { ...mockReservation, guestId: "guest_1" };
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(owned as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...owned,
+      status: "CANCELLED",
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    await app.inject({ method: "DELETE", url: `/public/v1/reservations/manage?token=${token}` });
+
+    const actor = vi.mocked(reservationService.update).mock.calls[0]![2];
+    expect(actor).toEqual({ type: "guest", id: "guest_1" });
+    expect(JSON.stringify(actor)).not.toContain(token);
   });
 
   it("returns 404 when reservation not found", async () => {

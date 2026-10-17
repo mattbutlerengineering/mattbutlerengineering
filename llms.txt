@@ -9452,6 +9452,12 @@
     <item priority="high">
       export const SYSTEM_ACTOR: ReservationEventActor;
     </item>
+    <item priority="high">
+      export const guestActor: unknown;
+    </item>
+    <item priority="high">
+      export const staffActor: unknown;
+    </item>
     <item priority="low">
       type EventState = {
         status: string;
@@ -9547,7 +9553,8 @@
         reservation: Reservation,
         changes: ReservationChanges,
         deposits: DepositService,
-        hold?: ModifyHold
+        hold?: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
     <item priority="low">
