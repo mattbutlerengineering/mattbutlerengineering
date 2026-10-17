@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
 import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
+import type { ReservationEventActor } from "./reservation-events.js";
 import {
   type DepositService,
   DepositConcurrentUpdateError,
@@ -409,7 +410,8 @@ function applyForfeitOutcome(
 export async function recordNoShow(
   reservation: Reservation,
   logger: FastifyBaseLogger,
-  deposits: DepositService
+  deposits: DepositService,
+  actor?: ReservationEventActor
 ): Promise<RecordNoShowResult> {
   try {
     transitionReservation(reservation.status, "NO_SHOW");
@@ -571,7 +573,7 @@ export async function recordNoShow(
 
   let updated: Reservation | null;
   try {
-    updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+    updated = await reservationService.update(reservation.id, { status: "NO_SHOW" }, actor);
   } catch (err) {
     if (forfeitedDepositId === null) {
       // No money moved this call — the ordinary concurrent-no-show loser.

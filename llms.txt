@@ -9319,6 +9319,7 @@
         initiator?: CancelInitiator;
         cancellationReason?: string;
         cancellationNote?: string;
+        actor?: ReservationEventActor;
       }
     </item>
     <item priority="low">
@@ -9537,7 +9538,8 @@
       export async function recordNoShow(
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        deposits: DepositService
+        deposits: DepositService,
+        actor?: ReservationEventActor
       ): Promise<RecordNoShowResult> { /* ... */ }
     </item>
   </file>

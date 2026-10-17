@@ -314,11 +314,15 @@ describe("DELETE /public/v1/reservations/manage", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(reservationService.update).toHaveBeenCalledWith("res_1", {
-      status: "CANCELLED",
-      cancellationReason: "guest_cancelled",
-      cancellationNote: "Change of plans",
-    });
+    expect(reservationService.update).toHaveBeenCalledWith(
+      "res_1",
+      {
+        status: "CANCELLED",
+        cancellationReason: "guest_cancelled",
+        cancellationNote: "Change of plans",
+      },
+      undefined
+    );
   });
 
   it("returns 404 when reservation not found", async () => {
