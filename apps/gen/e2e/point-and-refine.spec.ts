@@ -94,7 +94,7 @@ test.describe("Point and refine", () => {
     expect(Object.keys(before).sort()).toEqual(["body", "footer", "header", "kpi", "root"]);
 
     await inspector.getByLabel("Change this component").fill("make it a row with a badge");
-    await inspector.getByRole("button", { name: "Refine" }).click();
+    await inspector.getByRole("button", { name: "Refine", exact: true }).click();
     await expect(history.getByRole("option")).toHaveCount(2);
     await expect(inspector.getByText("Added: Badge")).toBeVisible();
 

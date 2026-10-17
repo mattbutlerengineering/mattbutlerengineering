@@ -41,7 +41,7 @@ function ndjson(lines: FlatElementLine[]): string {
 
 /**
  * Stateful mocks for the generation and history APIs. Saved entries come back on the next
- * list call, favorites and deletes mutate the list, and every `/api/gen/ui` request is
+ * list call (favorite and delete are acknowledged but do not mutate it), and every `/api/gen/ui` request is
  * recorded so a spec can assert that a replay never reached the model.
  */
 export async function mockGenApi(page: Page, responses: GenApiResponses): Promise<GenApiMocks> {
