@@ -512,3 +512,92 @@ describe("ReservationsClient.cancelManaged", () => {
     });
   });
 });
+
+describe("ReservationsClient.modifyManaged", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  const modified = {
+    id: "res_1",
+    date: "2026-06-16",
+    startTime: "20:00",
+    endTime: "22:00",
+    partySize: 4,
+    guestName: "Jane Doe",
+    guestEmail: "jane@example.com",
+    status: "CONFIRMED",
+    notes: null,
+  };
+
+  it("PATCHes /public/v1/reservations/manage with Bearer token, x-session-id and holdId", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { reservation: modified } }));
+
+    const result = await makeClient().modifyManaged(
+      "tok-abc",
+      { partySize: 4 },
+      { holdId: "hold_1", sessionId: "sess_1" }
+    );
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/reservations/manage");
+    expect(options?.method).toBe("PATCH");
+    const headers = options?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer tok-abc");
+    expect(headers["x-session-id"]).toBe("sess_1");
+    expect(JSON.parse(options?.body as string)).toEqual({ partySize: 4, holdId: "hold_1" });
+    expect(result).toEqual(modified);
+  });
+
+  it("omits x-session-id and holdId when no hold is passed", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { reservation: modified } }));
+
+    await makeClient().modifyManaged("tok-abc", { specialRequests: "window seat" });
+
+    const [, options] = mockFetch.mock.calls[0]!;
+    expect((options?.headers as Record<string, string>)["x-session-id"]).toBeUndefined();
+    expect(JSON.parse(options?.body as string)).toEqual({ specialRequests: "window seat" });
+  });
+});
+
+describe("ReservationsClient.manageReservation modification limits", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  const base = {
+    reservation: {
+      id: "res_1",
+      date: "2026-06-15",
+      startTime: "19:00",
+      endTime: "21:00",
+      partySize: 4,
+      guestName: null,
+      guestEmail: null,
+      status: "CONFIRMED",
+      notes: null,
+    },
+    venue: { id: "v", name: "V", slug: "v", ianaTimezone: "UTC" },
+  };
+
+  it("accepts the nullable modification fields on the venue", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: {
+          ...base,
+          venue: { ...base.venue, modificationCutoffHours: 4, maxPartySizeChange: null },
+        },
+      })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venue?.modificationCutoffHours).toBe(4);
+    expect(result.venue?.maxPartySizeChange).toBeNull();
+  });
+
+  it("still accepts a venue without the modification fields", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: base }));
+
+    await expect(makeClient().manageReservation("tok")).resolves.toEqual(base);
+  });
+});

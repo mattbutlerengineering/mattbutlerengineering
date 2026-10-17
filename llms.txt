@@ -3941,6 +3941,31 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useChangeBooking.ts">
+    <item priority="low">
+      interface ChangeBookingSlot {
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      type ChangeBookingStatus = "idle" | "holding" | "held" | "confirming" | "done" | "error";
+    </item>
+    <item priority="low">
+      interface UseChangeBookingOptions {
+        token: string;
+        venueSlug: string;
+      }
+    </item>
+    <item priority="medium">
+      function problemCode(err: unknown): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     <item priority="low">
       interface DashboardStats {
@@ -13473,6 +13498,15 @@
         slug: string;
         ianaTimezone: string;
         phone?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManagedReservationChanges {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        partySize?: number;
+        specialRequests?: string;
       }
     </item>
     <item priority="low">

@@ -332,6 +332,15 @@
       }
     </item>
     <item priority="low">
+      interface ManagedReservationChanges {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        partySize?: number;
+        specialRequests?: string;
+      }
+    </item>
+    <item priority="low">
       interface ManageReservationData {
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;

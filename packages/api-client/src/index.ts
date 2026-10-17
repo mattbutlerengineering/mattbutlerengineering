@@ -44,6 +44,7 @@ export { HealthClient } from "./health.js";
 export type {
   ManageReservationData,
   ManagedReservation,
+  ManagedReservationChanges,
   ManagedReservationVenue,
 } from "./reservations.js";
 
