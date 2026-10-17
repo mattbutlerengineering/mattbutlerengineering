@@ -22,6 +22,7 @@ import {
   FRESHNESS_POLICY,
   classifyFreshness,
   assessFreshness,
+  assessQueueTelemetryCompleteness,
   freshnessFindings,
   freshnessRegressions,
   freshnessExitCode,
@@ -515,5 +516,71 @@ describe("queueEfficiency + ai-issue-feedback policy (#6312)", () => {
       assess({ queue: [darkQueue(0)], feedback: goodFeedback(0) })
     );
     expect(formatFinding(finding)).toMatch(/^queueEfficiency: unhealthy/);
+  });
+});
+
+/* ── #6943: queue-telemetry completeness (silent nulls) ───────────────────── */
+
+describe("assessQueueTelemetryCompleteness", () => {
+  const hoursAgo = (h) => new Date(NOW.getTime() - h * 3600 * 1000).toISOString();
+  const full = (claimed_at) => ({
+    claimed_at,
+    merged: true,
+    merged_at: claimed_at,
+    ci_first_pass: true,
+    reviewer_verdict: "pass",
+    cost_usd: 1,
+    model_tier: "sonnet",
+  });
+  const silent = (claimed_at) => ({ ...full(claimed_at), cost_usd: null });
+  const assess = (rows) => assessQueueTelemetryCompleteness({ readMetric: () => rows, now: NOW });
+  const mixed = (silentN) =>
+    Array.from({ length: 10 }, (_, i) => (i < silentN ? silent(hoursAgo(48)) : full(hoursAgo(48))));
+
+  it("passes with exactly 20% of rows carrying a silent null", () => {
+    const results = assess(mixed(2));
+    expect(results[0].state).toBe("fresh");
+    expect(freshnessExitCode(results)).toBe(0);
+  });
+
+  it("is incomplete above 20% and exits 1", () => {
+    const results = assess(mixed(3));
+    expect(results[0].state).toBe("incomplete");
+    expect(freshnessExitCode(results)).toBe(1);
+    expect(freshnessFindings(results)).toHaveLength(1);
+    expect(freshnessRegressions(results)[0].severity).toBe("high");
+  });
+
+  it("does not fail rows whose null carries an unknown reason", () => {
+    const rows = Array.from({ length: 10 }, () => ({
+      ...full(hoursAgo(48)),
+      cost_usd: null,
+      unknown_reasons: { cost_usd: "no-ledger-row" },
+    }));
+    expect(assess(rows)[0].state).toBe("fresh");
+  });
+
+  it("excludes rows claimed under 24h ago", () => {
+    const rows = Array.from({ length: 10 }, () => silent(hoursAgo(2)));
+    expect(assess(rows)[0].state).toBe("empty");
+  });
+
+  it("ignores rows older than 7 days", () => {
+    const rows = [silent(hoursAgo(24 * 10)), full(hoursAgo(48))];
+    expect(assess(rows)[0].state).toBe("fresh");
+  });
+
+  it("reports an empty window as empty (existing behaviour)", () => {
+    expect(assess([])[0].state).toBe("empty");
+  });
+
+  it("reports an unreadable sink as a finding", () => {
+    const results = assessQueueTelemetryCompleteness({
+      readMetric: () => {
+        throw new Error("corrupt");
+      },
+      now: NOW,
+    });
+    expect(results[0].state).toBe("unreadable");
   });
 });

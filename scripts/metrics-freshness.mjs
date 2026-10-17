@@ -58,6 +58,7 @@
 import { fileURLToPath } from "node:url";
 import { read } from "./metrics-store.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
+import { summarizeFieldCoverage, silentRowCount } from "./queue-telemetry-coverage.mjs";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -260,6 +261,71 @@ export function assessFreshness({
   });
 }
 
+/** Share of recent rows that may carry a silent null before the sink is `incomplete`. */
+const COMPLETENESS_MAX_SILENT_SHARE = 0.2;
+const COMPLETENESS_WINDOW_DAYS = 7;
+/** The daily reconciler has not had a chance to run on rows younger than this. */
+const COMPLETENESS_MIN_AGE_MS = MS_PER_DAY;
+
+/**
+ * Completeness of the queue-telemetry sink (#6943): `incomplete` when more than
+ * 20% of rows claimed 1-7 days ago carry a silent null (null reconcilable
+ * field with no `unknown_reasons` entry), i.e. the reconciler stopped finishing
+ * rows. Unknown-with-reason is honest and never counted. Recency is a separate
+ * policy entry; this returns an extra result to append to `assessFreshness`.
+ *
+ * @param {object} [params]
+ * @param {(metric: string) => unknown} [params.readMetric]
+ * @param {Date} [params.now]
+ * @returns {Array<object>} one result
+ */
+export function assessQueueTelemetryCompleteness({
+  readMetric = (metric) => read(metric),
+  now = new Date(),
+} = {}) {
+  const base = {
+    metric: "queue-telemetry",
+    label: "queue-telemetry completeness",
+    producer: "scripts/reconcile-queue-telemetry.mjs",
+    latest: null,
+    ageDays: null,
+  };
+  let rows;
+  try {
+    rows = readMetric("queue-telemetry");
+  } catch (error) {
+    return [
+      {
+        ...base,
+        state: "unreadable",
+        error: error instanceof Error ? error.message : String(error),
+      },
+    ];
+  }
+  if (!Array.isArray(rows)) return [{ ...base, state: "empty" }];
+
+  const newest = now.getTime() - COMPLETENESS_MIN_AGE_MS;
+  const eligible = rows.filter((r) => Date.parse(r?.claimed_at) <= newest);
+  const windowed = summarizeFieldCoverage(eligible, {
+    since: new Date(now.getTime() - COMPLETENESS_WINDOW_DAYS * MS_PER_DAY),
+  });
+  if (windowed.rows_n === 0) return [{ ...base, state: "empty" }];
+
+  const inWindow = eligible.filter(
+    (r) => Date.parse(r.claimed_at) >= now.getTime() - COMPLETENESS_WINDOW_DAYS * MS_PER_DAY
+  );
+  const silentN = silentRowCount(inWindow);
+  const share = silentN / windowed.rows_n;
+  return [
+    {
+      ...base,
+      state: share > COMPLETENESS_MAX_SILENT_SHARE ? "incomplete" : FRESH,
+      silentRows: silentN,
+      rowsN: windowed.rows_n,
+    },
+  ];
+}
+
 /**
  * Every result that is not explicitly `fresh`.
  *
@@ -334,6 +400,9 @@ export function freshnessRegressions(results) {
  * @returns {string}
  */
 export function formatFinding(result) {
+  if (result.state === "incomplete") {
+    return `${result.label}: incomplete — ${result.silentRows}/${result.rowsN} recent rows have a silent null; written by ${result.producer}`;
+  }
   const age = result.ageDays === null ? "no dated entry" : `${result.ageDays}d old`;
   const detail = result.error ? ` (${result.error})` : "";
   return `${result.label ?? result.metric}: ${result.state} — ${age}${detail}; written by ${result.producer ?? "unknown producer"}`;
@@ -342,7 +411,7 @@ export function formatFinding(result) {
 /* ── CLI ─────────────────────────────────────────────────── */
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const results = assessFreshness();
+  const results = [...assessFreshness(), ...assessQueueTelemetryCompleteness()];
 
   // An empty policy must not render as PASS — freshnessExitCode() already
   // calls that state a failure, so the reported findings have to agree.
