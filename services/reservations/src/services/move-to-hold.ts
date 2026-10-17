@@ -17,6 +17,8 @@ export interface MoveToHoldInput {
    * `NOT_FOUND`, never as a distinct error, so its existence does not leak.
    */
   venueId: string;
+  /** Written in the same transaction as the move when provided. */
+  notes?: string;
 }
 
 export type MoveToHoldResult =
@@ -34,7 +36,7 @@ export type MoveToHoldResult =
  * `status` is never written.
  */
 export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
-  const { reservation, holdId, sessionId, venueId } = input;
+  const { reservation, holdId, sessionId, venueId, notes } = input;
 
   const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
   if (!hold || hold.venueId !== venueId) {
@@ -69,6 +71,7 @@ export async function moveReservationToHold(input: MoveToHoldInput): Promise<Mov
           endTime: hold.endTime,
           tableId: hold.tableId,
           partySize: hold.partySize,
+          ...(notes !== undefined && { notes }),
         },
         include: {
           table: true,

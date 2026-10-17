@@ -36,6 +36,7 @@ import { recordNoShow, type RecordNoShowResult } from "../services/reservation-n
 import {
   isTimeChange,
   modifyReservation,
+  type ModifyHold,
   type ModifyReservationResult,
   type ReservationChanges,
 } from "../services/reservation-modification.js";
@@ -93,7 +94,8 @@ export interface ReservationTransitions {
   modifyByGuest(
     reservation: Reservation,
     changes: ReservationChanges,
-    manageToken: string
+    manageToken: string,
+    hold?: ModifyHold
   ): Promise<ModifyReservationResult>;
   confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
   createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
@@ -167,8 +169,8 @@ export function createReservationTransitions(
       return result;
     },
 
-    async modifyByGuest(reservation, changes, manageToken) {
-      const result = await modifyReservation(reservation, changes, deposits);
+    async modifyByGuest(reservation, changes, manageToken, hold) {
+      const result = await modifyReservation(reservation, changes, deposits, hold);
       if (result.success) {
         await settle(
           {
@@ -176,7 +178,7 @@ export function createReservationTransitions(
             before: reservation,
             after: result.reservation,
             manageToken,
-            timeChanged: isTimeChange(changes),
+            timeChanged: hold !== undefined || isTimeChange(changes),
           },
           reservation.venueId
         );
