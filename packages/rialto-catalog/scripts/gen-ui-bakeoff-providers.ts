@@ -149,7 +149,8 @@ export function createProvider(
         const detail = redact((await res.text()).slice(0, 300));
         throw new Error(`HTTP ${res.status} from ${id}: ${detail}`);
       }
-      return PARSERS[id](await res.json());
+      const parse = PARSERS[id];
+      return parse(await res.json());
     },
   };
 }
