@@ -117,6 +117,18 @@ describe("moveReservationToHold", () => {
     expect(tx.reservationHold.delete).toHaveBeenCalledWith({ where: { id: "hold-1" } });
   });
 
+  it("writes notes in the same update when provided", async () => {
+    const hold = makeHold();
+    vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+    const tx = makeTx();
+    tx.reservation.update.mockResolvedValue(makeUpdatedRow(hold));
+    useTx(tx);
+
+    await moveReservationToHold({ ...input, notes: "quiet table" });
+
+    expect(tx.reservation.update.mock.calls[0]![0].data.notes).toBe("quiet table");
+  });
+
   it("excludes the reservation's own slot and the hold from the conflict re-check", async () => {
     const hold = makeHold();
     vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);

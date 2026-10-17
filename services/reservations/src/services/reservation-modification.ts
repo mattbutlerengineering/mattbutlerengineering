@@ -1,6 +1,8 @@
 import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
+import { prisma } from "./database.js";
+import { moveReservationToHold } from "./move-to-hold.js";
 import {
   bookingWindow,
   checkGuestModificationPolicy,
@@ -15,6 +17,12 @@ export interface ReservationChanges {
   endTime?: string;
   partySize?: number;
   specialRequests?: string;
+}
+
+/** The guest's hold on the slot a date/time/party-size change moves to. */
+export interface ModifyHold {
+  holdId: string;
+  sessionId: string;
 }
 
 export type ModifyReservationResult =
@@ -45,6 +53,28 @@ export function isTimeChange(changes: ReservationChanges): boolean {
     changes.date !== undefined || changes.startTime !== undefined || changes.endTime !== undefined
   );
 }
+
+/** Whether a change moves the booking onto a different slot or party size. */
+function needsHold(changes: ReservationChanges): boolean {
+  return isTimeChange(changes) || changes.partySize !== undefined;
+}
+
+const HOLD_REQUIRED_RESULT: ModifyReservationResult = {
+  success: false,
+  status: 400,
+  title: "Hold Required",
+  detail: "Changing the date, time or party size requires a hold on the new slot",
+  code: "HOLD_REQUIRED",
+};
+
+/** moveReservationToHold failure code -> HTTP result. */
+const MOVE_ERROR_RESULTS = {
+  NOT_FOUND: { status: 404, title: "Hold Not Found", code: "HOLD_NOT_FOUND" },
+  SESSION_MISMATCH: { status: 403, title: "Forbidden", code: "HOLD_SESSION_MISMATCH" },
+  EXPIRED: { status: 410, title: "Hold Expired", code: "HOLD_EXPIRED" },
+  CONFLICT: { status: 409, title: "Slot Unavailable", code: "SLOT_UNAVAILABLE" },
+  PACING_EXCEEDED: { status: 422, title: "Pacing Exceeded", code: "PACING_EXCEEDED" },
+} as const;
 
 const DEPOSIT_HELD_STATUSES = new Set(["pending", "held"]);
 
@@ -181,59 +211,27 @@ function checkGuestPolicy(
 export async function modifyReservation(
   reservation: Reservation,
   changes: ReservationChanges,
-  deposits: DepositService
+  deposits: DepositService,
+  hold?: ModifyHold
 ): Promise<ModifyReservationResult> {
-  if (!hasAnyChange(changes)) {
+  if (!hasAnyChange(changes) && !hold) {
     return NO_CHANGES_RESULT;
   }
 
-  const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
-  if (depositGuardResult) {
-    return depositGuardResult;
+  if (needsHold(changes) && !hold) {
+    return HOLD_REQUIRED_RESULT;
   }
 
-  // A specialRequests-only edit moves neither time nor party size, so it needs no venue.
-  const venue =
-    reservation.venueId && (isTimeChange(changes) || changes.partySize !== undefined)
-      ? await venueService.getById(reservation.venueId)
-      : null;
-  if (venue) {
-    const blocked =
-      checkGuestPolicy(venue, reservation, changes) ??
-      checkBookingWindow(venue, reservation, changes);
-    if (blocked) return blocked;
+  if (hold) {
+    return modifyViaHold(reservation, changes, deposits, hold);
   }
 
-  const { date, startTime, endTime, partySize, specialRequests } = changes;
-  const updateData = {
-    ...(date !== undefined && { date }),
-    ...(startTime !== undefined && { startTime }),
-    ...(endTime !== undefined && { endTime }),
-    ...(partySize !== undefined && { partySize }),
-    ...(specialRequests !== undefined && { notes: specialRequests }),
-  };
-
-  const updateResult = await reservationService.updateWithConflictCheck(reservation.id, updateData);
-
+  // Only a specialRequests edit reaches here: it needs no hold, no venue and
+  // no conflict check.
+  const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
+    notes: changes.specialRequests,
+  });
   if (!updateResult.success) {
-    if (updateResult.conflict) {
-      return {
-        success: false,
-        status: 409,
-        title: "Slot Unavailable",
-        detail: updateResult.error!,
-        code: "SLOT_UNAVAILABLE",
-      };
-    }
-    if (updateResult.capacityExceeded) {
-      return {
-        success: false,
-        status: 422,
-        title: "Party Size Exceeds Table Capacity",
-        detail: updateResult.error!,
-        code: "PARTY_SIZE_EXCEEDS_TABLE",
-      };
-    }
     return {
       success: false,
       status: 500,
@@ -242,6 +240,63 @@ export async function modifyReservation(
       code: "RESERVATION_UPDATE_FAILED",
     };
   }
-
   return { success: true, reservation: updateResult.reservation! };
+}
+
+/**
+ * A change onto a held slot: the deposit guard, booking window and venue
+ * policy are checked against the hold's slot, then the reservation is moved
+ * onto it atomically. A lost race leaves the original booking untouched.
+ */
+async function modifyViaHold(
+  reservation: Reservation,
+  changes: ReservationChanges,
+  deposits: DepositService,
+  { holdId, sessionId }: ModifyHold
+): Promise<ModifyReservationResult> {
+  const venueId = reservation.venueId;
+  const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
+  if (!held || held.venueId !== venueId) {
+    return { success: false, detail: "Hold not found", ...MOVE_ERROR_RESULTS.NOT_FOUND };
+  }
+  if (held.sessionId !== sessionId) {
+    return {
+      success: false,
+      detail: "Session ID does not match the hold",
+      ...MOVE_ERROR_RESULTS.SESSION_MISMATCH,
+    };
+  }
+
+  // The hold's slot is the change; whatever else the body carried is ignored.
+  const heldChanges: ReservationChanges = {
+    date: held.date.toISOString().slice(0, 10),
+    startTime: held.startTime.toISOString(),
+    endTime: held.endTime.toISOString(),
+    partySize: held.partySize,
+  };
+
+  const depositGuardResult = await checkPartySizeDepositGuard(reservation, heldChanges, deposits);
+  if (depositGuardResult) {
+    return depositGuardResult;
+  }
+
+  const venue = await venueService.getById(venueId);
+  if (venue) {
+    const blocked =
+      checkGuestPolicy(venue, reservation, heldChanges) ??
+      checkBookingWindow(venue, reservation, heldChanges);
+    if (blocked) return blocked;
+  }
+
+  const moved = await moveReservationToHold({
+    reservation,
+    holdId,
+    sessionId,
+    venueId: venueId,
+    notes: changes.specialRequests,
+  });
+  if (!moved.success) {
+    return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
+  }
+  return { success: true, reservation: moved.reservation };
 }

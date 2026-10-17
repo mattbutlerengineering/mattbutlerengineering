@@ -9193,6 +9193,7 @@
         holdId: string;
         sessionId: string;
         venueId: string;
+        notes?: string;
       }
     </item>
     <item priority="low">
@@ -9329,6 +9330,12 @@
       }
     </item>
     <item priority="low">
+      interface ModifyHold {
+        holdId: string;
+        sessionId: string;
+      }
+    </item>
+    <item priority="low">
       type ModifyReservationResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="medium">
@@ -9336,6 +9343,9 @@
     </item>
     <item priority="high">
       export function isTimeChange(changes: ReservationChanges): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function needsHold(changes: ReservationChanges): boolean { /* ... */ }
     </item>
     <item priority="high">
       export async function isPartySizeDepositBlocked(
@@ -9372,7 +9382,16 @@
       export async function modifyReservation(
         reservation: Reservation,
         changes: ReservationChanges,
-        deposits: DepositService
+        deposits: DepositService,
+        hold?: ModifyHold
+      ): Promise<ModifyReservationResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function modifyViaHold(
+        reservation: Reservation,
+        changes: ReservationChanges,
+        deposits: DepositService,
+        { holdId, sessionId }: ModifyHold
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
