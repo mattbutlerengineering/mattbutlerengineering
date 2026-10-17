@@ -216,3 +216,14 @@ None.
 - **es-MX / fr-CA honesty word list (SC8 in translation).** Out of scope per the brief (review finding 3, follow-up). The new es-MX and fr-CA captions are machine translations and were not checked against a translated banned-word list.
 - **`Visual Regression (hospitality)`.** Red and advisory, as already red on `main`. Not investigated (see `assumptions`).
 - **`docs/features/remembered-on-arrival/architecture.md`** still names `constants/confirmation-copy.ts` as the copy source. This is deferred by the orchestrator to a human-merged follow-up (criterion 10). Until that lands, work item 5's "no doc names it as the live source" holds for code and generated artifacts only.
+
+## Re-check after Review fixes (2026-10-17, `eb7b6ebe7`)
+
+Review changed two test files only (`src/i18n/special-requests-copy.test.ts`, `e2e/special-requests.spec.ts`); no source, catalog or generated file changed. Re-run against `eb7b6ebe7`:
+
+- `pnpm lint` exit 0 (`✖ 145 problems (0 errors, 145 warnings)`, none in the two files; `eslint` on both files directly, exit 0). `pnpm typecheck` exit 0 (`tsconfig.test.json` and `tsconfig.e2e.json`). `pnpm test` exit 0, `Test Files  222 passed (222)` / `Tests  2983 passed (2983)` (one more than criterion 6: the nesting block now has a coverage case plus one case per catalog that writes a caption).
+- Nesting probe: a throwaway `src/i18n/catalogs/zz-ZZ.json` with a retyped caption, and es-MX's caption retyped as its full sentence, gave `× es-MX nests the key…` and `× zz-ZZ nests the key…` (`Tests  2 failed | 22 passed`). Both reverted; `git status` clean; `Tests  23 passed` again. Before the fix, the zz-ZZ catalog was not checked at all.
+- E2E on Review's own Vite (`--port 3061 --strictPort`, `TZ=UTC`, synthetic session in the gitignored `e2e/.auth/user.json`, deleted afterwards along with two untracked screenshots): `special-requests.spec.ts` + `timeline-interaction.spec.ts` `21 passed (39.9s)`, including the two new cases `desktop sidebar in es-MX|fr-CA: label and caption follow the staff locale`. RED check: with the ticket's two `t()` calls pinned to `{ lng: "en-US" }` (reverted after), both new cases failed on `getByRole('group', { name: 'Peticiones especiales' })` / `'Demandes spéciales'` not found.
+- `pnpm regen --check`: `All generated artifacts are up to date.`
+
+This closes the "Not verified" gap that the localized ticket had real-browser evidence only from a throwaway spec. The tablet sheet and phone drawer in es-MX/fr-CA are still covered by jsdom only.
