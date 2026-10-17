@@ -1079,7 +1079,18 @@ export const SENSORS = [
       // under the live reader — as it was in 100% of historical
       // `metrics/sensor-report.jsonl` reports. Below the floor, this sensor
       // currently raises nothing for that report.
-      if (previous?.available && sampleSize >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE) {
+      // #7023: the cost term is weighted 0.4 and scores any average >= $5/issue as
+      // 0, so a cost newly non-null from a sparse reconciliation sample (9 of 264
+      // after #6941) swings the composite with no real change. Hold the same floor
+      // against the cost sample itself.
+      const costSampleTooSparse =
+        current.sub_metrics?.cost_per_issue_usd != null &&
+        (current.sub_metrics?.cost_coverage_n ?? 0) < QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE;
+      if (
+        previous?.available &&
+        sampleSize >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE &&
+        !costSampleTooSparse
+      ) {
         const delta = current.composite - previous.composite;
         if (delta < -thresholds.queue_efficiency_composite_drop) {
           regressions.push({

@@ -1101,6 +1101,33 @@ describe("sensors-registry", () => {
       expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeDefined();
     });
 
+    // #7023: #6941's per-PR cost reconciliation made cost_per_issue_usd non-null
+    // for the first time off a 9-of-264 sample. That one $13/issue average scored
+    // 0 at weight 0.4 and dropped the composite 0.958 -> 0.559 with no real change.
+    it("does not flag composite_vs_previous_report when cost is newly non-null from a sparse sample (#7023)", () => {
+      const current = {
+        available: true,
+        composite: 0.559,
+        sub_metrics: { issues_merged: 264, cost_per_issue_usd: 13.196, cost_coverage_n: 9 },
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.958 };
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeUndefined();
+    });
+
+    it("still flags composite_vs_previous_report when cost coverage reaches the minimum size (#7023)", () => {
+      const current = {
+        available: true,
+        composite: 0.559,
+        sub_metrics: { issues_merged: 264, cost_per_issue_usd: 13.196, cost_coverage_n: 15 },
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.958 };
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeDefined();
+    });
+
     // Reviewer follow-up on the original #5746 PR: prove a realistically-sized
     // window (readMergedAiPrsPaged reliably yields ~90-110 AI PRs — see its
     // own comment) with a genuine composite collapse still raises the alarm,
