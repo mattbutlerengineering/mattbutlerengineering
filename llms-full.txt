@@ -11803,6 +11803,7 @@
       const { toggleTheme } = useTheme();
     
       const session = usePlaygroundSession({
+        onNotice: (message) => toast({ title: message, variant: "accent", duration: 4000 }),
         onGenerationComplete: () =>
           toast({ title: "Generation complete", variant: "success", duration: 3000 }),
       });
@@ -12015,6 +12016,10 @@
       kind?: EntryKind;
       spec: unknown;
       rawLines: string[];
+      refinement?: SpecDiff;
+    }
+    function decodeStored(entry: StoredSpec): StoredSpec {
+      return "refinement" in entry ? { ...entry, refinement: decodeSpecDiff(entry.refinement) } : entry;
     }
     export interface UseSpecsApiReturn {
       specs: StoredSpec[];
@@ -12046,7 +12051,7 @@
         // own UI state, or we can introduce a separate `isRefreshing` flag later.
         try {
           const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
-          setSpecs(json.data);
+          setSpecs(json.data.map(decodeStored));
         } catch (err) {
           console.error("[useSpecsApi] fetchSpecs error:", err);
         } finally {
@@ -12057,7 +12062,7 @@
       const saveSpec = useCallback(
         async (data: SaveSpecData): Promise<StoredSpec> => {
           const json = await client.post<{ data: StoredSpec }>("/api/gen/specs", data);
-          const created = json.data;
+          const created = decodeStored(json.data);
           // Prepend to local state (immutable update)
           setSpecs((prev) => [created, ...prev]);
           return created;
@@ -16264,6 +16269,16 @@
       }
       return value as unknown as Spec;
     }
+    export function decodeSpecDiff(value: unknown): SpecDiff | null {
+      if (!isRecord(value)) return null;
+      const { parentId, path } = value;
+      if (parentId !== null && typeof parentId !== "string") return null;
+      if (typeof path !== "string" || path === "") return null;
+      const before = decodeSpec(value.before);
+      const after = decodeSpec(value.after);
+      if (!before || !after || before.root !== path || after.root !== path) return null;
+      return { parentId, path, before, after };
+    }
     export function specStats(spec: Spec | null): SpecStats | null {
       if (!spec) return null;
       const elements = Object.values(spec.elements);
@@ -17180,6 +17195,8 @@
       base: Spec;
       key: string;
       instruction: string;
+      /** The saved entry the refined spec came from, null for an unsaved one. */
+      parentId: string | null;
     }
     export interface PlaygroundSession {
       // Render mode + transient overlays (passed through from usePlaygroundState)
@@ -17234,6 +17251,8 @@
        * toast) — the hook itself stays UI-agnostic.
        */
       onGenerationComplete?: () => void;
+      /** Invoked with a short message when the session wants to tell the user something. */
+      onNotice?: (message: string) => void;
     }
     export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): PlaygroundSession {
       const playgroundState = usePlaygroundState();
@@ -17270,6 +17289,7 @@
         onComplete: (completedSpec, completedRawLines) => {
           const nodeRefine = nodeRefineRef.current;
           let savedSpec = completedSpec;
+          let refinement: SpecDiff | undefined;
           if (nodeRefine) {
             // Reject, never render, a subtree that can't be spliced or isn't in the catalog.
             const spliced = spliceSubtree(nodeRefine.base, nodeRefine.key, completedSpec);
@@ -17285,6 +17305,15 @@
               return;
             }
             savedSpec = spliced.spec;
+            const before = extractSubtree(nodeRefine.base, nodeRefine.key);
+            if (before) {
+              refinement = {
+                parentId: nodeRefine.parentId,
+                path: nodeRefine.key,
+                before,
+                after: completedSpec,
+              };
+            }
             nodeRefineRef.current = null;
             setPinnedSpec(savedSpec);
           }
@@ -17294,6 +17323,7 @@
             kind: kindRef.current,
             spec: savedSpec,
             rawLines: completedRawLines,
+            refinement,
           }).then((stored) => {
             setActiveId(stored.id);
             setPinnedSpec(null);
@@ -17386,7 +17416,7 @@
           promptRef.current = instruction;
           kindRef.current = "refine";
           refineSpecRef.current = null;
-          nodeRefineRef.current = { base: displaySpec, key, instruction };
+          nodeRefineRef.current = { base: displaySpec, key, instruction, parentId: activeId };
           setPinnedSpec(displaySpec);
           setRefineError(null);
           setActiveId(null);
@@ -17396,7 +17426,7 @@
             { target: { key, type: displaySpec.elements[key]?.type ?? "" } }
           );
         },
-        [displaySpec, send]
+        [displaySpec, send, activeId]
       );
     
       // Pre-load a deep-linked prompt (e.g. from the marketing site's playground
@@ -17430,9 +17460,25 @@
           const entry = specs.find((s) => s.id === id);
           if (!entry) return;
           const { kind, prompt } = resolveEntry(entry);
-          // A refine entry only makes sense on top of its parent spec, which isn't
-          // stored — replaying the bare instruction would be meaningless.
-          if (kind === "refine") return;
+          if (kind === "refine") {
+            // A refine entry is replayed by re-applying its stored diff, never by
+            // re-sending the bare instruction. Legacy entries carry no diff.
+            const diff = entry.refinement;
+            if (!diff) return;
+            const parent = diff.parentId ? specs.find((s) => s.id === diff.parentId) : undefined;
+            const parentSpec = parent ? decodeSpec(parent.spec) : null;
+            let rebuilt = parentSpec ? applySpecDiff(parentSpec, diff) : null;
+            if (!rebuilt?.ok) {
+              // Parent evicted or deleted: the diff's `after` onto the entry's own spec.
+              const ownSpec = decodeSpec(entry.spec);
+              rebuilt = ownSpec ? applySpecDiff(ownSpec, diff) : null;
+              if (!rebuilt?.ok) return;
+              options?.onNotice?.("The original spec is gone; showing this refinement as saved.");
+            }
+            resetTo(null);
+            setPinnedSpec(rebuilt.spec);
+            return;
+          }
           promptRef.current = prompt;
           kindRef.current = "generate";
           setRawPrompt(prompt);
@@ -17440,7 +17486,7 @@
           resetTo(null);
           void send(prompt);
         },
-        [specs, resetTo, send]
+        [specs, resetTo, send, options]
       );
     
       // "Retry with error context": when the last attempt failed with a
@@ -41473,6 +41519,8 @@
       spec: unknown;
       rawLines: string[];
       isFavorite: boolean;
+      /** Node refinements only: the diff on the parent entry. Null when absent or malformed. */
+      refinement?: SpecDiff | null;
       createdAt: string;
       updatedAt: string;
     }

@@ -1,3 +1,5 @@
+import type { SpecDiff } from "./lib/spec-subtree.js";
+
 export type EntryKind = "generate" | "refine" | "recover" | "failed";
 
 export interface StoredSpec {
@@ -9,6 +11,8 @@ export interface StoredSpec {
   spec: unknown;
   rawLines: string[];
   isFavorite: boolean;
+  /** Node refinements only: the diff on the parent entry. Null when absent or malformed. */
+  refinement?: SpecDiff | null;
   createdAt: string;
   updatedAt: string;
 }

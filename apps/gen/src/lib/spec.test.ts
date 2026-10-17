@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decodeSpec, specStats } from "./spec.js";
+import { decodeSpec, decodeSpecDiff, specStats } from "./spec.js";
 
 const FLAT_SPEC = {
   root: "page",
@@ -48,5 +48,27 @@ describe("decodeSpec", () => {
     ["legacy tree shape", { type: "Box", children: [{ type: "Text" }] }],
   ])("rejects %s", (_label, input) => {
     expect(decodeSpec(input)).toBeNull();
+  });
+});
+
+describe("decodeSpecDiff", () => {
+  const sub = (type: string) => ({ root: "card", elements: { card: { type, props: {} } } });
+  const diff = { parentId: "p1", path: "card", before: sub("Stack"), after: sub("Grid") };
+
+  it("accepts a well-formed diff, with or without a parent", () => {
+    expect(decodeSpecDiff(diff)).toEqual(diff);
+    expect(decodeSpecDiff({ ...diff, parentId: null })).toEqual({ ...diff, parentId: null });
+  });
+
+  it.each([
+    ["null", null],
+    ["a string", "diff"],
+    ["a numeric parentId", { ...diff, parentId: 3 }],
+    ["an empty path", { ...diff, path: "" }],
+    ["a malformed before", { ...diff, before: { root: "card" } }],
+    ["a malformed after", { ...diff, after: "nope" }],
+    ["an after rooted elsewhere", { ...diff, after: { ...sub("Grid"), root: "other" } }],
+  ])("rejects %s", (_label, input) => {
+    expect(decodeSpecDiff(input)).toBeNull();
   });
 });
