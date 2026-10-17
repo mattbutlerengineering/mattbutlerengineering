@@ -536,7 +536,8 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
         await asAdmin(ctx, {
           method: "PATCH",
           url: `/public/v1/reservations/manage?token=${token}`,
-          payload: { partySize: 3 },
+          // A party-size change needs a hold (#6913); a notes edit does not.
+          payload: { specialRequests: "rls sweep" },
         }),
         "modify a managed reservation under its resolved venue"
       );
