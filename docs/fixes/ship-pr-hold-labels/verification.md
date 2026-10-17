@@ -291,3 +291,32 @@ GraphQL is not available` (`.claude/rules/gotchas.md` § Claude Code
   Remote, #5958). This verification ran in a local session, where they
   worked. A cloud `/ship-pr` would need the `gh api` REST or
   `mcp__github__*` equivalents, and the skill does not name those.
+
+## Re-check after Review fix (2026-10-17)
+
+Review fixed one finding in `.claude/skills/ship-pr/SKILL.md` (commit
+`67c9178d1`): step 1 now checks holds before `gh pr ready`, and the
+linked-issue scan covers every GitHub closing keyword and every linked issue.
+Criteria 1, 2 and 4 still hold on the new text (the hold stop still precedes
+step 4's review dispatch and both merge commands; step 5's re-read and step 4's
+acceptance-criteria source now name "linked issues" in the plural). The drift
+checks were re-run on that commit:
+
+```
+$ node scripts/check-skill-references.mjs
+PASS: Every /slash-command named in an instruction file resolves to a skill or is declared with a reason.
+PASS: No repo-local skill shares a plugin skill's name without a declared reason.
+exit=0
+$ node scripts/check-claude-md-table-drift.mjs
+PASS: CLAUDE.md tables (CLI commands, skills, subagents) match the repo tree.
+exit=0
+$ node scripts/detect-instruction-rot.mjs
+✓ No instruction rot detected.
+exit=0
+$ pnpm exec prettier --check .claude/skills/ship-pr/SKILL.md
+All matched files use Prettier code style!
+exit=0
+```
+
+The frontmatter `description` is unchanged, so the `CLAUDE.md` `/ship-pr` row
+still matches.
