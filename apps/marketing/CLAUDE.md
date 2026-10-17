@@ -10,6 +10,7 @@ Public marketing site for mattbutlerengineering.com. React + Vite SPA. Port **30
 | StatusPage       | `/status`  | Real-time health dashboard for APIs and static sites      |
 | WeeklyIntakePage | `/weekly`  | Curated newsletter resources with source filtering        |
 | MetricsPage      | `/metrics` | ACMM quality metrics dashboard                            |
+| ShippedIndexPage | `/shipped` | Index of every feature the factory shipped, newest first  |
 | NotFoundPage     | `*`        | 404 with suggested links                                  |
 
 Fallback redirects: `/rialto/*` and `/hospitality/*` redirect to their respective apps (safety net for edge router failures).

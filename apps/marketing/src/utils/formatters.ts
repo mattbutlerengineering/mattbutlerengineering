@@ -77,6 +77,19 @@ export function formatRatio(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+/**
+ * Format a wall-clock span in hours: under a day as hours, otherwise whole days.
+ * e.g. formatWallClock(5) → "5 hours", formatWallClock(48) → "2 days"
+ */
+export function formatWallClock(hours: number): string {
+  if (hours < 24) {
+    const h = Math.max(1, Math.round(hours));
+    return `${h} ${h === 1 ? "hour" : "hours"}`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",

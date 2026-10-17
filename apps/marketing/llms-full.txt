@@ -1201,6 +1201,14 @@
     export function formatRatio(value: number): string {
       return `${(value * 100).toFixed(1)}%`;
     }
+    export function formatWallClock(hours: number): string {
+      if (hours < 24) {
+        const h = Math.max(1, Math.round(hours));
+        return `${h} ${h === 1 ? "hour" : "hours"}`;
+      }
+      const days = Math.round(hours / 24);
+      return `${days} ${days === 1 ? "day" : "days"}`;
+    }
     export function formatDate(iso: string): string {
       return new Date(iso).toLocaleDateString("en-US", {
         year: "numeric",
