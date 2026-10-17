@@ -68,7 +68,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-17",
     "escalated_at": null
   },
   "rialto-web|components/aspect-ratio|r1|accessibility/axe-serious": {
@@ -528,6 +528,15 @@
     "severity": "P2",
     "first_seen": "2026-10-16",
     "last_seen": "2026-10-16",
+    "escalated_at": null
+  },
+  "rialto-web|demos/session-expired|r1|accessibility/axe-serious": {
+    "issue": 6978,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-17",
+    "last_seen": "2026-10-17",
     "escalated_at": null
   }
 }
