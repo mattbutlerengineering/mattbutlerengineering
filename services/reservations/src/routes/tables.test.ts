@@ -355,7 +355,11 @@ describe("Table Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data.status).toBe("OCCUPIED");
-      expect(tableService.updateStatus).toHaveBeenCalledWith("table-123", "OCCUPIED");
+      expect(tableService.updateStatus).toHaveBeenCalledWith(
+        "table-123",
+        "OCCUPIED",
+        expect.anything()
+      );
       expect(stubEvents.emitTableUpdated).toHaveBeenCalledWith(occupiedTable);
     });
 

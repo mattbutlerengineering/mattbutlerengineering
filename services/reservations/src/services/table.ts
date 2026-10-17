@@ -8,6 +8,9 @@ import type {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { setVenueContext } from "../middleware/venue-context.js";
+import { getCurrentVenueId } from "./venue-context-store.js";
+import { recordTableEvent, staffTableActor } from "./table-events.js";
 import { toTable } from "./serializers.js";
 import { transitionTable, TableTransitionError } from "./table-state-machine.js";
 
@@ -121,20 +124,33 @@ export const tableService = {
     }
   },
 
-  async updateStatus(id: string, status: string): Promise<Table | null> {
+  async updateStatus(id: string, status: string, userId?: string): Promise<Table | null> {
     if (!VALID_TABLE_STATUSES.includes(status as TableStatus)) {
       return null;
     }
-    const current = await prisma.table.findUnique({ where: { id } });
-    if (!current) return null;
-    transitionTable(current.status, status as TableStatus);
-    const { count } = await prisma.table.updateMany({
-      where: { id, status: current.status },
-      data: { status: status as TableStatus },
+    // Explicit transaction so the CAS and its event commit together. This call
+    // bypasses the per-call auto-wrap `venue-scoped-prisma.ts` gives the
+    // `prisma` export, so set app.venue_id on this `tx` ourselves (ADR-026 part 6).
+    return prisma.$transaction(async (tx) => {
+      await setVenueContext(tx, getCurrentVenueId());
+      const current = await tx.table.findUnique({ where: { id } });
+      if (!current) return null;
+      transitionTable(current.status, status as TableStatus);
+      const { count } = await tx.table.updateMany({
+        where: { id, status: current.status },
+        data: { status: status as TableStatus },
+      });
+      if (count === 0) throw new TableConcurrentUpdateError(id, status);
+      await recordTableEvent(tx, {
+        tableId: id,
+        venueId: current.venueId,
+        fromStatus: current.status,
+        toStatus: status as TableStatus,
+        actor: staffTableActor(userId),
+      });
+      const table = await tx.table.findUnique({ where: { id } });
+      return table ? toTable(table) : null;
     });
-    if (count === 0) throw new TableConcurrentUpdateError(id, status);
-    const table = await prisma.table.findUnique({ where: { id } });
-    return table ? toTable(table) : null;
   },
 
   async delete(id: string): Promise<boolean> {

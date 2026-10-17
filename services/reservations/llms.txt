@@ -2398,6 +2398,30 @@
       }
     </item>
   </file>
+  <file path="src/services/table-events.ts">
+    <item priority="low">
+      type TableEventActor = { type: "staff"; id: string } | { type: "system"; id: string |;
+    </item>
+    <item priority="high">
+      export const SYSTEM_TABLE_ACTOR: TableEventActor;
+    </item>
+    <item priority="high">
+      export const staffTableActor: unknown;
+    </item>
+    <item priority="high">
+      export async function recordTableEvent(
+        tx: Prisma.TransactionClient,
+        input: {
+          tableId: string;
+          venueId: string | null;
+          fromStatus: TableStatus;
+          toStatus: TableStatus;
+          actor: TableEventActor;
+          reservationId?: string | null;
+        }
+      ) { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/table-state-machine.ts">
     <item priority="high">
       export const tableMachine: unknown;

@@ -350,7 +350,11 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
     },
     venueScoped(tableVenue, async (request) => {
       try {
-        const table = await tableService.updateStatus(request.params.id, request.body.status);
+        const table = await tableService.updateStatus(
+          request.params.id,
+          request.body.status,
+          request.user?.id
+        );
         if (!table) throw tableNotFound();
         fastify.reservationEvents.emitTableUpdated(table);
         return { data: table };

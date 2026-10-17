@@ -524,7 +524,13 @@ describe("reservationService", () => {
 
     it("createWalkIn writes one created event", async () => {
       const tx = useSlotTxOnce(makePrismaReservation({ status: "CONFIRMED" }));
-      Object.assign(tx, { table: { update: vi.fn().mockResolvedValue(makePrismaTable()) } });
+      Object.assign(tx, {
+        tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
+        table: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
+          update: vi.fn().mockResolvedValue(makePrismaTable()),
+        },
+      });
       await reservationService.createWalkIn({
         partySize: 2,
         tableId: "table-1",
@@ -601,7 +607,13 @@ describe("reservationService", () => {
 
     it("createWalkIn writes both fields", async () => {
       const tx = useSlotTxOnce(makePrismaReservation({ status: "CONFIRMED" }));
-      Object.assign(tx, { table: { update: vi.fn().mockResolvedValue(makePrismaTable()) } });
+      Object.assign(tx, {
+        tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
+        table: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
+          update: vi.fn().mockResolvedValue(makePrismaTable()),
+        },
+      });
       await reservationService.createWalkIn({
         partySize: 4,
         tableId: "table-1",
@@ -1586,7 +1598,9 @@ describe("reservationService", () => {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockResolvedValue(walkInReservation),
             },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
             table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
               update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
@@ -1623,7 +1637,9 @@ describe("reservationService", () => {
                 return makePrismaReservation({ status: "CONFIRMED" });
               }),
             },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
             table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
               update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
@@ -1657,7 +1673,9 @@ describe("reservationService", () => {
                 return makePrismaReservation({ status: "CONFIRMED" });
               }),
             },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
             table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
               update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
@@ -1696,7 +1714,9 @@ describe("reservationService", () => {
                 });
               }),
             },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
             table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
               update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
@@ -1742,7 +1762,9 @@ describe("reservationService", () => {
                 return makePrismaReservation({ status: "CONFIRMED", guestName: "Walk-in" });
               }),
             },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
             table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
               update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
@@ -1832,7 +1854,9 @@ describe("reservationService", () => {
               findFirst: vi.fn().mockResolvedValue({ id: "conflict" }),
               create: vi.fn(),
             },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
             table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
               update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
@@ -1869,7 +1893,9 @@ describe("reservationService", () => {
                 });
               }),
             },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
             table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
               update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
@@ -1914,7 +1940,9 @@ describe("reservationService", () => {
               }),
               create: vi.fn().mockResolvedValue(makePrismaReservation({ status: "CONFIRMED" })),
             },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
             table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
               update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
@@ -1940,6 +1968,7 @@ describe("reservationService", () => {
       vi.mocked(checkTableConflict).mockReturnValueOnce(false);
 
       const tableUpdate = vi.fn().mockResolvedValue(makePrismaTable());
+      const tableEventCreate = vi.fn().mockResolvedValue(undefined);
       const reservationCreate = vi
         .fn()
         .mockResolvedValue(makePrismaReservation({ status: "CONFIRMED" }));
@@ -1954,19 +1983,41 @@ describe("reservationService", () => {
               findFirst: vi.fn().mockResolvedValue(null),
               create: reservationCreate,
             },
-            table: { update: tableUpdate },
+            tableEvent: { create: tableEventCreate },
+            table: {
+              findUniqueOrThrow: vi
+                .fn()
+                .mockResolvedValue({ status: "AVAILABLE", venueId: "venue-1" }),
+              update: tableUpdate,
+            },
           };
           return fn(tx);
         }
       );
 
-      const result = await reservationService.createWalkIn({
-        partySize: 2,
-        tableId: "table-1",
-        venueId: "venue-1",
-      });
+      const result = await reservationService.createWalkIn(
+        {
+          partySize: 2,
+          tableId: "table-1",
+          venueId: "venue-1",
+        },
+        "user-1",
+        { type: "staff", id: "user-1" }
+      );
 
       expect(result.success).toBe(true);
+      expect(tableEventCreate).toHaveBeenCalledTimes(1);
+      expect(tableEventCreate).toHaveBeenCalledWith({
+        data: {
+          tableId: "table-1",
+          venueId: "venue-1",
+          fromStatus: "AVAILABLE",
+          toStatus: "OCCUPIED",
+          actorType: "staff",
+          actorId: "user-1",
+          reservationId: expect.any(String),
+        },
+      });
       expect(tableUpdate).toHaveBeenCalledWith({
         where: { id: "table-1" },
         data: { status: "OCCUPIED" },
@@ -1997,7 +2048,13 @@ describe("reservationService", () => {
               findFirst: vi.fn().mockResolvedValue(null),
               create: reservationCreate,
             },
-            table: { update: tableUpdate },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
+            table: {
+              findUniqueOrThrow: vi
+                .fn()
+                .mockResolvedValue({ status: "AVAILABLE", venueId: "venue-1" }),
+              update: tableUpdate,
+            },
           };
           return fn(tx);
         }
@@ -2042,7 +2099,9 @@ describe("reservationService", () => {
               .fn()
               .mockResolvedValue(makePrismaReservation({ date: new Date("2026-05-04") })),
           },
+          tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
           table: {
+            findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
             update: vi.fn().mockResolvedValue(makePrismaTable()),
           },
         };

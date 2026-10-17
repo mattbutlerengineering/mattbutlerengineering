@@ -13,6 +13,7 @@ vi.mock("./database.js", async () => {
         delete: vi.fn(),
         count: vi.fn(),
       },
+      tableEvent: { create: vi.fn() },
     },
   });
 });
@@ -272,6 +273,61 @@ describe("tableService", () => {
         where: { id: "table-1", status: "AVAILABLE" },
         data: { status: "OCCUPIED" },
       });
+    });
+
+    it("records one table event in the same transaction as a successful change", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "AVAILABLE" }) as never
+      );
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 1 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "OCCUPIED" }) as never
+      );
+
+      await tableService.updateStatus("table-1", "OCCUPIED", "user-9");
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.tableEvent.create).toHaveBeenCalledTimes(1);
+      expect(prisma.tableEvent.create).toHaveBeenCalledWith({
+        data: {
+          tableId: "table-1",
+          venueId: "venue-1",
+          fromStatus: "AVAILABLE",
+          toStatus: "OCCUPIED",
+          actorType: "staff",
+          actorId: "user-9",
+          reservationId: null,
+        },
+      });
+    });
+
+    it("records a system actor when no user is threaded", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "OCCUPIED" }) as never
+      );
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 1 } as never);
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "DIRTY" }) as never
+      );
+
+      await tableService.updateStatus("table-1", "DIRTY");
+
+      expect(vi.mocked(prisma.tableEvent.create).mock.calls[0]![0].data).toMatchObject({
+        actorType: "system",
+        actorId: null,
+      });
+    });
+
+    it("writes no event when the compare-and-set loses the race", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "AVAILABLE" }) as never
+      );
+      vi.mocked(prisma.table.updateMany).mockResolvedValueOnce({ count: 0 } as never);
+
+      await expect(tableService.updateStatus("table-1", "OCCUPIED")).rejects.toThrow(
+        TableConcurrentUpdateError
+      );
+      expect(prisma.tableEvent.create).not.toHaveBeenCalled();
     });
 
     it("transitions OCCUPIED to DIRTY", async () => {
