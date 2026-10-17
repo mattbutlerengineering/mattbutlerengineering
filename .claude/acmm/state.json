@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-10-16T08:50:38.505Z",
+  "lastRun": "2026-10-17T08:21:46.572Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -172,7 +172,7 @@
     },
     "acmm:evidence-antipatterns": {
       "passed": true,
-      "evidence": "107 distinct issue/PR citations found in gotchas.md",
+      "evidence": "109 distinct issue/PR citations found in gotchas.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1083,6 +1083,12 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-10-17",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1275,26 +1281,26 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.013157894736842105,
+        "value": 0.012048192771084338,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 608
+        "sampleSize": 664
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9873417721518988,
+        "value": 0.9884393063583815,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 316
+        "sampleSize": 346
       },
       {
         "level": 5,
@@ -1314,34 +1320,34 @@
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0.003205128205128205,
+        "value": 0.0029239766081871343,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 316
+        "sampleSize": 346
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.02564102564102564,
+        "value": 0.023391812865497075,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 316
+        "sampleSize": 346
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.013157894736842105,
-      "sample_size": 608,
+      "rate_30d": 0.012048192771084338,
+      "sample_size": 664,
       "flaky_shas": [
         "19b39178d7f04bfb702895a86a0bf2866f70c559",
         "2b2af184d05e2f27dd83bac1504abad173bda939",
@@ -1353,144 +1359,144 @@
         "8f0ff88d87c92c613375b44fb3fa0822abfc4a39"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-16T00:38:44.000Z",
-      "measured_at": "2026-10-16T08:50:38.503Z"
+      "oldest_record_at": "2026-09-17T00:16:26.000Z",
+      "measured_at": "2026-10-17T08:21:46.571Z"
     },
     "agent_pr": {
-      "sample_size": 316,
-      "merged_count": 312,
+      "sample_size": 346,
+      "merged_count": 342,
       "closed_unmerged_count": 4,
       "open_count": 0,
-      "acceptance_rate_30d": 0.9873417721518988,
-      "revert_rate_30d": 0.003205128205128205,
+      "acceptance_rate_30d": 0.9884393063583815,
+      "revert_rate_30d": 0.0029239766081871343,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.3327777777777778,
-      "human_touch_ratio": 0.02564102564102564,
+      "median_time_to_merge_hours": 0.3008333333333333,
+      "human_touch_ratio": 0.023391812865497075,
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-12T16:09:18.000Z",
+      "oldest_record_at": "2026-09-15T21:26:40.000Z",
       "recent_changes": [
         {
-          "number": 6825,
-          "title": "fix(rialto-web): render AuthLayout title as the page h1 (mbe-feature-drain #6816)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6825",
-          "mergedAt": "2026-10-16T08:34:34Z"
+          "number": 6980,
+          "title": "feat(reservations): add recordReservationEvent helper (mbe-feature-drain #6930)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6980",
+          "mergedAt": "2026-10-17T07:46:03Z"
         },
         {
-          "number": 6823,
-          "title": "fix(rialto): keep Input endIcon slot in the accessibility tree (mbe-feature-drain #6817)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6823",
-          "mergedAt": "2026-10-16T08:18:13Z"
+          "number": 6977,
+          "title": "feat(gen): refine a selected node by regenerating only its subtree (mbe-feature-drain #6914)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6977",
+          "mergedAt": "2026-10-17T07:16:47Z"
         },
         {
-          "number": 6822,
-          "title": "docs(ci): point visual baseline docs at visual-baseline-regen.yml (mbe-feature-drain #6802)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6822",
-          "mergedAt": "2026-10-16T07:52:44Z"
+          "number": 6976,
+          "title": "feat(hospitality): add Change booking action to the guest manage page (mbe-feature-drain #6922)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6976",
+          "mergedAt": "2026-10-17T07:08:34Z"
         },
         {
-          "number": 6821,
-          "title": "feat(ci): add rialto Storybook suite as a visual-baseline-regen target (mbe-feature-drain #6801)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6821",
-          "mergedAt": "2026-10-16T07:49:19Z"
+          "number": 6975,
+          "title": "feat(hospitality): add ChangeBookingDialog for guest booking changes (mbe-feature-drain #6920)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6975",
+          "mergedAt": "2026-10-17T06:57:31Z"
         },
         {
-          "number": 6819,
-          "title": "feat(ci): add dispatch-only visual-baseline-regen workflow (mbe-feature-drain #6800)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6819",
-          "mergedAt": "2026-10-16T07:43:45Z"
+          "number": 6974,
+          "title": "feat(hospitality): add modifyManaged client call and useChangeBooking hook (mbe-feature-drain #6916)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6974",
+          "mergedAt": "2026-10-17T06:27:02Z"
         },
         {
-          "number": 6815,
-          "title": "refactor(reservations): staff routes read services from fastify.services (mbe-feature-drain #6772)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6815",
-          "mergedAt": "2026-10-16T07:40:10Z"
+          "number": 6973,
+          "title": "fix(regen): make .cursorrules a regen-manifest family so post-merge auto-heals AGENTS.md drift (mbe-feature-drain #6954)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6973",
+          "mergedAt": "2026-10-17T05:50:52Z"
         },
         {
-          "number": 6814,
-          "title": "refactor(reservations): public routes read services from fastify.services (mbe-feature-drain #6771)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6814",
-          "mergedAt": "2026-10-16T07:22:04Z"
+          "number": 6972,
+          "title": "test(marketing): guard shipped-stories invariants and cover /shipped in e2e (mbe-feature-drain #6915)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6972",
+          "mergedAt": "2026-10-17T05:43:08Z"
         },
         {
-          "number": 6813,
-          "title": "feat(scripts): add visual-baseline-regen planner (mbe-feature-drain #6799)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6813",
-          "mergedAt": "2026-10-16T06:40:40Z"
+          "number": 6971,
+          "title": "feat(reservations): require a held slot for guest date/time/party changes (mbe-feature-drain #6913)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6971",
+          "mergedAt": "2026-10-17T05:40:41Z"
         },
         {
-          "number": 6792,
-          "title": "refactor(scripts): delete queue-telemetry pass-through; one parser in the store",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6792",
-          "mergedAt": "2026-10-16T04:09:59Z"
+          "number": 6970,
+          "title": "feat(marketing): weekly shipped-features snapshot workflow (mbe-feature-drain #6904)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6970",
+          "mergedAt": "2026-10-17T05:13:14Z"
         },
         {
-          "number": 6794,
-          "title": "feat(agent-core): GATE_PATHS inside qualifiesForLowRiskFastPath",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6794",
-          "mergedAt": "2026-10-16T04:09:42Z"
+          "number": 6969,
+          "title": "feat(marketing): link the three newest shipped stories from the Factory section (mbe-feature-drain #6912)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6969",
+          "mergedAt": "2026-10-17T04:58:00Z"
         },
         {
-          "number": 6806,
-          "title": "docs(claude-md): fix the Prompt files anchor to #prompt-files-docsroutines",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6806",
-          "mergedAt": "2026-10-16T04:08:52Z"
+          "number": 6968,
+          "title": "feat(marketing): /shipped/:slug story page (mbe-feature-drain #6909)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6968",
+          "mergedAt": "2026-10-17T04:49:56Z"
         },
         {
-          "number": 6807,
-          "title": "docs(claude-md): name .claude/rules/ui-quality.md in Core reference",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6807",
-          "mergedAt": "2026-10-16T04:08:33Z"
+          "number": 6967,
+          "title": "feat(gen): NodeInspector panel for the selected component (mbe-feature-drain #6910)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6967",
+          "mergedAt": "2026-10-17T04:34:32Z"
         },
         {
-          "number": 6808,
-          "title": "docs(claude-md): caveman mode is an instruction; /tdd is installed nowhere",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6808",
-          "mergedAt": "2026-10-16T04:08:21Z"
+          "number": 6966,
+          "title": "feat(gen): keyboard-reachable component selection in the preview (mbe-feature-drain #6908)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6966",
+          "mergedAt": "2026-10-17T04:21:42Z"
         },
         {
-          "number": 6809,
-          "title": "fix(auto-review): exempt generated artifacts from the large-file check (mbe-feature-drain #6790)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6809",
-          "mergedAt": "2026-10-16T04:02:46Z"
+          "number": 6965,
+          "title": "fix(hospitality): E2E staff venue on the runner clock; stop wide-font overflow (8 red specs)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6965",
+          "mergedAt": "2026-10-17T04:00:43Z"
         },
         {
-          "number": 6804,
-          "title": "fix(ci): grant issues: write to claude-md-sync (mbe-feature-drain #6787)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6804",
-          "mergedAt": "2026-10-16T03:50:32Z"
+          "number": 6963,
+          "title": "feat(scripts): shipped-features generator CLI over gh api REST + first snapshot (#6901)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6963",
+          "mergedAt": "2026-10-17T03:50:30Z"
         },
         {
-          "number": 6795,
-          "title": "fix(users): make preference merge atomic",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6795",
-          "mergedAt": "2026-10-16T03:42:40Z"
+          "number": 6962,
+          "title": "feat(marketing): add /shipped index page",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6962",
+          "mergedAt": "2026-10-17T03:49:36Z"
         },
         {
-          "number": 6798,
-          "title": "fix(auto-label): drop the feature body-keyword rule (mbe-feature-drain #6789)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6798",
-          "mergedAt": "2026-10-16T03:42:03Z"
+          "number": 6964,
+          "title": "feat(reservations): venue limits on guest booking changes (mbe-feature-drain #6907)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6964",
+          "mergedAt": "2026-10-17T03:20:36Z"
         },
         {
-          "number": 6797,
-          "title": "refactor(reservations): one Prisma-to-Table mapper, inline deposit venue resolver (mbe-feature-drain #6768)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6797",
-          "mergedAt": "2026-10-16T03:32:48Z"
+          "number": 6958,
+          "title": "feat(reservations): add moveReservationToHold atomic hold-backed move",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6958",
+          "mergedAt": "2026-10-17T03:08:50Z"
         },
         {
-          "number": 6786,
-          "title": "fix(hospitality): match duplicate-table rejection on ApiClientError problemDetails (mbe-feature-drain #6767)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6786",
-          "mergedAt": "2026-10-16T03:19:13Z"
+          "number": 6959,
+          "title": "feat(agent): subtree-scoped target mode on POST /api/gen/ui",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6959",
+          "mergedAt": "2026-10-17T03:08:34Z"
         },
         {
-          "number": 6784,
-          "title": "fix(reservations): deposit lost-race answers 409, not 500 (mbe-feature-drain #6765)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6784",
-          "mergedAt": "2026-10-16T03:01:45Z"
+          "number": 6952,
+          "title": "feat(gen): add pure spec subtree and spec-diff helpers (mbe-feature-drain #6902)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6952",
+          "mergedAt": "2026-10-17T02:43:44Z"
         }
       ],
-      "measured_at": "2026-10-16T08:50:38.503Z"
+      "measured_at": "2026-10-17T08:21:46.571Z"
     },
     "evals": {
       "n": 37,
@@ -1512,7 +1518,7 @@
     },
     "auto_qa_tuning": {
       "history_count": 27,
-      "measured_at": "2026-10-16T08:50:38.503Z"
+      "measured_at": "2026-10-17T08:21:46.571Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
