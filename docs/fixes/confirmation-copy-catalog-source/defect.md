@@ -221,7 +221,7 @@ worktree. Run `pnpm install --frozen-lockfile` first.
       regenerated `llms*.txt`.
   - Accept: `pnpm regen --check` is clean. No doc names
     `constants/confirmation-copy.ts` as the live source.
-- [ ] **6. Gates.**
+- [x] **6. Gates.**
   - Accept: in `apps/hospitality`, `pnpm lint`, `pnpm typecheck` and
     `pnpm test` are green. `node scripts/check-i18n-catalogs.mjs` (repo-audit)
     passes. The local-ci-precheck steps are green. `special-requests.spec.ts`,
@@ -290,7 +290,9 @@ worktree. Run `pnpm install --frozen-lockfile` first.
 - 2026-10-17, item 5: guard header rewritten (names the catalog, the nesting,
   and the `.json` scan); `pnpm build --filter @mbe/cli... && pnpm regen`
   rewrote `apps/hospitality/llms*.txt` and the root `llms*.txt`, committed
-  separately. architecture.md deferred (assumptions, Notes).
+  in the same commit (`ae4ff8be8`): the pre-commit hook regenerated and staged
+  them itself, so there is no separate regen commit. architecture.md deferred
+  (assumptions, Notes).
 - 2026-10-17, item 6 (gates, apps/hospitality): `pnpm lint` exit 0
   (`✖ 145 problems (0 errors, 145 warnings)`, none in touched files);
   `pnpm typecheck` exit 0; `pnpm test` exit 0, `Test Files  222 passed (222)` /
@@ -302,3 +304,14 @@ worktree. Run `pnpm install --frozen-lockfile` first.
   `special-requests.spec.ts` 6, `timeline-interaction.spec.ts` 13,
   `locale-sweep.spec.ts` 114 — `133 passed (4.2m)`. Session file and the two
   untracked screenshots deleted afterwards.
+- 2026-10-17, pipeline hook (`.claude/skills/local-ci-precheck/SKILL.md`, lanes
+  run sequentially against `ae4ff8be8`, Node v22.22.3):
+  `pnpm install --frozen-lockfile` exit 0; root `pnpm lint` exit 0
+  (`Tasks: 52 successful, 52 total`); root `pnpm typecheck` exit 0
+  (`Tasks: 52 successful, 52 total`); architecture audit exit 0
+  (`✅ No architectural violations detected.` /
+  `✅ All external dependencies are consistent across the monorepo.`); drift
+  lane exit 0 (dep-graph `git diff --exit-code` clean; `pack --check`
+  `is in sync.` for all 27 `llms.txt` packages); `pnpm regen --check`
+  `All generated artifacts are up to date.`;
+  `prettier --check docs/fixes/confirmation-copy-catalog-source/` clean.
