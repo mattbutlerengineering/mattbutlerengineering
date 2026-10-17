@@ -5,7 +5,6 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ConfirmationView } from "./ConfirmationView.js";
 import { Stack, Text } from "@mattbutlerengineering/rialto";
-import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
 import enUS from "../../i18n/catalogs/en-US.json";
 
 const contactLine = (contact: string) =>
@@ -374,7 +373,7 @@ describe("ConfirmationView", () => {
 
 describe("ConfirmationView Special Requests card", () => {
   const onNewBooking = vi.fn();
-  const label = CONFIRMATION_COPY.specialRequestsLabel;
+  const label = enUS.bookingWidget.specialRequests.label;
 
   function renderWithNotes(notes: string | null, extra: { depositAmountCents?: number } = {}) {
     return render(
@@ -396,7 +395,9 @@ describe("ConfirmationView Special Requests card", () => {
     renderWithNotes(TWO_LINE_NOTE);
     const group = screen.getByRole("group", { name: label });
     expect(within(group).getByRole("heading", { level: 3, name: label })).toBeDefined();
-    expect(within(group).getByText(CONFIRMATION_COPY.acknowledgement)).toBeDefined();
+    expect(
+      within(group).getByText(enUS.bookingWidget.specialRequests.acknowledgement)
+    ).toBeDefined();
   });
 
   it("renders the guest's words as one text node, line break kept, dir=auto", () => {
@@ -425,7 +426,7 @@ describe("ConfirmationView Special Requests card", () => {
     const { container } = renderWithNotes(notes);
     expect(screen.queryByRole("group", { name: label })).toBeNull();
     expect(screen.queryByText(label)).toBeNull();
-    expect(screen.queryByText(CONFIRMATION_COPY.acknowledgement)).toBeNull();
+    expect(screen.queryByText(enUS.bookingWidget.specialRequests.acknowledgement)).toBeNull();
     expect(container.querySelectorAll(".detailsCard")).toHaveLength(present - 1);
   });
 

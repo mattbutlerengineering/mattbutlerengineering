@@ -2,7 +2,6 @@ import type { Locator, Page } from "@playwright/test";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { test, expect } from "./fixtures.js";
-import { CONFIRMATION_COPY } from "../src/constants/confirmation-copy.js";
 
 // Special Requests said back (remembered-on-arrival SC1, SC3, SC9). Guest pages run at a
 // 375 px phone; the host ticket runs on the desktop sidebar and the tablet sheet.
@@ -10,7 +9,21 @@ import { CONFIRMATION_COPY } from "../src/constants/confirmation-copy.js";
 const VENUE_SLUG = "e2e-test-bistro";
 const VENUE_NAME = "E2E Test Bistro";
 const MANAGE_TOKEN = "e2e-special-requests-token";
-const LABEL = CONFIRMATION_COPY.specialRequestsLabel;
+/** The en-US catalog (these specs run in en-US) is the only source of the copy (SC4). */
+const SPECIAL_REQUESTS = (
+  JSON.parse(readFileSync(new URL("../src/i18n/catalogs/en-US.json", import.meta.url), "utf8")) as {
+    bookingWidget: {
+      specialRequests: { label: string; acknowledgement: string; hostCaption: string };
+    };
+  }
+).bookingWidget.specialRequests;
+const LABEL = SPECIAL_REQUESTS.label;
+const ACKNOWLEDGEMENT = SPECIAL_REQUESTS.acknowledgement;
+/** The caption nests the acknowledgement by key; compose it rather than retype the sentence. */
+const HOST_CAPTION = SPECIAL_REQUESTS.hostCaption.replace(
+  "$t(bookingWidget.specialRequests.acknowledgement)",
+  ACKNOWLEDGEMENT
+);
 
 /** The guest pressed return once; the second line must start on its own line box. */
 const TWO_LINE_NOTE = "Our anniversary.\nWindow seat if you can, and she can't have tree nuts.";
@@ -172,7 +185,7 @@ test.describe("Guest pages say the Special Requests back (375 px)", () => {
     await bookThroughTheWidget(mockedPage, LONG_NOTE);
     const group = mockedPage.getByRole("group", { name: LABEL });
     await expect(group).toBeVisible();
-    await expect(group.getByText(CONFIRMATION_COPY.acknowledgement)).toBeVisible();
+    await expect(group.getByText(ACKNOWLEDGEMENT)).toBeVisible();
     await expectNoSidewaysScroll(mockedPage, group);
   });
 
@@ -191,7 +204,7 @@ test.describe("Guest pages say the Special Requests back (375 px)", () => {
     await mockedPage.goto(`reservations/manage?token=${MANAGE_TOKEN}`);
     const group = mockedPage.getByRole("group", { name: LABEL });
     await expect(group).toBeVisible();
-    await expect(group.getByText(CONFIRMATION_COPY.acknowledgement)).toBeVisible();
+    await expect(group.getByText(ACKNOWLEDGEMENT)).toBeVisible();
     await expectNoSidewaysScroll(mockedPage, group);
   });
 
@@ -216,7 +229,7 @@ test.describe("The host ticket carries the same words", () => {
     const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     const group = sidebar.getByRole("group", { name: LABEL });
     await expect(group).toBeVisible();
-    await expect(group.getByText(CONFIRMATION_COPY.hostCaption)).toBeVisible();
+    await expect(group.getByText(HOST_CAPTION)).toBeVisible();
     await expect(group.getByText("Birthday celebration")).toBeVisible();
   });
 

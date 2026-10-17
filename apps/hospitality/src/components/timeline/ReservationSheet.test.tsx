@@ -7,7 +7,7 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import { ApiClientError } from "@mbe/api-client";
 import { ReservationSheet, type ReservationSheetProps } from "./ReservationSheet.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
-import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
+import enUS from "../../i18n/catalogs/en-US.json";
 import type { Guest, Reservation, Table } from "@mbe/types";
 
 /* ── Mocks ──────────────────────────────────────────── */
@@ -268,7 +268,7 @@ describe("ReservationSheet", () => {
           notes: "Window seat",
         }),
       });
-      const label = CONFIRMATION_COPY.specialRequestsLabel;
+      const label = enUS.bookingWidget.specialRequests.label;
       expect(screen.getByRole("group", { name: label })).toBeInTheDocument();
       expect(screen.getByText("Window seat")).toBeInTheDocument();
       expect(screen.queryByTestId("guest-card")).toBeNull();
@@ -284,7 +284,7 @@ describe("ReservationSheet", () => {
   });
 
   describe("Special Requests above the actions (remembered-on-arrival M4.3)", () => {
-    const label = CONFIRMATION_COPY.specialRequestsLabel;
+    const label = enUS.bookingWidget.specialRequests.label;
 
     it("opens at the default height with notes; More changes only aria-expanded and the revealed rows", () => {
       renderSheet({
