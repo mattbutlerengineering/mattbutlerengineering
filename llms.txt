@@ -9168,6 +9168,25 @@
       ): Promise<string[]> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/move-to-hold.ts">
+    <item priority="high">
+      type MoveToHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+    </item>
+    <item priority="low">
+      interface MoveToHoldInput {
+        reservation: Reservation;
+        holdId: string;
+        sessionId: string;
+        venueId: string;
+      }
+    </item>
+    <item priority="low">
+      type MoveToHoldResult = { success: true; reservation:  | { success: false; error: strin;
+    </item>
+    <item priority="high">
+      export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
