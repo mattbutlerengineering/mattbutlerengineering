@@ -10,6 +10,12 @@
  * (scripts/check-workflow-deps.mjs).
  */
 
+import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { extractClosedIssue } from "./collect-queue-telemetry-from-github.mjs";
+
 const TASK_LINE_RE = /^\s*[-*]\s+\[[ xX]\]\s+#(\d+)\b/;
 const PROPOSAL_RE = /\bproposal(?:\s+issue)?\s+#(\d+)/i;
 
@@ -193,4 +199,163 @@ export function deriveShippedFeatures(input) {
     snapshot: { generatedAt: toIso(src.generatedAt) ?? new Date(0).toISOString(), features },
     skipped,
   };
+}
+
+// ---------------------------------------------------------------------------
+// I/O layer (#6901). REST only via `gh api` — the GraphQL-backed `gh issue` /
+// `gh pr` subcommands are blocked in Claude Code sessions (gotchas.md).
+// The `gh` runner is injected: (args: string[]) => string (throws on failure).
+// ---------------------------------------------------------------------------
+
+const DEFAULT_OUT = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../apps/marketing/src/data/shipped-features.json"
+);
+const VERDICT_RE = /\bverdict\b[^A-Za-z\n]{0,6}(pass|flag)\b/i;
+
+/** Real runner: execFileSync("gh", args). Throws with gh's stderr on failure. */
+export function defaultGh(args) {
+  return execFileSync("gh", args, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+}
+
+/** GET one REST path as parsed JSON. */
+function ghJson(gh, path) {
+  return JSON.parse(gh(["api", path]));
+}
+
+/** GET a paginated REST list, flattened across pages (`--paginate --slurp`). */
+function ghList(gh, path) {
+  const pages = JSON.parse(gh(["api", "--paginate", "--slurp", path]));
+  return Array.isArray(pages) ? pages.flat() : [];
+}
+
+function ciGateFor(gh, sha) {
+  const runs = ghJson(gh, `repos/{owner}/{repo}/commits/${sha}/check-runs?check_name=CI%20Gate`);
+  const run = Array.isArray(runs?.check_runs) ? runs.check_runs[0] : undefined;
+  let outcome = run?.conclusion ?? null;
+  if (!outcome) {
+    const statuses = ghList(gh, `repos/{owner}/{repo}/commits/${sha}/statuses`);
+    outcome = statuses.find((s) => s?.context === "CI Gate")?.state ?? null;
+  }
+  if (outcome === "success") return "success";
+  return outcome === "failure" || outcome === "error" ? "failure" : null;
+}
+
+function verdictFor(gh, prNumber) {
+  const comments = ghList(gh, `repos/{owner}/{repo}/issues/${prNumber}/comments`);
+  for (const c of [...comments].reverse()) {
+    const m = VERDICT_RE.exec(typeof c?.body === "string" ? c.body : "");
+    if (m) return m[1].toLowerCase();
+  }
+  return null;
+}
+
+function mergedPrRecord(gh, prNumber) {
+  const pr = ghJson(gh, `repos/{owner}/{repo}/pulls/${prNumber}`);
+  if (!pr?.merged_at) return null;
+  const files = ghList(gh, `repos/{owner}/{repo}/pulls/${prNumber}/files`).map((f) => f?.filename);
+  return {
+    number: pr.number,
+    title: pr.title,
+    merged_at: pr.merged_at,
+    merge_commit_sha: pr.merge_commit_sha,
+    files,
+    ciGate: typeof pr.head?.sha === "string" ? ciGateFor(gh, pr.head.sha) : null,
+    reviewVerdict: verdictFor(gh, prNumber),
+  };
+}
+
+/** Merged PRs that name `issue` with a closing keyword, found via the issue timeline. */
+function mergedPrsClosing(gh, issue) {
+  const events = ghList(gh, `repos/{owner}/{repo}/issues/${issue}/timeline`);
+  const numbers = new Set();
+  for (const e of events) {
+    const src = e?.event === "cross-referenced" ? e.source?.issue : null;
+    if (src?.pull_request && extractClosedIssue(src.body) === issue) numbers.add(src.number);
+  }
+  return [...numbers]
+    .sort((a, b) => a - b)
+    .map((n) => mergedPrRecord(gh, n))
+    .filter(Boolean);
+}
+
+/** Gather everything `deriveShippedFeatures` needs. @param {(args: string[]) => string} gh */
+export function gatherShippedFeatureInput(gh, { limit } = {}) {
+  let trackingIssues = ghList(
+    gh,
+    "repos/{owner}/{repo}/issues?labels=tracking&state=closed&per_page=100"
+  )
+    .filter((i) => i && !i.pull_request)
+    .sort((a, b) => b.number - a.number);
+  if (limit !== undefined) trackingIssues = trackingIssues.slice(0, limit);
+
+  const childIssuesByNumber = {};
+  const prsByIssue = {};
+  const proposalsByNumber = {};
+  for (const tracking of trackingIssues) {
+    for (const n of parseTaskList(tracking.body)) {
+      if (childIssuesByNumber[n]) continue;
+      childIssuesByNumber[n] = ghJson(gh, `repos/{owner}/{repo}/issues/${n}`);
+      prsByIssue[n] = mergedPrsClosing(gh, n);
+    }
+    const p = extractProposalIssue(tracking.body);
+    if (p !== null && !proposalsByNumber[p]) {
+      proposalsByNumber[p] = ghJson(gh, `repos/{owner}/{repo}/issues/${p}`);
+    }
+  }
+  return { trackingIssues, childIssuesByNumber, prsByIssue, proposalsByNumber };
+}
+
+/** @param {string[]} argv */
+export function parseArgs(argv) {
+  const opts = { out: DEFAULT_OUT, limit: undefined, dryRun: false };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--dry-run") opts.dryRun = true;
+    else if (arg === "--out" && argv[i + 1]) opts.out = resolve(argv[++i]);
+    else if (arg === "--limit" && /^[1-9]\d*$/.test(argv[i + 1] ?? ""))
+      opts.limit = Number(argv[++i]);
+    else throw new Error(`unknown or invalid argument: ${arg}`);
+  }
+  return opts;
+}
+
+/**
+ * Run the CLI. Returns the exit code; never writes unless the whole gather and
+ * derive succeeded, so a failed fetch cannot clobber a good snapshot.
+ * generatedAt is the newest merge time (not "now") so reruns are byte-identical.
+ */
+export function runCli(
+  argv,
+  { gh = defaultGh, write = writeFileSync, log = console.log, err = console.error } = {}
+) {
+  try {
+    const opts = parseArgs(argv);
+    const input = gatherShippedFeatureInput(gh, { limit: opts.limit });
+    const derived = deriveShippedFeatures({ ...input, generatedAt: new Date(0).toISOString() });
+    const newest = derived.snapshot.features
+      .map((f) => f.lastMergedAt)
+      .sort()
+      .at(-1);
+    const snapshot = { ...derived.snapshot, generatedAt: newest ?? derived.snapshot.generatedAt };
+    const { skipped } = derived;
+    const json = `${JSON.stringify(snapshot, null, 2)}\n`;
+    if (opts.dryRun) log(json.trimEnd());
+    else write(opts.out, json);
+    log(
+      `wrote ${snapshot.features.length} features, skipped ${skipped.noTaskList + skipped.noMergedPrs}${
+        opts.dryRun ? " (dry run)" : ""
+      }`
+    );
+    return 0;
+  } catch (e) {
+    err(
+      `collect-shipped-features: failed, snapshot left untouched: ${e instanceof Error ? e.message : e}`
+    );
+    return 1;
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+  process.exitCode = runCli(process.argv.slice(2));
 }

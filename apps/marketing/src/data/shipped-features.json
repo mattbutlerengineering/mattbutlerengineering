@@ -1,4 +1,4297 @@
 {
-  "generatedAt": "2026-10-17T00:00:00.000Z",
-  "features": []
+  "generatedAt": "2026-10-16T22:38:05.000Z",
+  "features": [
+    {
+      "slug": "ideation-batch-2026-10-15-6717",
+      "title": "[Ideation] Batch 2026-10-15",
+      "trackingIssue": 6717,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-16T22:25:59.000Z",
+      "lastMergedAt": "2026-10-16T22:38:05.000Z",
+      "wallClockHours": 30.4,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 6713,
+          "title": "[Proposal] hospitality: wire the booking widget's confirmation path to actually send a confirmation email",
+          "prs": [
+            {
+              "number": 6880,
+              "title": "feat(reservations): send booking confirmation from the widget's hold-confirm route",
+              "mergedAt": "2026-10-16T22:38:05.000Z",
+              "mergeCommit": "b59c10d3520c1c97dd1d039f74be7b168fb79da0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6714,
+          "title": "[Proposal] hospitality: give guestService.recordVisit a real production caller so visit counts and history are real",
+          "prs": [
+            {
+              "number": 6878,
+              "title": "feat(reservations): record guest visit when a reservation is completed",
+              "mergedAt": "2026-10-16T22:25:59.000Z",
+              "mergeCommit": "385dfc9a6281680200c740228f85d604d86644f7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6715,
+          "title": "[Proposal] rialto: A11y Iteration 6 — close the stuck P2 axe findings on component showcase pages",
+          "prs": [
+            {
+              "number": 6883,
+              "title": "fix(rialto): close axe contrast and landmark findings on component showcase pages",
+              "mergedAt": "2026-10-16T22:35:51.000Z",
+              "mergeCommit": "bc9d76d1a7f22c51a068b22bc2faf2e9b25cc5ac",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6716,
+          "title": "[Proposal] services: close the gaps the typed endpoint-definition pilot's own reviewer flagged and left out of scope",
+          "prs": [
+            {
+              "number": 6879,
+              "title": "feat(types,api-client): close endpoint-definition gaps (per-call headers, 207, 2xx problem() type error)",
+              "mergedAt": "2026-10-16T22:37:40.000Z",
+              "mergeCommit": "20ba35573b84e4f03793e8d0276366fdba243cca",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "deepen-2026-10-16-6774",
+      "title": "deepen-2026-10-16",
+      "trackingIssue": 6774,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-16T02:52:27.000Z",
+      "lastMergedAt": "2026-10-16T08:55:58.000Z",
+      "wallClockHours": 6.4,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 6764,
+          "title": "[Feature] deepen-2026-10-16 [1/10]: table status compare-and-set; lost race answers 409",
+          "prs": [
+            {
+              "number": 6783,
+              "title": "fix(reservations): table status update is an atomic compare-and-set (mbe-feature-drain #6764)",
+              "mergedAt": "2026-10-16T02:52:27.000Z",
+              "mergeCommit": "e26fdaf90107405d860fd0e39510eb00ace120e1",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6765,
+          "title": "[Feature] deepen-2026-10-16 [2/10]: deposit lost race answers 409, not 500",
+          "prs": [
+            {
+              "number": 6784,
+              "title": "fix(reservations): deposit lost-race answers 409, not 500 (mbe-feature-drain #6765)",
+              "mergedAt": "2026-10-16T03:01:45.000Z",
+              "mergeCommit": "8f0d2e7de95d6f242c342dfab9a15a9edfdffc3d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6766,
+          "title": "[Feature] deepen-2026-10-16 [3/10]: users preference merge is atomic",
+          "prs": [
+            {
+              "number": 6795,
+              "title": "fix(users): make preference merge atomic",
+              "mergedAt": "2026-10-16T03:42:40.000Z",
+              "mergeCommit": "e47cc17004c75eb3711e104b63ccc12a9b6660d8",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6767,
+          "title": "[Feature] deepen-2026-10-16 [4/10]: duplicate-table predicate matches ApiClientError at the seam",
+          "prs": [
+            {
+              "number": 6786,
+              "title": "fix(hospitality): match duplicate-table rejection on ApiClientError problemDetails (mbe-feature-drain #6767)",
+              "mergedAt": "2026-10-16T03:19:13.000Z",
+              "mergeCommit": "eb5c1c5a50c16b75cb00ee4bd30ccd35d55510d0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6768,
+          "title": "[Feature] deepen-2026-10-16 [5/10]: one Table mapper; delete resolveReservationVenueId",
+          "prs": [
+            {
+              "number": 6797,
+              "title": "refactor(reservations): one Prisma-to-Table mapper, inline deposit venue resolver (mbe-feature-drain #6768)",
+              "mergedAt": "2026-10-16T03:32:48.000Z",
+              "mergeCommit": "53044560a3e3b507d33d912939a8d9c094cda3ff",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6769,
+          "title": "[Feature] deepen-2026-10-16 [6/10]: GATE_PATHS inside qualifiesForLowRiskFastPath; prompts point at it",
+          "prs": [
+            {
+              "number": 6794,
+              "title": "feat(agent-core): GATE_PATHS inside qualifiesForLowRiskFastPath",
+              "mergedAt": "2026-10-16T04:09:42.000Z",
+              "mergeCommit": "571dd99ecc0bc94857b0e3886370507c6b26c308",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6770,
+          "title": "[Feature] deepen-2026-10-16 [7/10]: delete the queue-telemetry pass-through; one parser in the store",
+          "prs": [
+            {
+              "number": 6792,
+              "title": "refactor(scripts): delete queue-telemetry pass-through; one parser in the store",
+              "mergedAt": "2026-10-16T04:09:59.000Z",
+              "mergeCommit": "2fae56f4b395055276cb1028092c613beed6185f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6771,
+          "title": "[Feature] deepen-2026-10-16 [8/10]: DomainServices batch A: 8 public routes read fastify.services",
+          "prs": [
+            {
+              "number": 6814,
+              "title": "refactor(reservations): public routes read services from fastify.services (mbe-feature-drain #6771)",
+              "mergedAt": "2026-10-16T07:22:04.000Z",
+              "mergeCommit": "8710e766e4d4b60892fd3791a91d779e831a61c7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6772,
+          "title": "[Feature] deepen-2026-10-16 [9/10]: DomainServices batch B: 7 staff routes read fastify.services",
+          "prs": [
+            {
+              "number": 6815,
+              "title": "refactor(reservations): staff routes read services from fastify.services (mbe-feature-drain #6772)",
+              "mergedAt": "2026-10-16T07:40:10.000Z",
+              "mergeCommit": "ef9e78a81aa122e46b65cfd0e576e8cc10cc38b3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6773,
+          "title": "[Feature] deepen-2026-10-16 [10/10]: DomainServices batch C: venues + floor-plans, venueGroupService joins, adoption guard",
+          "prs": [
+            {
+              "number": 6827,
+              "title": "refactor(reservations): finish DomainServices adoption + guard test (mbe-feature-drain #6773)",
+              "mergedAt": "2026-10-16T08:55:58.000Z",
+              "mergeCommit": "5db18ecd9af7e1268f50eb4480862946669a4380",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "visual-baseline-regen-6803",
+      "title": "visual-baseline-regen",
+      "trackingIssue": 6803,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-16T06:40:40.000Z",
+      "lastMergedAt": "2026-10-16T07:52:44.000Z",
+      "wallClockHours": 4.2,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 6799,
+          "title": "[Feature] visual-baseline-regen [1/4]: pure planner scripts/visual-baseline-regen.mjs (plan / summarize / body) + tests",
+          "prs": [
+            {
+              "number": 6813,
+              "title": "feat(scripts): add visual-baseline-regen planner (mbe-feature-drain #6799)",
+              "mergedAt": "2026-10-16T06:40:40.000Z",
+              "mergeCommit": "cdfc39db94408d18bb9bd037e1b8c691d099dad8",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6800,
+          "title": "[Feature] visual-baseline-regen [2/4]: dispatch-only workflow — capture, verify in compare mode, open a needs-review PR, never auto-merge",
+          "prs": [
+            {
+              "number": 6819,
+              "title": "feat(ci): add dispatch-only visual-baseline-regen workflow (mbe-feature-drain #6800)",
+              "mergedAt": "2026-10-16T07:43:45.000Z",
+              "mergeCommit": "004d1ae9245d566180d7692f0d8d9a7138bdc950",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6801,
+          "title": "[Feature] visual-baseline-regen [3/4]: add the rialto Storybook suite (packages/rialto __screenshots__) as the fourth target",
+          "prs": [
+            {
+              "number": 6821,
+              "title": "feat(ci): add rialto Storybook suite as a visual-baseline-regen target (mbe-feature-drain #6801)",
+              "mergedAt": "2026-10-16T07:49:19.000Z",
+              "mergeCommit": "0f4ae5f19ba536a0fa49b21b6e7578567ddbc4ca",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6802,
+          "title": "[Feature] visual-baseline-regen [4/4]: docs — gotchas pointer, workflows README row, ui-quality-loop release note",
+          "prs": [
+            {
+              "number": 6822,
+              "title": "docs(ci): point visual baseline docs at visual-baseline-regen.yml (mbe-feature-drain #6802)",
+              "mergedAt": "2026-10-16T07:52:44.000Z",
+              "mergeCommit": "8fa750a428eef2f48183a83fee22a0ad9f22bcf1",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "localization-phase-1-tracking-hospitality-rialto-6631",
+      "title": "localization: Phase 1 tracking (hospitality + rialto)",
+      "trackingIssue": 6631,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-15T07:37:47.000Z",
+      "lastMergedAt": "2026-10-15T23:41:21.000Z",
+      "wallClockHours": 25.8,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 6612,
+          "title": "localization: Venue formatting: explicit locale/timeZone/currency + useVenueFormat()",
+          "prs": [
+            {
+              "number": 6692,
+              "title": "feat(localization): venue formatting with explicit locale and useVenueFormat()",
+              "mergedAt": "2026-10-15T13:59:02.000Z",
+              "mergeCommit": "d29d4aaaaa86341bb50bf468894c1403d2cdc2e4",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6613,
+          "title": "localization: Cancellation policy: describeCancellationPolicy() structured result",
+          "prs": [
+            {
+              "number": 6688,
+              "title": "feat(localization): describeCancellationPolicy structured result",
+              "mergedAt": "2026-10-15T07:37:47.000Z",
+              "mergeCommit": "244ec3330468d6622139745a6838f918ca451aec",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6614,
+          "title": "localization: LocalePicker component (sidebar / settings / compact variants)",
+          "prs": [
+            {
+              "number": 6702,
+              "title": "feat(hospitality): LocalePicker component (sidebar / settings / compact)",
+              "mergedAt": "2026-10-15T17:53:10.000Z",
+              "mergeCommit": "0e83dac4d3d542df7950e79537f5629860117c33",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6615,
+          "title": "localization: Rialto migration: overlays & dismiss onto useRialtoLocale()",
+          "prs": [
+            {
+              "number": 6689,
+              "title": "feat(rialto): localize overlay and dismiss text via useRialtoLocale",
+              "mergedAt": "2026-10-15T14:35:10.000Z",
+              "mergeCommit": "2bec613c0e6eb9e85aa2143bdd984f8a139b3667",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6616,
+          "title": "localization: Rialto migration: navigation & data components + context Intl fallback",
+          "prs": [
+            {
+              "number": 6710,
+              "title": "feat(rialto): localize navigation and data components; ReactNode labels for Select and DropdownMenu",
+              "mergedAt": "2026-10-15T15:56:15.000Z",
+              "mergeCommit": "aa8eeb22538b0833f09cad63def7272c94303c92",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6617,
+          "title": "localization: Rialto migration: inputs & composites; rialto lint scope becomes src/**",
+          "prs": [
+            {
+              "number": 6724,
+              "title": "feat(rialto): localize inputs and composites; lint scope becomes src/**",
+              "mergedAt": "2026-10-15T20:34:11.000Z",
+              "mergeCommit": "7d05cdca51e47bf63ae20d0b251eba1998f228a9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6618,
+          "title": "localization: Booking widget locale scope (independent of dashboard)",
+          "prs": [
+            {
+              "number": 6721,
+              "title": "feat(hospitality): booking widget locale scope independent of the dashboard",
+              "mergedAt": "2026-10-15T18:21:14.000Z",
+              "mergeCommit": "a1e3aa532b9b83323d229e7a9e8034d4739d6bbe",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6619,
+          "title": "localization: Translate guest surfaces (booking widget, public booking & manage pages)",
+          "prs": [
+            {
+              "number": 6735,
+              "title": "feat(hospitality): translate guest booking surfaces (es-MX, fr-CA)",
+              "mergedAt": "2026-10-15T21:36:31.000Z",
+              "mergeCommit": "ca1c38606ea3bed859a5043304c7cc7c6acb877c",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6620,
+          "title": "localization: Per-locale e2e sweep on public routes",
+          "prs": [
+            {
+              "number": 6738,
+              "title": "test(hospitality): per-locale e2e sweep on guest booking and manage routes",
+              "mergedAt": "2026-10-15T22:02:05.000Z",
+              "mergeCommit": "8e44d6b82763ed16b4e3402393d598ae97376fb6",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6621,
+          "title": "localization: Staff locale switcher: sidebar footer + Settings row",
+          "prs": [
+            {
+              "number": 6727,
+              "title": "feat(hospitality): staff locale switcher in sidebar footer and Settings",
+              "mergedAt": "2026-10-15T21:12:34.000Z",
+              "mergeCommit": "8e5360b43f776389ca4534e9ff4a041135f01194",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6622,
+          "title": "localization: Staff time & money onto venue formatting (+ deposit currency fix)",
+          "prs": [
+            {
+              "number": 6706,
+              "title": "feat(localization): staff time and money onto venue formatting",
+              "mergedAt": "2026-10-15T17:48:05.000Z",
+              "mergeCommit": "2ee6130ac28c39e5e3180b7deb3a3af6619e6eca",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6623,
+          "title": "localization: Translate shell & pre-auth screens",
+          "prs": [
+            {
+              "number": 6703,
+              "title": "feat(hospitality): translate shell and pre-auth screens (en-GB, es-MX, fr-CA)",
+              "mergedAt": "2026-10-15T14:40:42.000Z",
+              "mergeCommit": "a878d4f7cc5005b066b2e133a90bcd9230524d73",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6624,
+          "title": "localization: Translate Home & Timeline",
+          "prs": [
+            {
+              "number": 6728,
+              "title": "feat(hospitality): translate Home and Timeline (en-GB, es-MX, fr-CA)",
+              "mergedAt": "2026-10-15T20:50:03.000Z",
+              "mergeCommit": "304b3518a2dc16e31cd7a448a28d9fedccb5c441",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6625,
+          "title": "localization: Translate Reservations & Guests",
+          "prs": [
+            {
+              "number": 6730,
+              "title": "feat(hospitality): translate Reservations and Guests (en-GB, es-MX, fr-CA)",
+              "mergedAt": "2026-10-15T21:27:32.000Z",
+              "mergeCommit": "925d9f328225733f1e21e4adbe63db00bf9897d1",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6626,
+          "title": "localization: Translate Floor plans",
+          "prs": [
+            {
+              "number": 6708,
+              "title": "feat(hospitality): translate floor plan screens (en-GB, es-MX, fr-CA)",
+              "mergedAt": "2026-10-15T15:31:10.000Z",
+              "mergeCommit": "96dabae9c4f6e712fa01098aac16d9cd2b68773b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6627,
+          "title": "localization: Translate venue onboarding wizard",
+          "prs": [
+            {
+              "number": 6711,
+              "title": "feat(hospitality): translate venue onboarding wizard (en-GB, es-MX, fr-CA)",
+              "mergedAt": "2026-10-15T15:51:14.000Z",
+              "mergeCommit": "e564a2a362c526434164716111c1116b18438b64",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6628,
+          "title": "localization: Translate Profile, Settings, Admin, widget demo; hospitality lint scope becomes src/**",
+          "prs": [
+            {
+              "number": 6739,
+              "title": "feat(hospitality): translate Profile, Settings, Admin, widget demo; lint scope becomes src/**",
+              "mergedAt": "2026-10-15T22:05:37.000Z",
+              "mergeCommit": "0819e5e4dec4cf69953a29fa7c93276c42378a2b",
+              "reviewVerdict": "flag",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6629,
+          "title": "localization: Per-locale e2e sweep on authenticated routes",
+          "prs": [
+            {
+              "number": 6741,
+              "title": "test(hospitality): per-locale e2e sweep on authenticated routes",
+              "mergedAt": "2026-10-15T23:32:38.000Z",
+              "mergeCommit": "42f81075f4040b25179c7db270136bb41928c746",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6630,
+          "title": "localization: Localization release prep: docs + changeset check",
+          "prs": [
+            {
+              "number": 6743,
+              "title": "docs(localization): document i18n conventions for hospitality and rialto",
+              "mergedAt": "2026-10-15T23:41:21.000Z",
+              "mergeCommit": "7c01d89691a1f78c9c31baa7f61fcbf43f372846",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "sdlc-speed-2-6666",
+      "title": "sdlc-speed-2",
+      "trackingIssue": 6666,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-15T06:01:26.000Z",
+      "lastMergedAt": "2026-10-15T18:09:11.000Z",
+      "wallClockHours": 14,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 6663,
+          "title": "[Feature] sdlc-speed-2 [1/3]: Profile and cut reservations-service test wall time (391s, longest CI test task)",
+          "prs": [
+            {
+              "number": 6683,
+              "title": "perf(reservations): share compiled route schemas across buildApp() in tests",
+              "mergedAt": "2026-10-15T06:01:26.000Z",
+              "mergeCommit": "8f0ff88d87c92c613375b44fb3fa0822abfc4a39",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6664,
+          "title": "[Feature] sdlc-speed-2 [2/3]: Shard the CI Test job into balanced parallel legs with a joined coverage gate",
+          "prs": [
+            {
+              "number": 6684,
+              "title": "ci: shard Test job into balanced matrix legs with a coverage join gate",
+              "mergedAt": "2026-10-15T11:15:13.000Z",
+              "mergeCommit": "3c0263c6eb68a7b3be4034968895246aa229ca07",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6665,
+          "title": "[Feature] sdlc-speed-2 [3/3]: Measure, then drop Test's serial wait on Typecheck if ^build can come from prepare",
+          "prs": [
+            {
+              "number": 6720,
+              "title": "ci: run Test in parallel with Typecheck by building ^build closure in Prepare",
+              "mergedAt": "2026-10-15T18:09:11.000Z",
+              "mergeCommit": "650f192178f2b3b06ae1b58f004da7c974a90f72",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ideation-batch-2026-10-14-6600",
+      "title": "[Ideation] Batch 2026-10-14",
+      "trackingIssue": 6600,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-15T13:58:49.000Z",
+      "lastMergedAt": "2026-10-15T14:41:37.000Z",
+      "wallClockHours": 22.5,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 6596,
+          "title": "[Proposal] rialto: A11y Iteration 5 — Navigation (Navbar, Sidebar, Breadcrumb, Pagination)",
+          "prs": [
+            {
+              "number": 6693,
+              "title": "fix(rialto): a11y iteration 5 - Breadcrumb collapse placeholder, Breadcrumb/Pagination audit",
+              "mergedAt": "2026-10-15T14:41:37.000Z",
+              "mergeCommit": "a262b52f3ca0ca1e6c38d17df2df7db332e8e6fb",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6597,
+          "title": "[Proposal] hospitality: persist occasion &amp; seating preference on every reservation write path — the Briefing badge and \"Prefers:\" line have never shown real data",
+          "prs": [
+            {
+              "number": 6686,
+              "title": "feat(reservations): persist occasion and seatingPreference on every write path",
+              "mergedAt": "2026-10-15T14:33:08.000Z",
+              "mergeCommit": "19b39178d7f04bfb702895a86a0bf2866f70c559",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6598,
+          "title": "[Proposal] services: make the SSE event catalog type-safe — SseEvent is an uncorrelated union, and docs still hand-keep a stale subset",
+          "prs": [
+            {
+              "number": 6690,
+              "title": "fix(types): make SseEvent a discriminated union over the SSE catalog",
+              "mergedAt": "2026-10-15T13:58:49.000Z",
+              "mergeCommit": "22a6f407f416dc2d36b59ff33e34d593ba57c98b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6599,
+          "title": "[Proposal] marketing: close out accessibility + reliability findings stuck as \"seed\" on AI-health/metrics/acmm/status pages for 2+ weeks",
+          "prs": [
+            {
+              "number": 6704,
+              "title": "fix(marketing): clear axe-serious contrast and vague View live links",
+              "mergedAt": "2026-10-15T14:40:36.000Z",
+              "mergeCommit": "bc951853a5dbd8f1ecd60aaeed254fc782735eee",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "sdlc-speed-6637",
+      "title": "sdlc-speed",
+      "trackingIssue": 6637,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-15T00:45:52.000Z",
+      "lastMergedAt": "2026-10-15T14:03:57.000Z",
+      "wallClockHours": 15.9,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 6633,
+          "title": "[Feature] sdlc-speed [1/4]: Move llms regen and the antipattern ratchet from push time to commit time",
+          "prs": [
+            {
+              "number": 6645,
+              "title": "fix: move llms.txt regen and the antipattern ratchet to commit time",
+              "mergedAt": "2026-10-15T00:52:29.000Z",
+              "mergeCommit": "a4176e5999f5cab1ece8c3580277c2cd3bd90bc7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6634,
+          "title": "[Feature] sdlc-speed [2/4]: One-command worktree bootstrap so the first typecheck passes",
+          "prs": [
+            {
+              "number": 6676,
+              "title": "feat: pnpm bootstrap:worktree one-command worktree bootstrap",
+              "mergedAt": "2026-10-15T05:37:25.000Z",
+              "mergeCommit": "74dcac0717ce2cf22368aa705a3c130ed74d5373",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6635,
+          "title": "[Feature] sdlc-speed [3/4]: Promote dependent issues to ready the moment their blockers close",
+          "prs": [
+            {
+              "number": 6642,
+              "title": "feat: promote dependent issues to ready when all blockers close",
+              "mergedAt": "2026-10-15T00:45:52.000Z",
+              "mergeCommit": "eb87e61867af8d8e593debca6eb53b7c46a22292",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6636,
+          "title": "[Feature] sdlc-speed [4/4]: Triage hospitality Visual Regression failure: pre-existing on main or caused by #6591",
+          "prs": [
+            {
+              "number": 6657,
+              "title": "fix(hospitality-e2e): derive visual-suite mock dates from the fixed clock",
+              "mergedAt": "2026-10-15T04:18:26.000Z",
+              "mergeCommit": "0f7243c4dce1afa4a61f469dad5feeb0b8e8f716",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6639,
+          "title": "[Feature] sdlc-speed [5/6]: /ship-pr — run the implement-queue review + auto-merge gate on any PR",
+          "prs": [
+            {
+              "number": 6675,
+              "title": "feat(ship-pr): gate-path hold before fast path; record gates and dry walk-through",
+              "mergedAt": "2026-10-15T05:37:21.000Z",
+              "mergeCommit": "cd36c1ba7586b88c39a84f9aaea1a38b5a9c0ad4",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6640,
+          "title": "[Feature] sdlc-speed [6/6]: Let same-zone issues batch in parallel while main is non-strict (amend ADR-023)",
+          "prs": [
+            {
+              "number": 6678,
+              "title": "feat(implement-queue): batch same-zone issues with disjoint scopes while main is non-strict",
+              "mergedAt": "2026-10-15T05:37:59.000Z",
+              "mergeCommit": "d1047723ed299c197300adcbcdc7534d6412210b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6650,
+          "title": "[Feature] sdlc-speed [7/8]: Auto-merge official GitHub Actions and @types Dependabot bumps on green CI",
+          "prs": [
+            {
+              "number": 6680,
+              "title": "ci(deps): auto-merge official-action and @types Dependabot bumps on green CI",
+              "mergedAt": "2026-10-15T05:52:32.000Z",
+              "mergeCommit": "3e336927a38b56432274a7fd6c5a39cb75a62fd1",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6651,
+          "title": "[Feature] sdlc-speed [8/8]: Find why armed Dependabot auto-merge (#6577) waited 24h on non-strict main",
+          "prs": [
+            {
+              "number": 6677,
+              "title": "docs(fixes): why armed Dependabot auto-merge #6577 waited 24h (CI Gate was red)",
+              "mergedAt": "2026-10-15T05:37:28.000Z",
+              "mergeCommit": "7318d01c1cb51ed9d342ff4381f0a666ee33e190",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6654,
+          "title": "[Feature] sdlc-speed [9/9]: Weekly SDLC-speed sensor (lead time by author class, CI wall time) feeding mbe-weekly-retro",
+          "prs": [
+            {
+              "number": 6687,
+              "title": "feat(metrics): weekly SDLC-speed sensor feeding mbe-weekly-retro",
+              "mergedAt": "2026-10-15T13:58:43.000Z",
+              "mergeCommit": "08878217e47d459c687e8c6cd90456ddb989cb0a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6655,
+          "title": "[Feature] sdlc-speed [10/10]: Stop generated files and descriptive keyword mentions from escalating PR tiers",
+          "prs": [
+            {
+              "number": 6701,
+              "title": "fix(ci): count only review-surface lines and incident signals toward tier escalation",
+              "mergedAt": "2026-10-15T14:03:57.000Z",
+              "mergeCommit": "b8af19905719c93c0879680d42ea5435d3e0411d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ideation-batch-2026-10-12-6439",
+      "title": "[Ideation] Batch 2026-10-12",
+      "trackingIssue": 6439,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-13T19:34:39.000Z",
+      "lastMergedAt": "2026-10-13T21:12:28.000Z",
+      "wallClockHours": 29,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 6436,
+          "title": "[Proposal] rialto: A11y Iteration 4 — Slider, Tabs, Accordion, SegmentedControl",
+          "prs": [
+            {
+              "number": 6555,
+              "title": "fix(rialto): a11y iteration 4 — Tabs, Collapsible/Accordion, SegmentedControl",
+              "mergedAt": "2026-10-13T21:12:28.000Z",
+              "mergeCommit": "b36701ee4fbe5aac48d6f84f8599bd720d0f372d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6438,
+          "title": "[Proposal] platform: automated instruction-rot detection for CLAUDE.md / AGENTS.md / .claude/rules",
+          "prs": [
+            {
+              "number": 6552,
+              "title": "feat(scripts): instruction-rot covers all rules files and stale skill/script references",
+              "mergedAt": "2026-10-13T19:34:39.000Z",
+              "mergeCommit": "fea4c4cd222f26e33bfb3a6dd2f1654868baf390",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ideation-batch-2026-10-11-6316",
+      "title": "[Ideation] Batch 2026-10-11",
+      "trackingIssue": 6316,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-12T02:10:41.000Z",
+      "lastMergedAt": "2026-10-12T02:15:53.000Z",
+      "wallClockHours": 10.1,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 6312,
+          "title": "[Proposal] platform: observability collectors going dark — queueEfficiency (2+ weeks) and ai-issue-feedback (GraphQL block)",
+          "prs": [
+            {
+              "number": 6359,
+              "title": "fix(metrics): revive queueEfficiency/ai-issue-feedback collectors and freshness-guard them",
+              "mergedAt": "2026-10-12T02:10:41.000Z",
+              "mergeCommit": "47879a242e5bb8cd355302871e150452a24ed9c0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6314,
+          "title": "[Proposal] rialto: A11y Iteration 3 — invasive wrapper refactors (Popover, DropdownMenu, Tooltip)",
+          "prs": [
+            {
+              "number": 6358,
+              "title": "fix(rialto): a11y audit iteration 3 — Popover, DropdownMenu, Tooltip trigger wrapping",
+              "mergedAt": "2026-10-12T02:15:53.000Z",
+              "mergeCommit": "31559e9a47c8a0d210dbbd0cd4ab86d5e448824a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "remembered-on-arrival-5875",
+      "title": "remembered-on-arrival",
+      "trackingIssue": 5875,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-12T00:59:29.000Z",
+      "lastMergedAt": "2026-10-12T00:59:29.000Z",
+      "wallClockHours": 316.6,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 5873,
+          "title": "feat(remembered-on-arrival): M5.1 Regenerate the llms artifacts and commit them by explicit path",
+          "prs": [
+            {
+              "number": 6355,
+              "title": "feat(hospitality): remembered on arrival — guest Special Requests said back on confirmation, manage page and host ticket",
+              "mergedAt": "2026-10-12T00:59:29.000Z",
+              "mergeCommit": "f3725682c31d54298f1162b849158bdd27782917",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "queue-telemetry-freshness-5925",
+      "title": "queue-telemetry-freshness",
+      "trackingIssue": 5925,
+      "proposalIssue": 5777,
+      "proposalEvidence": "`metrics/queue-telemetry.jsonl` — the per-PR detail log behind the `queueEfficiency` sensor's `review_coverage`/`first_pass_success_rate`/etc. sub-metrics — has exactly **one commit in its entire git history**: `1985638` (2026-09-23, \"chore(metrics): optimize-implement-queue 2026-09-23\", #5698), which added all 447 rows at once as a `new file`, spanning historical data from 2026-07-05 through 2026-09-21. `git log --all -- metrics/queue-telemetry.jsonl` confirms this is the only commit ever. Two subsequent daily `optimize-implement-queue` runs landed since (`446666e` #5718 on 2026-09-24, and today's `0f9ae0e` #5743) — neither touched the file at all, despite 51+ commits merging to `main` in that window (verified: `git log --oneline --since=\"2026-09-21\" | wc -l` → 51). `.claude/skills/implement-queue/SKILL.md` documents the live path (`appendTelemetryRow` from `scripts/collect-queue-telemetry.mjs`, called by `scripts/orchestrate.mjs` at worker-completion time) and `scripts/reconcile-queue-telemetry.mjs` is wired into `optimize-implement-queue`'s own skill — but whichever of these is supposed to keep the committed file current, it visibly isn't.",
+      "proposedAt": "2026-09-25T16:20:22.000Z",
+      "firstMergedAt": "2026-10-10T17:13:14.000Z",
+      "lastMergedAt": "2026-10-10T23:24:13.000Z",
+      "wallClockHours": 367.1,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 5920,
+          "title": "[Feature] queue-telemetry-freshness [1/5]: root-cause why queue-telemetry.jsonl stopped receiving committed rows",
+          "prs": [
+            {
+              "number": 6208,
+              "title": "docs(metrics): root-cause why queue-telemetry.jsonl has gaps (#5920)",
+              "mergedAt": "2026-10-10T17:13:14.000Z",
+              "mergeCommit": "6f473413ffafd1dda7e18ce216f4d99780069481",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5921,
+          "title": "[Feature] queue-telemetry-freshness [2/5]: fix the collection/commit path so fresh rows land going forward",
+          "prs": [
+            {
+              "number": 6235,
+              "title": "feat(metrics): scheduled GitHub-derived queue-telemetry collector",
+              "mergedAt": "2026-10-10T22:53:16.000Z",
+              "mergeCommit": "61ef5edbb01db8041cb2176253c9b72af4fca11a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5922,
+          "title": "[Feature] queue-telemetry-freshness [3/5]: add queue-telemetry to metrics-freshness.mjs FRESHNESS_POLICY",
+          "prs": [
+            {
+              "number": 6238,
+              "title": "feat(metrics): watch queue-telemetry in metrics-freshness FRESHNESS_POLICY",
+              "mergedAt": "2026-10-10T23:12:27.000Z",
+              "mergeCommit": "7919cb06a7f34e22355cf6b68909ec7df4e80290",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5924,
+          "title": "[Feature] queue-telemetry-freshness [5/5]: regression test pinning the fixed collection path and freshness-policy entry",
+          "prs": [
+            {
+              "number": 6242,
+              "title": "test(metrics): pin queue-telemetry staleness/empty verdict and exit code",
+              "mergedAt": "2026-10-10T23:24:13.000Z",
+              "mergeCommit": "548ad6002053b1c4f76f4210dc282e1fc14357c9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-ai-health-page-pr-category-breakdown-5904",
+      "title": "marketing AI-health page PR-category breakdown",
+      "trackingIssue": 5904,
+      "proposalIssue": 5776,
+      "proposalEvidence": "`metrics/sensor-report.jsonl` already computes and commits a `prCategoryMetrics` block on every run — e.g. the 2026-09-23 entry: `\"prCategoryMetrics\":{\"available\":true,\"total_prs\":98,\"total_merged\":93,\"total_closed_without_merge\":5,\"by_category\":{\"tier:sensitive\":{\"merged\":20,...,\"acceptance_rate\":1},\"tier:trivial\":{...,\"acceptance_rate\":0.97},\"tier:standard\":{...,\"acceptance_rate\":1},\"priority:critical\":{\"merged\":0,\"closed_without_merge\":1,\"acceptance_rate\":0},\"dependencies\":{\"merged\":5,\"closed_without_merge\":2,\"acceptance_rate\":0.71},\"audit\":{\"merged\":0,\"closed_without_merge\":1,\"acceptance_rate\":0},\"tier:critical\":{...,\"acceptance_rate\":1}}}`. Grepping `apps/marketing/src/data/ai-health*.ts` and `AiHealthPage.tsx` for `prCategoryMetrics`/`by_category` finds zero references — the page reads and shows the review-burden panel and an overall/blended PR-acceptance number (`ai-health.ts`), but this richer, already-committed category breakdown is never parsed or rendered anywhere.",
+      "proposedAt": "2026-09-25T16:20:02.000Z",
+      "firstMergedAt": "2026-10-01T01:14:14.000Z",
+      "lastMergedAt": "2026-10-10T22:43:25.000Z",
+      "wallClockHours": 366.4,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 5900,
+          "title": "[Feature] marketing PR-category breakdown [1/4]: add prCategoryMetrics parsing to ai-health.ts",
+          "prs": [
+            {
+              "number": 5936,
+              "title": "feat(marketing): add prCategoryMetrics parsing to ai-health.ts",
+              "mergedAt": "2026-10-01T01:14:14.000Z",
+              "mergeCommit": "74492f1d2b038c758be118041ce201314e651bf5",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5901,
+          "title": "[Feature] marketing PR-category breakdown [2/4]: small-sample-size handling in the normalizer",
+          "prs": [
+            {
+              "number": 5994,
+              "title": "feat(marketing): flag low-sample-size PR categories in ai-health normalizer",
+              "mergedAt": "2026-10-03T01:52:51.000Z",
+              "mergeCommit": "c87c6d93dd02e1c894d8426c834e5bd93fa421e0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5902,
+          "title": "[Feature] marketing PR-category breakdown [3/4]: render the category panel on AiHealthPage",
+          "prs": [
+            {
+              "number": 6210,
+              "title": "feat(marketing): render PR-category panel on AiHealthPage",
+              "mergedAt": "2026-10-10T17:23:48.000Z",
+              "mergeCommit": "ffb8096744fb7d5d890403363e560d08886ce450",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5903,
+          "title": "[Feature] marketing PR-category breakdown [4/4]: visual/accessibility pass for the new panel",
+          "prs": [
+            {
+              "number": 6236,
+              "title": "fix(marketing): expose PR categories panel as semantic list",
+              "mergedAt": "2026-10-10T22:43:25.000Z",
+              "mergeCommit": "ee8941d457a63b1f23114aa4a821d0aeaa5aeb7e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "rialto-a11y-iteration-2-form-components-5899",
+      "title": "rialto a11y iteration 2 (form components)",
+      "trackingIssue": 5899,
+      "proposalIssue": 5775,
+      "proposalEvidence": "`packages/rialto/docs/a11y-audit-loop.md` is a tracked, self-declared audit queue: Iteration 1 (overlay components — Dialog, Drawer, Popover, DropdownMenu, Tooltip) shipped fixes and explicitly queued `**Iteration 2**: Form components — Input, TextArea, Checkbox, Select, NumberInput, PinInput, Autocomplete` as the next pass. That iteration has never run. Recent rialto commits (`#5702` \"trap focus and set aria-modal on Popover\", `#5708` \"extend focus-return coverage to remaining overlay components\") show this a11y work is active and ongoing — Iteration 2 is the documented next step, not a stale idea.",
+      "proposedAt": "2026-09-25T16:19:48.000Z",
+      "firstMergedAt": "2026-10-09T02:29:04.000Z",
+      "lastMergedAt": "2026-10-10T17:25:16.000Z",
+      "wallClockHours": 361.1,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 5895,
+          "title": "[Feature] rialto a11y iteration 2 [1/4]: exclude disabled elements from useFocusTrap's FOCUSABLE_SELECTOR",
+          "prs": [
+            {
+              "number": 5937,
+              "title": "fix(rialto): exclude disabled elements from useFocusTrap's FOCUSABLE_SELECTOR",
+              "mergedAt": "2026-10-09T02:35:45.000Z",
+              "mergeCommit": "e510f81b563e2552235e566ede9f03595044f7af",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5896,
+          "title": "[Feature] rialto a11y iteration 2 [2/4]: audit Input, TextArea, Checkbox against Iteration 1's rubric",
+          "prs": [
+            {
+              "number": 5992,
+              "title": "fix(rialto): a11y audit iteration 2 — Input, TextArea, Checkbox [2/4]",
+              "mergedAt": "2026-10-09T02:29:04.000Z",
+              "mergeCommit": "43fb6451a35afe4104cc33cb8fb19da158a4146e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5897,
+          "title": "[Feature] rialto a11y iteration 2 [3/4]: audit Select, NumberInput, PinInput, Autocomplete against Iteration 1's rubric",
+          "prs": [
+            {
+              "number": 6197,
+              "title": "fix(rialto): a11y iteration 2 [3/4] - Select, NumberInput, PinInput, Autocomplete",
+              "mergedAt": "2026-10-10T16:43:10.000Z",
+              "mergeCommit": "0fdb5a4d35d9444cf713f98ba8fc6d1229205501",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5898,
+          "title": "[Feature] rialto a11y iteration 2 [4/4]: append Iteration 2 section to a11y-audit-loop.md",
+          "prs": [
+            {
+              "number": 6206,
+              "title": "docs(rialto): record a11y audit iteration 2 (form components)",
+              "mergedAt": "2026-10-10T17:25:16.000Z",
+              "mergeCommit": "cc29ffcae8a7c76d3a21c371a6e044f2a238b368",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gen-template-batch-6-5843",
+      "title": "gen template batch 6",
+      "trackingIssue": 5843,
+      "proposalIssue": 5774,
+      "proposalEvidence": "`apps/gen/docs/template-coverage-audit.md` is this feature's own tracked audit trail across five prior batches (#4326, #4530, #5108, #5441, all shipped and closed). Its final section, written when batch 5 landed, states the gallery sits at **35** templates (confirmed still current: `grep -c '    id: \"' apps/gen/src/components/TemplateGallery.tsx` → 35) against **87** rialto components, and explicitly names the next candidate: *\"`DropdownMenu` (rank 5) was drafted and then dropped in favour of `Dialog` once this regeneration landed and ranked `Dialog` third — it remains uncovered and is the obvious rank-shifted candidate for batch 6.\"* The same doc's ranked table lists 22-26 total uncovered components across five categories (Data display, Visual/decorative, Feedback/overlay, Navigation/layout, Form controls) that a follow-up batch is explicitly invited to split further. No batch 6 has run.",
+      "proposedAt": "2026-09-25T16:19:34.000Z",
+      "firstMergedAt": "2026-09-29T00:43:49.000Z",
+      "lastMergedAt": "2026-10-10T14:30:09.000Z",
+      "wallClockHours": 358.2,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 5838,
+          "title": "[Feature] gen template batch 6 [1/5]: regenerate template-coverage-audit.md against current state",
+          "prs": [
+            {
+              "number": 5883,
+              "title": "docs(gen): regenerate template-coverage-audit against current state",
+              "mergedAt": "2026-09-29T00:43:49.000Z",
+              "mergeCommit": "f71024fda4619f91bfe3b85732950ced889b372c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5839,
+          "title": "[Feature] gen template batch 6 [2/5]: add DropdownMenu template",
+          "prs": [
+            {
+              "number": 6137,
+              "title": "feat(gen): add Row Actions Menu template for DropdownMenu coverage (mbe-daily-issue #5839)",
+              "mergedAt": "2026-10-09T02:14:09.000Z",
+              "mergeCommit": "50c14087477255dd47e7420917a8b0da270dddec",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5840,
+          "title": "[Feature] gen template batch 6 [3/5]: add DepartureBoard template",
+          "prs": [
+            {
+              "number": 6142,
+              "title": "feat(gen): add Live Departures Board template to TemplateGallery",
+              "mergedAt": "2026-10-08T00:38:40.000Z",
+              "mergeCommit": "8cf61799508375ca53ea9de0140e7d40c0b50000",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5841,
+          "title": "[Feature] gen template batch 6 [4/5]: add ScrollArea template",
+          "prs": [
+            {
+              "number": 6156,
+              "title": "feat(gen): add ScrollArea template to TemplateGallery (mbe-daily-issue #5841)",
+              "mergedAt": "2026-10-08T14:45:15.000Z",
+              "mergeCommit": "e4dd62ca4d437cce01faffc11c12aae12b1a7ab9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5842,
+          "title": "[Feature] gen template batch 6 [5/5]: document batch 6 picks in template-coverage-audit.md",
+          "prs": [
+            {
+              "number": 6192,
+              "title": "docs(gen): document batch 6 picks in template-coverage-audit.md (mbe-daily-issue #5842)",
+              "mergedAt": "2026-10-10T14:30:09.000Z",
+              "mergeCommit": "0121b556aa6b00e61786b5ebf2eacd0e42deceec",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "hospitality-deposit-exposure-dashboard-5837",
+      "title": "hospitality deposit-exposure dashboard",
+      "trackingIssue": 5837,
+      "proposalIssue": 5773,
+      "proposalEvidence": "The last week of hospitality commits hardened the deposit/no-show state machine end to end: `#5715` wired an operator action to mark a reservation no-show, `#5722` fixed deposit/no-show payment defects (\"auth never held, ghost states, over-forfeiture\"), and `#5749` added \"deposit operator visibility, refund reconciliation, unified expired-auth label\". All of that reliability work is now correct under the hood — but `apps/hospitality/src/hooks/useDashboardStatsQuery.ts`'s `DashboardStats` interface (the data source for the operator's \"how is tonight going?\" home dashboard) still only exposes `totalReservations`, `expectedCovers`, `upcomingCount`, `cancellationRate`/`cancellationTrend`, `waitlistCount`, `longestWaitMinutes` — nothing about deposits or no-show risk. `Reservation` (`packages/types/src/reservation.ts`) already carries a `deposit: { status: DepositStatus, ... }` field, so the data exists client-side; it's just never aggregated or surfaced.",
+      "proposedAt": "2026-09-25T16:19:23.000Z",
+      "firstMergedAt": "2026-09-29T01:22:07.000Z",
+      "lastMergedAt": "2026-10-05T14:57:32.000Z",
+      "wallClockHours": 238.6,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 5832,
+          "title": "[Feature] hospitality deposit-exposure dashboard [1/5]: add GET /api/v1/deposits?venueId=&date= list endpoint",
+          "prs": [
+            {
+              "number": 5884,
+              "title": "feat(reservations): add GET /api/v1/deposits?venueId=&date= list endpoint",
+              "mergedAt": "2026-09-29T01:22:07.000Z",
+              "mergeCommit": "4931e70d29d5a54d7bb7838baebff942a522e512",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5833,
+          "title": "[Feature] hospitality deposit-exposure dashboard [2/5]: add typed client method for the deposits list endpoint",
+          "prs": [
+            {
+              "number": 5908,
+              "title": "feat(api-client): add listByVenueAndDate to DepositsClient",
+              "mergedAt": "2026-09-30T01:05:19.000Z",
+              "mergeCommit": "188755260311212fcc074ffcb82301144f45bf96",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5834,
+          "title": "[Feature] hospitality deposit-exposure dashboard [3/5]: extend DashboardStats with deposit-at-risk and no-show exposure",
+          "prs": [
+            {
+              "number": 6032,
+              "title": "feat(hospitality): extend DashboardStats with deposit-at-risk and no-show exposure (mbe-daily-issue #5834)",
+              "mergedAt": "2026-10-04T15:40:50.000Z",
+              "mergeCommit": "728517fe523518f2e8493f4ec5383a2320cbea75",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5835,
+          "title": "[Feature] hospitality deposit-exposure dashboard [4/5]: DepositExposureWidget on the operator home dashboard",
+          "prs": [
+            {
+              "number": 6068,
+              "title": "feat(hospitality): add DepositExposureWidget to the operator home dashboard (mbe-daily-issue #5835)",
+              "mergedAt": "2026-10-05T14:57:32.000Z",
+              "mergeCommit": "70ac14be04281166d761ec1a3a5b71d8d8b3169e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "acmm-make-the-score-measure-what-it-claims-audit-2026-09-28-5851",
+      "title": "ACMM: make the score measure what it claims (audit 2026-09-28)",
+      "trackingIssue": 5851,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-09-28T20:49:46.000Z",
+      "lastMergedAt": "2026-09-28T21:48:07.000Z",
+      "wallClockHours": 2.7,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 5853,
+          "title": "fix(acmm): upstream-parity gating set, non-gating local source, detection that checks the mechanism",
+          "prs": [
+            {
+              "number": 5876,
+              "title": "fix(acmm): upstream-parity gating set, non-gating local source, detection that checks the mechanism",
+              "mergedAt": "2026-09-28T21:48:07.000Z",
+              "mergeCommit": "82e85b990ea7706e10363d000fa09991e5a8b872",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5855,
+          "title": "chore(acmm): retire per-workspace ACMM state; /acmm page shows the repo audit, not stale evals",
+          "prs": [
+            {
+              "number": 5856,
+              "title": "chore(acmm): retire per-workspace ACMM state; /acmm page shows the repo audit",
+              "mergedAt": "2026-09-28T20:49:46.000Z",
+              "mergeCommit": "ee6cd48e4555ff3369288654fc3912fea5f02778",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ideation-batch-2026-09-21-5620",
+      "title": "[Ideation] Batch 2026-09-21",
+      "trackingIssue": 5620,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-09-21T22:24:17.000Z",
+      "lastMergedAt": "2026-09-23T20:33:32.000Z",
+      "wallClockHours": 52.3,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 5616,
+          "title": "[Proposal] hospitality: Stripe no-show fee charging",
+          "prs": [
+            {
+              "number": 5715,
+              "title": "feat(hospitality): wire operator action to mark a reservation no-show (Stripe test mode)",
+              "mergedAt": "2026-09-23T20:33:18.000Z",
+              "mergeCommit": "eefb1690d2f151f9beea4b3f6920719a592db936",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5617,
+          "title": "[Proposal] gen: recover from a failed generation instead of dead-ending on a toast",
+          "prs": [
+            {
+              "number": 5709,
+              "title": "fix(gen): recover from a failed generation instead of dead-ending on a toast",
+              "mergedAt": "2026-09-23T20:33:29.000Z",
+              "mergeCommit": "82393f6247d226c19f07091e544bc02592427041",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5618,
+          "title": "[Proposal] rialto: focus-return test coverage only covers 3 of the overlay components",
+          "prs": [
+            {
+              "number": 5708,
+              "title": "test(rialto): extend focus-return coverage to remaining overlay components",
+              "mergedAt": "2026-09-23T20:33:32.000Z",
+              "mergeCommit": "c13da225d5c8275adf43f3131880401e78417703",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5619,
+          "title": "[Proposal] platform: review-burden collector now runs, but reports zero reviewers across 100 sampled PRs — confirm honest or fix",
+          "prs": [
+            {
+              "number": 5649,
+              "title": "fix(metrics): distinguish a structural review zero from a collector miss",
+              "mergedAt": "2026-09-21T22:24:17.000Z",
+              "mergeCommit": "f1b973a36421f6c74d43f753853f0bfb882b05b2",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ideation-batch-2026-09-17-5444",
+      "title": "[Ideation] Batch 2026-09-17",
+      "trackingIssue": 5444,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-09-21T07:04:10.000Z",
+      "lastMergedAt": "2026-09-21T07:04:10.000Z",
+      "wallClockHours": 86.7,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 5443,
+          "title": "[Proposal] marketing: AI-health page has never shown a Lighthouse/uptime trend — only point-in-time sensor status",
+          "prs": [
+            {
+              "number": 5582,
+              "title": "feat(marketing): chart ACMM level and queue-efficiency trends on the AI-health page",
+              "mergedAt": "2026-09-21T07:04:10.000Z",
+              "mergeCommit": "74e600455104a110f0b6181b639764ad6f525cb6",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gen-fifth-template-gallery-batch-5526",
+      "title": "gen: fifth Template Gallery batch",
+      "trackingIssue": 5526,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-09-20T21:11:36.000Z",
+      "lastMergedAt": "2026-09-21T00:56:13.000Z",
+      "wallClockHours": 8.7,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 5521,
+          "title": "[Feature] gen: fifth Template Gallery batch [1/5]: regenerate template-coverage-audit.md",
+          "prs": [
+            {
+              "number": 5545,
+              "title": "docs(gen): regenerate template-coverage-audit.md for the 32-template gallery",
+              "mergedAt": "2026-09-20T21:11:36.000Z",
+              "mergeCommit": "02fc5386f9269f7807e63212c1e31bd0cc44ffd9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5522,
+          "title": "[Feature] gen: fifth Template Gallery batch [2/5]: add a template covering DataList",
+          "prs": [
+            {
+              "number": 5548,
+              "title": "feat(gen): fifth Template Gallery batch — three templates closing ranks 1-3",
+              "mergedAt": "2026-09-21T00:56:13.000Z",
+              "mergeCommit": "2468fc1fca9fc5464d63be093361d42094634ff5",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "fix-silent-metrics-collectors-5532",
+      "title": "fix silent metrics collectors",
+      "trackingIssue": 5532,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-09-20T20:55:41.000Z",
+      "lastMergedAt": "2026-09-21T00:22:30.000Z",
+      "wallClockHours": 8.1,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 5527,
+          "title": "[Feature] fix silent metrics collectors [1/5]: confirm root cause and design the fix",
+          "prs": [
+            {
+              "number": 5544,
+              "title": "docs(fixes): design note for reviving the two silent metrics collectors",
+              "mergedAt": "2026-09-20T20:55:41.000Z",
+              "mergeCommit": "0c19644a8f9bcada2d1e6e7938b4561e737ff69b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            },
+            {
+              "number": 5550,
+              "title": "fix(metrics): give the two silent collectors a home, and a self-check that can fail",
+              "mergedAt": "2026-09-21T00:22:30.000Z",
+              "mergeCommit": "95b09afe31ffc89fdf5718878aeac12fe303f871",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "postgres-rls-venue-backstop-5255",
+      "title": "Postgres RLS venue backstop",
+      "trackingIssue": 5255,
+      "proposalIssue": 5107,
+      "proposalEvidence": "`docs/plans/2026-01-31-hospitality-platform-roadmap.md` § Phase 5+ lists `[ ] Row-Level Security` as an unbuilt future item. Verified 2026-09-07 that it's still unbuilt: no `ROW LEVEL SECURITY`/RLS references anywhere in `services/reservations/prisma` or `services/users/prisma`, and multi-tenant isolation today is entirely application-level — 39 route files under `services/reservations/src/routes` individually filter by `venueId` in their Prisma queries. Every one of those 39 call sites is a place a future route (agent-authored or human) could omit the filter and leak another venue's reservations/guests/deposits with no second layer of defense.",
+      "proposedAt": "2026-09-07T16:19:21.000Z",
+      "firstMergedAt": "2026-09-13T05:10:16.000Z",
+      "lastMergedAt": "2026-09-16T21:28:22.000Z",
+      "wallClockHours": 221.2,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 5248,
+          "title": "[Feature] Postgres RLS venue backstop [1/7]: Enumerate venue-scoped tables and design the policy shape",
+          "prs": [
+            {
+              "number": 5326,
+              "title": "docs: design Postgres RLS venue-scoping backstop (ADR-026)",
+              "mergedAt": "2026-09-13T05:10:16.000Z",
+              "mergeCommit": "351a99e2beb95c46e32d328af2d430e3c9c0fd3a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5249,
+          "title": "[Feature] Postgres RLS venue backstop [2/7]: Additive migration — enable RLS on floor_plans, tables, guests",
+          "prs": [
+            {
+              "number": 5370,
+              "title": "feat(reservations): RLS venue backstop [2/7] — enable RLS on floor_plans, tables, guests",
+              "mergedAt": "2026-09-14T21:45:42.000Z",
+              "mergeCommit": "c30c9c37dd9a7da4160846db60c2060c1c0017bc",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5250,
+          "title": "[Feature] Postgres RLS venue backstop [3/7]: Additive migration — enable RLS on reservations",
+          "prs": [
+            {
+              "number": 5374,
+              "title": "feat(reservations): RLS venue backstop [3/7] — enable RLS on reservations",
+              "mergedAt": "2026-09-15T00:58:17.000Z",
+              "mergeCommit": "17b921749c0594d1f1bafbd995a51e12faf3e908",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5251,
+          "title": "[Feature] Postgres RLS venue backstop [4/7]: Additive migration — enable RLS on deposits, waitlist_entries",
+          "prs": [
+            {
+              "number": 5380,
+              "title": "feat(reservations): RLS venue backstop [4/7] — enable RLS on deposits, waitlist_entries",
+              "mergedAt": "2026-09-15T05:37:31.000Z",
+              "mergeCommit": "c5ccdc36ebbcc74aef4ff160a36e4f3efb50b2cb",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5252,
+          "title": "[Feature] Postgres RLS venue backstop [5/7]: Fastify middleware to set app.venue_id session variable",
+          "prs": [
+            {
+              "number": 5393,
+              "title": "feat(reservations): add venue-context middleware for RLS session variable (ADR-026 part 5/7)",
+              "mergedAt": "2026-09-15T21:18:35.000Z",
+              "mergeCommit": "5d3cc01dfa9ed864468829ea7427e8bda74bf415",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5253,
+          "title": "[Feature] Postgres RLS venue backstop [6/7]: Wire venue-context middleware into services/reservations bootstrap",
+          "prs": [
+            {
+              "number": 5400,
+              "title": "feat(reservations): RLS venue backstop [6/7] — wire venue-context middleware into app bootstrap",
+              "mergedAt": "2026-09-16T03:07:54.000Z",
+              "mergeCommit": "b68d117b997d4a0a331b2412d1e23f30cb6ba4f7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5254,
+          "title": "[Feature] Postgres RLS venue backstop [7/7]: Cross-tenant isolation test + docs",
+          "prs": [
+            {
+              "number": 5421,
+              "title": "test(reservations): RLS venue backstop [7/7] — cross-tenant isolation integration test + docs",
+              "mergedAt": "2026-09-16T21:28:22.000Z",
+              "mergeCommit": "c001afae45549805ff29a5c5a10d78b9d74fad7a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-homepage-project-links-need-gen-real-context-5214",
+      "title": "marketing homepage project links need gen + real context",
+      "trackingIssue": 5214,
+      "proposalIssue": 5106,
+      "proposalEvidence": "`apps/marketing/src/data/projects.ts` lists exactly **two** entries — Rialto Design System and Hospitality Platform — each with a bare root `href` (`/rialto/`, `/hospitality/`). `apps/gen` (the generative-UI playground) is absent from the list entirely: `HomePage.tsx` → `ProjectsSection` → `ProjectCard.tsx` never links to it. Verified 2026-09-07 by reading `data/projects.ts` and `ProjectCard.tsx` directly.",
+      "proposedAt": "2026-09-07T16:18:02.000Z",
+      "firstMergedAt": "2026-09-10T20:59:44.000Z",
+      "lastMergedAt": "2026-09-12T05:48:34.000Z",
+      "wallClockHours": 109.5,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 5211,
+          "title": "[Feature] marketing homepage project links [1/3]: add Gen entry with a pre-loaded playground deep link",
+          "prs": [
+            {
+              "number": 5217,
+              "title": "feat(marketing,gen): add Gen entry with pre-loaded playground deep link",
+              "mergedAt": "2026-09-10T20:59:44.000Z",
+              "mergeCommit": "e323feb61ecbc6321a6d3a0b96fdaf85f49e1a28",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5212,
+          "title": "[Feature] marketing homepage project links [2/3]: deep-link Rialto entry into a breadth-demonstrating showcase page",
+          "prs": [
+            {
+              "number": 5227,
+              "title": "fix(marketing): deep-link Rialto project card to Booking Wizard example",
+              "mergedAt": "2026-09-11T01:17:20.000Z",
+              "mergeCommit": "b63fa40a1333d7175565fadf57262726379a7208",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5213,
+          "title": "[Feature] marketing homepage project links [3/3]: Hospitality entry gets a ?ref= context param + LoginGate banner",
+          "prs": [
+            {
+              "number": 5299,
+              "title": "feat: Hospitality ?ref=marketing context param + LoginGate tagline",
+              "mergedAt": "2026-09-12T05:48:34.000Z",
+              "mergeCommit": "e929b3d2b8ec6f7e02b98bfd62659b14c0b868fc",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gen-template-gallery-batch-4-5260",
+      "title": "Gen Template Gallery batch 4",
+      "trackingIssue": 5260,
+      "proposalIssue": 5108,
+      "proposalEvidence": "`apps/gen/docs/template-coverage-audit.md` § \"Grouped by category (for batch 3)\" named 16 components across 4 groups as the source list for template-adding work, explicitly noting \"A follow-up batch-3 issue should draw its template-adding work from this list.\" The batch that shipped (proposal #4530 → tracking #4636, closed) added 5 templates (`appointment-scheduler`, `compact-toolbar`, `restaurant-reservations-board`, `metrics-ticker`, `command-search-palette`), covering 11 of the 16 named components: Calendar, DatePicker, IconButton, Combobox, TapeChart, Chalkboard, Odometer, SplitFlap, CommandPalette, Popover, HoverCard.",
+      "proposedAt": "2026-09-07T16:19:35.000Z",
+      "firstMergedAt": "2026-09-11T21:26:33.000Z",
+      "lastMergedAt": "2026-09-12T05:30:50.000Z",
+      "wallClockHours": 109.2,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 5256,
+          "title": "[Feature] Gen Template Gallery batch 4 [1/4]: Add \"Destructive Action Confirmation\" template (ConfirmDialog, DisabledTooltip)",
+          "prs": [
+            {
+              "number": 5267,
+              "title": "feat(gen): add Delete Confirmation Flow template to TemplateGallery",
+              "mergedAt": "2026-09-11T21:26:33.000Z",
+              "mergeCommit": "c26f123a9774859840341f79ddf6d14bcb4b8272",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5257,
+          "title": "[Feature] Gen Template Gallery batch 4 [2/4]: Add \"Secure Verification\" template (PinInput)",
+          "prs": [
+            {
+              "number": 5289,
+              "title": "feat(gen): add Secure Verification template to gallery (PinInput)",
+              "mergedAt": "2026-09-12T01:33:14.000Z",
+              "mergeCommit": "754470f521ea51d26822d7a856ed1002e259bdb6",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5258,
+          "title": "[Feature] Gen Template Gallery batch 4 [3/4]: Add \"App Shell\" template (Accordion, GlobalNav)",
+          "prs": [
+            {
+              "number": 5295,
+              "title": "feat(gen): add \"App Shell\" template (Accordion, GlobalNav)",
+              "mergedAt": "2026-09-12T05:30:50.000Z",
+              "mergeCommit": "7c55169594eb876d4e2c5b6ead6c6315f59e692d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "rialto-web-phase-5-domain-example-pages-5210",
+      "title": "rialto-web Phase 5 domain example pages",
+      "trackingIssue": 5210,
+      "proposalIssue": 5105,
+      "proposalEvidence": "Open tracking issue #3276 (\"example page inventory and priority roadmap\", last updated 2026-08-17) laid out a 5-phase build order for rialto-web's composed-example pages. Re-verifying against the current tree (2026-09-07) shows Phases 1-4 are now essentially all shipped: `apps/rialto-web/src/pages/examples/` has `BookingWizardExamplePage`, `ErrorNotFoundExamplePage`/`ErrorForbiddenExamplePage`/`ErrorServerExamplePage`, `ReservationsListExamplePage`, `GuestDetailExamplePage`, `CommandPaletteExamplePage`, `PricingTableExamplePage`, `NotificationCenterExamplePage`, `OnboardingExamplePage`, `CheckoutExamplePage`, `InvoiceExamplePage`, `BookingConfirmedExamplePage`/`BookingFailedExamplePage`; and `apps/rialto-web/src/pages/tokens/` has all 7 token pages (Color, Typography, Motion, Radius, Shadows, Spacing, Surfaces) built, not stubs.",
+      "proposedAt": "2026-09-07T16:17:45.000Z",
+      "firstMergedAt": "2026-09-10T21:07:14.000Z",
+      "lastMergedAt": "2026-09-12T04:53:17.000Z",
+      "wallClockHours": 108.6,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 5206,
+          "title": "[Feature] rialto-web Phase 5 examples [1/4]: Availability Heatmap example page",
+          "prs": [
+            {
+              "number": 5219,
+              "title": "feat(rialto-web): add Availability Heatmap example page",
+              "mergedAt": "2026-09-10T21:07:14.000Z",
+              "mergeCommit": "b84f617eb5d52404c390e85464127bd85756c650",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5207,
+          "title": "[Feature] rialto-web Phase 5 examples [2/4]: Reservation Timeline (Gantt) example page",
+          "prs": [
+            {
+              "number": 5226,
+              "title": "feat(rialto-web): add Reservation Timeline (Gantt) example page",
+              "mergedAt": "2026-09-11T01:17:45.000Z",
+              "mergeCommit": "5ddf5b70d634af1d89e03df08b6617fcafa06d27",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5208,
+          "title": "[Feature] rialto-web Phase 5 examples [3/4]: Guest Check-in Flow example page",
+          "prs": [
+            {
+              "number": 5261,
+              "title": "feat(rialto-web): add Guest Check-in Flow example page",
+              "mergedAt": "2026-09-11T19:17:31.000Z",
+              "mergeCommit": "c802c0e3d19c9add5a73fc602d65cf855419a4d1",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 5209,
+          "title": "[Feature] rialto-web Phase 5 examples [4/4]: Kanban / Workflow Board example page",
+          "prs": [
+            {
+              "number": 5290,
+              "title": "feat(rialto-web): add reservation kanban example page",
+              "mergedAt": "2026-09-12T04:53:17.000Z",
+              "mergeCommit": "ad689377d67612069072caceca0d91b63bea8c44",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tracking-venue-onboarding-floor-plan-a-floor-plan-the-manager-lays-out-inside-the-new-venue-wizard-4751",
+      "title": "[tracking] venue-onboarding-floor-plan: a floor plan the manager lays out inside the new-venue wizard",
+      "trackingIssue": 4751,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-08-31T05:17:41.000Z",
+      "lastMergedAt": "2026-08-31T21:07:53.000Z",
+      "wallClockHours": 16.7,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 4752,
+          "title": "[Feature] venue-onboarding-floor-plan [1/12]: floor-plan-draft.ts — the draft model and its canvas projections",
+          "prs": [
+            {
+              "number": 4767,
+              "title": "feat(hospitality): floor-plan-draft.ts — draft model and canvas projections",
+              "mergedAt": "2026-08-31T05:17:41.000Z",
+              "mergeCommit": "35ec7df1857eebe3762ce41fcf015b38e5d9b612",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4753,
+          "title": "[Feature] venue-onboarding-floor-plan [2/12]: floor-plan-templates.ts — the zone rule and the five layouts",
+          "prs": [
+            {
+              "number": 4774,
+              "title": "feat(hospitality): add floor-plan-templates.ts zone generator and five layouts",
+              "mergedAt": "2026-08-31T17:03:27.000Z",
+              "mergeCommit": "5e6d05cec187540682e4fd98ee36ada91bb8ecdf",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4754,
+          "title": "[Feature] venue-onboarding-floor-plan [3/12]: launch-sequence.ts — the resumable four-stage machine",
+          "prs": [
+            {
+              "number": 4781,
+              "title": "feat(hospitality): launch-sequence.ts — the resumable four-stage machine",
+              "mergedAt": "2026-08-31T17:14:57.000Z",
+              "mergeCommit": "2ccbdea501706f66d9f5661fb2b568b683289ce1",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4756,
+          "title": "[Feature] venue-onboarding-floor-plan [4/12]: TemplatePreview — the inline-SVG layout miniature",
+          "prs": [
+            {
+              "number": 4783,
+              "title": "feat(hospitality): add TemplatePreview inline-SVG floor-plan miniature",
+              "mergedAt": "2026-08-31T17:22:58.000Z",
+              "mergeCommit": "0b0ed4db99ba98ef2965922315a3c379248db478",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4757,
+          "title": "[Feature] venue-onboarding-floor-plan [5/12]: useOnboardingWizard — draft and launch slices (additive)",
+          "prs": [
+            {
+              "number": 4790,
+              "title": "feat(hospitality): useOnboardingWizard — draft and launch slices (additive)",
+              "mergedAt": "2026-08-31T18:57:09.000Z",
+              "mergeCommit": "c9f8e14b27223a9341c2ac96effd8f7896cb11b4",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4758,
+          "title": "[Feature] venue-onboarding-floor-plan [6/12]: LaunchStagePanel — the four-stage StatusLED readout",
+          "prs": [
+            {
+              "number": 4792,
+              "title": "feat: add LaunchStagePanel four-stage StatusLED readout",
+              "mergedAt": "2026-08-31T18:57:34.000Z",
+              "mergeCommit": "856652991dd9bf6c5bd8c2955754ea356f447d01",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4759,
+          "title": "[Feature] venue-onboarding-floor-plan [7/12]: FloorPlanStep — picker, canvas, replace-confirm",
+          "prs": [
+            {
+              "number": 4797,
+              "title": "feat(hospitality): add FloorPlanStep wizard screen",
+              "mergedAt": "2026-08-31T18:55:42.000Z",
+              "mergeCommit": "097c8d595778ae0dee250fde22cb5bb2fa034727",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4760,
+          "title": "[Feature] venue-onboarding-floor-plan [8/12]: LaunchStep — review card, stage panel, retry, celebration copy",
+          "prs": [
+            {
+              "number": 4802,
+              "title": "feat(hospitality): LaunchStep — floor plan card, stage panel, retry, celebration copy",
+              "mergedAt": "2026-08-31T19:31:28.000Z",
+              "mergeCommit": "63d7888dccf0552d366454b8148a2c12d6a336bb",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4761,
+          "title": "[Feature] venue-onboarding-floor-plan [9/12]: VenueOnboardingPage — mount step 5, six steps, launch sequence, handoff",
+          "prs": [
+            {
+              "number": 4804,
+              "title": "feat(hospitality): wire floor plan step into venue onboarding launch flow",
+              "mergedAt": "2026-08-31T20:22:23.000Z",
+              "mergeCommit": "cc5da01ce2837389151c108f32a470b0e2051fb3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4762,
+          "title": "[Feature] venue-onboarding-floor-plan [10/12]: E2E — create-sequence mocks and the four spec contract changes",
+          "prs": [
+            {
+              "number": 4815,
+              "title": "test(hospitality): create-sequence mocks and 4 E2E spec contract changes for #4761",
+              "mergedAt": "2026-08-31T21:07:53.000Z",
+              "mergeCommit": "ec5d82e9240d6a7614fe22b081c64b8ce826beb3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4763,
+          "title": "[Feature] venue-onboarding-floor-plan [11/12]: docs — CLAUDE.md, USER-FLOWS Flow 1, backlog 13, llms regen",
+          "prs": [
+            {
+              "number": 4814,
+              "title": "docs(hospitality): sync CLAUDE.md, USER-FLOWS Flow 1, backlog #13 to shipped floor-plan wizard",
+              "mergedAt": "2026-08-31T20:46:32.000Z",
+              "mergeCommit": "0898c214c0f14cf082f0ccccedc9d3099b623adc",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4764,
+          "title": "[Feature] venue-onboarding-floor-plan [12/12]: size-limit budget for the onboarding route chunk",
+          "prs": [
+            {
+              "number": 4811,
+              "title": "perf(hospitality): add size-limit budget for onboarding route chunk",
+              "mergedAt": "2026-08-31T20:55:48.000Z",
+              "mergeCommit": "5ffa3adb6a55109c94e53a79c36e7c0c0ce438f0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-acmm-panel-on-ai-health-page-4640",
+      "title": "marketing ACMM panel on AI-health page",
+      "trackingIssue": 4640,
+      "proposalIssue": 4531,
+      "proposalEvidence": "`apps/marketing/src/pages/AiHealthPage.tsx` renders dedicated panels only for the `queueEfficiency` and `domainActivity` sensors, plus a generic per-sensor availability list at the bottom — there is zero reference to `human_touch`, `reviewer_verdict`, or `acmm` anywhere in that file or `apps/marketing/src/data/ai-health.ts`. Meanwhile `.claude/acmm/state.json` (regenerated by today's audit, `node plugins/acmm/scripts/audit.js`) shows the single most legible \"how self-improving is this, really\" number in the repo: **Level 5 (Semi-Automated), 96/99 criteria detected**, capped from L6 by exactly one behavioral gate — `human-touch-ratio: 73.1% < 50% required`. That number is absent from the one page whose stated purpose (per the charter theme below) is making self-improvement claims honest.",
+      "proposedAt": "2026-08-24T16:19:04.000Z",
+      "firstMergedAt": "2026-08-30T05:42:01.000Z",
+      "lastMergedAt": "2026-08-31T21:02:54.000Z",
+      "wallClockHours": 172.7,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 4637,
+          "title": "[Feature] marketing-acmm-panel [1/3]: extend the acmm sensor with a public-safe blocking-gate summary",
+          "prs": [
+            {
+              "number": 4695,
+              "title": "feat(sensors): extend acmm sensor with public-safe blocking-gate summary",
+              "mergedAt": "2026-08-30T05:42:01.000Z",
+              "mergeCommit": "037396a65863ee2abb26de4ebeb11cb2c29cdc4f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4638,
+          "title": "[Feature] marketing-acmm-panel [2/3]: type and normalize the acmm sensor in ai-health.ts",
+          "prs": [
+            {
+              "number": 4768,
+              "title": "feat: type and normalize acmm sensor in ai-health.ts",
+              "mergedAt": "2026-08-31T05:25:34.000Z",
+              "mergeCommit": "caf4686800a8c9c162e00aadfdd81ef0ca54a8b1",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4639,
+          "title": "[Feature] marketing-acmm-panel [3/3]: add the ACMM panel to AiHealthPage",
+          "prs": [
+            {
+              "number": 4812,
+              "title": "feat(marketing): add ACMM Maturity panel to AiHealthPage",
+              "mergedAt": "2026-08-31T21:02:54.000Z",
+              "mergeCommit": "3834cd0802ddee4a2d0c2ac9cef3456816090b38",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tracking-hospitality-animations-neon-open-sign-in-the-hospitality-dashboard-header-4746",
+      "title": "[tracking] hospitality-animations: Neon OPEN sign in the hospitality dashboard header",
+      "trackingIssue": 4746,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-08-31T17:43:05.000Z",
+      "lastMergedAt": "2026-08-31T17:43:05.000Z",
+      "wallClockHours": 13.8,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 4738,
+          "title": "[Feature] hospitality-animations [1/8]: deriveVenueOpenState — pure open-now derivation (hospitality utils)",
+          "prs": [
+            {
+              "number": 4784,
+              "title": "feat(hospitality): NeonSign venue trading-state instrument on the dashboard",
+              "mergedAt": "2026-08-31T17:43:05.000Z",
+              "mergeCommit": "12227d63f8b4cc2c53d4ff75c3494724024e07b9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tracking-auth-handshake-flows-handshake-on-every-remaining-auth-transition-4731",
+      "title": "[tracking] auth-handshake-flows: Handshake on every remaining auth transition",
+      "trackingIssue": 4731,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-08-31T03:45:16.000Z",
+      "lastMergedAt": "2026-08-31T04:53:25.000Z",
+      "wallClockHours": 1.9,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 4721,
+          "title": "[Feature] auth-handshake-flows [1/10]: @mbe/auth — deriveReturnTo callback-path rule + hasAuthParams re-export",
+          "prs": [
+            {
+              "number": 4736,
+              "title": "feat(auth): deriveReturnTo ignores the callback path; re-export hasAuthParams",
+              "mergedAt": "2026-08-31T03:53:08.000Z",
+              "mergeCommit": "e06b2951d73954a632155bd51e401bc8683cc81a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4722,
+          "title": "[Feature] auth-handshake-flows [2/10]: LoginGate signedOut prop (signed-out tagline)",
+          "prs": [
+            {
+              "number": 4737,
+              "title": "feat(hospitality): LoginGate signedOut prop swaps in the signed-out tagline",
+              "mergedAt": "2026-08-31T04:05:50.000Z",
+              "mergeCommit": "fb67f7b118cac01ac6a8e7a0361c199448569ef2",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4723,
+          "title": "[Feature] auth-handshake-flows [3/10]: AuthFailurePage — Handshake failed in place with retry",
+          "prs": [
+            {
+              "number": 4733,
+              "title": "feat(hospitality): AuthFailurePage shows the failed Handshake in place with retry",
+              "mergedAt": "2026-08-31T03:45:16.000Z",
+              "mergeCommit": "9e1ff69e0394b0cc821d6141e42178e14710d76e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4724,
+          "title": "[Feature] auth-handshake-flows [4/10]: SignOutPage — Handshake negotiating during sign-out",
+          "prs": [
+            {
+              "number": 4748,
+              "title": "feat(hospitality): SignOutPage shows the Handshake negotiating during sign-out",
+              "mergedAt": "2026-08-31T04:13:17.000Z",
+              "mergeCommit": "f8dca42a2bf311d5990764b6b7f7f9450db174d5",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4725,
+          "title": "[Feature] auth-handshake-flows [5/10]: SESSION_LAPSE_COPY — one voice for SessionExpiredGate and the refresh banner",
+          "prs": [
+            {
+              "number": 4755,
+              "title": "feat(hospitality): SESSION_LAPSE_COPY gives the lapse gate and refresh banner one voice",
+              "mergedAt": "2026-08-31T04:44:41.000Z",
+              "mergeCommit": "3986a98e4770e12a8020d6af7d1c441a3b735cbc",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4728,
+          "title": "[Feature] auth-handshake-flows [6/10]: App.tsx gate order — signed-out callback, failure page, sign-out page",
+          "prs": [
+            {
+              "number": 4765,
+              "title": "feat(hospitality): App routes every auth transition through the Handshake pages",
+              "mergedAt": "2026-08-31T04:53:25.000Z",
+              "mergeCommit": "500affc7632b007be8fbb4775ff1b506e1e85af9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4726,
+          "title": "[Feature] auth-handshake-flows [7/10]: /demos/auth-flow — handshakeFor projection, Handshake replaces hand-rolled lanes",
+          "prs": [
+            {
+              "number": 4747,
+              "title": "feat(rialto-web): auth-flow demo projects its machine onto Handshake",
+              "mergedAt": "2026-08-31T04:13:02.000Z",
+              "mergeCommit": "ad18c502d17d9f9055dc3314b890de2061300ae9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4727,
+          "title": "[Feature] auth-handshake-flows [8/10]: /demos/login — phase table drives Handshake (idle → negotiating → failed/settled)",
+          "prs": [
+            {
+              "number": 4734,
+              "title": "feat(rialto-web): drive the /demos/login Handshake from a sign-in phase table",
+              "mergedAt": "2026-08-31T03:45:37.000Z",
+              "mergeCommit": "e97d1db039e0d07610c2ea62fcb9d22f5dfbe51e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4729,
+          "title": "[Feature] auth-handshake-flows [9/10]: /demos/signup — phase table drives Handshake (negotiating → settled)",
+          "prs": [
+            {
+              "number": 4750,
+              "title": "feat(rialto-web): drive the /demos/signup Handshake from a sign-up phase table",
+              "mergedAt": "2026-08-31T04:34:52.000Z",
+              "mergeCommit": "8d0579abed80fec07730a56380fcfb8b36e94aba",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4730,
+          "title": "[Feature] auth-handshake-flows [10/10]: /demos/session-expired — Handshake idle beside the lapse LED, shared copy",
+          "prs": [
+            {
+              "number": 4749,
+              "title": "feat(rialto-web): /demos/session-expired shows the Handshake idle beside the lapse LED",
+              "mergedAt": "2026-08-31T04:34:33.000Z",
+              "mergeCommit": "5c102dfc3b5087f73bdd4ca74522424311853f01",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "hospitality-waitlist-management-4602",
+      "title": "hospitality waitlist management",
+      "trackingIssue": 4602,
+      "proposalIssue": 4528,
+      "proposalEvidence": "`apps/hospitality/docs/IMPROVEMENT-BACKLOG.md`'s \"Completed Items\" list shows every P0, P1, and P2 item shipped (including #10 Timeline keyboard accessibility, closed by the batch that just completed — tracking #4390). The only work left in that curated backlog is the P3 \"Nice to Have\" tier. Of those six, **#17 Waitlist Management** (\"When all tables are full, add guests to a waitlist with estimated wait time\") is the one that extends an existing product surface (reservations/floor-plan) rather than starting a new one, and directly serves both current hospitality themes below.",
+      "proposedAt": "2026-08-24T16:18:36.000Z",
+      "firstMergedAt": "2026-08-27T21:04:51.000Z",
+      "lastMergedAt": "2026-08-30T05:28:17.000Z",
+      "wallClockHours": 133.2,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 4596,
+          "title": "[Feature] hospitality-waitlist [1/6]: add authenticated waitlist client to @mbe/api-client",
+          "prs": [
+            {
+              "number": 4610,
+              "title": "feat(api-client): add authenticated WaitlistClient",
+              "mergedAt": "2026-08-27T21:04:51.000Z",
+              "mergeCommit": "5ba5ab124bc3d987e7d2534012f96641ed7ac319",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4597,
+          "title": "[Feature] hospitality-waitlist [2/6]: staff WaitlistPage — route, nav entry, ordered list view",
+          "prs": [
+            {
+              "number": 4622,
+              "title": "feat(hospitality): add staff WaitlistPage with route and nav entry",
+              "mergedAt": "2026-08-28T05:45:51.000Z",
+              "mergeCommit": "55073f368c6da2889bb5abdd4f8bd00d09cd683b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4598,
+          "title": "[Feature] hospitality-waitlist [3/6]: add-to-waitlist form + notify/cancel actions",
+          "prs": [
+            {
+              "number": 4675,
+              "title": "feat(hospitality): add waitlist add/notify/cancel actions",
+              "mergedAt": "2026-08-29T16:51:19.000Z",
+              "mergeCommit": "d706c5b60639148ba593f7135297a9456c368bb6",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4599,
+          "title": "[Feature] hospitality-waitlist [4/6]: promote waitlist entry to a reservation on Seat",
+          "prs": [
+            {
+              "number": 4689,
+              "title": "feat(hospitality): promote waitlist entry to a reservation on Seat",
+              "mergedAt": "2026-08-30T01:13:26.000Z",
+              "mergeCommit": "e0f57bdadaf59758891c8b7eb42ac2861c576f42",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4600,
+          "title": "[Feature] hospitality-waitlist [5/6]: waitlist count + longest wait stat on HomePage",
+          "prs": [
+            {
+              "number": 4616,
+              "title": "feat(hospitality): add waitlist count + longest wait stat tiles to HomePage",
+              "mergedAt": "2026-08-28T00:58:20.000Z",
+              "mergeCommit": "6665ccbc519b6f2f4d1d5e4aef65d4f5ff850378",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4601,
+          "title": "[Feature] hospitality-waitlist [6/6]: E2E — add guest to waitlist, then promote to reservation",
+          "prs": [
+            {
+              "number": 4694,
+              "title": "test(hospitality): add E2E spec for waitlist add-to-seat flow",
+              "mergedAt": "2026-08-30T05:28:17.000Z",
+              "mergeCommit": "79923d3f9ae7b94dc88ae53b78f8f4fc4c45a485",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "human-touch-classifier-close-the-real-gap-4607",
+      "title": "human-touch classifier — close the real gap",
+      "trackingIssue": 4607,
+      "proposalIssue": 4529,
+      "proposalEvidence": "Proposal #4324 → tracking #4396 (closed this run) shipped three new commit-diff-based human-touch categories (`lint-fixup`, `generated-artifact-regen`, `ci-rerun`) specifically to shrink the `\"other\"` bucket, which was 89% of entries at the time. Running the shipped tool today (`node plugins/acmm/scripts/human-touch-reasons.js`) against the live 30-day window still reports:",
+      "proposedAt": "2026-08-24T16:18:49.000Z",
+      "firstMergedAt": "2026-08-28T00:41:53.000Z",
+      "lastMergedAt": "2026-08-30T01:14:21.000Z",
+      "wallClockHours": 128.9,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 4603,
+          "title": "[Feature] human-touch-classifier [1/4]: fix agent-vs-agent identity false positive in findHumanCommitIndex",
+          "prs": [
+            {
+              "number": 4615,
+              "title": "fix: agent-vs-agent identity false positive in findHumanCommitIndex",
+              "mergedAt": "2026-08-28T00:41:53.000Z",
+              "mergeCommit": "ee51c909e25deeb5c294585afae1e1c2a7ab308a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4604,
+          "title": "[Feature] human-touch-classifier [2/4]: extend generated-artifact regex to cover metrics/*.json bookkeeping commits",
+          "prs": [
+            {
+              "number": 4621,
+              "title": "fix: classify metrics/ai-antipattern-baselines.json as generated-artifact-regen",
+              "mergedAt": "2026-08-28T05:23:40.000Z",
+              "mergeCommit": "0b8c11399f84f2727086c994a28228d888631448",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4605,
+          "title": "[Feature] human-touch-classifier [3/4]: add reviewer-flagged-rework category",
+          "prs": [
+            {
+              "number": 4691,
+              "title": "fix(scripts): classify reviewer-flagged rework in human-touch taxonomy",
+              "mergedAt": "2026-08-30T01:14:21.000Z",
+              "mergeCommit": "643232fba077c8e3519d1881dded9d801063d4df",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gen-third-template-gallery-batch-4636",
+      "title": "gen third Template Gallery batch",
+      "trackingIssue": 4636,
+      "proposalIssue": 4530,
+      "proposalEvidence": "Proposal #4326 → tracking #4427 (closed this run) took the Template Gallery from 12 to 24 templates across two batches (#4424, #4425), covering the top 19 ranked uncovered components from `apps/gen/docs/template-coverage-audit.md`. That audit doc explicitly flagged the next tier itself: \"Calendar and Odometer, both usage count 23, are the next two below the cutoff — candidates for a third batch if the two follow-up issues don't exhaust this list.\" They didn't need to (the two batches exhausted the ranked 19), but the underlying gap they were named for is unchanged: the gallery now shows 24 templates against an 85-component Rialto catalog.",
+      "proposedAt": "2026-08-24T16:18:56.000Z",
+      "firstMergedAt": "2026-08-28T20:38:32.000Z",
+      "lastMergedAt": "2026-08-29T01:57:06.000Z",
+      "wallClockHours": 105.6,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 4633,
+          "title": "[Feature] gen-template-gallery-batch3 [1/3]: name the next tier of uncovered components below the original cutoff",
+          "prs": [
+            {
+              "number": 4645,
+              "title": "docs(gen): add batch 3 candidate tier to template coverage audit",
+              "mergedAt": "2026-08-28T20:38:32.000Z",
+              "mergeCommit": "aec088202a4fad187cbf1a97041b41b58cb5fe4c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4634,
+          "title": "[Feature] gen-template-gallery-batch3 [2/3]: add the third template batch (5-7 templates)",
+          "prs": [
+            {
+              "number": 4659,
+              "title": "feat(gen): add third template batch targeting Calendar, Odometer, and next tier",
+              "mergedAt": "2026-08-29T01:57:06.000Z",
+              "mergeCommit": "3ce65f23e0e54d5bc6ab27e3c24711ef7d7fdef7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "human-touch-classifier-heuristics-4396",
+      "title": "Human-touch classifier heuristics",
+      "trackingIssue": 4396,
+      "proposalIssue": 4324,
+      "proposalEvidence": "`.claude/acmm/state.json`'s behavioral gates show `L6 human-touch-ratio: 73.1% < 50%` **FAIL (level capped)** — the only failing gate in today's audit (`node plugins/acmm/scripts/audit.js`, 2026-08-17), and it is what's blocking the platform from reaching ACMM L6. The classifier built to explain *why* agent PRs need human touches (`scripts/classify-human-touch.mjs`, shipped via the already-closed #3805/#3847 proposal) is live and recording data in `metrics/queue-telemetry.jsonl` — but of the last 19 classified `human_touch_reason` entries, **17 (89%) are `\"other\"`**, with only 1 `scope-change` and 1 `review-fix`. The taxonomy exists but its heuristics (merge-conflict markers, CI-failure-at-commit-time, prior-review-comment-count, scope-change language) aren't specific enough to explain the actual majority cause — so the L6-blocking metric has no actionable breakdown to optimize against.",
+      "proposedAt": "2026-08-17T16:27:06.000Z",
+      "firstMergedAt": "2026-08-20T21:31:10.000Z",
+      "lastMergedAt": "2026-08-24T00:53:56.000Z",
+      "wallClockHours": 152.4,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 4391,
+          "title": "[Feature] Human-touch classifier heuristics [1/5]: lint-fixup category",
+          "prs": [
+            {
+              "number": 4399,
+              "title": "feat(scripts): add lint-fixup category to human-touch classifier",
+              "mergedAt": "2026-08-20T21:31:10.000Z",
+              "mergeCommit": "eee41eeee46399c40f9d0342899408ce0861acfd",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4392,
+          "title": "[Feature] Human-touch classifier heuristics [2/5]: generated-artifact-regen category",
+          "prs": [
+            {
+              "number": 4406,
+              "title": "feat(scripts): add generated-artifact-regen category to human-touch classifier",
+              "mergedAt": "2026-08-21T01:00:37.000Z",
+              "mergeCommit": "137c446fb50e50cf894953f4da17a7be25e2b1f7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4393,
+          "title": "[Feature] Human-touch classifier heuristics [3/5]: ci-rerun category + taxonomy extension",
+          "prs": [
+            {
+              "number": 4443,
+              "title": "feat(scripts): add ci-rerun category to human-touch classifier",
+              "mergedAt": "2026-08-22T01:07:18.000Z",
+              "mergeCommit": "d7fc5ca314651777a158d2ea7c09a3541de29722",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4394,
+          "title": "[Feature] Human-touch classifier heuristics [4/5]: backfill re-classify existing \"other\" entries",
+          "prs": [
+            {
+              "number": 4470,
+              "title": "feat(scripts): re-classify existing \"other\" human-touch-reason rows",
+              "mergedAt": "2026-08-23T23:16:33.000Z",
+              "mergeCommit": "ac941638b5b3a3c98e457a1438efcb7fa7519a2d",
+              "reviewVerdict": "flag",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4395,
+          "title": "[Feature] Human-touch classifier heuristics [5/5]: update human-touch-reasons.js report logic",
+          "prs": [
+            {
+              "number": 4508,
+              "title": "feat(acmm): give human-touch-reasons.js a CLI report + actionable framing",
+              "mergedAt": "2026-08-24T00:53:56.000Z",
+              "mergeCommit": "bbed66d72ee379be7aff8f4f9d5b6f8a9f865efd",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gen-template-gallery-widening-4427",
+      "title": "Gen template gallery widening",
+      "trackingIssue": 4427,
+      "proposalIssue": 4326,
+      "proposalEvidence": "`apps/gen/src/components/TemplateGallery.tsx` currently ships **13 templates**, while `packages/rialto/src/components/` has **85 component directories** the generative-UI playground can target. The refine/iterate loop itself is already solid (`createRefinementPrompt.ts`, `usePlaygroundSession.ts` — the prompt→render→refine architecture from the closed #2763/#2970/#3200 refactors is in good shape), so the highest-leverage remaining gap for this app is breadth of what the entry-point templates demonstrate, not the loop mechanics.",
+      "proposedAt": "2026-08-17T16:27:29.000Z",
+      "firstMergedAt": "2026-08-21T20:47:20.000Z",
+      "lastMergedAt": "2026-08-23T20:42:08.000Z",
+      "wallClockHours": 148.2,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 4423,
+          "title": "[Feature] Gen template gallery widening [1/4]: coverage audit",
+          "prs": [
+            {
+              "number": 4440,
+              "title": "docs(gen): audit rialto component coverage in template gallery",
+              "mergedAt": "2026-08-21T20:47:20.000Z",
+              "mergeCommit": "c44d130caa7c1b5049b447e40cf272d5d0a4d94e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4424,
+          "title": "[Feature] Gen template gallery widening [2/4]: first template batch",
+          "prs": [
+            {
+              "number": 4469,
+              "title": "feat(gen): add first batch of template gallery entries [2/4]",
+              "mergedAt": "2026-08-23T02:16:22.000Z",
+              "mergeCommit": "7a025b283c839d5556e3b44fc69101892d586c51",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4425,
+          "title": "[Feature] Gen template gallery widening [3/4]: second template batch",
+          "prs": [
+            {
+              "number": 4484,
+              "title": "feat(gen): add second batch of template gallery entries [3/4]",
+              "mergedAt": "2026-08-23T05:30:48.000Z",
+              "mergeCommit": "7f7d99b1fda9e0e6f617f51dc9cd07be318715e3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4426,
+          "title": "[Feature] Gen template gallery widening [4/4]: update test counts and verify",
+          "prs": [
+            {
+              "number": 4494,
+              "title": "test(gen): update TemplateGallery count assertions to real 24-template total",
+              "mergedAt": "2026-08-23T20:42:08.000Z",
+              "mergeCommit": "68effb80a44714d9dc129384c3765be12b067a03",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "rialto-story-gap-closure-4422",
+      "title": "Rialto story-gap closure",
+      "trackingIssue": 4422,
+      "proposalIssue": 4325,
+      "proposalEvidence": "`packages/rialto/src/components/` currently has **85 component directories** but only **57 `*.stories.tsx` files** — a 28-component (33%) gap. This is a *regression*, not a fresh gap: issue #1019 (\"test(rialto): add missing Storybook stories for 64 components\") already closed this exact gap once, and #1020 added the Storybook test-runner with interaction/a11y tests that depend on stories existing. New components have been added since without matching stories, so the coverage ratchet has silently loosened again — the same drift-without-a-guard shape as several entries in `.claude/rules/gotchas.md` (e.g. the `infrastructure/worker` orphaned-tests case, the rialto-web-e2e workflow-scoping case).",
+      "proposedAt": "2026-08-17T16:27:19.000Z",
+      "firstMergedAt": "2026-08-21T20:48:32.000Z",
+      "lastMergedAt": "2026-08-23T05:24:14.000Z",
+      "wallClockHours": 132.9,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 4417,
+          "title": "[Feature] Rialto story-gap closure [1/5]: form/input components",
+          "prs": [
+            {
+              "number": 4439,
+              "title": "feat(rialto): add missing form/input component stories",
+              "mergedAt": "2026-08-21T20:48:32.000Z",
+              "mergeCommit": "443e2c47467d72ad307e2a44dbc234addfd75658",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4418,
+          "title": "[Feature] Rialto story-gap closure [2/5]: layout/surface components",
+          "prs": [
+            {
+              "number": 4445,
+              "title": "feat(rialto): add Storybook stories for layout/surface components",
+              "mergedAt": "2026-08-22T01:06:40.000Z",
+              "mergeCommit": "7fe52dc2ba6000d28e3aef6410a6438663debb4c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4419,
+          "title": "[Feature] Rialto story-gap closure [3/5]: data display components",
+          "prs": [
+            {
+              "number": 4454,
+              "title": "feat(rialto): add Storybook stories for data-display components (#4419)",
+              "mergedAt": "2026-08-22T05:30:37.000Z",
+              "mergeCommit": "83c0b17883e3dfb560b8628e013a1a6057a5098c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4420,
+          "title": "[Feature] Rialto story-gap closure [4/5]: overlay/feedback/remaining components",
+          "prs": [
+            {
+              "number": 4471,
+              "title": "feat(rialto): add stories for overlay/feedback/remaining components",
+              "mergedAt": "2026-08-23T01:49:01.000Z",
+              "mergeCommit": "8da9f8812e364cb748a0ddef48ed007fb53858a7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4421,
+          "title": "[Feature] Rialto story-gap closure [5/5]: story-coverage drift guard",
+          "prs": [
+            {
+              "number": 4483,
+              "title": "feat(scripts): add rialto story-coverage drift guard",
+              "mergedAt": "2026-08-23T05:24:14.000Z",
+              "mergeCommit": "d45ae642ba200d11f2b317d602bac3124d541396",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "timeline-keyboard-accessibility-4390",
+      "title": "Timeline keyboard accessibility",
+      "trackingIssue": 4390,
+      "proposalIssue": 4323,
+      "proposalEvidence": "`apps/hospitality/docs/IMPROVEMENT-BACKLOG.md` item **#10 \"Keyboard Accessibility for Timeline Grid\"** (P2) is the one item in that backlog's P0-P2 tiers still open — every other P0/P1/P2 item is checked off in the \"Completed Items\" section (search, deep links, breadcrumbs, ARIA live regions, venue selector, unsaved-changes warning, etc. all shipped). The Timeline is also explicitly called out as \"the largest page (~18KB)\" in `apps/hospitality/CLAUDE.md`'s page table, and the app's own Evaluation Criteria weight Accessibility at 15% of every feature review. Today the grid (`TimelineGrid.tsx`, `ReservationBlock.tsx`) is mouse-only — no arrow-key cell navigation, no Enter/Space selection, no visible focus indicator.",
+      "proposedAt": "2026-08-17T16:26:49.000Z",
+      "firstMergedAt": "2026-08-20T21:31:13.000Z",
+      "lastMergedAt": "2026-08-22T20:29:06.000Z",
+      "wallClockHours": 124,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 4385,
+          "title": "[Feature] Timeline keyboard accessibility [1/5]: add focus-management hook + arrow-key cell navigation",
+          "prs": [
+            {
+              "number": 4402,
+              "title": "feat(hospitality): timeline focus-management hook + arrow-key navigation",
+              "mergedAt": "2026-08-20T21:31:13.000Z",
+              "mergeCommit": "96f6795ae3e5e2b6dca16b23432a391c63c08d9b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4386,
+          "title": "[Feature] Timeline keyboard accessibility [2/5]: Enter/Space activation on the focused cell",
+          "prs": [
+            {
+              "number": 4408,
+              "title": "fix(hospitality): prevent page scroll on Space activation in timeline grid",
+              "mergedAt": "2026-08-21T01:09:21.000Z",
+              "mergeCommit": "13e4ea971f99b5f54031ec5be522c945f2cbaf03",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4387,
+          "title": "[Feature] Timeline keyboard accessibility [3/5]: visible focus ring via Rialto tokens",
+          "prs": [
+            {
+              "number": 4444,
+              "title": "feat(hospitality): visible focus ring on active timeline grid cell",
+              "mergedAt": "2026-08-22T01:08:16.000Z",
+              "mergeCommit": "39fd61ebf8df4a2979d2688104c5133d8cf0d7ec",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4388,
+          "title": "[Feature] Timeline keyboard accessibility [4/5]: Playwright keyboard-only E2E spec",
+          "prs": [
+            {
+              "number": 4453,
+              "title": "test(hospitality): add keyboard-only E2E spec for Timeline reservation grid",
+              "mergedAt": "2026-08-22T06:07:57.000Z",
+              "mergeCommit": "925e1d8ae15198f1d157584063aee62dabb4fd3d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4389,
+          "title": "[Feature] Timeline keyboard accessibility [5/5]: check off backlog item #10",
+          "prs": [
+            {
+              "number": 4464,
+              "title": "docs(hospitality): check off Timeline keyboard accessibility backlog item",
+              "mergedAt": "2026-08-22T20:29:06.000Z",
+              "mergeCommit": "bd61a2ebb354b1dfcd7eb5a06597af568c47c7ec",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "wire-orphaned-human-touch-reason-classifier-into-live-queue-telemetry-4243",
+      "title": "wire orphaned human-touch-reason classifier into live queue-telemetry",
+      "trackingIssue": 4243,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-08-17T04:03:57.000Z",
+      "lastMergedAt": "2026-08-17T04:26:24.000Z",
+      "wallClockHours": 36.1,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 4239,
+          "title": "[Feature] human-touch-reason live wiring [1/4]: call classifyHumanTouch from the telemetry finalization path",
+          "prs": [
+            {
+              "number": 4301,
+              "title": "feat(telemetry): classify human_touch_reason during reconciliation",
+              "mergedAt": "2026-08-17T04:03:57.000Z",
+              "mergeCommit": "bdd3f6f6c08b13ffd772fac4b0f2e8d85d06e6c4",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4240,
+          "title": "[Feature] human-touch-reason live wiring [2/4]: run one-time backfill against existing telemetry history",
+          "prs": [
+            {
+              "number": 4302,
+              "title": "chore(metrics): backfill human_touch_reason across queue telemetry",
+              "mergedAt": "2026-08-17T04:14:57.000Z",
+              "mergeCommit": "caa1bcfe74dca4c0fe220bab965d0150324e7e6e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4242,
+          "title": "[Feature] human-touch-reason live wiring [4/4]: add a guard against a shipped-but-never-called classifier recurring",
+          "prs": [
+            {
+              "number": 4303,
+              "title": "feat(scripts): guard against a shipped-but-never-called collector module",
+              "mergedAt": "2026-08-17T04:26:24.000Z",
+              "mergeCommit": "ad7d55e62dbae8b37daa0cdb01a9abb8bf551319",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "enable-flaky-test-detection-4238",
+      "title": "enable flaky-test detection",
+      "trackingIssue": 4238,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-08-16T01:02:31.000Z",
+      "lastMergedAt": "2026-08-17T01:54:00.000Z",
+      "wallClockHours": 33.6,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 4234,
+          "title": "[Feature] flaky-test detection [1/4]: enable JUnit reporter in vitest configs",
+          "prs": [
+            {
+              "number": 4250,
+              "title": "feat: enable vitest JUnit reporter across all test configs",
+              "mergedAt": "2026-08-16T01:02:31.000Z",
+              "mergeCommit": "b6070b53437baa144a35cd194ceb7806af703d86",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4235,
+          "title": "[Feature] flaky-test detection [2/4]: upload JUnit XML as CI workflow artifact",
+          "prs": [
+            {
+              "number": 4271,
+              "title": "ci: upload JUnit XML test results as workflow artifact",
+              "mergedAt": "2026-08-16T20:46:17.000Z",
+              "mergeCommit": "5c055cc7e86ec6cbf8ead064135d25e482ee5a38",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4236,
+          "title": "[Feature] flaky-test detection [3/4]: wire artifact download + XML parsing into flakyTests sensor",
+          "prs": [
+            {
+              "number": 4284,
+              "title": "feat: wire artifact download + JUnit XML parsing into flakyTests sensor",
+              "mergedAt": "2026-08-17T01:25:28.000Z",
+              "mergeCommit": "b77ffb66f458c7607f4b04a0095812e0de9b363c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4237,
+          "title": "[Feature] flaky-test detection [4/4]: verify flakyTests sensor reports real data",
+          "prs": [
+            {
+              "number": 4293,
+              "title": "fix(sensors): report flakyTests credential failures instead of a false data gap",
+              "mergedAt": "2026-08-17T01:54:00.000Z",
+              "mergeCommit": "c4fbc5c18693dcaaaad29d5e588a5103be3c8c0e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "hospitality-offline-first-shell-read-only-4190",
+      "title": "hospitality offline-first shell (read-only)",
+      "trackingIssue": 4190,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-08-14T18:14:05.000Z",
+      "lastMergedAt": "2026-08-15T08:44:30.000Z",
+      "wallClockHours": 16.2,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 4185,
+          "title": "[Feature] hospitality-offline-shell [1/5]: IndexedDB cache layer for reservations + floor-plan snapshot",
+          "prs": [
+            {
+              "number": 4202,
+              "title": "feat: add IndexedDB offline cache for reservations + floor-plan snapshot",
+              "mergedAt": "2026-08-14T18:14:05.000Z",
+              "mergeCommit": "c3a17bfddcf5d658d0fbbaa76767dc90e025df60",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4186,
+          "title": "[Feature] hospitality-offline-shell [2/5]: cache reservations on fetch success, serve from cache on failure",
+          "prs": [
+            {
+              "number": 4204,
+              "title": "feat(hospitality): cache reservations on fetch success, serve from cache on failure",
+              "mergedAt": "2026-08-14T19:12:35.000Z",
+              "mergeCommit": "e2cb4cf935f65c44441d3880ba85fc63812f2cf1",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4187,
+          "title": "[Feature] hospitality-offline-shell [3/5]: cache floor-plan + table-status snapshot, serve from cache when offline",
+          "prs": [
+            {
+              "number": 4215,
+              "title": "feat(hospitality): cache floor-plan table-status snapshot, serve from cache when offline",
+              "mergedAt": "2026-08-14T20:59:12.000Z",
+              "mergeCommit": "36405b41093c4264343f9b63b4806e85a270460d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4188,
+          "title": "[Feature] hospitality-offline-shell [4/5]: offline/cached-data banner on the reservation/timeline view",
+          "prs": [
+            {
+              "number": 4219,
+              "title": "feat(hospitality): offline/cached-data banner on the timeline view",
+              "mergedAt": "2026-08-14T22:17:53.000Z",
+              "mergeCommit": "e88ab9278324430ff228a2933a1818f0ad247e06",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4189,
+          "title": "[Feature] hospitality-offline-shell [5/5]: E2E test — offline shows cached view, reconnect resumes live",
+          "prs": [
+            {
+              "number": 4220,
+              "title": "test(hospitality): add offline-first shell E2E spec",
+              "mergedAt": "2026-08-15T08:44:30.000Z",
+              "mergeCommit": "9297ac03166fe2d4f76ed4398aceb3f4f421bf63",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "fix-gh-client-rest-fallback-401-in-cloud-scheduled-sessions-4194",
+      "title": "fix gh-client REST-fallback 401 in cloud-scheduled sessions",
+      "trackingIssue": 4194,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-08-14T17:56:35.000Z",
+      "lastMergedAt": "2026-08-14T18:43:50.000Z",
+      "wallClockHours": 2.2,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 4191,
+          "title": "[Feature] gh-client-rest-fallback-fix [1/3]: add GITHUB_PERSONAL_ACCESS_TOKEN / AUTOMATION_PAT fallback to REST token resolution",
+          "prs": [
+            {
+              "number": 4201,
+              "title": "fix: add GITHUB_PERSONAL_ACCESS_TOKEN / AUTOMATION_PAT fallback to gh-client REST token resolution",
+              "mergedAt": "2026-08-14T17:56:35.000Z",
+              "mergeCommit": "3ab5d0196fd6f01f7239ba85a9c7214af50ce6d2",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 4192,
+          "title": "[Feature] gh-client-rest-fallback-fix [2/3]: regression test guarding token-resolution precedence order",
+          "prs": [
+            {
+              "number": 4203,
+              "title": "test(gh-client): pin resolveToken precedence order + empty-string behavior",
+              "mergedAt": "2026-08-14T18:43:50.000Z",
+              "mergeCommit": "53bd11ff4bc05c984581204f6580a969621757d0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "real-time-table-status-colors-3837",
+      "title": "real-time table status colors",
+      "trackingIssue": 3837,
+      "proposalIssue": 3803,
+      "proposalEvidence": "`docs/plans/2026-01-31-hospitality-platform-roadmap.md` (Phase 3: Floor Plans & Canvas Editor) line 71: `- [ ] Table status colors (frontend) - basic colors done, real-time status pending` — the only unchecked item left in an otherwise fully-shipped phase (canvas editor, drag-and-drop placement, Timeline/Gantt view, and Server-Sent Events for real-time sync are all checked done). The SSE infra this needs already exists and ships in the bundle (`useSSESync` hook, confirmed in the hospitality build output). `grep -rln \"statusColor\\|tableStatus\" apps/hospitality/src --include=\"*.tsx\"` finds no live table-status-coloring implementation — the wiring was never done, only the transport it depends on.",
+      "proposedAt": "2026-08-04T16:20:24.000Z",
+      "firstMergedAt": "2026-08-06T05:05:00.000Z",
+      "lastMergedAt": "2026-08-11T02:20:47.000Z",
+      "wallClockHours": 154,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 3832,
+          "title": "[Feature] real-time table status colors [1/5]: pure table-status derivation (reservation state → status enum + color token)",
+          "prs": [
+            {
+              "number": 3862,
+              "title": "feat(hospitality): pure table-status derivation for floor plan [1/5]",
+              "mergedAt": "2026-08-06T05:05:00.000Z",
+              "mergeCommit": "39f5cf98044f8976ffc1bbb5c746de1da879dd11",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3833,
+          "title": "[Feature] real-time table status colors [2/5]: SSE per-table status delta events (changed tables only)",
+          "prs": [
+            {
+              "number": 3872,
+              "title": "feat: SSE per-table status delta events [2/5]",
+              "mergedAt": "2026-08-06T06:17:27.000Z",
+              "mergeCommit": "67fcf61b389e0aae92234a4fce1066e838d90714",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3834,
+          "title": "[Feature] real-time table status colors [3/5]: wire TableShape/FloorPlanCanvas rendering to live status colors",
+          "prs": [
+            {
+              "number": 3891,
+              "title": "feat(hospitality): wire floor-plan table shapes to live status colors",
+              "mergedAt": "2026-08-07T00:38:41.000Z",
+              "mergeCommit": "bd6795457bbf6989c231ab80aa5446d70024e590",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3835,
+          "title": "[Feature] real-time table status colors [4/5]: reconnect/stale-state handling with staleness indicator",
+          "prs": [
+            {
+              "number": 3930,
+              "title": "fix(hospitality): SSE reconnect/stale-state indicator on floor plan canvas",
+              "mergedAt": "2026-08-07T17:33:48.000Z",
+              "mergeCommit": "31620555b56b8b68e110de931dcdc7327f36cbaf",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3836,
+          "title": "[Feature] real-time table status colors [5/5]: E2E — table color updates on reservation status change",
+          "prs": [
+            {
+              "number": 4074,
+              "title": "test(hospitality): E2E — table color updates on reservation status change",
+              "mergedAt": "2026-08-11T02:20:47.000Z",
+              "mergeCommit": "c02529699f4db0feb36e68c307ad7db1e25133f3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "human-touch-reason-telemetry-3847",
+      "title": "human-touch reason telemetry",
+      "trackingIssue": 3847,
+      "proposalIssue": 3805,
+      "proposalEvidence": "Today's ACMM audit (`.claude/acmm/state.json`, `plugins/acmm/scripts/audit.js`) shows the L6 behavioral gate `human-touch-ratio` at **73.1%** (n=26 merged agent PRs, 30-day window) against a required <50% — the only failing gate, capping the repo at L5 despite `agent-pr-revert-rate` (0.0%), `auto-qa-tuning-history` (3), and `agent-pr-acceptance` (100%) all passing comfortably. The gate measures merged agent PRs that required a non-author (human) commit before merge, but nothing in the sensor loop records *why* — was it a review-comment fix, a CI failure the agent couldn't resolve, a scope disagreement, a merge-conflict resolution? Without that breakdown, closing the gate is guesswork.",
+      "proposedAt": "2026-08-04T16:20:48.000Z",
+      "firstMergedAt": "2026-08-06T05:55:41.000Z",
+      "lastMergedAt": "2026-08-08T01:47:52.000Z",
+      "wallClockHours": 81.5,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 3843,
+          "title": "[Feature] human-touch reason telemetry [1/4]: human_touch_reason taxonomy + queue-telemetry schema field",
+          "prs": [
+            {
+              "number": 3866,
+              "title": "feat(scripts): add human_touch_reason taxonomy to queue-telemetry schema",
+              "mergedAt": "2026-08-06T05:55:41.000Z",
+              "mergeCommit": "736cac5f3323d6015b2288cdfaec177ca8dca988",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3844,
+          "title": "[Feature] human-touch reason telemetry [2/4]: reason classifier for non-author commits on merged agent PRs",
+          "prs": [
+            {
+              "number": 3935,
+              "title": "feat(scripts): human-touch reason classifier for merged agent PRs",
+              "mergedAt": "2026-08-07T18:24:25.000Z",
+              "mergeCommit": "66d1e125bd7f4014bbb31f365f940b19a6f33684",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3845,
+          "title": "[Feature] human-touch reason telemetry [3/4]: best-effort backfill over the 30-day merged-PR window",
+          "prs": [
+            {
+              "number": 3942,
+              "title": "feat(scripts): best-effort backfill of human_touch_reason over merged agent PRs",
+              "mergedAt": "2026-08-07T19:35:02.000Z",
+              "mergeCommit": "00bec409a08f67292c78e489700bfa04151b3090",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3846,
+          "title": "[Feature] human-touch reason telemetry [4/4]: reason breakdown beside human-touch-ratio in the ACMM report",
+          "prs": [
+            {
+              "number": 3960,
+              "title": "feat(acmm): reason breakdown beside human-touch-ratio in ACMM report",
+              "mergedAt": "2026-08-08T01:47:52.000Z",
+              "mergeCommit": "e92e628a2b5da0f4aefb2f06fbd031cd5e0ec4fc",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "unified-date-value-vocabulary-3842",
+      "title": "unified date-value vocabulary",
+      "trackingIssue": 3842,
+      "proposalIssue": 3804,
+      "proposalEvidence": "Open issue #3436 (\"Reconcile date-value vocabulary across Calendar/DatePicker (ISO strings) vs DateRange (Date objects)\", filed as a reviewer nit on PR #3435): `DateRange` shipped with `{ start: Date | null; end: Date | null }` while `Calendar`/`DatePicker` use ISO `yyyy-mm-dd` strings — two incompatible value vocabularies in the same component family. Companion issue #3437 (\"DateRangePicker: popover-hosted range field\") is blocked on the same unresolved decision — it can't compose a `Popover` + `DateRange` field cleanly while the vocabulary split is undocumented. Both issues are open, unassigned, with no active tracking chain (`has_parent: false` on #3436) as of this run.",
+      "proposedAt": "2026-08-04T16:20:35.000Z",
+      "firstMergedAt": "2026-08-06T05:10:12.000Z",
+      "lastMergedAt": "2026-08-07T21:35:51.000Z",
+      "wallClockHours": 77.3,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 3838,
+          "title": "[Feature] unified date-value vocabulary [1/4]: ADR settling the Calendar/DatePicker/DateRange value-type boundary",
+          "prs": [
+            {
+              "number": 3864,
+              "title": "docs: settle date-value vocabulary boundary (ADR-024)",
+              "mergedAt": "2026-08-06T05:10:12.000Z",
+              "mergeCommit": "660fe05cf95742a54a0d2334a1aace5a52046183",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3839,
+          "title": "[Feature] unified date-value vocabulary [2/4]: implement the ADR's chosen fix in DateRange (closes #3436)",
+          "prs": [
+            {
+              "number": 3881,
+              "title": "feat(rialto)!: migrate DateRange to ISO string date vocabulary",
+              "mergedAt": "2026-08-06T19:56:05.000Z",
+              "mergeCommit": "3f160185e7706ffeed2be6bb18405a961830d8df",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3840,
+          "title": "[Feature] unified date-value vocabulary [3/4]: update catalog + docs for all three date components",
+          "prs": [
+            {
+              "number": 3936,
+              "title": "docs(rialto): document ADR-024 ISO date-value contract on Calendar/DatePicker/DateRange",
+              "mergedAt": "2026-08-07T18:37:17.000Z",
+              "mergeCommit": "635bd7a02a91a42d068dc2aa1a9d40061c19c10c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3841,
+          "title": "[Feature] unified date-value vocabulary [4/4]: DateRangePicker — popover-hosted range field (closes #3437)",
+          "prs": [
+            {
+              "number": 3959,
+              "title": "feat(rialto): add DateRangePicker popover-hosted range field",
+              "mergedAt": "2026-08-07T21:35:51.000Z",
+              "mergeCommit": "6dc1aaa6a0a3668cb9d74d897e8e3b4f73c06c60",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "domainactivity-ai-health-panel-3831",
+      "title": "domainActivity AI-health panel",
+      "trackingIssue": 3831,
+      "proposalIssue": 3802,
+      "proposalEvidence": "The `domainActivity` sensor (`scripts/sensors-registry.mjs:306`) shipped this week — tracking #3670, closed 2026-08-04 — to give the sensor loop its first real domain signal (booking/deposit counts from `services/reservations`). It followed the exact same \"AI-health page tells the truth\" playbook proposal #3493 shipped one day earlier (tracking #3664): add a sensor, then render it on `apps/marketing/src/pages/AiHealthPage.tsx`.",
+      "proposedAt": "2026-08-04T16:20:14.000Z",
+      "firstMergedAt": "2026-08-06T04:56:34.000Z",
+      "lastMergedAt": "2026-08-06T19:53:25.000Z",
+      "wallClockHours": 51.6,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 3828,
+          "title": "[Feature] domainActivity AI-health panel [1/3]: DomainActivitySensor type + normalizeDomainActivity extractor in ai-health.ts",
+          "prs": [
+            {
+              "number": 3859,
+              "title": "feat(marketing): add DomainActivitySensor type + normalizeDomainActivity extractor",
+              "mergedAt": "2026-08-06T04:56:34.000Z",
+              "mergeCommit": "c6a5f547de64f27f33c4394cba9a75e2ddf42b04",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3829,
+          "title": "[Feature] domainActivity AI-health panel [2/3]: DomainActivityPanel on AiHealthPage with unavailable-state",
+          "prs": [
+            {
+              "number": 3867,
+              "title": "feat(marketing): add DomainActivityPanel to AiHealthPage",
+              "mergedAt": "2026-08-06T05:59:33.000Z",
+              "mergeCommit": "9fbf5305917ab85562a993bd9a604ae23b513d7a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3830,
+          "title": "[Feature] domainActivity AI-health panel [3/3]: extend ai-health.spec.ts E2E with domainActivity fixture",
+          "prs": [
+            {
+              "number": 3880,
+              "title": "test(marketing): cover domainActivity panel in ai-health E2E",
+              "mergedAt": "2026-08-06T19:53:25.000Z",
+              "mergeCommit": "0ac75281b92ce53998e853613a09543c239e8f96",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "booking-funnel-telemetry-feeding-the-sensor-loop-3670",
+      "title": "Booking-funnel telemetry feeding the sensor loop",
+      "trackingIssue": 3670,
+      "proposalIssue": 3494,
+      "proposalEvidence": null,
+      "proposedAt": "2026-07-29T03:27:35.000Z",
+      "firstMergedAt": "2026-08-02T20:33:25.000Z",
+      "lastMergedAt": "2026-08-03T19:07:35.000Z",
+      "wallClockHours": 135.7,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 3665,
+          "title": "[Feature] Booking-funnel telemetry [1/5]: read-only daily-counts aggregation route",
+          "prs": [
+            {
+              "number": 3688,
+              "title": "feat(reservations): read-only daily booking-funnel metrics route",
+              "mergedAt": "2026-08-02T20:33:25.000Z",
+              "mergeCommit": "5f36e10ad0d76c87c00377e8cfd699aef824b641",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3666,
+          "title": "[Feature] Booking-funnel telemetry [2/5]: collect-domain-metrics.mjs collector + metrics-store registration",
+          "prs": [
+            {
+              "number": 3728,
+              "title": "feat(scripts): add domain-metrics collector for booking-funnel telemetry",
+              "mergedAt": "2026-08-03T17:24:13.000Z",
+              "mergeCommit": "79c8203ab004d7bad6ea422d9a26d985813b1225",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3667,
+          "title": "[Feature] Booking-funnel telemetry [3/5]: domainActivity sensor in sensors-registry.mjs",
+          "prs": [
+            {
+              "number": 3736,
+              "title": "feat(scripts): register domainActivity sensor in sensors-registry.mjs",
+              "mergedAt": "2026-08-03T18:13:58.000Z",
+              "mergeCommit": "d1d383df99987547f56f8ac13db38b6dd39f547c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3668,
+          "title": "[Feature] Booking-funnel telemetry [4/5]: wire collector into the learning-loop persist path + docs",
+          "prs": [
+            {
+              "number": 3747,
+              "title": "docs(learning-loop): wire domain-metrics collector into persist path",
+              "mergedAt": "2026-08-03T19:07:35.000Z",
+              "mergeCommit": "82f8830299791234935191adfe4981d9100f59c2",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3669,
+          "title": "[Feature] Booking-funnel telemetry [5/5]: guardrail test — response is counts-only, no PII",
+          "prs": [
+            {
+              "number": 3748,
+              "title": "test(reservations): recursive PII-key guardrail for booking-funnel telemetry [5/5]",
+              "mergedAt": "2026-08-03T18:53:35.000Z",
+              "mergeCommit": "2e0847f0b4a3ca50b83f5e1d4e726951c60d5e4a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ai-health-page-tells-the-truth-3664",
+      "title": "AI-health page tells the truth",
+      "trackingIssue": 3664,
+      "proposalIssue": 3493,
+      "proposalEvidence": null,
+      "proposedAt": "2026-07-29T03:27:34.000Z",
+      "firstMergedAt": "2026-08-02T20:51:10.000Z",
+      "lastMergedAt": "2026-08-03T16:39:33.000Z",
+      "wallClockHours": 133.2,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 3659,
+          "title": "[Feature] AI-health page tells the truth [1/5]: sensor-report writes a marketing/public copy with generated_at",
+          "prs": [
+            {
+              "number": 3686,
+              "title": "fix(scripts): sensor-report.mjs writes marketing public copy in sync",
+              "mergedAt": "2026-08-02T20:51:10.000Z",
+              "mergeCommit": "6e217ae2346cf0a66bd5d82f0622cc1ad8321e29",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3660,
+          "title": "[Feature] AI-health page tells the truth [2/5]: fix SensorReport type drift + add queueEfficiency panel",
+          "prs": [
+            {
+              "number": 3698,
+              "title": "fix(marketing): fix SensorReport type drift + add queueEfficiency panel [2/5]",
+              "mergedAt": "2026-08-03T02:19:33.000Z",
+              "mergeCommit": "ea3d474211747f46dbd62db4f9e65d5ee7115997",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3661,
+          "title": "[Feature] AI-health page tells the truth [3/5]: \"As of\" timestamp + stale-data banner (&gt;48h)",
+          "prs": [
+            {
+              "number": 3707,
+              "title": "feat(marketing): stale-data banner + explicit \"As of\" timestamp on AI-health page",
+              "mergedAt": "2026-08-03T04:55:40.000Z",
+              "mergeCommit": "8e5a2c511abaeb3485e7cf369004166a4e3e271e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3662,
+          "title": "[Feature] AI-health page tells the truth [4/5]: wire the marketing-public copy into the learning-loop persist step",
+          "prs": [
+            {
+              "number": 3701,
+              "title": "docs: include marketing-public sensor-report copy in learning-loop persist step",
+              "mergedAt": "2026-08-03T02:53:01.000Z",
+              "mergeCommit": "733530d2d836177e32a1f7ac7e3ba8b86ab6d24e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3663,
+          "title": "[Feature] AI-health page tells the truth [5/5]: E2E/visual coverage for the corrected page + stale banner",
+          "prs": [
+            {
+              "number": 3722,
+              "title": "test(marketing): E2E coverage for AI-health page + stale banner",
+              "mergedAt": "2026-08-03T16:39:33.000Z",
+              "mergeCommit": "27795f53bd4aa04dcb4324895b25adfffaef1c90",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "add-to-calendar-ics-deep-links-on-booking-confirmation-3604",
+      "title": "Add to calendar (ICS + deep-links) on booking confirmation",
+      "trackingIssue": 3604,
+      "proposalIssue": 3491,
+      "proposalEvidence": null,
+      "proposedAt": "2026-07-29T03:27:24.000Z",
+      "firstMergedAt": "2026-08-01T21:14:21.000Z",
+      "lastMergedAt": "2026-08-03T05:33:17.000Z",
+      "wallClockHours": 122.1,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 3599,
+          "title": "[Feature] Add to calendar [1/5]: ICS builder utility",
+          "prs": [
+            {
+              "number": 3617,
+              "title": "feat(hospitality): add RFC 5545 ICS builder for reservation confirmations",
+              "mergedAt": "2026-08-01T21:14:21.000Z",
+              "mergeCommit": "2cfeb40cf80ee88bdef77795785796e4bcefc8f0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3600,
+          "title": "[Feature] Add to calendar [2/5]: Google/Outlook deep-link builders",
+          "prs": [
+            {
+              "number": 3632,
+              "title": "feat(hospitality): Google/Outlook calendar deep-link builders",
+              "mergedAt": "2026-08-01T22:13:46.000Z",
+              "mergeCommit": "dc684893be52a051042db6afa9204e66c4762d69",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3601,
+          "title": "[Feature] Add to calendar [3/5]: Confirmation-state UI (download + calendar links)",
+          "prs": [
+            {
+              "number": 3703,
+              "title": "feat(hospitality): \"Add to calendar\" section on booking confirmation",
+              "mergedAt": "2026-08-03T03:53:30.000Z",
+              "mergeCommit": "be10e0722b797155a4d349312a53435a0f72094a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3602,
+          "title": "[Feature] Add to calendar [4/5]: Timezone edge cases (DST-crossing fixtures)",
+          "prs": [
+            {
+              "number": 3705,
+              "title": "test(hospitality): DST edge-case fixtures for add-to-calendar builders",
+              "mergedAt": "2026-08-03T04:42:05.000Z",
+              "mergeCommit": "ba8593893fa7638049d214236344c83fc3b41c51",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 3603,
+          "title": "[Feature] Add to calendar [5/5]: E2E spec for calendar download",
+          "prs": [
+            {
+              "number": 3708,
+              "title": "test(hospitality): add E2E spec for calendar download on booking confirmation",
+              "mergedAt": "2026-08-03T05:33:17.000Z",
+              "mergeCommit": "cfcc21167e3d4ea290c18555400c32b411c6cc91",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "green-main-green-main-1594",
+      "title": "[Green Main] green-main",
+      "trackingIssue": 1594,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-05-20T03:42:06.000Z",
+      "lastMergedAt": "2026-05-20T03:42:06.000Z",
+      "wallClockHours": 0.7,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 1590,
+          "title": "[Green Main] green-main [2/5]: Add baseline filter to revert-watchdog",
+          "prs": [
+            {
+              "number": 1596,
+              "title": "fix(ci): add CI badge and revert-watchdog baseline filter",
+              "mergedAt": "2026-05-20T03:42:06.000Z",
+              "mergeCommit": "c1defd18c35b9cb94f79ed5dcc8b54cadaa9784e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tracking-test-coverage-gaps-target-80-across-all-packages-1123",
+      "title": "tracking: test coverage gaps — target 80% across all packages",
+      "trackingIssue": 1123,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-05-08T21:34:43.000Z",
+      "lastMergedAt": "2026-05-16T00:16:01.000Z",
+      "wallClockHours": 176.1,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 1114,
+          "title": "test: add unit tests for api-client domain modules",
+          "prs": [
+            {
+              "number": 1124,
+              "title": "test(api-client): add unit tests for all 7 domain HTTP client modules",
+              "mergedAt": "2026-05-08T21:34:43.000Z",
+              "mergeCommit": "f47585d1c28d7e1ab2c02fff6b390c362ae0a228",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 1116,
+          "title": "test: add tests for observability integrations",
+          "prs": [
+            {
+              "number": 1132,
+              "title": "test(observability): add integration module tests (#1116)",
+              "mergedAt": "2026-05-10T00:58:01.000Z",
+              "mergeCommit": "a14b1018b16b7a809569dabc4f8b9de1a81ab8ac",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 1117,
+          "title": "test: add tests for agent-core task-intelligence and quality-gates",
+          "prs": [
+            {
+              "number": 1130,
+              "title": "test(agent-core): add task-intelligence and quality-gates tests (#1117)",
+              "mergedAt": "2026-05-09T00:00:03.000Z",
+              "mergeCommit": "60fbd8462a5757688be212d092ad3b83d1e5d589",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 1118,
+          "title": "test: add tests for mcp-server tools",
+          "prs": [
+            {
+              "number": 1126,
+              "title": "test(mcp-server): add unit tests for all 7 tool modules",
+              "mergedAt": "2026-05-08T21:34:55.000Z",
+              "mergeCommit": "12c4ebaf66f3fb41d2e6e923f34a4cf015c1d2fc",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 1119,
+          "title": "test: add tests for api-versioning fastify plugin",
+          "prs": [
+            {
+              "number": 1127,
+              "title": "test(api-versioning): add fastify plugin core tests (#1119)",
+              "mergedAt": "2026-05-08T23:59:52.000Z",
+              "mergeCommit": "73998ca0c992cbeb50bb245f2ba6bc83e736c44e",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 1120,
+          "title": "test: add unit tests for rialto components (batch 1 — high-use)",
+          "prs": [
+            {
+              "number": 1128,
+              "title": "test(rialto): add unit tests for batch 1 high-use components (#1120)",
+              "mergedAt": "2026-05-09T00:00:10.000Z",
+              "mergeCommit": "5a8b2dd4e889f073eddc14cb5518b6d2668fb1af",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 1121,
+          "title": "test: add unit tests for rialto components (batch 2 — interactive)",
+          "prs": [
+            {
+              "number": 1129,
+              "title": "test(rialto): add unit tests for batch 2 interactive components (#1121)",
+              "mergedAt": "2026-05-10T00:58:18.000Z",
+              "mergeCommit": "2650718a627a93c5af2e8fe009286b72eb3879e9",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 1122,
+          "title": "chore: raise test coverage thresholds to 60% lines / 40% branches",
+          "prs": [
+            {
+              "number": 1225,
+              "title": "chore: raise test coverage thresholds to 60/40",
+              "mergedAt": "2026-05-11T01:57:55.000Z",
+              "mergeCommit": "cad0a595c5c31fef1901b6100a6e3e82b21b581f",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1141,
+          "title": "test(cli): improve test coverage for CLI commands",
+          "prs": [
+            {
+              "number": 1209,
+              "title": "test(cli): improve test coverage for agent, generate, and health commands",
+              "mergedAt": "2026-05-10T22:47:34.000Z",
+              "mergeCommit": "5fcb465e4df563409c058fdd6927c03c526adcea",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1142,
+          "title": "test(hospitality): expand test coverage for UI components and hooks",
+          "prs": [
+            {
+              "number": 1214,
+              "title": "test(hospitality): expand test coverage for UI components and hooks",
+              "mergedAt": "2026-05-10T22:11:48.000Z",
+              "mergeCommit": "fb4efa4a3543aa678f17c9d5da8942952ed4bcab",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1143,
+          "title": "test(agent-service): fix coverage gaps in routes and services",
+          "prs": [
+            {
+              "number": 1199,
+              "title": "test(agent-service): improve coverage to 94%",
+              "mergedAt": "2026-05-10T18:26:03.000Z",
+              "mergeCommit": "885d91bb938fd445292d9f1e927bf943f72be44c",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1145,
+          "title": "test(apps): add unit tests for marketing and rialto-web",
+          "prs": [
+            {
+              "number": 1210,
+              "title": "test(apps): add unit tests for marketing and rialto-web",
+              "mergedAt": "2026-05-10T22:48:25.000Z",
+              "mergeCommit": "f8fdd619fe8a091a0db37eee28e267e55cafa621",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1146,
+          "title": "test(shared): add schema validation tests for types package",
+          "prs": [
+            {
+              "number": 1208,
+              "title": "test(types): add schema validation tests for types package",
+              "mergedAt": "2026-05-10T22:10:51.000Z",
+              "mergeCommit": "f0e1dc288388b8e3ac52a246e2a9df72eaac6629",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1147,
+          "title": "test(infra): add unit tests for Pulumi infrastructure code",
+          "prs": [
+            {
+              "number": 1212,
+              "title": "test(infra): add unit tests for Pulumi resource naming and tagging",
+              "mergedAt": "2026-05-10T22:48:49.000Z",
+              "mergeCommit": "c6ebd1e54689256ae608239bfdf1595c24f74352",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1222,
+          "title": "test(tools/cli): raise test coverage from 30% to 80% lines",
+          "prs": [
+            {
+              "number": 1228,
+              "title": "test(cli): raise coverage to 80% lines",
+              "mergedAt": "2026-05-11T01:57:42.000Z",
+              "mergeCommit": "8d2d90d192a5ddcc46a427241f57cd0499744ceb",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1223,
+          "title": "test(apps/rialto-web): raise test coverage from 57% to 80% lines",
+          "prs": [
+            {
+              "number": 1229,
+              "title": "test(rialto-web): raise coverage to 90% lines",
+              "mergedAt": "2026-05-11T01:57:16.000Z",
+              "mergeCommit": "5beac8cd9ef858c3230e545941f394617f3868d1",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1224,
+          "title": "test(services/users): raise test coverage from 60% to 80% lines",
+          "prs": [
+            {
+              "number": 1226,
+              "title": "test(users): raise coverage from 60% to 80% lines",
+              "mergedAt": "2026-05-11T02:01:51.000Z",
+              "mergeCommit": "3a37c5d7061e43d33df306f26aa4ce0a75006909",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1377,
+          "title": "test(rialto): add tests for 16 interactive/complex components (batch 3b)",
+          "prs": [
+            {
+              "number": 1382,
+              "title": "test(rialto): add tests for 19 interactive/complex components (batch 3b)",
+              "mergedAt": "2026-05-16T00:16:01.000Z",
+              "mergeCommit": "dd7cbe862a50ce93500e6a54ed5d151794ec1feb",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        },
+        {
+          "issue": 1380,
+          "title": "test(hospitality): add tests for floor-plan module (0% coverage)",
+          "prs": [
+            {
+              "number": 1383,
+              "title": "test(hospitality): add floor-plan module tests",
+              "mergedAt": "2026-05-16T00:15:45.000Z",
+              "mergeCommit": "39bde37539fa04f790d6a3e5a547317746a6463d",
+              "reviewVerdict": null,
+              "ciGate": "failure"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "acmm-hospitality-bring-hospitality-app-to-acmm-l6-as-own-auditable-unit-709",
+      "title": "acmm-hospitality: bring hospitality app to ACMM L6 as own auditable unit",
+      "trackingIssue": 709,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-04-28T01:25:56.000Z",
+      "lastMergedAt": "2026-04-28T02:10:09.000Z",
+      "wallClockHours": 21.4,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 700,
+          "title": "acmm-hospitality: add AGENTS.md scoped to the hospitality app",
+          "prs": [
+            {
+              "number": 787,
+              "title": "feat(acmm): add AGENTS.md scoped to the hospitality app",
+              "mergedAt": "2026-04-28T02:09:55.000Z",
+              "mergeCommit": "4a2f6f7d44e04e8b170dcd9ea1f4b9561f13778d",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 701,
+          "title": "acmm-hospitality: add .cursorrules pointer file",
+          "prs": [
+            {
+              "number": 788,
+              "title": "feat(acmm): add .cursorrules pointer file for hospitality",
+              "mergedAt": "2026-04-28T02:09:57.000Z",
+              "mergeCommit": "9254e5dd97f61534fa4a8a0a6ed39df98fe780ff",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 702,
+          "title": "acmm-hospitality: add app-scoped .claude/settings.json",
+          "prs": [
+            {
+              "number": 789,
+              "title": "feat(acmm): add app-scoped .claude/settings.json for hospitality",
+              "mergedAt": "2026-04-28T02:10:00.000Z",
+              "mergeCommit": "1c6958889089e752e5bbea66e5fb5b574145368c",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 703,
+          "title": "acmm-hospitality: add .claude/skills/ scaffold",
+          "prs": [
+            {
+              "number": 790,
+              "title": "feat(acmm): add .claude/skills/ scaffold for hospitality",
+              "mergedAt": "2026-04-28T02:10:03.000Z",
+              "mergeCommit": "32872f3ef106e5c9d7cde3117e488a62fae5ae4f",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 704,
+          "title": "acmm-hospitality: add .claude/memory/ index for correction capture",
+          "prs": [
+            {
+              "number": 791,
+              "title": "feat(acmm): add .claude/memory/ index for hospitality",
+              "mergedAt": "2026-04-28T02:10:06.000Z",
+              "mergeCommit": "a787e828faf06ba41c09f66cc32d679737abeca4",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 705,
+          "title": "acmm-hospitality: add coverage gate with realistic thresholds",
+          "prs": [
+            {
+              "number": 780,
+              "title": "feat(acmm): add coverage gate with realistic thresholds for hospitality",
+              "mergedAt": "2026-04-28T01:30:18.000Z",
+              "mergeCommit": "7e2034ce4109c5b43d88c59a644da72ad9553176",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 707,
+          "title": "acmm-hospitality: add scoped RUNBOOK.md and ROLLBACK.md",
+          "prs": [
+            {
+              "number": 781,
+              "title": "feat(acmm): add scoped RUNBOOK.md and ROLLBACK.md for hospitality",
+              "mergedAt": "2026-04-28T01:25:56.000Z",
+              "mergeCommit": "84b91feaeb626348b0b9e67b9a510ebab5efe4a4",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 708,
+          "title": "acmm-hospitality: add per-app CODEOWNERS line and risk tier config",
+          "prs": [
+            {
+              "number": 792,
+              "title": "feat(acmm): add per-app CODEOWNERS line and risk tier config for hospitality",
+              "mergedAt": "2026-04-28T02:10:09.000Z",
+              "mergeCommit": "8c19341645d9069844c1d217a8ef3e03b7f19d08",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "acmm-rialto-web-bring-rialto-web-showcase-to-acmm-l6-as-own-auditable-unit-719",
+      "title": "acmm-rialto-web: bring rialto-web showcase to ACMM L6 as own auditable unit",
+      "trackingIssue": 719,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-04-28T00:31:58.000Z",
+      "lastMergedAt": "2026-04-28T01:30:21.000Z",
+      "wallClockHours": 20.2,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 711,
+          "title": "acmm-rialto-web: add inherit config to apps/rialto-web/package.json",
+          "prs": [
+            {
+              "number": 769,
+              "title": "feat(acmm): add inherit config to apps/rialto-web/package.json",
+              "mergedAt": "2026-04-28T00:33:41.000Z",
+              "mergeCommit": "e4ed307fb75d65b1563224948193a72fded4f799",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 712,
+          "title": "acmm-rialto-web: add CLAUDE.md scoped to the showcase site",
+          "prs": [
+            {
+              "number": 770,
+              "title": "feat(acmm): add CLAUDE.md scoped to the rialto-web showcase site",
+              "mergedAt": "2026-04-28T00:31:58.000Z",
+              "mergeCommit": "257b40c9000f5e5336e4c133476c4026e98fd639",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 713,
+          "title": "acmm-rialto-web: add AGENTS.md scoped to the showcase site",
+          "prs": [
+            {
+              "number": 771,
+              "title": "feat(acmm): add AGENTS.md scoped to the rialto-web showcase site",
+              "mergedAt": "2026-04-28T00:32:53.000Z",
+              "mergeCommit": "2519e5875d506951321cf390f4cc6e79d154b66a",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 715,
+          "title": "acmm-rialto-web: add app-scoped .claude/settings.json",
+          "prs": [
+            {
+              "number": 774,
+              "title": "feat(acmm): add app-scoped .claude/settings.json for rialto-web",
+              "mergedAt": "2026-04-28T01:12:08.000Z",
+              "mergeCommit": "def8c0101c21dbde3d56834a127bdac6de7eadc2",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 716,
+          "title": "acmm-rialto-web: add .claude/skills/ scaffold",
+          "prs": [
+            {
+              "number": 775,
+              "title": "feat(acmm): add .claude/skills/ scaffold for rialto-web",
+              "mergedAt": "2026-04-28T01:25:53.000Z",
+              "mergeCommit": "6bd8e2bd43e7a8bf25441a94c6ab2e7653e5d9a0",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 718,
+          "title": "acmm-rialto-web: add CODEOWNERS line and showcase-tier risk config (P3)",
+          "prs": [
+            {
+              "number": 778,
+              "title": "feat(acmm): add CODEOWNERS line and showcase-tier risk config for rialto-web (P3)",
+              "mergedAt": "2026-04-28T01:30:21.000Z",
+              "mergeCommit": "dc1816458adb1eba9c0d3ec6584e9fa70694ce94",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "acmm-services-bring-all-backend-services-to-acmm-l6-733",
+      "title": "acmm-services: bring all backend services to ACMM L6",
+      "trackingIssue": 733,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-04-27T22:31:15.000Z",
+      "lastMergedAt": "2026-04-28T00:32:49.000Z",
+      "wallClockHours": 19.1,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 720,
+          "title": "acmm-services: add inherit config to all three service package.json files",
+          "prs": [
+            {
+              "number": 753,
+              "title": "feat(acmm): add inherit config to all three service package.json files",
+              "mergedAt": "2026-04-27T22:31:30.000Z",
+              "mergeCommit": "0716152cf2fd08cdab2f0a43f4629fa9ae72185d",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 721,
+          "title": "acmm-services: add .cursorrules to all three services",
+          "prs": [
+            {
+              "number": 754,
+              "title": "feat(acmm): add .cursorrules pointer files to all three services",
+              "mergedAt": "2026-04-27T22:31:15.000Z",
+              "mergeCommit": "9851e8f9f42caae79a8c409e662fd4e826b7b5d7",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 722,
+          "title": "acmm-services: add .claude/memory/ index for all three services",
+          "prs": [
+            {
+              "number": 755,
+              "title": "feat(acmm): add .claude/memory/ index for all three services",
+              "mergedAt": "2026-04-28T00:32:36.000Z",
+              "mergeCommit": "295c175a300e8c38c9108db5ef9727171d35931c",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 723,
+          "title": "acmm-services: add .claude/settings.json for all three services",
+          "prs": [
+            {
+              "number": 756,
+              "title": "feat(acmm): add .claude/settings.json for all three services",
+              "mergedAt": "2026-04-27T22:31:41.000Z",
+              "mergeCommit": "379aaad9caae466b7d26badf8b9e95bd4efee81b",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 724,
+          "title": "acmm-services: add .claude/skills/ scaffold for all three services",
+          "prs": [
+            {
+              "number": 757,
+              "title": "feat(acmm): add .claude/skills/ scaffold for all three services",
+              "mergedAt": "2026-04-28T00:32:39.000Z",
+              "mergeCommit": "6f983c77e7f78538ec5463f36eec0eac436852d9",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 725,
+          "title": "acmm-services: add AGENTS.md to services/users",
+          "prs": [
+            {
+              "number": 761,
+              "title": "feat(acmm): add AGENTS.md to services/users",
+              "mergedAt": "2026-04-28T00:31:43.000Z",
+              "mergeCommit": "ff524dc22ff249f2213d588d928fb3653bad8868",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 726,
+          "title": "acmm-services: add AGENTS.md to services/reservations",
+          "prs": [
+            {
+              "number": 762,
+              "title": "feat(acmm): add AGENTS.md to services/reservations",
+              "mergedAt": "2026-04-28T00:32:42.000Z",
+              "mergeCommit": "8c5b578e525c5f02689ed63ad4b90762f659d295",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 727,
+          "title": "acmm-services: add AGENTS.md to services/agent",
+          "prs": [
+            {
+              "number": 763,
+              "title": "feat(acmm): add AGENTS.md to services/agent",
+              "mergedAt": "2026-04-28T00:31:46.000Z",
+              "mergeCommit": "8bbfb75ad9aa308be73fb9013731df95ae8ccad0",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 728,
+          "title": "acmm-services: add RUNBOOK.md to services/users",
+          "prs": [
+            {
+              "number": 764,
+              "title": "feat(acmm): add RUNBOOK.md to services/users",
+              "mergedAt": "2026-04-28T00:31:49.000Z",
+              "mergeCommit": "a883c9227b0e031db1a23280d0e26324e77f0bc3",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 729,
+          "title": "acmm-services: add RUNBOOK.md to services/reservations",
+          "prs": [
+            {
+              "number": 765,
+              "title": "feat(acmm): add RUNBOOK.md to services/reservations",
+              "mergedAt": "2026-04-28T00:31:52.000Z",
+              "mergeCommit": "b27876c6a2210b1eb874bd15b22b19fc310b1b16",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 730,
+          "title": "acmm-services: add RUNBOOK.md to services/agent",
+          "prs": [
+            {
+              "number": 766,
+              "title": "feat(acmm): add RUNBOOK.md to services/agent",
+              "mergedAt": "2026-04-28T00:31:55.000Z",
+              "mergeCommit": "6d340305a15efeeb29a16e299755358bdd6389d6",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 731,
+          "title": "acmm-services: add P0 risk tier configs for all three services",
+          "prs": [
+            {
+              "number": 767,
+              "title": "feat(acmm): add P0 risk tier configs for all three services",
+              "mergedAt": "2026-04-28T00:32:45.000Z",
+              "mergeCommit": "e7d83176bb05cfe05eab62968b442ce51796880a",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        },
+        {
+          "issue": 732,
+          "title": "acmm-services: add per-service CODEOWNERS lines",
+          "prs": [
+            {
+              "number": 768,
+              "title": "feat(acmm): add per-service CODEOWNERS lines",
+              "mergedAt": "2026-04-28T00:32:49.000Z",
+              "mergeCommit": "a05cfbbdb397c097ac9e78ae864f679e9de2c3eb",
+              "reviewVerdict": null,
+              "ciGate": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

@@ -5,6 +5,7 @@ import {
   slugFor,
   liveUrlFor,
   deriveShippedFeatures,
+  runCli,
 } from "../collect-shipped-features.mjs";
 
 describe("parseTaskList", () => {
@@ -248,5 +249,107 @@ describe("deriveShippedFeatures", () => {
         }
       }
     }
+  });
+});
+
+describe("runCli (injected gh runner)", () => {
+  const tracking = {
+    number: 100,
+    title: "[Feature] Demo: tracking issue",
+    body: "Proposal #90.\n- [x] #101 — child",
+    created_at: "2026-10-01T00:00:00Z",
+  };
+  const routes = {
+    "repos/{owner}/{repo}/issues?labels=tracking&state=closed&per_page=100": [[tracking]],
+    "repos/{owner}/{repo}/issues/101": { number: 101, title: "child" },
+    "repos/{owner}/{repo}/issues/90": {
+      number: 90,
+      created_at: "2026-09-30T00:00:00Z",
+      body: "Why.",
+    },
+    "repos/{owner}/{repo}/issues/101/timeline": [
+      [
+        {
+          event: "cross-referenced",
+          source: { issue: { number: 200, pull_request: {}, body: "Closes #101" } },
+        },
+        {
+          event: "cross-referenced",
+          source: { issue: { number: 201, pull_request: {}, body: "Refs #101" } },
+        },
+      ],
+    ],
+    "repos/{owner}/{repo}/pulls/200": {
+      number: 200,
+      title: "feat: child",
+      merged_at: "2026-10-02T00:00:00Z",
+      merge_commit_sha: "abc",
+      head: { sha: "def" },
+    },
+    "repos/{owner}/{repo}/pulls/200/files": [[{ filename: "apps/marketing/x.ts" }]],
+    "repos/{owner}/{repo}/commits/def/check-runs?check_name=CI%20Gate": {
+      check_runs: [{ conclusion: "success" }],
+    },
+    "repos/{owner}/{repo}/issues/200/comments": [[{ body: "Review\nVerdict: PASS 9/10" }]],
+  };
+  const okGh = (args) => {
+    const path = args.at(-1);
+    if (!(path in routes)) throw new Error(`unexpected ${path}`);
+    expect(args[0]).toBe("api");
+    return JSON.stringify(routes[path]);
+  };
+
+  it("writes a deterministic snapshot and uses only gh api", () => {
+    const writes = [];
+    const run = () =>
+      runCli(["--out", "/tmp/x.json"], {
+        gh: okGh,
+        write: (p, c) => writes.push([p, c]),
+        log: () => {},
+        err: () => {},
+      });
+    expect(run()).toBe(0);
+    expect(run()).toBe(0);
+    expect(writes[0][1]).toBe(writes[1][1]);
+    const snap = JSON.parse(writes[0][1]);
+    expect(snap.features).toHaveLength(1);
+    expect(snap.generatedAt).toBe("2026-10-02T00:00:00.000Z");
+    const pr = snap.features[0].children[0].prs[0];
+    expect(pr).toMatchObject({ number: 200, ciGate: "success", reviewVerdict: "pass" });
+    expect(writes[0][1].endsWith("}\n")).toBe(true);
+  });
+
+  it("exits non-zero and writes nothing when a fetch fails", () => {
+    const writes = [];
+    const errs = [];
+    const code = runCli([], {
+      gh: () => {
+        throw new Error("HTTP 401");
+      },
+      write: (...a) => writes.push(a),
+      log: () => {},
+      err: (m) => errs.push(m),
+    });
+    expect(code).toBe(1);
+    expect(writes).toEqual([]);
+    expect(errs[0]).toMatch(/HTTP 401/);
+  });
+
+  it("--dry-run prints and writes nothing", () => {
+    const writes = [];
+    const logs = [];
+    const code = runCli(["--dry-run", "--limit", "1"], {
+      gh: okGh,
+      write: (...a) => writes.push(a),
+      log: (m) => logs.push(m),
+      err: () => {},
+    });
+    expect(code).toBe(0);
+    expect(writes).toEqual([]);
+    expect(logs.at(-1)).toBe("wrote 1 features, skipped 0 (dry run)");
+  });
+
+  it("rejects unknown flags", () => {
+    expect(runCli(["--bogus"], { gh: okGh, err: () => {} })).toBe(1);
   });
 });
