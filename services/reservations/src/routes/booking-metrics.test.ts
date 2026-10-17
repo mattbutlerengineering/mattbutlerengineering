@@ -104,6 +104,19 @@ const mockMetrics = {
   venueId: "venue-abc",
   reservations: { pending: 2, confirmed: 5, cancelled: 1, completed: 3, noShow: 1 },
   deposits: { held: 4, applied: 2, refunded: 1, forfeited: 0 },
+  events: {
+    byKind: {
+      created: 6,
+      status_changed: 3,
+      cancelled: 1,
+      no_show: 1,
+      moved: 0,
+      updated: 2,
+      deposit_transition: 4,
+      transition_rejected: 2,
+    },
+    rejectedTransitions: 2,
+  },
 };
 
 /** Keys that must never appear anywhere in the metrics response, at any depth. */
@@ -114,6 +127,7 @@ const FORBIDDEN_PII_KEYS = [
   "guestId",
   "id",
   "reservationId",
+  "actorId",
   "stripeCustomerId",
   "stripePaymentIntentId",
 ];
@@ -245,6 +259,8 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body.data).toEqual(mockMetrics);
+    expect(body.data.events.rejectedTransitions).toBe(2);
+    expect(Object.keys(body.data.events.byKind)).toEqual(Object.keys(mockMetrics.events.byKind));
   });
 
   it("never exposes PII fields anywhere in the response body", async () => {
