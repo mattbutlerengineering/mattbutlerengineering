@@ -67,7 +67,7 @@ ul.list {
   margin-top: var(--rialto-space-sm);
   padding: var(--rialto-space-sm) var(--rialto-space-lg);
   color: var(--rialto-text-primary);
-  border: 1px solid var(--rialto-border-default);
-  border-radius: var(--rialto-radius-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
   text-decoration: none;
 }
