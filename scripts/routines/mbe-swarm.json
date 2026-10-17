@@ -1,7 +1,0 @@
-{
-  "name": "mbe-swarm",
-  "triggerId": "trig_012VzcF9GaMqsqdVE8zX4zKK",
-  "periodDays": 1,
-  "outOfScope": true,
-  "outOfScopeReason": "On-demand pack with no schedule: the ten mbe-swarm-NN RemoteTriggers fire only when swarm.yml POSTs their /fire endpoints after an issue is labeled `swarm`, so there is no cadence for this check to measure — a quiet week is the normal state, not a dark routine. Each fire leaves its evidence on the swarmed issue instead: swarm.yml's one `swarm: fired N/10 lanes` comment and each lane's `swarm: mbe-swarm-NN <ok|noop|error>` line."
-}

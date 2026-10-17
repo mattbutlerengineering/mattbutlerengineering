@@ -50,7 +50,6 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | **Scheduled** (conservative)     | RemoteTriggers on claude.ai               | PRs for review                    | Background maintenance                   |
 | **Implement Queue** (aggressive) | `/loop 30m /idea-to-prod:implement-queue` | Auto-merges green PRs             | Active development sprints               |
 | **Conductor** (Owner-attended)   | `/idea-to-prod:conduct #N...` locally     | Merges only on the Owner's answer | A named batch of issues, priced up front |
-| **Swarm** (on demand)            | label an issue `swarm`                    | Merges through the review gate    | Ten lanes on one issue, right now        |
 
 ### Conductor (skills-repo orchestrator)
 
@@ -155,7 +154,6 @@ Two families, and they do different jobs. The **issue-state** labels below drive
 | `meta-improvement` | Process improvement suggestion                                        |
 | `acmm`             | AI Codebase Maturity Model finding (created by `/acmm-audit --apply`) |
 | `sentry`           | Production error triaged from Sentry                                  |
-| `swarm`            | Fire all ten `mbe-swarm` lanes at this issue (`swarm.yml`)            |
 
 #### PR merge gates
 
