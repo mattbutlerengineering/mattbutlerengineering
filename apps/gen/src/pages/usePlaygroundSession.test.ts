@@ -271,6 +271,27 @@ describe("usePlaygroundSession", () => {
         expect(mockSaveSpec).not.toHaveBeenCalled();
       });
 
+      it("ignores undo while the refinement is still being saved", async () => {
+        const view = setup();
+        let finishSave: (stored: { id: string }) => void = () => {};
+        mockSaveSpec.mockImplementationOnce(
+          () => new Promise<{ id: string }>((resolve) => (finishSave = resolve))
+        );
+        act(() => view.result.current.refineNode("card", "grid"));
+        await complete(REPLACEMENT);
+
+        act(() => view.result.current.undo());
+        expect(view.result.current.canRedo).toBe(false);
+        expect(view.result.current.canUndo).toBe(true);
+
+        await act(async () => {
+          finishSave({ id: "new-id" });
+          await Promise.resolve();
+        });
+        act(() => view.result.current.undo());
+        expect(view.result.current.canRedo).toBe(true);
+      });
+
       it("a new refinement after an undo clears redo", async () => {
         const { result } = await refined();
         act(() => result.current.undo());

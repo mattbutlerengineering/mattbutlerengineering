@@ -147,6 +147,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
   const [refineError, setRefineError] = useState<Error | null>(null);
   const nodeRefineRef = useRef<NodeRefine | null>(null);
+  const savePendingRef = useRef(false);
   const diffHistory = useSpecDiffHistory();
   const { push: pushDiff, clear: clearDiffs } = diffHistory;
   const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
@@ -187,16 +188,22 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         setPinnedSpec(savedSpec);
       }
       options?.onGenerationComplete?.();
+      // Undo/redo wait for the save: its late .then would otherwise overwrite them.
+      savePendingRef.current = true;
       void saveSpec({
         prompt: promptRef.current,
         kind: kindRef.current,
         spec: savedSpec,
         rawLines: completedRawLines,
         refinement,
-      }).then((stored) => {
-        setActiveId(stored.id);
-        setPinnedSpec(null);
-      });
+      })
+        .then((stored) => {
+          setActiveId(stored.id);
+          setPinnedSpec(null);
+        })
+        .finally(() => {
+          savePendingRef.current = false;
+        });
     },
     // Record the failed attempt in the same history mechanism (kind
     // "failed") so a
@@ -413,10 +420,10 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   );
   const { undo: popUndo, redo: popRedo } = diffHistory;
   const undo = useCallback(() => {
-    if (!isStreaming) applyDiff(popUndo());
+    if (!isStreaming && !savePendingRef.current) applyDiff(popUndo());
   }, [isStreaming, applyDiff, popUndo]);
   const redo = useCallback(() => {
-    if (!isStreaming) applyDiff(popRedo());
+    if (!isStreaming && !savePendingRef.current) applyDiff(popRedo());
   }, [isStreaming, applyDiff, popRedo]);
 
   const selectHistory = useCallback(
