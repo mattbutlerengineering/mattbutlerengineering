@@ -8,13 +8,6 @@ export interface UseTablesParams extends ListTablesParams {
   enabled?: boolean;
 }
 
-export interface UseTablesResult {
-  data: Table[] | undefined;
-  isLoading: boolean;
-  error: Error | null;
-  refetch: () => void;
-}
-
 export const useTables = createQueryHook<Table[], UseTablesParams>({
   key: TABLES_QUERY_KEY,
   fetcher: async (params, api) => {

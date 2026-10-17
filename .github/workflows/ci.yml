@@ -163,6 +163,13 @@ jobs:
       - name: Check formatting
         run: pnpm check:prettier
 
+      # #6854: `.cursorrules` is generated from AGENTS.md, so an AGENTS.md-only
+      # edit is the one change that causes this drift AND skips Build (where
+      # repo-audit runs it) -- #6845 reddened main that way. The check is a
+      # pure file compare; it needs no CLI build.
+      - name: Check .cursorrules drift
+        run: node scripts/check-cursorrules-drift.mjs
+
   hadolint:
     name: Dockerfile Lint
     needs: [detect-changes]
@@ -255,6 +262,13 @@ jobs:
         uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
 
       - run: pnpm lint
+
+      # #6887: dead code / unused deps fail the gate. knip needs no build
+      # output (knip.jsonc lists rialto-web's entries explicitly instead of
+      # loading its manifest-reading vite config). A bare command, so a
+      # non-zero exit fails the step.
+      - name: Dead code and unused dependencies (knip)
+        run: pnpm check:knip
 
   typecheck:
     name: Typecheck

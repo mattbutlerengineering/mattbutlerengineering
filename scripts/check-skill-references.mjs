@@ -96,6 +96,8 @@ export const DECLARED_NON_REPO_REFERENCES = Object.freeze({
     "retired in #6332 for /idea-to-prod:knowledge-base's transcript harvest; referenced only in prose recording that retirement",
   "implement-queue":
     "moved in #6332 to the plugin as /idea-to-prod:implement-queue (skills#720); referenced only in prose recording that move",
+  "prisma-migrations":
+    "retired for the plugin's /idea-to-prod:prisma-migrations (skills#691, skills#934); referenced only in prose recording that retirement",
 
   // --- HTTP routes and placeholders written in the same `/name` shape.
   health: "HTTP liveness route, not a slash command",
@@ -154,6 +156,39 @@ export const PLUGIN_PROVIDED_SKILLS = Object.freeze({
     "work-queue",
   ]),
 });
+
+/**
+ * Repo-local skills deliberately sharing a bare name with a plugin skill. A
+ * shared name puts two skills behind one trigger in a local session, which is
+ * why #6835 retired the repo-local `prisma-migrations`. Every entry needs a
+ * reason a reviewer can check.
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+export const DECLARED_PLUGIN_NAME_COLLISIONS = Object.freeze({
+  decompose:
+    "different skill on purpose: files GitHub issues for /idea-to-prod:implement-queue, where the plugin's writes breakdown.md",
+});
+
+/**
+ * Repo-local skills whose name matches a plugin-provided skill and is not
+ * declared in `allowed`.
+ *
+ * @param {string} root
+ * @param {Readonly<Record<string, string>>} allowed
+ * @returns {{ name: string, plugin: string }[]}
+ */
+export function findPluginNameCollisions(
+  root = DEFAULT_ROOT,
+  allowed = DECLARED_PLUGIN_NAME_COLLISIONS
+) {
+  const { repoSkills } = collectSkillDirectories(root);
+  return Object.entries(PLUGIN_PROVIDED_SKILLS).flatMap(([plugin, skills]) =>
+    skills
+      .filter((name) => repoSkills.has(name) && !Object.hasOwn(allowed, name))
+      .map((name) => ({ name, plugin }))
+  );
+}
 
 /** Directories under .claude/ whose markdown is historical, not instructional. */
 const HISTORICAL_DIRS = Object.freeze(["improvement-loop", "reflections", "sessions", "memory"]);
@@ -295,14 +330,22 @@ const isMain = process.argv[1] && process.argv[1].endsWith("check-skill-referenc
 
 if (isMain) {
   const findings = findUnresolvedReferences();
-  process.exit(
-    runCheck({
-      name: "Skill references",
-      findings,
-      formatFinding: formatUnresolved,
-      passMessage:
-        "PASS: Every /slash-command named in an instruction file resolves to a skill or is declared with a reason.",
-      failMessage: buildFailMessage(findings),
-    })
-  );
+  const referencesExit = runCheck({
+    name: "Skill references",
+    findings,
+    formatFinding: formatUnresolved,
+    passMessage:
+      "PASS: Every /slash-command named in an instruction file resolves to a skill or is declared with a reason.",
+    failMessage: buildFailMessage(findings),
+  });
+  const collisionsExit = runCheck({
+    name: "Plugin skill name collisions",
+    findings: findPluginNameCollisions(),
+    formatFinding: ({ name, plugin }) => `.claude/skills/${name}  shadows /${plugin}:${name}`,
+    passMessage:
+      "PASS: No repo-local skill shares a plugin skill's name without a declared reason.",
+    failMessage:
+      "FAIL: repo-local skill(s) share a plugin skill's name. Retire the repo-local copy, rename it, or add it to DECLARED_PLUGIN_NAME_COLLISIONS in scripts/check-skill-references.mjs with a reason:",
+  });
+  process.exit(Math.max(referencesExit, collisionsExit));
 }

@@ -2945,6 +2945,7 @@
       let threw = false;
       let hasChanges = false;
       let gatewayVerdict: GatewayVerdict | undefined;
+      let gatewayEvaluation: EvaluationResult | undefined;
     
       // A throw anywhere after WorktreePhase (dispatch, verification, publish,
       // feedback) lands in errors[] and falls through to the retention →
@@ -3001,6 +3002,7 @@
           errors.push(...verifyExec.result.errors);
           hasChanges = verifyExec.output?.hasChanges ?? false;
           gatewayVerdict = verifyExec.output?.gatewayVerdict;
+          gatewayEvaluation = verifyExec.output?.gatewayEvaluation;
     
           // A failed CLI dispatch that still wrote changes must always publish via
           // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
@@ -3115,6 +3117,16 @@
         numTurns,
         resultText: "",
         errors,
+        // Same projection as result-builder.ts's evalSummary on the SDK path.
+        ...(gatewayEvaluation
+          ? {
+              evaluation: {
+                passed: gatewayEvaluation.passed,
+                confidence: gatewayEvaluation.confidence,
+                reasoning: gatewayEvaluation.reasoning,
+              },
+            }
+          : {}),
         ...(failureCategory ? { failureCategory } : {}),
         // Present iff the worktree is kept — see SessionResult.worktreePath.
         ...(keepsWorktree && worktree ? { worktreePath: worktree.path } : {}),
@@ -5578,6 +5590,7 @@
             runId: `eval-${process.pid}`,
             only: options.task,
             runTask,
+            judgeFor: (run) => createEvalJudge(run),
           });
     
           if (suiteDidNotRun(report)) {
@@ -5715,9 +5728,16 @@
           ...(await verifyInWorktree(task, session)),
         };
     
+        // Captured before the worktree is released: the LLM judge scores this diff.
+        // The whole session vs its base; `undefined` = could not capture (inconclusive, not a fail).
+        const diff =
+          session.worktreePath === undefined
+            ? undefined
+            : await getSessionDiff(session.worktreePath, config.baseBranch);
+    
         await releaseWorktree(repoPath, task.id, session);
     
-        return { task, session, checks };
+        return { task, session, checks, diff };
       };
     }
     type FixtureScript = "test" | "typecheck" | "lint";
@@ -5844,8 +5864,16 @@
         console.log(
           `${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`
         );
-        if (t.sessionErrors && t.sessionErrors.length > 0) {
-          console.log(`    session errors: ${t.sessionErrors.join("; ")}`);
+        const notes = [
+          ...(t.judgeResult?.evaluationFailed
+            ? [`judge inconclusive (scored as fail): ${t.judgeResult.reasoning}`]
+            : []),
+          ...(t.sessionErrors && t.sessionErrors.length > 0
+            ? [`session errors: ${t.sessionErrors.join("; ")}`]
+            : []),
+        ];
+        for (const note of notes) {
+          console.log(`    ${note}`);
         }
       }
       console.log("");
@@ -6950,7 +6978,6 @@
   </file>
   <file path="apps/hospitality/src/components/crm/guest-signals.ts">
     export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
-    export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
     export type GuestSegmentVariant = "accent" | "success" | "neutral";
     export type GuestRiskVariant = "error" | "warning" | "neutral";
     export function isAllergyTag(tag: string): boolean {
@@ -7474,6 +7501,106 @@
       Object.values(generatedSnapshots)[0]?.default,
       FALLBACK_REPO_STATS
     );
+  </file>
+  <file path="apps/marketing/src/data/shipped-features.ts">
+    export interface ShippedPr {
+      readonly number: number;
+      readonly title: string;
+      readonly mergedAt: string;
+      readonly mergeCommit: string;
+      readonly reviewVerdict: "pass" | "flag" | null;
+      readonly ciGate: "success" | "failure" | null;
+    }
+    export interface ShippedChild {
+      readonly issue: number;
+      readonly title: string;
+      readonly prs: readonly ShippedPr[];
+    }
+    export interface ShippedFeature {
+      readonly slug: string;
+      readonly title: string;
+      readonly trackingIssue: number;
+      readonly proposalIssue: number | null;
+      readonly proposalEvidence: string | null;
+      readonly proposedAt: string | null;
+      readonly firstMergedAt: string;
+      readonly lastMergedAt: string;
+      readonly wallClockHours: number;
+      /** Site-relative path to the live feature, if there is one. */
+      readonly liveUrl: string | null;
+      readonly children: readonly ShippedChild[];
+    }
+    export interface ShippedFeaturesSnapshot {
+      readonly generatedAt: string;
+      readonly features: readonly ShippedFeature[];
+    }
+    type Obj = Record<string, unknown>;
+    function isObj(value: unknown): value is Obj {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    function isShippedPr(value: unknown): value is ShippedPr {
+      if (!isObj(value)) return false;
+      return (
+        isIssueNumber(value.number) &&
+        isString(value.title) &&
+        isDate(value.mergedAt) &&
+        isString(value.mergeCommit) &&
+        (value.reviewVerdict === null ||
+          value.reviewVerdict === "pass" ||
+          value.reviewVerdict === "flag") &&
+        (value.ciGate === null || value.ciGate === "success" || value.ciGate === "failure")
+      );
+    }
+    function isShippedChild(value: unknown): value is ShippedChild {
+      if (!isObj(value)) return false;
+      return (
+        isIssueNumber(value.issue) &&
+        isString(value.title) &&
+        Array.isArray(value.prs) &&
+        value.prs.every(isShippedPr)
+      );
+    }
+    function isShippedFeature(value: unknown): value is ShippedFeature {
+      if (!isObj(value)) return false;
+      return (
+        isString(value.slug) &&
+        value.slug.length > 0 &&
+        isString(value.title) &&
+        isIssueNumber(value.trackingIssue) &&
+        isNullable(value.proposalIssue, isIssueNumber) &&
+        isNullable(value.proposalEvidence, isString) &&
+        isNullable(value.proposedAt, isDate) &&
+        isDate(value.firstMergedAt) &&
+        isDate(value.lastMergedAt) &&
+        typeof value.wallClockHours === "number" &&
+        Number.isFinite(value.wallClockHours) &&
+        isNullable(
+          value.liveUrl,
+          (url) => isString(url) && url.startsWith("/") && !url.startsWith("//")
+        ) &&
+        Array.isArray(value.children) &&
+        value.children.every(isShippedChild)
+      );
+    }
+    export function isShippedFeaturesSnapshot(value: unknown): value is ShippedFeaturesSnapshot {
+      return (
+        isObj(value) &&
+        isDate(value.generatedAt) &&
+        Array.isArray(value.features) &&
+        value.features.every(isShippedFeature)
+      );
+    }
+    export function selectShippedFeatures(raw: unknown): readonly ShippedFeature[] {
+      if (!isShippedFeaturesSnapshot(raw)) return [];
+      return [...raw.features].sort(
+        (a, b) =>
+          Date.parse(b.lastMergedAt) - Date.parse(a.lastMergedAt) || b.trackingIssue - a.trackingIssue
+      );
+    }
+    export const SHIPPED_FEATURES: readonly ShippedFeature[] = selectShippedFeatures(committedSnapshot);
+    export function findShippedFeature(slug: string): ShippedFeature | undefined {
+      return SHIPPED_FEATURES.find((feature) => feature.slug === slug);
+    }
   </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">
     export interface WeeklyResource {
@@ -8071,6 +8198,17 @@
     function loadFixture(name: string): string {
       return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
     }
+    function loadStaffVenues(): {
+      data: Array<Record<string, unknown>>;
+      pagination: Record<string, unknown>;
+    } {
+      const venues = JSON.parse(loadFixture("venues-list")) as {
+        data: Array<Record<string, unknown>>;
+        pagination: Record<string, unknown>;
+      };
+      const ianaTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return { ...venues, data: venues.data.map((venue) => ({ ...venue, ianaTimezone })) };
+    }
     function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> {
       return route.fulfill({
         status,
@@ -8248,7 +8386,7 @@
       let createdVenue: Record<string, unknown> | null = null;
       await page.route("**/api/v1/venues", (route) => {
         if (route.request().method() !== "POST") return route.fallback();
-        const venues = JSON.parse(loadFixture("venues-list"));
+        const venues = loadStaffVenues();
         let body: Record<string, unknown> = {};
         try {
           const parsed = route.request().postDataJSON();
@@ -8273,10 +8411,7 @@
         });
       });
       await page.route("**/api/v1/venues?*", (route) => {
-        const venues = JSON.parse(loadFixture("venues-list")) as {
-          data: Array<Record<string, unknown>>;
-          pagination: Record<string, unknown>;
-        };
+        const venues = loadStaffVenues();
         const allData = createdVenue ? [...venues.data, createdVenue] : venues.data;
         return route.fulfill({
           status: 200,
@@ -8293,7 +8428,7 @@
       );
       await page.route(/\/api\/v1\/venues\/[^/?]+$/, (route) => {
         const method = route.request().method();
-        const venues = JSON.parse(loadFixture("venues-list"));
+        const venues = loadStaffVenues();
         if (method === "POST" || method === "PATCH") {
           return jsonOk(route, { ...venues.data[0], updatedAt: new Date().toISOString() });
         }
@@ -8678,6 +8813,9 @@
         });
       });
       await page.route("**/api/v1/guests/segments*", (route) => jsonResponse(route, "guest-segments"));
+      // The Home dashboard's lapsing-guests widget. Empty by default; specs that render the widget
+      // mount their own route after mockApi (locale-sweep, visual).
+      await page.route("**/api/v1/guests/lapsing?*", (route) => jsonOk(route, []));
       await page.route("**/api/v1/guests/find-or-create", (route) => {
         const guests = JSON.parse(loadFixture("guests-list"));
         return jsonOk(route, guests.data[0]);
@@ -9174,7 +9312,9 @@
       ? [exactly_one_2xx_response_required_none_declared: never]
       : true extends IsUnion<SuccessKey<R>>
         ? [exactly_one_2xx_response_required_several_declared: never]
-        : [];
+        : R[SuccessKey<R> & keyof R] extends ProblemResponse
+          ? [a_2xx_response_cannot_be_a_problem_response: never]
+          : [];
     export function defineEndpoint<const D extends AnyEndpointDefinition>(
       def: D,
       ..._contractCheck: DefinitionCheck<D>
@@ -9464,6 +9604,12 @@
       readonly runTask: TaskRunner;
       /** Stable id for this run (callers pass a timestamp/uuid — kept injectable for determinism in tests). */
       readonly runId: string;
+      /**
+       * Builds the LLM judge for one run (it needs that run's diff). Omit and any
+       * task with `judgeCriteria` fails closed as inconclusive — never silently
+       * scores on the deterministic checks alone.
+       */
+      readonly judgeFor?: (run: TaskRunResult) => JudgeFunction;
       /** When set, run only the task with this id. */
       readonly only?: string;
     }
@@ -9477,7 +9623,7 @@
       for (const task of selected) {
         try {
           const runResult = await opts.runTask(task);
-          scores.push(await scoreTask(runResult));
+          scores.push(await scoreTask(runResult, opts.judgeFor?.(runResult)));
         } catch (err) {
           scores.push(failedScore(task, err));
         }
@@ -9592,6 +9738,40 @@
       return parsed.data;
     }
   </file>
+  <file path="packages/agent-core/src/eval/llm-judge.ts">
+    type Evaluate = (
+      task: string,
+      diff: string,
+      config?: { readonly forceEvaluate?: boolean }
+    ) => Promise<EvaluationResult>;
+    export function createEvalJudge(
+      run: TaskRunResult,
+      evaluate: Evaluate = evaluateSuccess
+    ): JudgeFunction {
+      return async (taskPrompt, criteria) => {
+        if (run.diff === undefined) {
+          return {
+            passed: false,
+            confidence: 0,
+            reasoning: "The session's diff could not be captured — judgeCriteria not evaluated",
+            issues: ["LLM judge could not run"],
+            evaluationFailed: true,
+          };
+        }
+        return evaluate(`${taskPrompt}\n\n${formatAcceptanceCriteria(criteria)}`, run.diff, {
+          forceEvaluate: true,
+        });
+      };
+    }
+    function formatAcceptanceCriteria(criteria: string): string {
+      const items = criteria
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => `- [ ] ${line}`);
+      return ["## Acceptance Criteria", ...items].join("\n");
+    }
+  </file>
   <file path="packages/agent-core/src/eval/run-detection.ts">
     export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean {
       return score.turns === 0 && score.costUsd === 0;
@@ -9614,9 +9794,8 @@
     
       // LLM-judge signals — only when criteria are specified and a judge is injected.
       let judgeResult: TaskScore["judgeResult"];
-      if (rubric.judgeCriteria.length > 0 && judge !== undefined) {
-        const criteria = rubric.judgeCriteria.join("\n");
-        judgeResult = await judge(task.prompt, criteria);
+      if (rubric.judgeCriteria.length > 0) {
+        judgeResult = await runJudge(task.prompt, rubric.judgeCriteria.join("\n"), judge);
         signals.push(judgeResult.passed);
       }
     
@@ -9636,6 +9815,27 @@
         turns: session.numTurns,
         ...(session.errors?.length ? { sessionErrors: session.errors } : {}),
       };
+    }
+    function inconclusive(reasoning: string): EvaluationResult {
+      return {
+        passed: false,
+        confidence: 0,
+        reasoning,
+        issues: ["LLM judge could not run"],
+        evaluationFailed: true,
+      };
+    }
+    async function runJudge(
+      prompt: string,
+      criteria: string,
+      judge: JudgeFunction | undefined
+    ): Promise<EvaluationResult> {
+      if (judge === undefined) return inconclusive("No judge configured — judgeCriteria not evaluated");
+      try {
+        return await judge(prompt, criteria);
+      } catch (err) {
+        return inconclusive(`Judge threw: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   </file>
   <file path="packages/agent-core/src/eval/types.ts">
@@ -9689,6 +9889,12 @@
       readonly task: Task;
       readonly session: SessionResult;
       readonly checks: DeterministicChecks;
+      /**
+       * The whole session's change as a unified diff, captured by the runner for
+       * the LLM judge. `""` = captured, nothing changed; `undefined` = could not
+       * be captured (judge is inconclusive).
+       */
+      readonly diff?: string;
     }
     export interface TaskScore {
       readonly taskId: string;
@@ -9697,9 +9903,20 @@
       /** 0..1 — fraction of applicable rubric signals satisfied. */
       readonly score: number;
       readonly deterministic: DeterministicChecks;
-      /** Self-reported agent evaluation, when present — used for calibration. */
+      /**
+       * Self-reported agent evaluation — used for calibration. Both the SDK
+       * pipeline and the CLI-adapter pipeline (e.g. `claude-cli`) populate it from
+       * the post-commit gateway's LLM evaluation; it is absent whenever that gate
+       * did not run (e.g. no changes or a failed dispatch). The
+       * suite's authoritative semantic verdict is {@link TaskScore.judgeResult},
+       * not this.
+       */
       readonly selfEvaluation?: SessionResult["evaluation"];
-      /** LLM-judge result, present when `rubric.judgeCriteria` is non-empty and a judge was provided. */
+      /**
+       * LLM-judge result, present whenever `rubric.judgeCriteria` is non-empty.
+       * `evaluationFailed: true` marks an inconclusive judge (it could not run, or
+       * none was wired) — fails closed, and is distinct from a genuine fail.
+       */
       readonly judgeResult?: EvaluationResult;
       readonly costUsd: number;
       readonly turns: number;
@@ -11322,7 +11539,12 @@
       isStreaming: boolean;
       error: Error | null;
       rawLines: string[];
-      send: (prompt: string, context?: Record<string, unknown>) => Promise<void>;
+      send: (
+        prompt: string,
+        context?: Record<string, unknown>,
+        /** Extra top-level request body fields, e.g. `target` for subtree-scoped generation. */
+        extraBody?: Record<string, unknown>
+      ) => Promise<void>;
       clear: () => void;
       stop: () => void;
     }
@@ -11367,7 +11589,11 @@
       }, [onError]);
     
       const send = useCallback(
-        async (prompt: string, context?: Record<string, unknown>): Promise<void> => {
+        async (
+          prompt: string,
+          context?: Record<string, unknown>,
+          extraBody?: Record<string, unknown>
+        ): Promise<void> => {
           // Abort any in-flight request
           abortControllerRef.current?.abort();
     
@@ -11387,7 +11613,7 @@
           try {
             const stream = streamNDJSON<Record<string, unknown>>({
               url: api,
-              body: { prompt, context },
+              body: { prompt, context, ...extraBody },
               headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
               signal: controller.signal,
             });
@@ -12400,7 +12626,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;
-    export type BriefingGuest = ApiBriefingGuest;
     export type BriefingEntry = ApiBriefingEntry;
     export interface UseBriefingParams {
       date: string;
@@ -12498,6 +12723,99 @@
           )
         : null;
       return { quote, isLoading };
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useChangeBooking.ts">
+    export interface ChangeBookingSlot {
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+    }
+    export type ChangeBookingStatus = "idle" | "holding" | "held" | "confirming" | "done" | "error";
+    export interface UseChangeBookingOptions {
+      token: string;
+      venueSlug: string;
+    }
+    function problemCode(err: unknown): string {
+      if (err instanceof ApiClientError) {
+        const code = err.problemDetails.code;
+        if (typeof code === "string") return code;
+      }
+      return "UNKNOWN";
+    }
+    export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) {
+      const api = usePublicApiClient();
+      const [status, setStatus] = useState<ChangeBookingStatus>("idle");
+      const [error, setError] = useState<string | null>(null);
+      const holdRef = useRef<{ holdId: string; slot: ChangeBookingSlot } | null>(null);
+    
+      const release = useCallback(async () => {
+        const held = holdRef.current;
+        if (!held) return;
+        holdRef.current = null;
+        // Best effort: an unreleasable hold simply expires server-side.
+        await api.holds.releaseForVenue(venueSlug, held.holdId).catch(reportApiError);
+      }, [api, venueSlug]);
+    
+      const selectSlot = useCallback(
+        async (slot: ChangeBookingSlot) => {
+          setError(null);
+          setStatus("holding");
+          await release();
+          try {
+            const { hold } = await api.holds.createForVenue(venueSlug, {
+              date: slot.date,
+              startTime: slot.startTime,
+              partySize: slot.partySize,
+            });
+            holdRef.current = { holdId: hold.id, slot };
+            setStatus("held");
+          } catch (err) {
+            setError(problemCode(err));
+            setStatus("error");
+          }
+        },
+        [api, venueSlug, release]
+      );
+    
+      const confirm = useCallback(async (): Promise<ManagedReservation | undefined> => {
+        const held = holdRef.current;
+        if (!held) return undefined;
+        setError(null);
+        setStatus("confirming");
+        const changes: ManagedReservationChanges = held.slot;
+        try {
+          const updated = await api.reservations.modifyManaged(token, changes, {
+            holdId: held.holdId,
+            sessionId: api.holds.getSessionId() ?? "",
+          });
+          // The server consumed the hold; nothing left to release.
+          holdRef.current = null;
+          setStatus("done");
+          return updated;
+        } catch (err) {
+          setError(problemCode(err));
+          setStatus("error");
+          return undefined;
+        }
+      }, [api, token]);
+    
+      const abandon = useCallback(async () => {
+        await release();
+        setError(null);
+        setStatus("idle");
+      }, [release]);
+    
+      // Release on unmount (and under the old venue if the slug ever changes).
+      useEffect(
+        () => () => {
+          void release();
+        },
+        [release]
+      );
+    
+      return { status, error, selectSlot, confirm, abandon };
     }
   </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
@@ -12736,12 +13054,6 @@
       venueId?: string | null;
       limit?: number;
       enabled?: boolean;
-    }
-    export interface UseFloorPlansResult {
-      data: FloorPlan[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
     }
     export const useFloorPlans = createQueryHook<FloorPlan[], UseFloorPlansParams>({
       key: FLOOR_PLANS_QUERY_KEY,
@@ -13512,12 +13824,6 @@
     export interface UseTablesParams extends ListTablesParams {
       enabled?: boolean;
     }
-    export interface UseTablesResult {
-      data: Table[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
-    }
     export const useTables = createQueryHook<Table[], UseTablesParams>({
       key: TABLES_QUERY_KEY,
       fetcher: async (params, api) => {
@@ -14057,12 +14363,6 @@
     export interface UseVenuesParams {
       limit?: number;
       enabled?: boolean;
-    }
-    export interface UseVenuesResult {
-      data: Venue[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
     }
     export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
       key: VENUES_QUERY_KEY,
@@ -15872,6 +16172,82 @@
       return null;
     }
   </file>
+  <file path="apps/gen/src/lib/spec-subtree.ts">
+    type Elements = Spec["elements"];
+    export type SpecError = "unknown-key" | "root-mismatch" | "key-collision";
+    export type SpecResult = { ok: true; spec: Spec } | { ok: false; error: SpecError };
+    export interface SpecDiff {
+      parentId: string | null;
+      /** The element key whose subtree changed. */
+      path: string;
+      /** Subtree rooted at `path`, before the change. */
+      before: Spec;
+      /** Subtree rooted at `path`, after the change. */
+      after: Spec;
+    }
+    function childrenOf(elements: Elements, key: string): string[] {
+      return elements[key]?.children ?? [];
+    }
+    export function subtreeKeys(spec: Spec, key: string): string[] {
+      if (!(key in spec.elements)) return [];
+      const seen = new Set<string>();
+      const stack = [key];
+      while (stack.length > 0) {
+        const current = stack.pop() as string;
+        if (seen.has(current) || !(current in spec.elements)) continue;
+        seen.add(current);
+        stack.push(...childrenOf(spec.elements, current));
+      }
+      return Array.from(seen);
+    }
+    export function extractSubtree(spec: Spec, key: string): Spec | null {
+      const keys = subtreeKeys(spec, key);
+      if (keys.length === 0) return null;
+      const elements: Elements = {};
+      for (const k of keys) {
+        const element = spec.elements[k];
+        if (element) elements[k] = element;
+      }
+      return { root: key, elements };
+    }
+    export function ancestorChain(spec: Spec, key: string): { key: string; type: string }[] {
+      const seen = new Set<string>();
+      const walk = (current: string, trail: string[]): string[] | null => {
+        if (current === key) return trail;
+        if (seen.has(current) || !(current in spec.elements)) return null;
+        seen.add(current);
+        for (const child of childrenOf(spec.elements, current)) {
+          const found = walk(child, [...trail, current]);
+          if (found) return found;
+        }
+        return null;
+      };
+      const trail = walk(spec.root, []) ?? [];
+      return trail.map((k) => ({ key: k, type: spec.elements[k]?.type ?? "" }));
+    }
+    export function spliceSubtree(spec: Spec, key: string, replacement: Spec): SpecResult {
+      if (!(key in spec.elements)) return { ok: false, error: "unknown-key" };
+      if (replacement.root !== key || !(key in replacement.elements)) {
+        return { ok: false, error: "root-mismatch" };
+      }
+      const removed = new Set(subtreeKeys(spec, key));
+      for (const k of Object.keys(replacement.elements)) {
+        if (k in spec.elements && !removed.has(k)) return { ok: false, error: "key-collision" };
+      }
+      const elements: Elements = {};
+      for (const [k, element] of Object.entries(spec.elements)) {
+        if (!removed.has(k)) elements[k] = element;
+      }
+      Object.assign(elements, replacement.elements);
+      return { ok: true, spec: { ...spec, elements } };
+    }
+    export function applySpecDiff(spec: Spec, diff: SpecDiff): SpecResult {
+      return spliceSubtree(spec, diff.path, diff.after);
+    }
+    export function invertSpecDiff(diff: SpecDiff): SpecDiff {
+      return { ...diff, before: diff.after, after: diff.before };
+    }
+  </file>
   <file path="apps/gen/src/lib/spec.ts">
     export interface SpecStats {
       elementCount: number;
@@ -15893,6 +16269,17 @@
       const elements = Object.values(spec.elements);
       const types = new Set(elements.map((element) => element.type));
       return { elementCount: elements.length, componentTypes: Array.from(types).sort() };
+    }
+  </file>
+  <file path="apps/gen/src/lib/validate-spec.ts">
+    export type CatalogValidation = { ok: true } | { ok: false; message: string };
+    export function validateSpecAgainstCatalog(spec: Spec): CatalogValidation {
+      const result = catalog.validate(spec);
+      if (result.success) return { ok: true };
+      return {
+        ok: false,
+        message: result.error?.message ?? "Spec does not conform to the Rialto catalog",
+      };
     }
   </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
@@ -16771,7 +17158,29 @@
       );
     }
   </file>
+  <file path="apps/gen/src/pages/createSubtreeRefinementPrompt.ts">
+    export function createSubtreeRefinementPrompt(
+      subtree: Spec,
+      ancestors: { key: string; type: string }[],
+      userInstruction: string
+    ): string {
+      return (
+        `Here is one selected subtree of an existing UI spec generated from Rialto components. ` +
+        `Please modify it according to the user's instruction. ` +
+        `Output ONLY the replacement subtree, not the rest of the spec, and keep its root key ` +
+        `${JSON.stringify(subtree.root)} unchanged.\n\n` +
+        `Selected subtree:\n${JSON.stringify(subtree)}\n\n` +
+        `Ancestors (root to parent):\n${JSON.stringify(ancestors)}\n\n` +
+        `Modification requested: ${userInstruction}`
+      );
+    }
+  </file>
   <file path="apps/gen/src/pages/usePlaygroundSession.ts">
+    interface NodeRefine {
+      base: Spec;
+      key: string;
+      instruction: string;
+    }
     export interface PlaygroundSession {
       // Render mode + transient overlays (passed through from usePlaygroundState)
       mode: PlaygroundMode;
@@ -16808,6 +17217,8 @@
       // Session verbs — own transition choreography lives here, not in the caller.
       submit: (prompt: string) => void;
       refine: () => void;
+      /** Regenerate only the subtree at `key`, splice it into the displayed spec, and save the result. */
+      refineNode: (key: string, instruction: string) => void;
       replay: (id: string) => void;
       retry: () => void;
       selectHistory: (id: string) => void;
@@ -16846,16 +17257,47 @@
       // only read, on the error-context retry path.
       const refineSpecRef = useRef<Spec | null>(null);
     
+      // A node refine streams only a subtree, so the preview must keep showing the
+      // spec it was made on — `pinnedSpec` overrides the stream-derived display
+      // until the spliced result is saved (or the refine is abandoned). The ref
+      // carries the same context into the stream callbacks and into retry().
+      const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
+      const [refineError, setRefineError] = useState<Error | null>(null);
+      const nodeRefineRef = useRef<NodeRefine | null>(null);
+    
       const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
         api: "/api/gen/ui",
         onComplete: (completedSpec, completedRawLines) => {
+          const nodeRefine = nodeRefineRef.current;
+          let savedSpec = completedSpec;
+          if (nodeRefine) {
+            // Reject, never render, a subtree that can't be spliced or isn't in the catalog.
+            const spliced = spliceSubtree(nodeRefine.base, nodeRefine.key, completedSpec);
+            if (!spliced.ok) {
+              setRefineError(new Error(SPLICE_ERROR_MESSAGES[spliced.error]));
+              return;
+            }
+            const validation = validateSpecAgainstCatalog(spliced.spec);
+            if (!validation.ok) {
+              setRefineError(
+                new Error(`The regenerated subtree is not valid Rialto: ${validation.message}`)
+              );
+              return;
+            }
+            savedSpec = spliced.spec;
+            nodeRefineRef.current = null;
+            setPinnedSpec(savedSpec);
+          }
           options?.onGenerationComplete?.();
           void saveSpec({
             prompt: promptRef.current,
             kind: kindRef.current,
-            spec: completedSpec,
+            spec: savedSpec,
             rawLines: completedRawLines,
-          }).then((stored) => setActiveId(stored.id));
+          }).then((stored) => {
+            setActiveId(stored.id);
+            setPinnedSpec(null);
+          });
         },
         // Record the failed attempt in the same history mechanism (kind
         // "failed") so a
@@ -16884,7 +17326,7 @@
       const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
       const activeEntryRawLines = activeEntry?.rawLines ?? [];
     
-      const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
+      const displaySpec = pinnedSpec ?? (isStreaming ? spec : (activeEntrySpec ?? spec));
       const displayRawLines = isStreaming
         ? rawLines
         : activeEntryRawLines.length > 0
@@ -16893,21 +17335,29 @@
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
-      const displayError = activeId === null ? error : null;
+      const displayError = activeId === null ? (refineError ?? error) : null;
       const activeSpecId = !isStreaming && activeId ? activeId : null;
       const failedPrompt = displayError ? rawPrompt : null;
     
+      const clearNodeRefine = useCallback(() => {
+        nodeRefineRef.current = null;
+        setPinnedSpec(null);
+        setRefineError(null);
+      }, []);
+    
       const resetTo = useCallback(
         (id: string | null) => {
+          clearNodeRefine();
           setActiveId(id);
           exitRefinement();
         },
-        [exitRefinement]
+        [exitRefinement, clearNodeRefine]
       );
     
       const submit = useCallback(
         (prompt: string) => {
           setRawPrompt(prompt);
+          clearNodeRefine();
           if (mode === "refine" && displaySpec) {
             refineSpecRef.current = displaySpec;
             const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
@@ -16923,7 +17373,30 @@
             void send(prompt);
           }
         },
-        [mode, displaySpec, send]
+        [mode, displaySpec, send, clearNodeRefine]
+      );
+    
+      const refineNode = useCallback(
+        (key: string, instruction: string) => {
+          if (!displaySpec) return;
+          const subtree = extractSubtree(displaySpec, key);
+          if (!subtree) return;
+          const ancestors = ancestorChain(displaySpec, key);
+          setRawPrompt(instruction);
+          promptRef.current = instruction;
+          kindRef.current = "refine";
+          refineSpecRef.current = null;
+          nodeRefineRef.current = { base: displaySpec, key, instruction };
+          setPinnedSpec(displaySpec);
+          setRefineError(null);
+          setActiveId(null);
+          void send(
+            createSubtreeRefinementPrompt(subtree, ancestors, instruction),
+            { subtree, ancestors },
+            { target: { key, type: displaySpec.elements[key]?.type ?? "" } }
+          );
+        },
+        [displaySpec, send]
       );
     
       // Pre-load a deep-linked prompt (e.g. from the marketing site's playground
@@ -16980,6 +17453,13 @@
       // isTransportError) isn't recoverable by feeding it back to the model, so
       // that case is just a bare resubmit, same as having no error at all.
       const retry = useCallback(() => {
+        // A failed node refine is retried as a node refine on the same spec; a
+        // whole-spec resubmit would replace the user's UI with a subtree.
+        const nodeRefine = nodeRefineRef.current;
+        if (nodeRefine) {
+          refineNode(nodeRefine.key, nodeRefine.instruction);
+          return;
+        }
         const retryPrompt = activeEntry ? resolveEntry(activeEntry).prompt : rawPrompt;
         if (!retryPrompt) return;
         const recoverableError = error && !isTransportError(error) ? error : null;
@@ -16995,7 +17475,7 @@
         } else {
           void send(retryPrompt);
         }
-      }, [activeEntry, error, rawPrompt, resetTo, send]);
+      }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
     
       const selectHistory = useCallback(
         (id: string) => {
@@ -17051,6 +17531,7 @@
     
         submit,
         refine: enterRefinement,
+        refineNode,
         replay,
         retry,
         selectHistory,
@@ -19412,6 +19893,12 @@
        * Return undefined to drop the event (default: the event itself).
        */
       readonly serializeEvent?: (event: GenStreamEvent) => unknown;
+      /**
+       * ndjson only: per-request variant of `serializeEvent`, built from the parsed
+       * body so it can hold request-scoped state (and throw to fail the run).
+       * Takes precedence over `serializeEvent`.
+       */
+      readonly createEventSerializer?: (parsed: z.infer<TSchema>) => (event: GenStreamEvent) => unknown;
       readonly getTools: (
         request: FastifyRequest,
         parsed: z.infer<TSchema>
@@ -19430,7 +19917,7 @@
       config: GenRouteConfig<TSchema>
     ): FastifyPluginAsync {
       const { path, costLogLabel, rateLimit, schema, streamFormat, maxSteps, getTools } = config;
-      const serializeEvent = config.serializeEvent ?? ((event: GenStreamEvent) => event);
+      const defaultSerializeEvent = config.serializeEvent ?? ((event: GenStreamEvent) => event);
     
       const contentType =
         streamFormat === "text" ? "text/plain; charset=utf-8" : "application/x-ndjson; charset=utf-8";
@@ -19509,6 +19996,7 @@
             }
     
             // ndjson: encode each event as a JSON line
+            const serializeEvent = config.createEventSerializer?.(parsed) ?? defaultSerializeEvent;
             const ndjsonStream = new ReadableStream({
               async start(controller) {
                 let emitted = false;
@@ -19874,6 +20362,31 @@
     }
   </file>
   <file path="services/agent/src/routes/gen-ui.ts">
+    type GenUiBody = z.infer<typeof GenUiBodySchema>;
+    function scopedInstruction(target: { key: string; type: string }): string {
+      return (
+        `Scope: regenerate ONLY the replacement subtree for the selected ${target.type} element. ` +
+        `Its root element MUST use key === ${JSON.stringify(target.key)} and omit \`parentKey\`. ` +
+        "Use only catalog components, emit exactly one root, and keep every change within that subtree."
+      );
+    }
+    function createTargetGuard(targetKey: string) {
+      let seen = 0;
+      return (event: GenStreamEvent): unknown => {
+        const raw = serializeElement(event);
+        if (raw === undefined) return undefined;
+        // The render_component input schema guarantees this shape at runtime.
+        const element = raw as { key: string; parentKey?: string | null };
+        if (seen === 0 && element.key !== targetKey) {
+          throw new Error(`Subtree root key "${element.key}" does not match target "${targetKey}"`);
+        }
+        if (seen > 0 && element.parentKey == null) {
+          throw new Error("Subtree generation emitted a second root element");
+        }
+        seen += 1;
+        return element;
+      };
+    }
     function createRenderComponentTool() {
       return tool({
         description:
@@ -19908,17 +20421,20 @@
       // ai@7 to retry the tool call on, so a tool-error can only ever mean the
       // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
       failOnToolError: true,
-      toMessages: ({ prompt, context }) => [
+      toMessages: ({ prompt, context, target }: GenUiBody) => [
         {
           role: "user",
-          content: context
-            ? `${prompt}
-    
-    Context: ${JSON.stringify(context)}`
-            : prompt,
+          content: [
+            prompt,
+            context ? `Context: ${JSON.stringify(context)}` : undefined,
+            target ? scopedInstruction(target) : undefined,
+          ]
+            .filter((part) => part !== undefined)
+            .join("\n\n"),
         },
       ],
-      serializeEvent: (event) => (event.type === "element" ? event.element : undefined),
+      createEventSerializer: ({ target }: GenUiBody) =>
+        target ? createTargetGuard(target.key) : serializeElement,
       getTools: () => ({ render_component: createRenderComponentTool() }),
     });
   </file>
@@ -21268,6 +21784,8 @@
   </file>
   <file path="services/reservations/src/routes/briefing.ts">
     export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
+      const { briefingService } = fastify.services;
+    
       fastify.get<{
         Querystring: { date?: string; venueId?: string };
         Reply: { data: BriefingEntry[] } | ProblemDetails;
@@ -21457,7 +21975,7 @@
         );
     }
     export const depositRoutes: FastifyPluginAsync = async (fastify) => {
-      const { depositService } = fastify.services;
+      const { depositService, venueService } = fastify.services;
     
       // POST /api/v1/deposits — create a deposit
       fastify.post<{
@@ -21761,14 +22279,6 @@
     };
   </file>
   <file path="services/reservations/src/routes/events.ts">
-    export function getConnectionManager(): SseConnectionManager {
-      return connectionManager;
-    }
-    export function createConnectionManager(
-      config?: Partial<SseConnectionConfig>
-    ): SseConnectionManager {
-      return new SseConnectionManager(config);
-    }
     function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] {
       if (!RESERVATION_TRANSITION_EVENT_TYPES.has(event.type)) {
         return [];
@@ -21888,6 +22398,10 @@
   </file>
   <file path="services/reservations/src/routes/floor-plans.ts">
     export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
+      // Domain services come from the buildApp seam (issue #3357); tests inject fakes
+      // via buildApp({ services }).
+      const { floorPlanService, tableService } = fastify.services;
+    
       fastify.get<{
         Querystring: { venueId?: string; page?: string; limit?: string };
         Reply: PaginatedResponse<FloorPlan> | ProblemDetails;
@@ -22217,6 +22731,8 @@
   </file>
   <file path="services/reservations/src/routes/guests.ts">
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService, venueService } = fastify.services;
+    
       // List guests for a venue
       registerEndpoint(fastify, guestsEndpoints.list, {
         docs: {
@@ -22505,6 +23021,8 @@
       Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
     };
     export const holdRoutes: FastifyPluginAsync = async (fastify) => {
+      const { holdService } = fastify.services;
+    
       // Register schemas
       fastify.addSchema(HoldSchema);
     
@@ -22626,7 +23144,7 @@
           },
         },
         venueScoped<GetRoute>(
-          { venue: holdVenue("Hold not found or expired") },
+          { venue: holdVenue(holdService, "Hold not found or expired") },
           async (request, reply) => {
             const hold = await holdService.getById(request.params.id);
     
@@ -22683,7 +23201,7 @@
           },
         },
         venueScoped<ReleaseRoute>(
-          { venue: holdVenue("Hold not found or not owned by this session") },
+          { venue: holdVenue(holdService, "Hold not found or not owned by this session") },
           async (request, reply) => {
             const sessionId = request.headers[SESSION_ID_HEADER];
     
@@ -22758,7 +23276,7 @@
           },
         },
         venueScoped<ConfirmRoute>(
-          { venue: holdVenue("Hold not found") },
+          { venue: holdVenue(holdService, "Hold not found") },
           async (request, reply, { venueId }) => {
             const sessionId = request.headers[SESSION_ID_HEADER];
     
@@ -22856,6 +23374,8 @@
   </file>
   <file path="services/reservations/src/routes/manage-reservation.ts">
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.get<{ Querystring: { token?: string } }>(
         "/public/v1/reservations/manage",
         {
@@ -22880,6 +23400,8 @@
                       slug: venue.slug,
                       ianaTimezone: venue.ianaTimezone,
                       phone: venue.settings?.phone,
+                      modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
+                      maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
                     }
                   : null,
               },
@@ -22946,7 +23468,7 @@
         if (!venueId) return spec.missing(reply, request);
     
         return runWithVenueContext(venueId, async () => {
-          const reservation = await reservationService.getById(reservationId);
+          const reservation = await request.server.services.reservationService.getById(reservationId);
           if (!reservation) return spec.missing(reply, request);
           if (reservation.guestEmail !== result.guestEmail) {
             return deny(reply, 403, "Forbidden", "Token does not match reservation");
@@ -22966,6 +23488,7 @@
       endTime?: string;
       partySize?: number;
       specialRequests?: string;
+      holdId?: string;
     }
     export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.patch<{ Body: ModifyBody }>(
@@ -22989,10 +23512,35 @@
               return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
             }
     
+            // Request schemas are permissive (no additionalProperties), so a
+            // status in the body would otherwise be silently ignored.
+            if (request.body && "status" in request.body) {
+              return reply
+                .status(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Status Change Not Allowed",
+                    "Guests cannot change a reservation's status through this endpoint",
+                    "about:blank",
+                    undefined,
+                    { code: "STATUS_CHANGE_NOT_ALLOWED" }
+                  )
+                );
+            }
+    
+            const { holdId, ...changes } = request.body ?? {};
+            const sessionId = request.headers[SESSION_ID_HEADER];
+            const hold =
+              holdId && typeof sessionId === "string" && sessionId.length > 0
+                ? { holdId, sessionId }
+                : undefined;
+    
             const result = await fastify.transitions.modifyByGuest(
               preamble.reservation,
-              request.body ?? {},
-              token
+              changes,
+              token,
+              hold
             );
     
             if (!result.success) {
@@ -23671,6 +24219,12 @@
             // reservation to someone else's guest record.
             const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
               request.body;
+            // Only mint a manage token when an email was actually supplied: a
+            // phone-only booking is stored with `guestEmail: null`, and a token
+            // signed with "" could never validate against it. Minted once, for the
+            // confirmed reservation, and shared by the confirmation email and the
+            // response.
+            let manageToken: string | undefined;
             const result = await fastify.transitions.confirmHold(
               {
                 holdId,
@@ -23678,7 +24232,13 @@
                 venueId,
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
               },
-              { door: "public-hold" }
+              {
+                door: "public-hold",
+                manageToken: (reservation) =>
+                  guestEmail
+                    ? (manageToken = generateManageToken(reservation.id, guestEmail))
+                    : undefined,
+              }
             );
     
             if (!result.success) {
@@ -23692,13 +24252,6 @@
             // The hold is consumed, so it no longer counts against the per-IP
             // active-hold cap — same bookkeeping the release path does.
             decrementHoldCount(ip);
-    
-            // Only mint a manage token when an email was actually supplied: a
-            // phone-only booking is stored with `guestEmail: null`, and a token
-            // signed with "" could never validate against it.
-            const manageToken = guestEmail
-              ? generateManageToken(result.reservation.id, guestEmail)
-              : undefined;
     
             return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
           }
@@ -24277,6 +24830,10 @@
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
+      const { reservationService, guestService } = fastify.services;
+      const listVenueId = resolveReservationsListVenueId(guestService);
+      const ownerScope = reservationOwnerScope(reservationService);
+    
       /**
        * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
        * routes below. Both routes are scoped by `reservationOwnerScope`, which
@@ -24326,10 +24883,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveReservationsListVenueId),
-          ],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
           schema: {
             summary: "List reservations",
             operationId: "listReservations",
@@ -24541,7 +25095,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (_request, _reply, { entity: reservation }) => ({
+        venueScoped(ownerScope, async (_request, _reply, { entity: reservation }) => ({
           data: reservation,
         }))
       );
@@ -24753,7 +25307,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+        venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
           if (request.body.status === "CANCELLED") {
             try {
               const result = await cancelReservationForRequest(
@@ -24934,7 +25488,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+        venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
           try {
             const result = await cancelReservationForRequest(
               reservation,
@@ -25148,8 +25702,6 @@
        */
       lastRlsErrorName: string | null;
     }
-    export type PayloadOrFactory =
-      InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
     export function inWindowDate(daysAhead: number): string {
       return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     }
@@ -26279,6 +26831,10 @@
       return code === "P2034" || code === "40001";
     }
     export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+      // Domain services come from the buildApp seam (issue #3357); tests inject fakes
+      // via buildApp({ services }).
+      const { venueService, venueGroupService } = fastify.services;
+    
       // Enforced by hand through `createRateLimit` rather than as a second
       // rate-limit hook, because @fastify/rate-limit runs at most ONE limiter per
       // request: `rateLimitRequestHandler` sets a `rateLimitRan` flag on the
@@ -27052,6 +27608,8 @@
   </file>
   <file path="services/reservations/src/routes/waitlist.ts">
     export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      const { waitlistService } = fastify.services;
+    
       // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
       // the seat/cancel that triggered it, and runs after the queue is recalculated.
       const notifyImproved: OnPositionsImproved = (changes) => {
@@ -28578,6 +29136,11 @@
         endTime: z.iso.datetime({ offset: true }).describe("New end time (ISO 8601)").optional(),
         partySize: z.number().int().min(1).max(20).describe("New party size").optional(),
         specialRequests: z.string().max(500).describe("Special requests or notes").optional(),
+        holdId: z
+          .string()
+          .min(1)
+          .describe("Hold on the new slot; required for any date, time or party-size change")
+          .optional(),
       })
       .describe("Fields to modify via guest self-service");
     export const CancelReservationBodySchema = z
@@ -33738,6 +34301,7 @@
     export interface DomainServices {
       availabilityService: typeof availabilityService;
       venueService: typeof venueService;
+      venueGroupService: typeof venueGroupService;
       tableService: typeof tableService;
       reservationService: typeof reservationService;
       guestService: typeof guestService;
@@ -33751,6 +34315,7 @@
     export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
       venueService,
+      venueGroupService,
       tableService,
       reservationService,
       guestService,
@@ -33761,7 +34326,6 @@
     };
   </file>
   <file path="services/reservations/src/services/events.ts">
-    export type ReservationEventType = SseEventName;
     export type ReservationEvent = SseEvent;
     export class ReservationEventEmitter extends EventEmitter {
       private connectionCount = 0;
@@ -34779,10 +35343,18 @@
     
       /**
        * Update visit statistics after a completed reservation.
+       *
+       * Accepts an optional transaction client so reservationService.update can
+       * run this write in the SAME transaction as the COMPLETED status change.
        */
-      async recordVisit(guestId: string, visitDate: Date, spendAmount?: number): Promise<Guest | null> {
+      async recordVisit(
+        guestId: string,
+        visitDate: Date,
+        spendAmount?: number,
+        client: Prisma.TransactionClient = prisma
+      ): Promise<Guest | null> {
         try {
-          const guest = await prisma.guest.update({
+          const guest = await client.guest.update({
             where: { id: guestId },
             data: {
               visitCount: { increment: 1 },
@@ -35570,6 +36142,92 @@
       return memberships.map((membership) => membership.venueId);
     }
   </file>
+  <file path="services/reservations/src/services/move-to-hold.ts">
+    type MoveToHoldErrorCode =
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+    export interface MoveToHoldInput {
+      /** The existing reservation to move. Its status is never changed. */
+      reservation: Reservation;
+      holdId: string;
+      /** Session that owns the hold; must match. */
+      sessionId: string;
+      /**
+       * Venue the caller is scoped to. A hold from another venue is reported as
+       * `NOT_FOUND`, never as a distinct error, so its existence does not leak.
+       */
+      venueId: string;
+      /** Written in the same transaction as the move when provided. */
+      notes?: string;
+    }
+    export type MoveToHoldResult =
+      | { success: true; reservation: Reservation }
+      | { success: false; error: string; errorCode: MoveToHoldErrorCode };
+    export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
+      const { reservation, holdId, sessionId, venueId, notes } = input;
+    
+      const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
+      if (!hold || hold.venueId !== venueId) {
+        return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
+      }
+      if (hold.sessionId !== sessionId) {
+        return {
+          success: false,
+          error: "Session ID does not match the hold",
+          errorCode: "SESSION_MISMATCH",
+        };
+      }
+    
+      const result = await bookSlot({
+        tableId: hold.tableId,
+        venueId: hold.venueId,
+        date: hold.date,
+        window: { startTime: hold.startTime, endTime: hold.endTime },
+        partySize: hold.partySize,
+        excludeReservationId: reservation.id,
+        excludeHoldId: holdId,
+        checkHoldConflict: true,
+        checkPacing: true,
+        guard: async () =>
+          hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
+        write: async (tx) => {
+          const updated = await tx.reservation.update({
+            where: { id: reservation.id },
+            data: {
+              date: hold.date,
+              startTime: hold.startTime,
+              endTime: hold.endTime,
+              tableId: hold.tableId,
+              partySize: hold.partySize,
+              ...(notes !== undefined && { notes }),
+            },
+            include: {
+              table: true,
+              guest: { select: { visitCount: true, communicationPreference: true } },
+            },
+          });
+          await tx.reservationHold.delete({ where: { id: holdId } });
+          return updated;
+        },
+      });
+    
+      if (!result.ok) {
+        const { code } = result.conflict;
+        if (code === "EXPIRED") {
+          return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
+        }
+        if (code === "PACING_EXCEEDED") {
+          return {
+            success: false,
+            error: "Pacing limit reached for this time slot",
+            errorCode: "PACING_EXCEEDED",
+          };
+        }
+        return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
+      }
+    
+      return { success: true, reservation: toReservation(result.value) };
+    }
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
     export interface NotifierRuntime {
@@ -36112,6 +36770,10 @@
       partySize?: number;
       specialRequests?: string;
     }
+    export interface ModifyHold {
+      holdId: string;
+      sessionId: string;
+    }
     export type ModifyReservationResult =
       | { success: true; reservation: Reservation }
       | { success: false; status: number; title: string; detail: string; code: string };
@@ -36128,6 +36790,9 @@
       return (
         changes.date !== undefined || changes.startTime !== undefined || changes.endTime !== undefined
       );
+    }
+    function needsHold(changes: ReservationChanges): boolean {
+      return isTimeChange(changes) || changes.partySize !== undefined;
     }
     export async function isPartySizeDepositBlocked(
       reservation: Reservation,
@@ -36156,15 +36821,13 @@
       const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
-    async function checkBookingWindow(
+    type ModifyVenue = NonNullable<Awaited<ReturnType<typeof venueService.getById>>>;
+    function checkBookingWindow(
+      venue: ModifyVenue,
       reservation: Reservation,
       changes: ReservationChanges
-    ): Promise<ModifyReservationResult | null> {
+    ): ModifyReservationResult | null {
       if (changes.startTime === undefined && changes.date === undefined) return null;
-      if (!reservation.venueId) return null;
-    
-      const venue = await venueService.getById(reservation.venueId);
-      if (!venue) return null;
     
       const newStart = new Date(changes.startTime ?? reservation.startTime);
       // The route's body schema guarantees a date-time; an unparseable value
@@ -36174,55 +36837,43 @@
       const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
       return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
     }
+    function checkGuestPolicy(
+      venue: ModifyVenue,
+      reservation: Reservation,
+      changes: ReservationChanges
+    ): ModifyReservationResult | null {
+      const violation = checkGuestModificationPolicy(
+        venue.settings,
+        { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+        { partySize: changes.partySize, movesTime: isTimeChange(changes) },
+        new Date()
+      );
+      return violation ? GUEST_POLICY_RESULTS[violation] : null;
+    }
     export async function modifyReservation(
       reservation: Reservation,
       changes: ReservationChanges,
-      deposits: DepositService
+      deposits: DepositService,
+      hold?: ModifyHold
     ): Promise<ModifyReservationResult> {
-      if (!hasAnyChange(changes)) {
+      if (!hasAnyChange(changes) && !hold) {
         return NO_CHANGES_RESULT;
       }
     
-      const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
-      if (depositGuardResult) {
-        return depositGuardResult;
+      if (needsHold(changes) && !hold) {
+        return HOLD_REQUIRED_RESULT;
       }
     
-      const windowResult = await checkBookingWindow(reservation, changes);
-      if (windowResult) {
-        return windowResult;
+      if (hold) {
+        return modifyViaHold(reservation, changes, deposits, hold);
       }
     
-      const { date, startTime, endTime, partySize, specialRequests } = changes;
-      const updateData = {
-        ...(date !== undefined && { date }),
-        ...(startTime !== undefined && { startTime }),
-        ...(endTime !== undefined && { endTime }),
-        ...(partySize !== undefined && { partySize }),
-        ...(specialRequests !== undefined && { notes: specialRequests }),
-      };
-    
-      const updateResult = await reservationService.updateWithConflictCheck(reservation.id, updateData);
-    
+      // Only a specialRequests edit reaches here: it needs no hold, no venue and
+      // no conflict check.
+      const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
+        notes: changes.specialRequests,
+      });
       if (!updateResult.success) {
-        if (updateResult.conflict) {
-          return {
-            success: false,
-            status: 409,
-            title: "Slot Unavailable",
-            detail: updateResult.error!,
-            code: "SLOT_UNAVAILABLE",
-          };
-        }
-        if (updateResult.capacityExceeded) {
-          return {
-            success: false,
-            status: 422,
-            title: "Party Size Exceeds Table Capacity",
-            detail: updateResult.error!,
-            code: "PARTY_SIZE_EXCEEDS_TABLE",
-          };
-        }
         return {
           success: false,
           status: 500,
@@ -36231,8 +36882,59 @@
           code: "RESERVATION_UPDATE_FAILED",
         };
       }
-    
       return { success: true, reservation: updateResult.reservation! };
+    }
+    async function modifyViaHold(
+      reservation: Reservation,
+      changes: ReservationChanges,
+      deposits: DepositService,
+      { holdId, sessionId }: ModifyHold
+    ): Promise<ModifyReservationResult> {
+      const venueId = reservation.venueId;
+      const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
+      if (!held || held.venueId !== venueId) {
+        return { success: false, detail: "Hold not found", ...MOVE_ERROR_RESULTS.NOT_FOUND };
+      }
+      if (held.sessionId !== sessionId) {
+        return {
+          success: false,
+          detail: "Session ID does not match the hold",
+          ...MOVE_ERROR_RESULTS.SESSION_MISMATCH,
+        };
+      }
+    
+      // The hold's slot is the change; whatever else the body carried is ignored.
+      const heldChanges: ReservationChanges = {
+        date: held.date.toISOString().slice(0, 10),
+        startTime: held.startTime.toISOString(),
+        endTime: held.endTime.toISOString(),
+        partySize: held.partySize,
+      };
+    
+      const depositGuardResult = await checkPartySizeDepositGuard(reservation, heldChanges, deposits);
+      if (depositGuardResult) {
+        return depositGuardResult;
+      }
+    
+      const venue = await venueService.getById(venueId);
+      if (venue) {
+        const blocked =
+          checkGuestPolicy(venue, reservation, heldChanges) ??
+          checkBookingWindow(venue, reservation, heldChanges);
+        if (blocked) return blocked;
+      }
+    
+      const moved = await moveReservationToHold({
+        reservation,
+        holdId,
+        sessionId,
+        venueId: venueId,
+        notes: changes.specialRequests,
+      });
+      if (!moved.success) {
+        return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
+      }
+      return { success: true, reservation: moved.reservation };
     }
   </file>
   <file path="services/reservations/src/services/reservation-no-show.ts">
@@ -36684,6 +37386,14 @@
       /** The party does not fit the caller-named table (route answers 422). */
       partyDoesNotFit?: boolean;
     }
+    function isSlotMove(data: UpdateReservationRequest): boolean {
+      return (
+        data.date !== undefined ||
+        data.startTime !== undefined ||
+        data.endTime !== undefined ||
+        data.tableId !== undefined
+      );
+    }
     export interface UpdateReservationResult {
       success: boolean;
       reservation?: Reservation;
@@ -37017,23 +37727,34 @@
                 await guestService.recordNoShow(existing.guestId, existing.startTime, client);
               }
     
+              if (data.status === "COMPLETED" && existing.guestId) {
+                // Count the visit in the SAME transaction as the status CAS. The
+                // CAS (`count === 0` returns above) plus the state machine's
+                // terminal COMPLETED state mean exactly one caller ever reaches
+                // this line per reservation, so visitCount cannot double-count.
+                // spendAmount is deliberately omitted: no source captures spend
+                // on completion yet, so lifetimeSpend stays untouched.
+                await guestService.recordVisit(existing.guestId, existing.startTime, undefined, client);
+              }
+    
               return client.reservation.findUnique({
                 where: { id },
                 include: { table: true },
               });
             };
     
-            const updated =
-              data.status === "NO_SHOW" && existing.guestId
-                ? await prisma.$transaction(async (tx) => {
-                    // This `prisma.$transaction` call bypasses the per-call
-                    // auto-wrap `services/venue-scoped-prisma.ts` gives the
-                    // `prisma` export — set app.venue_id on THIS transaction's
-                    // own `tx` explicitly (ADR-026 part 6).
-                    await setVenueContext(tx, getCurrentVenueId());
-                    return writeStatusChange(tx);
-                  })
-                : await writeStatusChange(prisma);
+            const touchesGuest =
+              (data.status === "NO_SHOW" || data.status === "COMPLETED") && existing.guestId;
+            const updated = touchesGuest
+              ? await prisma.$transaction(async (tx) => {
+                  // This `prisma.$transaction` call bypasses the per-call
+                  // auto-wrap `services/venue-scoped-prisma.ts` gives the
+                  // `prisma` export — set app.venue_id on THIS transaction's
+                  // own `tx` explicitly (ADR-026 part 6).
+                  await setVenueContext(tx, getCurrentVenueId());
+                  return writeStatusChange(tx);
+                })
+              : await writeStatusChange(prisma);
     
             return updated ? toReservation(updated) : null;
           }
@@ -37065,6 +37786,18 @@
     
         if (!existing) {
           return { success: false, error: "Reservation not found" };
+        }
+    
+        // The move path below writes no status (no state-machine check, status CAS
+        // or NO_SHOW/COMPLETED guest side effects), so a payload carrying both
+        // would persist the move and silently drop the status (#6882). Refuse it;
+        // the caller sends the status change as its own PATCH.
+        if (data.status !== undefined && isSlotMove(data)) {
+          return {
+            success: false,
+            error:
+              "A status change cannot be combined with a table or time change; send them as separate requests",
+          };
         }
     
         // A move onto another venue's table is refused before the capacity and
@@ -37101,11 +37834,7 @@
         }
     
         // Determine if we need to check for conflicts
-        const timeOrTableChanged =
-          data.date !== undefined ||
-          data.startTime !== undefined ||
-          data.endTime !== undefined ||
-          data.tableId !== undefined;
+        const timeOrTableChanged = isSlotMove(data);
     
         // Notes / party-size / preference edits are not slot moves — no lock needed.
         if (!timeOrTableChanged) {
@@ -37687,6 +38416,30 @@
       if (slotStart < window.earliest) return false;
       if (window.latestLocalDate === null) return true;
       return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
+    }
+    export type GuestModificationViolation = "MODIFICATION_CUTOFF" | "PARTY_SIZE_CHANGE_TOO_LARGE";
+    export function checkGuestModificationPolicy(
+      settings:
+        | Pick<VenueSettings, "guestModificationCutoffHours" | "guestMaxPartySizeChange">
+        | null
+        | undefined,
+      reservation: { startTime: Date; partySize: number },
+      changes: { partySize?: number; movesTime?: boolean },
+      now: Date
+    ): GuestModificationViolation | null {
+      const partyDelta =
+        changes.partySize === undefined ? 0 : Math.abs(changes.partySize - reservation.partySize);
+    
+      const cutoffHours = settings?.guestModificationCutoffHours;
+      if (cutoffHours !== undefined && (changes.movesTime || partyDelta > 0)) {
+        const hoursAway = (reservation.startTime.getTime() - now.getTime()) / MS_PER_HOUR;
+        if (hoursAway < cutoffHours) return "MODIFICATION_CUTOFF";
+      }
+    
+      const maxChange = settings?.guestMaxPartySizeChange;
+      if (maxChange !== undefined && partyDelta > maxChange) return "PARTY_SIZE_CHANGE_TOO_LARGE";
+    
+      return null;
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
@@ -38635,6 +39388,7 @@
       "reservation",
       "deposit",
       "waitlistEntry",
+      "reservationEvent",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -40444,13 +41198,6 @@
   </section>
   <section priority="medium" role="src">
   <file path="apps/gen/src/types.ts">
-    export interface HistoryEntry {
-      id: string;
-      prompt: string;
-      spec: Spec;
-      rawLines: string[];
-      timestamp: Date;
-    }
     export type EntryKind = "generate" | "refine" | "recover" | "failed";
     export interface StoredSpec {
       id: string;
@@ -45757,6 +46504,8 @@
       readonly cwd?: string;
       /** Timeout in milliseconds. Defaults to `DEFAULT_GIT_TIMEOUT_MS`. */
       readonly timeoutMs?: number;
+      /** Max stdout bytes. Omit to keep Node's 1 MiB default (unchanged for existing callers). */
+      readonly maxBuffer?: number;
     }
     interface ExecFileFailure {
       readonly message?: string;
@@ -45787,6 +46536,7 @@
         const { stdout } = await execFileAsync("git", [...args], {
           cwd: options.cwd,
           timeout: options.timeoutMs ?? DEFAULT_GIT_TIMEOUT_MS,
+          ...(options.maxBuffer === undefined ? {} : { maxBuffer: options.maxBuffer }),
         });
         return stdout.trim();
       } catch (cause) {
@@ -46315,6 +47065,20 @@
           controller.enqueue(value);
         },
       });
+    }
+  </file>
+  <file path="packages/agent-core/src/session-diff.ts">
+    export async function getSessionDiff(
+      worktreePath: string,
+      baseBranch: string
+    ): Promise<string | undefined> {
+      try {
+        const mergeBase = await runGit(["merge-base", baseBranch, "HEAD"], { cwd: worktreePath });
+        await runGit(["add", "--intent-to-add", "--all"], { cwd: worktreePath });
+        return await runGit(["diff", mergeBase], { cwd: worktreePath, maxBuffer: MAX_DIFF_BYTES });
+      } catch {
+        return undefined;
+      }
     }
   </file>
   <file path="packages/agent-core/src/session-runner.ts">
@@ -47317,7 +48081,7 @@
     }
     export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
       model: resolveModelId("haiku"),
-      maxBudgetUsd: 0.05,
+      maxBudgetUsd: 0.25,
     };
     function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult {
       const detail =
@@ -47343,13 +48107,19 @@
         return "";
       }
     }
-    export type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyInput, "diff">;
+    export const EMPTY_DIFF_MARKER = "(no changes — the session produced an empty diff)";
+    export type EvaluateSuccessConfig = Partial<EvaluationConfig> &
+      Omit<SkipPolicyInput, "diff"> & {
+        /** Bypass the skip policy — for callers (the eval judge) that must always get a real verdict. */
+        readonly forceEvaluate?: boolean;
+      };
     export async function evaluateSuccess(
       taskDescription: string,
       gitDiff: string,
       config?: EvaluateSuccessConfig
     ): Promise<EvaluationResult> {
-      if (!gitDiff.trim()) {
+      const isEmptyDiff = !gitDiff.trim();
+      if (isEmptyDiff && !config?.forceEvaluate) {
         return {
           passed: false,
           confidence: 1.0,
@@ -47363,14 +48133,17 @@
         testsPassed: config?.testsPassed,
         commitTitle: config?.commitTitle,
       });
-      if (skip.skip) {
+      if (skip.skip && !config?.forceEvaluate) {
         return { ...SKIP_RESULT, skipped: true, skipReason: skip.reason };
       }
     
       const mergedConfig = { ...DEFAULT_EVALUATION_CONFIG, ...config };
     
       try {
-        const prompt = buildEvaluationPrompt(taskDescription, gitDiff);
+        const prompt = buildEvaluationPrompt(
+          taskDescription,
+          isEmptyDiff ? EMPTY_DIFF_MARKER : gitDiff
+        );
     
         const conversation = query({
           prompt,
@@ -49670,6 +50443,9 @@
         encodeURIComponent(String(params?.[name]))
       );
     }
+    function hasHeader(headers: Record<string, string>, name: string): boolean {
+      return Object.keys(headers).some((key) => key.toLowerCase() === name);
+    }
     function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined {
       for (const [status, response] of Object.entries(def.responses)) {
         const code = Number(status);
@@ -49699,6 +50475,12 @@
        * unless explicitly opted in.
        */
       idempotentRetry?: boolean;
+      /**
+       * Extra headers for this call only (e.g. `x-session-id`, or a manage-token
+       * `Authorization: Bearer ...`). An explicit `Authorization` here wins over
+       * the client-wide `getAccessToken` token.
+       */
+      headers?: Record<string, string>;
     }
     export class ApiClient {
       private readonly timeout: number;
@@ -49721,9 +50503,10 @@
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
           ...(options.headers as Record<string, string>),
+          ...override?.headers,
         };
     
-        if (getAccessToken) {
+        if (getAccessToken && !hasHeader(headers, "authorization")) {
           const token = await getAccessToken();
           if (token) {
             headers.Authorization = `Bearer ${token}`;
@@ -50516,6 +51299,17 @@
       ianaTimezone: string;
       /** Contact phone number shown to guests on the manage-reservation page (#4979). */
       phone?: string;
+      /** Hours before start after which guests can no longer modify; null = venue default (#6907). */
+      modificationCutoffHours?: number | null;
+      /** Largest party-size change a guest may make; null = unlimited (#6907). */
+      maxPartySizeChange?: number | null;
+    }
+    export interface ManagedReservationChanges {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      partySize?: number;
+      specialRequests?: string;
     }
     export interface ManageReservationData {
       reservation: ManagedReservation;
@@ -50661,6 +51455,30 @@
           z.object({ data: schema })
         );
         return response.data;
+      }
+    
+      /**
+       * Modify a reservation via a guest-facing manage token (public, unauthenticated).
+       * When a hold is passed, its id goes in the body and its session in
+       * `x-session-id` so the server can prove the guest owns the new slot.
+       */
+      async modifyManaged(
+        token: string,
+        changes: ManagedReservationChanges,
+        hold?: { holdId: string; sessionId: string }
+      ): Promise<ManagedReservation> {
+        const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+        if (hold) headers["x-session-id"] = hold.sessionId;
+        const response = await this.client.request<{ data: { reservation: ManagedReservation } }>(
+          "/public/v1/reservations/manage",
+          {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify(hold ? { ...changes, holdId: hold.holdId } : changes),
+          },
+          z.object({ data: z.object({ reservation: managedReservationSchema }) })
+        );
+        return response.data.reservation;
       }
     }
   </file>
@@ -57999,6 +58817,10 @@
        * Default: 2
        */
       autoDepositAfterNoShows?: number;
+      /** Guests cannot change a booking whose current start is less than this many hours away. */
+      guestModificationCutoffHours?: number;
+      /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
+      guestMaxPartySizeChange?: number;
     }
     export type DepositType = "flat" | "per_person";
     export interface DepositConfig {
@@ -58301,8 +59123,9 @@
       // Wire the domain-service seam (issue #3357) — resolve the injectable services
       // once (production singletons by default, test fakes via options.services) and
       // decorate them so route plugins resolve dependencies from `fastify.services`
-      // instead of importing the sibling singleton at module scope. Decorated before
-      // route registration so child route plugins inherit it.
+      // instead of importing the sibling singleton at module scope. Adoption is
+      // complete and `routes/domain-services-adoption.test.ts` enforces it. Decorated
+      // before route registration so child route plugins inherit it.
       //
       // Payments are constructed exactly once, here: one StripeService (same env
       // name and placeholder fallback as before; getStripeConfig above still
@@ -60303,7 +61126,6 @@
     }
   </file>
   <file path="services/users/src/test/fixtures.ts">
-    export const MOCK_USER = createMockUser();
     export const MOCK_JWT_PAYLOAD = createMockJWTPayload();
     export const ADMIN_JWT_PAYLOAD = createMockJWTPayload({ permissions: ["admin"] });
   </file>
@@ -61545,7 +62367,8 @@
       modifyByGuest(
         reservation: Reservation,
         changes: ReservationChanges,
-        manageToken: string
+        manageToken: string,
+        hold?: ModifyHold
       ): Promise<ModifyReservationResult>;
       confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
       createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
@@ -61618,8 +62441,8 @@
           return result;
         },
     
-        async modifyByGuest(reservation, changes, manageToken) {
-          const result = await modifyReservation(reservation, changes, deposits);
+        async modifyByGuest(reservation, changes, manageToken, hold) {
+          const result = await modifyReservation(reservation, changes, deposits, hold);
           if (result.success) {
             await settle(
               {
@@ -61627,7 +62450,7 @@
                 before: reservation,
                 after: result.reservation,
                 manageToken,
-                timeChanged: isTimeChange(changes),
+                timeChanged: hold !== undefined || isTimeChange(changes),
               },
               reservation.venueId
             );
@@ -61776,6 +62599,28 @@
         ...reminderOps(reservation, now, "schedule").map((op) => background(job(op), "propagate")),
       ];
     }
+    function holdConfirmedMessages(
+      fact: Extract<TransitionFact, { kind: "hold-confirmed" }>,
+      now: Date
+    ): PlannedEffect[] {
+      if (fact.manageToken === undefined) return [];
+      if (fact.door === "public-booking") {
+        return confirmationChain(fact.reservation, fact.manageToken, now);
+      }
+      if (fact.door === "public-hold") {
+        return [
+          background(
+            message({
+              kind: "booking-confirmation",
+              reservation: fact.reservation,
+              manageToken: fact.manageToken,
+            }),
+            "propagate"
+          ),
+        ];
+      }
+      return [];
+    }
     function isStaffTimeChange(patch: UpdateReservationRequest): boolean {
       return patch.date !== undefined || patch.startTime !== undefined || patch.endTime !== undefined;
     }
@@ -61844,9 +62689,7 @@
     
         case "hold-confirmed":
           return [
-            ...(fact.door === "public-booking" && fact.manageToken !== undefined
-              ? confirmationChain(fact.reservation, fact.manageToken, now)
-              : []),
+            ...holdConfirmedMessages(fact, now),
             live(reservationEvent("hold:confirmed", fact.reservation)),
           ];
     
@@ -62853,6 +63696,14 @@
     }
     export function formatRatio(value: number): string {
       return `${(value * 100).toFixed(1)}%`;
+    }
+    export function formatWallClock(hours: number): string {
+      if (hours < 24) {
+        const h = Math.max(1, Math.round(hours));
+        return `${h} ${h === 1 ? "hour" : "hours"}`;
+      }
+      const days = Math.round(hours / 24);
+      return `${days} ${days === 1 ? "day" : "days"}`;
     }
     export function formatDate(iso: string): string {
       return new Date(iso).toLocaleDateString("en-US", {

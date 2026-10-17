@@ -33,6 +33,12 @@ export interface GenRouteConfig<TSchema extends z.ZodType> {
    * Return undefined to drop the event (default: the event itself).
    */
   readonly serializeEvent?: (event: GenStreamEvent) => unknown;
+  /**
+   * ndjson only: per-request variant of `serializeEvent`, built from the parsed
+   * body so it can hold request-scoped state (and throw to fail the run).
+   * Takes precedence over `serializeEvent`.
+   */
+  readonly createEventSerializer?: (parsed: z.infer<TSchema>) => (event: GenStreamEvent) => unknown;
   readonly getTools: (
     request: FastifyRequest,
     parsed: z.infer<TSchema>
@@ -70,7 +76,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
   config: GenRouteConfig<TSchema>
 ): FastifyPluginAsync {
   const { path, costLogLabel, rateLimit, schema, streamFormat, maxSteps, getTools } = config;
-  const serializeEvent = config.serializeEvent ?? ((event: GenStreamEvent) => event);
+  const defaultSerializeEvent = config.serializeEvent ?? ((event: GenStreamEvent) => event);
 
   const contentType =
     streamFormat === "text" ? "text/plain; charset=utf-8" : "application/x-ndjson; charset=utf-8";
@@ -149,6 +155,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
         }
 
         // ndjson: encode each event as a JSON line
+        const serializeEvent = config.createEventSerializer?.(parsed) ?? defaultSerializeEvent;
         const ndjsonStream = new ReadableStream({
           async start(controller) {
             let emitted = false;

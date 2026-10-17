@@ -15,6 +15,7 @@ export function BreadcrumbPage() {
       {/* ── Short Path ────────────────────────────────────────────── */}
       <Section title="Short Path">
         <Breadcrumb
+          aria-label="Short path"
           items={[{ label: "Home", href: "#" }, { label: "Vehicles", href: "#" }, { label: "F80" }]}
         />
       </Section>
@@ -22,6 +23,7 @@ export function BreadcrumbPage() {
       {/* ── Deep Path ─────────────────────────────────────────────── */}
       <Section title="Deep Path">
         <Breadcrumb
+          aria-label="Deep path"
           items={[
             { label: "Home", href: "#" },
             { label: "Telemetry", href: "#" },
@@ -35,6 +37,7 @@ export function BreadcrumbPage() {
       {/* ── Collapsed ─────────────────────────────────────────────── */}
       <Section title="Collapsed (maxItems=3)">
         <Breadcrumb
+          aria-label="Collapsed path"
           items={[
             { label: "Home", href: "#" },
             { label: "Telemetry", href: "#" },
@@ -59,6 +62,7 @@ export function BreadcrumbPage() {
             }}
           >
             <Breadcrumb
+              aria-label="Dashboard drivers path"
               items={[
                 { label: "Dashboard", href: "#" },
                 { label: "Drivers", href: "#" },
@@ -76,6 +80,7 @@ export function BreadcrumbPage() {
             }}
           >
             <Breadcrumb
+              aria-label="Settings team path"
               items={[
                 { label: "Settings", href: "#" },
                 { label: "Team", href: "#" },

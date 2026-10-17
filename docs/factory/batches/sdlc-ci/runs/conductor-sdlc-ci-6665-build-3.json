@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 57905,
+  "stop_reason": "end_turn",
+  "session_id": "e3efaded-b08b-48f4-aa07-4dc57e900c13",
+  "total_cost_usd": 0.616729,
+  "usage": {
+    "input_tokens": 18,
+    "cache_creation_input_tokens": 96870,
+    "cache_read_input_tokens": 969215,
+    "output_tokens": 3537,
+    "output_tokens_details": {
+      "thinking_tokens": 1455
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 96870,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 237,
+        "cache_read_input_tokens": 122057,
+        "cache_creation_input_tokens": 1115,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1115
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 18,
+      "outputTokens": 3537,
+      "cacheReadInputTokens": 969215,
+      "cacheCreationInputTokens": 96870,
+      "webSearchRequests": 0,
+      "costUSD": 0.616729,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1455,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 9,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0066 is unimplementable in this session: it's already documented as blocked on branch `conductor/sdlc-ci-6665` (commit `745609977`), for the same reason my tool grant forbids here \u2014 no `gh`, no `WebFetch`, no push, so there's no way to read a real Actions run's Test-job log to count `^build` cache-hit/miss lines. Nothing changed since that attempt, so I didn't re-record a duplicate blocker or check the box falsely; I wrote `pr-body.md` (uncommitted, at the worktree root) explaining this and made no code/doc changes, since none would be truthful. WO-0066 needs re-dispatch to a session with real GitHub Actions log access.",
+  "ttft_ms": 3286,
+  "type": "result",
+  "duration_ms": 62059,
+  "uuid": "746de313-06c5-4339-842e-058b90265786",
+  "ttft_stream_ms": 2552,
+  "time_to_request_ms": 405,
+  "first_content_frame_ms": 2553,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

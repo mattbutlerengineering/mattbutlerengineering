@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 113344,
+  "stop_reason": "end_turn",
+  "session_id": "a052c2c4-9261-49f3-9359-56d266ac1c00",
+  "total_cost_usd": 1.1384874,
+  "usage": {
+    "input_tokens": 42,
+    "cache_creation_input_tokens": 125383,
+    "cache_read_input_tokens": 2721357,
+    "output_tokens": 9260,
+    "output_tokens_details": {
+      "thinking_tokens": 2077
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 125383,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 430,
+        "cache_read_input_tokens": 149111,
+        "cache_creation_input_tokens": 2574,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2574
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 42,
+      "outputTokens": 9260,
+      "cacheReadInputTokens": 2721357,
+      "cacheCreationInputTokens": 125383,
+      "webSearchRequests": 0,
+      "costUSD": 1.1384874,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2077,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 21,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0016 is implemented and committed, with its checkbox checked off in the breakdown. Summary:\n\n- **Added** `.claude/skills/ship-pr/SKILL.md` \u2014 the `/ship-pr <N> [--ready]` protocol, pointing at the existing `.claude/implement-queue.md` sections (ci-status, fast-path, reviewers, merge-command) and scripts (`ci-gate-status.mjs`, `agent-core-build-freshness.mjs`, `reviewersForDiff`) rather than restating their logic.\n- **Checked off** WO-0016 in `docs/features/ship-pr/breakdown.md`.\n- Verified all four acceptance-criteria greps pass, confirmed the diff touches only those two files (no new script/classifier), and committed (`cc8b50c5e`) \u2014 pre-commit ADR + antipattern gates passed.\n- `pr-body.md` written at the worktree root, left uncommitted as instructed.\n\nOne note: `scripts/conductor-gate.sh` surfaced a pre-existing, unrelated `@mbe/infrastructure#test` timeout (Pulumi test hook, nothing touching `.claude/` or `docs/`) \u2014 out of scope for this doc-only work order; documented in the PR body rather than chased.",
+  "ttft_ms": 2066,
+  "type": "result",
+  "duration_ms": 388813,
+  "uuid": "4a400f4d-97a2-4688-83bb-d1bc4b446ac8",
+  "ttft_stream_ms": 1444,
+  "time_to_request_ms": 430,
+  "first_content_frame_ms": 1445,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

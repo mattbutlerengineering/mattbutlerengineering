@@ -11,7 +11,6 @@ import { defaultT } from "../../i18n/default-t.js";
 /** Substrings that mark a dietary restriction as an allergy (ux.md Screen 1). */
 export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
 
-export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
 export type GuestSegmentVariant = "accent" | "success" | "neutral";
 export type GuestRiskVariant = "error" | "warning" | "neutral";
 

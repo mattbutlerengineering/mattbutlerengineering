@@ -77,8 +77,12 @@ describe("needsFullRegen", () => {
     expect(needsFullRegen([".github/workflows/ci.yml"])).toBe(false);
   });
 
-  it("returns false for root markdown changes", () => {
-    expect(needsFullRegen(["README.md", "AGENTS.md"])).toBe(false);
+  it("returns false for root markdown changes other than AGENTS.md", () => {
+    expect(needsFullRegen(["README.md", "CLAUDE.md"])).toBe(false);
+  });
+
+  it("returns true when only AGENTS.md changed (.cursorrules is generated from it)", () => {
+    expect(needsFullRegen(["AGENTS.md"])).toBe(true);
   });
 
   it("returns true for package.json changes in a workspace package (dep-graph trigger)", () => {

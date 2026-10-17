@@ -288,10 +288,18 @@ export const guestService = {
 
   /**
    * Update visit statistics after a completed reservation.
+   *
+   * Accepts an optional transaction client so reservationService.update can
+   * run this write in the SAME transaction as the COMPLETED status change.
    */
-  async recordVisit(guestId: string, visitDate: Date, spendAmount?: number): Promise<Guest | null> {
+  async recordVisit(
+    guestId: string,
+    visitDate: Date,
+    spendAmount?: number,
+    client: Prisma.TransactionClient = prisma
+  ): Promise<Guest | null> {
     try {
-      const guest = await prisma.guest.update({
+      const guest = await client.guest.update({
         where: { id: guestId },
         data: {
           visitCount: { increment: 1 },

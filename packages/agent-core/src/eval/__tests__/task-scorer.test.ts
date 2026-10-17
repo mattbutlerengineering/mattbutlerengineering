@@ -214,8 +214,7 @@ describe("scoreTask — LLM judge (stubbed via JudgeFunction seam)", () => {
     expect(score.judgeResult).toBeUndefined();
   });
 
-  it("treats judge as passed when no judge function provided but judgeCriteria present", async () => {
-    // No judge passed — should default to passing (don't block deterministic tasks)
+  it("fails closed (inconclusive) when no judge function provided but judgeCriteria present", async () => {
     const task = makeTask({
       rubric: {
         testsMustPass: true,
@@ -225,9 +224,8 @@ describe("scoreTask — LLM judge (stubbed via JudgeFunction seam)", () => {
       },
     });
     const score = await scoreTask(makeRun(ALL_PASS, task));
-    // judge not provided, criteria ignored → pure deterministic scoring
-    expect(score.passed).toBe(true);
-    expect(score.judgeResult).toBeUndefined();
+    expect(score.passed).toBe(false);
+    expect(score.judgeResult?.evaluationFailed).toBe(true);
   });
 });
 

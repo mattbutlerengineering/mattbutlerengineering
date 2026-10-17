@@ -233,14 +233,6 @@
     </item>
   </file>
   <file path="src/routes/events.ts">
-    <item priority="high">
-      export function getConnectionManager(): SseConnectionManager { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createConnectionManager(
-        config?: Partial<SseConnectionConfig>
-      ): SseConnectionManager { /* ... */ }
-    </item>
     <item priority="medium">
       function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] { /* ... */ }
     </item>
@@ -606,9 +598,6 @@
         venueB: { id: string; slug: string };
         venueC: { id: string };
       }
-    </item>
-    <item priority="low">
-      type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
     </item>
     <item priority="high">
       export function inWindowDate(daysAhead: number): string { /* ... */ }
@@ -1276,9 +1265,9 @@
       interface DomainServices {
         availabilityService: typeof availabilityService;
         venueService: typeof venueService;
+        venueGroupService: typeof venueGroupService;
         tableService: typeof tableService;
         reservationService: typeof reservationService;
-        guestService: typeof guestService;
       }
     </item>
     <item priority="high">
@@ -1286,9 +1275,6 @@
     </item>
   </file>
   <file path="src/services/events.ts">
-    <item priority="low">
-      type ReservationEventType = SseEventName;
-    </item>
     <item priority="low">
       type ReservationEvent = SseEvent;
     </item>
@@ -1607,6 +1593,26 @@
       ): Promise<string[]> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/move-to-hold.ts">
+    <item priority="high">
+      type MoveToHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+    </item>
+    <item priority="low">
+      interface MoveToHoldInput {
+        reservation: Reservation;
+        holdId: string;
+        sessionId: string;
+        venueId: string;
+        notes?: string;
+      }
+    </item>
+    <item priority="low">
+      type MoveToHoldResult = { success: true; reservation:  | { success: false; error: strin;
+    </item>
+    <item priority="high">
+      export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
@@ -1734,6 +1740,12 @@
       }
     </item>
     <item priority="low">
+      interface ModifyHold {
+        holdId: string;
+        sessionId: string;
+      }
+    </item>
+    <item priority="low">
       type ModifyReservationResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="medium">
@@ -1741,6 +1753,9 @@
     </item>
     <item priority="high">
       export function isTimeChange(changes: ReservationChanges): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function needsHold(changes: ReservationChanges): boolean { /* ... */ }
     </item>
     <item priority="high">
       export async function isPartySizeDepositBlocked(
@@ -1756,17 +1771,37 @@
         deposits: DepositService
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
-    <item priority="low">
-      async function checkBookingWindow(
+    <item priority="high">
+      type ModifyVenue = NonNullable<Awaited<ReturnType<typeof venueService.getByI...;
+    </item>
+    <item priority="medium">
+      function checkBookingWindow(
+        venue: ModifyVenue,
         reservation: Reservation,
         changes: ReservationChanges
-      ): Promise<ModifyReservationResult | null> { /* ... */ }
+      ): ModifyReservationResult | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkGuestPolicy(
+        venue: ModifyVenue,
+        reservation: Reservation,
+        changes: ReservationChanges
+      ): ModifyReservationResult | null { /* ... */ }
     </item>
     <item priority="high">
       export async function modifyReservation(
         reservation: Reservation,
         changes: ReservationChanges,
-        deposits: DepositService
+        deposits: DepositService,
+        hold?: ModifyHold
+      ): Promise<ModifyReservationResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function modifyViaHold(
+        reservation: Reservation,
+        changes: ReservationChanges,
+        deposits: DepositService,
+        { holdId, sessionId }: ModifyHold
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
@@ -1850,6 +1885,9 @@
         error?: string;
         conflict?: ConflictCheckResult;
       }
+    </item>
+    <item priority="medium">
+      function isSlotMove(data: UpdateReservationRequest): boolean { /* ... */ }
     </item>
     <item priority="low">
       interface UpdateReservationResult {
@@ -2063,6 +2101,20 @@
     </item>
     <item priority="high">
       export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      type GuestModificationViolation = "MODIFICATION_CUTOFF" | "PARTY_SIZE_CHANGE_TOO_LARGE";
+    </item>
+    <item priority="high">
+      export function checkGuestModificationPolicy(
+        settings:
+          | Pick<VenueSettings, "guestModificationCutoffHours" | "guestMaxPartySizeChange">
+          | null
+          | undefined,
+        reservation: { startTime: Date; partySize: number },
+        changes: { partySize?: number; movesTime?: boolean },
+        now: Date
+      ): GuestModificationViolation | null { /* ... */ }
     </item>
     <item priority="high">
       export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];
@@ -2897,6 +2949,12 @@
       function confirmationChain(
         reservation: Reservation,
         manageToken: string,
+        now: Date
+      ): PlannedEffect[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function holdConfirmedMessages(
+        fact: Extract<TransitionFact, { kind: "hold-confirmed" }>,
         now: Date
       ): PlannedEffect[] { /* ... */ }
     </item>

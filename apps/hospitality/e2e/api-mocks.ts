@@ -15,6 +15,27 @@ function loadFixture(name: string): string {
   return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
 }
 
+/**
+ * The staff venues fixture, with its clock moved onto the runner's zone.
+ *
+ * Staff screens render times on the *venue's* clock (#6706), while these specs build instants with
+ * `atLocal()` and pin the browser clock with `page.clock` in the runner's zone. A fixture venue in
+ * `America/New_York` only agrees with them on a runner that happens to be in New York; CI runs in
+ * UTC, which put 20:00 local at 4:00 PM on the venue clock (#6956). The public-venue fixtures keep
+ * the fixture's zone: the booking widget specs assert its DST offset.
+ */
+function loadStaffVenues(): {
+  data: Array<Record<string, unknown>>;
+  pagination: Record<string, unknown>;
+} {
+  const venues = JSON.parse(loadFixture("venues-list")) as {
+    data: Array<Record<string, unknown>>;
+    pagination: Record<string, unknown>;
+  };
+  const ianaTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return { ...venues, data: venues.data.map((venue) => ({ ...venue, ianaTimezone })) };
+}
+
 function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> {
   return route.fulfill({
     status,
@@ -273,7 +294,7 @@ export async function mockApi(page: Page): Promise<void> {
   let createdVenue: Record<string, unknown> | null = null;
   await page.route("**/api/v1/venues", (route) => {
     if (route.request().method() !== "POST") return route.fallback();
-    const venues = JSON.parse(loadFixture("venues-list"));
+    const venues = loadStaffVenues();
     let body: Record<string, unknown> = {};
     try {
       const parsed = route.request().postDataJSON();
@@ -298,10 +319,7 @@ export async function mockApi(page: Page): Promise<void> {
     });
   });
   await page.route("**/api/v1/venues?*", (route) => {
-    const venues = JSON.parse(loadFixture("venues-list")) as {
-      data: Array<Record<string, unknown>>;
-      pagination: Record<string, unknown>;
-    };
+    const venues = loadStaffVenues();
     const allData = createdVenue ? [...venues.data, createdVenue] : venues.data;
     return route.fulfill({
       status: 200,
@@ -318,7 +336,7 @@ export async function mockApi(page: Page): Promise<void> {
   );
   await page.route(/\/api\/v1\/venues\/[^/?]+$/, (route) => {
     const method = route.request().method();
-    const venues = JSON.parse(loadFixture("venues-list"));
+    const venues = loadStaffVenues();
     if (method === "POST" || method === "PATCH") {
       return jsonOk(route, { ...venues.data[0], updatedAt: new Date().toISOString() });
     }
@@ -703,6 +721,9 @@ export async function mockApi(page: Page): Promise<void> {
     });
   });
   await page.route("**/api/v1/guests/segments*", (route) => jsonResponse(route, "guest-segments"));
+  // The Home dashboard's lapsing-guests widget. Empty by default; specs that render the widget
+  // mount their own route after mockApi (locale-sweep, visual).
+  await page.route("**/api/v1/guests/lapsing?*", (route) => jsonOk(route, []));
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
     return jsonOk(route, guests.data[0]);

@@ -5,6 +5,7 @@ import { VisibilityConditionStrictSchema } from "@json-render/core";
 import { tool } from "ai";
 import { z } from "zod";
 import { createGenRoute } from "./gen-route-factory.js";
+import type { GenStreamEvent } from "./gen-runner.js";
 
 // catalog.prompt() documents the components/props (kept) but also instructs
 // the model to emit raw JSONL RFC-6902 patch text (@json-render/core's
@@ -28,7 +29,47 @@ const GenUiBodySchema = z.object({
   // the prompt when refining — a modest real spec easily exceeds a few KB.
   prompt: z.string().min(1).max(20000),
   context: z.record(z.string(), z.unknown()).optional(),
+  // Point-and-refine: regenerate only the subtree rooted at this element.
+  target: z
+    .object({ key: z.string().min(1).max(200), type: z.string().min(1).max(200) })
+    .optional(),
 });
+
+type GenUiBody = z.infer<typeof GenUiBodySchema>;
+
+function scopedInstruction(target: { key: string; type: string }): string {
+  return (
+    `Scope: regenerate ONLY the replacement subtree for the selected ${target.type} element. ` +
+    `Its root element MUST use key === ${JSON.stringify(target.key)} and omit \`parentKey\`. ` +
+    "Use only catalog components, emit exactly one root, and keep every change within that subtree."
+  );
+}
+
+const serializeElement = (event: GenStreamEvent) =>
+  event.type === "element" ? event.element : undefined;
+
+/**
+ * Per-request guard for target mode: the first emitted element must carry
+ * target.key and no second root (no parentKey) may follow. Throwing fails the
+ * run through the factory's 502 path instead of streaming a bad subtree.
+ */
+function createTargetGuard(targetKey: string) {
+  let seen = 0;
+  return (event: GenStreamEvent): unknown => {
+    const raw = serializeElement(event);
+    if (raw === undefined) return undefined;
+    // The render_component input schema guarantees this shape at runtime.
+    const element = raw as { key: string; parentKey?: string | null };
+    if (seen === 0 && element.key !== targetKey) {
+      throw new Error(`Subtree root key "${element.key}" does not match target "${targetKey}"`);
+    }
+    if (seen > 0 && element.parentKey == null) {
+      throw new Error("Subtree generation emitted a second root element");
+    }
+    seen += 1;
+    return element;
+  };
+}
 
 // A single, side-effect-free render tool — unlike gen-agent's tool set, this
 // route never touches reservations/guests/tables, so it's safe to expose to
@@ -97,16 +138,19 @@ export const genUiRoutes = createGenRoute({
   // ai@7 to retry the tool call on, so a tool-error can only ever mean the
   // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
   failOnToolError: true,
-  toMessages: ({ prompt, context }) => [
+  toMessages: ({ prompt, context, target }: GenUiBody) => [
     {
       role: "user",
-      content: context
-        ? `${prompt}
-
-Context: ${JSON.stringify(context)}`
-        : prompt,
+      content: [
+        prompt,
+        context ? `Context: ${JSON.stringify(context)}` : undefined,
+        target ? scopedInstruction(target) : undefined,
+      ]
+        .filter((part) => part !== undefined)
+        .join("\n\n"),
     },
   ],
-  serializeEvent: (event) => (event.type === "element" ? event.element : undefined),
+  createEventSerializer: ({ target }: GenUiBody) =>
+    target ? createTargetGuard(target.key) : serializeElement,
   getTools: () => ({ render_component: createRenderComponentTool() }),
 });

@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 109837,
+  "stop_reason": "end_turn",
+  "session_id": "1b30c32c-aa51-4169-a280-812a0c122c9a",
+  "total_cost_usd": 1.0839636000000001,
+  "usage": {
+    "input_tokens": 48,
+    "cache_creation_input_tokens": 110000,
+    "cache_read_input_tokens": 2845888,
+    "output_tokens": 7469,
+    "output_tokens_details": {
+      "thinking_tokens": 368
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 110000,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 302,
+        "cache_read_input_tokens": 135198,
+        "cache_creation_input_tokens": 1104,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1104
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 48,
+      "outputTokens": 7469,
+      "cacheReadInputTokens": 2845888,
+      "cacheCreationInputTokens": 110000,
+      "webSearchRequests": 0,
+      "costUSD": 1.0839636000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 368,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 24,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Verification complete \u2014 all five work orders (WO-6..WO-10) hold up under re-verification. SC-1 through SC-5 and R4 all pass:\n\n- **SC-1**: `tsc --noEmit` on hospitality exits 0, no TS2307\n- **SC-2**: no-op run = 0.32s (budget 5s)\n- **SC-3**: unit tests 22/22 pass\n- **SC-4**: hint hook correct in all three states; `hook-input.test.mjs` 43/43 pass\n- **R4/SC-5**: docs edited and prettier-clean; full gate (`conductor-gate.sh`) green \u2014 282 test files, 5267 tests, 7/7 turbo tasks\n\n`verification.md` is committed (`0bd5b88af`); `pr-body.md` is written at the worktree root, uncommitted, as instructed. No defects found \u2014 nothing routes back to Implement.",
+  "ttft_ms": 6016,
+  "type": "result",
+  "duration_ms": 257508,
+  "uuid": "010b9d78-626f-498a-b2c1-f28bfb25172a",
+  "ttft_stream_ms": 5417,
+  "time_to_request_ms": 3646,
+  "first_content_frame_ms": 5417,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

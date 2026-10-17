@@ -19,8 +19,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.296",
-    "@mbe/types": "workspace:*"
+    "@anthropic-ai/claude-agent-sdk": "^0.3.296"
   },
   "peerDependencies": {
     "@mbe/agent-core": "workspace:*"

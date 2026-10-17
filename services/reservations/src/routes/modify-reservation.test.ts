@@ -22,7 +22,21 @@ vi.mock("../services/venue.js", () => ({
     getBySlug: vi.fn(),
     getPolicyById: vi.fn(),
   },
+  // buildApp eagerly composes defaultDomainServices, which now includes
+  // venueGroupService; this suite never calls it.
+  venueGroupService: {},
 }));
+
+vi.mock("../services/move-to-hold.js", () => ({
+  moveReservationToHold: vi.fn(),
+}));
+
+vi.mock("../services/database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: { reservationHold: { findUnique: vi.fn() } },
+  });
+});
 
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
@@ -40,6 +54,8 @@ vi.mock("../services/resolve-venue.js", () => ({
 
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { moveReservationToHold } from "../services/move-to-hold.js";
+import { prisma } from "../services/database.js";
 import type { VenuePolicy } from "../services/venue.js";
 import type { DepositService } from "../services/deposit.js";
 
@@ -96,6 +112,25 @@ const mockVenue = {
   ianaTimezone: "America/Los_Angeles",
   address: "123 Oak St, Portland OR",
 };
+
+const SESSION_ID = "sess_1";
+const SESSION_HEADERS = { "x-session-id": SESSION_ID };
+
+/** The guest's hold on the slot the change moves to, as the service loads it. */
+function mockHold(overrides: Record<string, unknown> = {}): void {
+  const start = new Date(IN_WINDOW_START);
+  vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce({
+    id: "hold_1",
+    venueId: "venue_1",
+    tableId: "table_1",
+    date: start,
+    startTime: start,
+    endTime: new Date(start.getTime() + 2 * 60 * 60 * 1000),
+    partySize: 6,
+    sessionId: SESSION_ID,
+    ...overrides,
+  } as never);
+}
 
 function createStubNotificationDispatcher(): Pick<
   NotificationDispatcher,
@@ -161,17 +196,20 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+    vi.mocked(moveReservationToHold).mockResolvedValueOnce({
       success: true,
       reservation: updatedReservation,
     } as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
+    mockHold();
+
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { partySize: 6, startTime: IN_WINDOW_START },
+      headers: SESSION_HEADERS,
+      payload: { holdId: "hold_1" },
     });
 
     expect(response.statusCode).toBe(200);
@@ -186,16 +224,22 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+    vi.mocked(moveReservationToHold).mockResolvedValueOnce({
       success: true,
       reservation: updatedReservation,
     } as never);
+    // manage scope, then the guest modification policy check, then the notification
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    mockHold({ partySize: 2 });
 
     await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { partySize: 2 },
+      headers: SESSION_HEADERS,
+      payload: { holdId: "hold_1" },
     });
 
     expect(stubNotifications.sendBookingModified).toHaveBeenCalledWith(
@@ -214,17 +258,20 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+    vi.mocked(moveReservationToHold).mockResolvedValueOnce({
       success: false,
-      error: "Time slot has a conflict with an existing reservation or hold",
-      conflict: { hasConflict: true },
-    } as never);
+      error: "Time slot is no longer available",
+      errorCode: "CONFLICT",
+    });
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    mockHold();
 
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { startTime: IN_WINDOW_START },
+      headers: SESSION_HEADERS,
+      payload: { holdId: "hold_1" },
     });
 
     expect(response.statusCode).toBe(409);
@@ -284,16 +331,19 @@ describe("PATCH /public/v1/reservations/manage", () => {
       status: "held",
     } as never);
 
+    mockHold({ partySize: 6 });
+
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { partySize: 6 },
+      headers: SESSION_HEADERS,
+      payload: { holdId: "hold_1" },
     });
 
     expect(response.statusCode).toBe(409);
     expect(response.json().code).toBe("PARTY_SIZE_DEPOSIT_HELD");
     expect(response.json().detail).toMatch(/cancel/i);
-    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+    expect(moveReservationToHold).not.toHaveBeenCalled();
   });
 
   it("returns 400 when no fields provided", async () => {
@@ -462,18 +512,19 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
       // the manage-token scope loads the reservation once
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      vi.mocked(moveReservationToHold).mockResolvedValueOnce({
         success: true,
         reservation: updatedReservation,
       } as never);
+      mockHold();
       vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
       vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
       const response = await transportApp.inject({
         method: "PATCH",
         url: "/public/v1/reservations/manage",
-        headers: { authorization: `Bearer ${token}` },
-        payload: { partySize: 6, startTime: IN_WINDOW_START },
+        headers: { authorization: `Bearer ${token}`, ...SESSION_HEADERS },
+        payload: { holdId: "hold_1" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -492,6 +543,95 @@ describe("PATCH /public/v1/reservations/manage", () => {
       expect(response.statusCode).toBe(400);
       expect(response.json().title).toBe("Missing Token");
     });
+  });
+});
+
+describe("PATCH /public/v1/reservations/manage — hold-required changes", () => {
+  let holdApp: FastifyInstance;
+
+  beforeAll(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    holdApp = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      notificationPort: createStubNotificationDispatcher() as never,
+      jobs: {
+        schedule: vi.fn().mockResolvedValue("job"),
+        cancel: vi.fn().mockResolvedValue(false),
+      },
+    });
+    await holdApp.ready();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await holdApp.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+  });
+
+  function patch(body: Record<string, unknown>, headers: Record<string, string> = {}) {
+    const token = generateManageToken("res_1", "jane@example.com");
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getById).mockResolvedValue(mockVenue as never);
+    return holdApp.inject({
+      method: "PATCH",
+      url: `/public/v1/reservations/manage?token=${token}`,
+      headers,
+      payload: body,
+    });
+  }
+
+  it("answers 400 HOLD_REQUIRED for a party-size change without a hold", async () => {
+    const response = await patch({ partySize: 6 });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe("HOLD_REQUIRED");
+    expect(moveReservationToHold).not.toHaveBeenCalled();
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("answers 400 HOLD_REQUIRED when the hold has no x-session-id", async () => {
+    const response = await patch({ startTime: IN_WINDOW_START, holdId: "hold_1" });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe("HOLD_REQUIRED");
+  });
+
+  it("applies a specialRequests-only edit without a hold", async () => {
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: { ...mockReservation, notes: "quiet" },
+    } as never);
+
+    const response = await patch({ specialRequests: "quiet" });
+
+    expect(response.statusCode).toBe(200);
+  });
+
+  it("answers 410 HOLD_EXPIRED and leaves the reservation alone when the hold lapsed", async () => {
+    mockHold();
+    vi.mocked(moveReservationToHold).mockResolvedValueOnce({
+      success: false,
+      error: "Hold has expired",
+      errorCode: "EXPIRED",
+    });
+
+    const response = await patch({ holdId: "hold_1" }, SESSION_HEADERS);
+
+    expect(response.statusCode).toBe(410);
+    expect(response.json().code).toBe("HOLD_EXPIRED");
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("answers 400 STATUS_CHANGE_NOT_ALLOWED for any body carrying status", async () => {
+    const response = await patch({ status: "CONFIRMED", specialRequests: "x" });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe("STATUS_CHANGE_NOT_ALLOWED");
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
   });
 });
 

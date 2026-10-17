@@ -383,3 +383,36 @@ surfaces.
 The first two stopped on false premises in this brief, and each was
 correctly surfaced. Neither was a broken stage. The user directed the run
 to advance after answering.
+
+## Resume 2026-10-16 — implementation already merged
+
+The user re-invoked autorun on this run (chose it over ship-pr,
+venue-scoped-routes and a new run). Facts measured at resume, not
+assumptions:
+
+- `breakdown.md` is 15/15 checked. The implementation merged to `main` as
+  **PR #6355** at 2026-10-12T00:59:29Z, under this brief's release
+  authorization (answer 7: "Merge on green"). `verification.md`,
+  `review.md` and `release.md` were never written.
+- The original worktree (`worktree-remembered-on-arrival`) is 310 commits
+  behind `origin/main` and stale. The remaining stages run in
+  `/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/roa-close`
+  on branch `docs/remembered-on-arrival-close`, cut from `origin/main`.
+  Run `pnpm install --frozen-lockfile` there before any test command.
+- Open-PR pre-flight at resume: zero open pull requests.
+
+What this means per stage:
+
+- **Verify** grades the code as it is on `main` now, not the old branch:
+  the PRD's success criteria against merged code, plus the production
+  evidence answer 9 names (public pages probed on prod, real browser,
+  console free of CSP refusals; host ticket via tests/E2E). Never create
+  a production reservation or send a real email.
+- **Review** reviews the change as merged (`git show` the #6355 squash
+  commit on `main`), including anything on `main` since that touched the
+  same files.
+- **Ship** records a release that already happened. The merge is done;
+  Ship's job is the pre-flight record, the deploy evidence for #6355's
+  merge commit (job-level conclusions, never the workflow rollup), and
+  the rollback steps. It executes no new release action. A critical
+  review finding is reported as a live production defect, not a blocker.

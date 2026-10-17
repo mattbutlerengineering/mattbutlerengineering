@@ -74,6 +74,8 @@ export interface DropdownMenuProps {
   items: MenuEntry[];
   /** Align dropdown to left (default) or right edge of trigger */
   align?: "left" | "right";
+  /** Open below the trigger (default) or above it — use `top` for triggers pinned to the bottom of a container */
+  side?: "bottom" | "top";
 }
 
 /* ── Helpers ─────────────────────────────────── */
@@ -96,7 +98,7 @@ function mergeRefs<T>(...refs: (ForwardedRef<T> | React.RefObject<T | null>)[]) 
 
 /* ── Component ──────────────────────────────── */
 export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(function DropdownMenu(
-  { trigger, items, align = "left" },
+  { trigger, items, align = "left", side = "bottom" },
   ref
 ) {
   const [open, setOpen] = useState(false);
@@ -108,6 +110,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   const generatedTriggerId = useId();
   const triggerId = (trigger.props as { id?: string }).id ?? generatedTriggerId;
   const shouldReduceMotion = motionPreset.reduced;
+  const slide = side === "top" ? 4 : -4;
 
   useReturnFocus(open);
 
@@ -230,11 +233,12 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
             className={cn(styles.menu, align === "right" && styles.menuRight)}
             id={menuId}
             role="menu"
+            data-side={side}
             aria-labelledby={triggerId}
             onKeyDown={handleKeyDown}
-            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: slide }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: slide }}
             transition={motionPreset.springGentle}
           >
             {items.map((entry, i) => {

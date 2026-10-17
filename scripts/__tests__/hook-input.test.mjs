@@ -26,6 +26,7 @@ import {
   rmSync,
   chmodSync,
   symlinkSync,
+  realpathSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -270,8 +271,6 @@ const bashCommandContaining = (needle) => bashHookCommands().find((cmd) => cmd.i
 
 /**
  * The three hooks repaired off the fictional `$CLAUDE_BASH_COMMAND`.
- * `regen-after-update-branch.sh` is deliberately NOT here — see the
- * env-var scan below.
  */
 const REPAIRED_BASH_HOOKS = ["pre-bash-guard.sh", "pre-push-typecheck.sh", "verify-push-sha.sh"];
 
@@ -715,14 +714,261 @@ describe("no hook reads the fictional Bash-tool env vars", () => {
     expect(filesContaining(["CLAUDE_BASH_COMMAND"])).toEqual([]);
   });
 
-  it("confines CLAUDE_TOOL_INPUT/CLAUDE_TOOL_OUTPUT to the one known-inert hook", () => {
-    // regen-after-update-branch.sh is deliberately left inert: repairing its
-    // input would arm never-executed `git checkout origin/$branch --detach`
-    // + `git push --no-verify` against the live working tree (lines 36-58).
-    // Recorded in docs/backlog.md; rewrite those lines before adopting the
-    // adapter there. Exact equality keeps that repair a deliberate act.
-    expect(filesContaining(["CLAUDE_TOOL_INPUT", "CLAUDE_TOOL_OUTPUT"])).toEqual([
-      "regen-after-update-branch.sh",
-    ]);
+  it("references no CLAUDE_TOOL_INPUT/CLAUDE_TOOL_OUTPUT anywhere under .claude/hooks/", () => {
+    expect(filesContaining(["CLAUDE_TOOL_INPUT", "CLAUDE_TOOL_OUTPUT"])).toEqual([]);
   });
+});
+
+/**
+ * The three PostToolUse path hooks resolve a repo root of their own, because
+ * each one has to `cd` somewhere before it can run a repo-relative command
+ * (`node scripts/regen-manifest.mjs`, `node scripts/changeset-hook.mjs`) and
+ * before it can strip `file_path` down to the repo-root-relative form those
+ * callees expect.
+ *
+ * They used to resolve it from `$CLAUDE_PROJECT_DIR`, which — as measured
+ * 2026-10-15 and recorded in `.claude/rules/gotchas.md` — is the MAIN checkout
+ * even for a worktree-isolated subagent. For an edit inside a linked worktree
+ * that was wrong twice over: the regen ran against the main checkout (so the
+ * worktree's own generated artifacts stayed stale and its PR shipped them that
+ * way, failing CI's Integrity/Build check), and the `rel_path` strip no-opped
+ * (the main checkout's prefix does not match a worktree path), so the callee
+ * got an absolute path where it expected a repo-root-relative one.
+ *
+ * The edited file's own tree is the tree the edit happened in, so that is what
+ * these hooks resolve now — `$CLAUDE_PROJECT_DIR` stays only as the fallback.
+ *
+ * `scripts/regen-manifest.mjs` and `scripts/changeset-hook.mjs` are stubbed
+ * per-tree here, each printing a marker naming the tree it was loaded from.
+ * That keeps these tests about the one thing the hooks own — which tree they
+ * act on — and leaves the real manifest and the real changeset rule to their
+ * own unit tests.
+ */
+describe("hook seam: path hooks act on the tree the edited file lives in", () => {
+  let sandbox;
+  let env;
+  let pnpmLog;
+
+  const git = (cwd, ...args) =>
+    spawnSync(
+      "git",
+      [
+        "-c",
+        "user.email=hook-test@example.com",
+        "-c",
+        "user.name=hook-test",
+        "-c",
+        "commit.gpgsign=false",
+        ...args,
+      ],
+      { cwd, encoding: "utf8" }
+    );
+
+  /**
+   * A main checkout plus a LINKED WORKTREE on its own branch — the shape every
+   * `isolation: "worktree"` subagent runs in. Both trees carry their own
+   * stubbed `scripts/`, so which tree a hook used is directly observable.
+   */
+  function fixtureWithWorktree() {
+    const work = join(sandbox, "work");
+    const tree = join(sandbox, "linked");
+    git(sandbox, "init", "-q", "-b", "main", work);
+    mkdirSync(join(work, "packages", "rialto", "src"), { recursive: true });
+    writeFileSync(join(work, "packages", "rialto", "package.json"), "{}\n");
+    // Tracked, so the directory actually exists in the linked worktree — git
+    // does not carry empty directories, and without this the src-path hooks
+    // would fall back to the project dir for a fixture reason, not a real one.
+    writeFileSync(join(work, "packages", "rialto", "src", "index.ts"), "export const x = 1;\n");
+    git(work, "add", "-A");
+    git(work, "commit", "-qm", "init");
+    git(work, "worktree", "add", "-q", "-b", "feature", tree, "main");
+
+    for (const [label, dir] of [
+      ["work", work],
+      ["linked", tree],
+    ]) {
+      mkdirSync(join(dir, "scripts"), { recursive: true });
+      // Echoes the tree it was loaded from AND the path it was handed, so one
+      // stub covers both halves of the bug (wrong tree, unstripped path).
+      writeFileSync(
+        join(dir, "scripts", "regen-manifest.mjs"),
+        `console.log(JSON.stringify([{ id: "f", label: "f", command: "pnpm regen-from-${label} " + process.argv[3], outputs: ["artifact.txt"] }]));\n`
+      );
+      writeFileSync(
+        join(dir, "scripts", "changeset-hook.mjs"),
+        `console.log("advisory-from-${label} " + process.argv[2]);\n`
+      );
+    }
+    return { work, tree };
+  }
+
+  beforeEach(() => {
+    // realpath: these tests compare a git-derived path (`rev-parse
+    // --show-toplevel` always reports a realpath) against fixture paths built
+    // from tmpdir(), and on macOS tmpdir() is a symlink (/var -> /private/var).
+    // Without this the assertions below fail there for a reason unrelated to
+    // the hooks.
+    sandbox = realpathSync(mkdtempSync(join(tmpdir(), "hook-tree-root-")));
+    pnpmLog = join(sandbox, "pnpm-calls.log");
+
+    symlinkSync(join(REPO_ROOT, ".claude"), join(sandbox, ".claude"));
+
+    const bin = join(sandbox, "bin");
+    mkdirSync(bin);
+    // Logs the regen command and the directory it ran in.
+    const stub = join(bin, "pnpm");
+    writeFileSync(
+      stub,
+      `#!/usr/bin/env bash\nprintf '%s @ %s\\n' "$*" "$PWD" >> ${JSON.stringify(pnpmLog)}\nexit 0\n`
+    );
+    chmodSync(stub, 0o755);
+
+    env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  /** Runs one hook the way `.claude/settings.json` does: path as $1. */
+  const runHook = (hookFile, filePath, projectDir) =>
+    spawnSync("bash", [join(sandbox, ".claude", "hooks", hookFile), filePath], {
+      cwd: projectDir,
+      env: { ...env, CLAUDE_PROJECT_DIR: projectDir },
+      encoding: "utf8",
+    });
+
+  it(
+    "regen-dep-graph regenerates in the worktree that was edited, not the main checkout",
+    () => {
+      const { work, tree } = fixtureWithWorktree();
+      const result = runHook(
+        "regen-dep-graph.sh",
+        join(tree, "packages", "rialto", "package.json"),
+        work
+      );
+
+      expect(result.status).toBe(0);
+      const log = readFileSync(pnpmLog, "utf8");
+      expect(log, "regen ran against the main checkout's manifest").toContain("regen-from-linked");
+      expect(log, "regen ran in the main checkout").toContain(`@ ${tree}`);
+      expect(log).not.toContain("regen-from-work");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "regen-dep-graph hands the manifest a repo-root-relative path, not an absolute one",
+    () => {
+      // The manifest's `changedBy` matchers are written against repo-root-
+      // relative paths; an unstripped absolute path is what made this silent.
+      const { work, tree } = fixtureWithWorktree();
+      runHook("regen-dep-graph.sh", join(tree, "packages", "rialto", "package.json"), work);
+
+      const log = readFileSync(pnpmLog, "utf8");
+      const [args] = log.split(" @ ");
+      expect(args).toContain("packages/rialto/package.json");
+      expect(args, "manifest was handed an absolute path").not.toContain(tree);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "regen-llms regenerates in the worktree that was edited, not the main checkout",
+    () => {
+      const { work, tree } = fixtureWithWorktree();
+      const result = runHook(
+        "regen-llms.sh",
+        join(tree, "packages", "rialto", "src", "index.ts"),
+        work
+      );
+
+      expect(result.status).toBe(0);
+      const log = readFileSync(pnpmLog, "utf8");
+      expect(log).toContain("regen-from-linked");
+      expect(log).toContain("packages/rialto/src/index.ts");
+      expect(log).not.toContain("regen-from-work");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "check-changeset consults the worktree's changeset rule, not the main checkout's",
+    () => {
+      const { work, tree } = fixtureWithWorktree();
+      const result = runHook(
+        "check-changeset.sh",
+        join(tree, "packages", "rialto", "src", "index.ts"),
+        work
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stderr, "advisory came from the main checkout").toContain(
+        "advisory-from-linked"
+      );
+      expect(result.stderr).not.toContain("advisory-from-work");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "still resolves the ordinary main-checkout edit (no worktree involved)",
+    () => {
+      // The fix must not regress the common case: an edit in the main checkout
+      // resolves to that same checkout.
+      const { work } = fixtureWithWorktree();
+      const result = runHook(
+        "regen-dep-graph.sh",
+        join(work, "packages", "rialto", "package.json"),
+        work
+      );
+
+      expect(result.status).toBe(0);
+      const log = readFileSync(pnpmLog, "utf8");
+      expect(log).toContain("regen-from-work");
+      expect(log).toContain(`@ ${work}`);
+      expect(log).toContain("packages/rialto/package.json");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it.each(["regen-dep-graph.sh", "regen-llms.sh"])(
+    "%s hands the manifest a repo-root-relative path when the edit reaches the tree through a symlink",
+    (hook) => {
+      // `rev-parse --show-toplevel` reports a realpath; a payload path spelled
+      // through a symlink must still strip down to the repo-root-relative form,
+      // or the manifest matches nothing and the hook silently no-ops.
+      const { work } = fixtureWithWorktree();
+      const link = join(sandbox, "via-link");
+      symlinkSync(work, link);
+      const file =
+        hook === "regen-llms.sh"
+          ? join(link, "packages", "rialto", "src", "index.ts")
+          : join(link, "packages", "rialto", "package.json");
+
+      const result = runHook(hook, file, work);
+
+      expect(result.status).toBe(0);
+      const [args] = readFileSync(pnpmLog, "utf8").split(" @ ");
+      expect(args, "manifest was handed a path through the symlink").not.toContain(link);
+      expect(args).toMatch(/ packages\/rialto\/(src\/index\.ts|package\.json)\n?$/);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "falls back to the project dir when the path names no git tree",
+    () => {
+      // Fail-safe: a path outside any repo must leave the hooks silent no-ops
+      // rather than erroring or acting on an unrelated tree.
+      const { work } = fixtureWithWorktree();
+      const outside = join(sandbox, "outside", "package.json");
+      mkdirSync(join(sandbox, "outside"), { recursive: true });
+      writeFileSync(outside, "{}\n");
+
+      const result = runHook("regen-dep-graph.sh", outside, work);
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
 });

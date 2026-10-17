@@ -1,5 +1,27 @@
 # @mattbutlerengineering/rialto
 
+## 0.7.1
+
+### Patch Changes
+
+- [#6883](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6883) [`bc9d76d`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/bc9d76d1a7f22c51a068b22bc2faf2e9b25cc5ac) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A11y audit iteration 6: fix axe `color-contrast` failures. Pagination's active page now uses `--rialto-text-on-accent` instead of white on the gold fill, the accent Divider label is a darkened accent mix that clears 4.5:1, and DataList labels on striped rows use `--rialto-text-secondary`.
+
+## 0.7.0
+
+### Minor Changes
+
+- [#6865](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6865) [`3240235`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3240235b7573e7e84bc5c6403ec817db570b6753) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DropdownMenu: add `side` prop (`"bottom"` default, `"top"`) so menus whose trigger is pinned to the bottom of a container can open upward instead of being clipped or covered.
+
+### Patch Changes
+
+- [#6868](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6868) [`dba88e3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dba88e32e946855173c33d688eeadd41c2419388) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DropdownMenu: the open menu is now opaque in the light theme too (it used the translucent glass surface, so content behind it showed through).
+
+## 0.6.6
+
+### Patch Changes
+
+- [#6823](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6823) [`34f155b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/34f155bde5eddf5e5236bbe3ae5567595800b525) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Input: stop hiding the `endIcon` slot with `aria-hidden`, so interactive end content (for example a password show/hide button) stays reachable by assistive technology. Decorative icons remain hidden through the icon component itself.
+
 ## 0.6.5
 
 ### Patch Changes

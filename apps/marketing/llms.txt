@@ -295,6 +295,66 @@
       export const REPO_STATS: RepoStats;
     </item>
   </file>
+  <file path="src/data/shipped-features.ts">
+    <item priority="low">
+      interface ShippedPr {
+        number: number;
+        title: string;
+        mergedAt: string;
+        mergeCommit: string;
+        reviewVerdict: "pass" | "flag" | null;
+      }
+    </item>
+    <item priority="low">
+      interface ShippedChild {
+        issue: number;
+        title: string;
+        prs: readonly ShippedPr[];
+      }
+    </item>
+    <item priority="low">
+      interface ShippedFeature {
+        slug: string;
+        title: string;
+        trackingIssue: number;
+        proposalIssue: number | null;
+        proposalEvidence: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface ShippedFeaturesSnapshot {
+        generatedAt: string;
+        features: readonly ShippedFeature[];
+      }
+    </item>
+    <item priority="high">
+      type Obj = Record<string, unknown>;
+    </item>
+    <item priority="medium">
+      function isObj(value: unknown): value is Obj { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isShippedPr(value: unknown): value is ShippedPr { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isShippedChild(value: unknown): value is ShippedChild { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isShippedFeature(value: unknown): value is ShippedFeature { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isShippedFeaturesSnapshot(value: unknown): value is ShippedFeaturesSnapshot { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectShippedFeatures(raw: unknown): readonly ShippedFeature[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SHIPPED_FEATURES: readonly ShippedFeature[];
+    </item>
+    <item priority="high">
+      export function findShippedFeature(slug: string): ShippedFeature | undefined { /* ... */ }
+    </item>
+  </file>
   <file path="src/data/weekly-intake.ts">
     <item priority="low">
       interface WeeklyResource {
@@ -427,6 +487,9 @@
     </item>
     <item priority="high">
       export function formatRatio(value: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatWallClock(hours: number): string { /* ... */ }
     </item>
     <item priority="high">
       export function formatDate(iso: string): string { /* ... */ }

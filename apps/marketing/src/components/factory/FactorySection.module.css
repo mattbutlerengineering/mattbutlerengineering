@@ -219,3 +219,42 @@
     height: 170px;
   }
 }
+
+/* ── Recently shipped ── */
+
+.shipped {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-md);
+}
+
+.shippedHeading {
+  margin: 0;
+  font-size: var(--rialto-text-md);
+}
+
+.shippedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shippedItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--rialto-space-sm);
+}
+
+.shippedLink {
+  color: var(--rialto-text-primary);
+}
+
+.shippedMeta {
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-sm);
+}

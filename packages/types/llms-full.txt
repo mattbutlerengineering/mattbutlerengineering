@@ -53,7 +53,9 @@
       ? [exactly_one_2xx_response_required_none_declared: never]
       : true extends IsUnion<SuccessKey<R>>
         ? [exactly_one_2xx_response_required_several_declared: never]
-        : [];
+        : R[SuccessKey<R> & keyof R] extends ProblemResponse
+          ? [a_2xx_response_cannot_be_a_problem_response: never]
+          : [];
     export function defineEndpoint<const D extends AnyEndpointDefinition>(
       def: D,
       ..._contractCheck: DefinitionCheck<D>
@@ -1037,6 +1039,11 @@
         endTime: z.iso.datetime({ offset: true }).describe("New end time (ISO 8601)").optional(),
         partySize: z.number().int().min(1).max(20).describe("New party size").optional(),
         specialRequests: z.string().max(500).describe("Special requests or notes").optional(),
+        holdId: z
+          .string()
+          .min(1)
+          .describe("Hold on the new slot; required for any date, time or party-size change")
+          .optional(),
       })
       .describe("Fields to modify via guest self-service");
     export const CancelReservationBodySchema = z
@@ -2122,6 +2129,10 @@
        * Default: 2
        */
       autoDepositAfterNoShows?: number;
+      /** Guests cannot change a booking whose current start is less than this many hours away. */
+      guestModificationCutoffHours?: number;
+      /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
+      guestMaxPartySizeChange?: number;
     }
     export type DepositType = "flat" | "per_person";
     export interface DepositConfig {

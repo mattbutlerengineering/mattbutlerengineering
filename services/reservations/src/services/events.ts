@@ -7,11 +7,7 @@ import type {
   LapsingGuest,
   TableStatusDelta,
   SseEvent,
-  SseEventName,
 } from "@mbe/types";
-
-/** Event names are owned by the shared catalog in @mbe/types (SSE_EVENT_CATALOG). */
-export type ReservationEventType = SseEventName;
 
 /** Wire envelope, owned by the shared catalog in @mbe/types. */
 export type ReservationEvent = SseEvent;

@@ -55,6 +55,8 @@ vi.mock("../services/guest-link.js", () => ({
 
 vi.mock("../services/confirm-hold.js", () => ({ confirmHold: vi.fn() }));
 
+vi.mock("../services/move-to-hold.js", () => ({ moveReservationToHold: vi.fn() }));
+
 vi.mock("../services/resolve-venue.js", () => ({
   resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
 }));
@@ -74,6 +76,7 @@ import { reservationService } from "../services/reservation.js";
 import { venueService, type VenuePolicy } from "../services/venue.js";
 import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { confirmHold } from "../services/confirm-hold.js";
+import { moveReservationToHold } from "../services/move-to-hold.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { generateManageToken } from "../routes/public-reservations.js";
 import { createEffectsRecorder, type EffectsRecorder } from "../test/effects-harness.js";
@@ -520,6 +523,8 @@ describe("reservation transitions — effects per entry point", () => {
     });
     const newTime = { date: at(96).slice(0, 10), startTime: at(96), endTime: at(98) };
 
+    const HOLD_ID = "hold-1";
+
     function arrangeModify(after: Partial<Reservation>) {
       vi.mocked(reservationService.getById).mockResolvedValue(makeReservation());
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValue({
@@ -529,9 +534,33 @@ describe("reservation transitions — effects per entry point", () => {
       rec.seedReminders(RES_ID, "venue-1");
     }
 
+    /** A time change lands on a held slot: the hold is loaded, then the booking moves onto it. */
+    function arrangeHeldMove(after: Partial<Reservation>) {
+      vi.mocked(reservationService.getById).mockResolvedValue(makeReservation());
+      h.prisma.reservationHold.findUnique.mockResolvedValue({
+        id: HOLD_ID,
+        venueId: "venue-1",
+        sessionId: "sess-1",
+        date: new Date(newTime.startTime),
+        startTime: new Date(newTime.startTime),
+        endTime: new Date(newTime.endTime),
+        partySize: 2,
+      });
+      vi.mocked(moveReservationToHold).mockResolvedValue({
+        success: true,
+        reservation: makeReservation(after),
+      });
+      rec.seedReminders(RES_ID, "venue-1");
+    }
+
+    const heldMove = () => ({
+      ...modify({ holdId: HOLD_ID }),
+      headers: { ...manageAuth(), "x-session-id": "sess-1" },
+    });
+
     it("time change sends confirmation AND modified emails (today's quirk) and reschedules reminders", async () => {
-      arrangeModify(newTime);
-      const response = await send(modify(newTime));
+      arrangeHeldMove(newTime);
+      const response = await send(heldMove());
       expect(response.statusCode).toBe(200);
       expect(kinds()).toEqual(["booking-confirmation", "booking-modified"]);
       expect(rec.effects.jobs).toEqual([
@@ -561,8 +590,8 @@ describe("reservation transitions — effects per entry point", () => {
     });
 
     it("emits reservation:updated", async () => {
-      arrangeModify(newTime);
-      await send(modify(newTime));
+      arrangeHeldMove(newTime);
+      await send(heldMove());
       expect(eventTypes()).toEqual(["reservation:updated"]);
     });
   });
@@ -643,17 +672,26 @@ describe("reservation transitions — effects per entry point", () => {
       expect(rec.effects.jobs).toEqual([]);
     });
 
-    it.each(["staff-hold", "public-hold"] as const)(
-      "%s sends no message and schedules no job (D4 kept)",
-      async (door) => {
-        arrangeConfirm();
-        const response = await send(doors[door]());
-        expect(response.statusCode).toBe(201);
-        expect(rec.effects.messages).toEqual([]);
-        expect(rec.effects.jobs).toEqual([]);
-        expect(rec.effects.depositOps).toEqual([]);
-      }
-    );
+    it("staff-hold sends no message and schedules no job (D4 kept)", async () => {
+      arrangeConfirm();
+      const response = await send(doors["staff-hold"]());
+      expect(response.statusCode).toBe(201);
+      expect(rec.effects.messages).toEqual([]);
+      expect(rec.effects.jobs).toEqual([]);
+      expect(rec.effects.depositOps).toEqual([]);
+    });
+
+    it("public-hold sends exactly one confirmation and schedules no reminder (#6713)", async () => {
+      arrangeConfirm();
+      const response = await send(doors["public-hold"]());
+      expect(response.statusCode).toBe(201);
+      expect(response.json().manageToken).toEqual(expect.any(String));
+      expect(rec.effects.messages).toEqual([
+        { kind: "booking-confirmation", reservationId: RES_ID, guestEmail: GUEST_EMAIL },
+      ]);
+      expect(rec.effects.jobs).toEqual([]);
+      expect(rec.effects.depositOps).toEqual([]);
+    });
 
     it("public-booking delivers hold:confirmed to live subscribers (D5)", async () => {
       arrangeConfirm();

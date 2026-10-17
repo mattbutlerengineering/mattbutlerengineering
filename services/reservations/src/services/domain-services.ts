@@ -1,5 +1,5 @@
 import { availabilityService } from "./availability.js";
-import { venueService } from "./venue.js";
+import { venueService, venueGroupService } from "./venue.js";
 import { tableService } from "./table.js";
 import { reservationService } from "./reservation.js";
 import { guestService } from "./guest.js";
@@ -26,14 +26,13 @@ import { briefingService } from "./briefing.js";
  * production singletons, so runtime wiring is unchanged — except `depositService`,
  * which `buildApp` constructs over the one payments adapter.
  *
- * `venueGroupService` is intentionally absent: it is a secondary export of
- * `venue.js` that several not-yet-migrated route tests omit from their partial
- * `vi.mock("../services/venue.js")`. Referencing it in this eager composition
- * would break those mocks. It joins the seam when `venues.ts` migrates.
+ * Adoption is complete: `routes/domain-services-adoption.test.ts` fails if any
+ * route imports one of these singletons at value level.
  */
 export interface DomainServices {
   availabilityService: typeof availabilityService;
   venueService: typeof venueService;
+  venueGroupService: typeof venueGroupService;
   tableService: typeof tableService;
   reservationService: typeof reservationService;
   guestService: typeof guestService;
@@ -53,6 +52,7 @@ export interface DomainServices {
 export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
   availabilityService,
   venueService,
+  venueGroupService,
   tableService,
   reservationService,
   guestService,

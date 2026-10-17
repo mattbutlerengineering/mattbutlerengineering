@@ -22,12 +22,10 @@ import {
   NOT_BOOKED_STATUSES,
   type ReservationSlim,
   type HoldSlim,
-  type TableFilter,
-  type TableCandidate,
 } from "./slot-rules.js";
 
 // Re-export pure types and functions for callers that import them from this module.
-export type { ReservationSlim, HoldSlim, TableFilter, TableCandidate };
+export type { ReservationSlim, HoldSlim };
 export {
   checkTableConflict,
   checkPacingForSlot,

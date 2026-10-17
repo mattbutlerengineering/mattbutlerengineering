@@ -229,3 +229,28 @@
   padding: var(--rialto-space-lg);
   max-inline-size: 480px;
 }
+
+/* Select mode — node wrappers add no box; the outline sits on the rendered child */
+.selectable {
+  border-radius: var(--rialto-radius-soft);
+}
+
+.selectable:focus-visible {
+  outline: 2px solid var(--rialto-focus-ring-color, var(--rialto-accent));
+  outline-offset: 2px;
+}
+
+.selectable [data-gen-node] {
+  display: contents;
+  cursor: pointer;
+}
+
+.selectable [data-gen-node][data-cursor="true"] > * {
+  outline: 2px dashed var(--rialto-accent);
+  outline-offset: 2px;
+}
+
+.selectable [data-gen-node][data-selected="true"] > * {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: 2px;
+}

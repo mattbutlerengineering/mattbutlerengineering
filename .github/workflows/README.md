@@ -85,7 +85,7 @@ Run on cron schedules for ongoing health and compliance.
 | `post-deploy-check.yml`     | manual           | Verify deployment health                   |
 | `preview-teardown.yml`      | manual           | Sweep leaked `mbe-preview-*` Workers       |
 | `revert-watchdog.yml`       | push to main     | Watch for reverted commits                 |
-| `smoke-tests.yml`           | manual           | Post-deploy smoke tests (deprecated)       |
+| `visual-baseline-regen.yml` | manual           | Regenerate visual baselines, open a PR     |
 
 ## Adding a New Workflow
 

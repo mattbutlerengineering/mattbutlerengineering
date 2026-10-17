@@ -63,6 +63,10 @@ export function LocalePicker({
           />
         ) : (
           <DropdownMenu
+            // The sidebar picker sits at the bottom of a clipped column (over the
+            // command-palette hint), so it opens upward; the header-style compact
+            // picker has room below.
+            side={variant === "sidebar" ? "top" : "bottom"}
             trigger={
               <Button variant="ghost" size="sm" className={styles.trigger} aria-label={triggerName}>
                 <Text as="span" aria-hidden>
@@ -83,13 +87,23 @@ export function LocalePicker({
             }
             items={SUPPORTED_LOCALES.map((l) => ({
               id: l.tag,
-              label: l.endonym,
+              label: (
+                <Text as="span" className={styles.itemLabel}>
+                  <Text as="span" className={styles.endonym}>
+                    {l.endonym}
+                  </Text>
+                  {MACHINE_TRANSLATION_TAGS[l.tag] && (
+                    <Text as="span" variant="caption" className={styles.mtTag}>
+                      {MACHINE_TRANSLATION_TAGS[l.tag]}
+                    </Text>
+                  )}
+                </Text>
+              ),
               icon: (
                 <Text as="span" aria-hidden>
                   {l.tag === current ? "✓" : ""}
                 </Text>
               ),
-              shortcut: MACHINE_TRANSLATION_TAGS[l.tag],
               onSelect: () => void pick(l.tag),
             }))}
           />

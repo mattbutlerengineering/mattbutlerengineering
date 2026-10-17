@@ -14,7 +14,10 @@ interface ModifyBody {
   endTime?: string;
   partySize?: number;
   specialRequests?: string;
+  holdId?: string;
 }
+
+const SESSION_ID_HEADER = "x-session-id";
 
 export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{ Body: ModifyBody }>(
@@ -38,10 +41,35 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
         }
 
+        // Request schemas are permissive (no additionalProperties), so a
+        // status in the body would otherwise be silently ignored.
+        if (request.body && "status" in request.body) {
+          return reply
+            .status(400)
+            .send(
+              createProblemDetails(
+                400,
+                "Status Change Not Allowed",
+                "Guests cannot change a reservation's status through this endpoint",
+                "about:blank",
+                undefined,
+                { code: "STATUS_CHANGE_NOT_ALLOWED" }
+              )
+            );
+        }
+
+        const { holdId, ...changes } = request.body ?? {};
+        const sessionId = request.headers[SESSION_ID_HEADER];
+        const hold =
+          holdId && typeof sessionId === "string" && sessionId.length > 0
+            ? { holdId, sessionId }
+            : undefined;
+
         const result = await fastify.transitions.modifyByGuest(
           preamble.reservation,
-          request.body ?? {},
-          token
+          changes,
+          token,
+          hold
         );
 
         if (!result.success) {

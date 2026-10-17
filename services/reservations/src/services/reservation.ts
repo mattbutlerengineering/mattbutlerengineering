@@ -66,6 +66,16 @@ export interface CreateReservationResult {
   partyDoesNotFit?: boolean;
 }
 
+/** True when the patch moves the reservation's slot (date, time or table). */
+function isSlotMove(data: UpdateReservationRequest): boolean {
+  return (
+    data.date !== undefined ||
+    data.startTime !== undefined ||
+    data.endTime !== undefined ||
+    data.tableId !== undefined
+  );
+}
+
 export interface UpdateReservationResult {
   success: boolean;
   reservation?: Reservation;
@@ -406,23 +416,34 @@ export const reservationService = {
             await guestService.recordNoShow(existing.guestId, existing.startTime, client);
           }
 
+          if (data.status === "COMPLETED" && existing.guestId) {
+            // Count the visit in the SAME transaction as the status CAS. The
+            // CAS (`count === 0` returns above) plus the state machine's
+            // terminal COMPLETED state mean exactly one caller ever reaches
+            // this line per reservation, so visitCount cannot double-count.
+            // spendAmount is deliberately omitted: no source captures spend
+            // on completion yet, so lifetimeSpend stays untouched.
+            await guestService.recordVisit(existing.guestId, existing.startTime, undefined, client);
+          }
+
           return client.reservation.findUnique({
             where: { id },
             include: { table: true },
           });
         };
 
-        const updated =
-          data.status === "NO_SHOW" && existing.guestId
-            ? await prisma.$transaction(async (tx) => {
-                // This `prisma.$transaction` call bypasses the per-call
-                // auto-wrap `services/venue-scoped-prisma.ts` gives the
-                // `prisma` export — set app.venue_id on THIS transaction's
-                // own `tx` explicitly (ADR-026 part 6).
-                await setVenueContext(tx, getCurrentVenueId());
-                return writeStatusChange(tx);
-              })
-            : await writeStatusChange(prisma);
+        const touchesGuest =
+          (data.status === "NO_SHOW" || data.status === "COMPLETED") && existing.guestId;
+        const updated = touchesGuest
+          ? await prisma.$transaction(async (tx) => {
+              // This `prisma.$transaction` call bypasses the per-call
+              // auto-wrap `services/venue-scoped-prisma.ts` gives the
+              // `prisma` export — set app.venue_id on THIS transaction's
+              // own `tx` explicitly (ADR-026 part 6).
+              await setVenueContext(tx, getCurrentVenueId());
+              return writeStatusChange(tx);
+            })
+          : await writeStatusChange(prisma);
 
         return updated ? toReservation(updated) : null;
       }
@@ -454,6 +475,18 @@ export const reservationService = {
 
     if (!existing) {
       return { success: false, error: "Reservation not found" };
+    }
+
+    // The move path below writes no status (no state-machine check, status CAS
+    // or NO_SHOW/COMPLETED guest side effects), so a payload carrying both
+    // would persist the move and silently drop the status (#6882). Refuse it;
+    // the caller sends the status change as its own PATCH.
+    if (data.status !== undefined && isSlotMove(data)) {
+      return {
+        success: false,
+        error:
+          "A status change cannot be combined with a table or time change; send them as separate requests",
+      };
     }
 
     // A move onto another venue's table is refused before the capacity and
@@ -490,11 +523,7 @@ export const reservationService = {
     }
 
     // Determine if we need to check for conflicts
-    const timeOrTableChanged =
-      data.date !== undefined ||
-      data.startTime !== undefined ||
-      data.endTime !== undefined ||
-      data.tableId !== undefined;
+    const timeOrTableChanged = isSlotMove(data);
 
     // Notes / party-size / preference edits are not slot moves — no lock needed.
     if (!timeOrTableChanged) {

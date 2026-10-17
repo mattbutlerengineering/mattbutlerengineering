@@ -1016,6 +1016,8 @@
   </file>
   <file path="src/routes/briefing.ts">
     export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
+      const { briefingService } = fastify.services;
+    
       fastify.get<{
         Querystring: { date?: string; venueId?: string };
         Reply: { data: BriefingEntry[] } | ProblemDetails;
@@ -1205,7 +1207,7 @@
         );
     }
     export const depositRoutes: FastifyPluginAsync = async (fastify) => {
-      const { depositService } = fastify.services;
+      const { depositService, venueService } = fastify.services;
     
       // POST /api/v1/deposits — create a deposit
       fastify.post<{
@@ -1509,14 +1511,6 @@
     };
   </file>
   <file path="src/routes/events.ts">
-    export function getConnectionManager(): SseConnectionManager {
-      return connectionManager;
-    }
-    export function createConnectionManager(
-      config?: Partial<SseConnectionConfig>
-    ): SseConnectionManager {
-      return new SseConnectionManager(config);
-    }
     function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] {
       if (!RESERVATION_TRANSITION_EVENT_TYPES.has(event.type)) {
         return [];
@@ -1636,6 +1630,10 @@
   </file>
   <file path="src/routes/floor-plans.ts">
     export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
+      // Domain services come from the buildApp seam (issue #3357); tests inject fakes
+      // via buildApp({ services }).
+      const { floorPlanService, tableService } = fastify.services;
+    
       fastify.get<{
         Querystring: { venueId?: string; page?: string; limit?: string };
         Reply: PaginatedResponse<FloorPlan> | ProblemDetails;
@@ -1965,6 +1963,8 @@
   </file>
   <file path="src/routes/guests.ts">
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
+      const { guestService, venueService } = fastify.services;
+    
       // List guests for a venue
       registerEndpoint(fastify, guestsEndpoints.list, {
         docs: {
@@ -2253,6 +2253,8 @@
       Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
     };
     export const holdRoutes: FastifyPluginAsync = async (fastify) => {
+      const { holdService } = fastify.services;
+    
       // Register schemas
       fastify.addSchema(HoldSchema);
     
@@ -2374,7 +2376,7 @@
           },
         },
         venueScoped<GetRoute>(
-          { venue: holdVenue("Hold not found or expired") },
+          { venue: holdVenue(holdService, "Hold not found or expired") },
           async (request, reply) => {
             const hold = await holdService.getById(request.params.id);
     
@@ -2431,7 +2433,7 @@
           },
         },
         venueScoped<ReleaseRoute>(
-          { venue: holdVenue("Hold not found or not owned by this session") },
+          { venue: holdVenue(holdService, "Hold not found or not owned by this session") },
           async (request, reply) => {
             const sessionId = request.headers[SESSION_ID_HEADER];
     
@@ -2506,7 +2508,7 @@
           },
         },
         venueScoped<ConfirmRoute>(
-          { venue: holdVenue("Hold not found") },
+          { venue: holdVenue(holdService, "Hold not found") },
           async (request, reply, { venueId }) => {
             const sessionId = request.headers[SESSION_ID_HEADER];
     
@@ -2604,6 +2606,8 @@
   </file>
   <file path="src/routes/manage-reservation.ts">
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
       fastify.get<{ Querystring: { token?: string } }>(
         "/public/v1/reservations/manage",
         {
@@ -2628,6 +2632,8 @@
                       slug: venue.slug,
                       ianaTimezone: venue.ianaTimezone,
                       phone: venue.settings?.phone,
+                      modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
+                      maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
                     }
                   : null,
               },
@@ -2694,7 +2700,7 @@
         if (!venueId) return spec.missing(reply, request);
     
         return runWithVenueContext(venueId, async () => {
-          const reservation = await reservationService.getById(reservationId);
+          const reservation = await request.server.services.reservationService.getById(reservationId);
           if (!reservation) return spec.missing(reply, request);
           if (reservation.guestEmail !== result.guestEmail) {
             return deny(reply, 403, "Forbidden", "Token does not match reservation");
@@ -2714,6 +2720,7 @@
       endTime?: string;
       partySize?: number;
       specialRequests?: string;
+      holdId?: string;
     }
     export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.patch<{ Body: ModifyBody }>(
@@ -2737,10 +2744,35 @@
               return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
             }
     
+            // Request schemas are permissive (no additionalProperties), so a
+            // status in the body would otherwise be silently ignored.
+            if (request.body && "status" in request.body) {
+              return reply
+                .status(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Status Change Not Allowed",
+                    "Guests cannot change a reservation's status through this endpoint",
+                    "about:blank",
+                    undefined,
+                    { code: "STATUS_CHANGE_NOT_ALLOWED" }
+                  )
+                );
+            }
+    
+            const { holdId, ...changes } = request.body ?? {};
+            const sessionId = request.headers[SESSION_ID_HEADER];
+            const hold =
+              holdId && typeof sessionId === "string" && sessionId.length > 0
+                ? { holdId, sessionId }
+                : undefined;
+    
             const result = await fastify.transitions.modifyByGuest(
               preamble.reservation,
-              request.body ?? {},
-              token
+              changes,
+              token,
+              hold
             );
     
             if (!result.success) {
@@ -3419,6 +3451,12 @@
             // reservation to someone else's guest record.
             const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
               request.body;
+            // Only mint a manage token when an email was actually supplied: a
+            // phone-only booking is stored with `guestEmail: null`, and a token
+            // signed with "" could never validate against it. Minted once, for the
+            // confirmed reservation, and shared by the confirmation email and the
+            // response.
+            let manageToken: string | undefined;
             const result = await fastify.transitions.confirmHold(
               {
                 holdId,
@@ -3426,7 +3464,13 @@
                 venueId,
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
               },
-              { door: "public-hold" }
+              {
+                door: "public-hold",
+                manageToken: (reservation) =>
+                  guestEmail
+                    ? (manageToken = generateManageToken(reservation.id, guestEmail))
+                    : undefined,
+              }
             );
     
             if (!result.success) {
@@ -3440,13 +3484,6 @@
             // The hold is consumed, so it no longer counts against the per-IP
             // active-hold cap — same bookkeeping the release path does.
             decrementHoldCount(ip);
-    
-            // Only mint a manage token when an email was actually supplied: a
-            // phone-only booking is stored with `guestEmail: null`, and a token
-            // signed with "" could never validate against it.
-            const manageToken = guestEmail
-              ? generateManageToken(result.reservation.id, guestEmail)
-              : undefined;
     
             return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
           }
@@ -4025,6 +4062,10 @@
   </file>
   <file path="src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
+      const { reservationService, guestService } = fastify.services;
+      const listVenueId = resolveReservationsListVenueId(guestService);
+      const ownerScope = reservationOwnerScope(reservationService);
+    
       /**
        * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
        * routes below. Both routes are scoped by `reservationOwnerScope`, which
@@ -4074,10 +4115,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveReservationsListVenueId),
-          ],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
           schema: {
             summary: "List reservations",
             operationId: "listReservations",
@@ -4289,7 +4327,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (_request, _reply, { entity: reservation }) => ({
+        venueScoped(ownerScope, async (_request, _reply, { entity: reservation }) => ({
           data: reservation,
         }))
       );
@@ -4501,7 +4539,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+        venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
           if (request.body.status === "CANCELLED") {
             try {
               const result = await cancelReservationForRequest(
@@ -4682,7 +4720,7 @@
             },
           },
         },
-        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+        venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
           try {
             const result = await cancelReservationForRequest(
               reservation,
@@ -4896,8 +4934,6 @@
        */
       lastRlsErrorName: string | null;
     }
-    export type PayloadOrFactory =
-      InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
     export function inWindowDate(daysAhead: number): string {
       return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     }
@@ -6027,6 +6063,10 @@
       return code === "P2034" || code === "40001";
     }
     export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+      // Domain services come from the buildApp seam (issue #3357); tests inject fakes
+      // via buildApp({ services }).
+      const { venueService, venueGroupService } = fastify.services;
+    
       // Enforced by hand through `createRateLimit` rather than as a second
       // rate-limit hook, because @fastify/rate-limit runs at most ONE limiter per
       // request: `rateLimitRequestHandler` sets a `rateLimitRan` flag on the
@@ -6800,6 +6840,8 @@
   </file>
   <file path="src/routes/waitlist.ts">
     export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      const { waitlistService } = fastify.services;
+    
       // Fire-and-forget (same posture as notifyAdded): a failed SMS must never fail
       // the seat/cancel that triggered it, and runs after the queue is recalculated.
       const notifyImproved: OnPositionsImproved = (changes) => {
@@ -9204,6 +9246,7 @@
     export interface DomainServices {
       availabilityService: typeof availabilityService;
       venueService: typeof venueService;
+      venueGroupService: typeof venueGroupService;
       tableService: typeof tableService;
       reservationService: typeof reservationService;
       guestService: typeof guestService;
@@ -9217,6 +9260,7 @@
     export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
       venueService,
+      venueGroupService,
       tableService,
       reservationService,
       guestService,
@@ -9227,7 +9271,6 @@
     };
   </file>
   <file path="src/services/events.ts">
-    export type ReservationEventType = SseEventName;
     export type ReservationEvent = SseEvent;
     export class ReservationEventEmitter extends EventEmitter {
       private connectionCount = 0;
@@ -10245,10 +10288,18 @@
     
       /**
        * Update visit statistics after a completed reservation.
+       *
+       * Accepts an optional transaction client so reservationService.update can
+       * run this write in the SAME transaction as the COMPLETED status change.
        */
-      async recordVisit(guestId: string, visitDate: Date, spendAmount?: number): Promise<Guest | null> {
+      async recordVisit(
+        guestId: string,
+        visitDate: Date,
+        spendAmount?: number,
+        client: Prisma.TransactionClient = prisma
+      ): Promise<Guest | null> {
         try {
-          const guest = await prisma.guest.update({
+          const guest = await client.guest.update({
             where: { id: guestId },
             data: {
               visitCount: { increment: 1 },
@@ -11036,6 +11087,92 @@
       return memberships.map((membership) => membership.venueId);
     }
   </file>
+  <file path="src/services/move-to-hold.ts">
+    type MoveToHoldErrorCode =
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+    export interface MoveToHoldInput {
+      /** The existing reservation to move. Its status is never changed. */
+      reservation: Reservation;
+      holdId: string;
+      /** Session that owns the hold; must match. */
+      sessionId: string;
+      /**
+       * Venue the caller is scoped to. A hold from another venue is reported as
+       * `NOT_FOUND`, never as a distinct error, so its existence does not leak.
+       */
+      venueId: string;
+      /** Written in the same transaction as the move when provided. */
+      notes?: string;
+    }
+    export type MoveToHoldResult =
+      | { success: true; reservation: Reservation }
+      | { success: false; error: string; errorCode: MoveToHoldErrorCode };
+    export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
+      const { reservation, holdId, sessionId, venueId, notes } = input;
+    
+      const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
+      if (!hold || hold.venueId !== venueId) {
+        return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
+      }
+      if (hold.sessionId !== sessionId) {
+        return {
+          success: false,
+          error: "Session ID does not match the hold",
+          errorCode: "SESSION_MISMATCH",
+        };
+      }
+    
+      const result = await bookSlot({
+        tableId: hold.tableId,
+        venueId: hold.venueId,
+        date: hold.date,
+        window: { startTime: hold.startTime, endTime: hold.endTime },
+        partySize: hold.partySize,
+        excludeReservationId: reservation.id,
+        excludeHoldId: holdId,
+        checkHoldConflict: true,
+        checkPacing: true,
+        guard: async () =>
+          hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
+        write: async (tx) => {
+          const updated = await tx.reservation.update({
+            where: { id: reservation.id },
+            data: {
+              date: hold.date,
+              startTime: hold.startTime,
+              endTime: hold.endTime,
+              tableId: hold.tableId,
+              partySize: hold.partySize,
+              ...(notes !== undefined && { notes }),
+            },
+            include: {
+              table: true,
+              guest: { select: { visitCount: true, communicationPreference: true } },
+            },
+          });
+          await tx.reservationHold.delete({ where: { id: holdId } });
+          return updated;
+        },
+      });
+    
+      if (!result.ok) {
+        const { code } = result.conflict;
+        if (code === "EXPIRED") {
+          return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
+        }
+        if (code === "PACING_EXCEEDED") {
+          return {
+            success: false,
+            error: "Pacing limit reached for this time slot",
+            errorCode: "PACING_EXCEEDED",
+          };
+        }
+        return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
+      }
+    
+      return { success: true, reservation: toReservation(result.value) };
+    }
+  </file>
   <file path="src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
     export interface NotifierRuntime {
@@ -11578,6 +11715,10 @@
       partySize?: number;
       specialRequests?: string;
     }
+    export interface ModifyHold {
+      holdId: string;
+      sessionId: string;
+    }
     export type ModifyReservationResult =
       | { success: true; reservation: Reservation }
       | { success: false; status: number; title: string; detail: string; code: string };
@@ -11594,6 +11735,9 @@
       return (
         changes.date !== undefined || changes.startTime !== undefined || changes.endTime !== undefined
       );
+    }
+    function needsHold(changes: ReservationChanges): boolean {
+      return isTimeChange(changes) || changes.partySize !== undefined;
     }
     export async function isPartySizeDepositBlocked(
       reservation: Reservation,
@@ -11622,15 +11766,13 @@
       const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
-    async function checkBookingWindow(
+    type ModifyVenue = NonNullable<Awaited<ReturnType<typeof venueService.getById>>>;
+    function checkBookingWindow(
+      venue: ModifyVenue,
       reservation: Reservation,
       changes: ReservationChanges
-    ): Promise<ModifyReservationResult | null> {
+    ): ModifyReservationResult | null {
       if (changes.startTime === undefined && changes.date === undefined) return null;
-      if (!reservation.venueId) return null;
-    
-      const venue = await venueService.getById(reservation.venueId);
-      if (!venue) return null;
     
       const newStart = new Date(changes.startTime ?? reservation.startTime);
       // The route's body schema guarantees a date-time; an unparseable value
@@ -11640,55 +11782,43 @@
       const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
       return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
     }
+    function checkGuestPolicy(
+      venue: ModifyVenue,
+      reservation: Reservation,
+      changes: ReservationChanges
+    ): ModifyReservationResult | null {
+      const violation = checkGuestModificationPolicy(
+        venue.settings,
+        { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+        { partySize: changes.partySize, movesTime: isTimeChange(changes) },
+        new Date()
+      );
+      return violation ? GUEST_POLICY_RESULTS[violation] : null;
+    }
     export async function modifyReservation(
       reservation: Reservation,
       changes: ReservationChanges,
-      deposits: DepositService
+      deposits: DepositService,
+      hold?: ModifyHold
     ): Promise<ModifyReservationResult> {
-      if (!hasAnyChange(changes)) {
+      if (!hasAnyChange(changes) && !hold) {
         return NO_CHANGES_RESULT;
       }
     
-      const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
-      if (depositGuardResult) {
-        return depositGuardResult;
+      if (needsHold(changes) && !hold) {
+        return HOLD_REQUIRED_RESULT;
       }
     
-      const windowResult = await checkBookingWindow(reservation, changes);
-      if (windowResult) {
-        return windowResult;
+      if (hold) {
+        return modifyViaHold(reservation, changes, deposits, hold);
       }
     
-      const { date, startTime, endTime, partySize, specialRequests } = changes;
-      const updateData = {
-        ...(date !== undefined && { date }),
-        ...(startTime !== undefined && { startTime }),
-        ...(endTime !== undefined && { endTime }),
-        ...(partySize !== undefined && { partySize }),
-        ...(specialRequests !== undefined && { notes: specialRequests }),
-      };
-    
-      const updateResult = await reservationService.updateWithConflictCheck(reservation.id, updateData);
-    
+      // Only a specialRequests edit reaches here: it needs no hold, no venue and
+      // no conflict check.
+      const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
+        notes: changes.specialRequests,
+      });
       if (!updateResult.success) {
-        if (updateResult.conflict) {
-          return {
-            success: false,
-            status: 409,
-            title: "Slot Unavailable",
-            detail: updateResult.error!,
-            code: "SLOT_UNAVAILABLE",
-          };
-        }
-        if (updateResult.capacityExceeded) {
-          return {
-            success: false,
-            status: 422,
-            title: "Party Size Exceeds Table Capacity",
-            detail: updateResult.error!,
-            code: "PARTY_SIZE_EXCEEDS_TABLE",
-          };
-        }
         return {
           success: false,
           status: 500,
@@ -11697,8 +11827,59 @@
           code: "RESERVATION_UPDATE_FAILED",
         };
       }
-    
       return { success: true, reservation: updateResult.reservation! };
+    }
+    async function modifyViaHold(
+      reservation: Reservation,
+      changes: ReservationChanges,
+      deposits: DepositService,
+      { holdId, sessionId }: ModifyHold
+    ): Promise<ModifyReservationResult> {
+      const venueId = reservation.venueId;
+      const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
+      if (!held || held.venueId !== venueId) {
+        return { success: false, detail: "Hold not found", ...MOVE_ERROR_RESULTS.NOT_FOUND };
+      }
+      if (held.sessionId !== sessionId) {
+        return {
+          success: false,
+          detail: "Session ID does not match the hold",
+          ...MOVE_ERROR_RESULTS.SESSION_MISMATCH,
+        };
+      }
+    
+      // The hold's slot is the change; whatever else the body carried is ignored.
+      const heldChanges: ReservationChanges = {
+        date: held.date.toISOString().slice(0, 10),
+        startTime: held.startTime.toISOString(),
+        endTime: held.endTime.toISOString(),
+        partySize: held.partySize,
+      };
+    
+      const depositGuardResult = await checkPartySizeDepositGuard(reservation, heldChanges, deposits);
+      if (depositGuardResult) {
+        return depositGuardResult;
+      }
+    
+      const venue = await venueService.getById(venueId);
+      if (venue) {
+        const blocked =
+          checkGuestPolicy(venue, reservation, heldChanges) ??
+          checkBookingWindow(venue, reservation, heldChanges);
+        if (blocked) return blocked;
+      }
+    
+      const moved = await moveReservationToHold({
+        reservation,
+        holdId,
+        sessionId,
+        venueId: venueId,
+        notes: changes.specialRequests,
+      });
+      if (!moved.success) {
+        return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
+      }
+      return { success: true, reservation: moved.reservation };
     }
   </file>
   <file path="src/services/reservation-no-show.ts">
@@ -12150,6 +12331,14 @@
       /** The party does not fit the caller-named table (route answers 422). */
       partyDoesNotFit?: boolean;
     }
+    function isSlotMove(data: UpdateReservationRequest): boolean {
+      return (
+        data.date !== undefined ||
+        data.startTime !== undefined ||
+        data.endTime !== undefined ||
+        data.tableId !== undefined
+      );
+    }
     export interface UpdateReservationResult {
       success: boolean;
       reservation?: Reservation;
@@ -12483,23 +12672,34 @@
                 await guestService.recordNoShow(existing.guestId, existing.startTime, client);
               }
     
+              if (data.status === "COMPLETED" && existing.guestId) {
+                // Count the visit in the SAME transaction as the status CAS. The
+                // CAS (`count === 0` returns above) plus the state machine's
+                // terminal COMPLETED state mean exactly one caller ever reaches
+                // this line per reservation, so visitCount cannot double-count.
+                // spendAmount is deliberately omitted: no source captures spend
+                // on completion yet, so lifetimeSpend stays untouched.
+                await guestService.recordVisit(existing.guestId, existing.startTime, undefined, client);
+              }
+    
               return client.reservation.findUnique({
                 where: { id },
                 include: { table: true },
               });
             };
     
-            const updated =
-              data.status === "NO_SHOW" && existing.guestId
-                ? await prisma.$transaction(async (tx) => {
-                    // This `prisma.$transaction` call bypasses the per-call
-                    // auto-wrap `services/venue-scoped-prisma.ts` gives the
-                    // `prisma` export — set app.venue_id on THIS transaction's
-                    // own `tx` explicitly (ADR-026 part 6).
-                    await setVenueContext(tx, getCurrentVenueId());
-                    return writeStatusChange(tx);
-                  })
-                : await writeStatusChange(prisma);
+            const touchesGuest =
+              (data.status === "NO_SHOW" || data.status === "COMPLETED") && existing.guestId;
+            const updated = touchesGuest
+              ? await prisma.$transaction(async (tx) => {
+                  // This `prisma.$transaction` call bypasses the per-call
+                  // auto-wrap `services/venue-scoped-prisma.ts` gives the
+                  // `prisma` export — set app.venue_id on THIS transaction's
+                  // own `tx` explicitly (ADR-026 part 6).
+                  await setVenueContext(tx, getCurrentVenueId());
+                  return writeStatusChange(tx);
+                })
+              : await writeStatusChange(prisma);
     
             return updated ? toReservation(updated) : null;
           }
@@ -12531,6 +12731,18 @@
     
         if (!existing) {
           return { success: false, error: "Reservation not found" };
+        }
+    
+        // The move path below writes no status (no state-machine check, status CAS
+        // or NO_SHOW/COMPLETED guest side effects), so a payload carrying both
+        // would persist the move and silently drop the status (#6882). Refuse it;
+        // the caller sends the status change as its own PATCH.
+        if (data.status !== undefined && isSlotMove(data)) {
+          return {
+            success: false,
+            error:
+              "A status change cannot be combined with a table or time change; send them as separate requests",
+          };
         }
     
         // A move onto another venue's table is refused before the capacity and
@@ -12567,11 +12779,7 @@
         }
     
         // Determine if we need to check for conflicts
-        const timeOrTableChanged =
-          data.date !== undefined ||
-          data.startTime !== undefined ||
-          data.endTime !== undefined ||
-          data.tableId !== undefined;
+        const timeOrTableChanged = isSlotMove(data);
     
         // Notes / party-size / preference edits are not slot moves — no lock needed.
         if (!timeOrTableChanged) {
@@ -13153,6 +13361,30 @@
       if (slotStart < window.earliest) return false;
       if (window.latestLocalDate === null) return true;
       return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
+    }
+    export type GuestModificationViolation = "MODIFICATION_CUTOFF" | "PARTY_SIZE_CHANGE_TOO_LARGE";
+    export function checkGuestModificationPolicy(
+      settings:
+        | Pick<VenueSettings, "guestModificationCutoffHours" | "guestMaxPartySizeChange">
+        | null
+        | undefined,
+      reservation: { startTime: Date; partySize: number },
+      changes: { partySize?: number; movesTime?: boolean },
+      now: Date
+    ): GuestModificationViolation | null {
+      const partyDelta =
+        changes.partySize === undefined ? 0 : Math.abs(changes.partySize - reservation.partySize);
+    
+      const cutoffHours = settings?.guestModificationCutoffHours;
+      if (cutoffHours !== undefined && (changes.movesTime || partyDelta > 0)) {
+        const hoursAway = (reservation.startTime.getTime() - now.getTime()) / MS_PER_HOUR;
+        if (hoursAway < cutoffHours) return "MODIFICATION_CUTOFF";
+      }
+    
+      const maxChange = settings?.guestMaxPartySizeChange;
+      if (maxChange !== undefined && partyDelta > maxChange) return "PARTY_SIZE_CHANGE_TOO_LARGE";
+    
+      return null;
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
@@ -14101,6 +14333,7 @@
       "reservation",
       "deposit",
       "waitlistEntry",
+      "reservationEvent",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -15520,8 +15753,9 @@
       // Wire the domain-service seam (issue #3357) — resolve the injectable services
       // once (production singletons by default, test fakes via options.services) and
       // decorate them so route plugins resolve dependencies from `fastify.services`
-      // instead of importing the sibling singleton at module scope. Decorated before
-      // route registration so child route plugins inherit it.
+      // instead of importing the sibling singleton at module scope. Adoption is
+      // complete and `routes/domain-services-adoption.test.ts` enforces it. Decorated
+      // before route registration so child route plugins inherit it.
       //
       // Payments are constructed exactly once, here: one StripeService (same env
       // name and placeholder fallback as before; getStripeConfig above still
@@ -16070,7 +16304,8 @@
       modifyByGuest(
         reservation: Reservation,
         changes: ReservationChanges,
-        manageToken: string
+        manageToken: string,
+        hold?: ModifyHold
       ): Promise<ModifyReservationResult>;
       confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
       createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
@@ -16143,8 +16378,8 @@
           return result;
         },
     
-        async modifyByGuest(reservation, changes, manageToken) {
-          const result = await modifyReservation(reservation, changes, deposits);
+        async modifyByGuest(reservation, changes, manageToken, hold) {
+          const result = await modifyReservation(reservation, changes, deposits, hold);
           if (result.success) {
             await settle(
               {
@@ -16152,7 +16387,7 @@
                 before: reservation,
                 after: result.reservation,
                 manageToken,
-                timeChanged: isTimeChange(changes),
+                timeChanged: hold !== undefined || isTimeChange(changes),
               },
               reservation.venueId
             );
@@ -16301,6 +16536,28 @@
         ...reminderOps(reservation, now, "schedule").map((op) => background(job(op), "propagate")),
       ];
     }
+    function holdConfirmedMessages(
+      fact: Extract<TransitionFact, { kind: "hold-confirmed" }>,
+      now: Date
+    ): PlannedEffect[] {
+      if (fact.manageToken === undefined) return [];
+      if (fact.door === "public-booking") {
+        return confirmationChain(fact.reservation, fact.manageToken, now);
+      }
+      if (fact.door === "public-hold") {
+        return [
+          background(
+            message({
+              kind: "booking-confirmation",
+              reservation: fact.reservation,
+              manageToken: fact.manageToken,
+            }),
+            "propagate"
+          ),
+        ];
+      }
+      return [];
+    }
     function isStaffTimeChange(patch: UpdateReservationRequest): boolean {
       return patch.date !== undefined || patch.startTime !== undefined || patch.endTime !== undefined;
     }
@@ -16369,9 +16626,7 @@
     
         case "hold-confirmed":
           return [
-            ...(fact.door === "public-booking" && fact.manageToken !== undefined
-              ? confirmationChain(fact.reservation, fact.manageToken, now)
-              : []),
+            ...holdConfirmedMessages(fact, now),
             live(reservationEvent("hold:confirmed", fact.reservation)),
           ];
     

@@ -923,7 +923,6 @@
   </file>
   <file path="src/components/crm/guest-signals.ts">
     export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
-    export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
     export type GuestSegmentVariant = "accent" | "success" | "neutral";
     export type GuestRiskVariant = "error" | "warning" | "neutral";
     export function isAllergyTag(tag: string): boolean {
@@ -960,6 +959,17 @@
   <file path="e2e/api-mocks.ts">
     function loadFixture(name: string): string {
       return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
+    }
+    function loadStaffVenues(): {
+      data: Array<Record<string, unknown>>;
+      pagination: Record<string, unknown>;
+    } {
+      const venues = JSON.parse(loadFixture("venues-list")) as {
+        data: Array<Record<string, unknown>>;
+        pagination: Record<string, unknown>;
+      };
+      const ianaTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return { ...venues, data: venues.data.map((venue) => ({ ...venue, ianaTimezone })) };
     }
     function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> {
       return route.fulfill({
@@ -1138,7 +1148,7 @@
       let createdVenue: Record<string, unknown> | null = null;
       await page.route("**/api/v1/venues", (route) => {
         if (route.request().method() !== "POST") return route.fallback();
-        const venues = JSON.parse(loadFixture("venues-list"));
+        const venues = loadStaffVenues();
         let body: Record<string, unknown> = {};
         try {
           const parsed = route.request().postDataJSON();
@@ -1163,10 +1173,7 @@
         });
       });
       await page.route("**/api/v1/venues?*", (route) => {
-        const venues = JSON.parse(loadFixture("venues-list")) as {
-          data: Array<Record<string, unknown>>;
-          pagination: Record<string, unknown>;
-        };
+        const venues = loadStaffVenues();
         const allData = createdVenue ? [...venues.data, createdVenue] : venues.data;
         return route.fulfill({
           status: 200,
@@ -1183,7 +1190,7 @@
       );
       await page.route(/\/api\/v1\/venues\/[^/?]+$/, (route) => {
         const method = route.request().method();
-        const venues = JSON.parse(loadFixture("venues-list"));
+        const venues = loadStaffVenues();
         if (method === "POST" || method === "PATCH") {
           return jsonOk(route, { ...venues.data[0], updatedAt: new Date().toISOString() });
         }
@@ -1568,6 +1575,9 @@
         });
       });
       await page.route("**/api/v1/guests/segments*", (route) => jsonResponse(route, "guest-segments"));
+      // The Home dashboard's lapsing-guests widget. Empty by default; specs that render the widget
+      // mount their own route after mockApi (locale-sweep, visual).
+      await page.route("**/api/v1/guests/lapsing?*", (route) => jsonOk(route, []));
       await page.route("**/api/v1/guests/find-or-create", (route) => {
         const guests = JSON.parse(loadFixture("guests-list"));
         return jsonOk(route, guests.data[0]);
@@ -2574,7 +2584,6 @@
   </file>
   <file path="src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;
-    export type BriefingGuest = ApiBriefingGuest;
     export type BriefingEntry = ApiBriefingEntry;
     export interface UseBriefingParams {
       date: string;
@@ -2672,6 +2681,99 @@
           )
         : null;
       return { quote, isLoading };
+    }
+  </file>
+  <file path="src/hooks/useChangeBooking.ts">
+    export interface ChangeBookingSlot {
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+    }
+    export type ChangeBookingStatus = "idle" | "holding" | "held" | "confirming" | "done" | "error";
+    export interface UseChangeBookingOptions {
+      token: string;
+      venueSlug: string;
+    }
+    function problemCode(err: unknown): string {
+      if (err instanceof ApiClientError) {
+        const code = err.problemDetails.code;
+        if (typeof code === "string") return code;
+      }
+      return "UNKNOWN";
+    }
+    export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) {
+      const api = usePublicApiClient();
+      const [status, setStatus] = useState<ChangeBookingStatus>("idle");
+      const [error, setError] = useState<string | null>(null);
+      const holdRef = useRef<{ holdId: string; slot: ChangeBookingSlot } | null>(null);
+    
+      const release = useCallback(async () => {
+        const held = holdRef.current;
+        if (!held) return;
+        holdRef.current = null;
+        // Best effort: an unreleasable hold simply expires server-side.
+        await api.holds.releaseForVenue(venueSlug, held.holdId).catch(reportApiError);
+      }, [api, venueSlug]);
+    
+      const selectSlot = useCallback(
+        async (slot: ChangeBookingSlot) => {
+          setError(null);
+          setStatus("holding");
+          await release();
+          try {
+            const { hold } = await api.holds.createForVenue(venueSlug, {
+              date: slot.date,
+              startTime: slot.startTime,
+              partySize: slot.partySize,
+            });
+            holdRef.current = { holdId: hold.id, slot };
+            setStatus("held");
+          } catch (err) {
+            setError(problemCode(err));
+            setStatus("error");
+          }
+        },
+        [api, venueSlug, release]
+      );
+    
+      const confirm = useCallback(async (): Promise<ManagedReservation | undefined> => {
+        const held = holdRef.current;
+        if (!held) return undefined;
+        setError(null);
+        setStatus("confirming");
+        const changes: ManagedReservationChanges = held.slot;
+        try {
+          const updated = await api.reservations.modifyManaged(token, changes, {
+            holdId: held.holdId,
+            sessionId: api.holds.getSessionId() ?? "",
+          });
+          // The server consumed the hold; nothing left to release.
+          holdRef.current = null;
+          setStatus("done");
+          return updated;
+        } catch (err) {
+          setError(problemCode(err));
+          setStatus("error");
+          return undefined;
+        }
+      }, [api, token]);
+    
+      const abandon = useCallback(async () => {
+        await release();
+        setError(null);
+        setStatus("idle");
+      }, [release]);
+    
+      // Release on unmount (and under the old venue if the slug ever changes).
+      useEffect(
+        () => () => {
+          void release();
+        },
+        [release]
+      );
+    
+      return { status, error, selectSlot, confirm, abandon };
     }
   </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
@@ -2910,12 +3012,6 @@
       venueId?: string | null;
       limit?: number;
       enabled?: boolean;
-    }
-    export interface UseFloorPlansResult {
-      data: FloorPlan[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
     }
     export const useFloorPlans = createQueryHook<FloorPlan[], UseFloorPlansParams>({
       key: FLOOR_PLANS_QUERY_KEY,
@@ -3686,12 +3782,6 @@
     export interface UseTablesParams extends ListTablesParams {
       enabled?: boolean;
     }
-    export interface UseTablesResult {
-      data: Table[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
-    }
     export const useTables = createQueryHook<Table[], UseTablesParams>({
       key: TABLES_QUERY_KEY,
       fetcher: async (params, api) => {
@@ -4231,12 +4321,6 @@
     export interface UseVenuesParams {
       limit?: number;
       enabled?: boolean;
-    }
-    export interface UseVenuesResult {
-      data: Venue[] | undefined;
-      isLoading: boolean;
-      error: Error | null;
-      refetch: () => void;
     }
     export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
       key: VENUES_QUERY_KEY,

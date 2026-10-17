@@ -31,13 +31,12 @@ Issues labeled `ready` are queued for AI-agent pickup (see [How AI agents fit in
 1. Fork the repo, create a feature branch off `main`. Branch naming: `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>`.
 
 2. Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages. This is a convention, not a gate — there is no `commitlint` in this repo, and no hook rejects a malformed message. Examples:
-
    - `feat(rialto): add SplitFlap stagger direction prop`
    - `fix(reservations): null-check booking.guest before render`
    - `docs(adr): add ADR-013 for caching strategy`
    - `chore(deps): bump turbo to 2.x`
 
-3. Commit hooks: pre-commit runs `eslint --fix` + `check-adr`, then post-commit runs `pack-changed`. The post-commit step regenerates `llms.txt` files for affected packages — expect them to appear in `git status` after your commit lands; that's intentional. Don't `--no-verify`; if a hook fails, fix the underlying issue.
+3. Commit hooks: pre-commit runs `eslint --fix` + `check-adr`, then `scripts/precommit-llms-stage.mjs` regenerates and stages `llms.txt` files for the packages affected by your staged commit — expect them to appear in `git status` after your commit lands; that's intentional. (There is no `post-commit` hook — it was removed in #6633.) Don't `--no-verify`; if a hook fails, fix the underlying issue.
 
 4. Open a PR against `main`. Use the PR template — it has a security checklist; please complete it honestly. PRs that don't fill out the template will get a comment asking you to.
 
@@ -99,7 +98,7 @@ This repo is run partly by AI coding agents — the `implement-queue`, `issue-wo
 
 If you're contributing _with_ AI tooling, the policy floor agents must obey is at [`docs/SECURITY-AI.md`](./docs/SECURITY-AI.md). Reading it is recommended before letting any AI tool make changes here — those rules apply to your AI tools too, even though we have no way of enforcing them on your machine.
 
-The maturity model the repo tracks itself against (canonical 6-level ACMM — the current level is the badge in [`README.md`](./README.md), kept in sync by the audit rather than hand-edited) is at [`plugins/acmm/scripts/audit.js`](./plugins/acmm/scripts/audit.js); see [`plugins/acmm/skills/acmm-audit/SKILL.md`](./plugins/acmm/skills/acmm-audit/SKILL.md) for context.
+The maturity model the repo tracks itself against (canonical 6-level ACMM — [`docs/acmm.md`](./docs/acmm.md) says where the current level lives) is at [`plugins/acmm/scripts/audit.js`](./plugins/acmm/scripts/audit.js); see [`plugins/acmm/skills/acmm-audit/SKILL.md`](./plugins/acmm/skills/acmm-audit/SKILL.md) for context.
 
 ## Things to avoid
 

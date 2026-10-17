@@ -54,7 +54,13 @@ vi.mock("../hooks/useSpecsApi.js", () => ({
   }),
 }));
 
+const mockValidateSpec = vi.fn();
+vi.mock("../lib/validate-spec.js", () => ({
+  validateSpecAgainstCatalog: (spec: Spec) => mockValidateSpec(spec),
+}));
+
 import { usePlaygroundSession } from "./usePlaygroundSession.js";
+import { createSubtreeRefinementPrompt } from "./createSubtreeRefinementPrompt.js";
 
 function makeStoredSpec(overrides: Partial<StoredSpec>): StoredSpec {
   return {
@@ -78,6 +84,7 @@ describe("usePlaygroundSession", () => {
     capturedOnComplete = undefined;
     capturedOnError = undefined;
     mockSaveSpec.mockResolvedValue(makeStoredSpec({ id: "new-id" }));
+    mockValidateSpec.mockReturnValue({ ok: true });
     window.history.pushState({}, "", "/");
   });
 
@@ -120,6 +127,139 @@ describe("usePlaygroundSession", () => {
       act(() => result.current.submit("hello"));
 
       expect(mockSend).toHaveBeenCalledWith("hello");
+    });
+  });
+
+  describe("refineNode", () => {
+    const BASE: Spec = {
+      root: "root",
+      elements: {
+        root: { type: "Stack", props: {}, children: ["card", "footer"] },
+        card: { type: "Stack", props: { gap: "sm" }, children: ["label"] },
+        label: { type: "Text", props: { text: "Hi" }, children: [] },
+        footer: { type: "Text", props: { text: "Bye" }, children: [] },
+      },
+    };
+    const REPLACEMENT: Spec = {
+      root: "card",
+      elements: { card: { type: "Grid", props: { columns: 3 }, children: [] } },
+    };
+
+    function setup() {
+      genStreamState = { ...genStreamState, spec: BASE };
+      return renderHook(() => usePlaygroundSession());
+    }
+
+    async function complete(spec: Spec) {
+      await act(async () => {
+        capturedOnComplete?.(spec, ["{line}"]);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    }
+
+    it("requests only the subtree, with ancestry and target, via the stream", () => {
+      const { result } = setup();
+      act(() => result.current.refineNode("card", "make this a 3-column grid"));
+      expect(mockSend).toHaveBeenCalledWith(
+        createSubtreeRefinementPrompt(
+          { root: "card", elements: { card: BASE.elements.card!, label: BASE.elements.label! } },
+          [{ key: "root", type: "Stack" }],
+          "make this a 3-column grid"
+        ),
+        {
+          subtree: {
+            root: "card",
+            elements: { card: BASE.elements.card, label: BASE.elements.label },
+          },
+          ancestors: [{ key: "root", type: "Stack" }],
+        },
+        { target: { key: "card", type: "Stack" } }
+      );
+    });
+
+    it("keeps showing the original spec while the subtree streams", () => {
+      const { result, rerender } = setup();
+      act(() => result.current.refineNode("card", "grid"));
+      genStreamState = { ...genStreamState, isStreaming: true, spec: REPLACEMENT };
+      rerender();
+      expect(result.current.displaySpec).toBe(BASE);
+    });
+
+    it("splices the streamed subtree and saves the whole spec as a refine entry", async () => {
+      const { result } = setup();
+      act(() => result.current.refineNode("card", "grid"));
+      await complete(REPLACEMENT);
+
+      expect(mockSaveSpec).toHaveBeenCalledTimes(1);
+      const saved = mockSaveSpec.mock.calls[0]?.[0] as { spec: Spec; kind: string; prompt: string };
+      expect(saved.kind).toBe("refine");
+      expect(saved.prompt).toBe("grid");
+      expect(saved.spec.elements.card).toEqual(REPLACEMENT.elements.card);
+      expect(saved.spec.elements.root).toEqual(BASE.elements.root);
+      expect(saved.spec.elements.footer).toEqual(BASE.elements.footer);
+      expect(saved.spec.elements.label).toBeUndefined();
+      expect(mockValidateSpec).toHaveBeenCalledWith(saved.spec);
+      expect(result.current.activeSpecId).toBe("new-id");
+    });
+
+    it("rejects a spliced spec the catalog does not accept and keeps the original on screen", async () => {
+      mockValidateSpec.mockReturnValue({ ok: false, message: "unknown type Nope" });
+      const { result } = setup();
+      act(() => result.current.refineNode("card", "grid"));
+      await complete(REPLACEMENT);
+
+      expect(mockSaveSpec).not.toHaveBeenCalled();
+      expect(result.current.displayError?.message).toContain("unknown type Nope");
+      expect(result.current.displaySpec).toBe(BASE);
+    });
+
+    it("rejects a subtree whose root key is not the selected key", async () => {
+      const { result } = setup();
+      act(() => result.current.refineNode("card", "grid"));
+      await complete({ root: "other", elements: { other: REPLACEMENT.elements.card! } });
+
+      expect(mockSaveSpec).not.toHaveBeenCalled();
+      expect(result.current.displayError).not.toBeNull();
+      expect(result.current.displaySpec).toBe(BASE);
+    });
+
+    it("keeps the original spec on screen when the stream itself fails", () => {
+      const { result, rerender } = setup();
+      act(() => result.current.refineNode("card", "grid"));
+      genStreamState = { ...genStreamState, spec: null, error: new Error("boom") };
+      rerender();
+      expect(result.current.displaySpec).toBe(BASE);
+      expect(result.current.displayError?.message).toBe("boom");
+    });
+
+    it("retries a failed node refine as a node refine, not a whole-spec generate", () => {
+      const { result, rerender } = setup();
+      act(() => result.current.refineNode("card", "grid"));
+      genStreamState = { ...genStreamState, spec: null, error: new Error("boom") };
+      rerender();
+      mockSend.mockClear();
+      act(() => result.current.retry());
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(mockSend.mock.calls[0]?.[2]).toEqual({ target: { key: "card", type: "Stack" } });
+    });
+
+    it("a following whole-spec submit leaves node-refine state behind", async () => {
+      const { result } = setup();
+      act(() => result.current.refineNode("card", "grid"));
+      await complete(REPLACEMENT);
+      mockSaveSpec.mockClear();
+      act(() => result.current.submit("something new"));
+      await complete(BASE);
+      expect(mockSaveSpec).toHaveBeenCalledWith(
+        expect.objectContaining({ spec: BASE, kind: "generate" })
+      );
+    });
+
+    it("does nothing for an unknown key", () => {
+      const { result } = setup();
+      act(() => result.current.refineNode("missing", "grid"));
+      expect(mockSend).not.toHaveBeenCalled();
     });
   });
 

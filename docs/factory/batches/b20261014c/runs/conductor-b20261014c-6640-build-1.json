@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 331612,
+  "stop_reason": "end_turn",
+  "session_id": "900d841d-0268-49f4-8a5d-2a0ec3ecd6bd",
+  "total_cost_usd": 1.8944768000000003,
+  "usage": {
+    "input_tokens": 76,
+    "cache_creation_input_tokens": 143574,
+    "cache_read_input_tokens": 5363844,
+    "output_tokens": 24726,
+    "output_tokens_details": {
+      "thinking_tokens": 13053
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 143574,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 518,
+        "cache_read_input_tokens": 168231,
+        "cache_creation_input_tokens": 1645,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1645
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 76,
+      "outputTokens": 24726,
+      "cacheReadInputTokens": 5363844,
+      "cacheCreationInputTokens": 143574,
+      "webSearchRequests": 0,
+      "costUSD": 1.8944768000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 13053,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 38,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-26 is implemented and committed on `conductor/b20261014c-6640`, and `pr-body.md` is written (uncommitted) at the worktree root.\n\n**What landed:**\n- `docs/adr/ADR-095-same-zone-batching-under-nonstrict-main.md` \u2014 new ADR recording the conditional same-zone-batching rule, the fail-closed probe, and the stale-base mitigation per `architecture.md` \u00a7 Design 4.\n- `docs/adr/ADR-023-merge-train-batch-composition.md` \u2014 Decision section untouched; now points at ADR-095 via an `amended_by` field and a status-line blockquote (mirroring the existing ADR-004 `superseded_by` pattern).\n- `docs/adr/README.md` \u2014 added the ADR-095 row, updated ADR-023's status column.\n- `breakdown.md` \u2014 WO-26 checked off.\n\nOne deviation worth flagging: the WO text asked for ADR-095's status to be `provisional`, but `check-adr`'s structural validator only accepts `active|superseded|deprecated` and would reject that \u2014 so since the WO's own acceptance criterion is \"check-adr green,\" I used `active` instead. I verified structural validity with a throwaway Python reimplementation of the checker (no `pnpm`/`node` in this worktree's Bash allowlist), and everything is clean except an expected `id-non-sequential` gap (ADR-027..094) inherent to the reserved-ID-block scheme \u2014 not something this WO can fix on its own. Both points are written up in `pr-body.md`.",
+  "ttft_ms": 4007,
+  "type": "result",
+  "duration_ms": 640440,
+  "uuid": "97630a8e-68fe-4ffb-8515-48b90abc5f72",
+  "ttft_stream_ms": 2473,
+  "time_to_request_ms": 667,
+  "first_content_frame_ms": 2473,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

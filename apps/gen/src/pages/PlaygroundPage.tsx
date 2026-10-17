@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { ErrorBoundary, useToast } from "@mattbutlerengineering/rialto";
 import { AppShell, useAppShellPanels } from "../components/AppShell.js";
 import { HistoryPanel } from "../components/HistoryPanel.js";
 import { PreviewPane } from "../components/PreviewPane.js";
+import { NodeInspector } from "../components/NodeInspector.js";
 import { JsonInspector } from "../components/JsonInspector.js";
 import { PromptBar } from "../components/PromptBar.js";
 import { TemplateGallery } from "../components/TemplateGallery.js";
@@ -94,6 +96,7 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     failedPrompt,
     submit,
     refine,
+    refineNode,
     exitRefinement,
     replay,
     retry,
@@ -110,6 +113,14 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     openShortcuts,
     closeShortcuts,
   } = session;
+
+  // Selection belongs to the spec it was made on; derive it away when the displayed spec changes.
+  const [selection, setSelection] = useState<{ spec: typeof displaySpec; key: string | null }>({
+    spec: displaySpec,
+    key: null,
+  });
+  const selectedKey = selection.spec === displaySpec ? selection.key : null;
+  const setSelectedKey = (key: string | null) => setSelection({ spec: displaySpec, key });
 
   // ---------------------------------------------------------------------------
   // Handlers — breakpoint-driven overlay closing is a shell concern, kept here.
@@ -193,44 +204,59 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
           />
         </AppShell.HistoryRegion>
 
-        <ErrorBoundary
-          fallback={
-            <div style={{ padding: "var(--rialto-space-lg)", textAlign: "center" }}>
-              {/* eslint-disable mbe-local/prefer-rialto-components -- rialto unavailable inside an ErrorBoundary fallback */}
-              <p>Preview failed to render.</p>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                style={{
-                  marginBlockStart: "var(--rialto-space-sm)",
-                  padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
-                  borderRadius: "var(--rialto-radius-default)",
-                  border: "1px solid var(--rialto-border)",
-                  background: "var(--rialto-surface-elevated)",
-                  color: "var(--rialto-text-primary)",
-                  cursor: "pointer",
-                }}
-              >
-                Retry
-              </button>
-              {/* eslint-enable mbe-local/prefer-rialto-components */}
-            </div>
-          }
-        >
-          <PreviewPane
-            spec={displaySpec}
-            isStreaming={isStreaming}
-            error={displayError}
-            onRetry={retry}
-            activeSpecId={activeSpecId}
-            onShare={handleShare}
-            onRefine={refine}
-            isRefinementMode={mode === "refine"}
-            onSuggestionClick={submit}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={toggleFullscreen}
-          />
-        </ErrorBoundary>
+        {/* One grid cell: the node panel sits beside the preview, not in its own column */}
+        <div className={styles.previewColumn}>
+          <ErrorBoundary
+            fallback={
+              <div style={{ padding: "var(--rialto-space-lg)", textAlign: "center" }}>
+                {/* eslint-disable mbe-local/prefer-rialto-components -- rialto unavailable inside an ErrorBoundary fallback */}
+                <p>Preview failed to render.</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  style={{
+                    marginBlockStart: "var(--rialto-space-sm)",
+                    padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
+                    borderRadius: "var(--rialto-radius-default)",
+                    border: "1px solid var(--rialto-border)",
+                    background: "var(--rialto-surface-elevated)",
+                    color: "var(--rialto-text-primary)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Retry
+                </button>
+                {/* eslint-enable mbe-local/prefer-rialto-components */}
+              </div>
+            }
+          >
+            <PreviewPane
+              spec={displaySpec}
+              isStreaming={isStreaming}
+              error={displayError}
+              onRetry={retry}
+              activeSpecId={activeSpecId}
+              onShare={handleShare}
+              onRefine={refine}
+              isRefinementMode={mode === "refine"}
+              onSuggestionClick={submit}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              selectedKey={selectedKey}
+              onSelectNode={setSelectedKey}
+            />
+          </ErrorBoundary>
+
+          {selectedKey && displaySpec && (
+            <NodeInspector
+              spec={displaySpec}
+              selectedKey={selectedKey}
+              onSelectNode={setSelectedKey}
+              onRefineNode={refineNode}
+              isBusy={isStreaming}
+            />
+          )}
+        </div>
 
         <AppShell.InspectorRegion>
           <ErrorBoundary

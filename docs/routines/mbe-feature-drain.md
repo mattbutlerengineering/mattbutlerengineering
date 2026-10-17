@@ -14,7 +14,7 @@ Authoritative prompt for the `mbe-feature-drain-a` and `mbe-feature-drain-b`
 RemoteTriggers, captured byte-for-byte from `job_config.ccr.events[0]` at
 creation on 2026-10-16 and revised the same day after PR #6747's review
 (per-workflow CI query, git-based orphan check, `check_name` filter, no
-`has-pr` label on PRs); both live triggers were updated to match. The two triggers carry an identical prompt and differ
+`has-pr` label on PRs); both live triggers were updated to match, and re-synced again on 2026-10-16 (#6831) after #6794's `GATE_PATHS` rule had reached only this file. The two triggers carry an identical prompt and differ
 only in cron minute (`:03` / `:33`): the RemoteTrigger API rejects any cron that
 fires more often than hourly (`cron interval too short; the minimum interval is
 1 hour`, measured 2026-10-16 on `*/30 * * * *`), so a 30-minute cadence is two

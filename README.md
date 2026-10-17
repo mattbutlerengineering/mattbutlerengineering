@@ -4,8 +4,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
 [![codecov](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/graph/badge.svg?token=ANNEPED1FV)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
 
-<!-- acmm:begin -->[![ACMM Level 5](https://img.shields.io/badge/ACMM-Level%205-c4952c?style=flat-square)](docs/acmm.md)<!-- acmm:end -->
-
 > **Build status:** GitHub Actions runs CI checks on every PR. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 Monorepo for [mattbutlerengineering.com](https://mattbutlerengineering.com) -- a hospitality management platform with a design system, multiple frontend apps, and backend API services.
@@ -123,8 +121,7 @@ The agent-facing contract lives in [CLAUDE.md](./CLAUDE.md) and [AGENTS.md](./AG
 
 Scored against the [AI Codebase Maturity Model](docs/acmm.md)
 ([arXiv:2604.09388](https://arxiv.org/abs/2604.09388)) by
-[`plugins/acmm`](./plugins/acmm), which runs on a schedule and updates the badge
-above in place.
+[`plugins/acmm`](./plugins/acmm), which runs on a schedule.
 
 The level and the behavioural metrics behind it — agent PR acceptance, revert rate,
 CI flake rate, human-touch ratio — are deliberately **not** duplicated into this

@@ -577,6 +577,86 @@ describe("POST /api/gen/ui", () => {
     expect(response.statusCode).toBe(502);
   });
 
+  describe("target (subtree) mode", () => {
+    const target = { key: "card-1", type: "Card" };
+    const streamElements = (elements: unknown[]) =>
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "render_component",
+            input: { elements },
+          },
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "render_component",
+            result: { rendered: true },
+          },
+        ]),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+    const post = (payload: object) => app.inject({ method: "POST", url: "/api/gen/ui", payload });
+    const userContent = () => {
+      const call = vi.mocked(streamText).mock.calls[0]![0] as unknown as {
+        messages: Array<{ role: string; content: string }>;
+      };
+      return call.messages.find((m) => m.role === "user")?.content;
+    };
+
+    it("leaves the user message untouched when no target is given", async () => {
+      streamElements([{ key: "root-1", type: "Card", props: {} }]);
+      await post({ prompt: "p", context: { a: 1 } });
+      expect(userContent()).toBe('p\n\nContext: {"a":1}');
+    });
+
+    it("appends a key-preserving instruction to the user message", async () => {
+      streamElements([{ key: "card-1", type: "Card", props: {} }]);
+      await post({ prompt: "make it bigger", target });
+      expect(userContent()).toContain("make it bigger");
+      expect(userContent()).toContain('key === "card-1"');
+      expect(userContent()).toContain("ONLY the replacement subtree");
+      expect(userContent()).toContain("omit `parentKey`");
+    });
+
+    it("streams a conforming subtree normally", async () => {
+      const elements = [
+        { key: "card-1", type: "Card", props: {} },
+        { key: "t-1", parentKey: "card-1", type: "Text", props: {} },
+      ];
+      streamElements(elements);
+      const response = await post({ prompt: "p", target });
+      expect(response.statusCode).toBe(200);
+      expect(
+        response.body
+          .split("\n")
+          .filter(Boolean)
+          .map((l) => JSON.parse(l))
+      ).toEqual(elements);
+    });
+
+    it("fails when the first element's key differs from target.key", async () => {
+      streamElements([{ key: "other", type: "Card", props: {} }]);
+      const response = await post({ prompt: "p", target });
+      expect(response.statusCode).toBe(502);
+    });
+
+    it("fails when a second root element appears", async () => {
+      streamElements([
+        { key: "card-1", type: "Card", props: {} },
+        { key: "root-2", type: "Card", props: {} },
+      ]);
+      await expect(post({ prompt: "p", target })).rejects.toThrow();
+    });
+
+    it("returns 400 for an invalid target shape", async () => {
+      const response = await post({ prompt: "p", target: { key: "" } });
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   it("caps repeated calls with a 429 (max: 20/hour)", async () => {
     // Per-user cap declared in gen-ui.ts's config.rateLimit — regression
     // coverage so the limiter can't silently stop enforcing.

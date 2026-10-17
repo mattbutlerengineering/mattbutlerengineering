@@ -15,7 +15,7 @@ vi.mock("node:util", () => ({
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createMockQueryStream } from "@mbe/agent-test-utils";
 import { execFile } from "node:child_process";
-import { evaluateSuccess, getGitDiff } from "../success-evaluator.js";
+import { EMPTY_DIFF_MARKER, evaluateSuccess, getGitDiff } from "../success-evaluator.js";
 
 function createMockEvalResult(evaluation: {
   passed: boolean;
@@ -102,6 +102,20 @@ describe("evaluateSuccess", () => {
     expect(result.confidence).toBe(1.0);
     expect(result.issues).toContain("Empty diff");
     expect(query).not.toHaveBeenCalled();
+  });
+
+  it("sends an empty diff to the LLM with a no-op marker when forceEvaluate is set", async () => {
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([
+        createMockEvalResult({ passed: true, confidence: 0.9, reasoning: "no-op", issues: [] }),
+      ]) as ReturnType<typeof query>
+    );
+
+    const result = await evaluateSuccess("Fix bug", "  \n", { forceEvaluate: true });
+
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(query).mock.calls[0]![0].prompt)).toContain(EMPTY_DIFF_MARKER);
+    expect(result.passed).toBe(true);
   });
 
   // ── fail-closed when the LLM judge could not run ─────────────────────

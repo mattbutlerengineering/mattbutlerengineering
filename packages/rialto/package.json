@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.6.5",
+  "version": "0.7.1",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -428,7 +428,6 @@
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.4.0",
-    "@json-render/react": "^0.21.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.64.0",

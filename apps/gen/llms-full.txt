@@ -176,7 +176,12 @@
       isStreaming: boolean;
       error: Error | null;
       rawLines: string[];
-      send: (prompt: string, context?: Record<string, unknown>) => Promise<void>;
+      send: (
+        prompt: string,
+        context?: Record<string, unknown>,
+        /** Extra top-level request body fields, e.g. `target` for subtree-scoped generation. */
+        extraBody?: Record<string, unknown>
+      ) => Promise<void>;
       clear: () => void;
       stop: () => void;
     }
@@ -221,7 +226,11 @@
       }, [onError]);
     
       const send = useCallback(
-        async (prompt: string, context?: Record<string, unknown>): Promise<void> => {
+        async (
+          prompt: string,
+          context?: Record<string, unknown>,
+          extraBody?: Record<string, unknown>
+        ): Promise<void> => {
           // Abort any in-flight request
           abortControllerRef.current?.abort();
     
@@ -241,7 +250,7 @@
           try {
             const stream = streamNDJSON<Record<string, unknown>>({
               url: api,
-              body: { prompt, context },
+              body: { prompt, context, ...extraBody },
               headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
               signal: controller.signal,
             });
@@ -856,6 +865,82 @@
       return null;
     }
   </file>
+  <file path="src/lib/spec-subtree.ts">
+    type Elements = Spec["elements"];
+    export type SpecError = "unknown-key" | "root-mismatch" | "key-collision";
+    export type SpecResult = { ok: true; spec: Spec } | { ok: false; error: SpecError };
+    export interface SpecDiff {
+      parentId: string | null;
+      /** The element key whose subtree changed. */
+      path: string;
+      /** Subtree rooted at `path`, before the change. */
+      before: Spec;
+      /** Subtree rooted at `path`, after the change. */
+      after: Spec;
+    }
+    function childrenOf(elements: Elements, key: string): string[] {
+      return elements[key]?.children ?? [];
+    }
+    export function subtreeKeys(spec: Spec, key: string): string[] {
+      if (!(key in spec.elements)) return [];
+      const seen = new Set<string>();
+      const stack = [key];
+      while (stack.length > 0) {
+        const current = stack.pop() as string;
+        if (seen.has(current) || !(current in spec.elements)) continue;
+        seen.add(current);
+        stack.push(...childrenOf(spec.elements, current));
+      }
+      return Array.from(seen);
+    }
+    export function extractSubtree(spec: Spec, key: string): Spec | null {
+      const keys = subtreeKeys(spec, key);
+      if (keys.length === 0) return null;
+      const elements: Elements = {};
+      for (const k of keys) {
+        const element = spec.elements[k];
+        if (element) elements[k] = element;
+      }
+      return { root: key, elements };
+    }
+    export function ancestorChain(spec: Spec, key: string): { key: string; type: string }[] {
+      const seen = new Set<string>();
+      const walk = (current: string, trail: string[]): string[] | null => {
+        if (current === key) return trail;
+        if (seen.has(current) || !(current in spec.elements)) return null;
+        seen.add(current);
+        for (const child of childrenOf(spec.elements, current)) {
+          const found = walk(child, [...trail, current]);
+          if (found) return found;
+        }
+        return null;
+      };
+      const trail = walk(spec.root, []) ?? [];
+      return trail.map((k) => ({ key: k, type: spec.elements[k]?.type ?? "" }));
+    }
+    export function spliceSubtree(spec: Spec, key: string, replacement: Spec): SpecResult {
+      if (!(key in spec.elements)) return { ok: false, error: "unknown-key" };
+      if (replacement.root !== key || !(key in replacement.elements)) {
+        return { ok: false, error: "root-mismatch" };
+      }
+      const removed = new Set(subtreeKeys(spec, key));
+      for (const k of Object.keys(replacement.elements)) {
+        if (k in spec.elements && !removed.has(k)) return { ok: false, error: "key-collision" };
+      }
+      const elements: Elements = {};
+      for (const [k, element] of Object.entries(spec.elements)) {
+        if (!removed.has(k)) elements[k] = element;
+      }
+      Object.assign(elements, replacement.elements);
+      return { ok: true, spec: { ...spec, elements } };
+    }
+    export function applySpecDiff(spec: Spec, diff: SpecDiff): SpecResult {
+      return spliceSubtree(spec, diff.path, diff.after);
+    }
+    export function invertSpecDiff(diff: SpecDiff): SpecDiff {
+      return { ...diff, before: diff.after, after: diff.before };
+    }
+  </file>
   <file path="src/lib/spec.ts">
     export interface SpecStats {
       elementCount: number;
@@ -877,6 +962,17 @@
       const elements = Object.values(spec.elements);
       const types = new Set(elements.map((element) => element.type));
       return { elementCount: elements.length, componentTypes: Array.from(types).sort() };
+    }
+  </file>
+  <file path="src/lib/validate-spec.ts">
+    export type CatalogValidation = { ok: true } | { ok: false; message: string };
+    export function validateSpecAgainstCatalog(spec: Spec): CatalogValidation {
+      const result = catalog.validate(spec);
+      if (result.success) return { ok: true };
+      return {
+        ok: false,
+        message: result.error?.message ?? "Spec does not conform to the Rialto catalog",
+      };
     }
   </file>
   </section>
@@ -911,7 +1007,29 @@
       );
     }
   </file>
+  <file path="src/pages/createSubtreeRefinementPrompt.ts">
+    export function createSubtreeRefinementPrompt(
+      subtree: Spec,
+      ancestors: { key: string; type: string }[],
+      userInstruction: string
+    ): string {
+      return (
+        `Here is one selected subtree of an existing UI spec generated from Rialto components. ` +
+        `Please modify it according to the user's instruction. ` +
+        `Output ONLY the replacement subtree, not the rest of the spec, and keep its root key ` +
+        `${JSON.stringify(subtree.root)} unchanged.\n\n` +
+        `Selected subtree:\n${JSON.stringify(subtree)}\n\n` +
+        `Ancestors (root to parent):\n${JSON.stringify(ancestors)}\n\n` +
+        `Modification requested: ${userInstruction}`
+      );
+    }
+  </file>
   <file path="src/pages/usePlaygroundSession.ts">
+    interface NodeRefine {
+      base: Spec;
+      key: string;
+      instruction: string;
+    }
     export interface PlaygroundSession {
       // Render mode + transient overlays (passed through from usePlaygroundState)
       mode: PlaygroundMode;
@@ -948,6 +1066,8 @@
       // Session verbs — own transition choreography lives here, not in the caller.
       submit: (prompt: string) => void;
       refine: () => void;
+      /** Regenerate only the subtree at `key`, splice it into the displayed spec, and save the result. */
+      refineNode: (key: string, instruction: string) => void;
       replay: (id: string) => void;
       retry: () => void;
       selectHistory: (id: string) => void;
@@ -986,16 +1106,47 @@
       // only read, on the error-context retry path.
       const refineSpecRef = useRef<Spec | null>(null);
     
+      // A node refine streams only a subtree, so the preview must keep showing the
+      // spec it was made on — `pinnedSpec` overrides the stream-derived display
+      // until the spliced result is saved (or the refine is abandoned). The ref
+      // carries the same context into the stream callbacks and into retry().
+      const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
+      const [refineError, setRefineError] = useState<Error | null>(null);
+      const nodeRefineRef = useRef<NodeRefine | null>(null);
+    
       const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
         api: "/api/gen/ui",
         onComplete: (completedSpec, completedRawLines) => {
+          const nodeRefine = nodeRefineRef.current;
+          let savedSpec = completedSpec;
+          if (nodeRefine) {
+            // Reject, never render, a subtree that can't be spliced or isn't in the catalog.
+            const spliced = spliceSubtree(nodeRefine.base, nodeRefine.key, completedSpec);
+            if (!spliced.ok) {
+              setRefineError(new Error(SPLICE_ERROR_MESSAGES[spliced.error]));
+              return;
+            }
+            const validation = validateSpecAgainstCatalog(spliced.spec);
+            if (!validation.ok) {
+              setRefineError(
+                new Error(`The regenerated subtree is not valid Rialto: ${validation.message}`)
+              );
+              return;
+            }
+            savedSpec = spliced.spec;
+            nodeRefineRef.current = null;
+            setPinnedSpec(savedSpec);
+          }
           options?.onGenerationComplete?.();
           void saveSpec({
             prompt: promptRef.current,
             kind: kindRef.current,
-            spec: completedSpec,
+            spec: savedSpec,
             rawLines: completedRawLines,
-          }).then((stored) => setActiveId(stored.id));
+          }).then((stored) => {
+            setActiveId(stored.id);
+            setPinnedSpec(null);
+          });
         },
         // Record the failed attempt in the same history mechanism (kind
         // "failed") so a
@@ -1024,7 +1175,7 @@
       const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
       const activeEntryRawLines = activeEntry?.rawLines ?? [];
     
-      const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
+      const displaySpec = pinnedSpec ?? (isStreaming ? spec : (activeEntrySpec ?? spec));
       const displayRawLines = isStreaming
         ? rawLines
         : activeEntryRawLines.length > 0
@@ -1033,21 +1184,29 @@
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
-      const displayError = activeId === null ? error : null;
+      const displayError = activeId === null ? (refineError ?? error) : null;
       const activeSpecId = !isStreaming && activeId ? activeId : null;
       const failedPrompt = displayError ? rawPrompt : null;
     
+      const clearNodeRefine = useCallback(() => {
+        nodeRefineRef.current = null;
+        setPinnedSpec(null);
+        setRefineError(null);
+      }, []);
+    
       const resetTo = useCallback(
         (id: string | null) => {
+          clearNodeRefine();
           setActiveId(id);
           exitRefinement();
         },
-        [exitRefinement]
+        [exitRefinement, clearNodeRefine]
       );
     
       const submit = useCallback(
         (prompt: string) => {
           setRawPrompt(prompt);
+          clearNodeRefine();
           if (mode === "refine" && displaySpec) {
             refineSpecRef.current = displaySpec;
             const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
@@ -1063,7 +1222,30 @@
             void send(prompt);
           }
         },
-        [mode, displaySpec, send]
+        [mode, displaySpec, send, clearNodeRefine]
+      );
+    
+      const refineNode = useCallback(
+        (key: string, instruction: string) => {
+          if (!displaySpec) return;
+          const subtree = extractSubtree(displaySpec, key);
+          if (!subtree) return;
+          const ancestors = ancestorChain(displaySpec, key);
+          setRawPrompt(instruction);
+          promptRef.current = instruction;
+          kindRef.current = "refine";
+          refineSpecRef.current = null;
+          nodeRefineRef.current = { base: displaySpec, key, instruction };
+          setPinnedSpec(displaySpec);
+          setRefineError(null);
+          setActiveId(null);
+          void send(
+            createSubtreeRefinementPrompt(subtree, ancestors, instruction),
+            { subtree, ancestors },
+            { target: { key, type: displaySpec.elements[key]?.type ?? "" } }
+          );
+        },
+        [displaySpec, send]
       );
     
       // Pre-load a deep-linked prompt (e.g. from the marketing site's playground
@@ -1120,6 +1302,13 @@
       // isTransportError) isn't recoverable by feeding it back to the model, so
       // that case is just a bare resubmit, same as having no error at all.
       const retry = useCallback(() => {
+        // A failed node refine is retried as a node refine on the same spec; a
+        // whole-spec resubmit would replace the user's UI with a subtree.
+        const nodeRefine = nodeRefineRef.current;
+        if (nodeRefine) {
+          refineNode(nodeRefine.key, nodeRefine.instruction);
+          return;
+        }
         const retryPrompt = activeEntry ? resolveEntry(activeEntry).prompt : rawPrompt;
         if (!retryPrompt) return;
         const recoverableError = error && !isTransportError(error) ? error : null;
@@ -1135,7 +1324,7 @@
         } else {
           void send(retryPrompt);
         }
-      }, [activeEntry, error, rawPrompt, resetTo, send]);
+      }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
     
       const selectHistory = useCallback(
         (id: string) => {
@@ -1191,6 +1380,7 @@
     
         submit,
         refine: enterRefinement,
+        refineNode,
         replay,
         retry,
         selectHistory,
@@ -1268,13 +1458,6 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/types.ts">
-    export interface HistoryEntry {
-      id: string;
-      prompt: string;
-      spec: Spec;
-      rawLines: string[];
-      timestamp: Date;
-    }
     export type EntryKind = "generate" | "refine" | "recover" | "failed";
     export interface StoredSpec {
       id: string;

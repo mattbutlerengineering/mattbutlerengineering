@@ -31,7 +31,6 @@
   ],
   "dependencies": {
     "@mattbutlerengineering/rialto": "workspace:*",
-    "@mbe/observability": "workspace:^",
     "@tanstack/react-query": "^5.104.2",
     "framer-motion": "catalog:",
     "react": "catalog:",

@@ -71,7 +71,9 @@
         isStreaming: boolean;
         error: Error | null;
         rawLines: string[];
-        send: (prompt: string, context?: Record<string, unknown>) => Pr...;
+        send: (
+          prompt: string,
+          context?: Record<string, unknow...;
       }
     </item>
     <item priority="medium">
@@ -240,6 +242,46 @@
       export function matchShortcut(event: KeyboardEvent): ShortcutAction | null { /* ... */ }
     </item>
   </file>
+  <file path="src/lib/spec-subtree.ts">
+    <item priority="high">
+      type Elements = Spec["elements"];
+    </item>
+    <item priority="low">
+      type SpecError = "unknown-key" | "root-mismatch" | "key-collision";
+    </item>
+    <item priority="low">
+      type SpecResult = { ok: true; spec: Spec } | { ok: false; error: SpecError ;
+    </item>
+    <item priority="low">
+      interface SpecDiff {
+        parentId: string | null;
+        path: string;
+        before: Spec;
+        after: Spec;
+      }
+    </item>
+    <item priority="medium">
+      function childrenOf(elements: Elements, key: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function subtreeKeys(spec: Spec, key: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractSubtree(spec: Spec, key: string): Spec | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ancestorChain(spec: Spec, key: string): { key: string; type: string }[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function spliceSubtree(spec: Spec, key: string, replacement: Spec): SpecResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applySpecDiff(spec: Spec, diff: SpecDiff): SpecResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function invertSpecDiff(diff: SpecDiff): SpecDiff { /* ... */ }
+    </item>
+  </file>
   <file path="src/lib/spec.ts">
     <item priority="low">
       interface SpecStats {
@@ -255,6 +297,14 @@
     </item>
     <item priority="high">
       export function specStats(spec: Spec | null): SpecStats | null { /* ... */ }
+    </item>
+  </file>
+  <file path="src/lib/validate-spec.ts">
+    <item priority="low">
+      type CatalogValidation = { ok: true } | { ok: false; message: string };
+    </item>
+    <item priority="high">
+      export function validateSpecAgainstCatalog(spec: Spec): CatalogValidation { /* ... */ }
     </item>
   </file>
   </section>
@@ -274,7 +324,23 @@
       export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/pages/createSubtreeRefinementPrompt.ts">
+    <item priority="high">
+      export function createSubtreeRefinementPrompt(
+        subtree: Spec,
+        ancestors: { key: string; type: string }[],
+        userInstruction: string
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/pages/usePlaygroundSession.ts">
+    <item priority="high">
+      interface NodeRefine {
+        base: Spec;
+        key: string;
+        instruction: string;
+      }
+    </item>
     <item priority="low">
       interface PlaygroundSession {
         mode: PlaygroundMode;
@@ -313,15 +379,6 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/types.ts">
-    <item priority="low">
-      interface HistoryEntry {
-        id: string;
-        prompt: string;
-        spec: Spec;
-        rawLines: string[];
-        timestamp: Date;
-      }
-    </item>
     <item priority="low">
       type EntryKind = "generate" | "refine" | "recover" | "failed";
     </item>

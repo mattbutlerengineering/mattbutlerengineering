@@ -20,6 +20,12 @@ const AcmmPage = lazy(() => import("./pages/AcmmPage").then((m) => ({ default: m
 const AiHealthPage = lazy(() =>
   import("./pages/AiHealthPage").then((m) => ({ default: m.AiHealthPage }))
 );
+const ShippedIndexPage = lazy(() =>
+  import("./pages/ShippedIndexPage").then((m) => ({ default: m.ShippedIndexPage }))
+);
+const ShippedStoryPage = lazy(() =>
+  import("./pages/ShippedStoryPage").then((m) => ({ default: m.ShippedStoryPage }))
+);
 
 interface AppProps {
   theme: "light" | "dark";
@@ -74,6 +80,8 @@ export function App({ theme, onThemeToggle }: AppProps) {
             <Route path="/metrics" element={<MetricsPage />} />
             <Route path="/acmm" element={<AcmmPage />} />
             <Route path="/ai-health" element={<AiHealthPage />} />
+            <Route path="/shipped" element={<ShippedIndexPage />} />
+            <Route path="/shipped/:slug" element={<ShippedStoryPage />} />
             {/* Fallback for edge router failure or local dev */}
             <Route path="/rialto/*" element={<Navigate to="/rialto/" replace />} />
             <Route path="/hospitality/*" element={<Navigate to="/hospitality/" replace />} />

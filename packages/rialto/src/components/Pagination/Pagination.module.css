@@ -58,14 +58,14 @@
 .active {
   background: var(--rialto-accent);
   border-color: var(--rialto-accent);
-  color: white;
+  color: var(--rialto-text-on-accent);
   font-weight: var(--rialto-weight-medium);
 }
 
 .active:hover {
   background: var(--rialto-accent-hover);
   border-color: var(--rialto-accent-hover);
-  color: white;
+  color: var(--rialto-text-on-accent);
 }
 
 /* ── Arrow buttons ───────────────────────────── */

@@ -1,7 +1,13 @@
 import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
-import { bookingWindow, isSlotInBookingWindow } from "./slot-rules.js";
+import { prisma } from "./database.js";
+import { moveReservationToHold } from "./move-to-hold.js";
+import {
+  bookingWindow,
+  checkGuestModificationPolicy,
+  isSlotInBookingWindow,
+} from "./slot-rules.js";
 import type { DepositService } from "./deposit.js";
 
 /** Guest-supplied fields for a modify request; all optional (at least one required). */
@@ -11,6 +17,12 @@ export interface ReservationChanges {
   endTime?: string;
   partySize?: number;
   specialRequests?: string;
+}
+
+/** The guest's hold on the slot a date/time/party-size change moves to. */
+export interface ModifyHold {
+  holdId: string;
+  sessionId: string;
 }
 
 export type ModifyReservationResult =
@@ -41,6 +53,28 @@ export function isTimeChange(changes: ReservationChanges): boolean {
     changes.date !== undefined || changes.startTime !== undefined || changes.endTime !== undefined
   );
 }
+
+/** Whether a change moves the booking onto a different slot or party size. */
+function needsHold(changes: ReservationChanges): boolean {
+  return isTimeChange(changes) || changes.partySize !== undefined;
+}
+
+const HOLD_REQUIRED_RESULT: ModifyReservationResult = {
+  success: false,
+  status: 400,
+  title: "Hold Required",
+  detail: "Changing the date, time or party size requires a hold on the new slot",
+  code: "HOLD_REQUIRED",
+};
+
+/** moveReservationToHold failure code -> HTTP result. */
+const MOVE_ERROR_RESULTS = {
+  NOT_FOUND: { status: 404, title: "Hold Not Found", code: "HOLD_NOT_FOUND" },
+  SESSION_MISMATCH: { status: 403, title: "Forbidden", code: "HOLD_SESSION_MISMATCH" },
+  EXPIRED: { status: 410, title: "Hold Expired", code: "HOLD_EXPIRED" },
+  CONFLICT: { status: 409, title: "Slot Unavailable", code: "SLOT_UNAVAILABLE" },
+  PACING_EXCEEDED: { status: 422, title: "Pacing Exceeded", code: "PACING_EXCEEDED" },
+} as const;
 
 const DEPOSIT_HELD_STATUSES = new Set(["pending", "held"]);
 
@@ -107,6 +141,8 @@ const BOOKING_WINDOW_RESULT: ModifyReservationResult = {
   code: "BOOKING_WINDOW_VIOLATION",
 };
 
+type ModifyVenue = NonNullable<Awaited<ReturnType<typeof venueService.getById>>>;
+
 /**
  * A guest moving their own booking is bound by the same booking window as
  * availability and hold creation (#6560): not in the past, within the venue's
@@ -114,15 +150,12 @@ const BOOKING_WINDOW_RESULT: ModifyReservationResult = {
  * so an unrelated edit to an imminent booking is never blocked by minAdvance.
  * Returns a blocking 422 result, or `null` when the change may proceed.
  */
-async function checkBookingWindow(
+function checkBookingWindow(
+  venue: ModifyVenue,
   reservation: Reservation,
   changes: ReservationChanges
-): Promise<ModifyReservationResult | null> {
+): ModifyReservationResult | null {
   if (changes.startTime === undefined && changes.date === undefined) return null;
-  if (!reservation.venueId) return null;
-
-  const venue = await venueService.getById(reservation.venueId);
-  if (!venue) return null;
 
   const newStart = new Date(changes.startTime ?? reservation.startTime);
   // The route's body schema guarantees a date-time; an unparseable value
@@ -131,6 +164,41 @@ async function checkBookingWindow(
 
   const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
   return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
+}
+
+const GUEST_POLICY_RESULTS = {
+  MODIFICATION_CUTOFF: {
+    success: false,
+    status: 422,
+    title: "Too Close To Reservation Time",
+    detail: "This venue does not allow changes this close to your reservation. Please call us.",
+    code: "MODIFICATION_CUTOFF",
+  },
+  PARTY_SIZE_CHANGE_TOO_LARGE: {
+    success: false,
+    status: 422,
+    title: "Party Size Change Too Large",
+    detail: "This venue limits how much you can change your party size online. Please call us.",
+    code: "PARTY_SIZE_CHANGE_TOO_LARGE",
+  },
+} as const satisfies Record<string, ModifyReservationResult>;
+
+/**
+ * The venue's limits on guest self-service changes (cutoff hours, party-size
+ * delta). Returns a blocking 422 result, or `null` when the change may proceed.
+ */
+function checkGuestPolicy(
+  venue: ModifyVenue,
+  reservation: Reservation,
+  changes: ReservationChanges
+): ModifyReservationResult | null {
+  const violation = checkGuestModificationPolicy(
+    venue.settings,
+    { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+    { partySize: changes.partySize, movesTime: isTimeChange(changes) },
+    new Date()
+  );
+  return violation ? GUEST_POLICY_RESULTS[violation] : null;
 }
 
 /**
@@ -143,52 +211,27 @@ async function checkBookingWindow(
 export async function modifyReservation(
   reservation: Reservation,
   changes: ReservationChanges,
-  deposits: DepositService
+  deposits: DepositService,
+  hold?: ModifyHold
 ): Promise<ModifyReservationResult> {
-  if (!hasAnyChange(changes)) {
+  if (!hasAnyChange(changes) && !hold) {
     return NO_CHANGES_RESULT;
   }
 
-  const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
-  if (depositGuardResult) {
-    return depositGuardResult;
+  if (needsHold(changes) && !hold) {
+    return HOLD_REQUIRED_RESULT;
   }
 
-  const windowResult = await checkBookingWindow(reservation, changes);
-  if (windowResult) {
-    return windowResult;
+  if (hold) {
+    return modifyViaHold(reservation, changes, deposits, hold);
   }
 
-  const { date, startTime, endTime, partySize, specialRequests } = changes;
-  const updateData = {
-    ...(date !== undefined && { date }),
-    ...(startTime !== undefined && { startTime }),
-    ...(endTime !== undefined && { endTime }),
-    ...(partySize !== undefined && { partySize }),
-    ...(specialRequests !== undefined && { notes: specialRequests }),
-  };
-
-  const updateResult = await reservationService.updateWithConflictCheck(reservation.id, updateData);
-
+  // Only a specialRequests edit reaches here: it needs no hold, no venue and
+  // no conflict check.
+  const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
+    notes: changes.specialRequests,
+  });
   if (!updateResult.success) {
-    if (updateResult.conflict) {
-      return {
-        success: false,
-        status: 409,
-        title: "Slot Unavailable",
-        detail: updateResult.error!,
-        code: "SLOT_UNAVAILABLE",
-      };
-    }
-    if (updateResult.capacityExceeded) {
-      return {
-        success: false,
-        status: 422,
-        title: "Party Size Exceeds Table Capacity",
-        detail: updateResult.error!,
-        code: "PARTY_SIZE_EXCEEDS_TABLE",
-      };
-    }
     return {
       success: false,
       status: 500,
@@ -197,6 +240,63 @@ export async function modifyReservation(
       code: "RESERVATION_UPDATE_FAILED",
     };
   }
-
   return { success: true, reservation: updateResult.reservation! };
+}
+
+/**
+ * A change onto a held slot: the deposit guard, booking window and venue
+ * policy are checked against the hold's slot, then the reservation is moved
+ * onto it atomically. A lost race leaves the original booking untouched.
+ */
+async function modifyViaHold(
+  reservation: Reservation,
+  changes: ReservationChanges,
+  deposits: DepositService,
+  { holdId, sessionId }: ModifyHold
+): Promise<ModifyReservationResult> {
+  const venueId = reservation.venueId;
+  const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
+  if (!held || held.venueId !== venueId) {
+    return { success: false, detail: "Hold not found", ...MOVE_ERROR_RESULTS.NOT_FOUND };
+  }
+  if (held.sessionId !== sessionId) {
+    return {
+      success: false,
+      detail: "Session ID does not match the hold",
+      ...MOVE_ERROR_RESULTS.SESSION_MISMATCH,
+    };
+  }
+
+  // The hold's slot is the change; whatever else the body carried is ignored.
+  const heldChanges: ReservationChanges = {
+    date: held.date.toISOString().slice(0, 10),
+    startTime: held.startTime.toISOString(),
+    endTime: held.endTime.toISOString(),
+    partySize: held.partySize,
+  };
+
+  const depositGuardResult = await checkPartySizeDepositGuard(reservation, heldChanges, deposits);
+  if (depositGuardResult) {
+    return depositGuardResult;
+  }
+
+  const venue = await venueService.getById(venueId);
+  if (venue) {
+    const blocked =
+      checkGuestPolicy(venue, reservation, heldChanges) ??
+      checkBookingWindow(venue, reservation, heldChanges);
+    if (blocked) return blocked;
+  }
+
+  const moved = await moveReservationToHold({
+    reservation,
+    holdId,
+    sessionId,
+    venueId: venueId,
+    notes: changes.specialRequests,
+  });
+  if (!moved.success) {
+    return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
+  }
+  return { success: true, reservation: moved.reservation };
 }

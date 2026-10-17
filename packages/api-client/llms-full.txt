@@ -354,6 +354,9 @@
         encodeURIComponent(String(params?.[name]))
       );
     }
+    function hasHeader(headers: Record<string, string>, name: string): boolean {
+      return Object.keys(headers).some((key) => key.toLowerCase() === name);
+    }
     function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined {
       for (const [status, response] of Object.entries(def.responses)) {
         const code = Number(status);
@@ -383,6 +386,12 @@
        * unless explicitly opted in.
        */
       idempotentRetry?: boolean;
+      /**
+       * Extra headers for this call only (e.g. `x-session-id`, or a manage-token
+       * `Authorization: Bearer ...`). An explicit `Authorization` here wins over
+       * the client-wide `getAccessToken` token.
+       */
+      headers?: Record<string, string>;
     }
     export class ApiClient {
       private readonly timeout: number;
@@ -405,9 +414,10 @@
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
           ...(options.headers as Record<string, string>),
+          ...override?.headers,
         };
     
-        if (getAccessToken) {
+        if (getAccessToken && !hasHeader(headers, "authorization")) {
           const token = await getAccessToken();
           if (token) {
             headers.Authorization = `Bearer ${token}`;
@@ -1200,6 +1210,17 @@
       ianaTimezone: string;
       /** Contact phone number shown to guests on the manage-reservation page (#4979). */
       phone?: string;
+      /** Hours before start after which guests can no longer modify; null = venue default (#6907). */
+      modificationCutoffHours?: number | null;
+      /** Largest party-size change a guest may make; null = unlimited (#6907). */
+      maxPartySizeChange?: number | null;
+    }
+    export interface ManagedReservationChanges {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      partySize?: number;
+      specialRequests?: string;
     }
     export interface ManageReservationData {
       reservation: ManagedReservation;
@@ -1345,6 +1366,30 @@
           z.object({ data: schema })
         );
         return response.data;
+      }
+    
+      /**
+       * Modify a reservation via a guest-facing manage token (public, unauthenticated).
+       * When a hold is passed, its id goes in the body and its session in
+       * `x-session-id` so the server can prove the guest owns the new slot.
+       */
+      async modifyManaged(
+        token: string,
+        changes: ManagedReservationChanges,
+        hold?: { holdId: string; sessionId: string }
+      ): Promise<ManagedReservation> {
+        const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+        if (hold) headers["x-session-id"] = hold.sessionId;
+        const response = await this.client.request<{ data: { reservation: ManagedReservation } }>(
+          "/public/v1/reservations/manage",
+          {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify(hold ? { ...changes, holdId: hold.holdId } : changes),
+          },
+          z.object({ data: z.object({ reservation: managedReservationSchema }) })
+        );
+        return response.data.reservation;
       }
     }
   </file>

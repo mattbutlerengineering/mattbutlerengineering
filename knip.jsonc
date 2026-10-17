@@ -1,0 +1,147 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // eslint configs are loaded by eslint, not imported; k6 script is run by k6
+  // (its `k6/http` import is not an npm package); scanner fixtures are test data.
+  "ignore": [
+    "**/eslint.config.js",
+    ".github/workflows/load-test.js",
+    "packages/supply-chain-scanner/fixtures/**",
+  ],
+  // Exports only consumed inside their own file are an intentional style here;
+  // only cross-module dead exports are flagged.
+  "ignoreExportsUsedInFile": true,
+  // Barrel files that deliberately re-export a component's full public surface
+  // (props types, sub-components) for in-app consumers.
+  "ignoreIssues": {
+    "apps/hospitality/src/components/*/index.ts": ["exports", "types"],
+    "packages/agent-core/src/phases/index.ts": ["types"],
+    // Documented module API (plugins/acmm/skills/acmm-audit/SKILL.md).
+    "plugins/acmm/scripts/sources/index.js": ["exports"],
+    // useUpdateGuest is the mutation hook for the guest-edit flow (known P1 gap in
+    // apps/hospitality/CLAUDE.md); it is referenced by docs/fixes/floor-plan-cache-keys.
+    "apps/hospitality/src/hooks/useGuests.ts": ["exports"],
+  },
+  // CLIs that are provided by the toolchain / invoked via pnpm exec, not declared per package.
+  "ignoreBinaries": ["eslint", "prettier", "tsx", "vite", "prisma"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "lighthouserc*.cjs",
+        "stryker.config.mjs",
+        ".claude/hooks/*.mjs",
+        ".claude/skills/*/scripts/*.mjs",
+      ],
+    },
+    "apps/*": {
+      "entry": ["playwright*.config.ts", "e2e/**/*.{ts,tsx}"],
+    },
+    "apps/hospitality": {
+      "entry": ["playwright*.config.ts", "e2e/**/*.{ts,tsx}", "src/**/*.typecheck.ts"],
+      // @json-render/react: named in vite.manualChunks.ts to split its chunk.
+      // axe-core: peer of @axe-core/playwright (E2E a11y).
+      "ignoreDependencies": ["@json-render/react", "axe-core"],
+    },
+    "apps/rialto-web": {
+      "entry": [
+        "playwright*.config.ts",
+        "e2e/**/*.{ts,tsx}",
+        "src/main.tsx",
+        "src/**/*.test.{ts,tsx}",
+        "src/setupTests.ts",
+        "*.config.test.ts",
+      ],
+      // The vite/vitest config resolves the gitignored packages/rialto/dist/manifest.json
+      // at load time; knip must run with no build, so skip the plugins' config loading
+      // (the app entry, tests and setup file are listed explicitly instead).
+      "vite": false,
+      "vitest": false,
+      // @mbe/api-client: rialto's ChatPanel imports it; kept as a workspace dep
+      // so turbo's prebuild chain (types -> api-client -> app) holds
+      // (see e2e/build-script.test.ts).
+      "ignoreDependencies": ["@mbe/api-client"],
+    },
+    "packages/rialto": {
+      "entry": [
+        "playwright*.config.ts",
+        "vite.config.*.ts",
+        "scripts/*.ts",
+        "src/lib-entry.ts",
+        "src/hooks/index.ts",
+        "src/providers/index.ts",
+        "src/components/*/index.ts",
+        "src/components/*/*.catalog.ts",
+        "src/showcase/main.tsx",
+      ],
+      // axe-core: peer of the Storybook a11y addon. eslint-plugin-storybook:
+      // loaded from eslint.config.js (ignored above).
+      "ignoreDependencies": ["axe-core", "eslint-plugin-storybook"],
+    },
+    "packages/rialto-plugin": {
+      "entry": ["hooks/*.mjs"],
+      // Plugin validation hook resolves rialto at runtime.
+      "ignoreDependencies": ["@mattbutlerengineering/rialto"],
+    },
+    "packages/sentry": {
+      // Optional peer, used by consumers' Fastify apps.
+      "ignoreDependencies": ["fastify"],
+    },
+    "packages/service-bootstrap": {
+      // error-handler.sentry.test.ts imports @sentry/node, provided via @mbe/sentry.
+      "ignoreDependencies": ["@sentry/node"],
+    },
+    "plugins/acmm": {
+      "entry": ["scripts/*.js"],
+      // prettier is provided by the repo root toolchain; @mbe/config via eslint.config.js.
+      "ignoreDependencies": ["prettier", "@mbe/config"],
+    },
+    // Per service: Prisma client/adapter are imported by the generated client
+    // (ignored); @mbe/observability + @mbe/sentry are Docker/turbo build-graph
+    // deps; pg is loaded by the Prisma pg adapter.
+    "services/agent": {
+      "ignoreDependencies": [
+        "@prisma/adapter-pg",
+        "@prisma/client",
+        "@prisma/client-runtime-utils",
+        "@mbe/observability",
+        "@mbe/sentry",
+        "pg",
+        "@types/pg",
+      ],
+    },
+    "services/reservations": {
+      "ignoreDependencies": [
+        "@prisma/client",
+        "@prisma/client-runtime-utils",
+        "@mbe/observability",
+        "@mbe/sentry",
+        "@fastify/rate-limit",
+      ],
+    },
+    "services/users": {
+      "ignoreDependencies": [
+        "@prisma/adapter-pg",
+        "@prisma/client",
+        "@prisma/client-runtime-utils",
+        "@mbe/observability",
+        "@mbe/sentry",
+        "pg",
+        "@types/pg",
+      ],
+    },
+    "tools/cli": {
+      "entry": ["src/check-adr.ts"],
+    },
+    "tools/mutation-testing": {
+      // Driven by the root stryker.config.mjs / README commands.
+      "ignoreDependencies": ["@stryker-mutator/core", "@stryker-mutator/vitest-runner", "vitest"],
+    },
+    "infrastructure/pulumi": {
+      "entry": ["*.ts"],
+      // Pulumi providers are loaded by the engine, not imported.
+      "ignoreDependencies": ["@pulumi/github", "@pulumi/random"],
+    },
+    "scripts": {
+      "entry": ["**/*.{js,mjs,mts,ts}"],
+    },
+  },
+}

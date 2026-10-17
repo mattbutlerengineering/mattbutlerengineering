@@ -40,6 +40,9 @@ vi.mock("../services/venue.js", () => ({
     getById: vi.fn(),
     getBySlug: vi.fn(),
   },
+  // buildApp eagerly composes defaultDomainServices, which now includes
+  // venueGroupService; this suite never calls it.
+  venueGroupService: {},
 }));
 
 vi.mock("jose", () => ({

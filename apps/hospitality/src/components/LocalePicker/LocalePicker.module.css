@@ -23,3 +23,20 @@
   align-items: center;
   gap: var(--rialto-space-xs);
 }
+
+/* Menu item label: endonym on one line, MT tag stacked beneath it so both fit
+   the sidebar's clipped width (#6866). */
+.itemLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.endonym {
+  white-space: nowrap;
+}
+
+.mtTag {
+  color: var(--rialto-text-tertiary);
+  white-space: nowrap;
+}

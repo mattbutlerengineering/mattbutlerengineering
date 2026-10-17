@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { useTheme as useRialtoTheme, THEME_STORAGE_KEY } from "@mattbutlerengineering/rialto";
 
 export { resolveTheme } from "@mattbutlerengineering/rialto";
-export type { ThemePreference, ThemeState } from "@mattbutlerengineering/rialto";
+export type { ThemePreference } from "@mattbutlerengineering/rialto";
 import type { ThemePreference } from "@mattbutlerengineering/rialto";
 
 function hasStoredThemePreference(): boolean {

@@ -3646,3 +3646,150 @@ None — 0 `agent-skip`.
 - **Coverage before this fire:** 100% (131/131, provisional; first run 2026-10-01). 18 auth-gated hospitality rows excluded as unreachable.
 - **Blockers / pipeline bugs:** none. No `blocker: no-browser` — Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`. Filing was not stopped. No rubric migration needed (every ledger key is `r1`, rubric is at v1). The ui-quality-labelled issue set (24) matched the findings ledger exactly, so no adoptions and no escalation issue.
 - **Observations the rubric cannot express (not filed — no matching tell, recorded here only):** three recurring classes showed up repeatedly in the captures and have no judged or mechanical tell to carry them. (1) **Mobile cookie-banner collapse** — at 375x812 on `demos/drivers/new`, `demos/login` and `demos/signup` the consent banner's text renders as a ~6-character-wide column overlapping the form beneath it, with "Reject All" colliding with the body copy. (2) **Below-fold paint failure** — `examples/pricing-table`, `examples/reservations` and `components/table` produce a tall full-page screenshot whose content stops at the viewport edge and leaves the remainder blank at both viewports; other routes paint their full height normally. (3) **Mobile horizontal overflow** — `components/navigation-menu` (nav items and props table), `components/table` (S2 column) and `components/flip-dot` (dot grid) spill past the 375px viewport, and the docs shell's "Copy JSX" button overlaps the page description on every `examples/*` route at mobile width. These are layout defects rather than taste or axe findings; the rubric's judged faces cover the agent-built look and three semantic a11y faults only, and its bugs face is mechanical. A rubric bump is a human's call (`rubric_version` is human-only, by PR to both rubric files).
+
+## 2026-10-16 — mbe-learning-loop
+
+**Sensors:** 14/17 available (lighthouse, mutationScore, e2eStability not available — no egress/not configured). acmm L5 (73/84), ciHealth 100% pass rate (21/21), queueEfficiency composite 0.958 (fps 0.896, ttm 0.3h), metricsFreshness 0 unhealthy (review-burden/queue-telemetry/queueEfficiency/sdlcSpeed/ai-issue-feedback all fresh), issues 200 created/200 closed/0 ready.
+**Sentry triage:** skipped — stored Sentry OAuth token rejected ("Authorization Expired"); no retriage possible this run.
+**Regressions:** 0 detected, 0 issues created — status: Healthy.
+**Verifications:** 5 checked (issues closed in last 48h: #6866, #6859, #6854, #6851, #6849), 0 verified, 0 failed, 5 skipped (no completed/matching CI runs to verify against yet). Nothing reopened.
+**AI issue feedback:** budgets unchanged, all categories at the default budget of 3 — feature 6% rejected (86 total), ci-fix 12% (41), audit 18% (28), acmm 14% (7), meta-improvement 3% (32), dependencies/sentry 0%. No category crossed the 40% halving threshold.
+**Skill proposals:** 0 (Friday — checked `.claude/session-logs/*.json`, but the only 3 files present are this session's own hook-written logs from today, not independent historical sessions, so there was no genuine 3+ session pattern to evaluate).
+**Threshold notes:** auto-tuner (run inside verify-fixes.mjs) reported "No threshold adjustments needed." 30d fix-effectiveness rate 87.5% (14 verified / 2 reopened, 81 skipped excluded) — unchanged from 2026-10-15, still healthy. Max per-category AI-issue rejection rate 18% (audit) — well under the 40% halving trigger.
+**Environment note:** fresh cloud checkout had no `node_modules` or built workspace `dist/` outputs; ran `pnpm install --frozen-lockfile` + `node scripts/bootstrap-worktree.mjs` before any sensor/script could resolve `@mbe/gh-client` etc. (per the worktree-bootstrap gotcha). The usual GraphQL-blocked `gh issue/pr list` 403s (per #5958) surfaced in `queueEfficiency` and `collect-ai-issue-feedback`, both with working REST fallbacks — no new finding.
+
+## 2026-10-16 (mbe-weekly-improve)
+
+**Skills:** `/improve` and `/improve-codebase-architecture` remain user-level-only (retired from `.claude/skills/` by #3323, per CLAUDE.md § Skills), so this run did the equivalent analysis directly rather than reporting them as missing.
+
+**Analysis: no mechanical findings at all.** `pnpm repo-audit` was **35/35 PASS**, `pnpm lint` and `pnpm typecheck` both exit 0, and the full `scripts` suite was green. A grep for `.skip`/`.only`/`xit` across every workspace (excluding `services/*/src/generated/`) found exactly three hits, all legitimate conditional `test.skip(true, "UI_QUALITY_PLAN names no <app> routes")` guards. So every finding this week came from reading the repo's own recorded residuals and from interpreting the eval output — not from a check going red.
+
+One measurement correction worth recording: `check-rialto-changeset` **failed** on first run in this cloud checkout, which looks alarming and is not a defect. The clone is shallow, so `merge-base(HEAD, origin/main)` did not resolve and the gate failed closed by design ("a silently skipped gate reads exactly like a green one"). After `git fetch origin main --depth=50` it passed. Worth knowing before anyone chases it as a real failure from a cloud session.
+
+### PR opened (step 2) — #6839, **merged** by Matt at 15:11:30Z (`ac240b06c`)
+
+**`fix(hooks): weekly improve 2026-10-16 — resolve the edited file's own tree in three worktree-blind hooks`.** Branch `routines/weekly-improve-2026-10-16`, 5 files, +269/−4.
+
+`regen-llms.sh`, `regen-dep-graph.sh` and `check-changeset.sh` were the last three hooks still resolving their repo root from `$CLAUDE_PROJECT_DIR`, which is the main checkout even for a worktree-isolated subagent. The gotchas entry already recorded the gap but read the symptom as mere silence. Measured against a real linked worktree, it was worse:
+
+- `regen-dep-graph.sh` ran `pnpm graph` / `pnpm generate:dep-graph` **in the main checkout** (proved with a `pnpm` stub logging `$PWD`), so the worktree's own `dep-graph.json` / `dependency-graph.md` stayed stale and the worker's PR shipped them that way — reddening CI's Build/Integrity check, the exact failure the hook exists to prevent — while the main checkout got artifacts staged onto an unrelated branch.
+- `check-changeset.sh` printed **nothing at all** for a worktree edit to `packages/rialto/src`. Root cause was one layer deeper than the `rel_path` strip: `changeset-hook.mjs` resolves the repo root in its **own CWD**, so from the main checkout `toRepoRelativePath` handed the rule an absolute path it never matches. That hook therefore needed a `cd "$root"`, not just a corrected `rel_path` — a detail the gotchas entry did not have.
+
+This is a **different seam** from the Bash hooks repaired on 2026-10-15: these three receive the absolute `file_path` as `$1` and never see the payload (`.claude/settings.json` has already consumed stdin into `FILE`), so `hook-input.mjs cwd` is unavailable to them. Fix resolves the edited file's own tree — `git -C "$(dirname "$file_path")" rev-parse --show-toplevel`, project dir as fallback — which is the better question anyway: the tree a file lives in is definitionally the tree the edit landed in, whereas the session `cwd` need not be.
+
+**Guard proven to fail**, per the `docs/backlog.md` seed: with the three hooks reverted, the 4 worktree cases fail and the 2 control cases (ordinary main-checkout edit; path naming no git tree) still pass — so the controls are not accidentally coupled to the fix. The 6 new cases stub `regen-manifest.mjs` and `changeset-hook.mjs` **per-tree**, each printing a marker naming the tree it loaded from, so the assertion is precisely which tree the hook chose. Also validated outside the stubs against a real `git worktree` of this repo with the real manifest: both regen commands ran with `$PWD` = the worktree, and the changeset advisory fired.
+
+**Self-review caught a defect in my own test before pushing:** `tmpdir()` is a symlink on macOS (`/var` → `/private/var`) while `rev-parse --show-toplevel` always reports a realpath, so the path assertions would have passed on Linux CI and failed on a macOS dev box for a reason unrelated to the hooks. Fixture now realpaths its sandbox.
+
+Gates: scripts suite **295 files / 5499 tests passed**; `pnpm lint` and `pnpm typecheck` exit 0; `pnpm repo-audit` 35/35; `pnpm regen --check` clean; `check-adr`, `check-deps`, `check-hook-wiring`, `check-hooks-active`, prettier, `bash -n` all pass. 30 checks fired on the real `pull_request` event — not the `GITHUB_TOKEN` anti-recursion trap. Codecov: all modified and coverable lines covered.
+
+**A gates caveat that cost real time and is worth recording:** the scripts suite first reported **33 failed files / 25 failed tests** on this freshly-installed checkout. None of it was mine. 30 files could not load for want of `@mbe/gh-client`'s `dist/`, 3 more for `@mbe/agent-core`'s; after `pnpm build --filter @mbe/gh-client` and `pnpm build --filter @mbe/cli...` the same command was 295/5499 green. Baseline measured both ways before and after my change (4407 → 4413 passed, +6 = exactly the new tests, 25 pre-existing failures unchanged) so the attribution is not a guess. Filed as #6840.
+
+`Automated Review` posted two heuristic findings; both verified, neither pushed, both answered on the PR rather than left silent. Its "2 added `console.log`" is a false positive — both are inside template literals that are the _content_ written to generated stub `.mjs` files, and stdout **is** the interface the hooks read (`families_json=$(…)`, `advisory=$(…)`), so removing them would break all six tests. Its 950-line file finding is a real measurement but the file was already 719 lines before this change, and splitting it is a refactor of untouched code that CLAUDE.md § Surgical Changes rules out.
+
+### Issues filed (step 3)
+
+- **#6840** `chore(scripts)` — `pnpm --dir scripts test` invokes vitest directly (`cd .. && vitest run …`), bypassing turbo's `tasks.test.dependsOn: ["^build", …]`, so on an unbuilt checkout it fails 33 files with `Failed to resolve entry for package "@mbe/gh-client"` — a message naming neither the missing `dist/` nor the fix, and pointing at an `exports` map that is actually correct. Sharpened by CLAUDE.md itself telling agents to prefer `pnpm --dir <pkg>` over the root.
+- **#6841** `chore(hooks)` — the `rel_path` prefix strip is not realpath-normalized, so a symlinked payload path against a realpath root no-ops it. **Deliberately scoped out of #6839** to keep that PR surgical, and filed honestly as low priority: no known reproduction (a repo under `/Users/…` or a worktree path is already real on both sides), not a regression #6839 introduced. Worth closing because the failure mode is invisible by construction, and because #6839's fixture had to work around exactly this hazard.
+- **#6842** `docs(backlog)` — the **top** seed in `docs/backlog.md` still asserts `metrics/eval-reports.jsonl` "has been 0 bytes since #4116", that no `claude`-CLI adapter exists, and that the scheduled caller "is structurally guaranteed to write nothing". All three are now false: 20 rows, every one `adapter: claude-cli`, `nonRunCount: 0`, first 2026-10-02; and `claude` is on PATH at `/opt/node22/bin/claude`. The seed offers "retire the checkpoint and the empty sink" as a candidate fix, so a reader trusting it would delete a working signal — the same stale-confident-measurement hazard the branch-protection and CCR `gh` entries already carry. Asks for a `(measured YYYY-MM-DD)` convention on any backlog claim that is a point-in-time measurement.
+- **#6846** `fix(agent-core)` — see below; came out of step 4, not step 1.
+
+### Weekly eval checkpoint (step 4) — exit 0, and it exposed a false green
+
+`node tools/cli/dist/index.js agent eval --adapter claude-cli` → **exit 0**, row appended, committed on its own branch as **#6847** (`chore(metrics): eval baseline 2026-10-16`, labelled `has-pr`, append-only verified `1 0`).
+
+```
+✓ eval-bugfix-party-size [bugfix] — score 100% (11 turns, $0.68)
+    session errors: Evaluation failed: LLM evaluation threw: Claude Code returned an error result: Reached maximum budget ($0.05)
+✓ eval-dep-bump-js-yaml [dep-bump] — score 100% (4 turns, $0.37)
+✗ eval-new-route-user-preferences [new-route] — score 67% (29 turns, $1.15)
+    session errors: error_max_turns
+✓ eval-refactor-cancellation-fee [refactor] — score 100% (13 turns, $0.59)
+    session errors: Evaluation failed: LLM evaluation threw: Claude Code returned an error result: Reached maximum budget ($0.05)
+
+Tasks: 5 / Pass rate: 80.0% / Mean score: 93.3% / Mean cost: $0.79 / Mean turns: 16.2
+Failed to complete: 0
+```
+
+Pass rate equals the 2026-10-08 baseline (0.8), so **no regression** on the metric as computed. Two tasks scoring 100% while their own evaluation threw is what made me look harder, and the result is **#6846**:
+
+`packages/agent-core/src/eval/eval-harness.ts:37` calls `scoreTask(runResult)` with **no `judge` argument**, so `scoreTask`'s `rubric.judgeCriteria.length > 0 && judge !== undefined` branch is unreachable in production. `judgeResult` is `undefined` on all five tasks and every score reduces to `withinBudget && testsPass && typecheckPass && lintPass`. Meanwhile all five task files in `packages/agent-core/eval-suite/` define substantive criteria — **18 of them** — none evaluated by anything. The one "failure" failed on `withinBudget` alone (`{withinBudget: false, testsPass: true, typecheckPass: true, lintPass: true}`), i.e. it ran out of turns; its code passed every gate.
+
+So the number this routine has been trending as its slow-drift agent-quality signal **contains no signal about whether the agent did the task.** An agent that changed nothing, or that gutted production code to keep tests green, scores 100% — and `example-test-writing`'s criterion "No production code is changed — only test coverage is added" is precisely the guard against that, sitting inert. Same shape as the `compoundCommand` entry in gotchas.md: the rubrics, the typed `JudgeFunction` seam, its docblock and the tests that stub it all read as a working semantic gate; only the production wiring is missing, and nothing looks at it. `success-evaluator.ts` is **not** at fault — it fails closed correctly (`passed: false`, `evaluationFailed: true`) — its verdict simply is not a scoring signal, and `selfEvaluation` is not even persisted on the row (`undefined` on all five) despite `scoreTask` setting it.
+
+**Consequence for the trend line: all 21 rows in `metrics/eval-reports.jsonl` are build-health baselines, not agent-quality baselines, and post-#6846 numbers will not be comparable.** A drop after that lands is the signal arriving, not a regression. Recorded on #6847 too so a future reader of the file finds it.
+
+Also measured: the in-session evaluator failed on 3 of 5 tasks with `Reached maximum budget ($0.05)`, a cap that looks too low to ever succeed and may be a stale default — folded into #6846.
+
+**Incidental correction to a standing claim:** `.claude/agent-spend/sessions.jsonl` gained **5 rows today**, the first since 2026-10-08. Previous entries recorded it as stale because "queue workers never reach `recordSpend`, #5885" — true of the queue-worker path, but the `agent eval --adapter claude-cli` path _does_ reach it, with real `costUsd`/`numTurns`/`status` per task (3 succeeded, 1 failed, 1 more). So "`agent-spend` is dead" is too strong; it is specifically the worker path that does not report. Those rows ride this PR.
+
+### No-op check
+
+Not a no-op week: one PR opened and merged (#6839), one metrics PR open (#6847), four issues filed (#6840, #6841, #6842, #6846). Nothing was merged by this routine — #6839 was merged by Matt.
+
+### Recommendations
+
+- **#6846 is the most valuable thing found this week, more so than the PR that was shipped.** The weekly eval is the only slow-drift check on agent _behaviour_ as opposed to build health, and it currently cannot fail for a behavioural reason. Prioritise it over the three smaller findings.
+- When #6846 lands, expect the pass rate to drop and do **not** file it as a regression; the baselines above are not comparable.
+- The leftover eval worktree at `.agent-worktrees/agent-add-a-new-authenticated-get-api-v1-users-a3b0fc` is the documented "worktree kept for inspection" behaviour for the failed task, and `.agent-worktrees/` is gitignored, so nothing leaked. It dies with this ephemeral checkout; no reaper action needed.
+
+### Addendum (same session, after the entry above was written)
+
+Three things happened within the hour that change the record above, all worth having here rather than only in PR threads.
+
+**main went red mid-run, and it was not this routine's doing.** #6845 (`mbe-doc-rot`'s weekly rot sweep) edited `AGENTS.md` without regenerating `.cursorrules`, so `check-cursorrules-drift` failed on a clean worktree of `origin/main` (`1caaeff`) — reproduced with no local changes, running only that one check. It surfaced as a Build failure on **this** PR (#6848), which touches neither file. #6847's merge commit then went red on `CI Gate` and `Build` too, so every merge was inheriting it. Opened #6853 to regenerate, and ported the same fix here.
+
+**The structural cause and the fix for it both landed the same day.** `check-cursorrules-drift` lives in `repo-audit` → Build, and Build is gated on `has_code == 'true'`, so an `AGENTS.md`-only edit skipped it — and `AGENTS.md` is the only file whose edit causes this drift. Filed as #6854, fixed on main by **#6855**. Same mechanism as the docs-only prettier gap #5787 closed with the `docs-format` job; the drift half had been left uncovered.
+
+**#6853 was superseded, and this is the part to remember.** While investigating I found that `turbo` rewrites its own managed block in `AGENTS.md` on invocation — it removes a blank line before `<!-- END:turborepo-agent-rules -->`, and that same blank line is what #6845 committed. So the drift check's verdict depended on whether turbo had run: PASS against the committed `AGENTS.md`, FAIL after a turbo invocation. Two resolutions existed (keep the blank line and regenerate `.cursorrules` to match, or drop it to match turbo's canonical output); I deliberately took the first in #6853 because it was the minimal fix for a red main, and left the second as a human call rather than edit a human-authored doc on an inference about turbo. **main took the second**, via #6862 — so #6853's `.cursorrules` (blob `343f156…`, blank line kept) is now the _wrong_ value against main's (`59061ca…`), and merging it would re-break the check. #6853 closed as superseded; this branch took main's version. Lesson: when you defer one of two resolutions to a human and ship the other, the deferred one landing first makes your shipped fix actively harmful, not merely redundant — re-check before merging, and do not leave a stale "merge this" recommendation standing.
+
+**`.cursorrules` was contended by three agents at once, which is its own finding.** After #6862 landed, **#6863** had to resync the same file again because #6855 and #6856 raced each other on it; and while this session was merging main into this branch and taking main's `.cursorrules`, another session pushed the identical resync to this same branch (`33142b2`, "take main's .cursorrules (already resynced by #6863)"). That push was merged here rather than force-pushed over, per the never-rewrite-a-concurrent-push rule, so the only unique content on this side is this addendum. Four separate commits touching one generated file inside an hour, two of them duplicated work: the file is generated from `AGENTS.md`, every routine that edits docs can dirty it, and nothing serialises them. Worth considering whether `.cursorrules` should be generated at build/CI time instead of committed — that would delete this whole class rather than keep racing on it.
+
+**Four of the six issues filed today were drained the same day** by `mbe-feature-drain`: #6841 → #6844, #6842 → #6843, #6854 → #6855, #6840 → #6857 (`scripts/scripts-test-dist-preflight.mjs`, which now names the unbuilt workspace dist instead of a bare vitest resolver error). Still open: **#6846** (the eval judge is never wired — the most valuable finding of the run) and **#6849** (auto-review's `console.log` check greps the whole diff with no file filter; it fired on markdown prose twice today, both false positives).
+
+## 2026-10-17 — mbe-evening (progress-tracker)
+
+### Metrics (7d window, since 2026-10-10)
+
+| Metric        | Value                                                                                                                                                                                                              | Status                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| Created       | 43 (15 audit + 28 ci-fix)                                                                                                                                                                                          | -                                  |
+| Closed        | 61 (25 audit + 36 ci-fix)                                                                                                                                                                                          | -                                  |
+| Closure Rate  | 142% (61/43) — draining backlog, not accumulating                                                                                                                                                                  | Green                              |
+| Time-to-Close | mean 76.1h (Red) / **median 9.6h** (Green), n=61 — mean pulled up by a long tail (max 490.6h); same shape noted 10-15/10-16                                                                                        | Yellow (median is the honest read) |
+| Agent Success | N/A — 0 `has-pr` and 0 `agent-failed` open right now (nothing stuck either way)                                                                                                                                    | -                                  |
+| CI Pass       | 12/12 non-skipped/cancelled runs on main (sample of last 20; 6 skipped, 2 cancelled excluded) = 100%                                                                                                               | Green                              |
+| Queue         | 0 `ready` (Green) — **2nd consecutive day at 0** (10-16, 10-17); not yet the 3-day "reduce audit or expand" trigger                                                                                                | Green                              |
+| Stale         | 0 (no ready issues at all)                                                                                                                                                                                         | Green                              |
+| Blocked       | 0 `agent-failed` open                                                                                                                                                                                              | Green                              |
+| Skipped       | 0 `agent-skip` open                                                                                                                                                                                                | Green                              |
+| Daily Spend   | $0 attributed (`agent-core`/`recordSpend`, agentCost sensor); no queue-worker sessions ran today (queue was empty)                                                                                                 | N/A                                |
+| 7d Spend      | $3.96 attributed (`recordSpend`, 5 sessions); separately, 207 queue-telemetry rows in-window, only 30 carry `subagent_tokens` (3,691,979 tokens total, cost unknown), 177 with no usage data — **unknown, not $0** | N/A                                |
+| Cost/Issue    | Unknown (queue-worker cost is the dominant and unattributed component)                                                                                                                                             | N/A                                |
+
+### This iteration's own implement-queue run (mbe-evening Step 1, same session)
+
+Fresh cloud checkout — ran `pnpm install --frozen-lockfile` (27s) plus `pnpm build --filter @mbe/gh-client...` to unblock the sensor scripts used below; neither needed for the queue iteration itself. Phase 0 pre-flight: main green (0 failures in last 20 runs via REST), 1 open PR (#6870, `test(hospitality): regenerate visual baselines`, from the visual-baseline-regen automation, already carrying `needs-review` — not implement-queue's to touch). Phase 1: `gh api .../issues?labels=ready&state=open` returned **zero** candidates. Also confirmed 0 issues carrying `in-progress` or `has-pr`, and no `.claude/worktrees/` directory at all (nothing left over from a prior session). Nothing to claim, so Phases 2-3 had no PRs to gate, review, or merge this iteration; no merge-train lock was ever acquired so none needed releasing; no worktrees to reap. No telemetry row appended (no worker dispatched) and `git status` on `metrics/queue-telemetry.jsonl` was clean, so no metrics PR was needed from Step 1.
+
+**Session note:** `gh issue list`/`gh pr list` (GraphQL) 403'd as expected (`"GitHub GraphQL is not available from Claude Code sessions"`); every list/query above used `gh api` REST, consistent with #5958 and the 10-15/10-16 entries' confirmation. `gh auth status` still reports the `GH_TOKEN` sentinel as invalid while REST calls are correctly authenticated as `mattbutlerengineering` — same known-benign mismatch.
+
+### Patterns
+
+- Queue is empty for a second straight day with zero stuck issues on either side (`has-pr`, `agent-failed`) — reads as the backlog staying drained, the same conclusion as 10-16's entry, not a new bottleneck. The 61 audit+ci-fix issues closed this week (142% closure rate) came from other routines (`/site-audit`, `/sentry-triage`, `/ci-monitor`, `mbe-feature-drain`, `mbe-weekly-improve`), not from this queue, which had nothing to claim either day.
+- No queue-worker telemetry row with real `subagent_tokens` has landed since **2026-10-15T00:17:42Z** (issue #6635) — two full days, consistent with the queue genuinely having nothing to claim rather than a reporting regression; `withTokens=30`/`totalTokens=3,691,979` is the identical figure carried in both the 10-15 and 10-16 entries, now simply older. The in-window row count still grew (108 → 161 → 207) purely from `collect-queue-telemetry-from-github.mjs`'s daily pending-row backfill (#5921), which never carries usage data by design.
+- Time-to-close mean/median divergence (76.1h vs 9.6h) is the same long-tail shape flagged on 10-15 and 10-16 — a handful of multi-week-old issues sweeping closed this week, not a new or worsening trend. Not re-filing; already acknowledged twice.
+
+### Recommendations
+
+- None new — queue is healthy and empty, nothing stuck, no fresh regression. If Queue reads 0 again tomorrow (10-18), that crosses the skill's 3-day "reduce audit or expand" threshold and the next run should act on it (reduce `/site-audit`/`/sentry-triage` issue-filing cadence, or widen `/decompose` candidates) rather than just note it again.
+- The spend-attribution gap (queue-worker `cost_usd` unknown for the dominant share of spend) is unchanged accumulated debt from #5885 — not re-filed as a fresh meta-improvement, per the same reasoning as the last two entries.
+
+### Skipped Issues
+
+None — 0 `agent-skip`.
+
+## 2026-10-17
+
+**queueEfficiency:** composite 0.959 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:60, size:s:59, size:l:26, size:m:57, size:xl:22
+**Issues filed:** 0

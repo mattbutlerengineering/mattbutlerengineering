@@ -1,0 +1,35 @@
+.panel {
+  inline-size: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  overflow-y: auto;
+  border-inline-start: 1px solid var(--rialto-border);
+  background-color: var(--rialto-surface-recessed);
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.props {
+  margin: 0;
+  padding: var(--rialto-space-sm);
+  overflow: auto;
+  font-family: var(--rialto-font-mono, monospace);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-primary);
+  background-color: var(--rialto-surface);
+  border-radius: var(--rialto-radius-soft);
+}
+
+.refine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}

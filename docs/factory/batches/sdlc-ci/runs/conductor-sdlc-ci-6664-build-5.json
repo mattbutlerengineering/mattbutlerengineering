@@ -1,0 +1,104 @@
+{
+  "duration_api_ms": 123952,
+  "stop_reason": "end_turn",
+  "session_id": "9589a1d9-9fad-4063-b97c-a9eec26c22c2",
+  "total_cost_usd": 1.23387,
+  "usage": {
+    "input_tokens": 12,
+    "cache_creation_input_tokens": 18944,
+    "cache_read_input_tokens": 860030,
+    "output_tokens": 3573,
+    "output_tokens_details": {
+      "thinking_tokens": 192
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 18944,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 331,
+        "cache_read_input_tokens": 150412,
+        "cache_creation_input_tokens": 1369,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1369
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 52,
+      "outputTokens": 8130,
+      "cacheReadInputTokens": 3252750,
+      "cacheCreationInputTokens": 125479,
+      "webSearchRequests": 0,
+      "costUSD": 1.23387,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 840,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "origin": {
+    "kind": "task-notification",
+    "producer": "session-task",
+    "runId": "0mvaf46wy-d5a974f1"
+  },
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 6,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0059 is implemented, committed (`660b1f170`), and checked off in `breakdown.md`. `pr-body.md` is written at the worktree root, left uncommitted as instructed.\n\n**Summary:** Added `test-coverage-gate` to `ci-gate`'s `needs:` in `.github/workflows/ci.yml`, keeping `test`. Confirmed `report-health` needed no change. All WO-0059 target guards (`ci-test-shards.test.mjs` ci-gate-wiring assertions, `ci-lint-critical-path.test.mjs`, `ci-turbo-cache.test.mjs`, `check-ci-gate-coverage.test.mjs`) pass, actionlint is clean on the edited block, and the full gate run shows only the pre-existing, already-flagged `ci-test-shards.test.mjs` defect (unrelated, out of scope). Milestone 2 is now complete; WO-0060 (forced full-run measurement) remains open.",
+  "ttft_ms": 2009,
+  "type": "result",
+  "duration_ms": 48807,
+  "uuid": "2b80914a-11cb-42f6-bf36-5bf8bf591db1",
+  "ttft_stream_ms": 1561,
+  "time_to_request_ms": 161,
+  "first_content_frame_ms": 1562,
+  "queued_turn_count": 0,
+  "result_index": 1
+}

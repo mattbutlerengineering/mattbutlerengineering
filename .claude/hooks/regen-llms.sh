@@ -16,12 +16,28 @@ case "$file_path" in
   */node_modules/*) exit 0 ;;
 esac
 
-root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+# The tree to act on is the one the edited file lives in, NOT
+# $CLAUDE_PROJECT_DIR: hooks run with that set to the MAIN checkout even for a
+# worktree-isolated subagent (measured 2026-10-15, see gotchas.md). Resolving
+# it from the project dir regenerated the main checkout's artifacts and left
+# the worktree's own stale — the worker's PR then shipped them that way — and
+# the repo-root-relative strip below no-opped, because the main checkout's
+# prefix does not match a worktree path. The project dir stays as the fallback
+# for a payload whose path names no git tree.
+root=$(git -C "$(dirname "$file_path")" rev-parse --show-toplevel 2>/dev/null)
+if [[ -z "$root" || ! -d "$root" ]]; then
+  root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+fi
 [[ -z "$root" || ! -d "$root" ]] && exit 0
 cd "$root" || exit 0
 
-# Manifest paths/families are repo-root-relative.
-rel_path="${file_path#"$root"/}"
+# Manifest paths/families are repo-root-relative. $root is a realpath, so
+# realpath the edited file's directory too — a payload path spelled through a
+# symlink (macOS /var -> /private/var) would otherwise leave the strip a no-op.
+real_dir=$(cd "$(dirname "$file_path")" 2>/dev/null && pwd -P)
+real_path="${real_dir:+$real_dir/$(basename "$file_path")}"
+rel_path="${real_path:-$file_path}"
+rel_path="${rel_path#"$root"/}"
 
 families_json=$(node scripts/regen-manifest.mjs --families-for "$rel_path" --hook-mode warn 2>/dev/null)
 [[ -z "$families_json" || "$families_json" == "[]" ]] && exit 0
