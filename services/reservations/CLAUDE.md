@@ -249,6 +249,24 @@ interface WaitlistEntry {
 type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
 ```
 
+### ReservationEvent
+
+Append-only log of what happened to a reservation (the `reservations` row stays the source of truth; no backfill). `venueId` is NOT NULL so rows pass FORCE RLS `WITH CHECK` — reservations with a NULL `venueId` get no events. `app_reservations` holds `SELECT, INSERT` only on `reservation_events` (no UPDATE/DELETE), so append-only is enforced by the database.
+
+```typescript
+interface ReservationEvent {
+  id: string;
+  reservationId: string; // FK → reservations, ON DELETE CASCADE
+  venueId: string; // FK → venues, ON DELETE CASCADE
+  kind: string;
+  actorType: string;
+  actorId: string | null;
+  fromState: unknown | null; // JSON snapshot
+  toState: unknown | null; // JSON snapshot
+  createdAt: Date;
+}
+```
+
 ## API Routes
 
 ### Venues
