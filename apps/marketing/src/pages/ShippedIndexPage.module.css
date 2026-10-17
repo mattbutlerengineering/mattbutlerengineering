@@ -1,0 +1,81 @@
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--rialto-space-2xl) var(--rialto-space-lg);
+}
+
+.heading {
+  margin-bottom: var(--rialto-space-sm);
+}
+
+@media (max-width: 480px) {
+  /* Heading size1 is large enough to overflow a 360px viewport once the
+     display font loads; one token down fits. */
+  h1.heading {
+    font-size: var(--rialto-text-3xl);
+  }
+}
+
+.subtitle {
+  color: var(--rialto-text-secondary);
+  margin-bottom: var(--rialto-space-sm);
+}
+
+.asOf {
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-sm);
+  margin-bottom: var(--rialto-space-2xl);
+}
+
+.empty {
+  color: var(--rialto-text-secondary);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--rialto-space-lg);
+}
+
+@media (min-width: 768px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.card {
+  padding: var(--rialto-space-lg);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--rialto-space-sm);
+  margin-bottom: var(--rialto-space-sm);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--rialto-text-md);
+}
+
+.link {
+  color: var(--rialto-text-primary);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.stats {
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+  margin-bottom: var(--rialto-space-md);
+}
+
+.meta {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}

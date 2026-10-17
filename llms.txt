@@ -18453,6 +18453,9 @@
       export function formatRatio(value: number): string { /* ... */ }
     </item>
     <item priority="high">
+      export function formatWallClock(hours: number): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function formatDate(iso: string): string { /* ... */ }
     </item>
     <item priority="high">
