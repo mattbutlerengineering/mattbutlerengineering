@@ -62,7 +62,7 @@ describe("fetchPrFacts", () => {
   const makeApi = (overrides = {}) => {
     const calls = [];
     const routes = {
-      "/pulls/7": { state: "closed", merged_at: "2026-10-15T04:59:25Z" },
+      "/pulls/7": { state: "closed", merged_at: "2026-10-15T04:59:25Z", commits: 2 },
       "/pulls/7/commits": [{ sha: "first" }, { sha: "later" }],
       "/commits/first/check-runs": {
         check_runs: [{ name: "CI Gate", status: "completed", conclusion: "failure" }],
@@ -88,6 +88,7 @@ describe("fetchPrFacts", () => {
     expect(await fetchPrFacts(7, { ghApi })).toEqual({
       state: "MERGED",
       mergedAt: "2026-10-15T04:59:25Z",
+      commitCount: 2,
       ciGateFirstPass: false,
       reviewerVerdict: "pass",
     });

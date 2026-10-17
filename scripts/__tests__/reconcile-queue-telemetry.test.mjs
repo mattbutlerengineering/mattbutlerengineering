@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { reconcileTelemetry } from "../reconcile-queue-telemetry.mjs";
+import { readFileSync } from "node:fs";
+import { reconcileTelemetry, defaultFetchPr } from "../reconcile-queue-telemetry.mjs";
+import { fetchPrFacts } from "../lib/queue-telemetry-github-source.mjs";
+import { buildCostIndex } from "../lib/queue-telemetry-cost-source.mjs";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -21,6 +24,14 @@ function makeRow(overrides = {}) {
     ...overrides,
   };
 }
+
+const COMPLETE = {
+  merged_at: "2026-07-21T09:00:00.000Z",
+  ci_first_pass: true,
+  reviewer_verdict: "pass",
+  cost_usd: 1,
+  model_tier: "sonnet",
+};
 
 // ── Reconciling PR-backed rows ───────────────────────────
 
@@ -72,9 +83,14 @@ describe("reconcileTelemetry — PR-backed rows", () => {
     expect(rows[0].merged).toBeNull();
   });
 
-  it("skips rows that are already reconciled", () => {
+  it("skips rows that are fully reconciled", () => {
+    // Changed deliberately (#6924): `merged != null` alone no longer means done.
+    // A row is done when every reconcilable field is known or carries a reason.
     const fetchPr = vi.fn();
-    const { rows } = reconcileTelemetry([makeRow({ merged: true })], { fetchPr, now: NOW });
+    const { rows } = reconcileTelemetry([makeRow({ merged: true, ...COMPLETE })], {
+      fetchPr,
+      now: NOW,
+    });
 
     expect(fetchPr).not.toHaveBeenCalled();
     expect(rows[0].merged).toBe(true);
@@ -241,8 +257,8 @@ describe("reconcileTelemetry — human_touch_reason", () => {
     const fetchPr = vi.fn();
     const fetchPrDetails = vi.fn();
     const already = makeRow({
+      ...COMPLETE,
       merged: true,
-      merged_at: "2026-07-21T09:00:00.000Z",
       rework_cycles: 2,
       ci_first_pass: false,
       human_touch_reason: "scope-change",
@@ -263,5 +279,139 @@ describe("reconcileTelemetry — human_touch_reason", () => {
 
     expect(rows[0]).not.toHaveProperty("human_touch_reason");
     expect(rows[0].rework_cycles).toBe(2);
+  });
+});
+
+// ── Revisiting incomplete rows (#6924) ───────────────────
+
+describe("reconcileTelemetry — incomplete rows", () => {
+  const facts = (over = {}) => ({
+    state: "MERGED",
+    mergedAt: "2026-07-21T09:00:00.000Z",
+    commitCount: 1,
+    ciGateFirstPass: true,
+    reviewerVerdict: "pass",
+    ...over,
+  });
+  const gap = (over = {}) =>
+    makeRow({ merged: true, ...COMPLETE, reviewer_verdict: null, rework_cycles: 0, ...over });
+
+  it("fetches a merged row missing its verdict once and fills it", () => {
+    const fetchPr = vi.fn().mockReturnValue(facts({ reviewerVerdict: "flag" }));
+    const { rows } = reconcileTelemetry([gap()], { fetchPr, now: NOW });
+
+    expect(fetchPr).toHaveBeenCalledTimes(1);
+    expect(rows[0].reviewer_verdict).toBe("flag");
+  });
+
+  it("records a reason when the verdict cannot be found", () => {
+    const fetchPr = vi.fn().mockReturnValue(facts({ reviewerVerdict: null }));
+    const { rows } = reconcileTelemetry([gap()], { fetchPr, now: NOW });
+
+    expect(rows[0].reviewer_verdict).toBeNull();
+    expect(rows[0].unknown_reasons).toEqual({ reviewer_verdict: "no-verdict-comment" });
+  });
+
+  it("is idempotent: the second run makes zero fetch calls", () => {
+    const fetchPr = vi.fn().mockReturnValue(facts({ reviewerVerdict: null }));
+    const input = [gap(), makeRow({ issue_number: 2, pr_number: 102 })];
+    const first = reconcileTelemetry(input, { fetchPr, now: NOW });
+    fetchPr.mockClear();
+    const second = reconcileTelemetry(first.rows, { fetchPr, now: NOW });
+
+    expect(fetchPr).not.toHaveBeenCalled();
+    expect(second.rows).toEqual(first.rows);
+  });
+
+  it("uses the REST source and no longer shells out to gh pr view", () => {
+    expect(defaultFetchPr).toBe(fetchPrFacts);
+    const src = readFileSync(new URL("../reconcile-queue-telemetry.mjs", import.meta.url), "utf-8");
+    expect(src).not.toMatch(/gh-client|pr\.view|"pr", "view"/);
+  });
+
+  it("does not add unknown_reasons when the source returns an error", () => {
+    const fetchPr = vi.fn().mockReturnValue({ error: "boom" });
+    const { rows, reconciled } = reconcileTelemetry([makeRow()], { fetchPr, now: NOW });
+
+    expect(reconciled).toBe(0);
+    expect(rows[0]).not.toHaveProperty("unknown_reasons");
+    expect(rows[0].merged).toBeNull();
+  });
+
+  it("fills cost_usd from the ledger and records no-ledger-row otherwise", () => {
+    const costIndex = buildCostIndex({
+      factoryCosts: [{ wo: "#1", model: "claude-sonnet-5", cost: 2.5 }],
+    });
+    const fetchPr = vi.fn().mockReturnValue(facts());
+    const input = [
+      makeRow({ model_tier: null }),
+      makeRow({ issue_number: 2, pr_number: 102, model_tier: null }),
+    ];
+    const { rows } = reconcileTelemetry(input, { fetchPr, costIndex, now: NOW });
+
+    expect(rows[0]).toMatchObject({ cost_usd: 2.5, model_tier: "sonnet" });
+    expect(rows[1].cost_usd).toBeNull();
+    expect(rows[1].unknown_reasons).toMatchObject({ cost_usd: "no-ledger-row" });
+  });
+
+  it("fills only cost without a GitHub call when the PR fields are known", () => {
+    const costIndex = buildCostIndex({
+      factoryCosts: [{ wo: "#1", model: "claude-sonnet-5", cost: 2.5 }],
+    });
+    const fetchPr = vi.fn();
+    const row = makeRow({ merged: true, ...COMPLETE, cost_usd: null, rework_cycles: 0 });
+    const { rows } = reconcileTelemetry([row], { fetchPr, costIndex, now: NOW });
+
+    expect(fetchPr).not.toHaveBeenCalled();
+    expect(rows[0].cost_usd).toBe(2.5);
+  });
+
+  it("keeps existing PR-field reasons on the cost-only path", () => {
+    const row = makeRow({
+      merged: true,
+      ...COMPLETE,
+      ci_first_pass: null,
+      cost_usd: null,
+      model_tier: null,
+      rework_cycles: 0,
+      unknown_reasons: { ci_first_pass: "no-ci-gate-run" },
+    });
+    const { rows } = reconcileTelemetry([row], { fetchPr: vi.fn(), now: NOW });
+
+    expect(rows[0].unknown_reasons).toEqual({
+      ci_first_pass: "no-ci-gate-run",
+      cost_usd: "no-ledger-row",
+      model_tier: "no-ledger-row",
+    });
+  });
+
+  it("prefers the CI Gate result over the commit-count heuristic", () => {
+    const fetchPr = vi.fn().mockReturnValue(facts({ commitCount: 1, ciGateFirstPass: false }));
+    const { rows } = reconcileTelemetry([makeRow()], { fetchPr, now: NOW });
+
+    expect(rows[0].ci_first_pass).toBe(false);
+  });
+
+  it("falls back to the heuristic when GitHub has no CI Gate result", () => {
+    const fetchPr = vi.fn().mockReturnValue(facts({ commitCount: 1, ciGateFirstPass: null }));
+    const { rows } = reconcileTelemetry([makeRow()], { fetchPr, now: NOW });
+
+    expect(rows[0].ci_first_pass).toBe(true);
+  });
+
+  it("gives stale PR-less rows no-pr reasons on fields that can never be known", () => {
+    const row = makeRow({
+      pr_number: null,
+      claimed_at: "2026-06-01T10:00:00.000Z",
+      reviewer_verdict: null,
+    });
+    const { rows } = reconcileTelemetry([row], { fetchPr: vi.fn(), now: NOW });
+
+    expect(rows[0].merged).toBe(false);
+    expect(rows[0].unknown_reasons).toMatchObject({
+      merged_at: "no-pr",
+      ci_first_pass: "no-pr",
+      reviewer_verdict: "no-pr",
+    });
   });
 });
