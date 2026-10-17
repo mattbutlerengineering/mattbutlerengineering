@@ -64,3 +64,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Preview and the selected-node panel share one grid cell */
+.previewColumn {
+  display: flex;
+  min-inline-size: 0;
+  overflow: hidden;
+}
