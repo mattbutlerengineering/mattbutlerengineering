@@ -902,18 +902,36 @@
               );
           }
     
-          const { spec, rawLines } = parseResult.data;
+          const { spec, rawLines, refinement } = parseResult.data;
           const { prompt, kind } = normaliseKind(parseResult.data.prompt, parseResult.data.kind);
     
-          const result = await storedSpecService.create({
-            userId: request.user!.id,
-            prompt,
-            kind,
-            spec,
-            rawLines,
-          });
+          if (refinement && kind !== "refine") {
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(400, "Bad Request", "refinement is only allowed on refine entries")
+              );
+          }
     
-          return reply.code(201).send({ data: mapStoredSpec(result) });
+          try {
+            const result = await storedSpecService.create({
+              userId: request.user!.id,
+              prompt,
+              kind,
+              spec,
+              rawLines,
+              refinement,
+            });
+    
+            return reply.code(201).send({ data: mapStoredSpec(result) });
+          } catch (err) {
+            if (err instanceof Error && err.message === "Not found") {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Parent spec not found"));
+            }
+            throw err;
+          }
         }
       );
     
@@ -3002,6 +3020,12 @@
     };
   </file>
   <file path="src/services/stored-spec.ts">
+    export interface SpecRefinement {
+      parentId: string | null;
+      path: string;
+      before: unknown;
+      after: unknown;
+    }
     export interface StoredSpecResponse {
       id: string;
       userId: string;
@@ -3010,6 +3034,7 @@
       spec: unknown;
       rawLines: unknown;
       isFavorite: boolean;
+      refinement: unknown;
       createdAt: string;
       updatedAt: string;
     }
@@ -3023,6 +3048,7 @@
         spec: s.spec,
         rawLines: s.rawLines,
         isFavorite: s.isFavorite,
+        refinement: s.refinement ?? null,
         createdAt: s.createdAt.toISOString(),
         updatedAt: s.updatedAt.toISOString(),
       };
@@ -3067,7 +3093,16 @@
         kind: string;
         spec: unknown;
         rawLines: unknown;
+        refinement?: SpecRefinement;
       }): Promise<StoredSpec> {
+        const parentId = data.refinement?.parentId;
+        if (parentId) {
+          const parent = await prisma.storedSpec.findUnique({ where: { id: parentId } });
+          if (!parent || parent.userId !== data.userId) {
+            throw new Error("Not found");
+          }
+        }
+    
         await _enforceCapForUser(data.userId);
     
         return prisma.storedSpec.create({
@@ -3077,6 +3112,7 @@
             kind: data.kind,
             spec: data.spec as Prisma.InputJsonValue,
             rawLines: data.rawLines as Prisma.InputJsonValue,
+            ...(data.refinement && { refinement: data.refinement as unknown as Prisma.InputJsonValue }),
           },
         });
       },

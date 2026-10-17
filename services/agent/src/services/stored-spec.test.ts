@@ -25,6 +25,7 @@ const mockSpec = {
   spec: { components: ["hero", "footer"] },
   rawLines: ["line 1", "line 2"],
   isFavorite: false,
+  refinement: null,
   createdAt: new Date("2026-01-01T00:00:00Z"),
   updatedAt: new Date("2026-01-01T00:00:00Z"),
 };
@@ -46,6 +47,7 @@ describe("stored-spec", () => {
         spec: { components: ["hero", "footer"] },
         rawLines: ["line 1", "line 2"],
         isFavorite: false,
+        refinement: null,
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
       });
@@ -55,6 +57,89 @@ describe("stored-spec", () => {
       const favorited = { ...mockSpec, isFavorite: true };
       const result = mapStoredSpec(favorited);
       expect(result.isFavorite).toBe(true);
+    });
+  });
+
+  describe("refinement", () => {
+    const refinement = { parentId: "spec-0", path: "children.0", before: "a", after: "b" };
+
+    it("maps a stored refinement through", () => {
+      expect(mapStoredSpec({ ...mockSpec, refinement }).refinement).toEqual(refinement);
+      expect(mapStoredSpecPublic({ ...mockSpec, refinement }).refinement).toEqual(refinement);
+    });
+
+    it("persists a refinement whose parent belongs to the same user", async () => {
+      vi.mocked(prisma.storedSpec.count).mockResolvedValueOnce(0);
+      vi.mocked(prisma.storedSpec.findUnique).mockResolvedValueOnce({
+        ...mockSpec,
+        id: "spec-0",
+      });
+      vi.mocked(prisma.storedSpec.create).mockResolvedValueOnce(mockSpec);
+
+      await storedSpecService.create({
+        userId: "user-1",
+        prompt: "p",
+        kind: "refine",
+        spec: {},
+        rawLines: [],
+        refinement,
+      });
+
+      expect(prisma.storedSpec.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ refinement }),
+      });
+    });
+
+    it("rejects a parent owned by another user", async () => {
+      vi.mocked(prisma.storedSpec.findUnique).mockResolvedValueOnce({
+        ...mockSpec,
+        id: "spec-0",
+        userId: "someone-else",
+      });
+
+      await expect(
+        storedSpecService.create({
+          userId: "user-1",
+          prompt: "p",
+          kind: "refine",
+          spec: {},
+          rawLines: [],
+          refinement,
+        })
+      ).rejects.toThrow("Not found");
+      expect(prisma.storedSpec.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects a missing parent", async () => {
+      vi.mocked(prisma.storedSpec.findUnique).mockResolvedValueOnce(null);
+
+      await expect(
+        storedSpecService.create({
+          userId: "user-1",
+          prompt: "p",
+          kind: "refine",
+          spec: {},
+          rawLines: [],
+          refinement,
+        })
+      ).rejects.toThrow("Not found");
+    });
+
+    it("allows a null parentId without a lookup", async () => {
+      vi.mocked(prisma.storedSpec.count).mockResolvedValueOnce(0);
+      vi.mocked(prisma.storedSpec.create).mockResolvedValueOnce(mockSpec);
+      const root = { ...refinement, parentId: null };
+
+      await storedSpecService.create({
+        userId: "user-1",
+        prompt: "p",
+        kind: "refine",
+        spec: {},
+        rawLines: [],
+        refinement: root,
+      });
+
+      expect(prisma.storedSpec.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -70,6 +155,7 @@ describe("stored-spec", () => {
         spec: { components: ["hero", "footer"] },
         rawLines: ["line 1", "line 2"],
         isFavorite: false,
+        refinement: null,
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
       });
