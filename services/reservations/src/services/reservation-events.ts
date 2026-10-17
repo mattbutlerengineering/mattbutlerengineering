@@ -1,0 +1,81 @@
+import type { Prisma } from "../generated/prisma/index.js";
+
+export const RESERVATION_EVENT_KINDS = [
+  "created",
+  "status_changed",
+  "cancelled",
+  "no_show",
+  "moved",
+  "updated",
+  "deposit_transition",
+  "transition_rejected",
+] as const;
+
+export type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
+
+/** Guest `id` is the reservation's `guestId` — never a manage token or other capability secret. */
+export type ReservationEventActor =
+  | { type: "staff"; id: string }
+  | { type: "guest"; id: string | null }
+  | { type: "system"; id: string };
+
+/** Default for callers whose actor is not threaded through yet. */
+export const SYSTEM_ACTOR: ReservationEventActor = { type: "system", id: "unattributed" };
+
+/** Non-PII scheduling snapshot stored in `from_state` / `to_state`. */
+export type EventState = {
+  status: string;
+  tableId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  partySize: number;
+};
+
+export function toEventState(row: {
+  status: string;
+  tableId: string;
+  date: Date;
+  startTime: Date;
+  endTime: Date;
+  partySize: number;
+}): EventState {
+  return {
+    status: row.status,
+    tableId: row.tableId,
+    date: row.date.toISOString(),
+    startTime: row.startTime.toISOString(),
+    endTime: row.endTime.toISOString(),
+    partySize: row.partySize,
+  };
+}
+
+/**
+ * Appends one event row inside the caller's venue-scoped transaction. Takes the
+ * transaction client so the auto-wrapped `prisma` singleton cannot be passed.
+ * A NULL-venue row cannot pass RLS, so a null `venueId` writes nothing.
+ */
+export async function recordReservationEvent(
+  tx: Prisma.TransactionClient,
+  input: {
+    reservationId: string;
+    venueId: string | null;
+    kind: ReservationEventKind;
+    actor: ReservationEventActor;
+    from?: EventState | null;
+    to?: EventState | null;
+  }
+) {
+  if (input.venueId === null) return null;
+  return tx.reservationEvent.create({
+    data: {
+      reservationId: input.reservationId,
+      venueId: input.venueId,
+      kind: input.kind,
+      actorType: input.actor.type,
+      actorId: input.actor.id,
+      fromState: input.from ?? undefined,
+      toState: input.to ?? undefined,
+    },
+  });
+}

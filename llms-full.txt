@@ -36762,6 +36762,73 @@
       return { success: true, reservation: updated };
     }
   </file>
+  <file path="services/reservations/src/services/reservation-events.ts">
+    export const RESERVATION_EVENT_KINDS = [
+      "created",
+      "status_changed",
+      "cancelled",
+      "no_show",
+      "moved",
+      "updated",
+      "deposit_transition",
+      "transition_rejected",
+    ] as const;
+    export type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
+    export type ReservationEventActor =
+      | { type: "staff"; id: string }
+      | { type: "guest"; id: string | null }
+      | { type: "system"; id: string };
+    export const SYSTEM_ACTOR: ReservationEventActor = { type: "system", id: "unattributed" };
+    export type EventState = {
+      status: string;
+      tableId: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+    };
+    export function toEventState(row: {
+      status: string;
+      tableId: string;
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+    }): EventState {
+      return {
+        status: row.status,
+        tableId: row.tableId,
+        date: row.date.toISOString(),
+        startTime: row.startTime.toISOString(),
+        endTime: row.endTime.toISOString(),
+        partySize: row.partySize,
+      };
+    }
+    export async function recordReservationEvent(
+      tx: Prisma.TransactionClient,
+      input: {
+        reservationId: string;
+        venueId: string | null;
+        kind: ReservationEventKind;
+        actor: ReservationEventActor;
+        from?: EventState | null;
+        to?: EventState | null;
+      }
+    ) {
+      if (input.venueId === null) return null;
+      return tx.reservationEvent.create({
+        data: {
+          reservationId: input.reservationId,
+          venueId: input.venueId,
+          kind: input.kind,
+          actorType: input.actor.type,
+          actorId: input.actor.id,
+          fromState: input.from ?? undefined,
+          toState: input.to ?? undefined,
+        },
+      });
+    }
+  </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
     export interface ReservationChanges {
       date?: string;
