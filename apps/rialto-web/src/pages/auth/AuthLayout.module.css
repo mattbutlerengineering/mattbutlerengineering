@@ -79,11 +79,11 @@
 
 .footerLinkAccent {
   composes: footerLink;
-  color: var(--rialto-accent);
+  color: color-mix(in srgb, var(--rialto-accent) 70%, var(--rialto-text-primary));
 }
 
 .footerLinkAccent:hover {
-  color: var(--rialto-accent-hover);
+  color: var(--rialto-text-primary);
 }
 
 /* ── Auth exchange instrument ────────────── */
