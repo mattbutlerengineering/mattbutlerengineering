@@ -226,6 +226,7 @@ function makeSession(overrides: Partial<PlaygroundSession> = {}): PlaygroundSess
     failedPrompt: null,
     submit: mockSend,
     refine: vi.fn(),
+    refineNode: vi.fn(),
     replay: vi.fn(),
     retry: vi.fn(),
     selectHistory: vi.fn(),

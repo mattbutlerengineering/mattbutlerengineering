@@ -27,3 +27,9 @@
   background-color: var(--rialto-surface);
   border-radius: var(--rialto-radius-soft);
 }
+
+.refine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}

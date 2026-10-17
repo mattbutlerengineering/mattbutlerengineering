@@ -55,6 +55,26 @@ describe("useGenStream", () => {
     });
   });
 
+  it("merges extra body fields (e.g. target) into the request body", async () => {
+    mockStreamNDJSON.mockReturnValue(asyncGen([]));
+
+    const { result } = renderHook(() => useGenStream({ api: "/api/gen" }));
+
+    await act(async () => {
+      await result.current.send(
+        "Refine",
+        { subtree: 1 },
+        { target: { key: "card", type: "Stack" } }
+      );
+    });
+
+    expect(mockStreamNDJSON.mock.calls[0]?.[0].body).toEqual({
+      prompt: "Refine",
+      context: { subtree: 1 },
+      target: { key: "card", type: "Stack" },
+    });
+  });
+
   it("parses NDJSON elements and builds spec incrementally", async () => {
     // Real elements are @json-render/core FlatElements — keyed by `key` (+
     // optional `parentKey`), not `id`. flatToTree is mocked in this file, so
