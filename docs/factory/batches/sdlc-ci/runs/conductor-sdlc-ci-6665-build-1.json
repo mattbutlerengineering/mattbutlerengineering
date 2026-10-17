@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 106560,
+  "stop_reason": "end_turn",
+  "session_id": "d68bc264-5d1b-46c3-84ed-9b06e97cbef5",
+  "total_cost_usd": 1.0140146,
+  "usage": {
+    "input_tokens": 36,
+    "cache_creation_input_tokens": 123573,
+    "cache_read_input_tokens": 2281203,
+    "output_tokens": 6341,
+    "output_tokens_details": {
+      "thinking_tokens": 1806
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 123573,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 256,
+        "cache_read_input_tokens": 148819,
+        "cache_creation_input_tokens": 1056,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1056
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 36,
+      "outputTokens": 6341,
+      "cacheReadInputTokens": 2281203,
+      "cacheCreationInputTokens": 123573,
+      "webSearchRequests": 0,
+      "costUSD": 1.0140146,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1806,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 19,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0066 cannot be completed in this worktree: it requires reading a real GitHub Actions run's logs (`gh run view` + the Test job's cache hit/miss lines), and this environment has no `gh`, no `WebFetch`, and no GitHub credential \u2014 the same limitation the Blueprint stage already flagged for this item.\n\nRather than fabricate a run id or verdict, I recorded the blocker as a dated Note in `breakdown.md` (committed: `745609977`) and left the WO-0066 checkbox unchecked. `pr-body.md` explains the blocker and recommends re-dispatching WO-0066 to a session with real GitHub Actions access \u2014 Milestones 2 and 3 stay gated behind it either way, per architecture.md's branch rule.",
+  "ttft_ms": 4764,
+  "type": "result",
+  "duration_ms": 335688,
+  "uuid": "7c6f758c-7cbd-43ff-b50c-a6b19557edc6",
+  "ttft_stream_ms": 4140,
+  "time_to_request_ms": 402,
+  "first_content_frame_ms": 4140,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

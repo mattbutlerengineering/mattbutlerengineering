@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 173358,
+  "stop_reason": "end_turn",
+  "session_id": "663155fe-6759-480b-8e05-3110b443011b",
+  "total_cost_usd": 4.390109,
+  "usage": {
+    "input_tokens": 26,
+    "cache_creation_input_tokens": 117842,
+    "cache_read_input_tokens": 1448709,
+    "output_tokens": 11686,
+    "output_tokens_details": {
+      "thinking_tokens": 4759
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 117842,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 931,
+        "cache_read_input_tokens": 133418,
+        "cache_creation_input_tokens": 156,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 156
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-fable-5": {
+      "inputTokens": 26,
+      "outputTokens": 11686,
+      "cacheReadInputTokens": 1448709,
+      "cacheCreationInputTokens": 117842,
+      "webSearchRequests": 0,
+      "costUSD": 4.390109,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 4759,
+      "canonicalModel": "claude-fable-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 18,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Run complete at the blueprint gate. Here's the stage-by-stage report for the autorun-driven run `feature:ci-test-critical-path` (#6665):\n\n**What happened this session:** the run resumed from its committed brief (idea, PRD 7, and architecture were already on the branch), I ran the decompose stage inline (the task's tool boundary excludes subagent dispatch), committed `breakdown.md` as `c6667acb1`, and stopped there per `stop-after: decompose`. `pr-body.md` sits uncommitted at the worktree root, current with all four artifacts.\n\n**The breakdown** encodes the architecture's measurement gate as checkable work orders from the reserved block (WO-0066\u2013WO-0071 used; 72\u201375 unused):\n- **Milestone 1 \u2014 WO-0066:** measure one cold PR run's `^build` split in Test (hits-from-Typecheck / hits-from-prior-cache / built-fresh) and record an explicit `verdict: proceed` or `verdict: close`.\n- **Milestone 2 (proceed only) \u2014 WO-0067\u20130070:** guard-first (RED) test extension, the `ci.yml` cut (`prepare` produces `^build`, `test.needs: [prepare]`), repo gates, then real-run proof that Test starts before Typecheck finishes with no extra cache misses.\n- **Milestone 3 (close only) \u2014 WO-0071:** close #6665 with the four numbers, zero code diff.\nThe branch not taken gets checked off as not-applicable with a dated Note \u2014 never silently skipped.\n\n**One correction found while cutting:** the architecture said \"the existing `it.each`\" singular, but `ci-lint-critical-path.test.mjs` asserts `test` needs `typecheck` in **two** blocks (lines 40 and 78). WO-0067 names both edits, so the guard work can't leave a contradicting assertion behind.\n\n**Aggregated assumptions** (all in artifact frontmatter): PRD answered entirely from the brief; no ADR (the change fails the hard-to-reverse leg, so adr 107\u2013109 go unused); cut lines not reviewed live; tracker mirror of #6665 is import-only.\n\n**Flagged for human/Worker attention:**\n- The protocol's open-PRs pre-flight **could not run** here (no GitHub credential) \u2014 recorded in the breakdown Notes rather than silently skipped.\n- WO-0066 and WO-0070 need GitHub Actions access, so Implement onward belongs to a later Worker \u2014 and must land **after #6664** (same `test` job, not parallel-safe).\n- No push and no PR were opened from this environment, by design; the Conductor's Owner gate owns the merge, with `pr-body.md` ready as the body.",
+  "ttft_ms": 7375,
+  "type": "result",
+  "duration_ms": 177087,
+  "uuid": "15d54830-c7af-4754-9b96-63a101a79d00",
+  "ttft_stream_ms": 2413,
+  "time_to_request_ms": 399,
+  "first_content_frame_ms": 2413,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

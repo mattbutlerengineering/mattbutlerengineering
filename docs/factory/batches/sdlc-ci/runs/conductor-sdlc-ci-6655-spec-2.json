@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 114553,
+  "stop_reason": "end_turn",
+  "session_id": "5ef32bb1-f22c-473c-931f-2d154597c7bf",
+  "total_cost_usd": 3.49322,
+  "usage": {
+    "input_tokens": 20,
+    "cache_creation_input_tokens": 104633,
+    "cache_read_input_tokens": 1025260,
+    "output_tokens": 7502,
+    "output_tokens_details": {
+      "thinking_tokens": 2752
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 104633,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 752,
+        "cache_read_input_tokens": 119942,
+        "cache_creation_input_tokens": 423,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 423
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-fable-5": {
+      "inputTokens": 20,
+      "outputTokens": 7502,
+      "cacheReadInputTokens": 1025260,
+      "cacheCreationInputTokens": 104633,
+      "webSearchRequests": 0,
+      "costUSD": 3.49322,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2752,
+      "canonicalModel": "claude-fable-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 13,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Done \u2014 the run is at the blueprint gate with everything the Conductor needs in place.\n\n**What I found:** a prior session had already driven this run through all four stages. The brief (`docs/features/tier-escalation-false-positives/autorun-brief.md`) carries `stop-after: decompose`, and idea, PRD, architecture, and breakdown are committed (`57b52f1ff` \u2192 `b431696b9`, plus two prettier-formatting fixups on the PRD). The one missing deliverable was `pr-body.md`.\n\n**What I did this session:**\n- Wrote `pr-body.md` at the worktree root and left it uncommitted, as specified. It summarizes the five artifacts with their commits, the plan (pure `scripts/tier-escalation.mjs` module, review-surface-only size counting, incident-cue keyword rule, 300-PR replay gate), the four motivating cases the breakdown pins (#6610 \u2192 T3, #6591 stays T4, #6541 no longer escalates, a real leak sentence still hits T4), and the decision being asked of Matt at this gate \u2014 including the `*.md` counting default and incident-cue vocabulary as the two amendable policy choices, and reserved ADR-110 if the T4 merge gate wants an ADR.\n- Ran `bash scripts/conductor-gate.sh` on the final head: exit 0. Turbo reported zero affected lint/typecheck/test tasks, which is the expected result for a docs-only diff.\n\n**Final state:** branch `conductor/sdlc-ci-6655` at `2b86d2996`, working tree clean except the untracked `pr-body.md`. The breakdown is committed, so per the brief's `stop-after: decompose` the run stops here \u2014 implementation (reserved WO 76-85) waits on Matt's blueprint decision. No reserved ids were consumed beyond what the artifacts already record.",
+  "ttft_ms": 9071,
+  "type": "result",
+  "duration_ms": 117262,
+  "uuid": "5483e8b9-02dd-4e3b-a525-91a2f862ad03",
+  "ttft_stream_ms": 2761,
+  "time_to_request_ms": 407,
+  "first_content_frame_ms": 2761,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

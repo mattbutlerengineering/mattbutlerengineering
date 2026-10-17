@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 69607,
+  "stop_reason": "end_turn",
+  "session_id": "8f283c2c-6984-4837-b9ab-5bc55f523ca1",
+  "total_cost_usd": 2.844973,
+  "usage": {
+    "input_tokens": 12,
+    "cache_creation_input_tokens": 102890,
+    "cache_read_input_tokens": 559303,
+    "output_tokens": 4555,
+    "output_tokens_details": {
+      "thinking_tokens": 1720
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 102890,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 514,
+        "cache_read_input_tokens": 115336,
+        "cache_creation_input_tokens": 211,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 211
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-fable-5": {
+      "inputTokens": 12,
+      "outputTokens": 4555,
+      "cacheReadInputTokens": 559303,
+      "cacheCreationInputTokens": 102890,
+      "webSearchRequests": 0,
+      "costUSD": 2.844973,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1720,
+      "canonicalModel": "claude-fable-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 7,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "The run is complete at its blueprint gate. Here's where things stand:\n\n**Already done (prior session, verified on the branch):** all four stage artifacts were committed to `conductor/sdlc-ci-6664` under `docs/features/ci-test-matrix-split/` \u2014 the autorun brief with `stop-after: decompose` plus `idea.md` (`64d175dc0`), PRD-6 (`2db9fb588`), `architecture.md` (`3a416415b`), and `breakdown.md` (`7212fd26a`). The breakdown defines five work orders WO-0056\u2013WO-0060 from the reserved block (WO-0061\u20130065 unused, ADR 104\u2013106 reserved but none consumed), starting with the guard test proven RED before any `ci.yml` edit.\n\n**Done this session:** wrote `pr-body.md` at the worktree root \u2014 the one missing deliverable, without which the run would open no PR. It summarizes the four artifacts and commits, the load-bearing design decisions (exclusion-derived `rest` leg, plain `needs: [test]` with no `if: always()`, unchanged 60%/80% thresholds), and the sequencing constraint that #6665 must land after. It's left uncommitted as required (`git status` shows only `?? pr-body.md`), and it carries a `Refs #6664` note that the conductor owns the issue lifecycle.\n\nPer the brief's `stop-after: decompose`, the run stops here at the blueprint gate \u2014 no implementation, no further stages. Budget used: ~$2.70 of $6.44.",
+  "ttft_ms": 9374,
+  "type": "result",
+  "duration_ms": 72130,
+  "uuid": "f2ce0c32-ee21-49f6-a386-c38cf631c476",
+  "ttft_stream_ms": 2644,
+  "time_to_request_ms": 426,
+  "first_content_frame_ms": 2645,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

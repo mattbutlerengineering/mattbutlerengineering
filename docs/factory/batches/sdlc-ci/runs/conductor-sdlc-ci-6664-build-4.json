@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 301517,
+  "stop_reason": "end_turn",
+  "session_id": "672210d4-5087-4275-8c36-bad316cb7251",
+  "total_cost_usd": 1.9842982000000005,
+  "usage": {
+    "input_tokens": 82,
+    "cache_creation_input_tokens": 150181,
+    "cache_read_input_tokens": 5885251,
+    "output_tokens": 20636,
+    "output_tokens_details": {
+      "thinking_tokens": 8261
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 150181,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 387,
+        "cache_read_input_tokens": 174989,
+        "cache_creation_input_tokens": 1494,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1494
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 82,
+      "outputTokens": 20636,
+      "cacheReadInputTokens": 5885251,
+      "cacheCreationInputTokens": 150181,
+      "webSearchRequests": 0,
+      "costUSD": 1.9842982000000005,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8261,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 41,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0058 is implemented, checked off, and committed on `conductor/sdlc-ci-6664` (commit `edb315913`); `pr-body.md` is written at the worktree root (uncommitted, as requested).\n\nSummary:\n- Added `test-coverage-gate` job to `.github/workflows/ci.yml`: `needs: [test]`, `COVERAGE_THRESHOLD: 60`, downloads merged per-leg coverage artifacts, then runs the three steps moved verbatim from WO-0057 (codecov upload, repo-wide 60% gate, agent-core 80% gate) with their matrix guards dropped.\n- Re-pointed `ci-coverage-upload-paths.test.mjs` at the new job, un-skipping its suite.\n- Checked off WO-0058 in `breakdown.md` with a detailed Done note.\n- Full gate run: 280/282 test files green. The 3 remaining failures are exactly WO-0059's scope (ci-gate wiring, two assertions) plus one pre-existing, unrelated test bug in the leg-filter guard \u2014 flagged for Architect rather than fixed outside this item's scope.",
+  "ttft_ms": 3462,
+  "type": "result",
+  "duration_ms": 582890,
+  "uuid": "8a23e516-42c9-4be5-b704-3ec2f9d6a8e6",
+  "ttft_stream_ms": 2765,
+  "time_to_request_ms": 445,
+  "first_content_frame_ms": 2765,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

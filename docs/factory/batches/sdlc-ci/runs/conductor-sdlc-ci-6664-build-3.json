@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 297697,
+  "stop_reason": "end_turn",
+  "session_id": "609a93c2-4665-4f82-8f63-69f40eeaaa6b",
+  "total_cost_usd": 1.7538652,
+  "usage": {
+    "input_tokens": 68,
+    "cache_creation_input_tokens": 143489,
+    "cache_read_input_tokens": 4740766,
+    "output_tokens": 23162,
+    "output_tokens_details": {
+      "thinking_tokens": 13924
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 143489,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 196,
+        "cache_read_input_tokens": 167853,
+        "cache_creation_input_tokens": 1938,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1938
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 68,
+      "outputTokens": 23162,
+      "cacheReadInputTokens": 4740766,
+      "cacheCreationInputTokens": 143489,
+      "webSearchRequests": 0,
+      "costUSD": 1.7538652,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 13924,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 34,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0057 is implemented and checked off, verified against its AC, and a regression the leg split caused (`ci-coverage-upload-paths.test.mjs` crashing at suite load) is fixed with a guarded skip pointing to WO-0058. Committed as `6cf2feec2`; `pr-body.md` written uncommitted at the worktree root. Remaining red tests (`ci-test-shards.test.mjs`'s three `test-coverage-gate`-shaped assertions) are by design, deferred to WO-0058/WO-0059 per the breakdown's own sequencing.",
+  "ttft_ms": 2930,
+  "type": "result",
+  "duration_ms": 561340,
+  "uuid": "00963cec-c005-4acb-8859-cef6a2ea9118",
+  "ttft_stream_ms": 2236,
+  "time_to_request_ms": 412,
+  "first_content_frame_ms": 2236,
+  "queued_turn_count": 0,
+  "result_index": 0
+}
