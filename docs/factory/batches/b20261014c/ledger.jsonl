@@ -142,3 +142,4 @@
 {"at": "2026-10-17T02:16:39Z", "kind": "state", "item": "#6640", "from": "stalled", "to": "blocked", "reason": "answer to ask-18: block (work merged via PR #6661; review stalled twice)", "cause": "agent-failed"}
 {"at": "2026-10-17T02:16:41Z", "kind": "close", "item": null, "merged": [], "blocked": ["#6634", "#6639", "#6640", "#6650", "#6651"]}
 {"at": "2026-10-17T02:16:41Z", "kind": "ask", "item": null, "id": "ask-19", "ask_kind": "merge", "question": "Merge batch b20261014c's closing PR (conductor/b20261014c): its ledger, run evidence and scorecard?", "options": ["merge", "hold"], "recommended": "merge", "why": "every item is merged or blocked, and the scorecard computed from the ledger"}
+{"at": "2026-10-17T02:18:59Z", "kind": "answer", "item": null, "ask": "ask-19", "choice": "merge", "note": ""}
