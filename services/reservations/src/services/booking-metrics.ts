@@ -1,4 +1,5 @@
 import { prisma } from "./database.js";
+import { RESERVATION_EVENT_KINDS, type ReservationEventKind } from "./reservation-events.js";
 
 /**
  * Counts-only booking-funnel telemetry (issue #3665, part 1/5 of the
@@ -23,11 +24,18 @@ export interface DepositTransitionCounts {
   forfeited: number;
 }
 
+/** Event counts for the day; counts only, never a reservation or actor id. */
+export interface ReservationEventCounts {
+  byKind: Record<ReservationEventKind, number>;
+  rejectedTransitions: number;
+}
+
 export interface DailyBookingMetrics {
   date: string;
   venueId: string;
   reservations: ReservationStatusCounts;
   deposits: DepositTransitionCounts;
+  events: ReservationEventCounts;
 }
 
 export interface GetDailyBookingMetricsParams {
@@ -54,7 +62,7 @@ async function getDailyBookingMetrics(
   const dayStart = new Date(`${date}T00:00:00.000Z`);
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  const [reservationGroups, held, applied, refunded, forfeited] = await Promise.all([
+  const [reservationGroups, held, applied, refunded, forfeited, eventGroups] = await Promise.all([
     prisma.reservation.groupBy({
       by: ["status"],
       where: { venueId, date: dayStart },
@@ -72,6 +80,11 @@ async function getDailyBookingMetrics(
     prisma.deposit.count({
       where: { reservation: { venueId }, forfeitedAt: { gte: dayStart, lt: dayEnd } },
     }),
+    prisma.reservationEvent.groupBy({
+      by: ["kind"],
+      where: { venueId, createdAt: { gte: dayStart, lt: dayEnd } },
+      _count: true,
+    }),
   ]);
 
   const reservations: ReservationStatusCounts = {
@@ -86,11 +99,20 @@ async function getDailyBookingMetrics(
     reservations[key] = group._count;
   }
 
+  const byKind = Object.fromEntries(RESERVATION_EVENT_KINDS.map((kind) => [kind, 0])) as Record<
+    ReservationEventKind,
+    number
+  >;
+  for (const group of eventGroups) {
+    if (group.kind in byKind) byKind[group.kind as ReservationEventKind] = group._count;
+  }
+
   return {
     date,
     venueId,
     reservations,
     deposits: { held, applied, refunded, forfeited },
+    events: { byKind, rejectedTransitions: byKind.transition_rejected },
   };
 }
 
