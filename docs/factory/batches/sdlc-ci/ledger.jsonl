@@ -93,3 +93,4 @@
 {"at": "2026-10-17T02:09:45Z", "kind": "state", "item": "#6664", "from": "stalled", "to": "blocked", "reason": "answer to ask-15: block (issue #6664 already closed COMPLETED 2026-10-15)", "cause": "runner-lost"}
 {"at": "2026-10-17T02:09:52Z", "kind": "close", "item": null, "merged": [], "blocked": ["#6655", "#6664", "#6665"]}
 {"at": "2026-10-17T02:09:52Z", "kind": "ask", "item": null, "id": "ask-16", "ask_kind": "merge", "question": "Merge batch sdlc-ci's closing PR (conductor/sdlc-ci): its ledger, run evidence and scorecard?", "options": ["merge", "hold"], "recommended": "merge", "why": "every item is merged or blocked, and the scorecard computed from the ledger"}
+{"at": "2026-10-17T02:11:13Z", "kind": "answer", "item": null, "ask": "ask-16", "choice": "merge", "note": ""}
