@@ -306,15 +306,16 @@ interface ReservationEvent {
 
 ### Reservations
 
-| Method | Path                           | Description                     |
-| ------ | ------------------------------ | ------------------------------- |
-| GET    | `/api/v1/reservations`         | List reservations (filterable)  |
-| GET    | `/api/v1/reservations/me`      | Get current user's reservations |
-| GET    | `/api/v1/reservations/:id`     | Get reservation                 |
-| POST   | `/api/v1/reservations`         | Create reservation              |
-| POST   | `/api/v1/reservations/walk-in` | Create walk-in reservation      |
-| PATCH  | `/api/v1/reservations/:id`     | Update reservation              |
-| DELETE | `/api/v1/reservations/:id`     | Cancel reservation              |
+| Method | Path                              | Description                                                             |
+| ------ | --------------------------------- | ----------------------------------------------------------------------- |
+| GET    | `/api/v1/reservations`            | List reservations (filterable)                                          |
+| GET    | `/api/v1/reservations/me`         | Get current user's reservations                                         |
+| GET    | `/api/v1/reservations/:id`        | Get reservation                                                         |
+| POST   | `/api/v1/reservations`            | Create reservation                                                      |
+| POST   | `/api/v1/reservations/walk-in`    | Create walk-in reservation                                              |
+| PATCH  | `/api/v1/reservations/:id`        | Update reservation                                                      |
+| DELETE | `/api/v1/reservations/:id`        | Cancel reservation                                                      |
+| GET    | `/api/v1/reservations/:id/events` | List reservation event history (venue members; `limit` ≤ 200, `cursor`) |
 
 ### Availability
 

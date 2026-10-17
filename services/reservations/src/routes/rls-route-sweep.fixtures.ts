@@ -1436,6 +1436,14 @@ const briefingFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/briefing": okScopedByQuery("/api/v1/briefing", "&date=2026-10-01"),
 };
 
+const reservationEventFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/reservations/:id/events": okEntityRead(
+    (id) => `/api/v1/reservations/${id}/events`,
+    (ctx) => ctx.reservationA,
+    (ctx) => ctx.reservationB
+  ),
+};
+
 const bookingMetricsFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/reservations/metrics/daily": okScopedByQuery(
     "/api/v1/reservations/metrics/daily",
@@ -1533,5 +1541,6 @@ export const FIXTURES: Record<string, RouteFixture> = {
   ...waitlistFixtures,
   ...briefingFixtures,
   ...bookingMetricsFixtures,
+  ...reservationEventFixtures,
   ...depositFixtures,
 };
