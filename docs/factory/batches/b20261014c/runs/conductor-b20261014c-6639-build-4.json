@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 85854,
+  "stop_reason": "end_turn",
+  "session_id": "8acbfad1-175d-4cfb-9568-8fbf3f3e8e53",
+  "total_cost_usd": 0.8754148000000003,
+  "usage": {
+    "input_tokens": 36,
+    "cache_creation_input_tokens": 101598,
+    "cache_read_input_tokens": 2073854,
+    "output_tokens": 5418,
+    "output_tokens_details": {
+      "thinking_tokens": 832
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 101598,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 156,
+        "cache_read_input_tokens": 126688,
+        "cache_creation_input_tokens": 1212,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1212
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 36,
+      "outputTokens": 5418,
+      "cacheReadInputTokens": 2073854,
+      "cacheCreationInputTokens": 101598,
+      "webSearchRequests": 0,
+      "costUSD": 0.8754148000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 832,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 18,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0018 done: both drift checks (`check-claude-md-table-drift.mjs`, `check-skill-references.mjs`) pass, prettier is clean on the touched files, and the turbo filter confirms the WO-0016/0017 diff is docs-only so no workspace package's lint/typecheck/test is affected. Checkbox flipped and committed (`924f873c6`); `pr-body.md` written at the worktree root, left uncommitted as instructed.",
+  "ttft_ms": 7556,
+  "type": "result",
+  "duration_ms": 211499,
+  "uuid": "1e9dd8f4-8f21-4be8-b0d1-97a9ab830f7f",
+  "ttft_stream_ms": 6061,
+  "time_to_request_ms": 3782,
+  "first_content_frame_ms": 6061,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

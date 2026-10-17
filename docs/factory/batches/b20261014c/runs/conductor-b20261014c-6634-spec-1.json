@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 336214,
+  "stop_reason": "end_turn",
+  "session_id": "084a23f6-8328-483d-a062-5b0cafa7c7bb",
+  "total_cost_usd": 6.128031,
+  "usage": {
+    "input_tokens": 38,
+    "cache_creation_input_tokens": 133578,
+    "cache_read_input_tokens": 2324191,
+    "output_tokens": 22638,
+    "output_tokens_details": {
+      "thinking_tokens": 7825
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 133578,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1053,
+        "cache_read_input_tokens": 144828,
+        "cache_creation_input_tokens": 1407,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1407
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-fable-5": {
+      "inputTokens": 38,
+      "outputTokens": 22638,
+      "cacheReadInputTokens": 2324191,
+      "cacheCreationInputTokens": 133578,
+      "webSearchRequests": 0,
+      "costUSD": 6.128031,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 7825,
+      "canonicalModel": "claude-fable-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 22,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Run complete to the blueprint gate. Issue #6634 was driven as a feature run (`docs/features/bootstrap-worktree/`) via the autorun skill with `stop-after: decompose`; the breakdown is committed and `pr-body.md` sits current and uncommitted at the worktree root.\n\n**Commits on `conductor/b20261014c-6634`** (all docs-only):\n- `23c6c7597` \u2014 `autorun-brief.md` (with `stop-after: decompose`) + `idea.md`\n- `a04a46855` \u2014 `prd.md` (PRD-1)\n- `33af72ecb` \u2014 `architecture.md`\n- `bb8d8ff93` \u2014 `breakdown.md` \u2190 blueprint gate; loop stopped here per the brief\n\n**Stage summary**\n- **Idea** \u2014 grounded in measured evidence: the localization run (PR #6591) hit TS2307 on every `apps/hospitality` page in a fresh worktree even after `pnpm install`, and gotchas.md records missing-install as the #1 recurring agent failure. The protocol's work-in-flight / open-PR pre-flights **could not run** (no GitHub credential, `gh` forbidden) \u2014 recorded as such, with the Conductor owning batch-level checks.\n- **PRD-1** \u2014 four requirements (idempotent command, pure core, hint-only hook, docs re-pointed), SC-1..SC-5 mapped from the issue's acceptance criteria; `ux: not-applicable` (dev tooling, no UI surface).\n- **Architect** \u2014 node-builtins-only script so it runs pre-install; pure `decideBootstrapSteps` ordering install\u2192build; dist-consumed packages **derived** from workspace entrypoints, never hardcoded; the hook shares the CLI's `--check` so \"needs bootstrap\" has one definition and the no-op path spawns nothing (that's what keeps the <5s criterion). No ADR consumed \u2014 nothing cleared the hard-to-reverse/surprising/trade-off bar, so ADR 89\u201391 stay unused.\n- **Decompose** \u2014 five ordered items: WO-6 pure core TDD, WO-7 probes+CLI+script (SC-1/SC-2 proven in this very worktree), WO-8 SessionStart hook + wiring guards, WO-9 gotchas/worker-agent doc edits, WO-10 acceptance sweep. WO-11\u201315 unused.\n\n**Aggregated assumptions** (all in artifact frontmatter): pre-flights unrunnable; stages run inline rather than one subagent each (this Worker's tool policy has no Agent tool; artifacts stayed the only inter-stage state); issue scope taken verbatim with no live Owner; mtime-receipt staleness over hashing; entrypoint-derived dist consumers; no tracker refs so nothing auto-closes #6634.\n\n**Flagged for the Owner at the gate**: whether the entrypoint-derivation heuristic for \"packages apps consume via dist/\" matches intent (the alternative \u2014 the turbo graph \u2014 needs an install first), and that the hook deliberately never installs. Spend ended ~$5.9 of $6.44.",
+  "ttft_ms": 7377,
+  "type": "result",
+  "duration_ms": 351010,
+  "uuid": "c7fe0e95-9e9e-403d-b9fd-1900a83665a9",
+  "ttft_stream_ms": 3470,
+  "time_to_request_ms": 1070,
+  "first_content_frame_ms": 3470,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

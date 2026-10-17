@@ -1,0 +1,107 @@
+{
+  "duration_api_ms": 125089,
+  "stop_reason": "end_turn",
+  "session_id": "6b719c50-d1ef-44e3-94da-faf88dbd7ce7",
+  "total_cost_usd": 1.1124440000000002,
+  "usage": {
+    "input_tokens": 42,
+    "cache_creation_input_tokens": 124551,
+    "cache_read_input_tokens": 2619880,
+    "output_tokens": 9018,
+    "output_tokens_details": {
+      "thinking_tokens": 1559
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 124551,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 323,
+        "cache_read_input_tokens": 144329,
+        "cache_creation_input_tokens": 1050,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1050
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 42,
+      "outputTokens": 9018,
+      "cacheReadInputTokens": 2619880,
+      "cacheCreationInputTokens": 124551,
+      "webSearchRequests": 0,
+      "costUSD": 1.1124440000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1559,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_0191mRUA5e8qbMbadCCV2UX2",
+      "tool_input": {
+        "command": "cat scripts/vitest.config.mjs 2>/dev/null | head -30; echo ---; sed -n '1,50p' scripts/__tests__/reap-worktrees.test.mjs"
+      }
+    }
+  ],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 21,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-6 is implemented and checked off. Summary:\n\n- Added `scripts/bootstrap-worktree.mjs` with `decideBootstrapSteps` and `distConsumedPackages` (pure, node-builtins-only, per architecture.md \u00a71).\n- Wrote `scripts/__tests__/bootstrap-worktree.test.mjs` first (13 cases, confirmed failing before the implementation existed, then green).\n- Checked off WO-6 in `docs/features/bootstrap-worktree/breakdown.md`.\n- Ran `bash scripts/conductor-gate.sh` twice \u2014 my test file passed cleanly both times; the gate's only failures were unrelated pre-existing flakes in `rialto-web`/`marketing` test suites (cold-cache timeout class already documented in gotchas.md).\n- Committed to `conductor/b20261014c-6634`; `pr-body.md` written at the worktree root, left uncommitted as instructed.",
+  "ttft_ms": 3861,
+  "type": "result",
+  "duration_ms": 1182205,
+  "uuid": "1769acd7-edf5-485e-82d9-f181521b4103",
+  "ttft_stream_ms": 2630,
+  "time_to_request_ms": 421,
+  "first_content_frame_ms": 2630,
+  "queued_turn_count": 0,
+  "result_index": 0
+}
