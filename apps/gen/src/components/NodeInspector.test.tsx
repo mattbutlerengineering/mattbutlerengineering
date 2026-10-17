@@ -129,4 +129,37 @@ describe("NodeInspector", () => {
       );
     });
   });
+
+  describe("last change", () => {
+    const sub = (types: string[]): Spec => ({
+      root: "card",
+      elements: Object.fromEntries([
+        [
+          "card",
+          { type: types[0] ?? "Stack", props: {}, children: types.slice(1).map((_, i) => `c${i}`) },
+        ],
+        ...types.slice(1).map((type, i) => [`c${i}`, { type, props: {}, children: [] }]),
+      ]),
+    });
+    const change = {
+      parentId: null,
+      path: "card",
+      before: sub(["Stack", "Text"]),
+      after: sub(["Grid", "Text", "Badge"]),
+    };
+
+    it("lists the component types a change added and removed", () => {
+      render(
+        <NodeInspector spec={SPEC} selectedKey="card" onSelectNode={vi.fn()} change={change} />
+      );
+      expect(screen.getByText("Added: Badge, Grid")).toBeDefined();
+      expect(screen.getByText("Removed: Stack")).toBeDefined();
+    });
+
+    it("shows nothing when no change is supplied", () => {
+      render(<NodeInspector spec={SPEC} selectedKey="card" onSelectNode={vi.fn()} />);
+      expect(screen.queryByText(/^Added:/)).toBeNull();
+      expect(screen.queryByText(/^Removed:/)).toBeNull();
+    });
+  });
 });

@@ -3,6 +3,8 @@ import type { Spec } from "@json-render/react";
 import { Button, Input, Text } from "@mattbutlerengineering/rialto";
 import { catalog } from "@mbe/rialto-catalog/catalog";
 import { ancestorChain, subtreeKeys } from "../lib/spec-subtree.js";
+import type { SpecDiff } from "../lib/spec-subtree.js";
+import { specStats } from "../lib/spec.js";
 import styles from "./NodeInspector.module.css";
 
 export interface NodeInspectorProps {
@@ -15,6 +17,17 @@ export interface NodeInspectorProps {
   onRefineNode?: (key: string, instruction: string) => void;
   /** Disables the refine form while a generation is streaming. */
   isBusy?: boolean;
+  /** The refinement just applied, undone or redone; lists the component types it added and removed. */
+  change?: SpecDiff | null;
+}
+
+function typeDelta(change: SpecDiff): { added: string[]; removed: string[] } {
+  const before = new Set(specStats(change.before)?.componentTypes ?? []);
+  const after = new Set(specStats(change.after)?.componentTypes ?? []);
+  return {
+    added: [...after].filter((type) => !before.has(type)),
+    removed: [...before].filter((type) => !after.has(type)),
+  };
 }
 
 /** Read-only details of the node picked in the preview: type, description, props, size, ancestry. */
@@ -24,6 +37,7 @@ export function NodeInspector({
   onSelectNode,
   onRefineNode,
   isBusy = false,
+  change = null,
 }: NodeInspectorProps) {
   const [instruction, setInstruction] = useState("");
   const element = spec.elements[selectedKey];
@@ -35,6 +49,7 @@ export function NodeInspector({
   const ancestors = ancestorChain(spec, selectedKey);
   const childCount = element.children?.length ?? 0;
   const subtreeSize = subtreeKeys(spec, selectedKey).length;
+  const delta = change ? typeDelta(change) : null;
 
   return (
     <aside className={styles.panel} aria-label="Selected component">
@@ -62,6 +77,16 @@ export function NodeInspector({
       <Text variant="caption" color="tertiary">
         {childCount} direct {childCount === 1 ? "child" : "children"} · {subtreeSize} in subtree
       </Text>
+      {delta && delta.added.length > 0 && (
+        <Text variant="caption" color="secondary">
+          {`Added: ${delta.added.sort().join(", ")}`}
+        </Text>
+      )}
+      {delta && delta.removed.length > 0 && (
+        <Text variant="caption" color="secondary">
+          {`Removed: ${delta.removed.sort().join(", ")}`}
+        </Text>
+      )}
       {onRefineNode && (
         <form
           className={styles.refine}

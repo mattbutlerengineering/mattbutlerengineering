@@ -3625,6 +3625,20 @@
       export function useShortcuts(handlers: ShortcutHandlers): void { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/hooks/useSpecDiffHistory.ts">
+    <item priority="low">
+      interface UseSpecDiffHistoryReturn {
+        canUndo: boolean;
+        canRedo: boolean;
+        push: (diff: SpecDiff) => void;
+        undo: () => SpecDiff | null;
+        redo: () => SpecDiff | null;
+      }
+    </item>
+    <item priority="high">
+      export function useSpecDiffHistory(): UseSpecDiffHistoryReturn { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/hooks/useSpecsApi.ts">
     <item priority="low">
       interface SaveSpecData {
@@ -5154,7 +5168,7 @@
   </file>
   <file path="apps/gen/src/lib/shortcuts.ts">
     <item priority="low">
-      type ShortcutAction = "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
+      type ShortcutAction = "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help" | "undo" | "redo";
     </item>
     <item priority="low">
       type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";

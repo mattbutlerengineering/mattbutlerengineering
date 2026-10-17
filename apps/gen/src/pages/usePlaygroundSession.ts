@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Spec } from "@json-render/react";
 import { useGenStream } from "../hooks/useGenStream.js";
 import { useSpecsApi } from "../hooks/useSpecsApi.js";
+import { useSpecDiffHistory } from "../hooks/useSpecDiffHistory.js";
 import { createRefinementPrompt } from "./createRefinementPrompt.js";
 import { createErrorRecoveryPrompt } from "./createErrorRecoveryPrompt.js";
 import { isTransportError } from "./classifyGenerationError.js";
@@ -86,6 +87,13 @@ export interface PlaygroundSession {
   selectHistory: (id: string) => void;
   toggleFavorite: (id: string) => void;
   deleteSpec: (id: string) => void;
+  /** Revert / re-apply the latest node refinement of this session; never calls the model. */
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  /** The refinement most recently applied, undone or redone, for the before/after view. */
+  lastChange: SpecDiff | null;
   reset: () => void;
   stop: () => void;
 }
@@ -139,6 +147,10 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
   const [refineError, setRefineError] = useState<Error | null>(null);
   const nodeRefineRef = useRef<NodeRefine | null>(null);
+  const savePendingRef = useRef(false);
+  const diffHistory = useSpecDiffHistory();
+  const { push: pushDiff, clear: clearDiffs } = diffHistory;
+  const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
 
   const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
     api: "/api/gen/ui",
@@ -169,21 +181,29 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
             before,
             after: completedSpec,
           };
+          pushDiff(refinement);
+          setLastChange(refinement);
         }
         nodeRefineRef.current = null;
         setPinnedSpec(savedSpec);
       }
       options?.onGenerationComplete?.();
+      // Undo/redo wait for the save: its late .then would otherwise overwrite them.
+      savePendingRef.current = true;
       void saveSpec({
         prompt: promptRef.current,
         kind: kindRef.current,
         spec: savedSpec,
         rawLines: completedRawLines,
         refinement,
-      }).then((stored) => {
-        setActiveId(stored.id);
-        setPinnedSpec(null);
-      });
+      })
+        .then((stored) => {
+          setActiveId(stored.id);
+          setPinnedSpec(null);
+        })
+        .finally(() => {
+          savePendingRef.current = false;
+        });
     },
     // Record the failed attempt in the same history mechanism (kind
     // "failed") so a
@@ -229,7 +249,10 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     nodeRefineRef.current = null;
     setPinnedSpec(null);
     setRefineError(null);
-  }, []);
+    // A new spec makes the old diffs meaningless: they were made on the previous one.
+    clearDiffs();
+    setLastChange(null);
+  }, [clearDiffs]);
 
   const resetTo = useCallback(
     (id: string | null) => {
@@ -379,6 +402,30 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     }
   }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
 
+  const applyDiff = useCallback(
+    (diff: SpecDiff | null) => {
+      if (!diff || !displaySpec) return;
+      const applied = applySpecDiff(displaySpec, diff);
+      if (!applied.ok) {
+        // The stacks no longer match what is on screen; drop them rather than drift.
+        clearDiffs();
+        setLastChange(null);
+        return;
+      }
+      setActiveId(null);
+      setPinnedSpec(applied.spec);
+      setLastChange(diff);
+    },
+    [displaySpec, clearDiffs]
+  );
+  const { undo: popUndo, redo: popRedo } = diffHistory;
+  const undo = useCallback(() => {
+    if (!isStreaming && !savePendingRef.current) applyDiff(popUndo());
+  }, [isStreaming, applyDiff, popUndo]);
+  const redo = useCallback(() => {
+    if (!isStreaming && !savePendingRef.current) applyDiff(popRedo());
+  }, [isStreaming, applyDiff, popRedo]);
+
   const selectHistory = useCallback(
     (id: string) => {
       if (isStreaming) return;
@@ -439,6 +486,11 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     selectHistory,
     toggleFavorite,
     deleteSpec: handleDeleteSpec,
+    undo,
+    redo,
+    canUndo: diffHistory.canUndo,
+    canRedo: diffHistory.canRedo,
+    lastChange,
     reset,
     stop,
   };

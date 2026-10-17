@@ -7,6 +7,8 @@ export interface NodeSelection {
   selectedKey: string | null;
   /** Spec key the keyboard cursor is on (not yet committed with Enter). */
   cursorKey: string | null;
+  /** Spec key of the subtree a refinement just changed. */
+  changedKey?: string | null;
 }
 
 export const NodeSelectionContext = createContext<NodeSelection>({
@@ -33,12 +35,13 @@ export function stampNodeKeys(spec: Spec): Spec {
 }
 
 function SelectableNode({ nodeKey, children }: { nodeKey: string; children: ReactNode }) {
-  const { selectedKey, cursorKey } = use(NodeSelectionContext);
+  const { selectedKey, cursorKey, changedKey } = use(NodeSelectionContext);
   return (
     <div
       data-gen-node={nodeKey}
       data-selected={selectedKey === nodeKey ? "true" : undefined}
       data-cursor={cursorKey === nodeKey ? "true" : undefined}
+      data-changed={changedKey === nodeKey ? "true" : undefined}
     >
       {children}
     </div>
