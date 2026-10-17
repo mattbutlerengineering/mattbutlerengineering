@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ErrorBoundary, useToast } from "@mattbutlerengineering/rialto";
 import { AppShell, useAppShellPanels } from "../components/AppShell.js";
 import { HistoryPanel } from "../components/HistoryPanel.js";
@@ -110,6 +111,14 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     openShortcuts,
     closeShortcuts,
   } = session;
+
+  // Selection belongs to the spec it was made on; derive it away when the displayed spec changes.
+  const [selection, setSelection] = useState<{ spec: typeof displaySpec; key: string | null }>({
+    spec: displaySpec,
+    key: null,
+  });
+  const selectedKey = selection.spec === displaySpec ? selection.key : null;
+  const setSelectedKey = (key: string | null) => setSelection({ spec: displaySpec, key });
 
   // ---------------------------------------------------------------------------
   // Handlers — breakpoint-driven overlay closing is a shell concern, kept here.
@@ -229,6 +238,8 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
             onSuggestionClick={submit}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            selectedKey={selectedKey}
+            onSelectNode={setSelectedKey}
           />
         </ErrorBoundary>
 
