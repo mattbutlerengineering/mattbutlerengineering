@@ -1,0 +1,108 @@
+{
+  "duration_api_ms": 242644,
+  "stop_reason": "end_turn",
+  "session_id": "34ebf55b-9cb3-484f-9f62-439eee12ef68",
+  "total_cost_usd": 1.582695,
+  "usage": {
+    "input_tokens": 60,
+    "cache_creation_input_tokens": 143007,
+    "cache_read_input_tokens": 4067835,
+    "output_tokens": 19698,
+    "output_tokens_details": {
+      "thinking_tokens": 8516
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 143007,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 306,
+        "cache_read_input_tokens": 167880,
+        "cache_creation_input_tokens": 1429,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1429
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 60,
+      "outputTokens": 19698,
+      "cacheReadInputTokens": 4067835,
+      "cacheCreationInputTokens": 143007,
+      "webSearchRequests": 0,
+      "costUSD": 1.582695,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8516,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01HfF2QQpcNsZDMoWeV2rusG",
+      "tool_input": {
+        "command": "npx vitest run ci-test-shards 2>&1 | tail -120",
+        "description": "Run new guard test with simpler filter"
+      }
+    }
+  ],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 30,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0056 is implemented, committed (`fb45aa84a`), and checked off in the breakdown. `pr-body.md` is written at the worktree root, uncommitted as instructed.\n\nSummary: added `scripts/__tests__/ci-test-shards.test.mjs`, a textual guard over `ci.yml` pinning the leg-matrix topology from `architecture.md` \u2014 named filters for reservations/hospitality/rialto, an exclusion-derived `rest` leg, exactly-one-leg coverage enumerated from disk, `ci-gate`'s updated `needs:`, and threshold ownership moving to `test-coverage-gate`. Verified RED via `scripts/conductor-gate.sh`: 14/18 assertions fail against the current single-job workflow, 4 pass (already-true facts), lint/typecheck unaffected. Milestone 2 (WO-0057\u201359) will turn this green.",
+  "ttft_ms": 4375,
+  "type": "result",
+  "duration_ms": 610509,
+  "uuid": "c60da805-3321-4df4-b439-bb8a7dba6721",
+  "ttft_stream_ms": 3626,
+  "time_to_request_ms": 407,
+  "first_content_frame_ms": 3627,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

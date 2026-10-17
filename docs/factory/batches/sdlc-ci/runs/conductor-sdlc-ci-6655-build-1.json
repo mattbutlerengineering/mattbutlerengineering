@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 279177,
+  "stop_reason": "end_turn",
+  "session_id": "f79f12f9-5b06-4b1b-9a58-2848b141374a",
+  "total_cost_usd": 1.7586990000000007,
+  "usage": {
+    "input_tokens": 68,
+    "cache_creation_input_tokens": 143208,
+    "cache_read_input_tokens": 4785555,
+    "output_tokens": 22862,
+    "output_tokens_details": {
+      "thinking_tokens": 10385
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 143208,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 454,
+        "cache_read_input_tokens": 168272,
+        "cache_creation_input_tokens": 1238,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1238
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 68,
+      "outputTokens": 22862,
+      "cacheReadInputTokens": 4785555,
+      "cacheCreationInputTokens": 143208,
+      "webSearchRequests": 0,
+      "costUSD": 1.7586990000000007,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 10385,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 34,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Done. Summary:\n\n- Implemented Milestone 1's first row of #6655's breakdown: `scripts/tier-escalation.mjs` exports `countReviewSurfaceAdditions` and `decideSizeEscalation`, with the exclusion list from `architecture.md`.\n- Test-first: `scripts/__tests__/tier-escalation.test.mjs` (16 tests) pins exclusion behavior, NaN-safety, the #6610/#6591 motivating cases, and the T4 ceiling \u2014 all passing.\n- Found and logged a small discrepancy between the breakdown's literal #6610 numbers (16 docs + 988 code = 1004, actually 4 *over* the 1000 threshold per real `git show --numstat`) and its stated \"\u2264 1000\" acceptance \u2014 documented as a dated Notes entry in `breakdown.md` rather than silently fudging it, flagged for Milestone 3's replay to resolve properly.\n- Ran the full conductor gate (`scripts/conductor-gate.sh`): 282 test files / 5261 tests green, ADR check clean, antipattern ratchet within baseline.\n- Checked off the row in `breakdown.md`, committed as `22671e8b6` on `conductor/sdlc-ci-6655`, and wrote `pr-body.md` (left uncommitted) at the worktree root.",
+  "ttft_ms": 8630,
+  "type": "result",
+  "duration_ms": 753857,
+  "uuid": "78d56026-189b-46b2-87b8-6e55cdb69db4",
+  "ttft_stream_ms": 7634,
+  "time_to_request_ms": 5398,
+  "first_content_frame_ms": 7634,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

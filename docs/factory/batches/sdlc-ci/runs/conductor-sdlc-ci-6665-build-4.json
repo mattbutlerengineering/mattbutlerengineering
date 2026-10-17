@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 98368,
+  "stop_reason": "end_turn",
+  "session_id": "da3b8adc-2de4-4f81-a2d2-f7d62a2c682a",
+  "total_cost_usd": 0.7950876000000001,
+  "usage": {
+    "input_tokens": 28,
+    "cache_creation_input_tokens": 101939,
+    "cache_read_input_tokens": 1598278,
+    "output_tokens": 6762,
+    "output_tokens_details": {
+      "thinking_tokens": 2732
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 101939,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 181,
+        "cache_read_input_tokens": 127319,
+        "cache_creation_input_tokens": 922,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 922
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 28,
+      "outputTokens": 6762,
+      "cacheReadInputTokens": 1598278,
+      "cacheCreationInputTokens": 101939,
+      "webSearchRequests": 0,
+      "costUSD": 0.7950876000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2732,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 14,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0066 is genuinely blocked \u2014 same structural reason as the prior attempt (no `gh`/`WebFetch`/push in this Worker role), confirmed by re-checking the tool grant rather than assuming. I committed a Note documenting the re-dispatch and recommending WO-0066 route to a session with real GitHub credentials instead of looping back here, and wrote `pr-body.md` (uncommitted) summarizing it. The row stays unchecked; no `ci.yml` changes were made since the measurement that gates them couldn't run.",
+  "ttft_ms": 3274,
+  "type": "result",
+  "duration_ms": 106562,
+  "uuid": "0dcfcd09-d766-4d19-b142-f4dbeb2b5223",
+  "ttft_stream_ms": 2079,
+  "time_to_request_ms": 407,
+  "first_content_frame_ms": 2079,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

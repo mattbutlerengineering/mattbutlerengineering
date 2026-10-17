@@ -1,0 +1,104 @@
+{
+  "duration_api_ms": 258055,
+  "stop_reason": "end_turn",
+  "session_id": "2dbc22fc-1486-49dd-b5e8-62054379ad96",
+  "total_cost_usd": 1.8252664000000003,
+  "usage": {
+    "input_tokens": 10,
+    "cache_creation_input_tokens": 5224,
+    "cache_read_input_tokens": 814986,
+    "output_tokens": 2204,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 5224,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 374,
+        "cache_read_input_tokens": 165171,
+        "cache_creation_input_tokens": 1448,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1448
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 76,
+      "outputTokens": 18784,
+      "cacheReadInputTokens": 5380032,
+      "cacheCreationInputTokens": 140317,
+      "webSearchRequests": 0,
+      "costUSD": 1.8252664000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8497,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "origin": {
+    "kind": "task-notification",
+    "producer": "session-task",
+    "runId": "0mvabxmig-99199e1a"
+  },
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 5,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Done. Summary:\n\n- Implemented `decideKeywordEscalation` in `scripts/tier-escalation.mjs` (title backstop, same-sentence incident cue, `pathTier >= T3` hardset kept verbatim, #5956 hyphen/code-span guards preserved) with 8 new pinned tests, test-first per the breakdown's standing rule.\n- Checked off breakdown item 2 (\"Keyword escalation with incident cue\") \u2014 Milestone 1 is now complete.\n- Gates: targeted test file 24/24 green, `pnpm lint` clean. The full conductor gate hit one unrelated, pre-existing timeout (`hook-input.test.mjs` under cold 282-worker turbo contention); reran it isolated and it passes in 21.8s \u2014 not caused by this diff.\n- Committed as `0cb1b9b8d` on `conductor/sdlc-ci-6655`; `pr-body.md` written at the worktree root, left uncommitted.\n\nMilestone 2 (workflow adapter swap) and Milestone 3 (replay CLI + delta) remain open in the breakdown.",
+  "ttft_ms": 2951,
+  "type": "result",
+  "duration_ms": 116250,
+  "uuid": "dbbbbc66-37ac-4dde-a4de-3be06c7a5438",
+  "ttft_stream_ms": 1737,
+  "time_to_request_ms": 256,
+  "first_content_frame_ms": 1737,
+  "queued_turn_count": 0,
+  "result_index": 2
+}
