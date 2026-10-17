@@ -629,11 +629,15 @@ describe("cancelReservationWithDeposit", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(reservationService.update).toHaveBeenCalledWith("res_1", {
-        status: "CANCELLED",
-        cancellationReason: "no_show_policy",
-        cancellationNote: "Guest called ahead",
-      });
+      expect(reservationService.update).toHaveBeenCalledWith(
+        "res_1",
+        {
+          status: "CANCELLED",
+          cancellationReason: "no_show_policy",
+          cancellationNote: "Guest called ahead",
+        },
+        undefined
+      );
     });
 
     it("still replays a partial_refunded retry from persisted amounts (retry guard is initiator-agnostic)", async () => {

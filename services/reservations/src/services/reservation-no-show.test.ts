@@ -123,7 +123,11 @@ describe("recordNoShow", () => {
 
     expect(result.success).toBe(true);
     expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "no_show");
-    expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
+    expect(reservationService.update).toHaveBeenCalledWith(
+      "res_1",
+      { status: "NO_SHOW" },
+      undefined
+    );
     if (result.success) {
       expect(result.reservation.status).toBe("NO_SHOW");
     }
@@ -141,7 +145,11 @@ describe("recordNoShow", () => {
 
     expect(result.success).toBe(true);
     expect(depositService.forfeit).not.toHaveBeenCalled();
-    expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
+    expect(reservationService.update).toHaveBeenCalledWith(
+      "res_1",
+      { status: "NO_SHOW" },
+      undefined
+    );
   });
 
   it("warns and proceeds without forfeiting when the deposit is still pending (not yet authorized)", async () => {
@@ -358,7 +366,11 @@ describe("recordNoShow", () => {
     const result = await recordNoShow(reservation, logger, deposits);
 
     expect(depositService.getById).toHaveBeenCalledWith("dep_1");
-    expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
+    expect(reservationService.update).toHaveBeenCalledWith(
+      "res_1",
+      { status: "NO_SHOW" },
+      undefined
+    );
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.depositWarning).toMatch(/uncollectable|expired/i);
@@ -465,7 +477,11 @@ describe("recordNoShow", () => {
     const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(true);
-    expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
+    expect(reservationService.update).toHaveBeenCalledWith(
+      "res_1",
+      { status: "NO_SHOW" },
+      undefined
+    );
   });
 
   it("never reports a partial no-show as resolved from a generic error left with the row at partial_refunded, even matching targetStatus (#5722, defense in depth)", async () => {

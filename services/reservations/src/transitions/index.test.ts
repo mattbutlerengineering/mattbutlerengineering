@@ -88,7 +88,7 @@ describe("reservation transitions — verbs", () => {
       detail: "x",
     } as never);
     await transitions.noShow(reservation, log);
-    expect(recordNoShow).toHaveBeenCalledWith(reservation, log, deposits);
+    expect(recordNoShow).toHaveBeenCalledWith(reservation, log, deposits, undefined);
   });
 
   it("cancel: a committed cancel sets off its planned effects", async () => {
@@ -172,9 +172,48 @@ describe("reservation transitions — verbs", () => {
     const { transitions, reservationService, events } = setup();
     reservationService.updateWithConflictCheck.mockResolvedValue({ success: false, error: "nope" });
     await transitions.updateByStaff(reservation, { notes: "x" });
-    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith("res-1", {
-      notes: "x",
-    });
+    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith(
+      "res-1",
+      {
+        notes: "x",
+      },
+      undefined
+    );
     expect(events.published).toEqual([]);
+  });
+
+  it("forwards the staff actor to each staff-door domain write", async () => {
+    const { transitions, reservationService } = setup();
+    const actor = { type: "staff", id: "user-1" } as const;
+    vi.mocked(cancelReservationWithDeposit).mockResolvedValue({
+      success: false,
+      status: 409,
+      title: "Conflict",
+      detail: "x",
+    } as never);
+    vi.mocked(recordNoShow).mockResolvedValue({
+      success: false,
+      status: 409,
+      detail: "x",
+    } as never);
+    reservationService.updateWithConflictCheck.mockResolvedValue({ success: false, error: "n" });
+    reservationService.createWalkIn.mockResolvedValue({ success: false, error: "n" });
+    reservationService.createWithConflictCheck.mockResolvedValue({ success: false, error: "n" });
+
+    await transitions.cancel(reservation, { ...cancelOptions, actor });
+    await transitions.noShow(reservation, log, actor);
+    await transitions.updateByStaff(reservation, { notes: "x" }, actor);
+    await transitions.createWalkIn({} as never, "user-1", actor);
+    await transitions.createByStaff({} as never, "user-1", actor);
+
+    expect(vi.mocked(cancelReservationWithDeposit).mock.calls[0]![3]).toMatchObject({ actor });
+    expect(recordNoShow).toHaveBeenCalledWith(reservation, log, deposits, actor);
+    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith(
+      "res-1",
+      { notes: "x" },
+      actor
+    );
+    expect(reservationService.createWalkIn).toHaveBeenCalledWith({}, "user-1", actor);
+    expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith({}, "user-1", actor);
   });
 });

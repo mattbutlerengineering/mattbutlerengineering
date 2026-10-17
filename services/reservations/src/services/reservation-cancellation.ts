@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
 import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
+import type { ReservationEventActor } from "./reservation-events.js";
 import { venueService } from "./venue.js";
 import {
   type DepositService,
@@ -35,6 +36,8 @@ export interface CancelReservationOptions {
   initiator?: CancelInitiator;
   cancellationReason?: string;
   cancellationNote?: string;
+  /** Who is cancelling, for the reservation event log. Separate from `initiator`. */
+  actor?: ReservationEventActor;
 }
 
 export type CancelReservationResult =
@@ -415,7 +418,7 @@ export async function cancelReservationWithDeposit(
   deps: CancelReservationDeps,
   options: CancelReservationOptions = {}
 ): Promise<CancelReservationResult> {
-  const { initiator = "guest", cancellationReason, cancellationNote } = options;
+  const { initiator = "guest", cancellationReason, cancellationNote, actor } = options;
 
   try {
     transitionReservation(reservation.status, "CANCELLED");
@@ -432,11 +435,15 @@ export async function cancelReservationWithDeposit(
 
   let updated: Reservation | null;
   try {
-    updated = await reservationService.update(reservation.id, {
-      status: "CANCELLED",
-      ...(cancellationReason !== undefined && { cancellationReason }),
-      ...(cancellationNote !== undefined && { cancellationNote }),
-    });
+    updated = await reservationService.update(
+      reservation.id,
+      {
+        status: "CANCELLED",
+        ...(cancellationReason !== undefined && { cancellationReason }),
+        ...(cancellationNote !== undefined && { cancellationNote }),
+      },
+      actor
+    );
   } catch (err) {
     // The status write re-validates the transition against a freshly fetched
     // row (reservation.ts). A concurrent status change during the round trip

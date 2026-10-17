@@ -4085,7 +4085,11 @@
         logger: FastifyBaseLogger,
         isAdmin: boolean,
         door: "staff-patch" | "staff-delete",
-        options: { cancellationReason?: string; cancellationNote?: string } = {}
+        options: {
+          cancellationReason?: string;
+          cancellationNote?: string;
+          actor?: ReservationEventActor;
+        } = {}
       ) {
         const manageToken = reservation.guestEmail
           ? generateManageToken(reservation.id, reservation.guestEmail)
@@ -4096,6 +4100,7 @@
           manageToken,
           reason: options.cancellationReason,
           note: options.cancellationNote,
+          actor: options.actor,
           log: logger,
         });
       }
@@ -4263,7 +4268,11 @@
           // a single transaction. If the table update fails the whole thing rolls
           // back and rejects, so its live events are set off only after a
           // committed, consistent state.
-          const result = await fastify.transitions.createWalkIn(request.body, userId);
+          const result = await fastify.transitions.createWalkIn(
+            request.body,
+            userId,
+            staffActor(request)
+          );
           if (result.tableNotInVenue) {
             return reply
               .code(403)
@@ -4429,7 +4438,7 @@
               }
             }
     
-            const result = await fastify.transitions.createByStaff(body, userId);
+            const result = await fastify.transitions.createByStaff(body, userId, staffActor(request));
     
             if (result.tableNotInVenue) {
               return reply
@@ -4550,6 +4559,7 @@
                 {
                   cancellationReason: request.body.cancellationReason,
                   cancellationNote: request.body.cancellationNote,
+                  actor: isAdmin ? staffActor(request) : undefined,
                 }
               );
     
@@ -4570,7 +4580,11 @@
     
           if (request.body.status === "NO_SHOW") {
             try {
-              const result = await fastify.transitions.noShow(reservation, request.log);
+              const result = await fastify.transitions.noShow(
+                reservation,
+                request.log,
+                staffActor(request)
+              );
     
               if (!result.success) {
                 return reply
@@ -4621,7 +4635,11 @@
           }
     
           try {
-            const result = await fastify.transitions.updateByStaff(reservation, request.body);
+            const result = await fastify.transitions.updateByStaff(
+              reservation,
+              request.body,
+              staffActor(request)
+            );
     
             if (!result.success) {
               if (result.error === "Reservation not found") {
@@ -4726,7 +4744,8 @@
               reservation,
               request.log,
               isAdmin,
-              "staff-delete"
+              "staff-delete",
+              { actor: isAdmin ? staffActor(request) : undefined }
             );
             if (!result.success) {
               return reply
@@ -11402,6 +11421,8 @@
       initiator?: CancelInitiator;
       cancellationReason?: string;
       cancellationNote?: string;
+      /** Who is cancelling, for the reservation event log. Separate from `initiator`. */
+      actor?: ReservationEventActor;
     }
     export type CancelReservationResult =
       | { success: true; reservation: Reservation }
@@ -11649,7 +11670,7 @@
       deps: CancelReservationDeps,
       options: CancelReservationOptions = {}
     ): Promise<CancelReservationResult> {
-      const { initiator = "guest", cancellationReason, cancellationNote } = options;
+      const { initiator = "guest", cancellationReason, cancellationNote, actor } = options;
     
       try {
         transitionReservation(reservation.status, "CANCELLED");
@@ -11666,11 +11687,15 @@
     
       let updated: Reservation | null;
       try {
-        updated = await reservationService.update(reservation.id, {
-          status: "CANCELLED",
-          ...(cancellationReason !== undefined && { cancellationReason }),
-          ...(cancellationNote !== undefined && { cancellationNote }),
-        });
+        updated = await reservationService.update(
+          reservation.id,
+          {
+            status: "CANCELLED",
+            ...(cancellationReason !== undefined && { cancellationReason }),
+            ...(cancellationNote !== undefined && { cancellationNote }),
+          },
+          actor
+        );
       } catch (err) {
         // The status write re-validates the transition against a freshly fetched
         // row (reservation.ts). A concurrent status change during the round trip
@@ -12167,7 +12192,8 @@
     export async function recordNoShow(
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      deposits: DepositService
+      deposits: DepositService,
+      actor?: ReservationEventActor
     ): Promise<RecordNoShowResult> {
       try {
         transitionReservation(reservation.status, "NO_SHOW");
@@ -12329,7 +12355,7 @@
     
       let updated: Reservation | null;
       try {
-        updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+        updated = await reservationService.update(reservation.id, { status: "NO_SHOW" }, actor);
       } catch (err) {
         if (forfeitedDepositId === null) {
           // No money moved this call — the ordinary concurrent-no-show loser.
@@ -16490,6 +16516,8 @@
       manageToken: string;
       reason?: string;
       note?: string;
+      /** Who is cancelling; omitted by non-staff doors (the service defaults to the system actor). */
+      actor?: ReservationEventActor;
       log: DomainLogger;
     }
     export interface ConfirmHoldOptions {
@@ -16499,10 +16527,15 @@
     }
     export interface ReservationTransitions {
       cancel(reservation: Reservation, options: CancelOptions): Promise<CancelReservationResult>;
-      noShow(reservation: Reservation, log: DomainLogger): Promise<RecordNoShowResult>;
+      noShow(
+        reservation: Reservation,
+        log: DomainLogger,
+        actor?: ReservationEventActor
+      ): Promise<RecordNoShowResult>;
       updateByStaff(
         before: Reservation,
-        patch: UpdateReservationRequest
+        patch: UpdateReservationRequest,
+        actor?: ReservationEventActor
       ): Promise<UpdateReservationResult>;
       modifyByGuest(
         reservation: Reservation,
@@ -16511,8 +16544,16 @@
         hold?: ModifyHold
       ): Promise<ModifyReservationResult>;
       confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
-      createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
-      createByStaff(body: CreateReservationRequest, userId?: string): Promise<CreateReservationResult>;
+      createWalkIn(
+        body: WalkInRequest,
+        userId?: string,
+        actor?: ReservationEventActor
+      ): Promise<CreateReservationResult>;
+      createByStaff(
+        body: CreateReservationRequest,
+        userId?: string,
+        actor?: ReservationEventActor
+      ): Promise<CreateReservationResult>;
       /** No-op unless the reservation is PENDING (the guard moved here from the route). */
       confirmAttendance(reservation: Reservation): Promise<void>;
     }
@@ -16544,6 +16585,7 @@
               initiator: options.initiator,
               cancellationReason: options.reason,
               cancellationNote: options.note,
+              actor: options.actor,
             }
           );
           if (result.success) {
@@ -16562,16 +16604,16 @@
           return result;
         },
     
-        async noShow(reservation, log) {
-          const result = await recordNoShow(reservation, log, deposits);
+        async noShow(reservation, log, actor) {
+          const result = await recordNoShow(reservation, log, deposits, actor);
           if (result.success) {
             await settle({ kind: "no-show", reservation: result.reservation }, reservation.venueId);
           }
           return result;
         },
     
-        async updateByStaff(before, patch) {
-          const result = await reservationService.updateWithConflictCheck(before.id, patch);
+        async updateByStaff(before, patch, actor) {
+          const result = await reservationService.updateWithConflictCheck(before.id, patch, actor);
           if (result.success && result.reservation) {
             await settle(
               { kind: "staff-updated", before, after: result.reservation, patch },
@@ -16614,8 +16656,8 @@
           return result;
         },
     
-        async createWalkIn(body, userId) {
-          const result = await reservationService.createWalkIn(body, userId);
+        async createWalkIn(body, userId, actor) {
+          const result = await reservationService.createWalkIn(body, userId, actor);
           if (result.success && result.reservation) {
             await settle(
               {
@@ -16630,8 +16672,8 @@
           return result;
         },
     
-        async createByStaff(body, userId) {
-          const result = await reservationService.createWithConflictCheck(body, userId);
+        async createByStaff(body, userId, actor) {
+          const result = await reservationService.createWithConflictCheck(body, userId, actor);
           if (result.success && result.reservation) {
             await settle(
               {
