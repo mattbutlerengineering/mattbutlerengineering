@@ -31,6 +31,10 @@ import { generateManageToken } from "./public-reservations.js";
 import { bodyVenueId, inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 
+/** The authenticated user as the reservation event log's staff actor. */
+const staffActor = (request: FastifyRequest): ReservationEventActor =>
+  request.user?.id ? { type: "staff", id: request.user.id } : SYSTEM_ACTOR;
+
 /**
  * Venue-id resolver for the staff reservations list (#4865, Sentry
  * HOSPITALITY-6). The route accepts either `venueId` or `guestId` as a
@@ -42,10 +46,6 @@ import { venueScoped } from "./venue-scope.js";
  * reservations at that venue, so falling through to a 403 (never guessing) is
  * deliberate.
  */
-/** The authenticated user as the reservation event log's staff actor. */
-const staffActor = (request: FastifyRequest): ReservationEventActor =>
-  request.user?.id ? { type: "staff", id: request.user.id } : SYSTEM_ACTOR;
-
 const resolveReservationsListVenueId =
   (guestService: DomainServices["guestService"]): VenueIdResolver =>
   async (request) => {
@@ -603,7 +603,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           const result = await fastify.transitions.noShow(
             reservation,
             request.log,
-            staffActor(request)
+            isAdmin ? staffActor(request) : undefined
           );
 
           if (!result.success) {
@@ -658,7 +658,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         const result = await fastify.transitions.updateByStaff(
           reservation,
           request.body,
-          staffActor(request)
+          isAdmin ? staffActor(request) : undefined
         );
 
         if (!result.success) {

@@ -4583,7 +4583,7 @@
               const result = await fastify.transitions.noShow(
                 reservation,
                 request.log,
-                staffActor(request)
+                isAdmin ? staffActor(request) : undefined
               );
     
               if (!result.success) {
@@ -4638,7 +4638,7 @@
             const result = await fastify.transitions.updateByStaff(
               reservation,
               request.body,
-              staffActor(request)
+              isAdmin ? staffActor(request) : undefined
             );
     
             if (!result.success) {
