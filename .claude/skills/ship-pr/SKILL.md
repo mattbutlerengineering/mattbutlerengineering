@@ -23,7 +23,8 @@ this failure mode).
 - `<N>` — an open PR number.
 - `--ready` — the PR is a draft; without this flag a draft PR is refused
   outright (an explicit author hold, not something this skill flips on its
-  own). With it, run `gh pr ready <N>` first, then continue.
+  own). With it, run `gh pr ready <N>` once step 1's hold check clears,
+  then continue.
 
 ## Protocol
 
@@ -33,14 +34,18 @@ step on anything but a clean pass.
 1. **Precondition.** Confirm the PR is open and read its draft state and
    labels: `gh pr view <N> --json state,isDraft,labels,headRefOid,body`. If
    it's a draft and `--ready` was not passed, stop and report "draft PR — pass
-   `--ready` to proceed." If `--ready` was passed, run `gh pr ready <N>`.
+   `--ready` to proceed."
 
-   Then check holds. The linked issue is the one a `Closes #M` / `Fixes #M`
-   line in the PR body names (none → only the PR's own labels count); read its
-   labels with `gh issue view <M> --json labels`. If the PR or that issue
-   carries any label in the profile's `hold_labels` (`.claude/implement-queue.md`
-   frontmatter), stop here and report `held — <label>`: no review is
-   dispatched and nothing is merged.
+   Then check holds. The linked issues are the ones a GitHub closing keyword
+   in the PR body names (`Closes` / `Fixes` / `Resolves #M`, any tense or
+   case; none → only the PR's own labels count); read each one's labels with
+   `gh issue view <M> --json labels`. If the PR or a linked issue carries any
+   label in the profile's `hold_labels` (`.claude/implement-queue.md`
+   frontmatter), stop here and report `held — <label>`: nothing is written to
+   the PR, no review is dispatched, and nothing is merged.
+
+   Only once holds clear, and only if `--ready` was passed, run
+   `gh pr ready <N>`.
 
 2. **Build freshness.**
 
@@ -80,7 +85,7 @@ step on anything but a clean pass.
    § reviewers assumes a queue worker. For a single PR, take its inputs
    from here instead:
 
-   - **Acceptance criteria** — from the PR body plus the issue step 1
+   - **Acceptance criteria** — from the PR body plus the issues step 1
      found. Only when both lack them, pass `acceptanceCriteria: []` and say
      so in the `ReviewInput`'s `taskDescription`.
    - **Code on disk** — there is no `.claude/worktrees/agent-<taskId>/`.
@@ -97,11 +102,11 @@ step on anything but a clean pass.
 
 5. **Merge.** On an all-pass verdict (or a fast-path skip), first re-read
    holds, since a label can land while review runs:
-   `gh pr view <N> --json labels` (plus the linked issue's, as in step 1).
+   `gh pr view <N> --json labels` (plus the linked issues', as in step 1).
    Two things hold the PR for a human merge, and either one means the merge
    command below is not run:
 
-   - a label in the profile's `hold_labels` on the PR or its issue — report
+   - a label in the profile's `hold_labels` on the PR or a linked issue — report
      `held — <label>`;
    - a changed file matching a gate path (`GATE_PATHS` in `@mbe/agent-core`)
      — report `held for human merge — gate path`.
