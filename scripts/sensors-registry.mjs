@@ -1046,7 +1046,12 @@ export const SENSORS = [
         data.baseline != null
           ? ` (baseline ${data.baseline.composite_median?.toFixed(3)}, ${data.baseline.weeks_sampled}w)`
           : " (no baseline yet)";
-      return `${name}: composite ${data.composite} | fps ${data.sub_metrics?.first_pass_success_rate} | ttm ${data.sub_metrics?.median_time_to_merge_hours}h | $${data.sub_metrics?.cost_per_issue_usd}/issue${baselineStr}`;
+      const sub = data.sub_metrics;
+      const costStr =
+        sub?.cost_per_issue_usd == null
+          ? `cost unknown (${sub?.cost_coverage_n ?? 0}/${sub?.issues_merged ?? 0})`
+          : `$${sub.cost_per_issue_usd}/issue (n=${sub.cost_coverage_n ?? 0}/${sub.issues_merged ?? 0})`;
+      return `${name}: composite ${data.composite} | fps ${data.sub_metrics?.first_pass_success_rate} | ttm ${data.sub_metrics?.median_time_to_merge_hours}h | ${costStr}${baselineStr}`;
     },
     thresholds: {
       queue_efficiency_composite_drop: QUEUE_EFFICIENCY_COMPOSITE_DROP,
