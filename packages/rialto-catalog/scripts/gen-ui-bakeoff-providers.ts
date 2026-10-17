@@ -88,7 +88,11 @@ interface OpenAiJson {
 }
 interface GeminiJson {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
-  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
+  };
 }
 
 const PARSERS: { readonly [K in ProviderId]: (json: unknown) => Parsed } = {
@@ -113,7 +117,9 @@ const PARSERS: { readonly [K in ProviderId]: (json: unknown) => Parsed } = {
     return {
       text: (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join(""),
       inputTokens: j.usageMetadata?.promptTokenCount ?? 0,
-      outputTokens: j.usageMetadata?.candidatesTokenCount ?? 0,
+      // Thinking tokens are reported separately but billed at the output rate.
+      outputTokens:
+        (j.usageMetadata?.candidatesTokenCount ?? 0) + (j.usageMetadata?.thoughtsTokenCount ?? 0),
     };
   },
 };

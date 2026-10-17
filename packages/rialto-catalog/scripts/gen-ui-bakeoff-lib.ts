@@ -123,8 +123,16 @@ export function validateModelOutput(text: string): Validation {
   if (!Array.isArray(elements) || elements.length === 0) {
     return { ok: false, error: 'Expected {"elements":[...]} with at least one element.' };
   }
-  const tree = flatToTree(elements as Parameters<typeof flatToTree>[0]);
-  const result = catalog.validate(tree);
+  let result: ReturnType<typeof catalog.validate>;
+  try {
+    result = catalog.validate(flatToTree(elements as Parameters<typeof flatToTree>[0]));
+  } catch (err) {
+    // Malformed elements (e.g. null entries) are an invalid spec, not a provider error.
+    return {
+      ok: false,
+      error: `Malformed elements: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
   if (result.success) return { ok: true };
   return {
     ok: false,
@@ -210,19 +218,26 @@ async function runPrompt(
   };
   if (v1.ok) return { ...base, validFirstTry: true, validAfterRepair: true, ...tally };
 
-  const repair = await guardedCall(
-    provider,
-    {
-      system: SYSTEM_PROMPT,
-      messages: [
-        { role: "user", content: prompt },
-        { role: "assistant", content: first.res.text },
-        { role: "user", content: repairPrompt(v1.error) },
-      ],
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
-    },
-    guard
-  );
+  let repair: Awaited<ReturnType<typeof guardedCall>>;
+  try {
+    repair = await guardedCall(
+      provider,
+      {
+        system: SYSTEM_PROMPT,
+        messages: [
+          { role: "user", content: prompt },
+          { role: "assistant", content: first.res.text },
+          { role: "user", content: repairPrompt(v1.error) },
+        ],
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+      },
+      guard
+    );
+  } catch (err) {
+    if (err instanceof SpendLimitError) throw err;
+    // The first call was paid for; keep its cost in the row.
+    return { ...errorResult(provider, prompt, err), ...tally };
+  }
   return {
     ...base,
     validFirstTry: false,

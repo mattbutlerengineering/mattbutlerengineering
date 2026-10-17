@@ -46,6 +46,10 @@ describe("validateModelOutput", () => {
   it("rejects an empty element list", () => {
     expect(validateModelOutput('{"elements":[]}').ok).toBe(false);
   });
+
+  it("rejects malformed elements instead of throwing", () => {
+    expect(validateModelOutput('{"elements":[null]}').ok).toBe(false);
+  });
 });
 
 describe("costUsd", () => {
@@ -116,6 +120,26 @@ describe("runBakeoff with stub provider", () => {
       validAfterRepair: false,
       error: "HTTP 500",
     });
+  });
+
+  it("keeps the paid first call's cost when the repair call fails", async () => {
+    let n = 0;
+    const flaky: Provider = {
+      ...stub,
+      call: async () => {
+        n += 1;
+        if (n === 1) return { text: "not json", inputTokens: 1000, outputTokens: 100 };
+        throw new Error("HTTP 500");
+      },
+    };
+    const report = await runBakeoff({ providers: [flaky], prompts: ["a"], maxUsd: 1 });
+    expect(report.results[0]).toMatchObject({
+      error: "HTTP 500",
+      inputTokens: 1000,
+      outputTokens: 100,
+    });
+    expect(report.results[0]?.usd).toBeCloseTo(report.spentUsd);
+    expect(report.spentUsd).toBeGreaterThan(0);
   });
 
   it("stops hitting a provider after three consecutive errors", async () => {
@@ -235,6 +259,17 @@ describe("providers (fake fetch)", () => {
     );
     const p = createProvider("gemini", "k", fetchImpl as unknown as typeof fetch);
     expect(await p.call(req)).toEqual({ text: "out", inputTokens: 11, outputTokens: 5 });
+  });
+
+  it("counts Gemini thinking tokens as output tokens", async () => {
+    const fetchImpl = vi.fn(async () =>
+      Response.json({
+        candidates: [{ content: { parts: [{ text: "out" }] } }],
+        usageMetadata: { promptTokenCount: 11, candidatesTokenCount: 5, thoughtsTokenCount: 20 },
+      })
+    );
+    const p = createProvider("gemini", "k", fetchImpl as unknown as typeof fetch);
+    expect((await p.call(req)).outputTokens).toBe(25);
   });
 
   it("redacts the API key from HTTP error messages", async () => {

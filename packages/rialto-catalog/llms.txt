@@ -188,7 +188,9 @@
     <item priority="high">
       interface GeminiJson {
         candidates?: { content?: { parts?: { text?: string }[] } }[];
-        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount...;
       }
     </item>
     <item priority="high">
