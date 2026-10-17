@@ -19,6 +19,7 @@
   },
   "scripts": {
     "generate": "tsx scripts/generate-catalog.ts",
+    "bakeoff": "tsx scripts/gen-ui-bakeoff.ts",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

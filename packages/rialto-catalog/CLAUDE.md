@@ -61,4 +61,5 @@ pnpm build          # Compile TypeScript
 pnpm typecheck      # TypeScript check
 pnpm test           # Vitest unit tests
 pnpm test:drift     # Check catalog drift — fails if catalog is stale
+pnpm bakeoff -- --dry-run   # Generative-UI model bake-off (#6948); live run needs ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY, --max-usd caps spend
 ```

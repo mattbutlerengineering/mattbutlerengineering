@@ -8010,6 +8010,223 @@
   </file>
   </section>
   <section priority="medium" role="scripts">
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff-lib.ts">
+    <item priority="low">
+      type ProviderId = "anthropic" | "openai" | "gemini";
+    </item>
+    <item priority="low">
+      interface ChatMessage {
+        role: "user" | "assistant";
+        content: string;
+      }
+    </item>
+    <item priority="low">
+      interface ProviderRequest {
+        system: string;
+        messages: readonly ChatMessage[];
+        maxOutputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface ProviderResponse {
+        text: string;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface Pricing {
+        inPerM: number;
+        outPerM: number;
+      }
+    </item>
+    <item priority="low">
+      interface Provider {
+        id: ProviderId;
+        label: string;
+        model: string;
+        pricing: Pricing;
+        call: (req: ProviderRequest) => Promise<ProviderResponse>;
+      }
+    </item>
+    <item priority="low">
+      interface PromptResult {
+        provider: ProviderId;
+        prompt: string;
+        validFirstTry: boolean;
+        validAfterRepair: boolean;
+        inputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface BakeoffReport {
+        results: readonly PromptResult[];
+        spentUsd: number;
+        maxUsd: number;
+        aborted: boolean;
+        abortReason?: string;
+      }
+    </item>
+    <item priority="high">
+      export const PRICING: Readonly<Record<ProviderId, Pricing>>;
+    </item>
+    <item priority="high">
+      export function costUsd(
+        tokens: { inputTokens: number; outputTokens: number },
+        pricing: Pricing
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SYSTEM_PROMPT: unknown;
+    </item>
+    <item priority="low">
+      type Validation = { ok: true } | { ok: false; error: string };
+    </item>
+    <item priority="medium">
+      function extractJson(text: string): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatIssues(error: {
+        issues?: readonly { path: PropertyKey[]; message: string }[];
+      }): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateModelOutput(text: string): Validation { /* ... */ }
+    </item>
+    <item priority="high">
+      class SpendLimitError {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createSpendGuard(maxUsd: number) { /* ... */ }
+    </item>
+    <item priority="high">
+      type SpendGuard = ReturnType<typeof createSpendGuard>;
+    </item>
+    <item priority="medium">
+      function worstCaseUsd(provider: Provider, req: ProviderRequest): number { /* ... */ }
+    </item>
+    <item priority="low">
+      async function guardedCall(provider: Provider, req: ProviderRequest, guard: SpendGuard) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function repairPrompt(error: string): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runPrompt(
+        provider: Provider,
+        prompt: string,
+        guard: SpendGuard
+      ): Promise<PromptResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function errorResult(provider: Provider, prompt: string, err: unknown): PromptResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runBakeoff(opts: {
+        providers: readonly Provider[];
+        prompts: readonly string[];
+        maxUsd: number;
+      }): Promise<BakeoffReport> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createStubProvider(opts: {
+        id: ProviderId;
+        prompts: readonly string[];
+        label?: string;
+        model?: string;
+      }): Provider { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ProviderSummary {
+        provider: ProviderId;
+        n: number;
+        errors: number;
+        validFirstTryPct: number;
+        validAfterRepairPct: number;
+      }
+    </item>
+    <item priority="high">
+      export function summarize(results: readonly PromptResult[]): ProviderSummary[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTable(summaries: readonly ProviderSummary[]): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff-providers.ts">
+    <item priority="high">
+      type FetchLike = typeof fetch;
+    </item>
+    <item priority="high">
+      export const DEFAULT_MODELS: Readonly<Record<ProviderId, string>>;
+    </item>
+    <item priority="high">
+      export const ENV_KEYS: Readonly<Record<ProviderId, string>>;
+    </item>
+    <item priority="high">
+      interface Wire {
+        url: string;
+        headers: Record<string, string>;
+        body: unknown;
+      }
+    </item>
+    <item priority="medium">
+      function anthropicWire(key: string, model: string, req: ProviderRequest): Wire { /* ... */ }
+    </item>
+    <item priority="medium">
+      function openaiWire(key: string, model: string, req: ProviderRequest): Wire { /* ... */ }
+    </item>
+    <item priority="medium">
+      function geminiWire(key: string, model: string, req: ProviderRequest): Wire { /* ... */ }
+    </item>
+    <item priority="high">
+      type Parsed = { text: string; inputTokens: number; outputTokens: number };
+    </item>
+    <item priority="high">
+      interface AnthropicJson {
+        content?: { type?: string; text?: string }[];
+        usage?: { input_tokens?: number; output_tokens?: number };
+      }
+    </item>
+    <item priority="high">
+      interface OpenAiJson {
+        choices?: { message?: { content?: string } }[];
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+      }
+    </item>
+    <item priority="high">
+      interface GeminiJson {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount...;
+      }
+    </item>
+    <item priority="high">
+      export function createProvider(
+        id: ProviderId,
+        apiKey: string,
+        fetchImpl: FetchLike = fetch,
+        model: string = DEFAULT_MODELS[id]
+      ): Provider { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff.ts">
+    <item priority="medium">
+      function loadPrompts(limit: number | undefined): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveProviders(
+        ids: readonly ProviderId[],
+        dryRun: boolean,
+        prompts: string[]
+      ): Provider[] { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main(): Promise<number> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto-catalog/scripts/generate-catalog.ts">
     <item priority="medium">
       function findCatalogMetaFiles(dir: string): string[] { /* ... */ }
