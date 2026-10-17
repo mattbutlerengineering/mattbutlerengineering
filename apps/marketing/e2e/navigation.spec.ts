@@ -18,6 +18,22 @@ test.describe("Homepage", () => {
     await expect(page.getByRole("heading", { name: "Weekly Information Intake" })).toBeVisible();
   });
 
+  test("Recently shipped link opens a story and back to the index", async ({ page }) => {
+    await page.goto("/");
+
+    const shipped = page.getByRole("heading", { name: "Recently shipped" }).locator("..");
+    await shipped.getByRole("link").first().click();
+
+    await expect(page).toHaveURL(/\/shipped\/[^/]+$/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+    await page
+      .getByRole("link", { name: /shipped/i })
+      .first()
+      .click();
+    await expect(page).toHaveURL("/shipped");
+  });
+
   test("skip-to-main link is present", async ({ page }) => {
     await page.goto("/");
 
