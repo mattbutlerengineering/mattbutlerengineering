@@ -263,6 +263,7 @@ interface StoredSpec {
   spec: unknown; // Parsed spec JSON
   rawLines: string[]; // Raw lines from the AI response
   isFavorite: boolean;
+  refinement: { parentId: string | null; path: string; before: unknown; after: unknown } | null; // only on kind "refine"
   createdAt: Date;
   updatedAt: Date;
 }

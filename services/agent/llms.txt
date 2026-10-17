@@ -566,6 +566,14 @@
   </file>
   <file path="src/services/stored-spec.ts">
     <item priority="low">
+      interface SpecRefinement {
+        parentId: string | null;
+        path: string;
+        before: unknown;
+        after: unknown;
+      }
+    </item>
+    <item priority="low">
       interface StoredSpecResponse {
         id: string;
         userId: string;

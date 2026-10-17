@@ -99,6 +99,7 @@ model StoredSpec {
   spec       Json
   rawLines   Json     @map("raw_lines")
   isFavorite Boolean  @default(false) @map("is_favorite")
+  refinement Json?    @map("refinement")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 

@@ -225,6 +225,75 @@ describe("Gen Specs Routes", () => {
       expect(response.statusCode).toBe(201);
     });
 
+    describe("refinement", () => {
+      const refinement = { parentId: "spec-0", path: "children.0", before: "a", after: "b" };
+
+      it("passes a refinement on a refine entry to the service", async () => {
+        vi.mocked(storedSpecService.create).mockResolvedValueOnce(mockSpec as never);
+
+        const response = await app.inject({
+          method: "POST",
+          url: SPECS_URL,
+          payload: { prompt: "p", kind: "refine", spec: {}, rawLines: [], refinement },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(storedSpecService.create).toHaveBeenCalledWith(
+          expect.objectContaining({ refinement })
+        );
+      });
+
+      it("returns 400 for a refinement on a non-refine kind", async () => {
+        const response = await app.inject({
+          method: "POST",
+          url: SPECS_URL,
+          payload: { prompt: "p", kind: "generate", spec: {}, rawLines: [], refinement },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(storedSpecService.create).not.toHaveBeenCalled();
+      });
+
+      it("returns 400 for a refinement with no kind (defaults to generate)", async () => {
+        const response = await app.inject({
+          method: "POST",
+          url: SPECS_URL,
+          payload: { prompt: "p", spec: {}, rawLines: [], refinement },
+        });
+
+        expect(response.statusCode).toBe(400);
+      });
+
+      it("returns 400 for an empty or over-long path", async () => {
+        for (const path of ["", "x".repeat(201)]) {
+          const response = await app.inject({
+            method: "POST",
+            url: SPECS_URL,
+            payload: {
+              prompt: "p",
+              kind: "refine",
+              spec: {},
+              rawLines: [],
+              refinement: { ...refinement, path },
+            },
+          });
+          expect(response.statusCode).toBe(400);
+        }
+      });
+
+      it("returns 404 when the parent is not the caller's", async () => {
+        vi.mocked(storedSpecService.create).mockRejectedValueOnce(new Error("Not found"));
+
+        const response = await app.inject({
+          method: "POST",
+          url: SPECS_URL,
+          payload: { prompt: "p", kind: "refine", spec: {}, rawLines: [], refinement },
+        });
+
+        expect(response.statusCode).toBe(404);
+      });
+    });
+
     it("returns 400 for missing prompt", async () => {
       const response = await app.inject({
         method: "POST",

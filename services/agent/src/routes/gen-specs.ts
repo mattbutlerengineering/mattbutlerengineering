@@ -27,11 +27,19 @@ export function normaliseKind(
   return { prompt, kind: "generate" };
 }
 
+const RefinementSchema = z.object({
+  parentId: z.string().min(1).nullable(),
+  path: z.string().min(1).max(200),
+  before: z.unknown(),
+  after: z.unknown(),
+});
+
 const CreateSpecBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
   kind: z.enum(GEN_SPEC_KINDS).optional(),
   spec: z.unknown(),
   rawLines: z.array(z.string()),
+  refinement: RefinementSchema.optional(),
 });
 
 export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -55,18 +63,36 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      const { spec, rawLines } = parseResult.data;
+      const { spec, rawLines, refinement } = parseResult.data;
       const { prompt, kind } = normaliseKind(parseResult.data.prompt, parseResult.data.kind);
 
-      const result = await storedSpecService.create({
-        userId: request.user!.id,
-        prompt,
-        kind,
-        spec,
-        rawLines,
-      });
+      if (refinement && kind !== "refine") {
+        return reply
+          .code(400)
+          .send(
+            createProblemDetails(400, "Bad Request", "refinement is only allowed on refine entries")
+          );
+      }
 
-      return reply.code(201).send({ data: mapStoredSpec(result) });
+      try {
+        const result = await storedSpecService.create({
+          userId: request.user!.id,
+          prompt,
+          kind,
+          spec,
+          rawLines,
+          refinement,
+        });
+
+        return reply.code(201).send({ data: mapStoredSpec(result) });
+      } catch (err) {
+        if (err instanceof Error && err.message === "Not found") {
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Parent spec not found"));
+        }
+        throw err;
+      }
     }
   );
 

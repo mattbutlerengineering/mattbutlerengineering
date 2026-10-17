@@ -3,6 +3,13 @@ import { prisma } from "./database.js";
 
 const CAP_UNFAVORITED = 100;
 
+export interface SpecRefinement {
+  parentId: string | null;
+  path: string;
+  before: unknown;
+  after: unknown;
+}
+
 export interface StoredSpecResponse {
   id: string;
   userId: string;
@@ -11,6 +18,7 @@ export interface StoredSpecResponse {
   spec: unknown;
   rawLines: unknown;
   isFavorite: boolean;
+  refinement: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +34,7 @@ export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
     spec: s.spec,
     rawLines: s.rawLines,
     isFavorite: s.isFavorite,
+    refinement: s.refinement ?? null,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
   };
@@ -76,7 +85,16 @@ export const storedSpecService = {
     kind: string;
     spec: unknown;
     rawLines: unknown;
+    refinement?: SpecRefinement;
   }): Promise<StoredSpec> {
+    const parentId = data.refinement?.parentId;
+    if (parentId) {
+      const parent = await prisma.storedSpec.findUnique({ where: { id: parentId } });
+      if (!parent || parent.userId !== data.userId) {
+        throw new Error("Not found");
+      }
+    }
+
     await _enforceCapForUser(data.userId);
 
     return prisma.storedSpec.create({
@@ -86,6 +104,7 @@ export const storedSpecService = {
         kind: data.kind,
         spec: data.spec as Prisma.InputJsonValue,
         rawLines: data.rawLines as Prisma.InputJsonValue,
+        ...(data.refinement && { refinement: data.refinement as unknown as Prisma.InputJsonValue }),
       },
     });
   },
