@@ -226,6 +226,17 @@ export const FAMILIES = [
         : null;
     },
   },
+  {
+    id: "cursorrules",
+    label: ".cursorrules (generated from the root AGENTS.md by `mbe sync-rules`)",
+    // tsx via `start`, so no CLI dist is needed (and `pnpm exec mbe` is never linked).
+    command: "pnpm --filter @mbe/cli start sync-rules",
+    outputs: [".cursorrules"],
+    // Pure function of one file; only the repo-root AGENTS.md is read.
+    changedBy(path) {
+      return path === "AGENTS.md" ? { command: this.command, outputs: this.outputs } : null;
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -251,6 +262,7 @@ export const REGEN_SOURCE_PREFIXES = [
   "tools/",
   "infrastructure/",
   "pnpm-workspace.yaml",
+  "AGENTS.md",
 ];
 
 /**
