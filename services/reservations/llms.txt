@@ -1729,6 +1729,50 @@
       ): Promise<CancelReservationResult> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/reservation-events.ts">
+    <item priority="high">
+      export const RESERVATION_EVENT_KINDS: unknown;
+    </item>
+    <item priority="low">
+      type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
+    </item>
+    <item priority="low">
+      type ReservationEventActor = { type: "staff"; id: string } | { type: "guest"; id: string |  | { type: "system"; id: string };
+    </item>
+    <item priority="high">
+      export const SYSTEM_ACTOR: ReservationEventActor;
+    </item>
+    <item priority="low">
+      type EventState = {
+        status: string;
+        tableId: string;
+        date: string;
+        ...;
+    </item>
+    <item priority="high">
+      export function toEventState(row: {
+        status: string;
+        tableId: string;
+        date: Date;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }): EventState { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordReservationEvent(
+        tx: Prisma.TransactionClient,
+        input: {
+          reservationId: string;
+          venueId: string | null;
+          kind: ReservationEventKind;
+          actor: ReservationEventActor;
+          from?: EventState | null;
+          to?: EventState | null;
+        }
+      ) { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/reservation-modification.ts">
     <item priority="low">
       interface ReservationChanges {
