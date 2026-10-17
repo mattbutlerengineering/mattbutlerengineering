@@ -647,6 +647,62 @@
       }, [handlers]);
     }
   </file>
+  <file path="src/hooks/useSpecDiffHistory.ts">
+    export interface UseSpecDiffHistoryReturn {
+      canUndo: boolean;
+      canRedo: boolean;
+      /** Record a refinement just applied; drops anything that could have been redone. */
+      push: (diff: SpecDiff) => void;
+      /** The diff that reverts the latest refinement, or null when there is nothing to undo. */
+      undo: () => SpecDiff | null;
+      /** The diff that re-applies the latest undone refinement, or null. */
+      redo: () => SpecDiff | null;
+      clear: () => void;
+    }
+    export function useSpecDiffHistory(): UseSpecDiffHistoryReturn {
+      const stacks = useRef<{ undo: SpecDiff[]; redo: SpecDiff[] }>({ undo: [], redo: [] });
+      const [flags, setFlags] = useState({ canUndo: false, canRedo: false });
+    
+      const sync = useCallback(() => {
+        setFlags({
+          canUndo: stacks.current.undo.length > 0,
+          canRedo: stacks.current.redo.length > 0,
+        });
+      }, []);
+    
+      const push = useCallback(
+        (diff: SpecDiff) => {
+          stacks.current.undo.push(diff);
+          stacks.current.redo = [];
+          sync();
+        },
+        [sync]
+      );
+    
+      const undo = useCallback((): SpecDiff | null => {
+        const diff = stacks.current.undo.pop();
+        if (!diff) return null;
+        stacks.current.redo.push(diff);
+        sync();
+        return invertSpecDiff(diff);
+      }, [sync]);
+    
+      const redo = useCallback((): SpecDiff | null => {
+        const diff = stacks.current.redo.pop();
+        if (!diff) return null;
+        stacks.current.undo.push(diff);
+        sync();
+        return diff;
+      }, [sync]);
+    
+      const clear = useCallback(() => {
+        stacks.current = { undo: [], redo: [] };
+        sync();
+      }, [sync]);
+    
+      return { ...flags, push, undo, redo, clear };
+    }
+  </file>
   <file path="src/hooks/useSpecsApi.ts">
     export interface SaveSpecData {
       prompt: string;
@@ -770,7 +826,15 @@
   </file>
   <file path="src/lib/shortcuts.ts">
     export type ShortcutAction =
-      "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
+      | "newGeneration"
+      | "templates"
+      | "history"
+      | "inspector"
+      | "fullscreen"
+      | "stop"
+      | "help"
+      | "undo"
+      | "redo";
     export type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";
     export interface ShortcutDef {
       id: string;
@@ -801,6 +865,20 @@
       { id: "newline", label: "New line", section: "Editing", keys: ["Shift", "Enter"] },
       { id: "prevPrompt", label: "Previous prompt", section: "Editing", keys: ["↑"] },
       { id: "nextPrompt", label: "Next prompt", section: "Editing", keys: ["↓"] },
+      {
+        id: "undo",
+        label: "Undo component refinement",
+        section: "Editing",
+        keys: ["Alt", "Z"],
+        action: "undo",
+      },
+      {
+        id: "redo",
+        label: "Redo component refinement",
+        section: "Editing",
+        keys: ["Alt", "Shift", "Z"],
+        action: "redo",
+      },
       { id: "stop", label: "Stop generation", section: "Editing", keys: ["Esc"], action: "stop" },
       {
         id: "history",
@@ -1090,6 +1168,13 @@
       selectHistory: (id: string) => void;
       toggleFavorite: (id: string) => void;
       deleteSpec: (id: string) => void;
+      /** Revert / re-apply the latest node refinement of this session; never calls the model. */
+      undo: () => void;
+      redo: () => void;
+      canUndo: boolean;
+      canRedo: boolean;
+      /** The refinement most recently applied, undone or redone, for the before/after view. */
+      lastChange: SpecDiff | null;
       reset: () => void;
       stop: () => void;
     }
@@ -1132,6 +1217,9 @@
       const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
       const [refineError, setRefineError] = useState<Error | null>(null);
       const nodeRefineRef = useRef<NodeRefine | null>(null);
+      const diffHistory = useSpecDiffHistory();
+      const { push: pushDiff, clear: clearDiffs } = diffHistory;
+      const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
     
       const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
         api: "/api/gen/ui",
@@ -1162,6 +1250,8 @@
                 before,
                 after: completedSpec,
               };
+              pushDiff(refinement);
+              setLastChange(refinement);
             }
             nodeRefineRef.current = null;
             setPinnedSpec(savedSpec);
@@ -1222,7 +1312,10 @@
         nodeRefineRef.current = null;
         setPinnedSpec(null);
         setRefineError(null);
-      }, []);
+        // A new spec makes the old diffs meaningless: they were made on the previous one.
+        clearDiffs();
+        setLastChange(null);
+      }, [clearDiffs]);
     
       const resetTo = useCallback(
         (id: string | null) => {
@@ -1372,6 +1465,30 @@
         }
       }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
     
+      const applyDiff = useCallback(
+        (diff: SpecDiff | null) => {
+          if (!diff || !displaySpec) return;
+          const applied = applySpecDiff(displaySpec, diff);
+          if (!applied.ok) {
+            // The stacks no longer match what is on screen; drop them rather than drift.
+            clearDiffs();
+            setLastChange(null);
+            return;
+          }
+          setActiveId(null);
+          setPinnedSpec(applied.spec);
+          setLastChange(diff);
+        },
+        [displaySpec, clearDiffs]
+      );
+      const { undo: popUndo, redo: popRedo } = diffHistory;
+      const undo = useCallback(() => {
+        if (!isStreaming) applyDiff(popUndo());
+      }, [isStreaming, applyDiff, popUndo]);
+      const redo = useCallback(() => {
+        if (!isStreaming) applyDiff(popRedo());
+      }, [isStreaming, applyDiff, popRedo]);
+    
       const selectHistory = useCallback(
         (id: string) => {
           if (isStreaming) return;
@@ -1432,6 +1549,11 @@
         selectHistory,
         toggleFavorite,
         deleteSpec: handleDeleteSpec,
+        undo,
+        redo,
+        canUndo: diffHistory.canUndo,
+        canRedo: diffHistory.canRedo,
+        lastChange,
         reset,
         stop,
       };

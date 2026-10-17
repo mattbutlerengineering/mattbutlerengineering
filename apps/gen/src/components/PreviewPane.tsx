@@ -86,6 +86,8 @@ export interface PreviewPaneProps {
   onToggleFullscreen?: () => void;
   /** Spec key of the node picked in select mode; owned by the parent so later features can read it. */
   selectedKey?: string | null;
+  /** Spec key of the subtree a refinement just changed; outlined briefly in select mode. */
+  changedKey?: string | null;
   /** Called with the picked node's spec key, or null when the selection is cleared. */
   onSelectNode?: (key: string | null) => void;
 }
@@ -109,6 +111,7 @@ export function PreviewPane({
   isFullscreen = false,
   onToggleFullscreen,
   selectedKey = null,
+  changedKey = null,
   onSelectNode,
 }: PreviewPaneProps) {
   const { toast } = useToast();
@@ -293,6 +296,7 @@ export function PreviewPane({
                 loading={isStreaming}
                 selectable={selectable}
                 selectedKey={selectedKey}
+                changedKey={changedKey}
                 onSelect={onSelectNode}
                 selectableClassName={styles.selectable}
               />

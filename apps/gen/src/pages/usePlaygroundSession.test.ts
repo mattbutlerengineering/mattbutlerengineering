@@ -237,6 +237,73 @@ describe("usePlaygroundSession", () => {
       expect(saved.refinement.path).toBe("card");
     });
 
+    describe("undo / redo", () => {
+      async function refined() {
+        const view = setup();
+        mockSaveSpec.mockImplementationOnce(async (data: { spec: unknown }) => {
+          specsApiState = {
+            specs: [makeStoredSpec({ id: "new-id", spec: data.spec })],
+            isLoading: false,
+          };
+          return { id: "new-id" };
+        });
+        act(() => view.result.current.refineNode("card", "grid"));
+        await complete(REPLACEMENT);
+        mockSend.mockClear();
+        mockSaveSpec.mockClear();
+        return view;
+      }
+
+      it("undo restores the pre-refine spec and redo the refined one, with no model call or new entry", async () => {
+        const { result } = await refined();
+        const refinedSpec = result.current.displaySpec;
+        expect(result.current.canUndo).toBe(true);
+        expect(result.current.canRedo).toBe(false);
+
+        act(() => result.current.undo());
+        expect(result.current.displaySpec).toEqual(BASE);
+        expect(result.current.canRedo).toBe(true);
+
+        act(() => result.current.redo());
+        expect(result.current.displaySpec).toEqual(refinedSpec);
+
+        expect(mockSend).not.toHaveBeenCalled();
+        expect(mockSaveSpec).not.toHaveBeenCalled();
+      });
+
+      it("a new refinement after an undo clears redo", async () => {
+        const { result } = await refined();
+        act(() => result.current.undo());
+        expect(result.current.canRedo).toBe(true);
+
+        act(() => result.current.refineNode("footer", "louder"));
+        await complete({
+          root: "footer",
+          elements: { footer: { type: "Text", props: { text: "BYE" }, children: [] } },
+        });
+        expect(result.current.canRedo).toBe(false);
+      });
+
+      it("exposes the last change for the inspector and clears history on a whole-spec submit", async () => {
+        const { result } = await refined();
+        expect(result.current.lastChange?.path).toBe("card");
+        act(() => result.current.undo());
+        expect(result.current.lastChange?.after).toEqual(expect.objectContaining({ root: "card" }));
+
+        act(() => result.current.submit("something else"));
+        expect(result.current.canUndo).toBe(false);
+        expect(result.current.canRedo).toBe(false);
+        expect(result.current.lastChange).toBeNull();
+      });
+
+      it("undo and redo are no-ops with nothing to do", () => {
+        const { result } = setup();
+        act(() => result.current.undo());
+        act(() => result.current.redo());
+        expect(result.current.displaySpec).toBe(BASE);
+      });
+    });
+
     it("rejects a spliced spec the catalog does not accept and keeps the original on screen", async () => {
       mockValidateSpec.mockReturnValue({ ok: false, message: "unknown type Nope" });
       const { result } = setup();

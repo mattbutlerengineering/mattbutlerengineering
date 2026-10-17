@@ -9,7 +9,15 @@
  * handled by the owning component (palette trigger, prompt bar).
  */
 export type ShortcutAction =
-  "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
+  | "newGeneration"
+  | "templates"
+  | "history"
+  | "inspector"
+  | "fullscreen"
+  | "stop"
+  | "help"
+  | "undo"
+  | "redo";
 
 export type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";
 
@@ -43,6 +51,20 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   { id: "newline", label: "New line", section: "Editing", keys: ["Shift", "Enter"] },
   { id: "prevPrompt", label: "Previous prompt", section: "Editing", keys: ["↑"] },
   { id: "nextPrompt", label: "Next prompt", section: "Editing", keys: ["↓"] },
+  {
+    id: "undo",
+    label: "Undo component refinement",
+    section: "Editing",
+    keys: ["Alt", "Z"],
+    action: "undo",
+  },
+  {
+    id: "redo",
+    label: "Redo component refinement",
+    section: "Editing",
+    keys: ["Alt", "Shift", "Z"],
+    action: "redo",
+  },
   { id: "stop", label: "Stop generation", section: "Editing", keys: ["Esc"], action: "stop" },
   {
     id: "history",

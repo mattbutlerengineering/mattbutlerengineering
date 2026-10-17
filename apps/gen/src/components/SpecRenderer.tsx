@@ -24,6 +24,8 @@ export interface SpecRendererProps {
   /** Opt-in: tag nodes with `data-gen-node` and let the user pick one. Off by default. */
   selectable?: boolean;
   selectedKey?: string | null;
+  /** Briefly outlines the subtree at this key (a refinement just changed it). */
+  changedKey?: string | null;
   onSelect?: (key: string | null) => void;
   /** Class for the selectable wrapper (carries the selection outline styles). */
   selectableClassName?: string;
@@ -35,6 +37,7 @@ export function SpecRenderer({
   loading = false,
   selectable = false,
   selectedKey = null,
+  changedKey = null,
   onSelect,
   selectableClassName,
 }: SpecRendererProps) {
@@ -102,7 +105,7 @@ export function SpecRenderer({
   }
 
   return (
-    <NodeSelectionContext value={{ selectedKey, cursorKey }}>
+    <NodeSelectionContext value={{ selectedKey, cursorKey, changedKey }}>
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- select-mode overlay: one focus stop that owns arrow/Enter/Escape for the rendered nodes */}
       <div
         className={selectableClassName}

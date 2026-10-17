@@ -103,6 +103,11 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     selectHistory,
     toggleFavorite,
     deleteSpec,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    lastChange,
     reset,
     stop,
     toggleFullscreen,
@@ -121,6 +126,10 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
   });
   const selectedKey = selection.spec === displaySpec ? selection.key : null;
   const setSelectedKey = (key: string | null) => setSelection({ spec: displaySpec, key });
+  // A refinement replaces the displayed spec, which drops the selection; keep the
+  // changed component in the inspector so its added/removed types stay visible.
+  const inspectedKey =
+    selectedKey ?? (lastChange && displaySpec?.elements[lastChange.path] ? lastChange.path : null);
 
   // ---------------------------------------------------------------------------
   // Handlers — breakpoint-driven overlay closing is a shell concern, kept here.
@@ -158,6 +167,8 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     inspector: toggleInspector,
     fullscreen: toggleFullscreen,
     help: toggleShortcuts,
+    undo: canUndo && !isStreaming ? undo : undefined,
+    redo: canRedo && !isStreaming ? redo : undefined,
     stop: isStreaming && !galleryOpen && !shortcutsOpen ? stop : undefined,
   });
 
@@ -243,14 +254,16 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}
               selectedKey={selectedKey}
+              changedKey={lastChange?.path ?? null}
               onSelectNode={setSelectedKey}
             />
           </ErrorBoundary>
 
-          {selectedKey && displaySpec && (
+          {inspectedKey && displaySpec && (
             <NodeInspector
               spec={displaySpec}
-              selectedKey={selectedKey}
+              selectedKey={inspectedKey}
+              change={lastChange}
               onSelectNode={setSelectedKey}
               onRefineNode={refineNode}
               isBusy={isStreaming}

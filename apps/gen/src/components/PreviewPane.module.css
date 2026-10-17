@@ -250,6 +250,27 @@
   outline-offset: 2px;
 }
 
+.selectable [data-gen-node][data-changed="true"] > * {
+  animation: changedFade 2s ease-out forwards;
+}
+
+@keyframes changedFade {
+  from {
+    outline: 2px solid var(--rialto-accent);
+    outline-offset: 2px;
+  }
+  to {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selectable [data-gen-node][data-changed="true"] > * {
+    animation: none;
+  }
+}
+
 .selectable [data-gen-node][data-selected="true"] > * {
   outline: 2px solid var(--rialto-accent);
   outline-offset: 2px;
