@@ -93,6 +93,8 @@ export function TimelineGrid({
   const { t } = useTranslation();
   const timeZone = fmt.timeZone;
   const isMobile = useIsMobile();
+  const capacityLabel = (table: (typeof tables)[number]) =>
+    t("timeline.grid.capacity", { min: table.minCovers, max: table.maxCovers ?? table.capacity });
   const scrollRef = useRef<HTMLDivElement>(null);
   const hourWidth = isMobile ? MOBILE_HOUR_WIDTH : HOUR_WIDTH;
   const tableColumnWidth = isMobile ? MOBILE_TABLE_COLUMN_WIDTH : TABLE_COLUMN_WIDTH;
@@ -257,11 +259,12 @@ export function TimelineGrid({
                   <div className={styles.tableNameLine}>
                     <div className={styles.tableName}>{table.tableNumber || table.name}</div>
                     {isMobile ? null : (
-                      <div className={styles.tableCapacity}>
-                        {t("timeline.grid.capacity", {
-                          min: table.minCovers,
-                          max: table.maxCovers ?? table.capacity,
-                        })}
+                      <div
+                        className={styles.tableCapacity}
+                        data-truncate
+                        title={capacityLabel(table)}
+                      >
+                        {capacityLabel(table)}
                       </div>
                     )}
                   </div>

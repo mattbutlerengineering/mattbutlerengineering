@@ -960,6 +960,17 @@
     function loadFixture(name: string): string {
       return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
     }
+    function loadStaffVenues(): {
+      data: Array<Record<string, unknown>>;
+      pagination: Record<string, unknown>;
+    } {
+      const venues = JSON.parse(loadFixture("venues-list")) as {
+        data: Array<Record<string, unknown>>;
+        pagination: Record<string, unknown>;
+      };
+      const ianaTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return { ...venues, data: venues.data.map((venue) => ({ ...venue, ianaTimezone })) };
+    }
     function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> {
       return route.fulfill({
         status,
@@ -1137,7 +1148,7 @@
       let createdVenue: Record<string, unknown> | null = null;
       await page.route("**/api/v1/venues", (route) => {
         if (route.request().method() !== "POST") return route.fallback();
-        const venues = JSON.parse(loadFixture("venues-list"));
+        const venues = loadStaffVenues();
         let body: Record<string, unknown> = {};
         try {
           const parsed = route.request().postDataJSON();
@@ -1162,10 +1173,7 @@
         });
       });
       await page.route("**/api/v1/venues?*", (route) => {
-        const venues = JSON.parse(loadFixture("venues-list")) as {
-          data: Array<Record<string, unknown>>;
-          pagination: Record<string, unknown>;
-        };
+        const venues = loadStaffVenues();
         const allData = createdVenue ? [...venues.data, createdVenue] : venues.data;
         return route.fulfill({
           status: 200,
@@ -1182,7 +1190,7 @@
       );
       await page.route(/\/api\/v1\/venues\/[^/?]+$/, (route) => {
         const method = route.request().method();
-        const venues = JSON.parse(loadFixture("venues-list"));
+        const venues = loadStaffVenues();
         if (method === "POST" || method === "PATCH") {
           return jsonOk(route, { ...venues.data[0], updatedAt: new Date().toISOString() });
         }
@@ -1567,6 +1575,9 @@
         });
       });
       await page.route("**/api/v1/guests/segments*", (route) => jsonResponse(route, "guest-segments"));
+      // The Home dashboard's lapsing-guests widget. Empty by default; specs that render the widget
+      // mount their own route after mockApi (locale-sweep, visual).
+      await page.route("**/api/v1/guests/lapsing?*", (route) => jsonOk(route, []));
       await page.route("**/api/v1/guests/find-or-create", (route) => {
         const guests = JSON.parse(loadFixture("guests-list"));
         return jsonOk(route, guests.data[0]);

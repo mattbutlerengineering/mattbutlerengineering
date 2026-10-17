@@ -25,6 +25,13 @@
   border-block-end: 1px solid var(--rialto-border);
 }
 
+/* The stacked mobile panel is 311 px of text width at 375 px: the product name at its default
+   69 px display size overflows there once the web font falls back to a wider system face.
+   Desktop restores the full size below. */
+.brand h1 {
+  font-size: var(--rialto-text-3xl);
+}
+
 /* Reserved slot for per-step context; grows to fill the panel on desktop. */
 .stepContext {
   flex: 1;
@@ -46,6 +53,10 @@
     grid-template-rows: 1fr;
     height: 100vh;
     height: 100dvh;
+  }
+
+  .brand h1 {
+    font-size: var(--rialto-text-4xl);
   }
 
   .brand {

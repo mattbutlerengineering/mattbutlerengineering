@@ -2512,6 +2512,12 @@
       function loadFixture(name: string): string { /* ... */ }
     </item>
     <item priority="medium">
+      function loadStaffVenues(): {
+        data: Array<Record<string, unknown>>;
+        pagination: Record<string, unknown>;
+      } { /* ... */ }
+    </item>
+    <item priority="medium">
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
