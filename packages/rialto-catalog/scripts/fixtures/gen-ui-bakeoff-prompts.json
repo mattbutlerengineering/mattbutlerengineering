@@ -1,0 +1,22 @@
+[
+  "A hero section for a neighborhood Italian restaurant with a headline, a short tagline, and a primary Reserve a table button.",
+  "A dinner menu card for the Pasta section listing four dishes with names, short descriptions, and prices.",
+  "A reservation form with fields for name, email, party size, date, and time, plus a submit button.",
+  "An opening-hours panel showing Monday to Sunday hours, with Sunday marked as closed.",
+  "A footer with the restaurant address, phone number, social links, and a copyright line.",
+  "A top navigation bar with the restaurant logo text and links to Menu, Reservations, Events, and Contact.",
+  "A private dining inquiry card with a title, a short description, and a Contact us button.",
+  "A banner announcing that the patio is open for the season, with a dismiss button.",
+  "A tabbed menu with Lunch, Dinner, and Drinks tabs, each tab showing a short list of items.",
+  "A gift card purchase form with amount select, recipient email, a message field, and a Buy button.",
+  "An events list showing three upcoming events with date, title, and a Book button each.",
+  "An empty state for a waitlist screen that says no one is waiting, with a button to add a guest.",
+  "A table of today's reservations with columns for time, guest name, party size, and status.",
+  "A customer testimonials section with three cards, each with a quote and the guest's first name.",
+  "A newsletter sign-up block with an email input and a Subscribe button.",
+  "A chef's tasting menu card with a price per person, five course names, and a Reserve button.",
+  "A dialog confirming a reservation cancellation with Keep and Cancel reservation buttons.",
+  "A wine list accordion grouped by Red, White, and Sparkling, each with two bottles and prices.",
+  "A takeout order summary card with three line items, a subtotal, and a Checkout button.",
+  "A contact page layout with a map placeholder card, address details, and a short message form."
+]
