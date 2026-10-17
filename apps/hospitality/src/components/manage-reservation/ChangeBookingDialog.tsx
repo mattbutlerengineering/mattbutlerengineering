@@ -6,6 +6,7 @@ import { Alert, Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import { DatePartySelector, TimeSlotPicker } from "../booking-widget/index.js";
 import { useChangeBooking } from "../../hooks/useChangeBooking.js";
+import { venueDate } from "../../utils/service-day.js";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import styles from "./ChangeBookingDialog.module.css";
 
@@ -28,11 +29,6 @@ type KnownError = (typeof KNOWN_ERRORS)[number];
 
 function isKnownError(code: string): code is KnownError {
   return (KNOWN_ERRORS as readonly string[]).includes(code);
-}
-
-/** Date part of a slot's ISO instant on the venue's wall clock. */
-function slotDate(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(iso));
 }
 
 /**
@@ -95,7 +91,7 @@ export function ChangeBookingDialog({
   const pick = (slot: TimeSlot) => {
     setSelected(slot);
     void selectSlot({
-      date: slotDate(slot.time, venue.ianaTimezone),
+      date: venueDate(new Date(slot.time), venue.ianaTimezone),
       startTime: slot.time,
       endTime: new Date(new Date(slot.time).getTime() + durationMs).toISOString(),
       partySize,
