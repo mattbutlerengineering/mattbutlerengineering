@@ -1216,7 +1216,8 @@
     },
     "specialRequests": {
       "label": "Demandes spéciales",
-      "acknowledgement": "C’est noté. C’est inscrit à votre réservation pour l’équipe."
+      "acknowledgement": "C’est noté. C’est inscrit à votre réservation pour l’équipe.",
+      "hostCaption": "Les clients voient ceci avec : « $t(bookingWidget.specialRequests.acknowledgement) »"
     },
     "calendar": {
       "title": "Ajouter au calendrier",

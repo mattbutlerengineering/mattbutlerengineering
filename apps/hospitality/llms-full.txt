@@ -788,13 +788,6 @@
       };
     }
   </file>
-  <file path="src/constants/confirmation-copy.ts">
-    export const CONFIRMATION_COPY = Object.freeze({
-      specialRequestsLabel: "Special Requests",
-      acknowledgement,
-      hostCaption: `Guests see this with: “${acknowledgement}”`,
-    });
-  </file>
   <file path="src/constants/copilotContext.ts">
     export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
       schemas: [

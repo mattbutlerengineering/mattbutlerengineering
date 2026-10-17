@@ -12,7 +12,7 @@ import { ERROR_COPY } from "../lib/describe-api-error.js";
 import React from "react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
+import enUS from "../i18n/catalogs/en-US.json";
 import {
   EMPTY_NOTES,
   TWO_LINE_DISPLAYED,
@@ -440,7 +440,7 @@ describe("BriefingPage", () => {
   });
 
   describe("Special Requests (remembered-on-arrival SC3)", () => {
-    const label = CONFIRMATION_COPY.specialRequestsLabel;
+    const label = enUS.bookingWidget.specialRequests.label;
     const STAFF_NOTE = "Comped dessert last visit";
 
     function entryWith(notes: string | null) {

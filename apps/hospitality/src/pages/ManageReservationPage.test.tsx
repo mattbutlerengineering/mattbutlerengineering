@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { formatLongDateWithYear, formatTimeIn } from "../utils/format.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
+import enUS from "../i18n/catalogs/en-US.json";
 import {
   EMPTY_NOTES,
   TWO_LINE_DISPLAYED,
@@ -324,7 +324,7 @@ describe("ManageReservationPage", () => {
 });
 
 describe("ManageReservationPage Special Requests card", () => {
-  const label = CONFIRMATION_COPY.specialRequestsLabel;
+  const label = enUS.bookingWidget.specialRequests.label;
 
   async function renderWithNotes(notes: string | null, status = "PENDING") {
     mockSearchParams.set("token", "valid-token-abc");
@@ -360,7 +360,9 @@ describe("ManageReservationPage Special Requests card", () => {
     await renderWithNotes(TWO_LINE_NOTE);
     const group = screen.getByRole("group", { name: label });
     expect(within(group).getByRole("heading", { level: 2, name: label })).toBeDefined();
-    expect(within(group).getByText(CONFIRMATION_COPY.acknowledgement)).toBeDefined();
+    expect(
+      within(group).getByText(enUS.bookingWidget.specialRequests.acknowledgement)
+    ).toBeDefined();
   });
 
   it("renders the guest's words as one text node, line break kept, dir=auto", async () => {
@@ -401,7 +403,7 @@ describe("ManageReservationPage Special Requests card", () => {
     const { container } = await renderWithNotes(notes);
     expect(screen.queryByRole("group", { name: label })).toBeNull();
     expect(screen.queryByText(label)).toBeNull();
-    expect(screen.queryByText(CONFIRMATION_COPY.acknowledgement)).toBeNull();
+    expect(screen.queryByText(enUS.bookingWidget.specialRequests.acknowledgement)).toBeNull();
     expect(cardCount(container)).toBe(present - 1);
   });
 
