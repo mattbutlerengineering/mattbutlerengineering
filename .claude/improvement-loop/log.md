@@ -3793,3 +3793,16 @@ None — 0 `agent-skip`.
 **queueEfficiency:** composite 0.959 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:60, size:s:59, size:l:26, size:m:57, size:xl:22
 **Issues filed:** 0
+
+## 2026-10-17 — mbe-ui-quality
+
+- **State:** `source: branch` (`ui-quality/ledger`, head b9482dd3), `origin/main` merged cleanly; one rule-resolved file (`metrics/ui-quality-ledger.jsonl`).
+- **Routes:** 14 due / 13 captured / 13 audited. 18 rows `unreachable:auth` (all hospitality), 1 `unreachable:build` (marketing `shipped/:slug` — no fixture). All three app builds green; all three Playwright capture runs passed.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Calibration:** `stale`. `calibration-status` returned exit 3; the one calibration attempt hit exit 2 (`docs/ui-quality/calibration.json` still holds the unlabelled placeholder set — ≥ 10 pairs are Verify-stage, Matt-owned), logged and not retried. Re-query stayed `stale`, so rating ran with agent-built findings suppressed. Rated 14 pairs: hospitality 0, marketing 0.83, rialto-web 0.83.
+- **Findings:** 2 mechanical, 0 judged. Plan: 1 create, 1 skip, 0 seeds, no `fix_pr_candidate`.
+- **Issues created:** #6978 (rialto-web `demos/session-expired` — accessibility/axe-serious, color-contrast on `._footerLinkAccent_1c87s_80`); `ui-quality` label confirmed present. **Reopened:** 0. **Commented:** 0. **Seeds:** 0.
+- **Fix PR:** none — the plan carried no `fix_pr_candidate`.
+- **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalations.
+- **Coverage before this fire:** 98.4% (131/133, provisional; uncovered: marketing `shipped`, marketing `shipped/:slug`).
+- **Note (not filed — no rubric v1 tell covers it):** two mobile (375×812) layout collisions seen while judging. rialto-web `components/breadcrumb` — deep-path trails overrun their chevron separators, text overlapping the separator glyphs, and the "collapses deep paths with ellipsis" behaviour the page documents does not engage at that width. rialto-web `demos/session-expired` — the cookie banner crushes into a ~50px column over the card's sign-in button (possibly a fixed-position full-page-capture artifact rather than a live defect; unverified). Rubric v1 has no tell for layout collision or overflow, so neither is a Finding. Worth a human's judgement on whether v2 should grow one.
