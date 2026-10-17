@@ -1,6 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Prisma } from "../generated/prisma/index.js";
+vi.mock("./database.js", () => ({
+  prisma: { reservationEvent: { findMany: vi.fn() } },
+}));
+
+import { prisma } from "./database.js";
 import {
+  InvalidEventCursorError,
+  listForReservation,
   RESERVATION_EVENT_KINDS,
   SYSTEM_ACTOR,
   recordReservationEvent,
@@ -112,5 +119,90 @@ describe("reservation-events", () => {
       expect(create).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
+  });
+});
+
+describe("listForReservation", () => {
+  const eventRow = (id: string, createdAt: string) => ({
+    id,
+    reservationId: "res_1",
+    venueId: "venue_1",
+    kind: "created",
+    actorType: "staff",
+    actorId: "user_1",
+    fromState: null,
+    toState: { status: "CONFIRMED" },
+    createdAt: new Date(createdAt),
+  });
+  const findMany = vi.mocked(prisma.reservationEvent.findMany);
+
+  beforeEach(() => findMany.mockReset());
+
+  it("reads oldest-first, ordered by createdAt then id, defaulting to 50 rows", async () => {
+    findMany.mockResolvedValueOnce([]);
+
+    await listForReservation("res_1");
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { reservationId: "res_1" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: 51,
+    });
+  });
+
+  it("maps rows to DTOs with no venue or reservation ids", async () => {
+    findMany.mockResolvedValueOnce([eventRow("e1", "2026-10-20T10:00:00.000Z")] as never);
+
+    const result = await listForReservation("res_1");
+
+    expect(result).toEqual({
+      data: [
+        {
+          id: "e1",
+          kind: "created",
+          actorType: "staff",
+          actorId: "user_1",
+          fromState: null,
+          toState: { status: "CONFIRMED" },
+          createdAt: "2026-10-20T10:00:00.000Z",
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
+  it("returns a cursor when more rows exist, and resumes strictly after it", async () => {
+    findMany.mockResolvedValueOnce([
+      eventRow("e1", "2026-10-20T10:00:00.000Z"),
+      eventRow("e2", "2026-10-20T10:00:00.000Z"),
+      eventRow("e3", "2026-10-20T11:00:00.000Z"),
+    ] as never);
+
+    const page = await listForReservation("res_1", { limit: 2 });
+
+    expect(page.data.map((e) => e.id)).toEqual(["e1", "e2"]);
+    expect(page.nextCursor).toEqual(expect.any(String));
+
+    findMany.mockResolvedValueOnce([]);
+    await listForReservation("res_1", { limit: 2, cursor: page.nextCursor! });
+
+    expect(findMany).toHaveBeenLastCalledWith({
+      where: {
+        reservationId: "res_1",
+        OR: [
+          { createdAt: { gt: new Date("2026-10-20T10:00:00.000Z") } },
+          { createdAt: new Date("2026-10-20T10:00:00.000Z"), id: { gt: "e2" } },
+        ],
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: 3,
+    });
+  });
+
+  it("rejects a malformed cursor without querying", async () => {
+    await expect(listForReservation("res_1", { cursor: "not-a-cursor" })).rejects.toBeInstanceOf(
+      InvalidEventCursorError
+    );
+    expect(findMany).not.toHaveBeenCalled();
   });
 });

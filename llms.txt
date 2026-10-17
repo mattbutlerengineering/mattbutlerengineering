@@ -6949,6 +6949,11 @@
       export const publicWaitlistRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/reservation-events.ts">
+    <item priority="high">
+      export const reservationEventRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/reservation-owner.ts">
     <item priority="high">
       export function resolveReservationGuestEmail(
@@ -9487,6 +9492,35 @@
           to?: EventState | null;
         }
       ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEFAULT_EVENT_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_EVENT_PAGE_SIZE: unknown;
+    </item>
+    <item priority="low">
+      interface ReservationEventDto {
+        id: string;
+        kind: string;
+        actorType: string;
+        actorId: string | null;
+        fromState: unknown;
+      }
+    </item>
+    <item priority="high">
+      class InvalidEventCursorError {
+        
+      }
+    </item>
+    <item priority="medium">
+      function decodeCursor(cursor: string): { createdAt: Date; id: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listForReservation(
+        reservationId: string,
+        { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
+      ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
