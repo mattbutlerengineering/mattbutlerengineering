@@ -4,6 +4,7 @@ import {
   filterSuitableTables,
   bookingWindow,
   isSlotInBookingWindow,
+  checkGuestModificationPolicy,
   parseOperatingHours,
   selectBestTable,
   checkTableConflict,
@@ -490,6 +491,65 @@ describe("bookingWindow / isSlotInBookingWindow", () => {
     const window = bookingWindow({ maxAdvanceBooking: 0 }, now, "Asia/Tokyo");
     expect(isSlotInBookingWindow(new Date("2026-05-06T10:00:00Z"), window)).toBe(true);
     expect(isSlotInBookingWindow(new Date("2026-05-06T15:00:00Z"), window)).toBe(false);
+  });
+});
+
+describe("checkGuestModificationPolicy", () => {
+  const NOW = new Date("2026-05-05T12:00:00Z");
+  const reservationIn = (hours: number, partySize = 4) => ({
+    startTime: new Date(NOW.getTime() + hours * 60 * 60 * 1000),
+    partySize,
+  });
+
+  it("blocks a time or party change inside the cutoff", () => {
+    const settings = { guestModificationCutoffHours: 24 };
+    expect(
+      checkGuestModificationPolicy(settings, reservationIn(23), { movesTime: true }, NOW)
+    ).toBe("MODIFICATION_CUTOFF");
+    expect(checkGuestModificationPolicy(settings, reservationIn(23), { partySize: 5 }, NOW)).toBe(
+      "MODIFICATION_CUTOFF"
+    );
+  });
+
+  it("allows an edit that changes neither time nor party size inside the cutoff", () => {
+    expect(
+      checkGuestModificationPolicy(
+        { guestModificationCutoffHours: 24 },
+        reservationIn(1),
+        { movesTime: false },
+        NOW
+      )
+    ).toBeNull();
+  });
+
+  it("allows a change outside the cutoff", () => {
+    expect(
+      checkGuestModificationPolicy(
+        { guestModificationCutoffHours: 24 },
+        reservationIn(25),
+        { movesTime: true },
+        NOW
+      )
+    ).toBeNull();
+  });
+
+  it("caps the party-size delta in both directions", () => {
+    const settings = { guestMaxPartySizeChange: 2 };
+    expect(
+      checkGuestModificationPolicy(settings, reservationIn(48, 4), { partySize: 7 }, NOW)
+    ).toBe("PARTY_SIZE_CHANGE_TOO_LARGE");
+    expect(
+      checkGuestModificationPolicy(settings, reservationIn(48, 4), { partySize: 1 }, NOW)
+    ).toBe("PARTY_SIZE_CHANGE_TOO_LARGE");
+    expect(
+      checkGuestModificationPolicy(settings, reservationIn(48, 4), { partySize: 6 }, NOW)
+    ).toBeNull();
+  });
+
+  it("changes nothing when the settings are unset or absent", () => {
+    const changes = { partySize: 20, movesTime: true };
+    expect(checkGuestModificationPolicy({}, reservationIn(0), changes, NOW)).toBeNull();
+    expect(checkGuestModificationPolicy(null, reservationIn(0), changes, NOW)).toBeNull();
   });
 });
 

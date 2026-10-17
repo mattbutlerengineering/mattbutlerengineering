@@ -23147,6 +23147,8 @@
                       slug: venue.slug,
                       ianaTimezone: venue.ianaTimezone,
                       phone: venue.settings?.phone,
+                      modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
+                      maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
                     }
                   : null,
               },
@@ -36442,15 +36444,13 @@
       const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
-    async function checkBookingWindow(
+    type ModifyVenue = NonNullable<Awaited<ReturnType<typeof venueService.getById>>>;
+    function checkBookingWindow(
+      venue: ModifyVenue,
       reservation: Reservation,
       changes: ReservationChanges
-    ): Promise<ModifyReservationResult | null> {
+    ): ModifyReservationResult | null {
       if (changes.startTime === undefined && changes.date === undefined) return null;
-      if (!reservation.venueId) return null;
-    
-      const venue = await venueService.getById(reservation.venueId);
-      if (!venue) return null;
     
       const newStart = new Date(changes.startTime ?? reservation.startTime);
       // The route's body schema guarantees a date-time; an unparseable value
@@ -36459,6 +36459,19 @@
     
       const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
       return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
+    }
+    function checkGuestPolicy(
+      venue: ModifyVenue,
+      reservation: Reservation,
+      changes: ReservationChanges
+    ): ModifyReservationResult | null {
+      const violation = checkGuestModificationPolicy(
+        venue.settings,
+        { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+        { partySize: changes.partySize, movesTime: isTimeChange(changes) },
+        new Date()
+      );
+      return violation ? GUEST_POLICY_RESULTS[violation] : null;
     }
     export async function modifyReservation(
       reservation: Reservation,
@@ -36474,9 +36487,16 @@
         return depositGuardResult;
       }
     
-      const windowResult = await checkBookingWindow(reservation, changes);
-      if (windowResult) {
-        return windowResult;
+      // A specialRequests-only edit moves neither time nor party size, so it needs no venue.
+      const venue =
+        reservation.venueId && (isTimeChange(changes) || changes.partySize !== undefined)
+          ? await venueService.getById(reservation.venueId)
+          : null;
+      if (venue) {
+        const blocked =
+          checkGuestPolicy(venue, reservation, changes) ??
+          checkBookingWindow(venue, reservation, changes);
+        if (blocked) return blocked;
       }
     
       const { date, startTime, endTime, partySize, specialRequests } = changes;
@@ -38000,6 +38020,30 @@
       if (slotStart < window.earliest) return false;
       if (window.latestLocalDate === null) return true;
       return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
+    }
+    export type GuestModificationViolation = "MODIFICATION_CUTOFF" | "PARTY_SIZE_CHANGE_TOO_LARGE";
+    export function checkGuestModificationPolicy(
+      settings:
+        | Pick<VenueSettings, "guestModificationCutoffHours" | "guestMaxPartySizeChange">
+        | null
+        | undefined,
+      reservation: { startTime: Date; partySize: number },
+      changes: { partySize?: number; movesTime?: boolean },
+      now: Date
+    ): GuestModificationViolation | null {
+      const partyDelta =
+        changes.partySize === undefined ? 0 : Math.abs(changes.partySize - reservation.partySize);
+    
+      const cutoffHours = settings?.guestModificationCutoffHours;
+      if (cutoffHours !== undefined && (changes.movesTime || partyDelta > 0)) {
+        const hoursAway = (reservation.startTime.getTime() - now.getTime()) / MS_PER_HOUR;
+        if (hoursAway < cutoffHours) return "MODIFICATION_CUTOFF";
+      }
+    
+      const maxChange = settings?.guestMaxPartySizeChange;
+      if (maxChange !== undefined && partyDelta > maxChange) return "PARTY_SIZE_CHANGE_TOO_LARGE";
+    
+      return null;
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
@@ -58342,6 +58386,10 @@
        * Default: 2
        */
       autoDepositAfterNoShows?: number;
+      /** Guests cannot change a booking whose current start is less than this many hours away. */
+      guestModificationCutoffHours?: number;
+      /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
+      guestMaxPartySizeChange?: number;
     }
     export type DepositType = "flat" | "per_person";
     export interface DepositConfig {

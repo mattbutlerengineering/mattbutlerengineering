@@ -9317,11 +9317,22 @@
         deposits: DepositService
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
-    <item priority="low">
-      async function checkBookingWindow(
+    <item priority="high">
+      type ModifyVenue = NonNullable<Awaited<ReturnType<typeof venueService.getByI...;
+    </item>
+    <item priority="medium">
+      function checkBookingWindow(
+        venue: ModifyVenue,
         reservation: Reservation,
         changes: ReservationChanges
-      ): Promise<ModifyReservationResult | null> { /* ... */ }
+      ): ModifyReservationResult | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkGuestPolicy(
+        venue: ModifyVenue,
+        reservation: Reservation,
+        changes: ReservationChanges
+      ): ModifyReservationResult | null { /* ... */ }
     </item>
     <item priority="high">
       export async function modifyReservation(
@@ -9627,6 +9638,20 @@
     </item>
     <item priority="high">
       export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      type GuestModificationViolation = "MODIFICATION_CUTOFF" | "PARTY_SIZE_CHANGE_TOO_LARGE";
+    </item>
+    <item priority="high">
+      export function checkGuestModificationPolicy(
+        settings:
+          | Pick<VenueSettings, "guestModificationCutoffHours" | "guestMaxPartySizeChange">
+          | null
+          | undefined,
+        reservation: { startTime: Date; partySize: number },
+        changes: { partySize?: number; movesTime?: boolean },
+        now: Date
+      ): GuestModificationViolation | null { /* ... */ }
     </item>
     <item priority="high">
       export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];
