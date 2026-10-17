@@ -3806,3 +3806,20 @@ None — 0 `agent-skip`.
 - **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalations.
 - **Coverage before this fire:** 98.4% (131/133, provisional; uncovered: marketing `shipped`, marketing `shipped/:slug`).
 - **Note (not filed — no rubric v1 tell covers it):** two mobile (375×812) layout collisions seen while judging. rialto-web `components/breadcrumb` — deep-path trails overrun their chevron separators, text overlapping the separator glyphs, and the "collapses deep paths with ellipsis" behaviour the page documents does not engage at that width. rialto-web `demos/session-expired` — the cookie banner crushes into a ~50px column over the card's sign-in button (possibly a fixed-position full-page-capture artifact rather than a live defect; unverified). Rubric v1 has no tell for layout collision or overflow, so neither is a Finding. Worth a human's judgement on whether v2 should grow one.
+
+## 2026-10-17 — mbe-learning-loop
+
+**Sensors:** 14/17 available (`lighthouse`, `mutationScore`, `e2eStability` not available — expected, no live-site egress / not configured)
+**Regressions:** 1 detected, 1 issue created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed/reopened, 5 skipped (no matching verifier / no completed CI runs / Lighthouse unavailable — same as prior runs, not new)
+**Sentry triage (1b):** skipped — Sentry MCP access token expired (`find_organizations` returned "Authorization Expired"); needs re-auth, not actionable from this session
+**AI issue feedback (2b):** collected; budgets unchanged at 3/category (highest rejection rate: audit 25%, none over the 40% halving threshold)
+**Skill proposals:** 0 — today is Saturday, not the configured Friday extraction day
+
+### Regression: queueEfficiency.composite_vs_previous_report (0.958 → 0.559, -0.399, high) — root-caused, not a real drop
+
+Investigated before filing rather than filed mechanically. `first_pass_success_rate` (0.898) and time-to-merge (0.2h) are both healthy and unchanged; the entire swing is the cost term. #6941 (merged recently) made `cost_per_issue_usd` reflect real per-PR telemetry instead of always-null — today a `cost_coverage_n=9` sample out of 264 merged issues (3.4% coverage) got its first real cost match, averaging $13.196/issue, which `scoreCost()` maps to 0 and the 0.4-weighted composite term tanks accordingly. The existing `QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE=15` floor in `scripts/sensors-registry.mjs`'s `detectRegression` checks `issues_merged` (264, passes), not `cost_coverage_n` (9, the actual thin denominator) — so the detector has no guard against exactly this shape, the same false-positive class as the already-closed #5738 on this same detector. The dedicated `/optimize-implement-queue` skill ran earlier today and independently reported `composite 0.959 — healthy` via its own baseline comparison, corroborating "nothing actually regressed."
+
+**Filed #7023** (`meta-improvement`, budget 3/3 available) proposing a `cost_coverage_n` floor on the cost-driven delta, analogous to the existing PR-count floor — not a "queue got worse" issue, a detector-gap issue. No duplicate existed (checked open `meta-improvement`-labeled issues).
+
+**Threshold notes:** false positive rate and fix-effectiveness rate from `metrics/verifications.jsonl` (30d) not computed this run — the 48h verification window produced 0 verified/0 failed (all skipped for lack of a matching verifier), so there's no new evidence either way this run; no threshold change indicated. Worth tracking: this is the second time (#5738, now this) the `composite_vs_previous_report` detector has produced a high-severity false alarm — if a third instance occurs before #7023 lands, consider suppressing `queueEfficiency`'s generic day-over-day check entirely in favor of `/optimize-implement-queue`'s baseline-normalized one.
