@@ -660,43 +660,43 @@
       clear: () => void;
     }
     export function useSpecDiffHistory(): UseSpecDiffHistoryReturn {
-      const stacks = useRef<{ undo: SpecDiff[]; redo: SpecDiff[] }>({ undo: [], redo: [] });
+      const stacksRef = useRef<{ undo: SpecDiff[]; redo: SpecDiff[] }>({ undo: [], redo: [] });
       const [flags, setFlags] = useState({ canUndo: false, canRedo: false });
     
       const sync = useCallback(() => {
         setFlags({
-          canUndo: stacks.current.undo.length > 0,
-          canRedo: stacks.current.redo.length > 0,
+          canUndo: stacksRef.current.undo.length > 0,
+          canRedo: stacksRef.current.redo.length > 0,
         });
       }, []);
     
       const push = useCallback(
         (diff: SpecDiff) => {
-          stacks.current.undo.push(diff);
-          stacks.current.redo = [];
+          stacksRef.current.undo.push(diff);
+          stacksRef.current.redo = [];
           sync();
         },
         [sync]
       );
     
       const undo = useCallback((): SpecDiff | null => {
-        const diff = stacks.current.undo.pop();
+        const diff = stacksRef.current.undo.pop();
         if (!diff) return null;
-        stacks.current.redo.push(diff);
+        stacksRef.current.redo.push(diff);
         sync();
         return invertSpecDiff(diff);
       }, [sync]);
     
       const redo = useCallback((): SpecDiff | null => {
-        const diff = stacks.current.redo.pop();
+        const diff = stacksRef.current.redo.pop();
         if (!diff) return null;
-        stacks.current.undo.push(diff);
+        stacksRef.current.undo.push(diff);
         sync();
         return diff;
       }, [sync]);
     
       const clear = useCallback(() => {
-        stacks.current = { undo: [], redo: [] };
+        stacksRef.current = { undo: [], redo: [] };
         sync();
       }, [sync]);
     
