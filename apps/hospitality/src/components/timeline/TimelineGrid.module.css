@@ -109,6 +109,11 @@
 .tableCapacity {
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-secondary);
+  /* A longer locale ("1-2 invitados") or a wider fallback face must not push past the 120 px
+     cell: the table name keeps its room, the capacity ellipsizes (full text in the title). */
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Scrollable reservation area per row */
