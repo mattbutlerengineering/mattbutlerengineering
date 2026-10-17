@@ -193,6 +193,9 @@ describe("PATCH /public/v1/reservations/manage", () => {
       success: true,
       reservation: updatedReservation,
     } as never);
+    // manage scope, then the guest modification policy check, then the notification
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
     await app.inject({

@@ -147,6 +147,40 @@ export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): b
   return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
 }
 
+// --- Guest self-service modification policy ---
+
+export type GuestModificationViolation = "MODIFICATION_CUTOFF" | "PARTY_SIZE_CHANGE_TOO_LARGE";
+
+/**
+ * Venue limits on a guest changing their own booking: no time or party-size
+ * change within `guestModificationCutoffHours` of the current start, and a
+ * cap on `|newPartySize - currentPartySize|`. Unset settings impose nothing.
+ * Returns the violated rule, or `null` when the change may proceed.
+ */
+export function checkGuestModificationPolicy(
+  settings:
+    | Pick<VenueSettings, "guestModificationCutoffHours" | "guestMaxPartySizeChange">
+    | null
+    | undefined,
+  reservation: { startTime: Date; partySize: number },
+  changes: { partySize?: number; movesTime?: boolean },
+  now: Date
+): GuestModificationViolation | null {
+  const partyDelta =
+    changes.partySize === undefined ? 0 : Math.abs(changes.partySize - reservation.partySize);
+
+  const cutoffHours = settings?.guestModificationCutoffHours;
+  if (cutoffHours !== undefined && (changes.movesTime || partyDelta > 0)) {
+    const hoursAway = (reservation.startTime.getTime() - now.getTime()) / MS_PER_HOUR;
+    if (hoursAway < cutoffHours) return "MODIFICATION_CUTOFF";
+  }
+
+  const maxChange = settings?.guestMaxPartySizeChange;
+  if (maxChange !== undefined && partyDelta > maxChange) return "PARTY_SIZE_CHANGE_TOO_LARGE";
+
+  return null;
+}
+
 // --- Double-booking predicate: single declaration ---
 //
 // The overlap window, the "booked" status set, and the hold-expiry rule are

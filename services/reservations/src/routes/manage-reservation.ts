@@ -30,6 +30,8 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
                   slug: venue.slug,
                   ianaTimezone: venue.ianaTimezone,
                   phone: venue.settings?.phone,
+                  modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
+                  maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
                 }
               : null,
           },

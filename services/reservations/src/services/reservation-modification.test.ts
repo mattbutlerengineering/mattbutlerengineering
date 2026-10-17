@@ -226,6 +226,80 @@ describe("booking window on guest modify (#6560)", () => {
   });
 });
 
+describe("guest modification policy on modify", () => {
+  const HOUR_MS = 60 * 60 * 1000;
+  const startIn = (hours: number): string => new Date(Date.now() + hours * HOUR_MS).toISOString();
+
+  function mockVenueSettings(settings: Record<string, unknown>): void {
+    vi.mocked(venueService.getById).mockResolvedValue({
+      id: "venue_1",
+      ianaTimezone: "UTC",
+      settings,
+    } as never);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValue({
+      success: true,
+      reservation: makeReservation(),
+    } as never);
+  });
+
+  it("rejects a time change inside the cutoff with 422 MODIFICATION_CUTOFF", async () => {
+    mockVenueSettings({ guestModificationCutoffHours: 24 });
+    const reservation = makeReservation({ startTime: startIn(23) });
+
+    const result = await modifyReservation(reservation, { startTime: startIn(72) }, deposits);
+
+    expect(result).toMatchObject({ success: false, status: 422, code: "MODIFICATION_CUTOFF" });
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("rejects a party-size change inside the cutoff", async () => {
+    mockVenueSettings({ guestModificationCutoffHours: 24 });
+    const reservation = makeReservation({ startTime: startIn(23) });
+
+    const result = await modifyReservation(reservation, { partySize: 5 }, deposits);
+
+    expect(result).toMatchObject({ success: false, status: 422, code: "MODIFICATION_CUTOFF" });
+  });
+
+  it("still allows a specialRequests-only edit inside the cutoff", async () => {
+    mockVenueSettings({ guestModificationCutoffHours: 24 });
+    const reservation = makeReservation({ startTime: startIn(23) });
+
+    const result = await modifyReservation(reservation, { specialRequests: "quiet" }, deposits);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a party-size change beyond guestMaxPartySizeChange", async () => {
+    mockVenueSettings({ guestMaxPartySizeChange: 2 });
+    const reservation = makeReservation({ startTime: startIn(72), partySize: 4 });
+
+    const tooBig = await modifyReservation(reservation, { partySize: 7 }, deposits);
+    expect(tooBig).toMatchObject({
+      success: false,
+      status: 422,
+      code: "PARTY_SIZE_CHANGE_TOO_LARGE",
+    });
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+
+    const ok = await modifyReservation(reservation, { partySize: 6 }, deposits);
+    expect(ok.success).toBe(true);
+  });
+
+  it("changes nothing when the policy settings are unset", async () => {
+    mockVenueSettings({});
+    const reservation = makeReservation({ startTime: startIn(1), partySize: 2 });
+
+    const result = await modifyReservation(reservation, { partySize: 12 }, deposits);
+
+    expect(result.success).toBe(true);
+  });
+});
+
 describe("per-person deposit guard on partySize change (#2931 — decision: Block)", () => {
   beforeEach(() => {
     vi.clearAllMocks();

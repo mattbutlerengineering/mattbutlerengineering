@@ -163,6 +163,31 @@ describe("GET /public/v1/reservations/manage", () => {
     expect(response.json().data.venue.phone).toBeUndefined();
   });
 
+  it("exposes the guest modification limits on venue, null when unset", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce({
+      ...mockVenue,
+      settings: { guestModificationCutoffHours: 24, guestMaxPartySizeChange: 2 },
+    } as never);
+    const configured = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+    expect(configured.json().data.venue.modificationCutoffHours).toBe(24);
+    expect(configured.json().data.venue.maxPartySizeChange).toBe(2);
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce({ ...mockVenue, settings: {} } as never);
+    const unset = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+    expect(unset.json().data.venue.modificationCutoffHours).toBeNull();
+    expect(unset.json().data.venue.maxPartySizeChange).toBeNull();
+  });
+
   it("returns 404 with a code extension when reservation not found", async () => {
     const token = generateManageToken("res_nonexistent", "jane@example.com");
 
