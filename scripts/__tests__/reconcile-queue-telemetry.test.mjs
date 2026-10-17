@@ -414,4 +414,20 @@ describe("reconcileTelemetry — incomplete rows", () => {
       reviewer_verdict: "no-pr",
     });
   });
+
+  it.each([null, undefined, "not-a-date"])(
+    "gives a PR-less row with claimed_at %s an explicit no-claimed-at reason, not a silent null",
+    (claimed_at) => {
+      const row = makeRow({ pr_number: null, claimed_at, reviewer_verdict: null });
+      const { rows } = reconcileTelemetry([row], { fetchPr: vi.fn(), now: NOW });
+
+      expect(rows[0].merged).toBeNull();
+      expect(rows[0].unknown_reasons).toMatchObject({
+        merged: "no-claimed-at",
+        merged_at: "no-claimed-at",
+        ci_first_pass: "no-claimed-at",
+        reviewer_verdict: "no-claimed-at",
+      });
+    }
+  );
 });

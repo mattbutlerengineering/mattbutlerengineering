@@ -87,6 +87,7 @@ export const HUMAN_TOUCH_REASONS = Object.freeze([
  */
 export const TELEMETRY_UNKNOWN_REASONS = Object.freeze([
   "no-pr",
+  "no-claimed-at",
   "pr-open",
   "pr-not-found",
   "no-ci-gate-run",
