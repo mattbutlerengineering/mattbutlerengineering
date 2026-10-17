@@ -93,6 +93,7 @@ function makeTxMock(overrides: Record<string, unknown> = {}) {
   return {
     $executeRawUnsafe: vi.fn().mockResolvedValue(0),
     $executeRaw: vi.fn().mockResolvedValue(0),
+    reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
     venue: {
       findUnique: vi.fn().mockResolvedValue({ settings: null }),
     },
@@ -191,6 +192,55 @@ describe("confirmHold", () => {
         expect(result.reservation.status).toBe("CONFIRMED");
         expect(result.reservation.guestName).toBe("Jane Doe");
       }
+    });
+  });
+
+  describe("created event (reservation-event-log)", () => {
+    it("writes one created event on the transaction client, before the hold is deleted", async () => {
+      const hold = makePrismaHold();
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      const tx = makeTxMock({
+        reservation: {
+          ...makeTxMock().reservation,
+          create: vi.fn().mockResolvedValue(makeReservationResult(hold)),
+        },
+        reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
+      });
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (t: unknown) => Promise<unknown>
+      ) => fn(tx)) as never);
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        guestDetails: { guestName: "Jane Doe", guestEmail: "jane@example.com" },
+        actor: { type: "guest", id: null },
+      });
+
+      expect(result.success).toBe(true);
+      expect(tx.reservationEvent.create).toHaveBeenCalledTimes(1);
+      expect(tx.reservationEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          reservationId: "res-1",
+          venueId: "venue-1",
+          kind: "created",
+          actorType: "guest",
+          toState: expect.objectContaining({ status: "CONFIRMED", tableId: "table-1" }),
+        }),
+      });
+    });
+
+    it("an expired hold writes no event", async () => {
+      const hold = makePrismaHold({ expiresAt: FIVE_MIN_AGO });
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      const tx = makeTxMock({ reservationEvent: { create: vi.fn() } });
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (t: unknown) => Promise<unknown>
+      ) => fn(tx)) as never);
+
+      const result = await confirmHold({ holdId: "hold-1", guestDetails: {} });
+
+      expect(result).toMatchObject({ success: false, errorCode: "EXPIRED" });
+      expect(tx.reservationEvent.create).not.toHaveBeenCalled();
     });
   });
 
