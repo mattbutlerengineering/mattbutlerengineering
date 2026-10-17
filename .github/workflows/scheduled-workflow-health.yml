@@ -5,7 +5,9 @@ on:
     # Daily at 08:00 UTC. release.yml (370 consecutive failures over 30 days)
     # and chaos-agent.yml (6 consecutive Monday failures) both survived weeks
     # undetected — ci-monitor watches main and open PRs, nothing watched the
-    # scheduled fleet (#4276).
+    # scheduled fleet (#4276). It also watches an explicit list of deploy
+    # workflows (#5343) and of push-triggered advisory workflows on main
+    # (#6955; `--branch main --event push` runs only).
     - cron: "0 8 * * *"
   workflow_dispatch:
     inputs:
