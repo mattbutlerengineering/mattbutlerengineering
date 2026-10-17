@@ -1,5 +1,12 @@
-import type { Deposit } from "../generated/prisma/index.js";
+import type { Deposit, DepositStatus, Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { setVenueContext } from "../middleware/venue-context.js";
+import { getCurrentVenueId } from "./venue-context-store.js";
+import {
+  recordReservationEvent,
+  SYSTEM_ACTOR,
+  type ReservationEventActor,
+} from "./reservation-events.js";
 import { StripeOperationError } from "./stripe.js";
 import type { PaymentsPort } from "../transitions/ports.js";
 import { transitionDeposit, DepositTransitionError } from "./deposit-state-machine.js";
@@ -36,6 +43,9 @@ export type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
 export interface DepositServiceLogger {
   error(details: object, msg: string): void;
 }
+
+/** Actor for deposit transitions driven by a Stripe webhook delivery. */
+const STRIPE_WEBHOOK_ACTOR: ReservationEventActor = { type: "system", id: "stripe-webhook" };
 
 let logger: DepositServiceLogger = { error: () => undefined };
 
@@ -316,18 +326,24 @@ export class DepositService {
    * call gets `count === 0` and returns `false` — the caller treats that as
    * an idempotent no-op rather than an error.
    */
-  async hold(depositId: string, stripePaymentIntentId: string): Promise<boolean> {
+  async hold(
+    depositId: string,
+    stripePaymentIntentId: string,
+    actor: ReservationEventActor = STRIPE_WEBHOOK_ACTOR
+  ): Promise<boolean> {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, "held"); // throws if invalid
 
-    const { count } = await prisma.deposit.updateMany({
-      where: { id: depositId, status: "pending" },
-      data: {
+    const count = await this._casWithEvent(
+      depositId,
+      "pending",
+      {
         status: "held",
         stripePaymentIntentId,
         heldAt: new Date(),
       },
-    });
+      actor
+    );
 
     return count > 0;
   }
@@ -359,16 +375,21 @@ export class DepositService {
    * Stripe's side (that is the event), so calling cancelPaymentIntent again
    * would fail against an already-canceled intent.
    */
-  async refund(depositId: string, options: { skipStripeCancel?: boolean } = {}): Promise<Deposit> {
+  async refund(
+    depositId: string,
+    options: { skipStripeCancel?: boolean; actor?: ReservationEventActor } = {}
+  ): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, "refunded"); // throws if invalid
 
     // Atomic compare-and-swap: only update if the row is still in the observed
     // status. count === 0 means another concurrent transition won the race.
-    const { count } = await prisma.deposit.updateMany({
-      where: { id: depositId, status: deposit.status },
-      data: { status: "refunded", refundedAt: new Date() },
-    });
+    const count = await this._casWithEvent(
+      depositId,
+      deposit.status,
+      { status: "refunded", refundedAt: new Date() },
+      options.actor ?? (options.skipStripeCancel ? STRIPE_WEBHOOK_ACTOR : SYSTEM_ACTOR)
+    );
 
     if (count === 0) {
       throw new DepositConcurrentUpdateError(depositId, "refund");
@@ -402,16 +423,21 @@ export class DepositService {
    * (#5725 item 3). No Stripe call is made: the intent is already canceled on
    * Stripe's side (that is the event that triggers this).
    */
-  async expireAuthorization(depositId: string): Promise<Deposit> {
+  async expireAuthorization(
+    depositId: string,
+    actor: ReservationEventActor = STRIPE_WEBHOOK_ACTOR
+  ): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
 
     // Atomic compare-and-swap: only update if the row is still in the observed
     // status. count === 0 means another concurrent transition won the race.
-    const { count } = await prisma.deposit.updateMany({
-      where: { id: depositId, status: deposit.status },
-      data: { status: "uncollectable", uncollectableAt: new Date() },
-    });
+    const count = await this._casWithEvent(
+      depositId,
+      deposit.status,
+      { status: "uncollectable", uncollectableAt: new Date() },
+      actor
+    );
 
     if (count === 0) {
       throw new DepositConcurrentUpdateError(depositId, "expireAuthorization");
@@ -544,7 +570,11 @@ export class DepositService {
    *    retry by checking ground truth (retrieve / already-refunded amount)
    *    first and skipping the call when it's already done (#5722 H2).
    */
-  async refundPartial(depositId: string, refundAmountCents: number): Promise<Deposit> {
+  async refundPartial(
+    depositId: string,
+    refundAmountCents: number,
+    actor: ReservationEventActor = SYSTEM_ACTOR
+  ): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
 
     // Validate at the trust boundary — never refund more than was deposited,
@@ -566,15 +596,17 @@ export class DepositService {
 
       // Atomic compare-and-swap: only update if the row is still in the observed
       // status. count === 0 means another concurrent transition won the race.
-      const { count } = await prisma.deposit.updateMany({
-        where: { id: depositId, status: deposit.status },
-        data: {
+      const count = await this._casWithEvent(
+        depositId,
+        deposit.status,
+        {
           status: "partial_refunded",
           refundedAt: new Date(),
           feeAmountCents,
           refundAmountCents,
         },
-      });
+        actor
+      );
 
       if (count === 0) {
         throw new DepositConcurrentUpdateError(depositId, "refundPartial");
@@ -891,14 +923,16 @@ export class DepositService {
 
     // Atomic compare-and-swap: only update if the row is still in the observed
     // status. count === 0 means another concurrent transition won the race.
-    const { count } = await prisma.deposit.updateMany({
-      where: { id: depositId, status: deposit.status },
-      data: {
+    const count = await this._casWithEvent(
+      depositId,
+      deposit.status,
+      {
         status: targetStatus,
         [timestampField]: new Date(),
         ...(forfeitOrigin ? { forfeitOrigin } : {}),
       },
-    });
+      SYSTEM_ACTOR
+    );
 
     if (count === 0) {
       throw new DepositConcurrentUpdateError(depositId, action);
@@ -1112,9 +1146,10 @@ export class DepositService {
     fromStatus: "applied" | "forfeited" | "partial_refunded",
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
   ): Promise<number> {
-    const { count } = await prisma.deposit.updateMany({
-      where: { id: depositId, status: fromStatus },
-      data: {
+    const count = await this._casWithEvent(
+      depositId,
+      fromStatus,
+      {
         status: "uncollectable",
         uncollectableAt: new Date(),
         [timestampField]: null,
@@ -1123,7 +1158,8 @@ export class DepositService {
           ? { feeAmountCents: null, refundAmountCents: null }
           : {}),
       },
-    });
+      SYSTEM_ACTOR
+    );
 
     if (count === 0) {
       logger.error(
@@ -1150,9 +1186,10 @@ export class DepositService {
     fromStatus: "applied" | "forfeited" | "partial_refunded" | "refunded",
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
   ): Promise<number> {
-    const { count } = await prisma.deposit.updateMany({
-      where: { id: depositId, status: fromStatus },
-      data: {
+    const count = await this._casWithEvent(
+      depositId,
+      fromStatus,
+      {
         status: "held",
         [timestampField]: null,
         forfeitOrigin: null,
@@ -1160,7 +1197,8 @@ export class DepositService {
           ? { feeAmountCents: null, refundAmountCents: null }
           : {}),
       },
-    });
+      SYSTEM_ACTOR
+    );
 
     if (count === 0) {
       logger.error(
@@ -1169,6 +1207,43 @@ export class DepositService {
       );
     }
     return count;
+  }
+
+  /**
+   * The one place a deposit status compare-and-swap runs: the CAS and its
+   * `deposit_transition` event share one venue-scoped transaction, so a
+   * transition never exists without its history row. A lost CAS
+   * (`count === 0`) writes no event. Returns the CAS's `count`.
+   */
+  private async _casWithEvent(
+    depositId: string,
+    fromStatus: DepositStatus,
+    data: Prisma.DepositUpdateManyMutationInput & { status: DepositStatus },
+    actor: ReservationEventActor
+  ): Promise<number> {
+    const venueId = getCurrentVenueId();
+    return prisma.$transaction(async (tx) => {
+      await setVenueContext(tx, venueId);
+      const { count } = await tx.deposit.updateMany({
+        where: { id: depositId, status: fromStatus },
+        data,
+      });
+      if (count > 0) {
+        const { reservationId } = await tx.deposit.findUniqueOrThrow({
+          where: { id: depositId },
+          select: { reservationId: true },
+        });
+        await recordReservationEvent(tx, {
+          reservationId,
+          venueId,
+          kind: "deposit_transition",
+          actor,
+          from: { depositStatus: fromStatus },
+          to: { depositStatus: data.status },
+        });
+      }
+      return count;
+    });
   }
 
   /**
