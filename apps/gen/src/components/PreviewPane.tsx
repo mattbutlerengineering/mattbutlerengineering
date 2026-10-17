@@ -84,6 +84,10 @@ export interface PreviewPaneProps {
   isFullscreen?: boolean;
   /** Called to toggle fullscreen mode. */
   onToggleFullscreen?: () => void;
+  /** Spec key of the node picked in select mode; owned by the parent so later features can read it. */
+  selectedKey?: string | null;
+  /** Called with the picked node's spec key, or null when the selection is cleared. */
+  onSelectNode?: (key: string | null) => void;
 }
 
 /**
@@ -104,11 +108,16 @@ export function PreviewPane({
   onSuggestionClick,
   isFullscreen = false,
   onToggleFullscreen,
+  selectedKey = null,
+  onSelectNode,
 }: PreviewPaneProps) {
   const { toast } = useToast();
   const { copied: copiedLink, copy: copyLink } = useCopyToClipboard();
   const { copied: copiedJson, copy: copyJson } = useCopyToClipboard();
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [selectMode, setSelectMode] = useState(false);
+  // Selection is disabled while streaming; the spec is still changing under the cursor.
+  const selectable = selectMode && !isStreaming;
   const specStats = useMemo(() => computeSpecStats(spec), [spec]);
 
   function handleShare(id: string) {
@@ -213,6 +222,20 @@ export function PreviewPane({
             onChange={(id) => setViewport(id as "desktop" | "tablet" | "mobile")}
             size="sm"
           />
+          {onSelectNode && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-pressed={selectable}
+              disabled={isStreaming}
+              onClick={() => {
+                if (selectMode) onSelectNode(null);
+                setSelectMode(!selectMode);
+              }}
+            >
+              Select component
+            </Button>
+          )}
         </div>
       )}
       <SpecProvider>
@@ -265,7 +288,14 @@ export function PreviewPane({
               className={styles.viewportFrame}
               style={{ maxInlineSize: VIEWPORT_WIDTHS[viewport] }}
             >
-              <SpecRenderer spec={spec} loading={isStreaming} />
+              <SpecRenderer
+                spec={spec}
+                loading={isStreaming}
+                selectable={selectable}
+                selectedKey={selectedKey}
+                onSelect={onSelectNode}
+                selectableClassName={styles.selectable}
+              />
             </div>
           </div>
         )}

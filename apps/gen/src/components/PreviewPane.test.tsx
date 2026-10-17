@@ -7,19 +7,54 @@ vi.mock("@json-render/react", () => ({
   JSONUIProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="json-ui-provider">{children}</div>
   ),
-  Renderer: ({ spec }: { spec: unknown }) => (
-    <div data-testid="renderer">{JSON.stringify(spec)}</div>
-  ),
+  Renderer: ({
+    spec,
+    registry,
+  }: {
+    spec: {
+      root: string;
+      elements: Record<string, { type: string; children?: string[] }>;
+    } | null;
+    registry: Record<string, (props: { element: unknown; children?: unknown }) => unknown>;
+  }) => {
+    // Renders the tree through the registry so wrappers around entries are exercised.
+    const renderKey = (key: string): React.ReactNode => {
+      const element = spec!.elements[key]!;
+      const Component = registry[element.type] as React.ComponentType<{
+        element: unknown;
+        children?: React.ReactNode;
+      }>;
+      const kids = element.children?.map((child) => <span key={child}>{renderKey(child)}</span>);
+      return Component ? <Component element={element}>{kids}</Component> : kids;
+    };
+    return <div data-testid="renderer">{spec ? renderKey(spec.root) : null}</div>;
+  },
 }));
 
 vi.mock("@mbe/rialto-catalog", () => ({
-  registry: {},
+  registry: {
+    Box: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+    Text: () => <p>text node</p>,
+    Button: () => <button type="button">button node</button>,
+  },
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
-  Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <button onClick={onClick}>{children}</button>
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    "aria-pressed"?: boolean;
+  }) => (
+    <button onClick={onClick} disabled={disabled} aria-pressed={rest["aria-pressed"]}>
+      {children}
+    </button>
   ),
   Divider: () => <hr />,
   Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
@@ -64,6 +99,7 @@ vi.mock("./PreviewPane.module.css", () => ({
     viewportFrame: "viewportFrame",
     specStats: "specStats",
     fullscreenToggle: "fullscreenToggle",
+    selectable: "selectable",
   },
 }));
 
@@ -268,5 +304,74 @@ describe("PreviewPane", () => {
       />
     );
     expect(screen.getByText("Collapse")).toBeDefined();
+  });
+
+  describe("select mode", () => {
+    function renderSelectable(extra: Partial<React.ComponentProps<typeof PreviewPane>> = {}) {
+      const onSelectNode = vi.fn();
+      const utils = render(
+        <PreviewPane {...defaultProps} spec={FLAT_SPEC} onSelectNode={onSelectNode} {...extra} />
+      );
+      return { onSelectNode, ...utils };
+    }
+
+    it("renders no data-gen-node attributes until select mode is on", () => {
+      const { container } = renderSelectable();
+      expect(container.querySelectorAll("[data-gen-node]")).toHaveLength(0);
+      expect(screen.queryByRole("group", { name: "Select component" })).toBeNull();
+    });
+
+    it("tags every rendered element with its spec key in select mode", () => {
+      const { container } = renderSelectable();
+      fireEvent.click(screen.getByRole("button", { name: "Select component" }));
+      const keys = Array.from(container.querySelectorAll("[data-gen-node]")).map(
+        (node) => (node as HTMLElement).dataset.genNode
+      );
+      expect(keys.sort()).toEqual(["box", "button", "text"]);
+    });
+
+    it("selects the innermost node on click without triggering the component", () => {
+      const { onSelectNode } = renderSelectable();
+      fireEvent.click(screen.getByRole("button", { name: "Select component" }));
+      fireEvent.click(screen.getByText("button node"));
+      expect(onSelectNode).toHaveBeenCalledWith("button");
+    });
+
+    it("moves with arrows, selects with Enter and clears with Escape", () => {
+      const { onSelectNode, rerender } = renderSelectable();
+      fireEvent.click(screen.getByRole("button", { name: "Select component" }));
+      const overlay = screen.getByRole("group", { name: "Select component" });
+      fireEvent.keyDown(overlay, { key: "ArrowDown" });
+      fireEvent.keyDown(overlay, { key: "ArrowDown" });
+      fireEvent.keyDown(overlay, { key: "Enter" });
+      expect(onSelectNode).toHaveBeenLastCalledWith("text");
+      rerender(
+        <PreviewPane
+          {...defaultProps}
+          spec={FLAT_SPEC}
+          onSelectNode={onSelectNode}
+          selectedKey="text"
+        />
+      );
+      fireEvent.keyDown(screen.getByRole("group", { name: "Select component" }), {
+        key: "Escape",
+      });
+      expect(onSelectNode).toHaveBeenLastCalledWith(null);
+    });
+
+    it("marks the selected node", () => {
+      const { container } = renderSelectable({ selectedKey: "button" });
+      fireEvent.click(screen.getByRole("button", { name: "Select component" }));
+      const selected = container.querySelectorAll("[data-selected='true']");
+      expect(selected).toHaveLength(1);
+      expect((selected[0] as HTMLElement).dataset.genNode).toBe("button");
+    });
+
+    it("is disabled while streaming", () => {
+      const { container } = renderSelectable({ isStreaming: true });
+      const toggle = screen.getByRole("button", { name: "Select component" }) as HTMLButtonElement;
+      expect(toggle.disabled).toBe(true);
+      expect(container.querySelectorAll("[data-gen-node]")).toHaveLength(0);
+    });
   });
 });
