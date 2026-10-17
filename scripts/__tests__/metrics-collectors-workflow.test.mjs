@@ -125,6 +125,7 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
     // that follows them reports the failure instead.
     const sanctioned = [
       "Collect queue telemetry from merged agent PRs",
+      "Reconcile queue telemetry",
       "Collect queueEfficiency sensor row",
       "Collect AI issue feedback",
       "Collect SDLC speed sensor row",
@@ -219,6 +220,28 @@ describe("metrics-collectors workflow collects queue telemetry (#5921)", () => {
     )?.[1];
     expect(step).toBeDefined();
     expect(step).toMatch(/^\s+continue-on-error: true$/m);
+  });
+
+  it("reconciles the rows it just appended, between the collector and the PR step (#6931)", () => {
+    const job = getJob(loadWorkflow(WORKFLOW_PATH), "collect");
+    const at = (re) => job.steps.findIndex((s) => re.test(s.run ?? ""));
+    const reconcileAt = at(/node scripts\/reconcile-queue-telemetry\.mjs/);
+    expect(reconcileAt).toBeGreaterThan(-1);
+    expect(reconcileAt).toBeGreaterThan(at(/collect-queue-telemetry-from-github\.mjs/));
+    expect(reconcileAt).toBeLessThan(
+      job.steps.findIndex((s) => s.name === "Open PR with collected metrics")
+    );
+    // queueEfficiency must read the reconciled sink, not yesterday's.
+    expect(reconcileAt).toBeLessThan(at(/record-queue-efficiency\.mjs/));
+  });
+
+  it("gives the reconcile step GITHUB_TOKEN and isolates its failure (#6931)", () => {
+    const step = getStep(
+      getJob(loadWorkflow(WORKFLOW_PATH), "collect"),
+      "Reconcile queue telemetry"
+    );
+    expect(step.env.GH_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
+    expect(step["continue-on-error"]).toBe(true);
   });
 
   it("commits metrics/queue-telemetry.jsonl in the automation PR", () => {

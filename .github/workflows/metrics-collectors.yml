@@ -65,6 +65,33 @@ jobs:
           set -o pipefail
           node scripts/acmm/review-burden-metrics.js --days 7 | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Scheduled backstop for metrics/queue-telemetry.jsonl (#5921): in-session
+      # rows are only persisted when a session follows SKILL.md Phase 4, so days
+      # with no session leave gaps. Derives pending rows for merged agent PRs
+      # the file does not already cover; reconcile fills outcomes later.
+      - name: Collect queue telemetry from merged agent PRs
+        # A gh 5xx / rate limit here must not skip the review-burden PR flow.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          node scripts/collect-queue-telemetry-from-github.mjs --days 7 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Fills the outcome fields (merged, ci_first_pass, rework_cycles,
+      # merged_at) on the rows appended just above (#6931). The cloud routine
+      # that used to run this (/optimize-implement-queue Step 0) has a token
+      # api.github.com rejects (#6466), so this is the primary reconciler.
+      # Must run before the queueEfficiency sensor, which reads the sink.
+      - name: Reconcile queue telemetry
+        # A gh 5xx must not skip the PR flow, same as the collector above.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          node scripts/reconcile-queue-telemetry.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       # #6466: these two collectors used to run only inside Claude Code cloud
       # routines, whose session token api.github.com refuses
       # (`credential_rejected`) and which cannot use GraphQL — so their files
@@ -279,19 +306,6 @@ jobs:
             --dedupe-key "agent-spend-telemetry-broken" \
             --search-label "ci-fix" \
             --contains "Agent spend telemetry stopped"
-
-      # Scheduled backstop for metrics/queue-telemetry.jsonl (#5921): in-session
-      # rows are only persisted when a session follows SKILL.md Phase 4, so days
-      # with no session leave gaps. Derives pending rows for merged agent PRs
-      # the file does not already cover; reconcile fills outcomes later.
-      - name: Collect queue telemetry from merged agent PRs
-        # A gh 5xx / rate limit here must not skip the review-burden PR flow.
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -o pipefail
-          node scripts/collect-queue-telemetry-from-github.mjs --days 7 | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Open PR with collected metrics
         id: create-pr

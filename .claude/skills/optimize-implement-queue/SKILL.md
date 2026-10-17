@@ -24,6 +24,8 @@ node scripts/reconcile-queue-telemetry.mjs
 
 Idempotent and capped at 50 GitHub lookups; safe to run every day.
 
+The daily `.github/workflows/metrics-collectors.yml` job now runs this reconciler right after it appends rows, with a working `GITHUB_TOKEN`, so the workflow is the primary reconciler. This routine's run is best-effort: its token is often rejected by api.github.com (`credential_rejected`, #6466), so a failure here is not an error.
+
 ## Step 1: Collect the Queue-Efficiency Sensor
 
 Run the sensor-report to collect the `queueEfficiency` sub-report:
