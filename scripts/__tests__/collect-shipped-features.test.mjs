@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { isShippedFeaturesSnapshot } from "../../apps/marketing/src/data/shipped-features.ts";
 import {
   parseTaskList,
   extractProposalIssue,
@@ -224,7 +223,30 @@ describe("deriveShippedFeatures", () => {
     expect(snapshot.features[0].liveUrl).toBeNull();
   });
 
-  it("passes the marketing TS guard", () => {
-    expect(isShippedFeaturesSnapshot(deriveShippedFeatures(input()).snapshot)).toBe(true);
+  it("emits the shape the marketing guard requires (apps cannot be imported from scripts)", () => {
+    const { snapshot } = deriveShippedFeatures(input());
+    const isIso = (v) => typeof v === "string" && new Date(v).toISOString() === v;
+    expect(isIso(snapshot.generatedAt)).toBe(true);
+    for (const f of snapshot.features) {
+      expect(Number.isInteger(f.trackingIssue)).toBe(true);
+      expect(f.liveUrl === null || /^\/(?!\/)/.test(f.liveUrl)).toBe(true);
+      expect([f.firstMergedAt, f.lastMergedAt].every(isIso)).toBe(true);
+      expect(f.proposedAt === null || isIso(f.proposedAt)).toBe(true);
+      for (const c of f.children) {
+        expect(Number.isInteger(c.issue)).toBe(true);
+        for (const p of c.prs) {
+          expect(Number.isInteger(p.number)).toBe(true);
+          expect(isIso(p.mergedAt)).toBe(true);
+          expect(Object.keys(p).sort()).toEqual([
+            "ciGate",
+            "mergeCommit",
+            "mergedAt",
+            "number",
+            "reviewVerdict",
+            "title",
+          ]);
+        }
+      }
+    }
   });
 });
