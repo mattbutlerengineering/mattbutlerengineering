@@ -8791,11 +8791,18 @@
       }
     </item>
     <item priority="low">
+      interface ReservationEventCounts {
+        byKind: Record<ReservationEventKind, number>;
+        rejectedTransitions: number;
+      }
+    </item>
+    <item priority="low">
       interface DailyBookingMetrics {
         date: string;
         venueId: string;
         reservations: ReservationStatusCounts;
         deposits: DepositTransitionCounts;
+        events: ReservationEventCounts;
       }
     </item>
     <item priority="low">
