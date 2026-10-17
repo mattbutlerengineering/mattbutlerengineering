@@ -1307,7 +1307,10 @@
         "MODIFICATION_CUTOFF": "Il est trop tard pour modifier votre réservation en ligne. Veuillez communiquer avec l'établissement.",
         "PARTY_SIZE_CHANGE_TOO_LARGE": "Cette modification du nombre de personnes est trop importante pour être faite en ligne. Veuillez communiquer avec l'établissement.",
         "UNKNOWN": "Impossible de modifier votre réservation. Votre réservation initiale est inchangée; veuillez réessayer."
-      }
+      },
+      "action": "Modifier la réservation",
+      "cutoff": "Les modifications ferment {{hours}} heures avant votre visite. Appelez {{venue}} pour modifier cette réservation.",
+      "success": "Votre réservation a été mise à jour."
     }
   },
   "offlineBanner": {

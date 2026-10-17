@@ -1286,7 +1286,10 @@
         "MODIFICATION_CUTOFF": "It's too close to your booking time to change it online. Please contact the venue.",
         "PARTY_SIZE_CHANGE_TOO_LARGE": "That party size change is too large to make online. Please contact the venue.",
         "UNKNOWN": "We couldn't change your booking. Your original booking is unchanged — please try again."
-      }
+      },
+      "action": "Change booking",
+      "cutoff": "Changes close {{hours}} hours before your visit. Call {{venue}} to change this booking.",
+      "success": "Your booking has been updated."
     }
   },
   "offlineBanner": {

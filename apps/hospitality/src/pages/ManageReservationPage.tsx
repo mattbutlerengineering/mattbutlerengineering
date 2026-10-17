@@ -8,6 +8,7 @@ import { Stack, Text, Card, Button, EmptyState } from "@mattbutlerengineering/ri
 import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
+import { ChangeBookingDialog } from "../components/manage-reservation/ChangeBookingDialog.js";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog.js";
 import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../utils/calendarLinks.js";
@@ -85,6 +86,9 @@ function ManageReservationPageContent() {
   const token = params.token || null;
   const publicApiClient = usePublicApiClient({ baseUrl: API_BASE, maxRetries: 3 });
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showChangeDialog, setShowChangeDialog] = useState(false);
+  const [changed, setChanged] = useState(false);
+  const [mountedAt] = useState(() => Date.now());
   const specialRequestsId = useId();
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -124,6 +128,12 @@ function ManageReservationPageContent() {
     });
     await refetch();
     setShowCancelDialog(false);
+  };
+
+  const handleChanged = async (): Promise<void> => {
+    setShowChangeDialog(false);
+    await refetch();
+    setChanged(true);
   };
 
   // No token in URL
@@ -173,6 +183,11 @@ function ManageReservationPageContent() {
   const formattedEnd = format.formatTime(reservation.endTime);
   const canCancel = CANCELLABLE_STATUSES.has(reservation.status);
   const requests = specialRequestsText(reservation.notes);
+  const cutoffHours = venue?.modificationCutoffHours ?? null;
+  const pastCutoff =
+    cutoffHours !== null &&
+    new Date(reservation.startTime).getTime() - mountedAt < cutoffHours * 3_600_000;
+  const canChange = canCancel && venue !== null && !pastCutoff;
 
   return (
     <main>
@@ -288,6 +303,19 @@ function ManageReservationPageContent() {
                 {t("manageReservation.call", { venue: venue.name })}
               </a>
             )}
+            {canChange && (
+              <Button variant="secondary" onClick={() => setShowChangeDialog(true)}>
+                {t("manageReservation.change.action")}
+              </Button>
+            )}
+            {canCancel && venue !== null && pastCutoff && (
+              <Text variant="caption" color="secondary" align="center">
+                {t("manageReservation.change.cutoff", {
+                  hours: cutoffHours,
+                  venue: venue.name,
+                })}
+              </Text>
+            )}
             {canCancel ? (
               <Button variant="ghost" onClick={() => setShowCancelDialog(true)}>
                 {t("manageReservation.cancel")}
@@ -301,6 +329,18 @@ function ManageReservationPageContent() {
             )}
           </Stack>
         </Stack>
+
+        <div role="status">{changed ? t("manageReservation.change.success") : null}</div>
+
+        {showChangeDialog && venue && (
+          <ChangeBookingDialog
+            token={token}
+            venue={venue}
+            reservation={reservation}
+            onChanged={() => void handleChanged()}
+            onClose={() => setShowChangeDialog(false)}
+          />
+        )}
 
         {showCancelDialog && (
           <CancelReservationDialog
