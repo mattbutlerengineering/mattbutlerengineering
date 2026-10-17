@@ -4,7 +4,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
-const ROUTES = ["/", "/status", "/weekly", "/metrics", "/acmm", "/ai-health"] as const;
+const ROUTES = ["/", "/status", "/weekly", "/metrics", "/acmm", "/ai-health", "/shipped"] as const;
 
 /**
  * Real-device mobile viewports (CSS px). 412×924 matches the Pixel 9 Pro
