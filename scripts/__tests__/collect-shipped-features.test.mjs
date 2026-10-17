@@ -5,6 +5,9 @@ import {
   slugFor,
   liveUrlFor,
   deriveShippedFeatures,
+  extractReviewVerdict,
+  collectShippedInput,
+  runCli,
 } from "../collect-shipped-features.mjs";
 
 describe("parseTaskList", () => {
@@ -248,5 +251,174 @@ describe("deriveShippedFeatures", () => {
         }
       }
     }
+  });
+});
+
+// ---- gh I/O layer (injected runner, no network) ----------------------------
+
+const TRACKING = {
+  number: 100,
+  title: "[Feature] Demo: tracking issue",
+  body: "Tracking (proposal #90).\n\n- [x] #101 — a\n- [x] #102 — b",
+  created_at: "2026-10-01T00:00:00Z",
+};
+
+function fakeGh(overrides = {}, calls = []) {
+  const routes = {
+    "issues?labels=tracking": [[TRACKING, { number: 7, pull_request: {}, title: "pr" }]],
+    "issues/90": { number: 90, created_at: "2026-09-30T00:00:00Z", body: "Why.\n\nMore." },
+    "issues/101/timeline": [
+      [
+        { event: "cross-referenced", source: { issue: { number: 201, pull_request: {} } } },
+        { event: "labeled" },
+      ],
+    ],
+    "issues/102/timeline": [
+      [
+        { event: "cross-referenced", source: { issue: { number: 202, pull_request: {} } } },
+        { event: "cross-referenced", source: { issue: { number: 203, pull_request: {} } } },
+      ],
+    ],
+    "issues/101": { number: 101, title: "a" },
+    "issues/102": { number: 102, title: "b" },
+    "pulls/201/files": [[{ filename: "apps/hospitality/a.tsx" }]],
+    "pulls/202/files": [[{ filename: "apps/hospitality/b.tsx" }]],
+    "pulls/201": {
+      number: 201,
+      title: "pr a",
+      body: "Closes #101",
+      merged_at: "2026-10-02T00:00:00Z",
+      merge_commit_sha: "aaa",
+      head: { sha: "h1" },
+    },
+    "pulls/202": {
+      number: 202,
+      title: "pr b",
+      body: "Closes #102",
+      merged_at: "2026-10-03T00:00:00Z",
+      merge_commit_sha: "bbb",
+      head: { sha: "h2" },
+    },
+    "pulls/203": {
+      number: 203,
+      title: "mentions only",
+      body: "see #102",
+      merged_at: "2026-10-04T00:00:00Z",
+      merge_commit_sha: "ccc",
+      head: { sha: "h3" },
+    },
+    "commits/h1/check-runs": { check_runs: [{ conclusion: "success" }] },
+    "commits/h2/check-runs": { check_runs: [] },
+    "commits/h2/statuses": [{ context: "CI Gate", state: "failure" }],
+    "issues/201/comments": [[{ body: "Reviewer verdict: PASS (8/10)" }]],
+    "issues/202/comments": [[]],
+    ...overrides,
+  };
+  return (args) => {
+    calls.push(args);
+    const path = args.find((a) => a.startsWith("repos/")) ?? "";
+    const key = Object.keys(routes)
+      .sort((a, b) => b.length - a.length)
+      .find((k) => path.includes(k));
+    if (!key) throw new Error(`unrouted ${path}`);
+    const value = routes[key];
+    if (value instanceof Error) throw value;
+    return JSON.stringify(value);
+  };
+}
+
+describe("extractReviewVerdict", () => {
+  it("reads pass/flag from a verdict comment, null otherwise", () => {
+    expect(extractReviewVerdict([{ body: "Reviewer verdict: FLAG (4/10)" }])).toBe("flag");
+    expect(extractReviewVerdict([{ body: "nice" }, { body: "review verdict - pass" }])).toBe(
+      "pass"
+    );
+    expect(extractReviewVerdict([{ body: "looks good" }])).toBeNull();
+    expect(extractReviewVerdict(null)).toBeNull();
+  });
+});
+
+describe("collectShippedInput", () => {
+  it("gathers merged closing PRs per child over REST only", () => {
+    const calls = [];
+    const input = collectShippedInput({ gh: fakeGh({}, calls), repo: "o/r" });
+    expect(input.trackingIssues.map((t) => t.number)).toEqual([100]);
+    expect(Object.keys(input.prsByIssue).sort()).toEqual(["101", "102"]);
+    expect(input.prsByIssue[102].map((p) => p.number)).toEqual([202]);
+    expect(input.prsByIssue[101][0]).toMatchObject({
+      files: ["apps/hospitality/a.tsx"],
+      ciGate: "success",
+      reviewVerdict: "pass",
+    });
+    expect(input.prsByIssue[102][0]).toMatchObject({ ciGate: "failure", reviewVerdict: null });
+    expect(input.proposalsByNumber[90].created_at).toBe("2026-09-30T00:00:00Z");
+    for (const args of calls) expect(args[0]).toBe("api");
+  });
+
+  it("honours limit by most recent tracking issue", () => {
+    const gh = fakeGh({
+      "issues?labels=tracking": [[TRACKING, { ...TRACKING, number: 50 }]],
+    });
+    expect(
+      collectShippedInput({ gh, repo: "o/r", limit: 1 }).trackingIssues.map((t) => t.number)
+    ).toEqual([100]);
+  });
+});
+
+describe("runCli", () => {
+  function harness(gh, argv = []) {
+    const writes = [];
+    const out = [];
+    const err = [];
+    const code = runCli(argv, {
+      gh,
+      repo: "o/r",
+      writeFile: (path, data) => writes.push({ path, data }),
+      log: (m) => out.push(m),
+      errorLog: (m) => err.push(m),
+    });
+    return { code, writes, out, err };
+  }
+
+  it("writes a prettier-stable snapshot and prints a summary", () => {
+    const { code, writes, out } = harness(fakeGh());
+    expect(code).toBe(0);
+    expect(writes).toHaveLength(1);
+    expect(writes[0].path).toMatch(/apps\/marketing\/src\/data\/shipped-features\.json$/);
+    expect(writes[0].data.endsWith("}\n")).toBe(true);
+    expect(JSON.parse(writes[0].data).features).toHaveLength(1);
+    expect(out.join("\n")).toMatch(/wrote 1 features, skipped 0/);
+  });
+
+  it("is byte-identical across runs with unchanged upstream data", () => {
+    const a = harness(fakeGh()).writes[0].data;
+    const b = harness(fakeGh()).writes[0].data;
+    expect(a).toBe(b);
+    expect(JSON.parse(a).generatedAt).toBe("2026-10-03T00:00:00.000Z");
+  });
+
+  it("honours --out", () => {
+    expect(harness(fakeGh(), ["--out", "/tmp/x.json"]).writes[0].path).toBe("/tmp/x.json");
+  });
+
+  it("--dry-run prints the snapshot and writes nothing", () => {
+    const { code, writes, out } = harness(fakeGh(), ["--dry-run"]);
+    expect(code).toBe(0);
+    expect(writes).toEqual([]);
+    expect(out.join("\n")).toContain('"features"');
+  });
+
+  it("fails non-zero and does NOT write when a fetch fails", () => {
+    const gh = fakeGh({ "pulls/201": new Error("HTTP 401: Bad credentials") });
+    const { code, writes, err } = harness(gh);
+    expect(code).not.toBe(0);
+    expect(writes).toEqual([]);
+    expect(err.join("\n")).toMatch(/Bad credentials/);
+  });
+
+  it("fails rather than overwriting with an empty snapshot when no tracking issues come back", () => {
+    const { code, writes } = harness(fakeGh({ "issues?labels=tracking": [[]] }));
+    expect(code).not.toBe(0);
+    expect(writes).toEqual([]);
   });
 });
