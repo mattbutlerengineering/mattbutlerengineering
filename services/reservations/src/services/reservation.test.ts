@@ -49,6 +49,7 @@ import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { checkTableConflict, checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
+import { ReservationTransitionError } from "./reservation-state-machine.js";
 import { getCurrentVenueId } from "./venue-context-store.js";
 
 /** Role statements from `listByUserId`'s venue-id transaction. */
@@ -147,9 +148,27 @@ function useSlotTxOnce(reservationRow: unknown = makePrismaReservation()) {
   return tx;
 }
 
+/**
+ * Default transaction client: a passthrough whose model delegates are the
+ * `prisma` mocks, so a test written against `prisma.reservation.*` still
+ * observes writes that now run inside an explicit transaction. Tests that need
+ * to assert on the transaction client itself queue their own via
+ * `useSlotTxOnce` or `mockImplementationOnce`.
+ */
+const defaultTx = {
+  $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+  $executeRaw: vi.fn().mockResolvedValue(0),
+  reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
+};
+
 describe("reservationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.$transaction).mockImplementation(((
+      fn: (client: unknown) => Promise<unknown>
+    ) => fn(Object.assign(defaultTx, prisma, { $transaction: undefined }))) as never);
+    // Default before-state for the in-transaction read `update` now does.
+    vi.mocked(prisma.reservation.findUnique).mockResolvedValue(makePrismaReservation() as never);
     // Default: empty pre-fetched slices; individual tests override as needed.
     vi.mocked(availabilityService.fetchConflictData).mockResolvedValue({
       reservations: [],
@@ -1085,7 +1104,7 @@ describe("reservationService", () => {
       );
 
       await expect(reservationService.update("res-1", { status: "COMPLETED" })).rejects.toThrow();
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
     });
 
     it("persists cancellationReason and cancellationNote when cancelling", async () => {
@@ -1143,6 +1162,129 @@ describe("reservationService", () => {
 
       expect(result).toBeNull();
       expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("update events (reservation-event-log)", () => {
+    const eventKinds = () =>
+      defaultTx.reservationEvent.create.mock.calls.map(
+        (call) => (call[0] as { data: { kind: string } }).data.kind
+      );
+
+    function mockStatusChange(from: string, to: string, count = 1) {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: from }) as never
+      );
+      // A lost CAS returns before the re-read, so queue it only when it runs.
+      if (count > 0) {
+        vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+          makePrismaReservation({ status: to }) as never
+        );
+      }
+      vi.mocked(prisma.reservation.updateMany).mockResolvedValueOnce({ count } as never);
+    }
+
+    it.each([
+      ["PENDING", "CONFIRMED", "status_changed"],
+      ["CONFIRMED", "COMPLETED", "status_changed"],
+      ["CONFIRMED", "CANCELLED", "cancelled"],
+      ["CONFIRMED", "NO_SHOW", "no_show"],
+    ])("%s -> %s writes exactly one %s event", async (from, to, kind) => {
+      mockStatusChange(from, to);
+
+      await reservationService.update(
+        "res-1",
+        { status: to as never },
+        { type: "staff", id: "u1" }
+      );
+
+      expect(eventKinds()).toEqual([kind]);
+      expect(defaultTx.reservationEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          reservationId: "res-1",
+          venueId: "venue-1",
+          actorType: "staff",
+          actorId: "u1",
+          fromState: expect.objectContaining({ status: from }),
+          toState: expect.objectContaining({ status: to }),
+        }),
+      });
+    });
+
+    it("a lost CAS writes no event", async () => {
+      mockStatusChange("PENDING", "CONFIRMED", 0);
+
+      const result = await reservationService.update("res-1", { status: "CONFIRMED" });
+
+      expect(result).toBeNull();
+      expect(defaultTx.reservationEvent.create).not.toHaveBeenCalled();
+    });
+
+    it("an invalid transition writes one transition_rejected event and rethrows", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "COMPLETED" }) as never
+      );
+
+      await expect(reservationService.update("res-1", { status: "CONFIRMED" })).rejects.toThrow(
+        ReservationTransitionError
+      );
+
+      expect(eventKinds()).toEqual(["transition_rejected"]);
+      expect(defaultTx.reservationEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          fromState: expect.objectContaining({ status: "COMPLETED" }),
+          toState: { status: "CONFIRMED" },
+        }),
+      });
+      expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("a notes-only edit writes one updated event", async () => {
+      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
+        makePrismaReservation({ notes: "x" }) as never
+      );
+
+      await reservationService.update("res-1", { notes: "x" });
+
+      expect(eventKinds()).toEqual(["updated"]);
+    });
+
+    it("a slot move writes one moved event on the bookSlot transaction", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      const tx = useSlotTxOnce(makePrismaReservation({ tableId: "table-2" }));
+
+      await reservationService.updateWithConflictCheck(
+        "res-1",
+        { tableId: "table-2" },
+        { type: "staff", id: "u1" }
+      );
+
+      expect(tx.reservationEvent.create).toHaveBeenCalledTimes(1);
+      expect(tx.reservationEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          kind: "moved",
+          actorId: "u1",
+          fromState: expect.objectContaining({ tableId: "table-1" }),
+          toState: expect.objectContaining({ tableId: "table-2" }),
+        }),
+      });
+      expect(defaultTx.reservationEvent.create).not.toHaveBeenCalled();
+    });
+
+    it("the refused status + move combination writes no event (#6882)", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        status: "CONFIRMED",
+        tableId: "table-2",
+      });
+
+      expect(result.success).toBe(false);
+      expect(defaultTx.reservationEvent.create).not.toHaveBeenCalled();
     });
   });
 
