@@ -1,5 +1,6 @@
+import { useState } from "react";
 import type { Spec } from "@json-render/react";
-import { Button, Text } from "@mattbutlerengineering/rialto";
+import { Button, Input, Text } from "@mattbutlerengineering/rialto";
 import { catalog } from "@mbe/rialto-catalog/catalog";
 import { ancestorChain, subtreeKeys } from "../lib/spec-subtree.js";
 import styles from "./NodeInspector.module.css";
@@ -10,10 +11,21 @@ export interface NodeInspectorProps {
   selectedKey: string;
   /** Called with an ancestor's key when its breadcrumb item is clicked. */
   onSelectNode: (key: string) => void;
+  /** Called with the selected key and the user's change request; omit to hide the refine form. */
+  onRefineNode?: (key: string, instruction: string) => void;
+  /** Disables the refine form while a generation is streaming. */
+  isBusy?: boolean;
 }
 
 /** Read-only details of the node picked in the preview: type, description, props, size, ancestry. */
-export function NodeInspector({ spec, selectedKey, onSelectNode }: NodeInspectorProps) {
+export function NodeInspector({
+  spec,
+  selectedKey,
+  onSelectNode,
+  onRefineNode,
+  isBusy = false,
+}: NodeInspectorProps) {
+  const [instruction, setInstruction] = useState("");
   const element = spec.elements[selectedKey];
   if (!element) return null;
 
@@ -50,6 +62,29 @@ export function NodeInspector({ spec, selectedKey, onSelectNode }: NodeInspector
       <Text variant="caption" color="tertiary">
         {childCount} direct {childCount === 1 ? "child" : "children"} · {subtreeSize} in subtree
       </Text>
+      {onRefineNode && (
+        <form
+          className={styles.refine}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const trimmed = instruction.trim();
+            if (!trimmed || isBusy) return;
+            onRefineNode(selectedKey, trimmed);
+            setInstruction("");
+          }}
+        >
+          <Input
+            label="Change this component"
+            placeholder="e.g. make this a 3-column grid"
+            value={instruction}
+            disabled={isBusy}
+            onChange={(event) => setInstruction(event.target.value)}
+          />
+          <Button type="submit" size="sm" disabled={isBusy || instruction.trim() === ""}>
+            Refine
+          </Button>
+        </form>
+      )}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- scrollable region must be keyboard reachable */}
       <pre className={styles.props} tabIndex={0} aria-label="Props">
         {JSON.stringify(element.props ?? {}, null, 2)}

@@ -3524,7 +3524,9 @@
         isStreaming: boolean;
         error: Error | null;
         rawLines: string[];
-        send: (prompt: string, context?: Record<string, unknown>) => Pr...;
+        send: (
+          prompt: string,
+          context?: Record<string, unknow...;
       }
     </item>
     <item priority="medium">
@@ -5241,6 +5243,14 @@
       export function specStats(spec: Spec | null): SpecStats | null { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/lib/validate-spec.ts">
+    <item priority="low">
+      type CatalogValidation = { ok: true } | { ok: false; message: string };
+    </item>
+    <item priority="high">
+      export function validateSpecAgainstCatalog(spec: Spec): CatalogValidation { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
     <item priority="low">
       type ApiErrorCategory = ErrorCategory | "network" | "timeout";
@@ -5561,7 +5571,23 @@
       export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/pages/createSubtreeRefinementPrompt.ts">
+    <item priority="high">
+      export function createSubtreeRefinementPrompt(
+        subtree: Spec,
+        ancestors: { key: string; type: string }[],
+        userInstruction: string
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/pages/usePlaygroundSession.ts">
+    <item priority="high">
+      interface NodeRefine {
+        base: Spec;
+        key: string;
+        instruction: string;
+      }
+    </item>
     <item priority="low">
       interface PlaygroundSession {
         mode: PlaygroundMode;

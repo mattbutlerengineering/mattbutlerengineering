@@ -19,7 +19,12 @@ export interface UseGenStreamReturn {
   isStreaming: boolean;
   error: Error | null;
   rawLines: string[];
-  send: (prompt: string, context?: Record<string, unknown>) => Promise<void>;
+  send: (
+    prompt: string,
+    context?: Record<string, unknown>,
+    /** Extra top-level request body fields, e.g. `target` for subtree-scoped generation. */
+    extraBody?: Record<string, unknown>
+  ) => Promise<void>;
   clear: () => void;
   stop: () => void;
 }
@@ -82,7 +87,11 @@ export function useGenStream({
   }, [onError]);
 
   const send = useCallback(
-    async (prompt: string, context?: Record<string, unknown>): Promise<void> => {
+    async (
+      prompt: string,
+      context?: Record<string, unknown>,
+      extraBody?: Record<string, unknown>
+    ): Promise<void> => {
       // Abort any in-flight request
       abortControllerRef.current?.abort();
 
@@ -102,7 +111,7 @@ export function useGenStream({
       try {
         const stream = streamNDJSON<Record<string, unknown>>({
           url: api,
-          body: { prompt, context },
+          body: { prompt, context, ...extraBody },
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
           signal: controller.signal,
         });

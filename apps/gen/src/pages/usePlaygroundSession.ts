@@ -8,6 +8,10 @@ import { isTransportError } from "./classifyGenerationError.js";
 import { usePlaygroundState } from "./usePlaygroundState.js";
 import type { PlaygroundMode } from "./usePlaygroundState.js";
 import { decodeSpec } from "../lib/spec.js";
+import { ancestorChain, extractSubtree, spliceSubtree } from "../lib/spec-subtree.js";
+import type { SpecError } from "../lib/spec-subtree.js";
+import { validateSpecAgainstCatalog } from "../lib/validate-spec.js";
+import { createSubtreeRefinementPrompt } from "./createSubtreeRefinementPrompt.js";
 import { resolveEntry } from "../lib/entry-kind.js";
 import type { EntryKind, StoredSpec } from "../types.js";
 
@@ -17,6 +21,19 @@ import type { EntryKind, StoredSpec } from "../types.js";
 // NOT NULL, so this stands in for "no spec" without risking a render crash
 // if the failed entry is ever selected from history.
 const EMPTY_SPEC: Spec = { root: "", elements: {} };
+
+const SPLICE_ERROR_MESSAGES: Record<SpecError, string> = {
+  "unknown-key": "The selected component no longer exists in the spec.",
+  "root-mismatch": "The regenerated subtree's root key does not match the selected component.",
+  "key-collision": "The regenerated subtree reuses keys from elsewhere in the spec.",
+};
+
+/** A single-node refinement in flight: the spec it was made on and what was asked. */
+interface NodeRefine {
+  base: Spec;
+  key: string;
+  instruction: string;
+}
 
 export interface PlaygroundSession {
   // Render mode + transient overlays (passed through from usePlaygroundState)
@@ -54,6 +71,8 @@ export interface PlaygroundSession {
   // Session verbs — own transition choreography lives here, not in the caller.
   submit: (prompt: string) => void;
   refine: () => void;
+  /** Regenerate only the subtree at `key`, splice it into the displayed spec, and save the result. */
+  refineNode: (key: string, instruction: string) => void;
   replay: (id: string) => void;
   retry: () => void;
   selectHistory: (id: string) => void;
@@ -103,16 +122,47 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // only read, on the error-context retry path.
   const refineSpecRef = useRef<Spec | null>(null);
 
+  // A node refine streams only a subtree, so the preview must keep showing the
+  // spec it was made on — `pinnedSpec` overrides the stream-derived display
+  // until the spliced result is saved (or the refine is abandoned). The ref
+  // carries the same context into the stream callbacks and into retry().
+  const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
+  const [refineError, setRefineError] = useState<Error | null>(null);
+  const nodeRefineRef = useRef<NodeRefine | null>(null);
+
   const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
     api: "/api/gen/ui",
     onComplete: (completedSpec, completedRawLines) => {
+      const nodeRefine = nodeRefineRef.current;
+      let savedSpec = completedSpec;
+      if (nodeRefine) {
+        // Reject, never render, a subtree that can't be spliced or isn't in the catalog.
+        const spliced = spliceSubtree(nodeRefine.base, nodeRefine.key, completedSpec);
+        if (!spliced.ok) {
+          setRefineError(new Error(SPLICE_ERROR_MESSAGES[spliced.error]));
+          return;
+        }
+        const validation = validateSpecAgainstCatalog(spliced.spec);
+        if (!validation.ok) {
+          setRefineError(
+            new Error(`The regenerated subtree is not valid Rialto: ${validation.message}`)
+          );
+          return;
+        }
+        savedSpec = spliced.spec;
+        nodeRefineRef.current = null;
+        setPinnedSpec(savedSpec);
+      }
       options?.onGenerationComplete?.();
       void saveSpec({
         prompt: promptRef.current,
         kind: kindRef.current,
-        spec: completedSpec,
+        spec: savedSpec,
         rawLines: completedRawLines,
-      }).then((stored) => setActiveId(stored.id));
+      }).then((stored) => {
+        setActiveId(stored.id);
+        setPinnedSpec(null);
+      });
     },
     // Record the failed attempt in the same history mechanism (kind
     // "failed") so a
@@ -141,7 +191,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
   const activeEntryRawLines = activeEntry?.rawLines ?? [];
 
-  const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
+  const displaySpec = pinnedSpec ?? (isStreaming ? spec : (activeEntrySpec ?? spec));
   const displayRawLines = isStreaming
     ? rawLines
     : activeEntryRawLines.length > 0
@@ -150,21 +200,29 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // useGenStream flips isStreaming to false in the same batch it sets error,
   // so gating on isStreaming here would mean the error is never visible —
   // only relevant while we're not looking at a previously saved entry.
-  const displayError = activeId === null ? error : null;
+  const displayError = activeId === null ? (refineError ?? error) : null;
   const activeSpecId = !isStreaming && activeId ? activeId : null;
   const failedPrompt = displayError ? rawPrompt : null;
 
+  const clearNodeRefine = useCallback(() => {
+    nodeRefineRef.current = null;
+    setPinnedSpec(null);
+    setRefineError(null);
+  }, []);
+
   const resetTo = useCallback(
     (id: string | null) => {
+      clearNodeRefine();
       setActiveId(id);
       exitRefinement();
     },
-    [exitRefinement]
+    [exitRefinement, clearNodeRefine]
   );
 
   const submit = useCallback(
     (prompt: string) => {
       setRawPrompt(prompt);
+      clearNodeRefine();
       if (mode === "refine" && displaySpec) {
         refineSpecRef.current = displaySpec;
         const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
@@ -180,7 +238,30 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         void send(prompt);
       }
     },
-    [mode, displaySpec, send]
+    [mode, displaySpec, send, clearNodeRefine]
+  );
+
+  const refineNode = useCallback(
+    (key: string, instruction: string) => {
+      if (!displaySpec) return;
+      const subtree = extractSubtree(displaySpec, key);
+      if (!subtree) return;
+      const ancestors = ancestorChain(displaySpec, key);
+      setRawPrompt(instruction);
+      promptRef.current = instruction;
+      kindRef.current = "refine";
+      refineSpecRef.current = null;
+      nodeRefineRef.current = { base: displaySpec, key, instruction };
+      setPinnedSpec(displaySpec);
+      setRefineError(null);
+      setActiveId(null);
+      void send(
+        createSubtreeRefinementPrompt(subtree, ancestors, instruction),
+        { subtree, ancestors },
+        { target: { key, type: displaySpec.elements[key]?.type ?? "" } }
+      );
+    },
+    [displaySpec, send]
   );
 
   // Pre-load a deep-linked prompt (e.g. from the marketing site's playground
@@ -237,6 +318,13 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // isTransportError) isn't recoverable by feeding it back to the model, so
   // that case is just a bare resubmit, same as having no error at all.
   const retry = useCallback(() => {
+    // A failed node refine is retried as a node refine on the same spec; a
+    // whole-spec resubmit would replace the user's UI with a subtree.
+    const nodeRefine = nodeRefineRef.current;
+    if (nodeRefine) {
+      refineNode(nodeRefine.key, nodeRefine.instruction);
+      return;
+    }
     const retryPrompt = activeEntry ? resolveEntry(activeEntry).prompt : rawPrompt;
     if (!retryPrompt) return;
     const recoverableError = error && !isTransportError(error) ? error : null;
@@ -252,7 +340,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     } else {
       void send(retryPrompt);
     }
-  }, [activeEntry, error, rawPrompt, resetTo, send]);
+  }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
 
   const selectHistory = useCallback(
     (id: string) => {
@@ -308,6 +396,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
     submit,
     refine: enterRefinement,
+    refineNode,
     replay,
     retry,
     selectHistory,

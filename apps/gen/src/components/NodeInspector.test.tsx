@@ -4,10 +4,31 @@ import type { Spec } from "@json-render/react";
 import { NodeInspector } from "./NodeInspector.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <button onClick={onClick}>{children}</button>
+  Button: ({
+    children,
+    onClick,
+    type,
+    disabled,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    type?: "submit" | "button";
+    disabled?: boolean;
+  }) => (
+    <button type={type ?? "button"} onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
   ),
   Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Input: ({
+    label,
+    ...props
+  }: React.InputHTMLAttributes<HTMLInputElement> & { label?: string }) => (
+    <label>
+      {label}
+      <input {...props} />
+    </label>
+  ),
 }));
 
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
@@ -54,5 +75,58 @@ describe("NodeInspector", () => {
       <NodeInspector spec={SPEC} selectedKey="gone" onSelectNode={vi.fn()} />
     );
     expect(container.innerHTML).toBe("");
+  });
+
+  describe("refine form", () => {
+    it("is hidden when no onRefineNode handler is given", () => {
+      render(<NodeInspector spec={SPEC} selectedKey="card" onSelectNode={vi.fn()} />);
+      expect(screen.queryByLabelText("Change this component")).toBeNull();
+    });
+
+    it("submits the trimmed instruction for the selected key and clears the field", () => {
+      const onRefineNode = vi.fn();
+      render(
+        <NodeInspector
+          spec={SPEC}
+          selectedKey="card"
+          onSelectNode={vi.fn()}
+          onRefineNode={onRefineNode}
+        />
+      );
+      const input = screen.getByLabelText("Change this component") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "  make it a grid  " } });
+      fireEvent.click(screen.getByRole("button", { name: "Refine" }));
+      expect(onRefineNode).toHaveBeenCalledWith("card", "make it a grid");
+      expect(input.value).toBe("");
+    });
+
+    it("does not submit a blank instruction", () => {
+      const onRefineNode = vi.fn();
+      render(
+        <NodeInspector
+          spec={SPEC}
+          selectedKey="card"
+          onSelectNode={vi.fn()}
+          onRefineNode={onRefineNode}
+        />
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Refine" }));
+      expect(onRefineNode).not.toHaveBeenCalled();
+    });
+
+    it("disables the form while busy", () => {
+      render(
+        <NodeInspector
+          spec={SPEC}
+          selectedKey="card"
+          onSelectNode={vi.fn()}
+          onRefineNode={vi.fn()}
+          isBusy
+        />
+      );
+      expect((screen.getByRole("button", { name: "Refine" }) as HTMLButtonElement).disabled).toBe(
+        true
+      );
+    });
   });
 });

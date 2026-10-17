@@ -96,6 +96,7 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     failedPrompt,
     submit,
     refine,
+    refineNode,
     exitRefinement,
     replay,
     retry,
@@ -251,6 +252,8 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
               spec={displaySpec}
               selectedKey={selectedKey}
               onSelectNode={setSelectedKey}
+              onRefineNode={refineNode}
+              isBusy={isStreaming}
             />
           )}
         </div>
