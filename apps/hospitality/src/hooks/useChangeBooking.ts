@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiClientError } from "@mbe/api-client";
 import { reportApiError } from "@mbe/sentry/react";
-import type { ManagedReservationChanges } from "@mbe/api-client";
+import type { ManagedReservation, ManagedReservationChanges } from "@mbe/api-client";
 import { usePublicApiClient } from "./usePublicApiClient.js";
 
 export interface ChangeBookingSlot {
@@ -67,23 +67,25 @@ export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) 
     [api, venueSlug, release]
   );
 
-  const confirm = useCallback(async () => {
+  const confirm = useCallback(async (): Promise<ManagedReservation | undefined> => {
     const held = holdRef.current;
-    if (!held) return;
+    if (!held) return undefined;
     setError(null);
     setStatus("confirming");
     const changes: ManagedReservationChanges = held.slot;
     try {
-      await api.reservations.modifyManaged(token, changes, {
+      const updated = await api.reservations.modifyManaged(token, changes, {
         holdId: held.holdId,
         sessionId: api.holds.getSessionId() ?? "",
       });
       // The server consumed the hold; nothing left to release.
       holdRef.current = null;
       setStatus("done");
+      return updated;
     } catch (err) {
       setError(problemCode(err));
       setStatus("error");
+      return undefined;
     }
   }, [api, token]);
 

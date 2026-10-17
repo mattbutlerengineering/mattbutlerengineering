@@ -1,0 +1,29 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: var(--rialto-space-md);
+}
+
+.dialog {
+  background: var(--rialto-surface);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-lg);
+  padding: var(--rialto-space-lg);
+  inline-size: 100%;
+  max-inline-size: 32rem;
+  max-block-size: 90dvh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  justify-content: flex-end;
+}

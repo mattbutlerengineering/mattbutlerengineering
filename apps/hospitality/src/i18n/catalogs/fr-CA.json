@@ -1293,7 +1293,22 @@
     "timeRange": "{{start}} – {{end}}",
     "call": "Appeler {{venue}}",
     "cancel": "Annuler la réservation",
-    "cancelled": "Cette réservation a été annulée."
+    "cancelled": "Cette réservation a été annulée.",
+    "change": {
+      "title": "Modifier votre réservation",
+      "cancel": "Annuler",
+      "confirm": "Confirmer la modification",
+      "confirming": "Modification…",
+      "slotsFailed": "Impossible de charger les heures disponibles. Veuillez réessayer.",
+      "errors": {
+        "SLOT_UNAVAILABLE": "Cette heure vient d'être prise. Votre réservation initiale est inchangée; choisissez une autre heure.",
+        "HOLD_EXPIRED": "Votre réservation temporaire a expiré. Votre réservation initiale est inchangée; choisissez à nouveau une heure.",
+        "PARTY_SIZE_DEPOSIT_HELD": "Cette réservation comporte un dépôt; le nombre de personnes ne peut pas être modifié en ligne. Veuillez communiquer avec l'établissement.",
+        "MODIFICATION_CUTOFF": "Il est trop tard pour modifier votre réservation en ligne. Veuillez communiquer avec l'établissement.",
+        "PARTY_SIZE_CHANGE_TOO_LARGE": "Cette modification du nombre de personnes est trop importante pour être faite en ligne. Veuillez communiquer avec l'établissement.",
+        "UNKNOWN": "Impossible de modifier votre réservation. Votre réservation initiale est inchangée; veuillez réessayer."
+      }
+    }
   },
   "offlineBanner": {
     "cached": "Affichage des données en cache de la dernière synchronisation",
