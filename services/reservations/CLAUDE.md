@@ -267,6 +267,24 @@ interface ReservationEvent {
 }
 ```
 
+### TableEvent
+
+Append-only log of every `Table.status` transition (the `tables` row stays the source of truth; no backfill, no read endpoint yet). Written by `recordTableEvent(tx, …)` in the same transaction as the change: `tableService.updateStatus` (staff actor, or system with no user) and the walk-in seat in `createWalkIn` (carries the new `reservationId`). A CAS-lost or rolled-back change writes nothing. `venueId` is NOT NULL so rows pass FORCE RLS `WITH CHECK` — tables with a NULL `venueId` get no events. `app_reservations` holds `SELECT, INSERT` only on `table_events`, so append-only is enforced by the database. Any new code path that changes `Table.status` must call `recordTableEvent` too.
+
+```typescript
+interface TableEvent {
+  id: string;
+  tableId: string; // FK → tables, ON DELETE CASCADE
+  venueId: string; // FK → venues, ON DELETE CASCADE
+  fromStatus: TableStatus;
+  toStatus: TableStatus;
+  actorType: "staff" | "system";
+  actorId: string | null;
+  reservationId: string | null; // plain column, not a FK
+  createdAt: Date;
+}
+```
+
 ## API Routes
 
 ### Venues

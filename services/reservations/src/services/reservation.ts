@@ -26,6 +26,7 @@ import { bookSlot } from "./book-slot.js";
 import { toReservation, toTable } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import { guestService } from "./guest.js";
+import { recordTableEvent, SYSTEM_TABLE_ACTOR } from "./table-events.js";
 import {
   recordReservationEvent,
   toEventState,
@@ -866,9 +867,21 @@ export const reservationService = {
           to: toEventState(createdReservation),
         });
 
+        const seatedFrom = await tx.table.findUniqueOrThrow({
+          where: { id: data.tableId },
+          select: { status: true, venueId: true },
+        });
         const occupiedTable = await tx.table.update({
           where: { id: data.tableId },
           data: { status: "OCCUPIED" },
+        });
+        await recordTableEvent(tx, {
+          tableId: data.tableId,
+          venueId: seatedFrom.venueId,
+          fromStatus: seatedFrom.status,
+          toStatus: "OCCUPIED",
+          actor: actor.type === "staff" ? { type: "staff", id: actor.id } : SYSTEM_TABLE_ACTOR,
+          reservationId: createdReservation.id,
         });
 
         return { reservation: createdReservation, table: occupiedTable };
