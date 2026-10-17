@@ -36,7 +36,6 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 | `AGENT_API_URL`               | Agent service API base URL (not a credential)                                                            | No rotation needed              | N/A           |
 | `AUTOMATION_PAT`              | PAT/bot-token for scheduled automation that pushes commits (see below)                                   | Semi-annually                   | —             |
 | `RIALTO_PACKAGES_TOKEN`       | Classic PAT (`write:packages`) publishing `@mattbutlerengineering/rialto` to GitHub Packages (see below) | Optional -- unset skips publish | —             |
-| `SWARM_FIRE_TOKEN_01` … `_10` | Bearer tokens `swarm.yml` uses to fire the ten `mbe-swarm-NN` routines, one routine each (see below)     | Semi-annually                   | —             |
 
 ## Rotation Runbooks
 
@@ -309,35 +308,6 @@ To resume publishing:
 Used by `release.yml`'s `publish-script` (`scripts/release-publish.sh`), which emits
 `::notice::RIALTO_PACKAGES_TOKEN is not set -- skipping publish` and exits 0 when this secret is
 missing, rather than failing the run or surfacing a cryptic registry error mid-publish.
-
-### SWARM_FIRE_TOKEN_01 … SWARM_FIRE_TOKEN_10
-
-**What they are:** one bearer token per `mbe-swarm-NN` cloud routine ("lane"),
-minted in the claude.ai routine UI. `.github/workflows/swarm.yml` sends each one
-in an `Authorization: Bearer` header to
-`POST https://api.anthropic.com/v1/claude_code/routines/<trig_id>/fire` when an
-issue is labeled `swarm`. A token can fire its one routine and nothing else — no
-read access, no other routines, no account data — which is why it is acceptable
-in CI while CI stays keyless for Anthropic API keys (#3585). The lane → routine
-id → secret map is in [`docs/routines/mbe-swarm.md`](./routines/mbe-swarm.md).
-
-**Mint / rotate (per lane):**
-
-1. Open https://claude.ai/code/routines, click `mbe-swarm-NN`, then the menu
-   next to its name → **Edit**.
-2. Under **Select a trigger**, **Add another trigger → API** (or open the
-   existing API trigger) and click **Generate token** the first time or
-   **Regenerate** to rotate. The token is shown once; regenerating revokes the
-   previous token immediately.
-3. `gh secret set SWARM_FIRE_TOKEN_NN --body 'sk-ant-oat01-…'` — always pass
-   `--body`; a bare `gh secret set` in a non-interactive shell stores an empty
-   string (`.claude/rules/gotchas.md` § Auth0 / E2E).
-4. Verify with `gh workflow run swarm.yml -f issue=<throwaway issue>` and read
-   the run summary: the lane's line should say `fired`, not `not configured`.
-
-**Revoke:** **Delete token** (the trash icon next to **Regenerate**) in the same
-modal, then `gh secret delete SWARM_FIRE_TOKEN_NN`. That lane then reports as
-unconfigured in the workflow's summary comment; the other nine keep firing.
 
 ### `packages/gh-client` REST-fallback token precedence
 
