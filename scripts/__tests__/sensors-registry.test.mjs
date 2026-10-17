@@ -1567,3 +1567,37 @@ describe("reviewBurden sensor (#5530)", () => {
     expect(line).toContain("9%");
   });
 });
+
+describe("queueEfficiency summary line — cost coverage (#6941)", () => {
+  const format = SENSORS.find((s) => s.id === "queueEfficiency").format;
+  const data = (sub) => ({ composite: 0.7, baseline: null, sub_metrics: sub });
+
+  it("prints a known cost with its coverage", () => {
+    const line = format(
+      data({
+        first_pass_success_rate: 1,
+        median_time_to_merge_hours: 2,
+        cost_per_issue_usd: 2,
+        cost_coverage_n: 2,
+        issues_merged: 4,
+      }),
+      "queueEfficiency"
+    );
+    expect(line).toContain("$2/issue (n=2/4)");
+  });
+
+  it("prints cost unknown when cost is null", () => {
+    const line = format(
+      data({
+        first_pass_success_rate: 1,
+        median_time_to_merge_hours: 2,
+        cost_per_issue_usd: null,
+        cost_coverage_n: 0,
+        issues_merged: 4,
+      }),
+      "queueEfficiency"
+    );
+    expect(line).toContain("cost unknown (0/4)");
+    expect(line).not.toContain("$null");
+  });
+});
