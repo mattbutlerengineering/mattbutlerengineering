@@ -74,6 +74,7 @@ export function fetchPrFacts(prNumber, { ghApi = defaultGhApi } = {}) {
     return {
       state,
       mergedAt: pr.merged_at ?? null,
+      commitCount: Number.isInteger(pr.commits) ? pr.commits : null,
       ciGateFirstPass: firstPass,
       reviewerVerdict: parseReviewerVerdict((comments ?? []).map((c) => c.body)),
     };
