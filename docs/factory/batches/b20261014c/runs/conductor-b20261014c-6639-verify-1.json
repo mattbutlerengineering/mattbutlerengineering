@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 196952,
+  "stop_reason": "end_turn",
+  "session_id": "e17ba72c-585d-4230-ad09-ac9ed03a9874",
+  "total_cost_usd": 1.2643500000000003,
+  "usage": {
+    "input_tokens": 48,
+    "cache_creation_input_tokens": 125824,
+    "cache_read_input_tokens": 3041440,
+    "output_tokens": 15267,
+    "output_tokens_details": {
+      "thinking_tokens": 3318
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 125824,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 359,
+        "cache_read_input_tokens": 150553,
+        "cache_creation_input_tokens": 1573,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1573
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 48,
+      "outputTokens": 15267,
+      "cacheReadInputTokens": 3041440,
+      "cacheCreationInputTokens": 125824,
+      "webSearchRequests": 0,
+      "costUSD": 1.2643500000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3318,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 26,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Verification committed clean, pr-body.md left uncommitted as required.\n\n## Summary\n\nRan the verify stage on the `/ship-pr` feature run (WO-0016\u20130019): 9/9 PRD success criteria pass. Verified via grep (no new gate logic \u2014 diff touches only `SKILL.md`/`CLAUDE.md`/breakdown), live re-run of `scripts/conductor-gate.sh` (0 affected tasks, matching WO-0018's prior run), and manual cross-checks of the CLAUDE.md row against SKILL.md's frontmatter. One gap flagged, not hidden: WO-0019's dry walk-through against PR #6591 reasoned its CI classification rather than running `ci-gate-status.mjs` live (no `gh` credential in this sandbox) \u2014 the original commit already named this, and `verification.md` repeats it. Wrote `docs/features/ship-pr/verification.md` (committed) and `pr-body.md` at the worktree root (uncommitted, carrying traceability + walkthrough + merge-danger per protocol).",
+  "ttft_ms": 4815,
+  "type": "result",
+  "duration_ms": 483765,
+  "uuid": "74daaf3d-684c-4bc7-96ef-d3d419f68494",
+  "ttft_stream_ms": 3869,
+  "time_to_request_ms": 2023,
+  "first_content_frame_ms": 3870,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 388450,
+  "stop_reason": "end_turn",
+  "session_id": "ec35a83d-463b-4bf2-a5e8-741b34eab697",
+  "total_cost_usd": 5.941308,
+  "usage": {
+    "input_tokens": 28,
+    "cache_creation_input_tokens": 142856,
+    "cache_read_input_tokens": 1762258,
+    "output_tokens": 26433,
+    "output_tokens_details": {
+      "thinking_tokens": 13471
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 142856,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1193,
+        "cache_read_input_tokens": 157838,
+        "cache_creation_input_tokens": 750,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 750
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-fable-5": {
+      "inputTokens": 28,
+      "outputTokens": 26433,
+      "cacheReadInputTokens": 1762258,
+      "cacheCreationInputTokens": 142856,
+      "webSearchRequests": 0,
+      "costUSD": 5.941308,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 13471,
+      "canonicalModel": "claude-fable-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 24,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Run complete through the blueprint gate. Final report:\n\n**The `feature:ship-pr` run (issue #6639) was driven with the autorun skill from Idea through Decompose and stopped at the blueprint gate, as `stop-after: decompose` in its brief directs.** Two commits on `conductor/b20261014c-6639` carry the five artifacts in `docs/features/ship-pr/` (`17db7bf38`: brief + idea + PRD; `d22503051`: architecture + breakdown), and `pr-body.md` at the worktree root is current and deliberately uncommitted.\n\nStage by stage:\n\n- **Brief** \u2014 sourced from issue #6639 verbatim; records `stop-after: decompose`, tracker seeding, scope, the issue's acceptance criteria as success criteria, and that no release of any kind is authorized.\n- **Idea** (`idea.md`) \u2014 problem, evidence (PR #6591, measured), solution hunch. Assumptions logged: the protocol's open-PR pre-flight and in-flight duplicate check **could not run** \u2014 this environment has no GitHub credential \u2014 reported per protocol rather than passed off as clean.\n- **PRD** (`prd.md`) \u2014 `ux: not-applicable` (terminal-only skill), so UX Design is a recorded skip; success criteria mirror the issue's ACs; CCR merge-denial handling scoped in; no `[NEEDS CLARIFICATION]` markers remain.\n- **Architecture** (`architecture.md`) \u2014 a protocol document reusing the existing gate pieces by path, never restating them; rejected alternative: a new orchestrator script (drifts from the profile, can't dispatch the reviewer subagent, and the issue's own AC forbids new gate logic). **No ADR** \u2014 the decision fails the hard-to-reverse leg, so reserved ADRs 92\u201394 go unused.\n- **Breakdown** (`breakdown.md`) \u2014 one milestone, four dependency-ordered items **WO-0016\u2013WO-0019** (20\u201325 unused), each with a checkable acceptance criterion and `(tracker: #6639)`; no design gaps.\n\nTwo things flagged for the human at the gate (both also in pr-body.md):\n\n1. **The conductor gate exited 1.** `bash scripts/conductor-gate.sh` installed deps, then ran lint/typecheck/test cold across all 35 packages; the failing task was truncated out of the captured output. The diff is five markdown files no package consumes, so the failure isn't attributable to this change \u2014 but it's reported, and WO-0018 requires the implementing Worker to get the gates green.\n2. **Local git hooks were inert for both commits** (hooksPath missing \u2014 the gate's install ran with `HUSKY=0`), so prettier/lint-staged never touched the committed markdown; CI's docs-format check is the backstop.\n\nOne per-stage note on process: the task's tool allowlist includes no Agent tool, so per the autorun skill's own provision each stage ran inline rather than in a fresh subagent \u2014 the artifacts remained the only state between stages. Spend ended at roughly $5.90 of the $6.44 ceiling, with pr-body.md written well before it.",
+  "ttft_ms": 6921,
+  "type": "result",
+  "duration_ms": 726382,
+  "uuid": "ceb10b0b-2fa6-4767-8877-63a06582078f",
+  "ttft_stream_ms": 3065,
+  "time_to_request_ms": 829,
+  "first_content_frame_ms": 3066,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

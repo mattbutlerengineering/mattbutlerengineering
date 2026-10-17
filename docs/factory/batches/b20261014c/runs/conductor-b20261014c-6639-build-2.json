@@ -1,0 +1,104 @@
+{
+  "duration_api_ms": 128343,
+  "stop_reason": "end_turn",
+  "session_id": "da563335-f607-4a60-9688-00005f9827e4",
+  "total_cost_usd": 1.0397956,
+  "usage": {
+    "input_tokens": 6,
+    "cache_creation_input_tokens": 3603,
+    "cache_read_input_tokens": 398044,
+    "output_tokens": 2726,
+    "output_tokens_details": {
+      "thinking_tokens": 1783
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 3603,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2126,
+        "cache_read_input_tokens": 134370,
+        "cache_creation_input_tokens": 699,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 699
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 44,
+      "outputTokens": 7205,
+      "cacheReadInputTokens": 2662948,
+      "cacheCreationInputTokens": 108767,
+      "webSearchRequests": 0,
+      "costUSD": 1.0397956,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2224,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "origin": {
+    "kind": "task-notification",
+    "producer": "session-task",
+    "runId": "0mv91g42y-d561b77e"
+  },
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 3,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0017 is complete and committed (`37fe15e62`). Status:\n\n- **Row added**: `/ship-pr` is now in CLAUDE.md \u00a7 Skills with purpose text mirroring the SKILL.md frontmatter description.\n- **Checkbox**: WO-0017 checked off in `docs/features/ship-pr/breakdown.md`.\n- **WO-0017's own acceptance criteria \u2014 both pass**: `node scripts/check-claude-md-table-drift.mjs` went from failing (`ship-pr found but not documented`) before the edit to `PASS` after; the row's purpose text matches the skill's description.\n- **`pr-body.md`** written at the worktree root (uncommitted), documenting the before/after verification.\n\nThe broader `conductor-gate.sh` run (`pnpm install && turbo run lint typecheck test --affected`) finished with turbo reporting `Failed: @mbe/marketing#test` plus failures in `@mbe/reservations-service#test`, `@mattbutlerengineering/rialto#test`, and `@mbe/scripts#test`. These are unrelated to this diff: the change here touches only `CLAUDE.md` and `docs/features/ship-pr/breakdown.md`, neither of which any of those packages depend on, and the reservations-service logs show `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`MANAGE_TOKEN_SECRET` all unset \u2014 an environment-credential gap in this worktree, not a regression from this edit. Fixing those is out of scope for a one-line docs row (surgical-changes discipline) and I didn't touch them.\n\nEverything required to check off WO-0017's row in the breakdown is done and committed; the pnpm-test environment gap in unrelated packages is a separate, pre-existing issue worth flagging to whoever picks up WO-0018 (which explicitly runs the repo gates).",
+  "ttft_ms": 2228,
+  "type": "result",
+  "duration_ms": 35823,
+  "uuid": "426e27ca-2478-4bd9-bd2c-29e11143660d",
+  "ttft_stream_ms": 1692,
+  "time_to_request_ms": 168,
+  "first_content_frame_ms": 1693,
+  "queued_turn_count": 0,
+  "result_index": 1
+}

@@ -1,0 +1,104 @@
+{
+  "duration_api_ms": 189529,
+  "stop_reason": "end_turn",
+  "session_id": "c2ab96f9-05ea-4557-8b5c-d9f8ece8f013",
+  "total_cost_usd": 1.9773618000000002,
+  "usage": {
+    "input_tokens": 12,
+    "cache_creation_input_tokens": 6457,
+    "cache_read_input_tokens": 893606,
+    "output_tokens": 1796,
+    "output_tokens_details": {
+      "thinking_tokens": 44
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 6457,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 335,
+        "cache_read_input_tokens": 151513,
+        "cache_creation_input_tokens": 816,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 816
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 104,
+      "outputTokens": 10926,
+      "cacheReadInputTokens": 6818929,
+      "cacheCreationInputTokens": 126027,
+      "webSearchRequests": 0,
+      "costUSD": 1.9773618000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1263,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "origin": {
+    "kind": "task-notification",
+    "producer": "session-task",
+    "runId": "0mvac1ifp-15fb2182"
+  },
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 6,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-9 is implemented and committed as `f7496b2a1` on `conductor/b20261014c-6634`:\n\n- `.claude/rules/gotchas.md` and `.claude/agents/implement-queue-worker.md` now name `pnpm bootstrap:worktree` instead of the plain `pnpm install --frozen-lockfile`.\n- Gate (`bash scripts/conductor-gate.sh`) passed clean: 7/7 tasks, 282 test files / 5267 tests. An earlier gate run showed 2 flaky test failures in `@mbe/scripts:test`; a standalone re-run and a full gate re-run both came back fully green, confirming it was transient.\n- Breakdown checkbox for WO-9 checked off in `docs/features/bootstrap-worktree/breakdown.md`.\n- `pr-body.md` written at the worktree root (uncommitted, as instructed).\n\nNot pushed \u2014 no `git push` or `gh` commands were run, per the tool restrictions.",
+  "ttft_ms": 7525,
+  "type": "result",
+  "duration_ms": 40489,
+  "uuid": "b42801d6-2896-4aa1-9dfa-e3db0b900955",
+  "ttft_stream_ms": 6735,
+  "time_to_request_ms": 5142,
+  "first_content_frame_ms": 6735,
+  "queued_turn_count": 0,
+  "result_index": 1
+}

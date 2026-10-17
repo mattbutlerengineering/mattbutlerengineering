@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 53336,
+  "stop_reason": "end_turn",
+  "session_id": "558b641a-ea6f-4bef-8f9b-6b24c2913b58",
+  "total_cost_usd": 0.5726920000000001,
+  "usage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 97724,
+    "cache_read_input_tokens": 732690,
+    "output_tokens": 3523,
+    "output_tokens_details": {
+      "thinking_tokens": 1795
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 97724,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 279,
+        "cache_read_input_tokens": 122418,
+        "cache_creation_input_tokens": 1608,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1608
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 14,
+      "outputTokens": 3523,
+      "cacheReadInputTokens": 732690,
+      "cacheCreationInputTokens": 97724,
+      "webSearchRequests": 0,
+      "costUSD": 0.5726920000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1795,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 7,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-46 (and the whole chain WO-47\u2192WO-49 depending on it) can't be executed here: it requires live `gh api`/`gh run list` calls against issue #6577 and posting a comment on #6651, but this task's tool grant has no `gh` and the environment carries no GitHub credential \u2014 which `breakdown.md` itself already flags (\"none are executable from this planning worktree\").\n\nI made no code changes and didn't check off the row, since doing so would require fabricating the evidence the row demands. I wrote `pr-body.md` (uncommitted, per instructions) explaining the blocker and what unblocks it \u2014 rerunning WO-46 in a credentialed session (e.g. `/ship-pr` or a local `/idea-to-prod:implement`). Nothing was committed to the branch since there's no artifact or code to ship for a blocked work order.",
+  "ttft_ms": 5856,
+  "type": "result",
+  "duration_ms": 67146,
+  "uuid": "f3a73164-ff99-45a6-a0b1-ebdfb0a574fd",
+  "ttft_stream_ms": 4409,
+  "time_to_request_ms": 929,
+  "first_content_frame_ms": 4410,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

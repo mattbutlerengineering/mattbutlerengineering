@@ -1,0 +1,94 @@
+{
+  "duration_api_ms": 15458,
+  "stop_reason": "tool_use",
+  "session_id": "5874a0f0-f1b0-4dd2-a207-65e30124a6eb",
+  "total_cost_usd": 2.26013,
+  "usage": {
+    "input_tokens": 4,
+    "cache_creation_input_tokens": 88080,
+    "cache_read_input_tokens": 116918,
+    "output_tokens": 819,
+    "output_tokens_details": {
+      "thinking_tokens": 400
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 88080,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 463,
+        "cache_read_input_tokens": 101186,
+        "cache_creation_input_tokens": 2626,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2626
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-fable-5": {
+      "inputTokens": 6,
+      "outputTokens": 3686,
+      "cacheReadInputTokens": 220730,
+      "cacheCreationInputTokens": 92752,
+      "webSearchRequests": 0,
+      "costUSD": 2.26013,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1067,
+      "canonicalModel": "claude-fable-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "budget_exhausted",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": true,
+  "num_turns": 6,
+  "subtype": "error_max_budget_usd",
+  "errors": ["Reached maximum budget ($2.14)"],
+  "type": "result",
+  "duration_ms": 56029,
+  "uuid": "0b79be8f-ce8e-406a-aeb0-8a35a03d33bb",
+  "queued_turn_count": 0,
+  "result_index": 0
+}

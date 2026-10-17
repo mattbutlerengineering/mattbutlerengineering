@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 189004,
+  "stop_reason": "end_turn",
+  "session_id": "8a79d74c-d302-4113-b8b5-532e4ed7d975",
+  "total_cost_usd": 1.5386422,
+  "usage": {
+    "input_tokens": 66,
+    "cache_creation_input_tokens": 138045,
+    "cache_read_input_tokens": 4293351,
+    "output_tokens": 12766,
+    "output_tokens_details": {
+      "thinking_tokens": 2005
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 138045,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 455,
+        "cache_read_input_tokens": 163121,
+        "cache_creation_input_tokens": 1226,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1226
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 66,
+      "outputTokens": 12766,
+      "cacheReadInputTokens": 4293351,
+      "cacheCreationInputTokens": 138045,
+      "webSearchRequests": 0,
+      "costUSD": 1.5386422,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2005,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 34,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Verification committed, pr-body.md left uncommitted as required.\n\n## Summary\n\nRan the verify stage on `feature:dependabot-auto-merge` (WO-36..39). All 6 PRD success criteria PASS:\n\n- **25/25 unit tests** pass (18 policy cases incl. the 6 pinned acceptance cases, 7 workflow-shape assertions on security invariants)\n- **33/33 `pnpm repo-audit`** checks green\n- **Full conductor gate** (`pnpm install` + `turbo run lint typecheck test --affected`): 7/7 tasks, 284 test files / 5275 tests passing\n- **WO-39 replay**: all 11 named slow-outlier PRs from the #6650 measurement would now auto-merge under the new policy \u2014 confirmed by running them through `decideDependabotMerge` directly\n\nOne gap flagged honestly rather than glossed over: fetch-metadata's output names (`package-ecosystem`/`dependency-group`/etc.) couldn't be re-verified against the action's live README \u2014 this verify stage has no network tool. Recorded as \"Not verified\" in `verification.md` along with the 30-vs-11 PR sample scope limit (same `gh`-access gap the implementing session already hit).\n\nCommitted `verification.md`; `pr-body.md` written at the worktree root and left uncommitted per instructions.",
+  "ttft_ms": 5017,
+  "type": "result",
+  "duration_ms": 324659,
+  "uuid": "0216d630-bf44-4980-9757-c25a64c8ce59",
+  "ttft_stream_ms": 4421,
+  "time_to_request_ms": 1151,
+  "first_content_frame_ms": 4421,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

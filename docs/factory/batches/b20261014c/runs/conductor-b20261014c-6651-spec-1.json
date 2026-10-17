@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 346872,
+  "stop_reason": "end_turn",
+  "session_id": "4049552c-6e13-4991-8fed-b5549e442781",
+  "total_cost_usd": 5.555215,
+  "usage": {
+    "input_tokens": 30,
+    "cache_creation_input_tokens": 128892,
+    "cache_read_input_tokens": 1763575,
+    "output_tokens": 24270,
+    "output_tokens_details": {
+      "thinking_tokens": 7786
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 128892,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1238,
+        "cache_read_input_tokens": 143509,
+        "cache_creation_input_tokens": 1115,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1115
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-fable-5": {
+      "inputTokens": 30,
+      "outputTokens": 24270,
+      "cacheReadInputTokens": 1763575,
+      "cacheCreationInputTokens": 128892,
+      "webSearchRequests": 0,
+      "costUSD": 5.555215,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 7786,
+      "canonicalModel": "claude-fable-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 21,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Run complete to the blueprint gate. The `stop-after: decompose` line in the brief ends the loop here \u2014 Implement onward belongs to a later, GitHub-credentialed session.\n\n## Report (autorun-driven, feature:armed-automerge-latency, issue #6651)\n\n**What this run is:** part 8 of sdlc-speed \u2014 diagnose why Dependabot PR #6577, with auto-merge armed 11 seconds after opening, still took ~24 h to merge on a non-strict `main`, then fix the cause or document the intended hold. Part 7 (#6650, the sibling `dependabot-auto-merge` run in this same tree) just made arming the default for official-action and `@types/*` bumps, so if the hold is systemic, part 7 delivers nothing.\n\n**Stages and artifacts**, each committed separately on `conductor/b20261014c-6651`:\n\n| Stage | Artifact | Commit |\n|---|---|---|\n| Brief + Idea | `autorun-brief.md`, `idea.md` | `3e4607742` |\n| PRD | `prd.md` (PRD 5; `ux: not-applicable`) | `4b509621c` |\n| UX | skipped, recorded in `prd.md` frontmatter with reason | \u2014 |\n| Architect | `architecture.md` | `97239f8cd` |\n| Decompose | `breakdown.md` (WO-46..WO-49, all mirroring #6651) | `53cd85053` |\n\n`pr-body.md` is current at the worktree root and left uncommitted, as required.\n\n**Shape of the plan:** since the hold's cause is unknown and this session has no GitHub credential, the architecture is an evidence procedure (the exact `gh api` / `ci-gate-status.mjs` commands) plus a signature\u2192remedy table covering the four documented candidate mechanisms (`action_required` park #3684, `gate-unattributed` #4023, `gate-missing` #3969 with no rescue path for `dependabot/**` branches, and a merge-queue eligibility regression #5983-class) plus the \"a human/routine actually merged it\" and \"one-off, gotchas-only\" outcomes. The breakdown orders it strictly: WO-46 evidence \u2192 exactly one of WO-47 (pure function + regression test) xor WO-48 (gotchas entry) \u2192 WO-49 in-the-wild observation (next armed Dependabot PR merges within one CI cycle of green `CI Gate`, number noted on #6651).\n\n**Flagged for human review:**\n- **Pre-flights could not run** (open-PR list, in-flight duplication check) \u2014 no GitHub credential here; recorded visibly in the brief and idea.md per protocol, not as a clean result.\n- **No ADR written**; reserved adr ids 101\u2013103 unused (all decisions fail the ADR test \u2014 logged in architecture.md frontmatter). Reserved WO ids 50\u201355 also unused.\n- Nothing was pushed, merged, or released; no `gh` command was run.\n\n**Aggregated assumptions** (all in artifact frontmatter): evidence adopted verbatim from issue #6651 rather than re-measured (credential gap); prd-id 5 and WO-46..49 taken from this item's reserved block; \"one CI cycle\" read as no-human-action-after-green rather than a wall-clock bound; WO-47/WO-48 mutual exclusivity recorded so the every-checkbox rule stays meaningful; the decision-tree architecture itself is logged as an assumption forced by evidence not yet existing.\n\nBudget used: ~$5.3 of $6.44.",
+  "ttft_ms": 6048,
+  "type": "result",
+  "duration_ms": 473645,
+  "uuid": "0b3774dd-ba9b-4c55-991f-7a9301cc155b",
+  "ttft_stream_ms": 2517,
+  "time_to_request_ms": 431,
+  "first_content_frame_ms": 2517,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

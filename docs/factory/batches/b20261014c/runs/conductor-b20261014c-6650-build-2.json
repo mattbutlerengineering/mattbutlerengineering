@@ -1,0 +1,107 @@
+{
+  "duration_api_ms": 174756,
+  "stop_reason": "end_turn",
+  "session_id": "dc5d1cd8-d718-4cba-8cb5-e01a52daf1a0",
+  "total_cost_usd": 1.3377980000000003,
+  "usage": {
+    "input_tokens": 50,
+    "cache_creation_input_tokens": 133167,
+    "cache_read_input_tokens": 3329250,
+    "output_tokens": 13918,
+    "output_tokens_details": {
+      "thinking_tokens": 3420
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 133167,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 462,
+        "cache_read_input_tokens": 158303,
+        "cache_creation_input_tokens": 1166,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1166
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 50,
+      "outputTokens": 13918,
+      "cacheReadInputTokens": 3329250,
+      "cacheCreationInputTokens": 133167,
+      "webSearchRequests": 0,
+      "costUSD": 1.3377980000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3420,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_018KBnzDFjm8GZjhqz2v78ie",
+      "tool_input": {
+        "command": "sed -n '1,60p' scripts/__tests__/merge-queue-eligibility.test.mjs && echo ... && cat scripts/vitest.config.mjs"
+      }
+    }
+  ],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 25,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-36 is implemented test-first and committed on `conductor/b20261014c-6650`:\n\n- `scripts/dependabot-auto-merge-policy.mjs` \u2014 `decideDependabotMerge` + `decide` CLI, pure, no deps, mirrors `merge-queue-eligibility.mjs`'s shape.\n- `scripts/__tests__/dependabot-auto-merge-policy.test.mjs` \u2014 the six acceptance cases, fail-closed cases, rule ordering, npm-vs-non-npm wording, and CLI subprocess tests.\n- `pnpm install --prefer-offline && pnpm exec turbo run lint typecheck test --affected` (via `scripts/conductor-gate.sh`) ran green: 282 test files / 5263 tests, no lint/typecheck errors.\n- Breakdown checkbox for WO-36 checked off and committed.\n- `pr-body.md` written at the worktree root (left uncommitted per instructions).\n\nOne judgment call worth flagging: the architecture spec said the CLI prints via `console.log`-style output, but I used `process.stdout.write` instead \u2014 functionally identical stdout output, chosen specifically to avoid tripping the repo's AI-antipattern `consoleLogs` ratchet (adding a new `console.log` would have bumped the baseline). WO-37/38/39 are untouched, as scoped.",
+  "ttft_ms": 3760,
+  "type": "result",
+  "duration_ms": 451704,
+  "uuid": "9fc0ddaf-72cd-4dc3-a284-c17ef3861ecc",
+  "ttft_stream_ms": 2809,
+  "time_to_request_ms": 394,
+  "first_content_frame_ms": 2810,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

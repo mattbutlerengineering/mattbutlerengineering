@@ -1,0 +1,99 @@
+{
+  "duration_api_ms": 255082,
+  "stop_reason": "end_turn",
+  "session_id": "72ceb110-f6c8-43cb-a8bc-b3f45038f24a",
+  "total_cost_usd": 1.9801442,
+  "usage": {
+    "input_tokens": 88,
+    "cache_creation_input_tokens": 141105,
+    "cache_read_input_tokens": 6159541,
+    "output_tokens": 18364,
+    "output_tokens_details": {
+      "thinking_tokens": 5904
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 141105,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 457,
+        "cache_read_input_tokens": 166978,
+        "cache_creation_input_tokens": 429,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 429
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 88,
+      "outputTokens": 18364,
+      "cacheReadInputTokens": 6159541,
+      "cacheCreationInputTokens": 141105,
+      "webSearchRequests": 0,
+      "costUSD": 1.9801442,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 5904,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 44,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Done. WO-38 (workflow rewire) and WO-39 (measurement note) are both implemented test-first and checked off in `breakdown.md`, committed as `106acc67e` and `f741d7a3f` on `conductor/b20261014c-6650`. `pr-body.md` is written at the worktree root and left uncommitted, as required.\n\nSummary:\n- **WO-38**: wrote a RED test (`scripts/__tests__/dependabot-auto-merge-workflow.test.mjs`) pinning the architecture.md \u00a7 3 contract, then rewired `dependabot-auto-merge.yml` to a pinned base-ref checkout, a `Decide` step that calls the policy CLI via `env:`-sourced vars with `set -o pipefail`, and merge/comment steps branching on the policy's `action`/`reason`. `pnpm repo-audit` is 33/33 green, scripts lint is clean, all three related test files pass.\n- **WO-39**: no `gh`/API access in this session, so per the breakdown's documented fallback, replayed the 11 PR numbers #6650's own `idea.md` names individually (the sample's slow outliers) through the shipped CLI and recorded the result \u2014 all 11 now resolve to `merge` \u2014 in `pr-body.md`, flagging the other 19 of the 30-PR sample as an open gap for a session with tracker access.",
+  "ttft_ms": 3138,
+  "type": "result",
+  "duration_ms": 371201,
+  "uuid": "c76d8f0c-9b5e-4b08-a46e-4aa40fb66088",
+  "ttft_stream_ms": 2292,
+  "time_to_request_ms": 411,
+  "first_content_frame_ms": 2292,
+  "queued_turn_count": 0,
+  "result_index": 0
+}
