@@ -22,6 +22,7 @@ import {
   decrementHoldCount,
   MAX_ACTIVE_HOLDS,
 } from "../middleware/public-rate-limit.js";
+import { guestActor } from "../services/reservation-events.js";
 
 const SESSION_ID_HEADER = "x-session-id";
 
@@ -277,6 +278,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
             sessionId,
             venueId,
             guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
+            // No guest record exists yet, so the guest actor carries no id.
+            actor: guestActor(null),
           },
           {
             door: "public-hold",

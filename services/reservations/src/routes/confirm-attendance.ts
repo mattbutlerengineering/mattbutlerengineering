@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { manageTokenScoped } from "./manage-token-scope.js";
+import { guestActor } from "../services/reservation-events.js";
 
 const successHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -35,7 +36,7 @@ export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
     manageTokenScoped(
       { missing: (reply) => reply.status(401).type("text/html").send(invalidHtml) },
       async (_request, reply, { reservation }) => {
-        await fastify.transitions.confirmAttendance(reservation);
+        await fastify.transitions.confirmAttendance(reservation, guestActor(reservation.guestId));
 
         return reply.status(200).type("text/html").send(successHtml);
       }

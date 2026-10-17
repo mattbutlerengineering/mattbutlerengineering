@@ -1113,6 +1113,7 @@
               manageToken: token,
               reason: request.body?.cancellationReason,
               note: request.body?.cancellationNote,
+              actor: guestActor(preamble.reservation.guestId),
               log: request.log,
             });
     
@@ -1145,7 +1146,7 @@
         manageTokenScoped(
           { missing: (reply) => reply.status(401).type("text/html").send(invalidHtml) },
           async (_request, reply, { reservation }) => {
-            await fastify.transitions.confirmAttendance(reservation);
+            await fastify.transitions.confirmAttendance(reservation, guestActor(reservation.guestId));
     
             return reply.status(200).type("text/html").send(successHtml);
           }
@@ -2526,6 +2527,7 @@
                 sessionId,
                 guestDetails: request.body,
                 venueId,
+                actor: staffActor(request.user?.id),
               },
               { door: "staff-hold" }
             );
@@ -2772,7 +2774,8 @@
               preamble.reservation,
               changes,
               token,
-              hold
+              hold,
+              guestActor(preamble.reservation.guestId)
             );
     
             if (!result.success) {
@@ -3463,6 +3466,8 @@
                 sessionId,
                 venueId,
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
+                // No guest record exists yet, so the guest actor carries no id.
+                actor: guestActor(null),
               },
               {
                 door: "public-hold",
@@ -3619,6 +3624,7 @@
                   notes: specialRequests,
                   guestId: link.ok ? (link.guestId ?? undefined) : undefined,
                 },
+                actor: guestActor(link.ok ? link.guestId : null),
               },
               {
                 door: "public-booking",
@@ -4271,7 +4277,7 @@
           const result = await fastify.transitions.createWalkIn(
             request.body,
             userId,
-            staffActor(request)
+            requestActor(request)
           );
           if (result.tableNotInVenue) {
             return reply
@@ -4438,7 +4444,7 @@
               }
             }
     
-            const result = await fastify.transitions.createByStaff(body, userId, staffActor(request));
+            const result = await fastify.transitions.createByStaff(body, userId, requestActor(request));
     
             if (result.tableNotInVenue) {
               return reply
@@ -4559,7 +4565,7 @@
                 {
                   cancellationReason: request.body.cancellationReason,
                   cancellationNote: request.body.cancellationNote,
-                  actor: isAdmin ? staffActor(request) : undefined,
+                  actor: isAdmin ? requestActor(request) : undefined,
                 }
               );
     
@@ -4583,7 +4589,7 @@
               const result = await fastify.transitions.noShow(
                 reservation,
                 request.log,
-                isAdmin ? staffActor(request) : undefined
+                isAdmin ? requestActor(request) : undefined
               );
     
               if (!result.success) {
@@ -4638,7 +4644,7 @@
             const result = await fastify.transitions.updateByStaff(
               reservation,
               request.body,
-              isAdmin ? staffActor(request) : undefined
+              isAdmin ? requestActor(request) : undefined
             );
     
             if (!result.success) {
@@ -4745,7 +4751,7 @@
               request.log,
               isAdmin,
               "staff-delete",
-              { actor: isAdmin ? staffActor(request) : undefined }
+              { actor: isAdmin ? requestActor(request) : undefined }
             );
             if (!result.success) {
               return reply
@@ -11760,6 +11766,12 @@
       | { type: "guest"; id: string | null }
       | { type: "system"; id: string };
     export const SYSTEM_ACTOR: ReservationEventActor = { type: "system", id: "unattributed" };
+    export const guestActor = (guestId: string | null | undefined): ReservationEventActor => ({
+      type: "guest",
+      id: guestId ?? null,
+    });
+    export const staffActor = (userId: string | null | undefined): ReservationEventActor =>
+      userId ? { type: "staff", id: userId } : SYSTEM_ACTOR;
     export type EventState = {
       status: string;
       tableId: string;
@@ -11902,7 +11914,8 @@
       reservation: Reservation,
       changes: ReservationChanges,
       deposits: DepositService,
-      hold?: ModifyHold
+      hold?: ModifyHold,
+      actor?: ReservationEventActor
     ): Promise<ModifyReservationResult> {
       if (!hasAnyChange(changes) && !hold) {
         return NO_CHANGES_RESULT;
@@ -11918,9 +11931,11 @@
     
       // Only a specialRequests edit reaches here: it needs no hold, no venue and
       // no conflict check.
-      const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
-        notes: changes.specialRequests,
-      });
+      const updateResult = await reservationService.updateWithConflictCheck(
+        reservation.id,
+        { notes: changes.specialRequests },
+        actor
+      );
       if (!updateResult.success) {
         return {
           success: false,
@@ -16541,7 +16556,8 @@
         reservation: Reservation,
         changes: ReservationChanges,
         manageToken: string,
-        hold?: ModifyHold
+        hold?: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult>;
       confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
       createWalkIn(
@@ -16555,7 +16571,7 @@
         actor?: ReservationEventActor
       ): Promise<CreateReservationResult>;
       /** No-op unless the reservation is PENDING (the guard moved here from the route). */
-      confirmAttendance(reservation: Reservation): Promise<void>;
+      confirmAttendance(reservation: Reservation, actor?: ReservationEventActor): Promise<void>;
     }
     export function createReservationTransitions(
       deps: ReservationTransitionsDeps
@@ -16623,8 +16639,8 @@
           return result;
         },
     
-        async modifyByGuest(reservation, changes, manageToken, hold) {
-          const result = await modifyReservation(reservation, changes, deposits, hold);
+        async modifyByGuest(reservation, changes, manageToken, hold, actor) {
+          const result = await modifyReservation(reservation, changes, deposits, hold, actor);
           if (result.success) {
             await settle(
               {
@@ -16687,11 +16703,13 @@
           return result;
         },
     
-        async confirmAttendance(reservation) {
+        async confirmAttendance(reservation, actor) {
           if (reservation.status !== "PENDING") return;
-          const updated = await reservationService.update(reservation.id, {
-            status: "CONFIRMED",
-          });
+          const updated = await reservationService.update(
+            reservation.id,
+            { status: "CONFIRMED" },
+            actor
+          );
           if (updated) {
             await settle({ kind: "attendance-confirmed", reservation: updated }, reservation.venueId);
           }

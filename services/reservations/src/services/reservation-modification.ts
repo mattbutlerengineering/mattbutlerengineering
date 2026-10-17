@@ -9,6 +9,7 @@ import {
   isSlotInBookingWindow,
 } from "./slot-rules.js";
 import type { DepositService } from "./deposit.js";
+import type { ReservationEventActor } from "./reservation-events.js";
 
 /** Guest-supplied fields for a modify request; all optional (at least one required). */
 export interface ReservationChanges {
@@ -212,7 +213,8 @@ export async function modifyReservation(
   reservation: Reservation,
   changes: ReservationChanges,
   deposits: DepositService,
-  hold?: ModifyHold
+  hold?: ModifyHold,
+  actor?: ReservationEventActor
 ): Promise<ModifyReservationResult> {
   if (!hasAnyChange(changes) && !hold) {
     return NO_CHANGES_RESULT;
@@ -228,9 +230,11 @@ export async function modifyReservation(
 
   // Only a specialRequests edit reaches here: it needs no hold, no venue and
   // no conflict check.
-  const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
-    notes: changes.specialRequests,
-  });
+  const updateResult = await reservationService.updateWithConflictCheck(
+    reservation.id,
+    { notes: changes.specialRequests },
+    actor
+  );
   if (!updateResult.success) {
     return {
       success: false,

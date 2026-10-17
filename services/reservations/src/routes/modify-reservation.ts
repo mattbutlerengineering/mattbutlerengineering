@@ -7,6 +7,7 @@ import {
 } from "./load-reservation-for-manage.js";
 import { manageTokenScoped } from "./manage-token-scope.js";
 import { serializeManagedReservation } from "../services/serializers.js";
+import { guestActor } from "../services/reservation-events.js";
 
 interface ModifyBody {
   date?: string;
@@ -69,7 +70,8 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
           preamble.reservation,
           changes,
           token,
-          hold
+          hold,
+          guestActor(preamble.reservation.guestId)
         );
 
         if (!result.success) {

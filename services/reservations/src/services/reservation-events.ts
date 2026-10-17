@@ -22,6 +22,16 @@ export type ReservationEventActor =
 /** Default for callers whose actor is not threaded through yet. */
 export const SYSTEM_ACTOR: ReservationEventActor = { type: "system", id: "unattributed" };
 
+/** The guest door's actor; `guestId` is null until a guest record exists. */
+export const guestActor = (guestId: string | null | undefined): ReservationEventActor => ({
+  type: "guest",
+  id: guestId ?? null,
+});
+
+/** The authenticated user as a staff actor; the system actor when there is no user. */
+export const staffActor = (userId: string | null | undefined): ReservationEventActor =>
+  userId ? { type: "staff", id: userId } : SYSTEM_ACTOR;
+
 /** Non-PII scheduling snapshot stored in `from_state` / `to_state`. */
 export type EventState = {
   status: string;

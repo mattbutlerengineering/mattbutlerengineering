@@ -500,6 +500,7 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
         guestPhone: undefined,
         notes: "Window seat",
       },
+      actor: { type: "guest", id: null },
     });
   });
 

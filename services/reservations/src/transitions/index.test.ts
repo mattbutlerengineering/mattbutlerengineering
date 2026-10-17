@@ -6,9 +6,14 @@ vi.mock("../services/reservation-cancellation.js", () => ({
 }));
 vi.mock("../services/reservation-no-show.js", () => ({ recordNoShow: vi.fn() }));
 vi.mock("../services/confirm-hold.js", () => ({ confirmHold: vi.fn() }));
+vi.mock("../services/reservation-modification.js", () => ({
+  modifyReservation: vi.fn(),
+  isTimeChange: vi.fn(() => false),
+}));
 
 import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
 import { recordNoShow } from "../services/reservation-no-show.js";
+import { modifyReservation } from "../services/reservation-modification.js";
 import { ReservationTransitionError } from "../services/reservation-state-machine.js";
 import { createReservationTransitions } from "./index.js";
 import { createInMemoryEvents, createInMemoryJobs, createInMemoryMessaging } from "./in-memory.js";
@@ -164,7 +169,11 @@ describe("reservation transitions — verbs", () => {
 
     reservationService.update.mockResolvedValue(reservation);
     await transitions.confirmAttendance({ ...reservation, status: "PENDING" } as Reservation);
-    expect(reservationService.update).toHaveBeenCalledWith("res-1", { status: "CONFIRMED" });
+    expect(reservationService.update).toHaveBeenCalledWith(
+      "res-1",
+      { status: "CONFIRMED" },
+      undefined
+    );
     expect(events.published.map((e) => e.type)).toEqual(["reservation:updated"]);
   });
 
@@ -215,5 +224,28 @@ describe("reservation transitions — verbs", () => {
     );
     expect(reservationService.createWalkIn).toHaveBeenCalledWith({}, "user-1", actor);
     expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith({}, "user-1", actor);
+  });
+
+  it("forwards the guest actor to the guest-door domain writes", async () => {
+    const { transitions, reservationService } = setup();
+    const actor = { type: "guest", id: "guest-1" } as const;
+    vi.mocked(modifyReservation).mockResolvedValue({ success: false } as never);
+    reservationService.update.mockResolvedValue(null);
+
+    const changes = { specialRequests: "quiet" };
+    await transitions.modifyByGuest(reservation, changes, "tok", undefined, actor);
+    await transitions.confirmAttendance(
+      { ...reservation, status: "PENDING" } as Reservation,
+      actor
+    );
+
+    expect(modifyReservation).toHaveBeenCalledWith(
+      reservation,
+      changes,
+      deposits,
+      undefined,
+      actor
+    );
+    expect(reservationService.update).toHaveBeenCalledWith("res-1", { status: "CONFIRMED" }, actor);
   });
 });

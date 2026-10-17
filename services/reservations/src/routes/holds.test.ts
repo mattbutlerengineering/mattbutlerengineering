@@ -461,6 +461,7 @@ describe("Hold Routes", () => {
           guestEmail: "john@example.com",
         },
         venueId: "venue-123",
+        actor: { type: "staff", id: "auth0|user-123" },
       });
     });
 
@@ -981,6 +982,22 @@ describe("Hold Routes", () => {
         expect(response.statusCode).toBe(403);
         expect(confirmHold).toHaveBeenCalledWith(
           expect.objectContaining({ holdId: "hold-123", sessionId: "wrong-session" })
+        );
+      });
+
+      it("POST /v1/holds/:id/confirm records the signed-in user as the staff actor", async () => {
+        vi.mocked(confirmHold).mockResolvedValue({ success: true, reservation: mockReservation });
+        const target = await buildScopedApp(true);
+
+        await staffInject(target, {
+          method: "POST",
+          url: CONFIRM_URL,
+          headers: { "x-session-id": "session-abc" },
+          payload: CONFIRM_PAYLOAD,
+        });
+
+        expect(confirmHold).toHaveBeenCalledWith(
+          expect.objectContaining({ actor: { type: "staff", id: NON_ADMIN_SUB } })
         );
       });
 

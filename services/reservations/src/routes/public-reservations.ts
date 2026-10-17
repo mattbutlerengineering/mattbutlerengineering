@@ -8,6 +8,7 @@ import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { decrementHoldCount } from "../middleware/public-rate-limit.js";
 import { getManageTokenConfig } from "../config/manage-token.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
+import { guestActor } from "../services/reservation-events.js";
 
 const TOKEN_SECRET = getManageTokenConfig({
   nodeEnv: process.env.NODE_ENV,
@@ -158,6 +159,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
               notes: specialRequests,
               guestId: link.ok ? (link.guestId ?? undefined) : undefined,
             },
+            actor: guestActor(link.ok ? link.guestId : null),
           },
           {
             door: "public-booking",
