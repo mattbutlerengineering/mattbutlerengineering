@@ -47,6 +47,19 @@ export interface ManagedReservationVenue {
   ianaTimezone: string;
   /** Contact phone number shown to guests on the manage-reservation page (#4979). */
   phone?: string;
+  /** Hours before start after which guests can no longer modify; null = venue default (#6907). */
+  modificationCutoffHours?: number | null;
+  /** Largest party-size change a guest may make; null = unlimited (#6907). */
+  maxPartySizeChange?: number | null;
+}
+
+/** Fields a guest may change through the manage token. */
+export interface ManagedReservationChanges {
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  partySize?: number;
+  specialRequests?: string;
 }
 
 export interface ManageReservationData {
@@ -54,18 +67,20 @@ export interface ManageReservationData {
   venue: ManagedReservationVenue | null;
 }
 
+const managedReservationSchema: z.ZodSchema<ManagedReservation> = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  partySize: z.number(),
+  guestName: z.string().nullable(),
+  guestEmail: z.string().nullable(),
+  status: ReservationStatusSchema,
+  notes: z.string().nullable(),
+});
+
 const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object({
-  reservation: z.object({
-    id: z.string(),
-    date: z.string(),
-    startTime: z.string(),
-    endTime: z.string(),
-    partySize: z.number(),
-    guestName: z.string().nullable(),
-    guestEmail: z.string().nullable(),
-    status: ReservationStatusSchema,
-    notes: z.string().nullable(),
-  }),
+  reservation: managedReservationSchema,
   venue: z
     .object({
       id: z.string(),
@@ -73,6 +88,8 @@ const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object
       slug: z.string(),
       ianaTimezone: z.string(),
       phone: z.string().optional(),
+      modificationCutoffHours: z.number().nullable().optional(),
+      maxPartySizeChange: z.number().nullable().optional(),
     })
     .nullable(),
 });
@@ -219,5 +236,29 @@ export class ReservationsClient {
       z.object({ data: schema })
     );
     return response.data;
+  }
+
+  /**
+   * Modify a reservation via a guest-facing manage token (public, unauthenticated).
+   * When a hold is passed, its id goes in the body and its session in
+   * `x-session-id` so the server can prove the guest owns the new slot.
+   */
+  async modifyManaged(
+    token: string,
+    changes: ManagedReservationChanges,
+    hold?: { holdId: string; sessionId: string }
+  ): Promise<ManagedReservation> {
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    if (hold) headers["x-session-id"] = hold.sessionId;
+    const response = await this.client.request<{ data: { reservation: ManagedReservation } }>(
+      "/public/v1/reservations/manage",
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(hold ? { ...changes, holdId: hold.holdId } : changes),
+      },
+      z.object({ data: z.object({ reservation: managedReservationSchema }) })
+    );
+    return response.data.reservation;
   }
 }
