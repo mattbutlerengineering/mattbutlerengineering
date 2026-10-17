@@ -2507,6 +2507,43 @@
       export const test: unknown;
     </item>
   </file>
+  <file path="apps/gen/e2e/gen-api-mocks.ts">
+    <item priority="low">
+      interface FlatElementLine {
+        key: string;
+        type: string;
+        props: Record<string, unknown>;
+        parentKey?: string;
+      }
+    </item>
+    <item priority="high">
+      interface StoredEntry {
+        id: string;
+        userId: string;
+        prompt: string;
+        kind?: string;
+        spec: unknown;
+      }
+    </item>
+    <item priority="low">
+      interface GenApiMocks {
+        uiRequests: Array<Record<string, unknown>>;
+        entries: StoredEntry[];
+      }
+    </item>
+    <item priority="low">
+      interface GenApiResponses {
+        generate: FlatElementLine[];
+        refineSubtree: FlatElementLine[];
+      }
+    </item>
+    <item priority="medium">
+      function ndjson(lines: FlatElementLine[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockGenApi(page: Page, responses: GenApiResponses): Promise<GenApiMocks> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/e2e/api-mocks.ts">
     <item priority="medium">
       function loadFixture(name: string): string { /* ... */ }
