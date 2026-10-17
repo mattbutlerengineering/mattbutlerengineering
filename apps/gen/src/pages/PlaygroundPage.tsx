@@ -3,6 +3,7 @@ import { ErrorBoundary, useToast } from "@mattbutlerengineering/rialto";
 import { AppShell, useAppShellPanels } from "../components/AppShell.js";
 import { HistoryPanel } from "../components/HistoryPanel.js";
 import { PreviewPane } from "../components/PreviewPane.js";
+import { NodeInspector } from "../components/NodeInspector.js";
 import { JsonInspector } from "../components/JsonInspector.js";
 import { PromptBar } from "../components/PromptBar.js";
 import { TemplateGallery } from "../components/TemplateGallery.js";
@@ -242,6 +243,14 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
             onSelectNode={setSelectedKey}
           />
         </ErrorBoundary>
+
+        {selectedKey && displaySpec && (
+          <NodeInspector
+            spec={displaySpec}
+            selectedKey={selectedKey}
+            onSelectNode={setSelectedKey}
+          />
+        )}
 
         <AppShell.InspectorRegion>
           <ErrorBoundary
