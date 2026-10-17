@@ -1307,7 +1307,10 @@
         "MODIFICATION_CUTOFF": "Falta muy poco para tu reservación y ya no se puede cambiar en línea. Comunícate con el lugar.",
         "PARTY_SIZE_CHANGE_TOO_LARGE": "El cambio en el número de personas es demasiado grande para hacerlo en línea. Comunícate con el lugar.",
         "UNKNOWN": "No pudimos cambiar tu reservación. Tu reservación original no cambió; inténtalo de nuevo."
-      }
+      },
+      "action": "Cambiar reservación",
+      "cutoff": "Los cambios se cierran {{hours}} horas antes de tu visita. Llama a {{venue}} para cambiar esta reservación.",
+      "success": "Tu reservación se actualizó."
     }
   },
   "offlineBanner": {

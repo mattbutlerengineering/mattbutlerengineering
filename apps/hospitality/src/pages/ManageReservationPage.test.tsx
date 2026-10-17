@@ -14,6 +14,28 @@ import {
   UNTRUSTED_NOTE,
 } from "../test/special-requests-fixtures.js";
 
+// Stand-in for the dialog (covered by its own suite): one button that reports a completed change.
+vi.mock("../components/manage-reservation/ChangeBookingDialog.js", () => ({
+  ChangeBookingDialog: ({ onChanged }: { onChanged: (r: unknown) => void }) => (
+    <button type="button" onClick={() => onChanged({})}>
+      mock-change-done
+    </button>
+  ),
+}));
+
+const mockBuildIcs = vi.fn();
+vi.mock("../utils/ics.js", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    buildReservationIcs: (...args: unknown[]) => {
+      mockBuildIcs(...args);
+      return (actual.buildReservationIcs as (...a: unknown[]) => string)(...args);
+    },
+    downloadIcsFile: vi.fn(),
+  };
+});
+
 const mockSearchParams = new URLSearchParams();
 vi.mock("react-router", () => ({
   useSearchParams: () => [mockSearchParams],
@@ -408,5 +430,82 @@ describe("ManageReservationPage Special Requests card", () => {
     expect(rule("requestsText")).toMatch(/white-space:\s*pre-wrap;/);
     expect(rule("requestsText")).toMatch(/overflow-wrap:\s*anywhere;/);
     expect(rule("cardInset")).toMatch(/padding:\s*var\(--rialto-space-lg\);/);
+  });
+});
+
+describe("ManageReservationPage change booking", () => {
+  const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+
+  function mockPayload(
+    reservation: Partial<typeof validReservation> = {},
+    venue: Partial<typeof validVenue> & { modificationCutoffHours?: number | null } = {}
+  ) {
+    mockSearchParams.set("token", "valid-token-abc");
+    mockFetch.mockResolvedValueOnce(
+      makeOkResponse(
+        makeManagedPayload({
+          reservation: { startTime: hoursFromNow(72), endTime: hoursFromNow(74), ...reservation },
+          venue,
+        })
+      )
+    );
+  }
+
+  it.each(["PENDING", "CONFIRMED"])("offers Change booking for %s", async (status) => {
+    mockPayload({ status });
+    renderPage();
+    expect(await screen.findByRole("button", { name: /change booking/i })).toBeDefined();
+  });
+
+  it.each(["CANCELLED", "COMPLETED"])("does not offer Change booking for %s", async (status) => {
+    mockPayload({ status });
+    renderPage();
+    await screen.findByText("The Oak Table");
+    expect(screen.queryByRole("button", { name: /change booking/i })).toBeNull();
+  });
+
+  it("does not offer Change booking when venue is null", async () => {
+    mockSearchParams.set("token", "valid-token-abc");
+    mockFetch.mockResolvedValueOnce(makeOkResponse(makeManagedPayload({ venue: null })));
+    renderPage();
+    await screen.findByRole("button", { name: /cancel reservation/i });
+    expect(screen.queryByRole("button", { name: /change booking/i })).toBeNull();
+  });
+
+  it("inside the cutoff, hides the button and shows a caption with the call link", async () => {
+    mockPayload(
+      { startTime: hoursFromNow(2), endTime: hoursFromNow(4) },
+      { modificationCutoffHours: 24 }
+    );
+    renderPage();
+    await screen.findByText("The Oak Table");
+    expect(screen.queryByRole("button", { name: /change booking/i })).toBeNull();
+    expect(screen.getByText(/changes close 24 hours before your visit/i)).toBeDefined();
+    expect(screen.getAllByRole("link", { name: /call the oak table/i }).length).toBeGreaterThan(0);
+  });
+
+  it("after a change: closes the dialog, refetches, announces, and uses the new time for the ICS", async () => {
+    mockPayload();
+    const newStart = hoursFromNow(96);
+    mockFetch.mockResolvedValueOnce(
+      makeOkResponse(
+        makeManagedPayload({ reservation: { startTime: newStart, endTime: hoursFromNow(98) } })
+      )
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: /change booking/i }));
+    fireEvent.click(screen.getByRole("button", { name: "mock-change-done" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toMatch(/your booking has been updated/i);
+    expect(screen.queryByRole("button", { name: "mock-change-done" })).toBeNull();
+
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("button", { name: /download \.ics/i }));
+      expect(mockBuildIcs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ startTime: newStart }),
+        expect.anything()
+      );
+    });
   });
 });
