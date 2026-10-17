@@ -3632,7 +3632,11 @@
         kind?: EntryKind;
         spec: unknown;
         rawLines: string[];
+        refinement?: SpecDiff;
       }
+    </item>
+    <item priority="medium">
+      function decodeStored(entry: StoredSpec): StoredSpec { /* ... */ }
     </item>
     <item priority="low">
       interface UseSpecsApiReturn {
@@ -5240,6 +5244,9 @@
       export function decodeSpec(value: unknown): Spec | null { /* ... */ }
     </item>
     <item priority="high">
+      export function decodeSpecDiff(value: unknown): SpecDiff | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function specStats(spec: Spec | null): SpecStats | null { /* ... */ }
     </item>
   </file>
@@ -5586,6 +5593,7 @@
         base: Spec;
         key: string;
         instruction: string;
+        parentId: string | null;
       }
     </item>
     <item priority="low">
@@ -5600,6 +5608,7 @@
     <item priority="low">
       interface UsePlaygroundSessionOptions {
         onGenerationComplete?: () => void;
+        onNotice?: (message: string) => void;
       }
     </item>
     <item priority="high">

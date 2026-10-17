@@ -1,4 +1,5 @@
 import type { Spec } from "@json-render/react";
+import type { SpecDiff } from "./spec-subtree.js";
 
 export interface SpecStats {
   elementCount: number;
@@ -22,6 +23,21 @@ export function decodeSpec(value: unknown): Spec | null {
     if (!isRecord(element) || typeof element.type !== "string") return null;
   }
   return value as unknown as Spec;
+}
+
+/**
+ * Decode an untrusted stored refinement. Both halves must be well-formed
+ * subtrees rooted at `path`, else null so a malformed payload is never applied.
+ */
+export function decodeSpecDiff(value: unknown): SpecDiff | null {
+  if (!isRecord(value)) return null;
+  const { parentId, path } = value;
+  if (parentId !== null && typeof parentId !== "string") return null;
+  if (typeof path !== "string" || path === "") return null;
+  const before = decodeSpec(value.before);
+  const after = decodeSpec(value.after);
+  if (!before || !after || before.root !== path || after.root !== path) return null;
+  return { parentId, path, before, after };
 }
 
 export function specStats(spec: Spec | null): SpecStats | null {

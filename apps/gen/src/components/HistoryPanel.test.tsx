@@ -25,6 +25,7 @@ vi.mock("./HistoryPanel.module.css", () => ({
     metaDot: "metaDot",
     refinedTag: "refinedTag",
     failedTag: "failedTag",
+    nodeRefineTag: "nodeRefineTag",
     metaStar: "metaStar",
     deleteConfirm: "deleteConfirm",
     deleteConfirmLabel: "deleteConfirmLabel",
@@ -232,6 +233,31 @@ describe("HistoryPanel", () => {
     expect((screen.getByRole("button", { name: /replay/i }) as HTMLButtonElement).disabled).toBe(
       true
     );
+  });
+
+  it("enables replay and shows a node-refine badge for diff-backed refine entries", () => {
+    const sub = (type: string) => ({ root: "card", elements: { card: { type, props: {} } } });
+    const entries = [
+      createMockEntry({
+        prompt: "make it a grid",
+        kind: "refine",
+        refinement: { parentId: null, path: "card", before: sub("Stack"), after: sub("Grid") },
+      }),
+    ];
+    render(<HistoryPanel {...defaultProps} entries={entries} />);
+    expect((screen.getByRole("button", { name: /replay/i }) as HTMLButtonElement).disabled).toBe(
+      false
+    );
+    expect(screen.getByText("node refine \u00B7 Grid")).toBeDefined();
+  });
+
+  it("keeps replay disabled for refine entries whose refinement is null", () => {
+    const entries = [createMockEntry({ prompt: "x", kind: "refine", refinement: null })];
+    render(<HistoryPanel {...defaultProps} entries={entries} />);
+    expect((screen.getByRole("button", { name: /replay/i }) as HTMLButtonElement).disabled).toBe(
+      true
+    );
+    expect(screen.queryByText(/node refine/)).toBeNull();
   });
 
   it("should show 'Failed' tag for recorded failed attempts", () => {

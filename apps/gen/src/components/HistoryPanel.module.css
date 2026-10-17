@@ -203,6 +203,14 @@
   letter-spacing: 0.02em;
 }
 
+.nodeRefineTag {
+  font-size: 10px;
+  font-family: var(--rialto-font-sans);
+  color: var(--rialto-text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
 .failedTag {
   font-size: 10px;
   font-family: var(--rialto-font-sans);
