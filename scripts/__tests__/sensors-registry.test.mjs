@@ -524,6 +524,28 @@ describe("sensors-registry", () => {
       expect(result.pass_rate_pct).toBe(100);
     });
 
+    // #6344: zero-job failures on bot branches are phantoms, not CI failures.
+    it("ci sensor reports zero-job bot-branch failures as phantom, outside failed and the denominator", () => {
+      const runs = [
+        { status: "completed", conclusion: "success", headBranch: "main", jobCount: 4 },
+        {
+          status: "completed",
+          conclusion: "failure",
+          headBranch: "automation/production-feedback",
+          jobCount: 0,
+        },
+        { status: "completed", conclusion: "failure", headBranch: "main", jobCount: 3 },
+      ];
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue(runs) } };
+      const sensor = SENSORS.find((s) => s.id === "ci");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.phantom).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.pass_rate_pct).toBe(50);
+    });
+
     // #4713: format used to print `${passed}/${completed}`, which still
     // included skipped/cancelled runs in its denominator even after #4687
     // scoped pass_rate_pct to passed/(passed+failed) — so the human-readable
