@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { localeRuntime } from "./runtime.js";
 import enUS from "./catalogs/en-US.json";
@@ -40,15 +42,39 @@ describe("en-US Special Requests copy", () => {
   });
 });
 
+interface CatalogSpecialRequests {
+  bookingWidget?: { specialRequests?: { acknowledgement?: string; hostCaption?: string } };
+}
+
+/** Every catalog on disk, so a locale added later is held to the nesting rule too. */
+const CATALOG_DIR = resolve(process.cwd(), "src/i18n/catalogs");
+const CATALOGS = readdirSync(CATALOG_DIR)
+  .filter((file) => file.endsWith(".json"))
+  .sort()
+  .map(
+    (file) =>
+      [
+        file.replace(/\.json$/, ""),
+        JSON.parse(readFileSync(join(CATALOG_DIR, file), "utf-8")) as CatalogSpecialRequests,
+      ] as const
+  );
+const WITH_CAPTION = CATALOGS.filter(
+  ([, catalog]) => catalog.bookingWidget?.specialRequests?.hostCaption !== undefined
+);
+
 describe("host caption nests the acknowledgement by key", () => {
-  it.each([
-    ["en-US", enUS],
-    ["es-MX", esMX],
-    ["fr-CA", frCA],
-  ] as const)("%s nests the key and does not retype the sentence", (_tag, catalog) => {
-    const copy = catalog.bookingWidget.specialRequests;
-    expect(copy.hostCaption).toContain(NESTED_ACKNOWLEDGEMENT);
-    expect(copy.hostCaption).not.toContain(copy.acknowledgement);
+  it("checks every catalog that writes a caption, en-US, es-MX and fr-CA among them", () => {
+    expect(WITH_CAPTION.map(([tag]) => tag)).toEqual(
+      expect.arrayContaining(["en-US", "es-MX", "fr-CA"])
+    );
+  });
+
+  it.each(WITH_CAPTION)("%s nests the key and does not retype the sentence", (_tag, catalog) => {
+    const copy = catalog.bookingWidget?.specialRequests;
+    const ownAcknowledgement =
+      copy?.acknowledgement ?? enUS.bookingWidget.specialRequests.acknowledgement;
+    expect(copy?.hostCaption).toContain(NESTED_ACKNOWLEDGEMENT);
+    expect(copy?.hostCaption).not.toContain(ownAcknowledgement);
   });
 
   it.each([
@@ -61,8 +87,11 @@ describe("host caption nests the acknowledgement by key", () => {
     expect(resolved).not.toContain("$t(");
   });
 
-  it("en-GB omits the keys and falls back to en-US", () => {
-    expect(JSON.stringify(enGB)).not.toContain("hostCaption");
+  it("en-GB, which writes no caption of its own, falls back to the en-US caption", () => {
+    localeRuntime.i18n.addResourceBundle("en-GB", "translation", enGB, true, true);
+    expect(localeRuntime.i18n.getFixedT("en-GB")("bookingWidget.specialRequests.hostCaption")).toBe(
+      hostCaption
+    );
   });
 });
 

@@ -9,21 +9,37 @@ import { test, expect } from "./fixtures.js";
 const VENUE_SLUG = "e2e-test-bistro";
 const VENUE_NAME = "E2E Test Bistro";
 const MANAGE_TOKEN = "e2e-special-requests-token";
-/** The en-US catalog (these specs run in en-US) is the only source of the copy (SC4). */
-const SPECIAL_REQUESTS = (
-  JSON.parse(readFileSync(new URL("../src/i18n/catalogs/en-US.json", import.meta.url), "utf8")) as {
-    bookingWidget: {
-      specialRequests: { label: string; acknowledgement: string; hostCaption: string };
-    };
-  }
-).bookingWidget.specialRequests;
+interface SpecialRequestsCopy {
+  label: string;
+  acknowledgement: string;
+  hostCaption: string;
+}
+
+/** A locale's catalog is the only source of its copy (SC4). */
+function specialRequestsCopy(locale: string): SpecialRequestsCopy {
+  const url = new URL(`../src/i18n/catalogs/${locale}.json`, import.meta.url);
+  return (
+    JSON.parse(readFileSync(url, "utf8")) as {
+      bookingWidget: { specialRequests: SpecialRequestsCopy };
+    }
+  ).bookingWidget.specialRequests;
+}
+
+/** The caption nests the acknowledgement by key; compose it rather than retype the sentence. */
+function hostCaptionOf(copy: SpecialRequestsCopy): string {
+  return copy.hostCaption.replace(
+    "$t(bookingWidget.specialRequests.acknowledgement)",
+    copy.acknowledgement
+  );
+}
+
+/** These specs run in en-US unless a test stores another staff locale. */
+const SPECIAL_REQUESTS = specialRequestsCopy("en-US");
 const LABEL = SPECIAL_REQUESTS.label;
 const ACKNOWLEDGEMENT = SPECIAL_REQUESTS.acknowledgement;
-/** The caption nests the acknowledgement by key; compose it rather than retype the sentence. */
-const HOST_CAPTION = SPECIAL_REQUESTS.hostCaption.replace(
-  "$t(bookingWidget.specialRequests.acknowledgement)",
-  ACKNOWLEDGEMENT
-);
+const HOST_CAPTION = hostCaptionOf(SPECIAL_REQUESTS);
+/** Mirrors LOCALE_STORAGE_KEY in src/i18n/runtime.tsx: the staff (dashboard) locale. */
+const STAFF_LOCALE_KEY = "mbe-hospitality-locale";
 
 /** The guest pressed return once; the second line must start on its own line box. */
 const TWO_LINE_NOTE = "Our anniversary.\nWindow seat if you can, and she can't have tree nuts.";
@@ -232,6 +248,26 @@ test.describe("The host ticket carries the same words", () => {
     await expect(group.getByText(HOST_CAPTION)).toBeVisible();
     await expect(group.getByText("Birthday celebration")).toBeVisible();
   });
+
+  for (const locale of ["es-MX", "fr-CA"] as const) {
+    test(`desktop sidebar in ${locale}: label and caption follow the staff locale`, async ({
+      mockedPage,
+    }) => {
+      const copy = specialRequestsCopy(locale);
+      await mockedPage.addInitScript(([key, tag]) => localStorage.setItem(key, tag), [
+        STAFF_LOCALE_KEY,
+        locale,
+      ] as const);
+      await mockedPage.goto("timeline");
+      await expect(mockedPage.locator("html")).toHaveAttribute("lang", locale);
+      await mockedPage.getByTestId(`reservation-block-${BOB}`).click();
+      const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
+      const group = sidebar.getByRole("group", { name: copy.label });
+      await expect(group).toBeVisible();
+      await expect(group.getByText(hostCaptionOf(copy))).toBeVisible();
+      await expect(group.getByText("Birthday celebration")).toBeVisible();
+    });
+  }
 
   test("tablet sheet at 1024×768: the request is in view without pressing More", async ({
     mockedPage,
