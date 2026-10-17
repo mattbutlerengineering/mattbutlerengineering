@@ -26,6 +26,12 @@ import { bookSlot } from "./book-slot.js";
 import { toReservation, toTable } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import { guestService } from "./guest.js";
+import {
+  recordReservationEvent,
+  toEventState,
+  SYSTEM_ACTOR,
+  type ReservationEventActor,
+} from "./reservation-events.js";
 import { isTableInVenue, loadTableFit, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
 
 export { ReservationTransitionError };
@@ -217,28 +223,49 @@ export const reservationService = {
     return row?.originSessionId ?? null;
   },
 
-  async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
-    const reservation = await prisma.reservation.create({
-      data: {
-        date: new Date(data.date),
-        startTime: new Date(data.startTime),
-        endTime: new Date(data.endTime),
-        partySize: data.partySize,
-        tableId: data.tableId,
-        notes: data.notes ?? null,
-        occasion: data.occasion ?? null,
-        seatingPreference: data.seatingPreference ?? null,
-        guestName: data.guestName ?? null,
-        guestEmail: data.guestEmail ?? null,
-        guestPhone: data.guestPhone ?? null,
-        guestId: data.guestId ?? null,
-        userId: userId ?? null,
-        venueId: data.venueId ?? null,
-      },
-      include: {
-        table: true,
-        guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
-      },
+  async create(
+    data: CreateReservationRequest,
+    userId?: string,
+    actor: ReservationEventActor = SYSTEM_ACTOR
+  ): Promise<Reservation> {
+    // Explicit transaction so the `created` event joins the insert. This call
+    // bypasses the per-call auto-wrap in `services/venue-scoped-prisma.ts`, so
+    // set app.venue_id on THIS transaction's own `tx` (ADR-026 part 6).
+    const reservation = await prisma.$transaction(async (tx) => {
+      await setVenueContext(tx, getCurrentVenueId());
+      const created = await tx.reservation.create({
+        data: {
+          date: new Date(data.date),
+          startTime: new Date(data.startTime),
+          endTime: new Date(data.endTime),
+          partySize: data.partySize,
+          tableId: data.tableId,
+          notes: data.notes ?? null,
+          occasion: data.occasion ?? null,
+          seatingPreference: data.seatingPreference ?? null,
+          guestName: data.guestName ?? null,
+          guestEmail: data.guestEmail ?? null,
+          guestPhone: data.guestPhone ?? null,
+          guestId: data.guestId ?? null,
+          userId: userId ?? null,
+          venueId: data.venueId ?? null,
+        },
+        include: {
+          table: true,
+          guest: {
+            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+          },
+        },
+      });
+      await recordReservationEvent(tx, {
+        reservationId: created.id,
+        venueId: created.venueId,
+        kind: "created",
+        actor,
+        from: null,
+        to: toEventState(created),
+      });
+      return created;
     });
     return toReservation(reservation);
   },
@@ -249,7 +276,8 @@ export const reservationService = {
    */
   async createWithConflictCheck(
     data: CreateReservationRequest,
-    userId?: string
+    userId?: string,
+    actor: ReservationEventActor = SYSTEM_ACTOR
   ): Promise<CreateReservationResult> {
     const startTime = new Date(data.startTime);
     const endTime = new Date(data.endTime);
@@ -320,8 +348,8 @@ export const reservationService = {
       window: { startTime, endTime },
       partySize: data.partySize,
       checkHoldConflict: true,
-      write: (tx) =>
-        tx.reservation.create({
+      write: async (tx) => {
+        const created = await tx.reservation.create({
           data: {
             date: new Date(data.date),
             startTime,
@@ -344,7 +372,17 @@ export const reservationService = {
               select: { visitCount: true, communicationPreference: true, unsubscribed: true },
             },
           },
-        }),
+        });
+        await recordReservationEvent(tx, {
+          reservationId: created.id,
+          venueId: created.venueId,
+          kind: "created",
+          actor,
+          from: null,
+          to: toEventState(created),
+        });
+        return created;
+      },
     });
 
     if (!result.ok) {
@@ -638,7 +676,11 @@ export const reservationService = {
     return { success: true, reservation: toReservation(result.value) };
   },
 
-  async createWalkIn(data: WalkInRequest, userId?: string): Promise<CreateReservationResult> {
+  async createWalkIn(
+    data: WalkInRequest,
+    userId?: string,
+    actor: ReservationEventActor = SYSTEM_ACTOR
+  ): Promise<CreateReservationResult> {
     const now = new Date();
     const durationMinutes = data.durationMinutes ?? 90;
     const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
@@ -732,6 +774,15 @@ export const reservationService = {
               select: { visitCount: true, communicationPreference: true, unsubscribed: true },
             },
           },
+        });
+
+        await recordReservationEvent(tx, {
+          reservationId: createdReservation.id,
+          venueId: createdReservation.venueId,
+          kind: "created",
+          actor,
+          from: null,
+          to: toEventState(createdReservation),
         });
 
         const occupiedTable = await tx.table.update({

@@ -43,23 +43,28 @@ vi.mock("./database.js", async () => {
     seatingPreference: null,
     ...data,
   });
-  return createMockDatabaseService({
-    prisma: {
-      reservation: {
-        create: vi.fn(async ({ data }: { data: Record<string, any> }) => {
-          const row = hydrate(data);
-          store.rows.push(row);
-          return row;
-        }),
-        update: vi.fn(async ({ where, data }: { where: { id: string }; data: object }) => {
-          const index = store.rows.findIndex((r) => r.id === where.id);
-          store.rows[index] = { ...store.rows[index], ...data };
-          return store.rows[index];
-        }),
-        findMany: vi.fn(async () => store.rows),
-      },
+  // `create` now runs in an explicit transaction (it also appends the `created`
+  // event), so the transaction client is the same in-memory store.
+  const prisma: Record<string, any> = {
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+    reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
+    reservation: {
+      create: vi.fn(async ({ data }: { data: Record<string, any> }) => {
+        const row = hydrate(data);
+        store.rows.push(row);
+        return row;
+      }),
+      update: vi.fn(async ({ where, data }: { where: { id: string }; data: object }) => {
+        const index = store.rows.findIndex((r) => r.id === where.id);
+        store.rows[index] = { ...store.rows[index], ...data };
+        return store.rows[index];
+      }),
+      findMany: vi.fn(async () => store.rows),
     },
-  });
+  };
+  return createMockDatabaseService({ prisma });
 });
 
 import { reservationService } from "./reservation.js";

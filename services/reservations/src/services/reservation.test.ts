@@ -128,6 +128,7 @@ function useSlotTxOnce(reservationRow: unknown = makePrismaReservation()) {
   const tx = {
     $executeRawUnsafe: vi.fn().mockResolvedValue(0),
     $executeRaw: vi.fn().mockResolvedValue(0),
+    reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
     venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
     reservation: {
       findFirst: vi.fn().mockResolvedValue(null),
@@ -398,7 +399,7 @@ describe("reservationService", () => {
 
   describe("create", () => {
     it("creates reservation with all fields", async () => {
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      const tx = useSlotTxOnce();
 
       const result = await reservationService.create(
         {
@@ -415,7 +416,7 @@ describe("reservationService", () => {
       );
 
       expect(result.id).toBe("res-1");
-      expect(prisma.reservation.create).toHaveBeenCalledWith(
+      expect(tx.reservation.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             partySize: 2,
@@ -427,9 +428,7 @@ describe("reservationService", () => {
     });
 
     it("creates reservation without userId", async () => {
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(
-        makePrismaReservation({ userId: null }) as never
-      );
+      const tx = useSlotTxOnce(makePrismaReservation({ userId: null }));
 
       await reservationService.create({
         date: "2026-05-05",
@@ -439,11 +438,104 @@ describe("reservationService", () => {
         tableId: "table-1",
       });
 
-      expect(prisma.reservation.create).toHaveBeenCalledWith(
+      expect(tx.reservation.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ userId: null }),
         })
       );
+    });
+  });
+
+  describe("created events (reservation-event-log)", () => {
+    const request = {
+      date: "2026-05-05",
+      startTime: "2026-05-05T18:00:00Z",
+      endTime: "2026-05-05T19:30:00Z",
+      partySize: 2,
+      tableId: "table-1",
+      venueId: "venue-1",
+    };
+
+    function expectOneCreatedEvent(tx: ReturnType<typeof useSlotTxOnce>, actor: object) {
+      expect(tx.reservationEvent.create).toHaveBeenCalledTimes(1);
+      expect(tx.reservationEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          reservationId: "res-1",
+          venueId: "venue-1",
+          kind: "created",
+          actorType: (actor as { type: string }).type,
+          actorId: (actor as { id: string }).id,
+          fromState: undefined,
+          toState: expect.objectContaining({ tableId: "table-1", partySize: 2 }),
+        }),
+      });
+    }
+
+    it("create writes one created event on the transaction client", async () => {
+      const tx = useSlotTxOnce();
+      await reservationService.create(request, "user-1");
+      expect(tx.reservationEvent.create).toHaveBeenCalledTimes(1);
+      expectOneCreatedEvent(tx, { type: "system", id: "unattributed" });
+    });
+
+    it("create runs in an explicit transaction that sets the venue context first", async () => {
+      const tx = useSlotTxOnce();
+      await reservationService.create(request, "user-1");
+      expect(tx.$executeRawUnsafe.mock.invocationCallOrder[0]).toBeLessThan(
+        tx.reservation.create.mock.invocationCallOrder[0]!
+      );
+    });
+
+    it("create records the supplied actor", async () => {
+      const tx = useSlotTxOnce();
+      await reservationService.create(request, "user-1", { type: "staff", id: "user-1" });
+      expect(tx.reservationEvent.create).toHaveBeenCalledTimes(1);
+      expectOneCreatedEvent(tx, { type: "staff", id: "user-1" });
+    });
+
+    it("createWithConflictCheck writes one created event", async () => {
+      const tx = useSlotTxOnce();
+      await reservationService.createWithConflictCheck(request, "user-1", {
+        type: "staff",
+        id: "user-1",
+      });
+      expect(tx.reservationEvent.create).toHaveBeenCalledTimes(1);
+      expectOneCreatedEvent(tx, { type: "staff", id: "user-1" });
+    });
+
+    it("createWalkIn writes one created event", async () => {
+      const tx = useSlotTxOnce(makePrismaReservation({ status: "CONFIRMED" }));
+      Object.assign(tx, { table: { update: vi.fn().mockResolvedValue(makePrismaTable()) } });
+      await reservationService.createWalkIn({
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+      expect(tx.reservationEvent.create).toHaveBeenCalledTimes(1);
+      expectOneCreatedEvent(tx, { type: "system", id: "unattributed" });
+    });
+
+    it("a rejected create (conflict) writes no event", async () => {
+      vi.mocked(assertBookable).mockReturnValueOnce({ code: "CONFLICT", message: "taken" });
+      const result = await reservationService.createWithConflictCheck(request, "user-1");
+      expect(result.success).toBe(false);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("a conflict found under the lock writes no event", async () => {
+      const tx = useSlotTxOnce();
+      tx.reservation.findFirst.mockResolvedValue(makePrismaReservation({ id: "other" }));
+      vi.mocked(checkTableConflict).mockReturnValue(true);
+      const result = await reservationService.createWithConflictCheck(request, "user-1");
+      expect(result.success).toBe(false);
+      expect(tx.reservationEvent.create).not.toHaveBeenCalled();
+    });
+
+    it("a reservation with venueId null still creates, without an event", async () => {
+      const tx = useSlotTxOnce(makePrismaReservation({ venueId: null }));
+      const result = await reservationService.create({ ...request, venueId: undefined });
+      expect(result.id).toBe("res-1");
+      expect(tx.reservationEvent.create).not.toHaveBeenCalled();
     });
   });
 
@@ -463,19 +555,19 @@ describe("reservationService", () => {
     });
 
     it("create writes both fields", async () => {
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      const tx = useSlotTxOnce();
       await reservationService.create(base);
-      expect(prisma.reservation.create).toHaveBeenCalledWith(persisted);
+      expect(tx.reservation.create).toHaveBeenCalledWith(persisted);
     });
 
     it("create writes null when the fields are omitted", async () => {
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      const tx = useSlotTxOnce();
       await reservationService.create({
         ...base,
         occasion: undefined,
         seatingPreference: undefined,
       });
-      expect(prisma.reservation.create).toHaveBeenCalledWith(
+      expect(tx.reservation.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ occasion: null, seatingPreference: null }),
         })
@@ -714,6 +806,7 @@ describe("reservationService", () => {
         const tx = {
           $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: vi.fn().mockResolvedValue(0),
+          reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
           venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
           reservation: {
             findFirst: vi
@@ -842,6 +935,7 @@ describe("reservationService", () => {
       ) => {
         const tx = {
           $executeRaw: vi.fn().mockResolvedValue(0),
+          reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
           $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           reservation: {
             updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -889,6 +983,7 @@ describe("reservationService", () => {
       ) => {
         const tx = {
           $executeRaw: vi.fn().mockResolvedValue(0),
+          reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
           $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           reservation: {
             updateMany: txUpdateMany,
@@ -943,6 +1038,7 @@ describe("reservationService", () => {
       ) =>
         fn({
           $executeRaw: vi.fn().mockResolvedValue(0),
+          reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
           $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           reservation: {
             updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -971,6 +1067,7 @@ describe("reservationService", () => {
       ) =>
         fn({
           $executeRaw: vi.fn().mockResolvedValue(0),
+          reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
           $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           reservation: { updateMany: vi.fn().mockResolvedValue({ count: 0 }), findUnique: vi.fn() },
           guest: { update: guestUpdate },
@@ -1342,6 +1439,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockResolvedValue(walkInReservation),
@@ -1372,6 +1470,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockImplementation((args) => {
@@ -1405,6 +1504,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockImplementation((args) => {
@@ -1441,6 +1541,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockImplementation((args) => {
@@ -1491,6 +1592,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockImplementation((args) => {
@@ -1583,6 +1685,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue({ id: "conflict" }),
               create: vi.fn(),
@@ -1613,6 +1716,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockImplementation((args) => {
@@ -1660,6 +1764,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: executeRaw,
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockImplementation(() => {
                 callOrder.push("reservation.findFirst");
@@ -1702,6 +1807,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: reservationCreate,
@@ -1744,6 +1850,7 @@ describe("reservationService", () => {
           const tx = {
             $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: reservationCreate,
@@ -1786,6 +1893,7 @@ describe("reservationService", () => {
         const tx = {
           $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: vi.fn().mockResolvedValue(0),
+          reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
           reservation: {
             findFirst: vi.fn().mockResolvedValue(null),
             create: vi
