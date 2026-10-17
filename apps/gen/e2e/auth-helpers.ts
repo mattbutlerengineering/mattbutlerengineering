@@ -119,7 +119,7 @@ function buildOidcUserEntry(
 }
 
 /**
- * Injects authenticated session into the page's sessionStorage.
+ * Injects authenticated session into the page's localStorage (the AuthProvider's userStore).
  * After calling this, the react-oidc-context AuthProvider will see the user
  * as authenticated without any browser-based login flow.
  *
@@ -132,10 +132,10 @@ export async function injectAuth0Session(page: Page): Promise<void> {
   const tokens = await fetchAuth0Tokens(config);
   const entry = buildOidcUserEntry(config, tokens);
 
-  // Navigate to the app first so sessionStorage is on the correct origin
+  // Navigate to the app first so localStorage is on the correct origin
   await page.goto("/");
   await page.evaluate(({ key, value }) => {
-    sessionStorage.setItem(key, value);
+    localStorage.setItem(key, value);
   }, entry);
 
   // Reload so AuthProvider picks up the injected session
