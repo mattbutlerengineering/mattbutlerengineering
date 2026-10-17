@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { FAMILIES, llmsPackages, familiesForChangedFile } from "../regen-manifest.mjs";
+import {
+  FAMILIES,
+  llmsPackages,
+  familiesForChangedFile,
+  artifactPaths,
+} from "../regen-manifest.mjs";
+import { needsFullRegen } from "../check-regen-needed.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -355,5 +361,32 @@ describe("ui-quality-ledger family", () => {
   it("is reported by familiesForChangedFile for a router edit", () => {
     const ids = familiesForChangedFile("apps/marketing/src/App.tsx").map((f) => f.id);
     expect(ids).toContain("ui-quality-ledger");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cursorrules family — #6954: .cursorrules is generated from AGENTS.md, so the
+// regen machinery (hook, pre-push, CI, post-merge auto-heal) must know it.
+// ---------------------------------------------------------------------------
+describe("cursorrules family", () => {
+  it("maps a root AGENTS.md edit to the cursorrules family", () => {
+    const matches = familiesForChangedFile("AGENTS.md");
+    const family = matches.find((f) => f.id === "cursorrules");
+    expect(family).toBeDefined();
+    expect(family.outputs).toEqual([".cursorrules"]);
+    expect(family.command).toContain("sync-rules");
+  });
+
+  it("does not map a nested package AGENTS.md", () => {
+    const ids = familiesForChangedFile("packages/x/AGENTS.md").map((f) => f.id);
+    expect(ids).not.toContain("cursorrules");
+  });
+
+  it("lists .cursorrules among the committed artifact paths", () => {
+    expect(artifactPaths()).toContain(".cursorrules");
+  });
+
+  it("treats a root AGENTS.md change as a regen source", () => {
+    expect(needsFullRegen(["AGENTS.md"])).toBe(true);
   });
 });
