@@ -1,7 +1,11 @@
 import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
-import { bookingWindow, isSlotInBookingWindow } from "./slot-rules.js";
+import {
+  bookingWindow,
+  checkGuestModificationPolicy,
+  isSlotInBookingWindow,
+} from "./slot-rules.js";
 import type { DepositService } from "./deposit.js";
 
 /** Guest-supplied fields for a modify request; all optional (at least one required). */
@@ -107,6 +111,8 @@ const BOOKING_WINDOW_RESULT: ModifyReservationResult = {
   code: "BOOKING_WINDOW_VIOLATION",
 };
 
+type ModifyVenue = NonNullable<Awaited<ReturnType<typeof venueService.getById>>>;
+
 /**
  * A guest moving their own booking is bound by the same booking window as
  * availability and hold creation (#6560): not in the past, within the venue's
@@ -114,15 +120,12 @@ const BOOKING_WINDOW_RESULT: ModifyReservationResult = {
  * so an unrelated edit to an imminent booking is never blocked by minAdvance.
  * Returns a blocking 422 result, or `null` when the change may proceed.
  */
-async function checkBookingWindow(
+function checkBookingWindow(
+  venue: ModifyVenue,
   reservation: Reservation,
   changes: ReservationChanges
-): Promise<ModifyReservationResult | null> {
+): ModifyReservationResult | null {
   if (changes.startTime === undefined && changes.date === undefined) return null;
-  if (!reservation.venueId) return null;
-
-  const venue = await venueService.getById(reservation.venueId);
-  if (!venue) return null;
 
   const newStart = new Date(changes.startTime ?? reservation.startTime);
   // The route's body schema guarantees a date-time; an unparseable value
@@ -131,6 +134,41 @@ async function checkBookingWindow(
 
   const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
   return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
+}
+
+const GUEST_POLICY_RESULTS = {
+  MODIFICATION_CUTOFF: {
+    success: false,
+    status: 422,
+    title: "Too Close To Reservation Time",
+    detail: "This venue does not allow changes this close to your reservation. Please call us.",
+    code: "MODIFICATION_CUTOFF",
+  },
+  PARTY_SIZE_CHANGE_TOO_LARGE: {
+    success: false,
+    status: 422,
+    title: "Party Size Change Too Large",
+    detail: "This venue limits how much you can change your party size online. Please call us.",
+    code: "PARTY_SIZE_CHANGE_TOO_LARGE",
+  },
+} as const satisfies Record<string, ModifyReservationResult>;
+
+/**
+ * The venue's limits on guest self-service changes (cutoff hours, party-size
+ * delta). Returns a blocking 422 result, or `null` when the change may proceed.
+ */
+function checkGuestPolicy(
+  venue: ModifyVenue,
+  reservation: Reservation,
+  changes: ReservationChanges
+): ModifyReservationResult | null {
+  const violation = checkGuestModificationPolicy(
+    venue.settings,
+    { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+    { partySize: changes.partySize, movesTime: isTimeChange(changes) },
+    new Date()
+  );
+  return violation ? GUEST_POLICY_RESULTS[violation] : null;
 }
 
 /**
@@ -154,9 +192,16 @@ export async function modifyReservation(
     return depositGuardResult;
   }
 
-  const windowResult = await checkBookingWindow(reservation, changes);
-  if (windowResult) {
-    return windowResult;
+  // A specialRequests-only edit moves neither time nor party size, so it needs no venue.
+  const venue =
+    reservation.venueId && (isTimeChange(changes) || changes.partySize !== undefined)
+      ? await venueService.getById(reservation.venueId)
+      : null;
+  if (venue) {
+    const blocked =
+      checkGuestPolicy(venue, reservation, changes) ??
+      checkBookingWindow(venue, reservation, changes);
+    if (blocked) return blocked;
   }
 
   const { date, startTime, endTime, partySize, specialRequests } = changes;

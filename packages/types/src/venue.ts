@@ -97,6 +97,10 @@ export interface VenueSettings {
    * Default: 2
    */
   autoDepositAfterNoShows?: number;
+  /** Guests cannot change a booking whose current start is less than this many hours away. */
+  guestModificationCutoffHours?: number;
+  /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
+  guestMaxPartySizeChange?: number;
 }
 
 export type DepositType = "flat" | "per_person";

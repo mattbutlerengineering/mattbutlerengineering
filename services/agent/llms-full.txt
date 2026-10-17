@@ -567,6 +567,12 @@
        * Return undefined to drop the event (default: the event itself).
        */
       readonly serializeEvent?: (event: GenStreamEvent) => unknown;
+      /**
+       * ndjson only: per-request variant of `serializeEvent`, built from the parsed
+       * body so it can hold request-scoped state (and throw to fail the run).
+       * Takes precedence over `serializeEvent`.
+       */
+      readonly createEventSerializer?: (parsed: z.infer<TSchema>) => (event: GenStreamEvent) => unknown;
       readonly getTools: (
         request: FastifyRequest,
         parsed: z.infer<TSchema>
@@ -585,7 +591,7 @@
       config: GenRouteConfig<TSchema>
     ): FastifyPluginAsync {
       const { path, costLogLabel, rateLimit, schema, streamFormat, maxSteps, getTools } = config;
-      const serializeEvent = config.serializeEvent ?? ((event: GenStreamEvent) => event);
+      const defaultSerializeEvent = config.serializeEvent ?? ((event: GenStreamEvent) => event);
     
       const contentType =
         streamFormat === "text" ? "text/plain; charset=utf-8" : "application/x-ndjson; charset=utf-8";
@@ -664,6 +670,7 @@
             }
     
             // ndjson: encode each event as a JSON line
+            const serializeEvent = config.createEventSerializer?.(parsed) ?? defaultSerializeEvent;
             const ndjsonStream = new ReadableStream({
               async start(controller) {
                 let emitted = false;
@@ -1029,6 +1036,31 @@
     }
   </file>
   <file path="src/routes/gen-ui.ts">
+    type GenUiBody = z.infer<typeof GenUiBodySchema>;
+    function scopedInstruction(target: { key: string; type: string }): string {
+      return (
+        `Scope: regenerate ONLY the replacement subtree for the selected ${target.type} element. ` +
+        `Its root element MUST use key === ${JSON.stringify(target.key)} and omit \`parentKey\`. ` +
+        "Use only catalog components, emit exactly one root, and keep every change within that subtree."
+      );
+    }
+    function createTargetGuard(targetKey: string) {
+      let seen = 0;
+      return (event: GenStreamEvent): unknown => {
+        const raw = serializeElement(event);
+        if (raw === undefined) return undefined;
+        // The render_component input schema guarantees this shape at runtime.
+        const element = raw as { key: string; parentKey?: string | null };
+        if (seen === 0 && element.key !== targetKey) {
+          throw new Error(`Subtree root key "${element.key}" does not match target "${targetKey}"`);
+        }
+        if (seen > 0 && element.parentKey == null) {
+          throw new Error("Subtree generation emitted a second root element");
+        }
+        seen += 1;
+        return element;
+      };
+    }
     function createRenderComponentTool() {
       return tool({
         description:
@@ -1063,17 +1095,20 @@
       // ai@7 to retry the tool call on, so a tool-error can only ever mean the
       // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
       failOnToolError: true,
-      toMessages: ({ prompt, context }) => [
+      toMessages: ({ prompt, context, target }: GenUiBody) => [
         {
           role: "user",
-          content: context
-            ? `${prompt}
-    
-    Context: ${JSON.stringify(context)}`
-            : prompt,
+          content: [
+            prompt,
+            context ? `Context: ${JSON.stringify(context)}` : undefined,
+            target ? scopedInstruction(target) : undefined,
+          ]
+            .filter((part) => part !== undefined)
+            .join("\n\n"),
         },
       ],
-      serializeEvent: (event) => (event.type === "element" ? event.element : undefined),
+      createEventSerializer: ({ target }: GenUiBody) =>
+        target ? createTargetGuard(target.key) : serializeElement,
       getTools: () => ({ render_component: createRenderComponentTool() }),
     });
   </file>

@@ -116,16 +116,16 @@ src/
 
 ### Gen AI (Streaming)
 
-| Method | Path                          | Description                  |
-| ------ | ----------------------------- | ---------------------------- |
-| POST   | `/api/gen/ui`                 | Stream UI generation (JSONL) |
-| POST   | `/api/gen/chat`               | Stream chat responses (SSE)  |
-| POST   | `/api/gen/agent`              | Stream agent responses (SSE) |
-| POST   | `/api/gen/specs`              | Create and persist a spec    |
-| GET    | `/api/gen/specs`              | List user's specs            |
-| GET    | `/api/gen/specs/:id`          | Get spec by id (public)      |
-| PATCH  | `/api/gen/specs/:id/favorite` | Toggle spec favorite         |
-| DELETE | `/api/gen/specs/:id`          | Delete a spec                |
+| Method | Path                          | Description                                                                                                              |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/api/gen/ui`                 | Stream UI generation (JSONL); optional `target: {key, type}` regenerates one subtree (root keeps `target.key`, else 502) |
+| POST   | `/api/gen/chat`               | Stream chat responses (SSE)                                                                                              |
+| POST   | `/api/gen/agent`              | Stream agent responses (SSE)                                                                                             |
+| POST   | `/api/gen/specs`              | Create and persist a spec                                                                                                |
+| GET    | `/api/gen/specs`              | List user's specs                                                                                                        |
+| GET    | `/api/gen/specs/:id`          | Get spec by id (public)                                                                                                  |
+| PATCH  | `/api/gen/specs/:id/favorite` | Toggle spec favorite                                                                                                     |
+| DELETE | `/api/gen/specs/:id`          | Delete a spec                                                                                                            |
 
 ### Webhooks
 

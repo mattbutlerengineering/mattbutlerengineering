@@ -2632,6 +2632,8 @@
                       slug: venue.slug,
                       ianaTimezone: venue.ianaTimezone,
                       phone: venue.settings?.phone,
+                      modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
+                      maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
                     }
                   : null,
               },
@@ -11059,6 +11061,89 @@
       return memberships.map((membership) => membership.venueId);
     }
   </file>
+  <file path="src/services/move-to-hold.ts">
+    type MoveToHoldErrorCode =
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+    export interface MoveToHoldInput {
+      /** The existing reservation to move. Its status is never changed. */
+      reservation: Reservation;
+      holdId: string;
+      /** Session that owns the hold; must match. */
+      sessionId: string;
+      /**
+       * Venue the caller is scoped to. A hold from another venue is reported as
+       * `NOT_FOUND`, never as a distinct error, so its existence does not leak.
+       */
+      venueId: string;
+    }
+    export type MoveToHoldResult =
+      | { success: true; reservation: Reservation }
+      | { success: false; error: string; errorCode: MoveToHoldErrorCode };
+    export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
+      const { reservation, holdId, sessionId, venueId } = input;
+    
+      const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
+      if (!hold || hold.venueId !== venueId) {
+        return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
+      }
+      if (hold.sessionId !== sessionId) {
+        return {
+          success: false,
+          error: "Session ID does not match the hold",
+          errorCode: "SESSION_MISMATCH",
+        };
+      }
+    
+      const result = await bookSlot({
+        tableId: hold.tableId,
+        venueId: hold.venueId,
+        date: hold.date,
+        window: { startTime: hold.startTime, endTime: hold.endTime },
+        partySize: hold.partySize,
+        excludeReservationId: reservation.id,
+        excludeHoldId: holdId,
+        checkHoldConflict: true,
+        checkPacing: true,
+        guard: async () =>
+          hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
+        write: async (tx) => {
+          const updated = await tx.reservation.update({
+            where: { id: reservation.id },
+            data: {
+              date: hold.date,
+              startTime: hold.startTime,
+              endTime: hold.endTime,
+              tableId: hold.tableId,
+              partySize: hold.partySize,
+            },
+            include: {
+              table: true,
+              guest: { select: { visitCount: true, communicationPreference: true } },
+            },
+          });
+          await tx.reservationHold.delete({ where: { id: holdId } });
+          return updated;
+        },
+      });
+    
+      if (!result.ok) {
+        const { code } = result.conflict;
+        if (code === "EXPIRED") {
+          return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
+        }
+        if (code === "PACING_EXCEEDED") {
+          return {
+            success: false,
+            error: "Pacing limit reached for this time slot",
+            errorCode: "PACING_EXCEEDED",
+          };
+        }
+        return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
+      }
+    
+      return { success: true, reservation: toReservation(result.value) };
+    }
+  </file>
   <file path="src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
     export interface NotifierRuntime {
@@ -11645,15 +11730,13 @@
       const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
-    async function checkBookingWindow(
+    type ModifyVenue = NonNullable<Awaited<ReturnType<typeof venueService.getById>>>;
+    function checkBookingWindow(
+      venue: ModifyVenue,
       reservation: Reservation,
       changes: ReservationChanges
-    ): Promise<ModifyReservationResult | null> {
+    ): ModifyReservationResult | null {
       if (changes.startTime === undefined && changes.date === undefined) return null;
-      if (!reservation.venueId) return null;
-    
-      const venue = await venueService.getById(reservation.venueId);
-      if (!venue) return null;
     
       const newStart = new Date(changes.startTime ?? reservation.startTime);
       // The route's body schema guarantees a date-time; an unparseable value
@@ -11662,6 +11745,19 @@
     
       const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
       return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
+    }
+    function checkGuestPolicy(
+      venue: ModifyVenue,
+      reservation: Reservation,
+      changes: ReservationChanges
+    ): ModifyReservationResult | null {
+      const violation = checkGuestModificationPolicy(
+        venue.settings,
+        { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+        { partySize: changes.partySize, movesTime: isTimeChange(changes) },
+        new Date()
+      );
+      return violation ? GUEST_POLICY_RESULTS[violation] : null;
     }
     export async function modifyReservation(
       reservation: Reservation,
@@ -11677,9 +11773,16 @@
         return depositGuardResult;
       }
     
-      const windowResult = await checkBookingWindow(reservation, changes);
-      if (windowResult) {
-        return windowResult;
+      // A specialRequests-only edit moves neither time nor party size, so it needs no venue.
+      const venue =
+        reservation.venueId && (isTimeChange(changes) || changes.partySize !== undefined)
+          ? await venueService.getById(reservation.venueId)
+          : null;
+      if (venue) {
+        const blocked =
+          checkGuestPolicy(venue, reservation, changes) ??
+          checkBookingWindow(venue, reservation, changes);
+        if (blocked) return blocked;
       }
     
       const { date, startTime, endTime, partySize, specialRequests } = changes;
@@ -13203,6 +13306,30 @@
       if (slotStart < window.earliest) return false;
       if (window.latestLocalDate === null) return true;
       return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
+    }
+    export type GuestModificationViolation = "MODIFICATION_CUTOFF" | "PARTY_SIZE_CHANGE_TOO_LARGE";
+    export function checkGuestModificationPolicy(
+      settings:
+        | Pick<VenueSettings, "guestModificationCutoffHours" | "guestMaxPartySizeChange">
+        | null
+        | undefined,
+      reservation: { startTime: Date; partySize: number },
+      changes: { partySize?: number; movesTime?: boolean },
+      now: Date
+    ): GuestModificationViolation | null {
+      const partyDelta =
+        changes.partySize === undefined ? 0 : Math.abs(changes.partySize - reservation.partySize);
+    
+      const cutoffHours = settings?.guestModificationCutoffHours;
+      if (cutoffHours !== undefined && (changes.movesTime || partyDelta > 0)) {
+        const hoursAway = (reservation.startTime.getTime() - now.getTime()) / MS_PER_HOUR;
+        if (hoursAway < cutoffHours) return "MODIFICATION_CUTOFF";
+      }
+    
+      const maxChange = settings?.guestMaxPartySizeChange;
+      if (maxChange !== undefined && partyDelta > maxChange) return "PARTY_SIZE_CHANGE_TOO_LARGE";
+    
+      return null;
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
