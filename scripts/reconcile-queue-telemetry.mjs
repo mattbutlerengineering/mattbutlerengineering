@@ -103,7 +103,16 @@ export function reconcileTelemetry(
     // Only the cost fields are missing: no GitHub lookup needed.
     if (!missing.some((f) => PR_FIELDS.includes(f))) {
       reconciled += 1;
-      return reconcileTelemetryRow(row, { pr: null, cost });
+      const out = reconcileTelemetryRow(row, { pr: null, cost });
+      // pr: null would relabel every known PR-field reason "pr-not-found"; keep
+      // the reasons the row already had and take only the cost ones from out.
+      const reasons = { ...row.unknown_reasons };
+      for (const f of ["cost_usd", "model_tier"]) {
+        if (out.unknown_reasons?.[f]) reasons[f] = out.unknown_reasons[f];
+      }
+      if (Object.keys(reasons).length > 0) out.unknown_reasons = reasons;
+      else delete out.unknown_reasons;
+      return out;
     }
 
     if (calls >= maxCalls) return { ...row };

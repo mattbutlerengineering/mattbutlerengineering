@@ -366,6 +366,25 @@ describe("reconcileTelemetry — incomplete rows", () => {
     expect(rows[0].cost_usd).toBe(2.5);
   });
 
+  it("keeps existing PR-field reasons on the cost-only path", () => {
+    const row = makeRow({
+      merged: true,
+      ...COMPLETE,
+      ci_first_pass: null,
+      cost_usd: null,
+      model_tier: null,
+      rework_cycles: 0,
+      unknown_reasons: { ci_first_pass: "no-ci-gate-run" },
+    });
+    const { rows } = reconcileTelemetry([row], { fetchPr: vi.fn(), now: NOW });
+
+    expect(rows[0].unknown_reasons).toEqual({
+      ci_first_pass: "no-ci-gate-run",
+      cost_usd: "no-ledger-row",
+      model_tier: "no-ledger-row",
+    });
+  });
+
   it("prefers the CI Gate result over the commit-count heuristic", () => {
     const fetchPr = vi.fn().mockReturnValue(facts({ commitCount: 1, ciGateFirstPass: false }));
     const { rows } = reconcileTelemetry([makeRow()], { fetchPr, now: NOW });
