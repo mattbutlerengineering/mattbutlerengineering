@@ -1272,7 +1272,22 @@
     "timeRange": "{{start}} – {{end}}",
     "call": "Call {{venue}}",
     "cancel": "Cancel Reservation",
-    "cancelled": "This reservation has been cancelled."
+    "cancelled": "This reservation has been cancelled.",
+    "change": {
+      "title": "Change your booking",
+      "cancel": "Cancel",
+      "confirm": "Confirm change",
+      "confirming": "Changing…",
+      "slotsFailed": "We couldn't load available times. Please try again.",
+      "errors": {
+        "SLOT_UNAVAILABLE": "That time was just taken. Your original booking is unchanged — please pick another time.",
+        "HOLD_EXPIRED": "Your hold expired. Your original booking is unchanged — please pick a time again.",
+        "PARTY_SIZE_DEPOSIT_HELD": "This booking has a deposit, so the party size can't be changed online. Please contact the venue.",
+        "MODIFICATION_CUTOFF": "It's too close to your booking time to change it online. Please contact the venue.",
+        "PARTY_SIZE_CHANGE_TOO_LARGE": "That party size change is too large to make online. Please contact the venue.",
+        "UNKNOWN": "We couldn't change your booking. Your original booking is unchanged — please try again."
+      }
+    }
   },
   "offlineBanner": {
     "cached": "Showing cached data from last sync",

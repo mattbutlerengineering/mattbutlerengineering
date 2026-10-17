@@ -1293,7 +1293,22 @@
     "timeRange": "{{start}} – {{end}}",
     "call": "Llamar a {{venue}}",
     "cancel": "Cancelar reserva",
-    "cancelled": "Esta reserva se canceló."
+    "cancelled": "Esta reserva se canceló.",
+    "change": {
+      "title": "Cambiar tu reservación",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar cambio",
+      "confirming": "Cambiando…",
+      "slotsFailed": "No pudimos cargar los horarios disponibles. Inténtalo de nuevo.",
+      "errors": {
+        "SLOT_UNAVAILABLE": "Ese horario acaba de ocuparse. Tu reservación original no cambió; elige otro horario.",
+        "HOLD_EXPIRED": "Tu apartado expiró. Tu reservación original no cambió; elige un horario de nuevo.",
+        "PARTY_SIZE_DEPOSIT_HELD": "Esta reservación tiene un depósito, así que el número de personas no se puede cambiar en línea. Comunícate con el lugar.",
+        "MODIFICATION_CUTOFF": "Falta muy poco para tu reservación y ya no se puede cambiar en línea. Comunícate con el lugar.",
+        "PARTY_SIZE_CHANGE_TOO_LARGE": "El cambio en el número de personas es demasiado grande para hacerlo en línea. Comunícate con el lugar.",
+        "UNKNOWN": "No pudimos cambiar tu reservación. Tu reservación original no cambió; inténtalo de nuevo."
+      }
+    }
   },
   "offlineBanner": {
     "cached": "Mostrando datos en caché de la última sincronización",
