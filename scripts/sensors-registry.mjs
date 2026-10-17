@@ -43,6 +43,7 @@ import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metr
 import { describeGhError, listRunArtifacts, downloadArtifactZip } from "@mbe/gh-client";
 import { extractZipEntries } from "./extract-zip-entries.mjs";
 import { parseJUnitXml } from "./parse-junit-xml.mjs";
+import { partitionPhantomRuns } from "./phantom-runs.mjs";
 
 /**
  * @typedef {{ verified: boolean; reason: string; confidence?: string }} VerifyResult
@@ -588,7 +589,12 @@ export const SENSORS = [
       }
       if (runs.length === 0) return { available: false };
 
-      const completed = runs.filter((r) => r.status === "completed");
+      // #6344: zero-job failures on bot branches are phantoms (approval-parked
+      // runs), reported separately. Needs `headBranch` + `jobCount` on the run;
+      // the main-scoped query above cannot return them today, so this is
+      // defence in depth should the scope ever widen.
+      const { counted, phantom } = partitionPhantomRuns(runs);
+      const completed = counted.filter((r) => r.status === "completed");
       const passed = completed.filter((r) => r.conclusion === "success");
       const failed = completed.filter((r) => r.conclusion === "failure");
       // #4685: skipped (intentional no-op) and cancelled (concurrency-superseded
@@ -603,6 +609,7 @@ export const SENSORS = [
         completed: completed.length,
         passed: passed.length,
         failed: failed.length,
+        phantom: phantom.length,
         pass_rate_pct: passRate,
         most_recent: runs[0] ?? null,
       };
