@@ -43,6 +43,9 @@ export type EventState = {
   partySize: number;
 };
 
+/** Deposit status snapshot stored in `from_state` / `to_state` of a `deposit_transition` event. */
+export type DepositEventState = { depositStatus: string };
+
 export function toEventState(row: {
   status: string;
   tableId: string;
@@ -73,8 +76,8 @@ export async function recordReservationEvent(
     venueId: string | null;
     kind: ReservationEventKind;
     actor: ReservationEventActor;
-    from?: EventState | null;
-    to?: EventState | null;
+    from?: EventState | DepositEventState | null;
+    to?: EventState | DepositEventState | null;
   }
 ) {
   if (input.venueId === null) return null;

@@ -1,3 +1,4 @@
+import type * as VenueContext from "../middleware/venue-context.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const { mockDepositFindFirst, mockDepositFindUnique, mockDepositUpdate, mockDepositUpdateMany } =
@@ -15,6 +16,7 @@ vi.mock("../services/database.js", async () => {
       deposit: {
         findFirst: mockDepositFindFirst,
         findUnique: mockDepositFindUnique,
+        findUniqueOrThrow: vi.fn().mockResolvedValue({ reservationId: "res-123" }),
         create: vi.fn(),
         update: mockDepositUpdate,
         updateMany: mockDepositUpdateMany,
@@ -23,9 +25,17 @@ vi.mock("../services/database.js", async () => {
         findUnique: vi.fn(),
         update: vi.fn(),
       },
+      reservationEvent: { create: vi.fn() },
     },
   });
 });
+
+// Deposit CAS writes run in a venue-scoped transaction; this suite asserts the
+// state machine, not RLS (see rls-route-sweep.integration.test.ts).
+vi.mock("../middleware/venue-context.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof VenueContext>()),
+  setVenueContext: vi.fn(),
+}));
 
 // ADR-026 §3.3 item 4 / #5369 PR 8: the webhook handlers now resolve the
 // deposit's venue via `resolveVenueId` (a raw `$queryRaw` call the plain

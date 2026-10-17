@@ -16,6 +16,9 @@ vi.mock("./database.js", async () => {
           const row = depositRows.get(where.id);
           return row ? { ...row } : null;
         }),
+        findUniqueOrThrow: vi.fn(async ({ where }: { where: { id: string } }) => ({
+          reservationId: depositRows.get(where.id)?.reservationId ?? "res-123",
+        })),
         updateMany: vi.fn(
           async ({
             where,
@@ -31,9 +34,14 @@ vi.mock("./database.js", async () => {
           }
         ),
       },
+      reservationEvent: { create: vi.fn() },
     },
   });
 });
+
+// Deposit CAS writes run in a venue-scoped transaction; this suite asserts the
+// cancellation money flow, not RLS (see rls-route-sweep.integration.test.ts).
+vi.mock("../middleware/venue-context.js", () => ({ setVenueContext: vi.fn() }));
 
 vi.mock("./reservation.js", () => ({
   reservationService: {

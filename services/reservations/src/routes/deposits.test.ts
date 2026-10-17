@@ -1,9 +1,11 @@
+import type * as VenueContext from "../middleware/venue-context.js";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { mockDepositDb, mockGuestDb, mockVenueDb, mockQueryRaw } = vi.hoisted(() => ({
   mockDepositDb: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
+    findUniqueOrThrow: vi.fn().mockResolvedValue({ reservationId: "res-123" }),
     findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -32,10 +34,18 @@ vi.mock("../services/database.js", async () => {
       deposit: mockDepositDb,
       guest: mockGuestDb,
       venue: mockVenueDb,
+      reservationEvent: { create: vi.fn() },
       $queryRaw: mockQueryRaw,
     },
   });
 });
+
+// Deposit CAS writes run in a venue-scoped transaction; this suite asserts the
+// state machine, not RLS (see rls-route-sweep.integration.test.ts).
+vi.mock("../middleware/venue-context.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof VenueContext>()),
+  setVenueContext: vi.fn(),
+}));
 
 // Mock auth so we don't need real JWT
 vi.mock("@mbe/auth/fastify", () => ({

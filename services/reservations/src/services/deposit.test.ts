@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockDepositDb, mockGuestDb } = vi.hoisted(() => ({
+const { mockDepositDb, mockGuestDb, mockEventDb } = vi.hoisted(() => ({
+  mockEventDb: { create: vi.fn() },
   mockDepositDb: {
     findUnique: vi.fn(),
+    findUniqueOrThrow: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -15,8 +17,14 @@ const { mockDepositDb, mockGuestDb } = vi.hoisted(() => ({
 
 vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
-  return createMockDatabaseService({ prisma: { deposit: mockDepositDb, guest: mockGuestDb } });
+  return createMockDatabaseService({
+    prisma: { deposit: mockDepositDb, guest: mockGuestDb, reservationEvent: mockEventDb },
+  });
 });
+
+// Deposit CAS writes run in a venue-scoped transaction; this suite asserts the
+// state machine and event rows, not RLS (see rls-route-sweep.integration.test.ts).
+vi.mock("../middleware/venue-context.js", () => ({ setVenueContext: vi.fn() }));
 
 import {
   DepositService,
@@ -28,6 +36,7 @@ import {
   DepositWrittenOffUncollectableError,
 } from "./deposit.js";
 import { StripeOperationError } from "./stripe.js";
+import { runWithVenueContext } from "./venue-context-store.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { Deposit } from "../generated/prisma/index.js";
 import type { DepositType } from "@mbe/cancellation-policy";
@@ -93,6 +102,7 @@ describe("DepositService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDepositDb.findUniqueOrThrow.mockResolvedValue({ reservationId: "res-123" });
     mockStripe = createMockStripe();
     depositService = new DepositService(mockStripe);
     setDepositServiceLogger(mockLogger);
@@ -2219,6 +2229,139 @@ describe("DepositService", () => {
         metadata: { guestId: "guest-minimal" },
       });
       expect(result).toBe("cus_minimal_111");
+    });
+  });
+
+  describe("deposit_transition events (#6937)", () => {
+    const inVenue = <T>(fn: () => Promise<T>) => runWithVenueContext("venue-1", fn);
+
+    const eventFor = (from: string, to: string, actor = { type: "system", id: "unattributed" }) =>
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reservationId: "res-123",
+          venueId: "venue-1",
+          kind: "deposit_transition",
+          actorType: actor.type,
+          actorId: actor.id,
+          fromState: { depositStatus: from },
+          toState: { depositStatus: to },
+        }),
+      });
+
+    it("hold writes one event attributed to the stripe webhook", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "pending" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await inVenue(() => depositService.hold("dep-123", "pi_test_123"));
+
+      expect(mockEventDb.create).toHaveBeenCalledTimes(1);
+      expect(mockEventDb.create).toHaveBeenCalledWith(
+        eventFor("pending", "held", { type: "system", id: "stripe-webhook" })
+      );
+    });
+
+    it("hold writes no event when the CAS is lost", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "pending" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await inVenue(() => depositService.hold("dep-123", "pi_test_123"));
+
+      expect(mockEventDb.create).not.toHaveBeenCalled();
+    });
+
+    it("writes no event for an invalid transition", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "held" }));
+
+      await expect(inVenue(() => depositService.hold("dep-123", "pi_test_123"))).rejects.toThrow();
+
+      expect(mockEventDb.create).not.toHaveBeenCalled();
+    });
+
+    it("refund writes one event, system-attributed unless the webhook skips the Stripe cancel", async () => {
+      mockDepositDb.findUnique.mockResolvedValue(makeDeposit({ status: "held" }));
+      mockDepositDb.updateMany.mockResolvedValue({ count: 1 });
+
+      await inVenue(() => depositService.refund("dep-123"));
+      await inVenue(() => depositService.refund("dep-123", { skipStripeCancel: true }));
+
+      expect(mockEventDb.create).toHaveBeenCalledTimes(2);
+      expect(mockEventDb.create).toHaveBeenNthCalledWith(1, eventFor("held", "refunded"));
+      expect(mockEventDb.create).toHaveBeenNthCalledWith(
+        2,
+        eventFor("held", "refunded", { type: "system", id: "stripe-webhook" })
+      );
+    });
+
+    it("refund writes no event and throws when the CAS is lost", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "held" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(inVenue(() => depositService.refund("dep-123"))).rejects.toThrow();
+
+      expect(mockEventDb.create).not.toHaveBeenCalled();
+    });
+
+    it("expireAuthorization writes one held -> uncollectable event", async () => {
+      mockDepositDb.findUnique.mockResolvedValue(makeDeposit({ status: "held" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await inVenue(() => depositService.expireAuthorization("dep-123"));
+
+      expect(mockEventDb.create).toHaveBeenCalledTimes(1);
+      expect(mockEventDb.create).toHaveBeenCalledWith(
+        eventFor("held", "uncollectable", { type: "system", id: "stripe-webhook" })
+      );
+    });
+
+    it("apply and forfeit each write one event", async () => {
+      mockDepositDb.findUnique.mockResolvedValue(makeDeposit({ status: "held" }));
+      mockDepositDb.updateMany.mockResolvedValue({ count: 1 });
+
+      await inVenue(() => depositService.apply("dep-123"));
+      await inVenue(() => depositService.forfeit("dep-123", "no_show"));
+
+      expect(mockEventDb.create).toHaveBeenCalledTimes(2);
+      expect(mockEventDb.create).toHaveBeenNthCalledWith(1, eventFor("held", "applied"));
+      expect(mockEventDb.create).toHaveBeenNthCalledWith(2, eventFor("held", "forfeited"));
+    });
+
+    it("refundPartial writes one held -> partial_refunded event", async () => {
+      mockDepositDb.findUnique.mockResolvedValue(makeDeposit({ status: "held" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await inVenue(() => depositService.refundPartial("dep-123", 2000));
+
+      expect(mockEventDb.create).toHaveBeenCalledTimes(1);
+      expect(mockEventDb.create).toHaveBeenCalledWith(eventFor("held", "partial_refunded"));
+    });
+
+    it("a Stripe-failure rollback writes its own applied -> held event", async () => {
+      mockDepositDb.findUnique.mockResolvedValue(
+        makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" })
+      );
+      mockDepositDb.updateMany.mockResolvedValue({ count: 1 });
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("stripe boom"), "StripeInvalidRequestError", false)
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      await expect(inVenue(() => depositService.apply("dep-123"))).rejects.toThrow(/stripe boom/);
+
+      expect(mockEventDb.create).toHaveBeenCalledTimes(2);
+      expect(mockEventDb.create).toHaveBeenNthCalledWith(1, eventFor("held", "applied"));
+      expect(mockEventDb.create).toHaveBeenNthCalledWith(2, eventFor("applied", "held"));
+    });
+
+    it("writes no event outside a venue context (null venue id)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "pending" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await depositService.hold("dep-123", "pi_test_123");
+
+      expect(mockEventDb.create).not.toHaveBeenCalled();
     });
   });
 });

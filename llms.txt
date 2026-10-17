@@ -9470,6 +9470,9 @@
         date: string;
         ...;
     </item>
+    <item priority="low">
+      type DepositEventState = { depositStatus: string };
+    </item>
     <item priority="high">
       export function toEventState(row: {
         status: string;
@@ -9488,8 +9491,8 @@
           venueId: string | null;
           kind: ReservationEventKind;
           actor: ReservationEventActor;
-          from?: EventState | null;
-          to?: EventState | null;
+          from?: EventState | DepositEventState | null;
+          to?: EventState | DepositEventState | null;
         }
       ) { /* ... */ }
     </item>
