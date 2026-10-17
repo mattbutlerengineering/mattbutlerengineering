@@ -6287,6 +6287,15 @@
     </item>
   </file>
   <file path="services/agent/src/routes/gen-ui.ts">
+    <item priority="high">
+      type GenUiBody = z.infer<typeof GenUiBodySchema>;
+    </item>
+    <item priority="medium">
+      function scopedInstruction(target: { key: string; type: string }): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createTargetGuard(targetKey: string) { /* ... */ }
+    </item>
     <item priority="medium">
       function createRenderComponentTool() { /* ... */ }
     </item>
