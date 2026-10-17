@@ -1,7 +1,6 @@
 ---
 run: feature:ship-pr
 date: 2026-10-14
-stop-after: decompose
 ---
 
 # Autorun brief: /ship-pr skill
@@ -83,3 +82,32 @@ No — terminal-only project skill for the Owner/agent; `ux: not-applicable`.
 
 None needed: `stop-after: decompose` ends the run at the blueprint gate.
 No release action of any kind is authorized.
+
+## Resume 2026-10-16 — Owner extended the run past decompose
+
+The Owner re-invoked autorun in a live session on 2026-10-16 and chose
+this run, to resume at Review and continue through Ship. That answer
+replaces the original `stop-after: decompose` line (removed from the
+frontmatter). It is a live Owner answer, not an assumption.
+
+Facts measured at resume:
+
+- The skill is on `main`: `.claude/skills/ship-pr/SKILL.md`, landed by
+  #6667 (conductor batch b20261014c) and #6675 (run gates and dry
+  walk-through), later touched by #6794. `breakdown.md` is 4/4 checked
+  and `verification.md` exists.
+- No `review.md` or `release.md` exists.
+- The remaining stages run in the worktree
+  `/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/ship-pr-close`
+  on branch `docs/ship-pr-close`, cut from `origin/main`.
+
+**Release authorization (updated).** The change already merged, so
+there is nothing left to release. Ship records the release that already
+happened: which PRs landed the skill, their CI Gate result on the merge
+SHAs, and how to roll back. It executes no new release action: no
+deploy, merge, tag or publish.
+
+**Review scope.** Review the skill as it stands on `main` (the #6667 and
+#6675 squashes, plus #6794's change to `qualifiesForLowRiskFastPath`
+that the skill relies on), against `prd.md`'s success criteria and the
+queue profile `.claude/implement-queue.md` whose hooks the skill reuses.
