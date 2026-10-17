@@ -8,9 +8,12 @@ import {
   staggerReveal,
 } from "@mattbutlerengineering/rialto";
 import { motion, useReducedMotion } from "framer-motion";
+import { Link } from "react-router";
 import { FactoryCanvas } from "./FactoryCanvas.js";
 import { FactoryStill } from "./FactoryStill.js";
 import { PIPELINE_STAGES } from "./pipeline-stages.js";
+import { SHIPPED_FEATURES } from "../../data/shipped-features.js";
+import { formatDate, formatWallClock } from "../../utils/formatters.js";
 import homeStyles from "../../pages/HomePage.module.css";
 import styles from "./FactorySection.module.css";
 
@@ -94,6 +97,32 @@ export function FactorySection() {
               ))}
             </motion.div>
           </div>
+
+          {SHIPPED_FEATURES.length > 0 ? (
+            <div className={styles.shipped}>
+              <Heading level={3} className={styles.shippedHeading}>
+                Recently shipped
+              </Heading>
+              <ul className={styles.shippedList}>
+                {SHIPPED_FEATURES.slice(0, 3).map((feature) => (
+                  <li key={feature.slug} className={styles.shippedItem}>
+                    <Link to={`/shipped/${feature.slug}`} className={styles.shippedLink}>
+                      {feature.title}
+                    </Link>
+                    <Text as="span" className={styles.shippedMeta}>
+                      <time dateTime={feature.lastMergedAt}>
+                        {formatDate(feature.lastMergedAt)}
+                      </time>{" "}
+                      · {formatWallClock(feature.wallClockHours)}
+                    </Text>
+                  </li>
+                ))}
+              </ul>
+              <Link to="/shipped" className={styles.manualLink}>
+                See everything the factory shipped
+              </Link>
+            </div>
+          ) : null}
 
           <div className={styles.footRow}>
             <Text
