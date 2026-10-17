@@ -33,7 +33,16 @@ function makeHold(overrides: Record<string, unknown> = {}) {
   };
 }
 
-const reservation = { id: "res-1", status: "CONFIRMED" } as Reservation;
+const reservation = {
+  id: "res-1",
+  status: "CONFIRMED",
+  tableId: "table-1",
+  date: "2026-05-05T00:00:00.000Z",
+  startTime: "2026-05-05T20:00:00.000Z",
+  endTime: "2026-05-05T21:30:00.000Z",
+  partySize: 2,
+  venueId: "venue-1",
+} as Reservation;
 
 function makeUpdatedRow(hold: ReturnType<typeof makeHold>) {
   return {
@@ -69,6 +78,7 @@ function makeTx() {
       findMany: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
     },
+    reservationEvent: { create: vi.fn().mockResolvedValue({ id: "evt-1" }) },
     reservationHold: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
@@ -191,5 +201,72 @@ describe("moveReservationToHold", () => {
     expect(result).toMatchObject({ success: false, errorCode: "CONFLICT" });
     expect(tx.reservation.update).not.toHaveBeenCalled();
     expect(tx.reservationHold.delete).not.toHaveBeenCalled();
+  });
+
+  it("records one moved event with pre- and post-move state in the move transaction", async () => {
+    const hold = makeHold();
+    vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+    const tx = makeTx();
+    tx.reservation.update.mockResolvedValue(makeUpdatedRow(hold));
+    useTx(tx);
+
+    await moveReservationToHold({ ...input, actor: { type: "guest", id: "guest-1" } });
+
+    expect(tx.reservationEvent.create).toHaveBeenCalledTimes(1);
+    expect(tx.reservationEvent.create.mock.calls[0]![0].data).toMatchObject({
+      reservationId: "res-1",
+      venueId: "venue-1",
+      kind: "moved",
+      actorType: "guest",
+      actorId: "guest-1",
+      fromState: {
+        status: "CONFIRMED",
+        tableId: "table-1",
+        date: "2026-05-05T00:00:00.000Z",
+        startTime: "2026-05-05T20:00:00.000Z",
+        endTime: "2026-05-05T21:30:00.000Z",
+        partySize: 2,
+      },
+      toState: {
+        status: "CONFIRMED",
+        tableId: "table-2",
+        date: hold.date.toISOString(),
+        startTime: hold.startTime.toISOString(),
+        endTime: hold.endTime.toISOString(),
+        partySize: 4,
+      },
+    });
+  });
+
+  it("attributes the move to the system actor when none is given", async () => {
+    const hold = makeHold();
+    vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+    const tx = makeTx();
+    tx.reservation.update.mockResolvedValue(makeUpdatedRow(hold));
+    useTx(tx);
+
+    await moveReservationToHold(input);
+
+    expect(tx.reservationEvent.create.mock.calls[0]![0].data).toMatchObject({
+      actorType: "system",
+      actorId: "unattributed",
+    });
+  });
+
+  it("records no event on conflict or expired hold", async () => {
+    vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makeHold() as never);
+    const conflictTx = makeTx();
+    conflictTx.reservation.findFirst.mockResolvedValue({ id: "other-res" });
+    useTx(conflictTx);
+    await moveReservationToHold(input);
+    expect(conflictTx.reservationEvent.create).not.toHaveBeenCalled();
+
+    vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
+      makeHold({ expiresAt: new Date(NOW.getTime() - 1000) }) as never
+    );
+    const expiredTx = makeTx();
+    useTx(expiredTx);
+    await moveReservationToHold(input);
+    expect(expiredTx.reservationEvent.create).not.toHaveBeenCalled();
   });
 });

@@ -1890,7 +1890,8 @@
         reservation: Reservation,
         changes: ReservationChanges,
         deposits: DepositService,
-        { holdId, sessionId }: ModifyHold
+        { holdId, sessionId }: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
