@@ -77,7 +77,8 @@ test.describe("Menus — operator to guest loop (#7073)", () => {
       mockedPage.waitForResponse(
         (r) => r.request().method() === "PATCH" && r.url().includes("/items/")
       ),
-      mockedPage.getByRole("switch", { name: "Soup sold out" }).check(),
+      // The switch input is visually hidden (1px, clipped); its label is the click target.
+      mockedPage.getByText("Soup sold out", { exact: true }).click(),
     ]);
 
     await mockedPage.goto(GUEST_URL);
