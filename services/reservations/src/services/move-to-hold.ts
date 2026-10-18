@@ -2,6 +2,12 @@ import type { Reservation } from "@mbe/types";
 import { prisma } from "./database.js";
 import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
+import {
+  SYSTEM_ACTOR,
+  recordReservationEvent,
+  toEventState,
+  type ReservationEventActor,
+} from "./reservation-events.js";
 
 type MoveToHoldErrorCode =
   "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
@@ -19,6 +25,8 @@ export interface MoveToHoldInput {
   venueId: string;
   /** Written in the same transaction as the move when provided. */
   notes?: string;
+  /** Who moved it; recorded on the `moved` event. Defaults to {@link SYSTEM_ACTOR}. */
+  actor?: ReservationEventActor;
 }
 
 export type MoveToHoldResult =
@@ -36,7 +44,7 @@ export type MoveToHoldResult =
  * `status` is never written.
  */
 export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
-  const { reservation, holdId, sessionId, venueId, notes } = input;
+  const { reservation, holdId, sessionId, venueId, notes, actor = SYSTEM_ACTOR } = input;
 
   const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
   if (!hold || hold.venueId !== venueId) {
@@ -77,6 +85,19 @@ export async function moveReservationToHold(input: MoveToHoldInput): Promise<Mov
           table: true,
           guest: { select: { visitCount: true, communicationPreference: true } },
         },
+      });
+      await recordReservationEvent(tx, {
+        reservationId: reservation.id,
+        venueId: reservation.venueId,
+        kind: "moved",
+        actor,
+        from: toEventState({
+          ...reservation,
+          date: new Date(reservation.date),
+          startTime: new Date(reservation.startTime),
+          endTime: new Date(reservation.endTime),
+        }),
+        to: toEventState(updated),
       });
       await tx.reservationHold.delete({ where: { id: holdId } });
       return updated;

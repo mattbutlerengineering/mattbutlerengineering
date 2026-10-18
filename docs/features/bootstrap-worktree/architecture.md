@@ -2,7 +2,7 @@
 stage: architect
 run: feature:bootstrap-worktree
 date: 2026-10-14
-ux: skipped — no UI surface (prd.md: not-applicable)
+ux: "skipped — no UI surface (prd.md: not-applicable)"
 assumptions:
   - "Dist-consumer derivation reads workspace package.json files directly (node builtins) rather than shelling to pnpm/turbo for the graph — the script must work before node_modules exists. Recommended default taken; if the heuristic under-selects, the build step's turbo filter list is the single place to widen."
   - "Staleness = mtime of pnpm-lock.yaml newer than node_modules/.modules.yaml (pnpm's own install receipt), falling back to the node_modules dir mtime when the receipt is absent. No content hashing — pnpm itself reconciles on install."

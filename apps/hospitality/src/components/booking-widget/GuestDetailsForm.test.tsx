@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { GuestDetailsForm } from "./GuestDetailsForm.js";
-import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
+import enUS from "../../i18n/catalogs/en-US.json";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 
 const mockSlot: TimeSlot = {
@@ -232,7 +232,7 @@ describe("GuestDetailsForm", () => {
 
   it("labels the notes field with the shared Special Requests label", () => {
     render(<GuestDetailsForm {...defaultProps} />);
-    const notesInput = screen.getByLabelText(CONFIRMATION_COPY.specialRequestsLabel);
+    const notesInput = screen.getByLabelText(enUS.bookingWidget.specialRequests.label);
     expect(notesInput.tagName).toBe("TEXTAREA");
     expect(notesInput).toBe(screen.getByTestId("special-requests"));
   });

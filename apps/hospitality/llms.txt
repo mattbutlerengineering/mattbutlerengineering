@@ -166,11 +166,6 @@
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
     </item>
   </file>
-  <file path="src/constants/confirmation-copy.ts">
-    <item priority="high">
-      export const CONFIRMATION_COPY: unknown;
-    </item>
-  </file>
   <file path="src/constants/copilotContext.ts">
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;

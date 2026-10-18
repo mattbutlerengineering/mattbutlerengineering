@@ -12,7 +12,7 @@ from pathlib import Path, PurePosixPath
 import assembler
 import factory_config
 import work_queue
-from cli import CLI_FAILURES, detail, gh_read, label_names
+from cli import CLI_FAILURES, detail, gh_read, label_names, read_file
 from conductor import LEDGER, WORKTREES, ask, batch_branch, batch_dir, \
     batch_name_problems, batch_worktree, is_text, load, stamp
 from cost_ledger import ISSUE_KEY
@@ -55,6 +55,12 @@ BATCHES = str(PurePosixPath(batch_dir("b")).parent) + "/"
 BATCH_LIST = ["ls-tree", "--name-only", "origin/main", "--", BATCHES]
 ISSUE_FIELDS = "number,state,author,labels"
 SPEND_OPTIONS = ["approve", "decline"]
+# Workflows on origin/main that merge pull requests on their own (#938):
+# `open` names them, since an item PR may then merge before its build
+# is done, which `next` reads each tick.
+AUTO_MERGE_GREP = ["grep", "-l", "-i", "-E",
+                   "pr merge|auto[-_]?merge|enablePullRequestAutoMerge",
+                   "origin/main", "--", ".github/workflows/"]
 
 
 def _listed(git, args):
@@ -497,6 +503,48 @@ def _repeated(numbers):
                                   if numbers.count(n) > 1})]
 
 
+def payload_version(root):
+    """The payload these tools were stamped from (#941): the plugin name
+    and version factory/manifest.json records, which every stamp lands,
+    or why there is none. A tools tree copied by hand has no manifest —
+    the stale-tools tell the Owner had no way to see — and is reported
+    as unversioned, never guessed at."""
+    manifest, problem = read_file(Path(root) / "factory" / "manifest.json",
+                                  "factory/manifest.json", dict)
+    if problem:
+        return f"unversioned ({problem})"
+    if manifest is None:
+        return ("unversioned (no factory/manifest.json: these tools were"
+                " copied by hand, not stamped — factory-init update"
+                " --tools-only records one)")
+    plugin, version = manifest.get("plugin"), manifest.get("version")
+    if not isinstance(version, str):
+        return "unversioned (factory/manifest.json records no version)"
+    return f"{plugin} {version}" if isinstance(plugin, str) else version
+
+
+def version_line(root):
+    """The line `--version` prints and every plan ends with."""
+    return f"cd: payload {payload_version(root)}"
+
+
+def version_cli(root):
+    print(version_line(root))
+    return []
+
+
+def _report(root, plan):
+    """The plan as printed: its report lines, then the ceiling warnings
+    the closed batches give the weights it priced from (#940, owned by
+    conductor_calibrate and advisory there), then the payload line."""
+    # Imported here: conductor_calibrate reaches this module through
+    # conductor_close and conductor_spend (main_checkout).
+    import conductor_calibrate
+    return "\n".join([*compose_plan(plan),
+                      *conductor_calibrate.warning_lines(root),
+                      version_line(root)])
+
+
 def plan_cli(root, args, now, run, git):
     agents, args = _agents(args)
     numbers = _issue_numbers(args)
@@ -507,8 +555,32 @@ def plan_cli(root, args, now, run, git):
         return repeated
     plan, problems = _plan(root, numbers, now, run, git, agents)
     if plan is not None:
-        print("\n".join(compose_plan(plan)))
+        print(_report(root, plan))
     return problems
+
+
+def auto_merge_lines(git):
+    """The advisory lines `open` prints about the workflows on
+    origin/main that merge pull requests themselves (#938): the files,
+    or the read that failed. Never a refusal; grep's exit 1 is "no
+    match"."""
+    try:
+        text = git(AUTO_MERGE_GREP).stdout
+    except subprocess.CalledProcessError as err:
+        if err.returncode == 1:
+            return []
+        return [f"cd: auto-merge check unread: git grep origin/main failed:"
+                f" {detail(err)}"]
+    except CLI_FAILURES as err:
+        return [f"cd: auto-merge check unread: git grep origin/main failed:"
+                f" {detail(err)}"]
+    files = [line.split(":", 1)[1] for line in text.splitlines()
+             if ":" in line]
+    if not files:
+        return []
+    return [f"cd: auto-merge on origin/main: {', '.join(files)}; an item PR"
+            " can merge before its build is done, and next stalls the item"
+            " when one has"]
 
 
 def open_cli(root, args, now, run, git, netrc=None):
@@ -528,7 +600,9 @@ def open_cli(root, args, now, run, git, netrc=None):
     plan, problems = _plan(root, numbers, now, run, git, agents)
     if plan is None:
         return problems
-    print("\n".join(compose_plan(plan)))
+    print(_report(root, plan))
+    for line in auto_merge_lines(git):
+        print(line)
     problems = conductor_run.preflight(
         root, git, Path.home() / ".netrc" if netrc is None else netrc)
     if problems:

@@ -6843,13 +6843,6 @@
       };
     }
   </file>
-  <file path="apps/hospitality/src/constants/confirmation-copy.ts">
-    export const CONFIRMATION_COPY = Object.freeze({
-      specialRequestsLabel: "Special Requests",
-      acknowledgement,
-      hostCaption: `Guests see this with: “${acknowledgement}”`,
-    });
-  </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
       schemas: [
@@ -8176,10 +8169,10 @@
       const tokens = await fetchAuth0Tokens(config);
       const entry = buildOidcUserEntry(config, tokens);
     
-      // Navigate to the app first so sessionStorage is on the correct origin
+      // Navigate to the app first so localStorage is on the correct origin
       await page.goto("/");
       await page.evaluate(({ key, value }) => {
-        sessionStorage.setItem(key, value);
+        localStorage.setItem(key, value);
       }, entry);
     
       // Reload so AuthProvider picks up the injected session
@@ -8193,6 +8186,86 @@
         await use(page);
       },
     });
+  </file>
+  <file path="apps/gen/e2e/gen-api-mocks.ts">
+    export interface FlatElementLine {
+      key: string;
+      type: string;
+      props: Record<string, unknown>;
+      parentKey?: string;
+    }
+    interface StoredEntry {
+      id: string;
+      userId: string;
+      prompt: string;
+      kind?: string;
+      spec: unknown;
+      rawLines: string[];
+      isFavorite: boolean;
+      refinement?: unknown;
+      createdAt: string;
+      updatedAt: string;
+    }
+    export interface GenApiMocks {
+      /** Bodies of every `POST /api/gen/ui`, in request order. */
+      uiRequests: Array<Record<string, unknown>>;
+      /** The entries `GET /api/gen/specs` currently returns, newest first. */
+      entries: StoredEntry[];
+    }
+    export interface GenApiResponses {
+      /** Streamed for a whole-spec generation. */
+      generate: FlatElementLine[];
+      /** Streamed for a node refinement; its root key must equal the selected node's key. */
+      refineSubtree: FlatElementLine[];
+    }
+    function ndjson(lines: FlatElementLine[]): string {
+      return lines.map((line) => JSON.stringify(line)).join("\n") + "\n";
+    }
+    export async function mockGenApi(page: Page, responses: GenApiResponses): Promise<GenApiMocks> {
+      const mocks: GenApiMocks = { uiRequests: [], entries: [] };
+      let nextId = 1;
+    
+      await page.route("**/api/gen/ui", async (route: Route) => {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        mocks.uiRequests.push(body);
+        await route.fulfill({
+          status: 200,
+          contentType: "application/x-ndjson",
+          body: ndjson(body.target ? responses.refineSubtree : responses.generate),
+        });
+      });
+    
+      await page.route("**/api/gen/specs**", async (route: Route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+        const method = request.method();
+    
+        if (url.pathname.endsWith("/api/gen/specs") && method === "GET") {
+          return route.fulfill({ json: { data: mocks.entries } });
+        }
+        if (url.pathname.endsWith("/api/gen/specs") && method === "POST") {
+          const body = request.postDataJSON() as Partial<StoredEntry>;
+          const now = new Date().toISOString();
+          const created: StoredEntry = {
+            id: `spec-${nextId++}`,
+            userId: "e2e-user",
+            prompt: body.prompt ?? "",
+            kind: body.kind,
+            spec: body.spec,
+            rawLines: body.rawLines ?? [],
+            isFavorite: false,
+            refinement: body.refinement,
+            createdAt: now,
+            updatedAt: now,
+          };
+          mocks.entries = [created, ...mocks.entries];
+          return route.fulfill({ status: 201, json: { data: created } });
+        }
+        return route.fulfill({ status: 204, body: "" });
+      });
+    
+      return mocks;
+    }
   </file>
   <file path="apps/hospitality/e2e/api-mocks.ts">
     function loadFixture(name: string): string {
@@ -11803,6 +11876,7 @@
       const { toggleTheme } = useTheme();
     
       const session = usePlaygroundSession({
+        onNotice: (message) => toast({ title: message, variant: "accent", duration: 4000 }),
         onGenerationComplete: () =>
           toast({ title: "Generation complete", variant: "success", duration: 3000 }),
       });
@@ -12009,12 +12083,72 @@
       }, [handlers]);
     }
   </file>
+  <file path="apps/gen/src/hooks/useSpecDiffHistory.ts">
+    export interface UseSpecDiffHistoryReturn {
+      canUndo: boolean;
+      canRedo: boolean;
+      /** Record a refinement just applied; drops anything that could have been redone. */
+      push: (diff: SpecDiff) => void;
+      /** The diff that reverts the latest refinement, or null when there is nothing to undo. */
+      undo: () => SpecDiff | null;
+      /** The diff that re-applies the latest undone refinement, or null. */
+      redo: () => SpecDiff | null;
+      clear: () => void;
+    }
+    export function useSpecDiffHistory(): UseSpecDiffHistoryReturn {
+      const stacksRef = useRef<{ undo: SpecDiff[]; redo: SpecDiff[] }>({ undo: [], redo: [] });
+      const [flags, setFlags] = useState({ canUndo: false, canRedo: false });
+    
+      const sync = useCallback(() => {
+        setFlags({
+          canUndo: stacksRef.current.undo.length > 0,
+          canRedo: stacksRef.current.redo.length > 0,
+        });
+      }, []);
+    
+      const push = useCallback(
+        (diff: SpecDiff) => {
+          stacksRef.current.undo.push(diff);
+          stacksRef.current.redo = [];
+          sync();
+        },
+        [sync]
+      );
+    
+      const undo = useCallback((): SpecDiff | null => {
+        const diff = stacksRef.current.undo.pop();
+        if (!diff) return null;
+        stacksRef.current.redo.push(diff);
+        sync();
+        return invertSpecDiff(diff);
+      }, [sync]);
+    
+      const redo = useCallback((): SpecDiff | null => {
+        const diff = stacksRef.current.redo.pop();
+        if (!diff) return null;
+        stacksRef.current.undo.push(diff);
+        sync();
+        return diff;
+      }, [sync]);
+    
+      const clear = useCallback(() => {
+        stacksRef.current = { undo: [], redo: [] };
+        sync();
+      }, [sync]);
+    
+      return { ...flags, push, undo, redo, clear };
+    }
+  </file>
   <file path="apps/gen/src/hooks/useSpecsApi.ts">
     export interface SaveSpecData {
       prompt: string;
       kind?: EntryKind;
       spec: unknown;
       rawLines: string[];
+      refinement?: SpecDiff;
+    }
+    function decodeStored(entry: StoredSpec): StoredSpec {
+      return "refinement" in entry ? { ...entry, refinement: decodeSpecDiff(entry.refinement) } : entry;
     }
     export interface UseSpecsApiReturn {
       specs: StoredSpec[];
@@ -12046,7 +12180,7 @@
         // own UI state, or we can introduce a separate `isRefreshing` flag later.
         try {
           const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
-          setSpecs(json.data);
+          setSpecs(json.data.map(decodeStored));
         } catch (err) {
           console.error("[useSpecsApi] fetchSpecs error:", err);
         } finally {
@@ -12057,7 +12191,7 @@
       const saveSpec = useCallback(
         async (data: SaveSpecData): Promise<StoredSpec> => {
           const json = await client.post<{ data: StoredSpec }>("/api/gen/specs", data);
-          const created = json.data;
+          const created = decodeStored(json.data);
           // Prepend to local state (immutable update)
           setSpecs((prev) => [created, ...prev]);
           return created;
@@ -16072,7 +16206,15 @@
   </file>
   <file path="apps/gen/src/lib/shortcuts.ts">
     export type ShortcutAction =
-      "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
+      | "newGeneration"
+      | "templates"
+      | "history"
+      | "inspector"
+      | "fullscreen"
+      | "stop"
+      | "help"
+      | "undo"
+      | "redo";
     export type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";
     export interface ShortcutDef {
       id: string;
@@ -16103,6 +16245,20 @@
       { id: "newline", label: "New line", section: "Editing", keys: ["Shift", "Enter"] },
       { id: "prevPrompt", label: "Previous prompt", section: "Editing", keys: ["↑"] },
       { id: "nextPrompt", label: "Next prompt", section: "Editing", keys: ["↓"] },
+      {
+        id: "undo",
+        label: "Undo component refinement",
+        section: "Editing",
+        keys: ["Alt", "Z"],
+        action: "undo",
+      },
+      {
+        id: "redo",
+        label: "Redo component refinement",
+        section: "Editing",
+        keys: ["Alt", "Shift", "Z"],
+        action: "redo",
+      },
       { id: "stop", label: "Stop generation", section: "Editing", keys: ["Esc"], action: "stop" },
       {
         id: "history",
@@ -16263,6 +16419,16 @@
         if (!isRecord(element) || typeof element.type !== "string") return null;
       }
       return value as unknown as Spec;
+    }
+    export function decodeSpecDiff(value: unknown): SpecDiff | null {
+      if (!isRecord(value)) return null;
+      const { parentId, path } = value;
+      if (parentId !== null && typeof parentId !== "string") return null;
+      if (typeof path !== "string" || path === "") return null;
+      const before = decodeSpec(value.before);
+      const after = decodeSpec(value.after);
+      if (!before || !after || before.root !== path || after.root !== path) return null;
+      return { parentId, path, before, after };
     }
     export function specStats(spec: Spec | null): SpecStats | null {
       if (!spec) return null;
@@ -17180,6 +17346,8 @@
       base: Spec;
       key: string;
       instruction: string;
+      /** The saved entry the refined spec came from, null for an unsaved one. */
+      parentId: string | null;
     }
     export interface PlaygroundSession {
       // Render mode + transient overlays (passed through from usePlaygroundState)
@@ -17224,6 +17392,13 @@
       selectHistory: (id: string) => void;
       toggleFavorite: (id: string) => void;
       deleteSpec: (id: string) => void;
+      /** Revert / re-apply the latest node refinement of this session; never calls the model. */
+      undo: () => void;
+      redo: () => void;
+      canUndo: boolean;
+      canRedo: boolean;
+      /** The refinement most recently applied, undone or redone, for the before/after view. */
+      lastChange: SpecDiff | null;
       reset: () => void;
       stop: () => void;
     }
@@ -17234,6 +17409,8 @@
        * toast) — the hook itself stays UI-agnostic.
        */
       onGenerationComplete?: () => void;
+      /** Invoked with a short message when the session wants to tell the user something. */
+      onNotice?: (message: string) => void;
     }
     export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): PlaygroundSession {
       const playgroundState = usePlaygroundState();
@@ -17264,12 +17441,17 @@
       const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
       const [refineError, setRefineError] = useState<Error | null>(null);
       const nodeRefineRef = useRef<NodeRefine | null>(null);
+      const savePendingRef = useRef(false);
+      const diffHistory = useSpecDiffHistory();
+      const { push: pushDiff, clear: clearDiffs } = diffHistory;
+      const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
     
       const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
         api: "/api/gen/ui",
         onComplete: (completedSpec, completedRawLines) => {
           const nodeRefine = nodeRefineRef.current;
           let savedSpec = completedSpec;
+          let refinement: SpecDiff | undefined;
           if (nodeRefine) {
             // Reject, never render, a subtree that can't be spliced or isn't in the catalog.
             const spliced = spliceSubtree(nodeRefine.base, nodeRefine.key, completedSpec);
@@ -17285,19 +17467,37 @@
               return;
             }
             savedSpec = spliced.spec;
+            const before = extractSubtree(nodeRefine.base, nodeRefine.key);
+            if (before) {
+              refinement = {
+                parentId: nodeRefine.parentId,
+                path: nodeRefine.key,
+                before,
+                after: completedSpec,
+              };
+              pushDiff(refinement);
+              setLastChange(refinement);
+            }
             nodeRefineRef.current = null;
             setPinnedSpec(savedSpec);
           }
           options?.onGenerationComplete?.();
+          // Undo/redo wait for the save: its late .then would otherwise overwrite them.
+          savePendingRef.current = true;
           void saveSpec({
             prompt: promptRef.current,
             kind: kindRef.current,
             spec: savedSpec,
             rawLines: completedRawLines,
-          }).then((stored) => {
-            setActiveId(stored.id);
-            setPinnedSpec(null);
-          });
+            refinement,
+          })
+            .then((stored) => {
+              setActiveId(stored.id);
+              setPinnedSpec(null);
+            })
+            .finally(() => {
+              savePendingRef.current = false;
+            });
         },
         // Record the failed attempt in the same history mechanism (kind
         // "failed") so a
@@ -17343,7 +17543,10 @@
         nodeRefineRef.current = null;
         setPinnedSpec(null);
         setRefineError(null);
-      }, []);
+        // A new spec makes the old diffs meaningless: they were made on the previous one.
+        clearDiffs();
+        setLastChange(null);
+      }, [clearDiffs]);
     
       const resetTo = useCallback(
         (id: string | null) => {
@@ -17386,7 +17589,7 @@
           promptRef.current = instruction;
           kindRef.current = "refine";
           refineSpecRef.current = null;
-          nodeRefineRef.current = { base: displaySpec, key, instruction };
+          nodeRefineRef.current = { base: displaySpec, key, instruction, parentId: activeId };
           setPinnedSpec(displaySpec);
           setRefineError(null);
           setActiveId(null);
@@ -17396,7 +17599,7 @@
             { target: { key, type: displaySpec.elements[key]?.type ?? "" } }
           );
         },
-        [displaySpec, send]
+        [displaySpec, send, activeId]
       );
     
       // Pre-load a deep-linked prompt (e.g. from the marketing site's playground
@@ -17430,9 +17633,25 @@
           const entry = specs.find((s) => s.id === id);
           if (!entry) return;
           const { kind, prompt } = resolveEntry(entry);
-          // A refine entry only makes sense on top of its parent spec, which isn't
-          // stored — replaying the bare instruction would be meaningless.
-          if (kind === "refine") return;
+          if (kind === "refine") {
+            // A refine entry is replayed by re-applying its stored diff, never by
+            // re-sending the bare instruction. Legacy entries carry no diff.
+            const diff = entry.refinement;
+            if (!diff) return;
+            const parent = diff.parentId ? specs.find((s) => s.id === diff.parentId) : undefined;
+            const parentSpec = parent ? decodeSpec(parent.spec) : null;
+            let rebuilt = parentSpec ? applySpecDiff(parentSpec, diff) : null;
+            if (!rebuilt?.ok) {
+              // Parent evicted or deleted: the diff's `after` onto the entry's own spec.
+              const ownSpec = decodeSpec(entry.spec);
+              rebuilt = ownSpec ? applySpecDiff(ownSpec, diff) : null;
+              if (!rebuilt?.ok) return;
+              options?.onNotice?.("The original spec is gone; showing this refinement as saved.");
+            }
+            resetTo(null);
+            setPinnedSpec(rebuilt.spec);
+            return;
+          }
           promptRef.current = prompt;
           kindRef.current = "generate";
           setRawPrompt(prompt);
@@ -17440,7 +17659,7 @@
           resetTo(null);
           void send(prompt);
         },
-        [specs, resetTo, send]
+        [specs, resetTo, send, options]
       );
     
       // "Retry with error context": when the last attempt failed with a
@@ -17476,6 +17695,30 @@
           void send(retryPrompt);
         }
       }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
+    
+      const applyDiff = useCallback(
+        (diff: SpecDiff | null) => {
+          if (!diff || !displaySpec) return;
+          const applied = applySpecDiff(displaySpec, diff);
+          if (!applied.ok) {
+            // The stacks no longer match what is on screen; drop them rather than drift.
+            clearDiffs();
+            setLastChange(null);
+            return;
+          }
+          setActiveId(null);
+          setPinnedSpec(applied.spec);
+          setLastChange(diff);
+        },
+        [displaySpec, clearDiffs]
+      );
+      const { undo: popUndo, redo: popRedo } = diffHistory;
+      const undo = useCallback(() => {
+        if (!isStreaming && !savePendingRef.current) applyDiff(popUndo());
+      }, [isStreaming, applyDiff, popUndo]);
+      const redo = useCallback(() => {
+        if (!isStreaming && !savePendingRef.current) applyDiff(popRedo());
+      }, [isStreaming, applyDiff, popRedo]);
     
       const selectHistory = useCallback(
         (id: string) => {
@@ -17537,6 +17780,11 @@
         selectHistory,
         toggleFavorite,
         deleteSpec: handleDeleteSpec,
+        undo,
+        redo,
+        canUndo: diffHistory.canUndo,
+        canRedo: diffHistory.canRedo,
+        lastChange,
         reset,
         stop,
       };
@@ -20228,18 +20476,36 @@
               );
           }
     
-          const { spec, rawLines } = parseResult.data;
+          const { spec, rawLines, refinement } = parseResult.data;
           const { prompt, kind } = normaliseKind(parseResult.data.prompt, parseResult.data.kind);
     
-          const result = await storedSpecService.create({
-            userId: request.user!.id,
-            prompt,
-            kind,
-            spec,
-            rawLines,
-          });
+          if (refinement && kind !== "refine") {
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(400, "Bad Request", "refinement is only allowed on refine entries")
+              );
+          }
     
-          return reply.code(201).send({ data: mapStoredSpec(result) });
+          try {
+            const result = await storedSpecService.create({
+              userId: request.user!.id,
+              prompt,
+              kind,
+              spec,
+              rawLines,
+              refinement,
+            });
+    
+            return reply.code(201).send({ data: mapStoredSpec(result) });
+          } catch (err) {
+            if (err instanceof Error && err.message === "Not found") {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Parent spec not found"));
+            }
+            throw err;
+          }
         }
       );
     
@@ -21732,7 +21998,7 @@
             operationId: "getDailyBookingMetrics",
             description:
               "Internal aggregation route for booking-funnel telemetry. Returns counts-only " +
-              "reservation and deposit aggregates for a given day and venue — never a " +
+              "reservation, deposit and reservation-event aggregates for a given day and venue — never a " +
               "reservation id, guest name, email, or phone number.",
             tags: ["Metrics"],
             security: [{ bearerAuth: [] }],
@@ -21881,6 +22147,7 @@
               manageToken: token,
               reason: request.body?.cancellationReason,
               note: request.body?.cancellationNote,
+              actor: guestActor(preamble.reservation.guestId),
               log: request.log,
             });
     
@@ -21913,7 +22180,7 @@
         manageTokenScoped(
           { missing: (reply) => reply.status(401).type("text/html").send(invalidHtml) },
           async (_request, reply, { reservation }) => {
-            await fastify.transitions.confirmAttendance(reservation);
+            await fastify.transitions.confirmAttendance(reservation, guestActor(reservation.guestId));
     
             return reply.status(200).type("text/html").send(successHtml);
           }
@@ -23294,6 +23561,7 @@
                 sessionId,
                 guestDetails: request.body,
                 venueId,
+                actor: staffActor(request.user?.id),
               },
               { door: "staff-hold" }
             );
@@ -23540,7 +23808,8 @@
               preamble.reservation,
               changes,
               token,
-              hold
+              hold,
+              guestActor(preamble.reservation.guestId)
             );
     
             if (!result.success) {
@@ -24231,6 +24500,8 @@
                 sessionId,
                 venueId,
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
+                // No guest record exists yet, so the guest actor carries no id.
+                actor: guestActor(null),
               },
               {
                 door: "public-hold",
@@ -24387,6 +24658,7 @@
                   notes: specialRequests,
                   guestId: link.ok ? (link.guestId ?? undefined) : undefined,
                 },
+                actor: guestActor(link.ok ? link.guestId : null),
               },
               {
                 door: "public-booking",
@@ -24811,6 +25083,85 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/reservation-events.ts">
+    export const reservationEventRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { id: string };
+        Querystring: { limit?: number; cursor?: string };
+        Reply: { data: ReservationEventDto[]; nextCursor: string | null } | ProblemDetails;
+      }>(
+        "/:id/events",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List a reservation's event history",
+            operationId: "listReservationEvents",
+            description:
+              "Staff-only, oldest-first history of what happened to a reservation. Event " +
+              "states are non-PII scheduling snapshots. Paginate by passing the returned " +
+              "`nextCursor` back as `cursor`.",
+            tags: ["Reservations"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            querystring: {
+              type: "object",
+              properties: {
+                limit: {
+                  type: "integer",
+                  minimum: 1,
+                  maximum: MAX_EVENT_PAGE_SIZE,
+                  default: DEFAULT_EVENT_PAGE_SIZE,
+                },
+                cursor: { type: "string", minLength: 1 },
+              },
+            },
+            response: {
+              200: {
+                description: "A page of reservation events",
+                type: "object",
+                properties: {
+                  data: { type: "array", items: { type: "object", additionalProperties: true } },
+                  nextCursor: { type: ["string", "null"] },
+                },
+              },
+              400: { description: "Invalid limit or cursor", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
+              403: { description: "No access to the reservation's venue", $ref: "Error#" },
+              404: { description: "Reservation not found", $ref: "Error#" },
+            },
+          },
+        },
+        // Venue members only (not the guest owner: the log carries staff actor ids).
+        // An unknown id and another venue's id are indistinguishable to a non-admin.
+        venueScoped(
+          {
+            venue: {
+              entity: "reservation",
+              key: (request) => request.params.id,
+              notFound: "Reservation not found",
+            },
+          },
+          async (request, reply) => {
+            try {
+              return await listForReservation(request.params.id, {
+                limit: request.query.limit ?? DEFAULT_EVENT_PAGE_SIZE,
+                cursor: request.query.cursor,
+              });
+            } catch (err) {
+              if (err instanceof InvalidEventCursorError) {
+                return reply.code(400).send(createProblemDetails(400, "Bad Request", err.message));
+              }
+              throw err;
+            }
+          }
+        )
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/reservation-owner.ts">
     export function resolveReservationGuestEmail(
       getById: (id: string) => Promise<{ guestEmail: string | null } | null>
@@ -24853,7 +25204,11 @@
         logger: FastifyBaseLogger,
         isAdmin: boolean,
         door: "staff-patch" | "staff-delete",
-        options: { cancellationReason?: string; cancellationNote?: string } = {}
+        options: {
+          cancellationReason?: string;
+          cancellationNote?: string;
+          actor?: ReservationEventActor;
+        } = {}
       ) {
         const manageToken = reservation.guestEmail
           ? generateManageToken(reservation.id, reservation.guestEmail)
@@ -24864,6 +25219,7 @@
           manageToken,
           reason: options.cancellationReason,
           note: options.cancellationNote,
+          actor: options.actor,
           log: logger,
         });
       }
@@ -25031,7 +25387,11 @@
           // a single transaction. If the table update fails the whole thing rolls
           // back and rejects, so its live events are set off only after a
           // committed, consistent state.
-          const result = await fastify.transitions.createWalkIn(request.body, userId);
+          const result = await fastify.transitions.createWalkIn(
+            request.body,
+            userId,
+            requestActor(request)
+          );
           if (result.tableNotInVenue) {
             return reply
               .code(403)
@@ -25197,7 +25557,7 @@
               }
             }
     
-            const result = await fastify.transitions.createByStaff(body, userId);
+            const result = await fastify.transitions.createByStaff(body, userId, requestActor(request));
     
             if (result.tableNotInVenue) {
               return reply
@@ -25318,6 +25678,7 @@
                 {
                   cancellationReason: request.body.cancellationReason,
                   cancellationNote: request.body.cancellationNote,
+                  actor: isAdmin ? requestActor(request) : undefined,
                 }
               );
     
@@ -25338,7 +25699,11 @@
     
           if (request.body.status === "NO_SHOW") {
             try {
-              const result = await fastify.transitions.noShow(reservation, request.log);
+              const result = await fastify.transitions.noShow(
+                reservation,
+                request.log,
+                isAdmin ? requestActor(request) : undefined
+              );
     
               if (!result.success) {
                 return reply
@@ -25389,7 +25754,11 @@
           }
     
           try {
-            const result = await fastify.transitions.updateByStaff(reservation, request.body);
+            const result = await fastify.transitions.updateByStaff(
+              reservation,
+              request.body,
+              isAdmin ? requestActor(request) : undefined
+            );
     
             if (!result.success) {
               if (result.error === "Reservation not found") {
@@ -25494,7 +25863,8 @@
               reservation,
               request.log,
               isAdmin,
-              "staff-delete"
+              "staff-delete",
+              { actor: isAdmin ? requestActor(request) : undefined }
             );
             if (!result.success) {
               return reply
@@ -25998,6 +26368,7 @@
       ...waitlistFixtures,
       ...briefingFixtures,
       ...bookingMetricsFixtures,
+      ...reservationEventFixtures,
       ...depositFixtures,
     };
   </file>
@@ -26541,7 +26912,11 @@
         },
         venueScoped(tableVenue, async (request) => {
           try {
-            const table = await tableService.updateStatus(request.params.id, request.body.status);
+            const table = await tableService.updateStatus(
+              request.params.id,
+              request.body.status,
+              request.user?.id
+            );
             if (!table) throw tableNotFound();
             fastify.reservationEvents.emitTableUpdated(table);
             return { data: table };
@@ -29462,6 +29837,479 @@
   </file>
   </section>
   <section priority="medium" role="scripts">
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff-lib.ts">
+    export type ProviderId = "anthropic" | "openai" | "gemini";
+    export interface ChatMessage {
+      readonly role: "user" | "assistant";
+      readonly content: string;
+    }
+    export interface ProviderRequest {
+      readonly system: string;
+      readonly messages: readonly ChatMessage[];
+      readonly maxOutputTokens: number;
+    }
+    export interface ProviderResponse {
+      readonly text: string;
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+    }
+    export interface Pricing {
+      readonly inPerM: number;
+      readonly outPerM: number;
+    }
+    export interface Provider {
+      readonly id: ProviderId;
+      readonly label: string;
+      readonly model: string;
+      readonly pricing: Pricing;
+      readonly call: (req: ProviderRequest) => Promise<ProviderResponse>;
+    }
+    export interface PromptResult {
+      readonly provider: ProviderId;
+      readonly prompt: string;
+      readonly validFirstTry: boolean;
+      readonly validAfterRepair: boolean;
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+      readonly usd: number;
+      readonly error?: string;
+    }
+    export interface BakeoffReport {
+      readonly results: readonly PromptResult[];
+      readonly spentUsd: number;
+      readonly maxUsd: number;
+      readonly aborted: boolean;
+      readonly abortReason?: string;
+    }
+    export const PRICING: Readonly<Record<ProviderId, Pricing>> = {
+      anthropic: { inPerM: 0.1, outPerM: 0.5 }, // Claude Haiku 5.5
+      openai: { inPerM: 0.1, outPerM: 0.5 }, // GPT-6 Luna
+      gemini: { inPerM: 0.25, outPerM: 1.5 }, // Gemini 3.1 Flash-Lite
+    };
+    export function costUsd(
+      tokens: { inputTokens: number; outputTokens: number },
+      pricing: Pricing
+    ): number {
+      return (tokens.inputTokens * pricing.inPerM + tokens.outputTokens * pricing.outPerM) / 1_000_000;
+    }
+    export const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${JSON_OUTPUT_INSTRUCTIONS}`;
+    export type Validation = { ok: true } | { ok: false; error: string };
+    function extractJson(text: string): unknown {
+      const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
+      return JSON.parse((fenced?.[1] ?? text).trim());
+    }
+    function formatIssues(error: {
+      issues?: readonly { path: PropertyKey[]; message: string }[];
+    }): string {
+      const lines = (error.issues ?? []).slice(0, 8).map((i) => {
+        const msg = i.message.length > 200 ? `${i.message.slice(0, 200)}…` : i.message;
+        return `${i.path.map(String).join(".") || "(root)"}: ${msg}`;
+      });
+      return lines.join("\n").slice(0, MAX_FEEDBACK_CHARS);
+    }
+    export function validateModelOutput(text: string): Validation {
+      let parsed: unknown;
+      try {
+        parsed = extractJson(text);
+      } catch {
+        return { ok: false, error: "Output was not valid JSON." };
+      }
+      const elements = Array.isArray(parsed)
+        ? parsed
+        : (parsed as { elements?: unknown } | null)?.elements;
+      if (!Array.isArray(elements) || elements.length === 0) {
+        return { ok: false, error: 'Expected {"elements":[...]} with at least one element.' };
+      }
+      let result: ReturnType<typeof catalog.validate>;
+      try {
+        result = catalog.validate(flatToTree(elements as Parameters<typeof flatToTree>[0]));
+      } catch (err) {
+        // Malformed elements (e.g. null entries) are an invalid spec, not a provider error.
+        return {
+          ok: false,
+          error: `Malformed elements: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+      if (result.success) return { ok: true };
+      return {
+        ok: false,
+        error: formatIssues(result.error ?? {}) || "Spec failed catalog validation.",
+      };
+    }
+    export class SpendLimitError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "SpendLimitError";
+      }
+    }
+    export function createSpendGuard(maxUsd: number) {
+      let spent = 0;
+      return {
+        spent: () => spent,
+        record: (usd: number) => {
+          spent += usd;
+        },
+        assertCanSpend: (worstCaseUsd: number) => {
+          if (spent + worstCaseUsd > maxUsd) {
+            throw new SpendLimitError(
+              `Spend guard: $${spent.toFixed(4)} spent + $${worstCaseUsd.toFixed(4)} worst case would exceed --max-usd $${maxUsd.toFixed(2)}`
+            );
+          }
+        },
+      };
+    }
+    type SpendGuard = ReturnType<typeof createSpendGuard>;
+    function worstCaseUsd(provider: Provider, req: ProviderRequest): number {
+      const chars = req.system.length + req.messages.reduce((n, m) => n + m.content.length, 0);
+      return costUsd(
+        { inputTokens: Math.ceil(chars / CHARS_PER_TOKEN_ESTIMATE), outputTokens: req.maxOutputTokens },
+        provider.pricing
+      );
+    }
+    async function guardedCall(provider: Provider, req: ProviderRequest, guard: SpendGuard) {
+      guard.assertCanSpend(worstCaseUsd(provider, req));
+      const res = await provider.call(req);
+      const usd = costUsd(res, provider.pricing);
+      guard.record(usd);
+      return { res, usd };
+    }
+    function repairPrompt(error: string): string {
+      return `The JSON failed validation:\n${error}\n\nReturn the corrected complete JSON object only.`;
+    }
+    async function runPrompt(
+      provider: Provider,
+      prompt: string,
+      guard: SpendGuard
+    ): Promise<PromptResult> {
+      const base = { provider: provider.id, prompt };
+      const first = await guardedCall(
+        provider,
+        {
+          system: SYSTEM_PROMPT,
+          messages: [{ role: "user", content: prompt }],
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+        },
+        guard
+      );
+      const v1 = validateModelOutput(first.res.text);
+      const tally = {
+        inputTokens: first.res.inputTokens,
+        outputTokens: first.res.outputTokens,
+        usd: first.usd,
+      };
+      if (v1.ok) return { ...base, validFirstTry: true, validAfterRepair: true, ...tally };
+    
+      let repair: Awaited<ReturnType<typeof guardedCall>>;
+      try {
+        repair = await guardedCall(
+          provider,
+          {
+            system: SYSTEM_PROMPT,
+            messages: [
+              { role: "user", content: prompt },
+              { role: "assistant", content: first.res.text },
+              { role: "user", content: repairPrompt(v1.error) },
+            ],
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+          },
+          guard
+        );
+      } catch (err) {
+        if (err instanceof SpendLimitError) throw err;
+        // The first call was paid for; keep its cost in the row.
+        return { ...errorResult(provider, prompt, err), ...tally };
+      }
+      return {
+        ...base,
+        validFirstTry: false,
+        validAfterRepair: validateModelOutput(repair.res.text).ok,
+        inputTokens: tally.inputTokens + repair.res.inputTokens,
+        outputTokens: tally.outputTokens + repair.res.outputTokens,
+        usd: tally.usd + repair.usd,
+      };
+    }
+    function errorResult(provider: Provider, prompt: string, err: unknown): PromptResult {
+      return {
+        provider: provider.id,
+        prompt,
+        validFirstTry: false,
+        validAfterRepair: false,
+        inputTokens: 0,
+        outputTokens: 0,
+        usd: 0,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+    export async function runBakeoff(opts: {
+      providers: readonly Provider[];
+      prompts: readonly string[];
+      maxUsd: number;
+    }): Promise<BakeoffReport> {
+      const guard = createSpendGuard(opts.maxUsd);
+      const results: PromptResult[] = [];
+      let abortReason: string | undefined;
+    
+      for (const provider of opts.providers) {
+        let consecutiveErrors = 0;
+        for (const prompt of opts.prompts) {
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break;
+          try {
+            const result = await runPrompt(provider, prompt, guard);
+            results.push(result);
+            consecutiveErrors = 0;
+          } catch (err) {
+            if (err instanceof SpendLimitError) {
+              abortReason = err.message;
+              break;
+            }
+            results.push(errorResult(provider, prompt, err));
+            consecutiveErrors += 1;
+          }
+        }
+        if (abortReason) break;
+      }
+      return {
+        results,
+        spentUsd: guard.spent(),
+        maxUsd: opts.maxUsd,
+        aborted: abortReason !== undefined,
+        ...(abortReason ? { abortReason } : {}),
+      };
+    }
+    export function createStubProvider(opts: {
+      id: ProviderId;
+      prompts: readonly string[];
+      label?: string;
+      model?: string;
+    }): Provider {
+      return {
+        id: opts.id,
+        label: opts.label ?? `${opts.id} (stub)`,
+        model: opts.model ?? "stub",
+        pricing: PRICING[opts.id],
+        call: async (req) => {
+          const index = opts.prompts.indexOf(req.messages[0]?.content ?? "");
+          const isRepair = req.messages.length > 1;
+          const kind = index % 3;
+          const text = kind === 0 || (kind === 1 && isRepair) ? STUB_VALID : STUB_INVALID;
+          const chars = req.system.length + req.messages.reduce((n, m) => n + m.content.length, 0);
+          return { text, inputTokens: Math.ceil(chars / 4), outputTokens: Math.ceil(text.length / 4) };
+        },
+      };
+    }
+    export interface ProviderSummary {
+      readonly provider: ProviderId;
+      readonly n: number;
+      readonly errors: number;
+      readonly validFirstTryPct: number;
+      readonly validAfterRepairPct: number;
+      readonly meanInputTokens: number;
+      readonly meanOutputTokens: number;
+      readonly totalUsd: number;
+      readonly projectedUsdPer1k: number;
+    }
+    export function summarize(results: readonly PromptResult[]): ProviderSummary[] {
+      const ids = [...new Set(results.map((r) => r.provider))];
+      return ids.map((provider) => {
+        const rows = results.filter((r) => r.provider === provider);
+        const n = rows.length;
+        const pct = (count: number) => (count / n) * 100;
+        const mean = (pick: (r: PromptResult) => number) => rows.reduce((s, r) => s + pick(r), 0) / n;
+        const totalUsd = rows.reduce((s, r) => s + r.usd, 0);
+        return {
+          provider,
+          n,
+          errors: rows.filter((r) => r.error !== undefined).length,
+          validFirstTryPct: pct(rows.filter((r) => r.validFirstTry).length),
+          validAfterRepairPct: pct(rows.filter((r) => r.validAfterRepair).length),
+          meanInputTokens: mean((r) => r.inputTokens),
+          meanOutputTokens: mean((r) => r.outputTokens),
+          totalUsd,
+          projectedUsdPer1k: (totalUsd / n) * 1000,
+        };
+      });
+    }
+    export function formatTable(summaries: readonly ProviderSummary[]): string {
+      const header =
+        "| Provider | Valid 1st try | Valid after repair | Mean in tok | Mean out tok | Total $ | Projected $/1k gens | Errors |";
+      const sep = "|---|---:|---:|---:|---:|---:|---:|---:|";
+      const rows = summaries.map(
+        (s) =>
+          `| ${s.provider} | ${s.validFirstTryPct.toFixed(0)}% | ${s.validAfterRepairPct.toFixed(0)}% | ${s.meanInputTokens.toFixed(0)} | ${s.meanOutputTokens.toFixed(0)} | $${s.totalUsd.toFixed(4)} | $${s.projectedUsdPer1k.toFixed(2)} | ${s.errors}/${s.n} |`
+      );
+      return [header, sep, ...rows].join("\n");
+    }
+  </file>
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff-providers.ts">
+    type FetchLike = typeof fetch;
+    export const DEFAULT_MODELS: Readonly<Record<ProviderId, string>> = {
+      anthropic: "claude-haiku-5-5",
+      openai: "gpt-6-luna",
+      gemini: "gemini-3.1-flash-lite",
+    };
+    export const ENV_KEYS: Readonly<Record<ProviderId, string>> = {
+      anthropic: "ANTHROPIC_API_KEY",
+      openai: "OPENAI_API_KEY",
+      gemini: "GEMINI_API_KEY",
+    };
+    interface Wire {
+      readonly url: string;
+      readonly headers: Record<string, string>;
+      readonly body: unknown;
+    }
+    function anthropicWire(key: string, model: string, req: ProviderRequest): Wire {
+      return {
+        url: "https://api.anthropic.com/v1/messages",
+        headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
+        body: { model, max_tokens: req.maxOutputTokens, system: req.system, messages: req.messages },
+      };
+    }
+    function openaiWire(key: string, model: string, req: ProviderRequest): Wire {
+      return {
+        url: "https://api.openai.com/v1/chat/completions",
+        headers: { authorization: `Bearer ${key}` },
+        body: {
+          model,
+          max_completion_tokens: req.maxOutputTokens,
+          response_format: { type: "json_object" },
+          messages: [{ role: "system", content: req.system }, ...req.messages],
+        },
+      };
+    }
+    function geminiWire(key: string, model: string, req: ProviderRequest): Wire {
+      return {
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        headers: { "x-goog-api-key": key },
+        body: {
+          systemInstruction: { parts: [{ text: req.system }] },
+          contents: req.messages.map((m) => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }],
+          })),
+          generationConfig: {
+            maxOutputTokens: req.maxOutputTokens,
+            responseMimeType: "application/json",
+          },
+        },
+      };
+    }
+    type Parsed = { text: string; inputTokens: number; outputTokens: number };
+    interface AnthropicJson {
+      content?: { type?: string; text?: string }[];
+      usage?: { input_tokens?: number; output_tokens?: number };
+    }
+    interface OpenAiJson {
+      choices?: { message?: { content?: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    }
+    interface GeminiJson {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
+      };
+    }
+    export function createProvider(
+      id: ProviderId,
+      apiKey: string,
+      fetchImpl: FetchLike = fetch,
+      model: string = DEFAULT_MODELS[id]
+    ): Provider {
+      const redact = (s: string) => s.split(apiKey).join("[redacted]");
+      return {
+        id,
+        label: LABELS[id],
+        model,
+        pricing: PRICING[id],
+        call: async (req) => {
+          const wire = WIRES[id](apiKey, model, req);
+          const res = await fetchImpl(wire.url, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...wire.headers },
+            body: JSON.stringify(wire.body),
+          });
+          if (!res.ok) {
+            const detail = redact((await res.text()).slice(0, 300));
+            throw new Error(`HTTP ${res.status} from ${id}: ${detail}`);
+          }
+          const parse = PARSERS[id];
+          return parse(await res.json());
+        },
+      };
+    }
+  </file>
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff.ts">
+    function loadPrompts(limit: number | undefined): string[] {
+      const url = new URL("./fixtures/gen-ui-bakeoff-prompts.json", import.meta.url);
+      const all = JSON.parse(readFileSync(url, "utf8")) as string[];
+      return limit === undefined ? all : all.slice(0, limit);
+    }
+    function resolveProviders(
+      ids: readonly ProviderId[],
+      dryRun: boolean,
+      prompts: string[]
+    ): Provider[] {
+      if (dryRun) return ids.map((id) => createStubProvider({ id, prompts }));
+      const providers: Provider[] = [];
+      for (const id of ids) {
+        const key = process.env[ENV_KEYS[id]];
+        if (!key) {
+          console.error(`skip ${id}: ${ENV_KEYS[id]} is not set`);
+          continue;
+        }
+        providers.push(createProvider(id, key));
+      }
+      return providers;
+    }
+    async function main(): Promise<number> {
+      const { values } = parseArgs({
+        // pnpm forwards a literal `--` before script args; drop it so flags still parse.
+        args: process.argv.slice(2).filter((a) => a !== "--"),
+        options: {
+          "dry-run": { type: "boolean", default: false },
+          "max-usd": { type: "string", default: String(DEFAULT_MAX_USD) },
+          out: { type: "string" },
+          providers: { type: "string" },
+          limit: { type: "string" },
+        },
+        allowPositionals: true,
+      });
+      const maxUsd = Number(values["max-usd"]);
+      if (!Number.isFinite(maxUsd) || maxUsd < 0) {
+        console.error("--max-usd must be a non-negative number");
+        return 2;
+      }
+      const ids = values.providers
+        ? values.providers.split(",").filter((p): p is ProviderId => IDS.includes(p as ProviderId))
+        : IDS;
+      const prompts = loadPrompts(values.limit ? Number(values.limit) : undefined);
+      const anyKey = IDS.some((id) => process.env[ENV_KEYS[id]]);
+      const dryRun = values["dry-run"] || !anyKey;
+      if (dryRun && !values["dry-run"])
+        console.error("no provider keys found — running --dry-run with stubs");
+    
+      const providers = resolveProviders(ids, dryRun, prompts);
+      if (providers.length === 0) {
+        console.error("no providers to run");
+        return 2;
+      }
+      const report = await runBakeoff({ providers, prompts, maxUsd });
+      const summaries = summarize(report.results);
+      process.stdout.write(
+        `${dryRun ? "DRY RUN (stub providers, canned outputs)\n\n" : ""}${formatTable(summaries)}\n`
+      );
+      process.stdout.write(
+        `\nspent $${report.spentUsd.toFixed(4)} of $${maxUsd.toFixed(2)} cap${report.aborted ? ` — ABORTED: ${report.abortReason}` : ""}\n`
+      );
+      if (values.out) {
+        const models = Object.fromEntries(providers.map((p) => [p.id, p.model]));
+        const json = { generatedAt: new Date().toISOString(), dryRun, models, summaries, ...report };
+        writeFileSync(values.out, `${JSON.stringify(json, null, 2)}\n`);
+      }
+      return report.aborted ? 1 : 0;
+    }
+  </file>
   <file path="packages/rialto-catalog/scripts/generate-catalog.ts">
     function findCatalogMetaFiles(dir: string): string[] {
       const found: string[] = [];
@@ -32086,6 +32934,12 @@
     };
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
+    export interface SpecRefinement {
+      parentId: string | null;
+      path: string;
+      before: unknown;
+      after: unknown;
+    }
     export interface StoredSpecResponse {
       id: string;
       userId: string;
@@ -32094,6 +32948,7 @@
       spec: unknown;
       rawLines: unknown;
       isFavorite: boolean;
+      refinement: unknown;
       createdAt: string;
       updatedAt: string;
     }
@@ -32107,6 +32962,7 @@
         spec: s.spec,
         rawLines: s.rawLines,
         isFavorite: s.isFavorite,
+        refinement: s.refinement ?? null,
         createdAt: s.createdAt.toISOString(),
         updatedAt: s.updatedAt.toISOString(),
       };
@@ -32151,7 +33007,16 @@
         kind: string;
         spec: unknown;
         rawLines: unknown;
+        refinement?: SpecRefinement;
       }): Promise<StoredSpec> {
+        const parentId = data.refinement?.parentId;
+        if (parentId) {
+          const parent = await prisma.storedSpec.findUnique({ where: { id: parentId } });
+          if (!parent || parent.userId !== data.userId) {
+            throw new Error("Not found");
+          }
+        }
+    
         await _enforceCapForUser(data.userId);
     
         return prisma.storedSpec.create({
@@ -32161,6 +33026,7 @@
             kind: data.kind,
             spec: data.spec as Prisma.InputJsonValue,
             rawLines: data.rawLines as Prisma.InputJsonValue,
+            ...(data.refinement && { refinement: data.refinement as unknown as Prisma.InputJsonValue }),
           },
         });
       },
@@ -32849,11 +33715,16 @@
       refunded: number;
       forfeited: number;
     }
+    export interface ReservationEventCounts {
+      byKind: Record<ReservationEventKind, number>;
+      rejectedTransitions: number;
+    }
     export interface DailyBookingMetrics {
       date: string;
       venueId: string;
       reservations: ReservationStatusCounts;
       deposits: DepositTransitionCounts;
+      events: ReservationEventCounts;
     }
     export interface GetDailyBookingMetricsParams {
       /** YYYY-MM-DD */
@@ -32870,7 +33741,7 @@
       const dayStart = new Date(`${date}T00:00:00.000Z`);
       const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
     
-      const [reservationGroups, held, applied, refunded, forfeited] = await Promise.all([
+      const [reservationGroups, held, applied, refunded, forfeited, eventGroups] = await Promise.all([
         prisma.reservation.groupBy({
           by: ["status"],
           where: { venueId, date: dayStart },
@@ -32888,6 +33759,11 @@
         prisma.deposit.count({
           where: { reservation: { venueId }, forfeitedAt: { gte: dayStart, lt: dayEnd } },
         }),
+        prisma.reservationEvent.groupBy({
+          by: ["kind"],
+          where: { venueId, createdAt: { gte: dayStart, lt: dayEnd } },
+          _count: true,
+        }),
       ]);
     
       const reservations: ReservationStatusCounts = {
@@ -32902,11 +33778,20 @@
         reservations[key] = group._count;
       }
     
+      const byKind = Object.fromEntries(RESERVATION_EVENT_KINDS.map((kind) => [kind, 0])) as Record<
+        ReservationEventKind,
+        number
+      >;
+      for (const group of eventGroups) {
+        if (group.kind in byKind) byKind[group.kind as ReservationEventKind] = group._count;
+      }
+    
       return {
         date,
         venueId,
         reservations,
         deposits: { held, applied, refunded, forfeited },
+        events: { byKind, rejectedTransitions: byKind.transition_rejected },
       };
     }
     export const bookingMetricsService = { getDailyBookingMetrics };
@@ -33031,12 +33916,14 @@
        * Checked in the same lookup as the session id, before any write.
        */
       venueId?: string;
+      /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
+      actor?: ReservationEventActor;
     }
     export type ConfirmHoldResult =
       | { success: true; reservation: Reservation }
       | { success: false; error: string; errorCode: ConfirmHoldErrorCode };
     export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> {
-      const { holdId, sessionId, guestDetails, userId, venueId } = input;
+      const { holdId, sessionId, guestDetails, userId, venueId, actor = SYSTEM_ACTOR } = input;
     
       // Step 1: Look up hold
       const hold = await prisma.reservationHold.findUnique({
@@ -33139,6 +34026,15 @@
               table: true,
               guest: { select: { visitCount: true, communicationPreference: true } },
             },
+          });
+    
+          await recordReservationEvent(tx, {
+            reservationId: reservation.id,
+            venueId: reservation.venueId,
+            kind: "created",
+            actor,
+            from: null,
+            to: toEventState(reservation),
           });
     
           // Delete the hold in the same transaction as the reservation insert.
@@ -33399,18 +34295,24 @@
        * call gets `count === 0` and returns `false` — the caller treats that as
        * an idempotent no-op rather than an error.
        */
-      async hold(depositId: string, stripePaymentIntentId: string): Promise<boolean> {
+      async hold(
+        depositId: string,
+        stripePaymentIntentId: string,
+        actor: ReservationEventActor = STRIPE_WEBHOOK_ACTOR
+      ): Promise<boolean> {
         const deposit = await this._requireDeposit(depositId);
         transitionDeposit(deposit.status, "held"); // throws if invalid
     
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: "pending" },
-          data: {
+        const count = await this._casWithEvent(
+          depositId,
+          "pending",
+          {
             status: "held",
             stripePaymentIntentId,
             heldAt: new Date(),
           },
-        });
+          actor
+        );
     
         return count > 0;
       }
@@ -33442,16 +34344,21 @@
        * Stripe's side (that is the event), so calling cancelPaymentIntent again
        * would fail against an already-canceled intent.
        */
-      async refund(depositId: string, options: { skipStripeCancel?: boolean } = {}): Promise<Deposit> {
+      async refund(
+        depositId: string,
+        options: { skipStripeCancel?: boolean; actor?: ReservationEventActor } = {}
+      ): Promise<Deposit> {
         const deposit = await this._requireDeposit(depositId);
         transitionDeposit(deposit.status, "refunded"); // throws if invalid
     
         // Atomic compare-and-swap: only update if the row is still in the observed
         // status. count === 0 means another concurrent transition won the race.
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: deposit.status },
-          data: { status: "refunded", refundedAt: new Date() },
-        });
+        const count = await this._casWithEvent(
+          depositId,
+          deposit.status,
+          { status: "refunded", refundedAt: new Date() },
+          options.actor ?? (options.skipStripeCancel ? STRIPE_WEBHOOK_ACTOR : SYSTEM_ACTOR)
+        );
     
         if (count === 0) {
           throw new DepositConcurrentUpdateError(depositId, "refund");
@@ -33485,16 +34392,21 @@
        * (#5725 item 3). No Stripe call is made: the intent is already canceled on
        * Stripe's side (that is the event that triggers this).
        */
-      async expireAuthorization(depositId: string): Promise<Deposit> {
+      async expireAuthorization(
+        depositId: string,
+        actor: ReservationEventActor = STRIPE_WEBHOOK_ACTOR
+      ): Promise<Deposit> {
         const deposit = await this._requireDeposit(depositId);
         transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
     
         // Atomic compare-and-swap: only update if the row is still in the observed
         // status. count === 0 means another concurrent transition won the race.
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: deposit.status },
-          data: { status: "uncollectable", uncollectableAt: new Date() },
-        });
+        const count = await this._casWithEvent(
+          depositId,
+          deposit.status,
+          { status: "uncollectable", uncollectableAt: new Date() },
+          actor
+        );
     
         if (count === 0) {
           throw new DepositConcurrentUpdateError(depositId, "expireAuthorization");
@@ -33627,7 +34539,11 @@
        *    retry by checking ground truth (retrieve / already-refunded amount)
        *    first and skipping the call when it's already done (#5722 H2).
        */
-      async refundPartial(depositId: string, refundAmountCents: number): Promise<Deposit> {
+      async refundPartial(
+        depositId: string,
+        refundAmountCents: number,
+        actor: ReservationEventActor = SYSTEM_ACTOR
+      ): Promise<Deposit> {
         const deposit = await this._requireDeposit(depositId);
     
         // Validate at the trust boundary — never refund more than was deposited,
@@ -33649,15 +34565,17 @@
     
           // Atomic compare-and-swap: only update if the row is still in the observed
           // status. count === 0 means another concurrent transition won the race.
-          const { count } = await prisma.deposit.updateMany({
-            where: { id: depositId, status: deposit.status },
-            data: {
+          const count = await this._casWithEvent(
+            depositId,
+            deposit.status,
+            {
               status: "partial_refunded",
               refundedAt: new Date(),
               feeAmountCents,
               refundAmountCents,
             },
-          });
+            actor
+          );
     
           if (count === 0) {
             throw new DepositConcurrentUpdateError(depositId, "refundPartial");
@@ -33974,14 +34892,16 @@
     
         // Atomic compare-and-swap: only update if the row is still in the observed
         // status. count === 0 means another concurrent transition won the race.
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: deposit.status },
-          data: {
+        const count = await this._casWithEvent(
+          depositId,
+          deposit.status,
+          {
             status: targetStatus,
             [timestampField]: new Date(),
             ...(forfeitOrigin ? { forfeitOrigin } : {}),
           },
-        });
+          SYSTEM_ACTOR
+        );
     
         if (count === 0) {
           throw new DepositConcurrentUpdateError(depositId, action);
@@ -34195,9 +35115,10 @@
         fromStatus: "applied" | "forfeited" | "partial_refunded",
         timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
       ): Promise<number> {
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: fromStatus },
-          data: {
+        const count = await this._casWithEvent(
+          depositId,
+          fromStatus,
+          {
             status: "uncollectable",
             uncollectableAt: new Date(),
             [timestampField]: null,
@@ -34206,7 +35127,8 @@
               ? { feeAmountCents: null, refundAmountCents: null }
               : {}),
           },
-        });
+          SYSTEM_ACTOR
+        );
     
         if (count === 0) {
           logger.error(
@@ -34233,9 +35155,10 @@
         fromStatus: "applied" | "forfeited" | "partial_refunded" | "refunded",
         timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
       ): Promise<number> {
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: fromStatus },
-          data: {
+        const count = await this._casWithEvent(
+          depositId,
+          fromStatus,
+          {
             status: "held",
             [timestampField]: null,
             forfeitOrigin: null,
@@ -34243,7 +35166,8 @@
               ? { feeAmountCents: null, refundAmountCents: null }
               : {}),
           },
-        });
+          SYSTEM_ACTOR
+        );
     
         if (count === 0) {
           logger.error(
@@ -34252,6 +35176,43 @@
           );
         }
         return count;
+      }
+    
+      /**
+       * The one place a deposit status compare-and-swap runs: the CAS and its
+       * `deposit_transition` event share one venue-scoped transaction, so a
+       * transition never exists without its history row. A lost CAS
+       * (`count === 0`) writes no event. Returns the CAS's `count`.
+       */
+      private async _casWithEvent(
+        depositId: string,
+        fromStatus: DepositStatus,
+        data: Prisma.DepositUpdateManyMutationInput & { status: DepositStatus },
+        actor: ReservationEventActor
+      ): Promise<number> {
+        const venueId = getCurrentVenueId();
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const { count } = await tx.deposit.updateMany({
+            where: { id: depositId, status: fromStatus },
+            data,
+          });
+          if (count > 0) {
+            const { reservationId } = await tx.deposit.findUniqueOrThrow({
+              where: { id: depositId },
+              select: { reservationId: true },
+            });
+            await recordReservationEvent(tx, {
+              reservationId,
+              venueId,
+              kind: "deposit_transition",
+              actor,
+              from: { depositStatus: fromStatus },
+              to: { depositStatus: data.status },
+            });
+          }
+          return count;
+        });
       }
     
       /**
@@ -36158,12 +37119,14 @@
       venueId: string;
       /** Written in the same transaction as the move when provided. */
       notes?: string;
+      /** Who moved it; recorded on the `moved` event. Defaults to {@link SYSTEM_ACTOR}. */
+      actor?: ReservationEventActor;
     }
     export type MoveToHoldResult =
       | { success: true; reservation: Reservation }
       | { success: false; error: string; errorCode: MoveToHoldErrorCode };
     export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
-      const { reservation, holdId, sessionId, venueId, notes } = input;
+      const { reservation, holdId, sessionId, venueId, notes, actor = SYSTEM_ACTOR } = input;
     
       const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
       if (!hold || hold.venueId !== venueId) {
@@ -36204,6 +37167,19 @@
               table: true,
               guest: { select: { visitCount: true, communicationPreference: true } },
             },
+          });
+          await recordReservationEvent(tx, {
+            reservationId: reservation.id,
+            venueId: reservation.venueId,
+            kind: "moved",
+            actor,
+            from: toEventState({
+              ...reservation,
+              date: new Date(reservation.date),
+              startTime: new Date(reservation.startTime),
+              endTime: new Date(reservation.endTime),
+            }),
+            to: toEventState(updated),
           });
           await tx.reservationHold.delete({ where: { id: holdId } });
           return updated;
@@ -36446,6 +37422,8 @@
       initiator?: CancelInitiator;
       cancellationReason?: string;
       cancellationNote?: string;
+      /** Who is cancelling, for the reservation event log. Separate from `initiator`. */
+      actor?: ReservationEventActor;
     }
     export type CancelReservationResult =
       | { success: true; reservation: Reservation }
@@ -36693,7 +37671,7 @@
       deps: CancelReservationDeps,
       options: CancelReservationOptions = {}
     ): Promise<CancelReservationResult> {
-      const { initiator = "guest", cancellationReason, cancellationNote } = options;
+      const { initiator = "guest", cancellationReason, cancellationNote, actor } = options;
     
       try {
         transitionReservation(reservation.status, "CANCELLED");
@@ -36710,11 +37688,15 @@
     
       let updated: Reservation | null;
       try {
-        updated = await reservationService.update(reservation.id, {
-          status: "CANCELLED",
-          ...(cancellationReason !== undefined && { cancellationReason }),
-          ...(cancellationNote !== undefined && { cancellationNote }),
-        });
+        updated = await reservationService.update(
+          reservation.id,
+          {
+            status: "CANCELLED",
+            ...(cancellationReason !== undefined && { cancellationReason }),
+            ...(cancellationNote !== undefined && { cancellationNote }),
+          },
+          actor
+        );
       } catch (err) {
         // The status write re-validates the transition against a freshly fetched
         // row (reservation.ts). A concurrent status change during the round trip
@@ -36760,6 +37742,140 @@
       }
     
       return { success: true, reservation: updated };
+    }
+  </file>
+  <file path="services/reservations/src/services/reservation-events.ts">
+    export const RESERVATION_EVENT_KINDS = [
+      "created",
+      "status_changed",
+      "cancelled",
+      "no_show",
+      "moved",
+      "updated",
+      "deposit_transition",
+      "transition_rejected",
+    ] as const;
+    export type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
+    export type ReservationEventActor =
+      | { type: "staff"; id: string }
+      | { type: "guest"; id: string | null }
+      | { type: "system"; id: string };
+    export const SYSTEM_ACTOR: ReservationEventActor = { type: "system", id: "unattributed" };
+    export const guestActor = (guestId: string | null | undefined): ReservationEventActor => ({
+      type: "guest",
+      id: guestId ?? null,
+    });
+    export const staffActor = (userId: string | null | undefined): ReservationEventActor =>
+      userId ? { type: "staff", id: userId } : SYSTEM_ACTOR;
+    export type EventState = {
+      status: string;
+      tableId: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+    };
+    export type DepositEventState = { depositStatus: string };
+    export function toEventState(row: {
+      status: string;
+      tableId: string;
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+    }): EventState {
+      return {
+        status: row.status,
+        tableId: row.tableId,
+        date: row.date.toISOString(),
+        startTime: row.startTime.toISOString(),
+        endTime: row.endTime.toISOString(),
+        partySize: row.partySize,
+      };
+    }
+    export async function recordReservationEvent(
+      tx: Prisma.TransactionClient,
+      input: {
+        reservationId: string;
+        venueId: string | null;
+        kind: ReservationEventKind;
+        actor: ReservationEventActor;
+        from?: EventState | DepositEventState | null;
+        to?: EventState | DepositEventState | null;
+      }
+    ) {
+      if (input.venueId === null) return null;
+      return tx.reservationEvent.create({
+        data: {
+          reservationId: input.reservationId,
+          venueId: input.venueId,
+          kind: input.kind,
+          actorType: input.actor.type,
+          actorId: input.actor.id,
+          fromState: input.from ?? undefined,
+          toState: input.to ?? undefined,
+        },
+      });
+    }
+    export const DEFAULT_EVENT_PAGE_SIZE = 50;
+    export const MAX_EVENT_PAGE_SIZE = 200;
+    export interface ReservationEventDto {
+      id: string;
+      kind: string;
+      actorType: string;
+      actorId: string | null;
+      fromState: unknown;
+      toState: unknown;
+      createdAt: string;
+    }
+    export class InvalidEventCursorError extends Error {
+      constructor() {
+        super("Invalid cursor");
+      }
+    }
+    function decodeCursor(cursor: string): { createdAt: Date; id: string } {
+      try {
+        const { t, id } = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+        const createdAt = new Date(t);
+        if (typeof id !== "string" || typeof t !== "string" || Number.isNaN(createdAt.getTime())) {
+          throw new InvalidEventCursorError();
+        }
+        return { createdAt, id };
+      } catch {
+        throw new InvalidEventCursorError();
+      }
+    }
+    export async function listForReservation(
+      reservationId: string,
+      { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
+    ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> {
+      const after = cursor === undefined ? undefined : decodeCursor(cursor);
+      const rows = await prisma.reservationEvent.findMany({
+        where: {
+          reservationId,
+          ...(after && {
+            OR: [
+              { createdAt: { gt: after.createdAt } },
+              { createdAt: after.createdAt, id: { gt: after.id } },
+            ],
+          }),
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        take: limit + 1,
+      });
+      const page = rows.slice(0, limit);
+      return {
+        data: page.map((row) => ({
+          id: row.id,
+          kind: row.kind,
+          actorType: row.actorType,
+          actorId: row.actorId,
+          fromState: row.fromState,
+          toState: row.toState,
+          createdAt: row.createdAt.toISOString(),
+        })),
+        nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]!) : null,
+      };
     }
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
@@ -36854,7 +37970,8 @@
       reservation: Reservation,
       changes: ReservationChanges,
       deposits: DepositService,
-      hold?: ModifyHold
+      hold?: ModifyHold,
+      actor?: ReservationEventActor
     ): Promise<ModifyReservationResult> {
       if (!hasAnyChange(changes) && !hold) {
         return NO_CHANGES_RESULT;
@@ -36865,14 +37982,16 @@
       }
     
       if (hold) {
-        return modifyViaHold(reservation, changes, deposits, hold);
+        return modifyViaHold(reservation, changes, deposits, hold, actor);
       }
     
       // Only a specialRequests edit reaches here: it needs no hold, no venue and
       // no conflict check.
-      const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
-        notes: changes.specialRequests,
-      });
+      const updateResult = await reservationService.updateWithConflictCheck(
+        reservation.id,
+        { notes: changes.specialRequests },
+        actor
+      );
       if (!updateResult.success) {
         return {
           success: false,
@@ -36888,7 +38007,8 @@
       reservation: Reservation,
       changes: ReservationChanges,
       deposits: DepositService,
-      { holdId, sessionId }: ModifyHold
+      { holdId, sessionId }: ModifyHold,
+      actor?: ReservationEventActor
     ): Promise<ModifyReservationResult> {
       const venueId = reservation.venueId;
       const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
@@ -36930,6 +38050,7 @@
         sessionId,
         venueId: venueId,
         notes: changes.specialRequests,
+        actor,
       });
       if (!moved.success) {
         return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
@@ -37144,7 +38265,8 @@
     export async function recordNoShow(
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      deposits: DepositService
+      deposits: DepositService,
+      actor?: ReservationEventActor
     ): Promise<RecordNoShowResult> {
       try {
         transitionReservation(reservation.status, "NO_SHOW");
@@ -37306,7 +38428,7 @@
     
       let updated: Reservation | null;
       try {
-        updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+        updated = await reservationService.update(reservation.id, { status: "NO_SHOW" }, actor);
       } catch (err) {
         if (forfeitedDepositId === null) {
           // No money moved this call — the ordinary concurrent-no-show loser.
@@ -37528,28 +38650,49 @@
         return row?.originSessionId ?? null;
       },
     
-      async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
-        const reservation = await prisma.reservation.create({
-          data: {
-            date: new Date(data.date),
-            startTime: new Date(data.startTime),
-            endTime: new Date(data.endTime),
-            partySize: data.partySize,
-            tableId: data.tableId,
-            notes: data.notes ?? null,
-            occasion: data.occasion ?? null,
-            seatingPreference: data.seatingPreference ?? null,
-            guestName: data.guestName ?? null,
-            guestEmail: data.guestEmail ?? null,
-            guestPhone: data.guestPhone ?? null,
-            guestId: data.guestId ?? null,
-            userId: userId ?? null,
-            venueId: data.venueId ?? null,
-          },
-          include: {
-            table: true,
-            guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
-          },
+      async create(
+        data: CreateReservationRequest,
+        userId?: string,
+        actor: ReservationEventActor = SYSTEM_ACTOR
+      ): Promise<Reservation> {
+        // Explicit transaction so the `created` event joins the insert. This call
+        // bypasses the per-call auto-wrap in `services/venue-scoped-prisma.ts`, so
+        // set app.venue_id on THIS transaction's own `tx` (ADR-026 part 6).
+        const reservation = await prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, getCurrentVenueId());
+          const created = await tx.reservation.create({
+            data: {
+              date: new Date(data.date),
+              startTime: new Date(data.startTime),
+              endTime: new Date(data.endTime),
+              partySize: data.partySize,
+              tableId: data.tableId,
+              notes: data.notes ?? null,
+              occasion: data.occasion ?? null,
+              seatingPreference: data.seatingPreference ?? null,
+              guestName: data.guestName ?? null,
+              guestEmail: data.guestEmail ?? null,
+              guestPhone: data.guestPhone ?? null,
+              guestId: data.guestId ?? null,
+              userId: userId ?? null,
+              venueId: data.venueId ?? null,
+            },
+            include: {
+              table: true,
+              guest: {
+                select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+              },
+            },
+          });
+          await recordReservationEvent(tx, {
+            reservationId: created.id,
+            venueId: created.venueId,
+            kind: "created",
+            actor,
+            from: null,
+            to: toEventState(created),
+          });
+          return created;
         });
         return toReservation(reservation);
       },
@@ -37560,7 +38703,8 @@
        */
       async createWithConflictCheck(
         data: CreateReservationRequest,
-        userId?: string
+        userId?: string,
+        actor: ReservationEventActor = SYSTEM_ACTOR
       ): Promise<CreateReservationResult> {
         const startTime = new Date(data.startTime);
         const endTime = new Date(data.endTime);
@@ -37631,8 +38775,8 @@
           window: { startTime, endTime },
           partySize: data.partySize,
           checkHoldConflict: true,
-          write: (tx) =>
-            tx.reservation.create({
+          write: async (tx) => {
+            const created = await tx.reservation.create({
               data: {
                 date: new Date(data.date),
                 startTime,
@@ -37655,7 +38799,17 @@
                   select: { visitCount: true, communicationPreference: true, unsubscribed: true },
                 },
               },
-            }),
+            });
+            await recordReservationEvent(tx, {
+              reservationId: created.id,
+              venueId: created.venueId,
+              kind: "created",
+              actor,
+              from: null,
+              to: toEventState(created),
+            });
+            return created;
+          },
         });
     
         if (!result.ok) {
@@ -37669,7 +38823,11 @@
         return { success: true, reservation: toReservation(result.value) };
       },
     
-      async update(id: string, data: UpdateReservationRequest): Promise<Reservation | null> {
+      async update(
+        id: string,
+        data: UpdateReservationRequest,
+        actor: ReservationEventActor = SYSTEM_ACTOR
+      ): Promise<Reservation | null> {
         try {
           const updateData = {
             ...(data.date !== undefined && { date: new Date(data.date) }),
@@ -37700,11 +38858,39 @@
           if (data.status !== undefined) {
             const existing = await prisma.reservation.findUnique({
               where: { id },
-              select: { status: true, guestId: true, startTime: true },
+              select: {
+                status: true,
+                guestId: true,
+                venueId: true,
+                tableId: true,
+                date: true,
+                startTime: true,
+                endTime: true,
+                partySize: true,
+              },
             });
             if (!existing) return null;
-            // Throws ReservationTransitionError on invalid transition.
-            transitionReservation(existing.status, data.status);
+            try {
+              // Throws ReservationTransitionError on invalid transition.
+              transitionReservation(existing.status, data.status);
+            } catch (err: unknown) {
+              if (err instanceof ReservationTransitionError) {
+                // Leave a trail for the refused transition in its own short
+                // venue-scoped transaction, then rethrow unchanged.
+                await prisma.$transaction(async (tx) => {
+                  await setVenueContext(tx, getCurrentVenueId());
+                  await recordReservationEvent(tx, {
+                    reservationId: id,
+                    venueId: existing.venueId,
+                    kind: "transition_rejected",
+                    actor,
+                    from: toEventState(existing),
+                    to: { status: data.status } as EventState,
+                  });
+                });
+              }
+              throw err;
+            }
     
             // The status CAS plus write. Shared by both branches below so the
             // NO_SHOW guest-counter bump can be run against the same client
@@ -37737,34 +38923,72 @@
                 await guestService.recordVisit(existing.guestId, existing.startTime, undefined, client);
               }
     
-              return client.reservation.findUnique({
+              const after = await client.reservation.findUnique({
                 where: { id },
                 include: { table: true },
               });
+              if (after) {
+                await recordReservationEvent(client, {
+                  reservationId: id,
+                  venueId: existing.venueId,
+                  kind:
+                    data.status === "CANCELLED"
+                      ? "cancelled"
+                      : data.status === "NO_SHOW"
+                        ? "no_show"
+                        : "status_changed",
+                  actor,
+                  from: toEventState(existing),
+                  to: toEventState(after),
+                });
+              }
+              return after;
             };
     
-            const touchesGuest =
-              (data.status === "NO_SHOW" || data.status === "COMPLETED") && existing.guestId;
-            const updated = touchesGuest
-              ? await prisma.$transaction(async (tx) => {
-                  // This `prisma.$transaction` call bypasses the per-call
-                  // auto-wrap `services/venue-scoped-prisma.ts` gives the
-                  // `prisma` export — set app.venue_id on THIS transaction's
-                  // own `tx` explicitly (ADR-026 part 6).
-                  await setVenueContext(tx, getCurrentVenueId());
-                  return writeStatusChange(tx);
-                })
-              : await writeStatusChange(prisma);
+            // Always an explicit transaction so the CAS, its side effects and the
+            // event commit together. This `prisma.$transaction` call bypasses the
+            // per-call auto-wrap `services/venue-scoped-prisma.ts` gives the
+            // `prisma` export — set app.venue_id on THIS transaction's own `tx`
+            // explicitly (ADR-026 part 6).
+            const updated = await prisma.$transaction(async (tx) => {
+              await setVenueContext(tx, getCurrentVenueId());
+              return writeStatusChange(tx);
+            });
     
             return updated ? toReservation(updated) : null;
           }
     
-          const reservation = await prisma.reservation.update({
-            where: { id },
-            data: updateData,
-            include: { table: true },
+          const reservation = await prisma.$transaction(async (tx) => {
+            await setVenueContext(tx, getCurrentVenueId());
+            const before = await tx.reservation.findUnique({
+              where: { id },
+              select: {
+                status: true,
+                venueId: true,
+                tableId: true,
+                date: true,
+                startTime: true,
+                endTime: true,
+                partySize: true,
+              },
+            });
+            if (!before) return null;
+            const after = await tx.reservation.update({
+              where: { id },
+              data: updateData,
+              include: { table: true },
+            });
+            await recordReservationEvent(tx, {
+              reservationId: id,
+              venueId: before.venueId,
+              kind: "updated",
+              actor,
+              from: toEventState(before),
+              to: toEventState(after),
+            });
+            return after;
           });
-          return toReservation(reservation);
+          return reservation ? toReservation(reservation) : null;
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -37777,7 +39001,8 @@
        */
       async updateWithConflictCheck(
         id: string,
-        data: UpdateReservationRequest
+        data: UpdateReservationRequest,
+        actor: ReservationEventActor = SYSTEM_ACTOR
       ): Promise<UpdateReservationResult> {
         // Get the existing reservation
         const existing = await prisma.reservation.findUnique({
@@ -37838,7 +39063,7 @@
     
         // Notes / party-size / preference edits are not slot moves — no lock needed.
         if (!timeOrTableChanged) {
-          const reservation = await this.update(id, data);
+          const reservation = await this.update(id, data, actor);
           if (!reservation) {
             return { success: false, error: "Failed to update reservation" };
           }
@@ -37922,11 +39147,20 @@
           checkHoldConflict: true,
           write: async (tx) => {
             try {
-              return await tx.reservation.update({
+              const moved = await tx.reservation.update({
                 where: { id },
                 data: updateData,
                 include: { table: true },
               });
+              await recordReservationEvent(tx, {
+                reservationId: id,
+                venueId: existing.venueId,
+                kind: "moved",
+                actor,
+                from: toEventState(existing),
+                to: toEventState(moved),
+              });
+              return moved;
             } catch (err: unknown) {
               if (isPrismaNotFound(err)) return null;
               throw err;
@@ -37949,7 +39183,11 @@
         return { success: true, reservation: toReservation(result.value) };
       },
     
-      async createWalkIn(data: WalkInRequest, userId?: string): Promise<CreateReservationResult> {
+      async createWalkIn(
+        data: WalkInRequest,
+        userId?: string,
+        actor: ReservationEventActor = SYSTEM_ACTOR
+      ): Promise<CreateReservationResult> {
         const now = new Date();
         const durationMinutes = data.durationMinutes ?? 90;
         const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
@@ -38045,9 +39283,30 @@
               },
             });
     
+            await recordReservationEvent(tx, {
+              reservationId: createdReservation.id,
+              venueId: createdReservation.venueId,
+              kind: "created",
+              actor,
+              from: null,
+              to: toEventState(createdReservation),
+            });
+    
+            const seatedFrom = await tx.table.findUniqueOrThrow({
+              where: { id: data.tableId },
+              select: { status: true, venueId: true },
+            });
             const occupiedTable = await tx.table.update({
               where: { id: data.tableId },
               data: { status: "OCCUPIED" },
+            });
+            await recordTableEvent(tx, {
+              tableId: data.tableId,
+              venueId: seatedFrom.venueId,
+              fromStatus: seatedFrom.status,
+              toStatus: "OCCUPIED",
+              actor: actor.type === "staff" ? { type: "staff", id: actor.id } : SYSTEM_TABLE_ACTOR,
+              reservationId: createdReservation.id,
             });
     
             return { reservation: createdReservation, table: occupiedTable };
@@ -39138,6 +40397,36 @@
       }
     }
   </file>
+  <file path="services/reservations/src/services/table-events.ts">
+    export type TableEventActor = { type: "staff"; id: string } | { type: "system"; id: string | null };
+    export const SYSTEM_TABLE_ACTOR: TableEventActor = { type: "system", id: null };
+    export const staffTableActor = (userId: string | null | undefined): TableEventActor =>
+      userId ? { type: "staff", id: userId } : SYSTEM_TABLE_ACTOR;
+    export async function recordTableEvent(
+      tx: Prisma.TransactionClient,
+      input: {
+        tableId: string;
+        venueId: string | null;
+        fromStatus: TableStatus;
+        toStatus: TableStatus;
+        actor: TableEventActor;
+        reservationId?: string | null;
+      }
+    ) {
+      if (input.venueId === null) return null;
+      return tx.tableEvent.create({
+        data: {
+          tableId: input.tableId,
+          venueId: input.venueId,
+          fromStatus: input.fromStatus,
+          toStatus: input.toStatus,
+          actorType: input.actor.type,
+          actorId: input.actor.id,
+          reservationId: input.reservationId ?? null,
+        },
+      });
+    }
+  </file>
   <file path="services/reservations/src/services/table-state-machine.ts">
     export const tableMachine = createStateMachine<TableStatus>(TABLE_TRANSITIONS, "table");
     export function transitionTable(from: TableStatus, to: TableStatus): TableStatus {
@@ -39330,20 +40619,33 @@
         }
       },
     
-      async updateStatus(id: string, status: string): Promise<Table | null> {
+      async updateStatus(id: string, status: string, userId?: string): Promise<Table | null> {
         if (!VALID_TABLE_STATUSES.includes(status as TableStatus)) {
           return null;
         }
-        const current = await prisma.table.findUnique({ where: { id } });
-        if (!current) return null;
-        transitionTable(current.status, status as TableStatus);
-        const { count } = await prisma.table.updateMany({
-          where: { id, status: current.status },
-          data: { status: status as TableStatus },
+        // Explicit transaction so the CAS and its event commit together. This call
+        // bypasses the per-call auto-wrap `venue-scoped-prisma.ts` gives the
+        // `prisma` export, so set app.venue_id on this `tx` ourselves (ADR-026 part 6).
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, getCurrentVenueId());
+          const current = await tx.table.findUnique({ where: { id } });
+          if (!current) return null;
+          transitionTable(current.status, status as TableStatus);
+          const { count } = await tx.table.updateMany({
+            where: { id, status: current.status },
+            data: { status: status as TableStatus },
+          });
+          if (count === 0) throw new TableConcurrentUpdateError(id, status);
+          await recordTableEvent(tx, {
+            tableId: id,
+            venueId: current.venueId,
+            fromStatus: current.status,
+            toStatus: status as TableStatus,
+            actor: staffTableActor(userId),
+          });
+          const table = await tx.table.findUnique({ where: { id } });
+          return table ? toTable(table) : null;
         });
-        if (count === 0) throw new TableConcurrentUpdateError(id, status);
-        const table = await prisma.table.findUnique({ where: { id } });
-        return table ? toTable(table) : null;
       },
     
       async delete(id: string): Promise<boolean> {
@@ -39389,6 +40691,7 @@
       "deposit",
       "waitlistEntry",
       "reservationEvent",
+      "tableEvent",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -41208,6 +42511,8 @@
       spec: unknown;
       rawLines: string[];
       isFavorite: boolean;
+      /** Node refinements only: the diff on the parent entry. Null when absent or malformed. */
+      refinement?: SpecDiff | null;
       createdAt: string;
       updatedAt: string;
     }
@@ -59169,6 +60474,7 @@
       // Register routes
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
+      await fastify.register(reservationEventRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
@@ -62350,6 +63656,8 @@
       manageToken: string;
       reason?: string;
       note?: string;
+      /** Who is cancelling; omitted by non-staff doors (the service defaults to the system actor). */
+      actor?: ReservationEventActor;
       log: DomainLogger;
     }
     export interface ConfirmHoldOptions {
@@ -62359,22 +63667,36 @@
     }
     export interface ReservationTransitions {
       cancel(reservation: Reservation, options: CancelOptions): Promise<CancelReservationResult>;
-      noShow(reservation: Reservation, log: DomainLogger): Promise<RecordNoShowResult>;
+      noShow(
+        reservation: Reservation,
+        log: DomainLogger,
+        actor?: ReservationEventActor
+      ): Promise<RecordNoShowResult>;
       updateByStaff(
         before: Reservation,
-        patch: UpdateReservationRequest
+        patch: UpdateReservationRequest,
+        actor?: ReservationEventActor
       ): Promise<UpdateReservationResult>;
       modifyByGuest(
         reservation: Reservation,
         changes: ReservationChanges,
         manageToken: string,
-        hold?: ModifyHold
+        hold?: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult>;
       confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
-      createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
-      createByStaff(body: CreateReservationRequest, userId?: string): Promise<CreateReservationResult>;
+      createWalkIn(
+        body: WalkInRequest,
+        userId?: string,
+        actor?: ReservationEventActor
+      ): Promise<CreateReservationResult>;
+      createByStaff(
+        body: CreateReservationRequest,
+        userId?: string,
+        actor?: ReservationEventActor
+      ): Promise<CreateReservationResult>;
       /** No-op unless the reservation is PENDING (the guard moved here from the route). */
-      confirmAttendance(reservation: Reservation): Promise<void>;
+      confirmAttendance(reservation: Reservation, actor?: ReservationEventActor): Promise<void>;
     }
     export function createReservationTransitions(
       deps: ReservationTransitionsDeps
@@ -62404,6 +63726,7 @@
               initiator: options.initiator,
               cancellationReason: options.reason,
               cancellationNote: options.note,
+              actor: options.actor,
             }
           );
           if (result.success) {
@@ -62422,16 +63745,16 @@
           return result;
         },
     
-        async noShow(reservation, log) {
-          const result = await recordNoShow(reservation, log, deposits);
+        async noShow(reservation, log, actor) {
+          const result = await recordNoShow(reservation, log, deposits, actor);
           if (result.success) {
             await settle({ kind: "no-show", reservation: result.reservation }, reservation.venueId);
           }
           return result;
         },
     
-        async updateByStaff(before, patch) {
-          const result = await reservationService.updateWithConflictCheck(before.id, patch);
+        async updateByStaff(before, patch, actor) {
+          const result = await reservationService.updateWithConflictCheck(before.id, patch, actor);
           if (result.success && result.reservation) {
             await settle(
               { kind: "staff-updated", before, after: result.reservation, patch },
@@ -62441,8 +63764,8 @@
           return result;
         },
     
-        async modifyByGuest(reservation, changes, manageToken, hold) {
-          const result = await modifyReservation(reservation, changes, deposits, hold);
+        async modifyByGuest(reservation, changes, manageToken, hold, actor) {
+          const result = await modifyReservation(reservation, changes, deposits, hold, actor);
           if (result.success) {
             await settle(
               {
@@ -62474,8 +63797,8 @@
           return result;
         },
     
-        async createWalkIn(body, userId) {
-          const result = await reservationService.createWalkIn(body, userId);
+        async createWalkIn(body, userId, actor) {
+          const result = await reservationService.createWalkIn(body, userId, actor);
           if (result.success && result.reservation) {
             await settle(
               {
@@ -62490,8 +63813,8 @@
           return result;
         },
     
-        async createByStaff(body, userId) {
-          const result = await reservationService.createWithConflictCheck(body, userId);
+        async createByStaff(body, userId, actor) {
+          const result = await reservationService.createWithConflictCheck(body, userId, actor);
           if (result.success && result.reservation) {
             await settle(
               {
@@ -62505,11 +63828,13 @@
           return result;
         },
     
-        async confirmAttendance(reservation) {
+        async confirmAttendance(reservation, actor) {
           if (reservation.status !== "PENDING") return;
-          const updated = await reservationService.update(reservation.id, {
-            status: "CONFIRMED",
-          });
+          const updated = await reservationService.update(
+            reservation.id,
+            { status: "CONFIRMED" },
+            actor
+          );
           if (updated) {
             await settle({ kind: "attendance-confirmed", reservation: updated }, reservation.venueId);
           }

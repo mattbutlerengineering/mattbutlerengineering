@@ -964,7 +964,7 @@
             operationId: "getDailyBookingMetrics",
             description:
               "Internal aggregation route for booking-funnel telemetry. Returns counts-only " +
-              "reservation and deposit aggregates for a given day and venue — never a " +
+              "reservation, deposit and reservation-event aggregates for a given day and venue — never a " +
               "reservation id, guest name, email, or phone number.",
             tags: ["Metrics"],
             security: [{ bearerAuth: [] }],
@@ -1113,6 +1113,7 @@
               manageToken: token,
               reason: request.body?.cancellationReason,
               note: request.body?.cancellationNote,
+              actor: guestActor(preamble.reservation.guestId),
               log: request.log,
             });
     
@@ -1145,7 +1146,7 @@
         manageTokenScoped(
           { missing: (reply) => reply.status(401).type("text/html").send(invalidHtml) },
           async (_request, reply, { reservation }) => {
-            await fastify.transitions.confirmAttendance(reservation);
+            await fastify.transitions.confirmAttendance(reservation, guestActor(reservation.guestId));
     
             return reply.status(200).type("text/html").send(successHtml);
           }
@@ -2526,6 +2527,7 @@
                 sessionId,
                 guestDetails: request.body,
                 venueId,
+                actor: staffActor(request.user?.id),
               },
               { door: "staff-hold" }
             );
@@ -2772,7 +2774,8 @@
               preamble.reservation,
               changes,
               token,
-              hold
+              hold,
+              guestActor(preamble.reservation.guestId)
             );
     
             if (!result.success) {
@@ -3463,6 +3466,8 @@
                 sessionId,
                 venueId,
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
+                // No guest record exists yet, so the guest actor carries no id.
+                actor: guestActor(null),
               },
               {
                 door: "public-hold",
@@ -3619,6 +3624,7 @@
                   notes: specialRequests,
                   guestId: link.ok ? (link.guestId ?? undefined) : undefined,
                 },
+                actor: guestActor(link.ok ? link.guestId : null),
               },
               {
                 door: "public-booking",
@@ -4043,6 +4049,85 @@
       );
     };
   </file>
+  <file path="src/routes/reservation-events.ts">
+    export const reservationEventRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { id: string };
+        Querystring: { limit?: number; cursor?: string };
+        Reply: { data: ReservationEventDto[]; nextCursor: string | null } | ProblemDetails;
+      }>(
+        "/:id/events",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List a reservation's event history",
+            operationId: "listReservationEvents",
+            description:
+              "Staff-only, oldest-first history of what happened to a reservation. Event " +
+              "states are non-PII scheduling snapshots. Paginate by passing the returned " +
+              "`nextCursor` back as `cursor`.",
+            tags: ["Reservations"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            querystring: {
+              type: "object",
+              properties: {
+                limit: {
+                  type: "integer",
+                  minimum: 1,
+                  maximum: MAX_EVENT_PAGE_SIZE,
+                  default: DEFAULT_EVENT_PAGE_SIZE,
+                },
+                cursor: { type: "string", minLength: 1 },
+              },
+            },
+            response: {
+              200: {
+                description: "A page of reservation events",
+                type: "object",
+                properties: {
+                  data: { type: "array", items: { type: "object", additionalProperties: true } },
+                  nextCursor: { type: ["string", "null"] },
+                },
+              },
+              400: { description: "Invalid limit or cursor", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
+              403: { description: "No access to the reservation's venue", $ref: "Error#" },
+              404: { description: "Reservation not found", $ref: "Error#" },
+            },
+          },
+        },
+        // Venue members only (not the guest owner: the log carries staff actor ids).
+        // An unknown id and another venue's id are indistinguishable to a non-admin.
+        venueScoped(
+          {
+            venue: {
+              entity: "reservation",
+              key: (request) => request.params.id,
+              notFound: "Reservation not found",
+            },
+          },
+          async (request, reply) => {
+            try {
+              return await listForReservation(request.params.id, {
+                limit: request.query.limit ?? DEFAULT_EVENT_PAGE_SIZE,
+                cursor: request.query.cursor,
+              });
+            } catch (err) {
+              if (err instanceof InvalidEventCursorError) {
+                return reply.code(400).send(createProblemDetails(400, "Bad Request", err.message));
+              }
+              throw err;
+            }
+          }
+        )
+      );
+    };
+  </file>
   <file path="src/routes/reservation-owner.ts">
     export function resolveReservationGuestEmail(
       getById: (id: string) => Promise<{ guestEmail: string | null } | null>
@@ -4085,7 +4170,11 @@
         logger: FastifyBaseLogger,
         isAdmin: boolean,
         door: "staff-patch" | "staff-delete",
-        options: { cancellationReason?: string; cancellationNote?: string } = {}
+        options: {
+          cancellationReason?: string;
+          cancellationNote?: string;
+          actor?: ReservationEventActor;
+        } = {}
       ) {
         const manageToken = reservation.guestEmail
           ? generateManageToken(reservation.id, reservation.guestEmail)
@@ -4096,6 +4185,7 @@
           manageToken,
           reason: options.cancellationReason,
           note: options.cancellationNote,
+          actor: options.actor,
           log: logger,
         });
       }
@@ -4263,7 +4353,11 @@
           // a single transaction. If the table update fails the whole thing rolls
           // back and rejects, so its live events are set off only after a
           // committed, consistent state.
-          const result = await fastify.transitions.createWalkIn(request.body, userId);
+          const result = await fastify.transitions.createWalkIn(
+            request.body,
+            userId,
+            requestActor(request)
+          );
           if (result.tableNotInVenue) {
             return reply
               .code(403)
@@ -4429,7 +4523,7 @@
               }
             }
     
-            const result = await fastify.transitions.createByStaff(body, userId);
+            const result = await fastify.transitions.createByStaff(body, userId, requestActor(request));
     
             if (result.tableNotInVenue) {
               return reply
@@ -4550,6 +4644,7 @@
                 {
                   cancellationReason: request.body.cancellationReason,
                   cancellationNote: request.body.cancellationNote,
+                  actor: isAdmin ? requestActor(request) : undefined,
                 }
               );
     
@@ -4570,7 +4665,11 @@
     
           if (request.body.status === "NO_SHOW") {
             try {
-              const result = await fastify.transitions.noShow(reservation, request.log);
+              const result = await fastify.transitions.noShow(
+                reservation,
+                request.log,
+                isAdmin ? requestActor(request) : undefined
+              );
     
               if (!result.success) {
                 return reply
@@ -4621,7 +4720,11 @@
           }
     
           try {
-            const result = await fastify.transitions.updateByStaff(reservation, request.body);
+            const result = await fastify.transitions.updateByStaff(
+              reservation,
+              request.body,
+              isAdmin ? requestActor(request) : undefined
+            );
     
             if (!result.success) {
               if (result.error === "Reservation not found") {
@@ -4726,7 +4829,8 @@
               reservation,
               request.log,
               isAdmin,
-              "staff-delete"
+              "staff-delete",
+              { actor: isAdmin ? requestActor(request) : undefined }
             );
             if (!result.success) {
               return reply
@@ -5230,6 +5334,7 @@
       ...waitlistFixtures,
       ...briefingFixtures,
       ...bookingMetricsFixtures,
+      ...reservationEventFixtures,
       ...depositFixtures,
     };
   </file>
@@ -5773,7 +5878,11 @@
         },
         venueScoped(tableVenue, async (request) => {
           try {
-            const table = await tableService.updateStatus(request.params.id, request.body.status);
+            const table = await tableService.updateStatus(
+              request.params.id,
+              request.body.status,
+              request.user?.id
+            );
             if (!table) throw tableNotFound();
             fastify.reservationEvents.emitTableUpdated(table);
             return { data: table };
@@ -7794,11 +7903,16 @@
       refunded: number;
       forfeited: number;
     }
+    export interface ReservationEventCounts {
+      byKind: Record<ReservationEventKind, number>;
+      rejectedTransitions: number;
+    }
     export interface DailyBookingMetrics {
       date: string;
       venueId: string;
       reservations: ReservationStatusCounts;
       deposits: DepositTransitionCounts;
+      events: ReservationEventCounts;
     }
     export interface GetDailyBookingMetricsParams {
       /** YYYY-MM-DD */
@@ -7815,7 +7929,7 @@
       const dayStart = new Date(`${date}T00:00:00.000Z`);
       const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
     
-      const [reservationGroups, held, applied, refunded, forfeited] = await Promise.all([
+      const [reservationGroups, held, applied, refunded, forfeited, eventGroups] = await Promise.all([
         prisma.reservation.groupBy({
           by: ["status"],
           where: { venueId, date: dayStart },
@@ -7833,6 +7947,11 @@
         prisma.deposit.count({
           where: { reservation: { venueId }, forfeitedAt: { gte: dayStart, lt: dayEnd } },
         }),
+        prisma.reservationEvent.groupBy({
+          by: ["kind"],
+          where: { venueId, createdAt: { gte: dayStart, lt: dayEnd } },
+          _count: true,
+        }),
       ]);
     
       const reservations: ReservationStatusCounts = {
@@ -7847,11 +7966,20 @@
         reservations[key] = group._count;
       }
     
+      const byKind = Object.fromEntries(RESERVATION_EVENT_KINDS.map((kind) => [kind, 0])) as Record<
+        ReservationEventKind,
+        number
+      >;
+      for (const group of eventGroups) {
+        if (group.kind in byKind) byKind[group.kind as ReservationEventKind] = group._count;
+      }
+    
       return {
         date,
         venueId,
         reservations,
         deposits: { held, applied, refunded, forfeited },
+        events: { byKind, rejectedTransitions: byKind.transition_rejected },
       };
     }
     export const bookingMetricsService = { getDailyBookingMetrics };
@@ -7976,12 +8104,14 @@
        * Checked in the same lookup as the session id, before any write.
        */
       venueId?: string;
+      /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
+      actor?: ReservationEventActor;
     }
     export type ConfirmHoldResult =
       | { success: true; reservation: Reservation }
       | { success: false; error: string; errorCode: ConfirmHoldErrorCode };
     export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> {
-      const { holdId, sessionId, guestDetails, userId, venueId } = input;
+      const { holdId, sessionId, guestDetails, userId, venueId, actor = SYSTEM_ACTOR } = input;
     
       // Step 1: Look up hold
       const hold = await prisma.reservationHold.findUnique({
@@ -8084,6 +8214,15 @@
               table: true,
               guest: { select: { visitCount: true, communicationPreference: true } },
             },
+          });
+    
+          await recordReservationEvent(tx, {
+            reservationId: reservation.id,
+            venueId: reservation.venueId,
+            kind: "created",
+            actor,
+            from: null,
+            to: toEventState(reservation),
           });
     
           // Delete the hold in the same transaction as the reservation insert.
@@ -8344,18 +8483,24 @@
        * call gets `count === 0` and returns `false` — the caller treats that as
        * an idempotent no-op rather than an error.
        */
-      async hold(depositId: string, stripePaymentIntentId: string): Promise<boolean> {
+      async hold(
+        depositId: string,
+        stripePaymentIntentId: string,
+        actor: ReservationEventActor = STRIPE_WEBHOOK_ACTOR
+      ): Promise<boolean> {
         const deposit = await this._requireDeposit(depositId);
         transitionDeposit(deposit.status, "held"); // throws if invalid
     
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: "pending" },
-          data: {
+        const count = await this._casWithEvent(
+          depositId,
+          "pending",
+          {
             status: "held",
             stripePaymentIntentId,
             heldAt: new Date(),
           },
-        });
+          actor
+        );
     
         return count > 0;
       }
@@ -8387,16 +8532,21 @@
        * Stripe's side (that is the event), so calling cancelPaymentIntent again
        * would fail against an already-canceled intent.
        */
-      async refund(depositId: string, options: { skipStripeCancel?: boolean } = {}): Promise<Deposit> {
+      async refund(
+        depositId: string,
+        options: { skipStripeCancel?: boolean; actor?: ReservationEventActor } = {}
+      ): Promise<Deposit> {
         const deposit = await this._requireDeposit(depositId);
         transitionDeposit(deposit.status, "refunded"); // throws if invalid
     
         // Atomic compare-and-swap: only update if the row is still in the observed
         // status. count === 0 means another concurrent transition won the race.
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: deposit.status },
-          data: { status: "refunded", refundedAt: new Date() },
-        });
+        const count = await this._casWithEvent(
+          depositId,
+          deposit.status,
+          { status: "refunded", refundedAt: new Date() },
+          options.actor ?? (options.skipStripeCancel ? STRIPE_WEBHOOK_ACTOR : SYSTEM_ACTOR)
+        );
     
         if (count === 0) {
           throw new DepositConcurrentUpdateError(depositId, "refund");
@@ -8430,16 +8580,21 @@
        * (#5725 item 3). No Stripe call is made: the intent is already canceled on
        * Stripe's side (that is the event that triggers this).
        */
-      async expireAuthorization(depositId: string): Promise<Deposit> {
+      async expireAuthorization(
+        depositId: string,
+        actor: ReservationEventActor = STRIPE_WEBHOOK_ACTOR
+      ): Promise<Deposit> {
         const deposit = await this._requireDeposit(depositId);
         transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
     
         // Atomic compare-and-swap: only update if the row is still in the observed
         // status. count === 0 means another concurrent transition won the race.
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: deposit.status },
-          data: { status: "uncollectable", uncollectableAt: new Date() },
-        });
+        const count = await this._casWithEvent(
+          depositId,
+          deposit.status,
+          { status: "uncollectable", uncollectableAt: new Date() },
+          actor
+        );
     
         if (count === 0) {
           throw new DepositConcurrentUpdateError(depositId, "expireAuthorization");
@@ -8572,7 +8727,11 @@
        *    retry by checking ground truth (retrieve / already-refunded amount)
        *    first and skipping the call when it's already done (#5722 H2).
        */
-      async refundPartial(depositId: string, refundAmountCents: number): Promise<Deposit> {
+      async refundPartial(
+        depositId: string,
+        refundAmountCents: number,
+        actor: ReservationEventActor = SYSTEM_ACTOR
+      ): Promise<Deposit> {
         const deposit = await this._requireDeposit(depositId);
     
         // Validate at the trust boundary — never refund more than was deposited,
@@ -8594,15 +8753,17 @@
     
           // Atomic compare-and-swap: only update if the row is still in the observed
           // status. count === 0 means another concurrent transition won the race.
-          const { count } = await prisma.deposit.updateMany({
-            where: { id: depositId, status: deposit.status },
-            data: {
+          const count = await this._casWithEvent(
+            depositId,
+            deposit.status,
+            {
               status: "partial_refunded",
               refundedAt: new Date(),
               feeAmountCents,
               refundAmountCents,
             },
-          });
+            actor
+          );
     
           if (count === 0) {
             throw new DepositConcurrentUpdateError(depositId, "refundPartial");
@@ -8919,14 +9080,16 @@
     
         // Atomic compare-and-swap: only update if the row is still in the observed
         // status. count === 0 means another concurrent transition won the race.
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: deposit.status },
-          data: {
+        const count = await this._casWithEvent(
+          depositId,
+          deposit.status,
+          {
             status: targetStatus,
             [timestampField]: new Date(),
             ...(forfeitOrigin ? { forfeitOrigin } : {}),
           },
-        });
+          SYSTEM_ACTOR
+        );
     
         if (count === 0) {
           throw new DepositConcurrentUpdateError(depositId, action);
@@ -9140,9 +9303,10 @@
         fromStatus: "applied" | "forfeited" | "partial_refunded",
         timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
       ): Promise<number> {
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: fromStatus },
-          data: {
+        const count = await this._casWithEvent(
+          depositId,
+          fromStatus,
+          {
             status: "uncollectable",
             uncollectableAt: new Date(),
             [timestampField]: null,
@@ -9151,7 +9315,8 @@
               ? { feeAmountCents: null, refundAmountCents: null }
               : {}),
           },
-        });
+          SYSTEM_ACTOR
+        );
     
         if (count === 0) {
           logger.error(
@@ -9178,9 +9343,10 @@
         fromStatus: "applied" | "forfeited" | "partial_refunded" | "refunded",
         timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
       ): Promise<number> {
-        const { count } = await prisma.deposit.updateMany({
-          where: { id: depositId, status: fromStatus },
-          data: {
+        const count = await this._casWithEvent(
+          depositId,
+          fromStatus,
+          {
             status: "held",
             [timestampField]: null,
             forfeitOrigin: null,
@@ -9188,7 +9354,8 @@
               ? { feeAmountCents: null, refundAmountCents: null }
               : {}),
           },
-        });
+          SYSTEM_ACTOR
+        );
     
         if (count === 0) {
           logger.error(
@@ -9197,6 +9364,43 @@
           );
         }
         return count;
+      }
+    
+      /**
+       * The one place a deposit status compare-and-swap runs: the CAS and its
+       * `deposit_transition` event share one venue-scoped transaction, so a
+       * transition never exists without its history row. A lost CAS
+       * (`count === 0`) writes no event. Returns the CAS's `count`.
+       */
+      private async _casWithEvent(
+        depositId: string,
+        fromStatus: DepositStatus,
+        data: Prisma.DepositUpdateManyMutationInput & { status: DepositStatus },
+        actor: ReservationEventActor
+      ): Promise<number> {
+        const venueId = getCurrentVenueId();
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const { count } = await tx.deposit.updateMany({
+            where: { id: depositId, status: fromStatus },
+            data,
+          });
+          if (count > 0) {
+            const { reservationId } = await tx.deposit.findUniqueOrThrow({
+              where: { id: depositId },
+              select: { reservationId: true },
+            });
+            await recordReservationEvent(tx, {
+              reservationId,
+              venueId,
+              kind: "deposit_transition",
+              actor,
+              from: { depositStatus: fromStatus },
+              to: { depositStatus: data.status },
+            });
+          }
+          return count;
+        });
       }
     
       /**
@@ -11103,12 +11307,14 @@
       venueId: string;
       /** Written in the same transaction as the move when provided. */
       notes?: string;
+      /** Who moved it; recorded on the `moved` event. Defaults to {@link SYSTEM_ACTOR}. */
+      actor?: ReservationEventActor;
     }
     export type MoveToHoldResult =
       | { success: true; reservation: Reservation }
       | { success: false; error: string; errorCode: MoveToHoldErrorCode };
     export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
-      const { reservation, holdId, sessionId, venueId, notes } = input;
+      const { reservation, holdId, sessionId, venueId, notes, actor = SYSTEM_ACTOR } = input;
     
       const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
       if (!hold || hold.venueId !== venueId) {
@@ -11149,6 +11355,19 @@
               table: true,
               guest: { select: { visitCount: true, communicationPreference: true } },
             },
+          });
+          await recordReservationEvent(tx, {
+            reservationId: reservation.id,
+            venueId: reservation.venueId,
+            kind: "moved",
+            actor,
+            from: toEventState({
+              ...reservation,
+              date: new Date(reservation.date),
+              startTime: new Date(reservation.startTime),
+              endTime: new Date(reservation.endTime),
+            }),
+            to: toEventState(updated),
           });
           await tx.reservationHold.delete({ where: { id: holdId } });
           return updated;
@@ -11391,6 +11610,8 @@
       initiator?: CancelInitiator;
       cancellationReason?: string;
       cancellationNote?: string;
+      /** Who is cancelling, for the reservation event log. Separate from `initiator`. */
+      actor?: ReservationEventActor;
     }
     export type CancelReservationResult =
       | { success: true; reservation: Reservation }
@@ -11638,7 +11859,7 @@
       deps: CancelReservationDeps,
       options: CancelReservationOptions = {}
     ): Promise<CancelReservationResult> {
-      const { initiator = "guest", cancellationReason, cancellationNote } = options;
+      const { initiator = "guest", cancellationReason, cancellationNote, actor } = options;
     
       try {
         transitionReservation(reservation.status, "CANCELLED");
@@ -11655,11 +11876,15 @@
     
       let updated: Reservation | null;
       try {
-        updated = await reservationService.update(reservation.id, {
-          status: "CANCELLED",
-          ...(cancellationReason !== undefined && { cancellationReason }),
-          ...(cancellationNote !== undefined && { cancellationNote }),
-        });
+        updated = await reservationService.update(
+          reservation.id,
+          {
+            status: "CANCELLED",
+            ...(cancellationReason !== undefined && { cancellationReason }),
+            ...(cancellationNote !== undefined && { cancellationNote }),
+          },
+          actor
+        );
       } catch (err) {
         // The status write re-validates the transition against a freshly fetched
         // row (reservation.ts). A concurrent status change during the round trip
@@ -11705,6 +11930,140 @@
       }
     
       return { success: true, reservation: updated };
+    }
+  </file>
+  <file path="src/services/reservation-events.ts">
+    export const RESERVATION_EVENT_KINDS = [
+      "created",
+      "status_changed",
+      "cancelled",
+      "no_show",
+      "moved",
+      "updated",
+      "deposit_transition",
+      "transition_rejected",
+    ] as const;
+    export type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
+    export type ReservationEventActor =
+      | { type: "staff"; id: string }
+      | { type: "guest"; id: string | null }
+      | { type: "system"; id: string };
+    export const SYSTEM_ACTOR: ReservationEventActor = { type: "system", id: "unattributed" };
+    export const guestActor = (guestId: string | null | undefined): ReservationEventActor => ({
+      type: "guest",
+      id: guestId ?? null,
+    });
+    export const staffActor = (userId: string | null | undefined): ReservationEventActor =>
+      userId ? { type: "staff", id: userId } : SYSTEM_ACTOR;
+    export type EventState = {
+      status: string;
+      tableId: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+    };
+    export type DepositEventState = { depositStatus: string };
+    export function toEventState(row: {
+      status: string;
+      tableId: string;
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+    }): EventState {
+      return {
+        status: row.status,
+        tableId: row.tableId,
+        date: row.date.toISOString(),
+        startTime: row.startTime.toISOString(),
+        endTime: row.endTime.toISOString(),
+        partySize: row.partySize,
+      };
+    }
+    export async function recordReservationEvent(
+      tx: Prisma.TransactionClient,
+      input: {
+        reservationId: string;
+        venueId: string | null;
+        kind: ReservationEventKind;
+        actor: ReservationEventActor;
+        from?: EventState | DepositEventState | null;
+        to?: EventState | DepositEventState | null;
+      }
+    ) {
+      if (input.venueId === null) return null;
+      return tx.reservationEvent.create({
+        data: {
+          reservationId: input.reservationId,
+          venueId: input.venueId,
+          kind: input.kind,
+          actorType: input.actor.type,
+          actorId: input.actor.id,
+          fromState: input.from ?? undefined,
+          toState: input.to ?? undefined,
+        },
+      });
+    }
+    export const DEFAULT_EVENT_PAGE_SIZE = 50;
+    export const MAX_EVENT_PAGE_SIZE = 200;
+    export interface ReservationEventDto {
+      id: string;
+      kind: string;
+      actorType: string;
+      actorId: string | null;
+      fromState: unknown;
+      toState: unknown;
+      createdAt: string;
+    }
+    export class InvalidEventCursorError extends Error {
+      constructor() {
+        super("Invalid cursor");
+      }
+    }
+    function decodeCursor(cursor: string): { createdAt: Date; id: string } {
+      try {
+        const { t, id } = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+        const createdAt = new Date(t);
+        if (typeof id !== "string" || typeof t !== "string" || Number.isNaN(createdAt.getTime())) {
+          throw new InvalidEventCursorError();
+        }
+        return { createdAt, id };
+      } catch {
+        throw new InvalidEventCursorError();
+      }
+    }
+    export async function listForReservation(
+      reservationId: string,
+      { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
+    ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> {
+      const after = cursor === undefined ? undefined : decodeCursor(cursor);
+      const rows = await prisma.reservationEvent.findMany({
+        where: {
+          reservationId,
+          ...(after && {
+            OR: [
+              { createdAt: { gt: after.createdAt } },
+              { createdAt: after.createdAt, id: { gt: after.id } },
+            ],
+          }),
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        take: limit + 1,
+      });
+      const page = rows.slice(0, limit);
+      return {
+        data: page.map((row) => ({
+          id: row.id,
+          kind: row.kind,
+          actorType: row.actorType,
+          actorId: row.actorId,
+          fromState: row.fromState,
+          toState: row.toState,
+          createdAt: row.createdAt.toISOString(),
+        })),
+        nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]!) : null,
+      };
     }
   </file>
   <file path="src/services/reservation-modification.ts">
@@ -11799,7 +12158,8 @@
       reservation: Reservation,
       changes: ReservationChanges,
       deposits: DepositService,
-      hold?: ModifyHold
+      hold?: ModifyHold,
+      actor?: ReservationEventActor
     ): Promise<ModifyReservationResult> {
       if (!hasAnyChange(changes) && !hold) {
         return NO_CHANGES_RESULT;
@@ -11810,14 +12170,16 @@
       }
     
       if (hold) {
-        return modifyViaHold(reservation, changes, deposits, hold);
+        return modifyViaHold(reservation, changes, deposits, hold, actor);
       }
     
       // Only a specialRequests edit reaches here: it needs no hold, no venue and
       // no conflict check.
-      const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
-        notes: changes.specialRequests,
-      });
+      const updateResult = await reservationService.updateWithConflictCheck(
+        reservation.id,
+        { notes: changes.specialRequests },
+        actor
+      );
       if (!updateResult.success) {
         return {
           success: false,
@@ -11833,7 +12195,8 @@
       reservation: Reservation,
       changes: ReservationChanges,
       deposits: DepositService,
-      { holdId, sessionId }: ModifyHold
+      { holdId, sessionId }: ModifyHold,
+      actor?: ReservationEventActor
     ): Promise<ModifyReservationResult> {
       const venueId = reservation.venueId;
       const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
@@ -11875,6 +12238,7 @@
         sessionId,
         venueId: venueId,
         notes: changes.specialRequests,
+        actor,
       });
       if (!moved.success) {
         return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
@@ -12089,7 +12453,8 @@
     export async function recordNoShow(
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      deposits: DepositService
+      deposits: DepositService,
+      actor?: ReservationEventActor
     ): Promise<RecordNoShowResult> {
       try {
         transitionReservation(reservation.status, "NO_SHOW");
@@ -12251,7 +12616,7 @@
     
       let updated: Reservation | null;
       try {
-        updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+        updated = await reservationService.update(reservation.id, { status: "NO_SHOW" }, actor);
       } catch (err) {
         if (forfeitedDepositId === null) {
           // No money moved this call — the ordinary concurrent-no-show loser.
@@ -12473,28 +12838,49 @@
         return row?.originSessionId ?? null;
       },
     
-      async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
-        const reservation = await prisma.reservation.create({
-          data: {
-            date: new Date(data.date),
-            startTime: new Date(data.startTime),
-            endTime: new Date(data.endTime),
-            partySize: data.partySize,
-            tableId: data.tableId,
-            notes: data.notes ?? null,
-            occasion: data.occasion ?? null,
-            seatingPreference: data.seatingPreference ?? null,
-            guestName: data.guestName ?? null,
-            guestEmail: data.guestEmail ?? null,
-            guestPhone: data.guestPhone ?? null,
-            guestId: data.guestId ?? null,
-            userId: userId ?? null,
-            venueId: data.venueId ?? null,
-          },
-          include: {
-            table: true,
-            guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
-          },
+      async create(
+        data: CreateReservationRequest,
+        userId?: string,
+        actor: ReservationEventActor = SYSTEM_ACTOR
+      ): Promise<Reservation> {
+        // Explicit transaction so the `created` event joins the insert. This call
+        // bypasses the per-call auto-wrap in `services/venue-scoped-prisma.ts`, so
+        // set app.venue_id on THIS transaction's own `tx` (ADR-026 part 6).
+        const reservation = await prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, getCurrentVenueId());
+          const created = await tx.reservation.create({
+            data: {
+              date: new Date(data.date),
+              startTime: new Date(data.startTime),
+              endTime: new Date(data.endTime),
+              partySize: data.partySize,
+              tableId: data.tableId,
+              notes: data.notes ?? null,
+              occasion: data.occasion ?? null,
+              seatingPreference: data.seatingPreference ?? null,
+              guestName: data.guestName ?? null,
+              guestEmail: data.guestEmail ?? null,
+              guestPhone: data.guestPhone ?? null,
+              guestId: data.guestId ?? null,
+              userId: userId ?? null,
+              venueId: data.venueId ?? null,
+            },
+            include: {
+              table: true,
+              guest: {
+                select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+              },
+            },
+          });
+          await recordReservationEvent(tx, {
+            reservationId: created.id,
+            venueId: created.venueId,
+            kind: "created",
+            actor,
+            from: null,
+            to: toEventState(created),
+          });
+          return created;
         });
         return toReservation(reservation);
       },
@@ -12505,7 +12891,8 @@
        */
       async createWithConflictCheck(
         data: CreateReservationRequest,
-        userId?: string
+        userId?: string,
+        actor: ReservationEventActor = SYSTEM_ACTOR
       ): Promise<CreateReservationResult> {
         const startTime = new Date(data.startTime);
         const endTime = new Date(data.endTime);
@@ -12576,8 +12963,8 @@
           window: { startTime, endTime },
           partySize: data.partySize,
           checkHoldConflict: true,
-          write: (tx) =>
-            tx.reservation.create({
+          write: async (tx) => {
+            const created = await tx.reservation.create({
               data: {
                 date: new Date(data.date),
                 startTime,
@@ -12600,7 +12987,17 @@
                   select: { visitCount: true, communicationPreference: true, unsubscribed: true },
                 },
               },
-            }),
+            });
+            await recordReservationEvent(tx, {
+              reservationId: created.id,
+              venueId: created.venueId,
+              kind: "created",
+              actor,
+              from: null,
+              to: toEventState(created),
+            });
+            return created;
+          },
         });
     
         if (!result.ok) {
@@ -12614,7 +13011,11 @@
         return { success: true, reservation: toReservation(result.value) };
       },
     
-      async update(id: string, data: UpdateReservationRequest): Promise<Reservation | null> {
+      async update(
+        id: string,
+        data: UpdateReservationRequest,
+        actor: ReservationEventActor = SYSTEM_ACTOR
+      ): Promise<Reservation | null> {
         try {
           const updateData = {
             ...(data.date !== undefined && { date: new Date(data.date) }),
@@ -12645,11 +13046,39 @@
           if (data.status !== undefined) {
             const existing = await prisma.reservation.findUnique({
               where: { id },
-              select: { status: true, guestId: true, startTime: true },
+              select: {
+                status: true,
+                guestId: true,
+                venueId: true,
+                tableId: true,
+                date: true,
+                startTime: true,
+                endTime: true,
+                partySize: true,
+              },
             });
             if (!existing) return null;
-            // Throws ReservationTransitionError on invalid transition.
-            transitionReservation(existing.status, data.status);
+            try {
+              // Throws ReservationTransitionError on invalid transition.
+              transitionReservation(existing.status, data.status);
+            } catch (err: unknown) {
+              if (err instanceof ReservationTransitionError) {
+                // Leave a trail for the refused transition in its own short
+                // venue-scoped transaction, then rethrow unchanged.
+                await prisma.$transaction(async (tx) => {
+                  await setVenueContext(tx, getCurrentVenueId());
+                  await recordReservationEvent(tx, {
+                    reservationId: id,
+                    venueId: existing.venueId,
+                    kind: "transition_rejected",
+                    actor,
+                    from: toEventState(existing),
+                    to: { status: data.status } as EventState,
+                  });
+                });
+              }
+              throw err;
+            }
     
             // The status CAS plus write. Shared by both branches below so the
             // NO_SHOW guest-counter bump can be run against the same client
@@ -12682,34 +13111,72 @@
                 await guestService.recordVisit(existing.guestId, existing.startTime, undefined, client);
               }
     
-              return client.reservation.findUnique({
+              const after = await client.reservation.findUnique({
                 where: { id },
                 include: { table: true },
               });
+              if (after) {
+                await recordReservationEvent(client, {
+                  reservationId: id,
+                  venueId: existing.venueId,
+                  kind:
+                    data.status === "CANCELLED"
+                      ? "cancelled"
+                      : data.status === "NO_SHOW"
+                        ? "no_show"
+                        : "status_changed",
+                  actor,
+                  from: toEventState(existing),
+                  to: toEventState(after),
+                });
+              }
+              return after;
             };
     
-            const touchesGuest =
-              (data.status === "NO_SHOW" || data.status === "COMPLETED") && existing.guestId;
-            const updated = touchesGuest
-              ? await prisma.$transaction(async (tx) => {
-                  // This `prisma.$transaction` call bypasses the per-call
-                  // auto-wrap `services/venue-scoped-prisma.ts` gives the
-                  // `prisma` export — set app.venue_id on THIS transaction's
-                  // own `tx` explicitly (ADR-026 part 6).
-                  await setVenueContext(tx, getCurrentVenueId());
-                  return writeStatusChange(tx);
-                })
-              : await writeStatusChange(prisma);
+            // Always an explicit transaction so the CAS, its side effects and the
+            // event commit together. This `prisma.$transaction` call bypasses the
+            // per-call auto-wrap `services/venue-scoped-prisma.ts` gives the
+            // `prisma` export — set app.venue_id on THIS transaction's own `tx`
+            // explicitly (ADR-026 part 6).
+            const updated = await prisma.$transaction(async (tx) => {
+              await setVenueContext(tx, getCurrentVenueId());
+              return writeStatusChange(tx);
+            });
     
             return updated ? toReservation(updated) : null;
           }
     
-          const reservation = await prisma.reservation.update({
-            where: { id },
-            data: updateData,
-            include: { table: true },
+          const reservation = await prisma.$transaction(async (tx) => {
+            await setVenueContext(tx, getCurrentVenueId());
+            const before = await tx.reservation.findUnique({
+              where: { id },
+              select: {
+                status: true,
+                venueId: true,
+                tableId: true,
+                date: true,
+                startTime: true,
+                endTime: true,
+                partySize: true,
+              },
+            });
+            if (!before) return null;
+            const after = await tx.reservation.update({
+              where: { id },
+              data: updateData,
+              include: { table: true },
+            });
+            await recordReservationEvent(tx, {
+              reservationId: id,
+              venueId: before.venueId,
+              kind: "updated",
+              actor,
+              from: toEventState(before),
+              to: toEventState(after),
+            });
+            return after;
           });
-          return toReservation(reservation);
+          return reservation ? toReservation(reservation) : null;
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -12722,7 +13189,8 @@
        */
       async updateWithConflictCheck(
         id: string,
-        data: UpdateReservationRequest
+        data: UpdateReservationRequest,
+        actor: ReservationEventActor = SYSTEM_ACTOR
       ): Promise<UpdateReservationResult> {
         // Get the existing reservation
         const existing = await prisma.reservation.findUnique({
@@ -12783,7 +13251,7 @@
     
         // Notes / party-size / preference edits are not slot moves — no lock needed.
         if (!timeOrTableChanged) {
-          const reservation = await this.update(id, data);
+          const reservation = await this.update(id, data, actor);
           if (!reservation) {
             return { success: false, error: "Failed to update reservation" };
           }
@@ -12867,11 +13335,20 @@
           checkHoldConflict: true,
           write: async (tx) => {
             try {
-              return await tx.reservation.update({
+              const moved = await tx.reservation.update({
                 where: { id },
                 data: updateData,
                 include: { table: true },
               });
+              await recordReservationEvent(tx, {
+                reservationId: id,
+                venueId: existing.venueId,
+                kind: "moved",
+                actor,
+                from: toEventState(existing),
+                to: toEventState(moved),
+              });
+              return moved;
             } catch (err: unknown) {
               if (isPrismaNotFound(err)) return null;
               throw err;
@@ -12894,7 +13371,11 @@
         return { success: true, reservation: toReservation(result.value) };
       },
     
-      async createWalkIn(data: WalkInRequest, userId?: string): Promise<CreateReservationResult> {
+      async createWalkIn(
+        data: WalkInRequest,
+        userId?: string,
+        actor: ReservationEventActor = SYSTEM_ACTOR
+      ): Promise<CreateReservationResult> {
         const now = new Date();
         const durationMinutes = data.durationMinutes ?? 90;
         const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
@@ -12990,9 +13471,30 @@
               },
             });
     
+            await recordReservationEvent(tx, {
+              reservationId: createdReservation.id,
+              venueId: createdReservation.venueId,
+              kind: "created",
+              actor,
+              from: null,
+              to: toEventState(createdReservation),
+            });
+    
+            const seatedFrom = await tx.table.findUniqueOrThrow({
+              where: { id: data.tableId },
+              select: { status: true, venueId: true },
+            });
             const occupiedTable = await tx.table.update({
               where: { id: data.tableId },
               data: { status: "OCCUPIED" },
+            });
+            await recordTableEvent(tx, {
+              tableId: data.tableId,
+              venueId: seatedFrom.venueId,
+              fromStatus: seatedFrom.status,
+              toStatus: "OCCUPIED",
+              actor: actor.type === "staff" ? { type: "staff", id: actor.id } : SYSTEM_TABLE_ACTOR,
+              reservationId: createdReservation.id,
             });
     
             return { reservation: createdReservation, table: occupiedTable };
@@ -14083,6 +14585,36 @@
       }
     }
   </file>
+  <file path="src/services/table-events.ts">
+    export type TableEventActor = { type: "staff"; id: string } | { type: "system"; id: string | null };
+    export const SYSTEM_TABLE_ACTOR: TableEventActor = { type: "system", id: null };
+    export const staffTableActor = (userId: string | null | undefined): TableEventActor =>
+      userId ? { type: "staff", id: userId } : SYSTEM_TABLE_ACTOR;
+    export async function recordTableEvent(
+      tx: Prisma.TransactionClient,
+      input: {
+        tableId: string;
+        venueId: string | null;
+        fromStatus: TableStatus;
+        toStatus: TableStatus;
+        actor: TableEventActor;
+        reservationId?: string | null;
+      }
+    ) {
+      if (input.venueId === null) return null;
+      return tx.tableEvent.create({
+        data: {
+          tableId: input.tableId,
+          venueId: input.venueId,
+          fromStatus: input.fromStatus,
+          toStatus: input.toStatus,
+          actorType: input.actor.type,
+          actorId: input.actor.id,
+          reservationId: input.reservationId ?? null,
+        },
+      });
+    }
+  </file>
   <file path="src/services/table-state-machine.ts">
     export const tableMachine = createStateMachine<TableStatus>(TABLE_TRANSITIONS, "table");
     export function transitionTable(from: TableStatus, to: TableStatus): TableStatus {
@@ -14275,20 +14807,33 @@
         }
       },
     
-      async updateStatus(id: string, status: string): Promise<Table | null> {
+      async updateStatus(id: string, status: string, userId?: string): Promise<Table | null> {
         if (!VALID_TABLE_STATUSES.includes(status as TableStatus)) {
           return null;
         }
-        const current = await prisma.table.findUnique({ where: { id } });
-        if (!current) return null;
-        transitionTable(current.status, status as TableStatus);
-        const { count } = await prisma.table.updateMany({
-          where: { id, status: current.status },
-          data: { status: status as TableStatus },
+        // Explicit transaction so the CAS and its event commit together. This call
+        // bypasses the per-call auto-wrap `venue-scoped-prisma.ts` gives the
+        // `prisma` export, so set app.venue_id on this `tx` ourselves (ADR-026 part 6).
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, getCurrentVenueId());
+          const current = await tx.table.findUnique({ where: { id } });
+          if (!current) return null;
+          transitionTable(current.status, status as TableStatus);
+          const { count } = await tx.table.updateMany({
+            where: { id, status: current.status },
+            data: { status: status as TableStatus },
+          });
+          if (count === 0) throw new TableConcurrentUpdateError(id, status);
+          await recordTableEvent(tx, {
+            tableId: id,
+            venueId: current.venueId,
+            fromStatus: current.status,
+            toStatus: status as TableStatus,
+            actor: staffTableActor(userId),
+          });
+          const table = await tx.table.findUnique({ where: { id } });
+          return table ? toTable(table) : null;
         });
-        if (count === 0) throw new TableConcurrentUpdateError(id, status);
-        const table = await prisma.table.findUnique({ where: { id } });
-        return table ? toTable(table) : null;
       },
     
       async delete(id: string): Promise<boolean> {
@@ -14334,6 +14879,7 @@
       "deposit",
       "waitlistEntry",
       "reservationEvent",
+      "tableEvent",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -15799,6 +16345,7 @@
       // Register routes
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
+      await fastify.register(reservationEventRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
@@ -16287,6 +16834,8 @@
       manageToken: string;
       reason?: string;
       note?: string;
+      /** Who is cancelling; omitted by non-staff doors (the service defaults to the system actor). */
+      actor?: ReservationEventActor;
       log: DomainLogger;
     }
     export interface ConfirmHoldOptions {
@@ -16296,22 +16845,36 @@
     }
     export interface ReservationTransitions {
       cancel(reservation: Reservation, options: CancelOptions): Promise<CancelReservationResult>;
-      noShow(reservation: Reservation, log: DomainLogger): Promise<RecordNoShowResult>;
+      noShow(
+        reservation: Reservation,
+        log: DomainLogger,
+        actor?: ReservationEventActor
+      ): Promise<RecordNoShowResult>;
       updateByStaff(
         before: Reservation,
-        patch: UpdateReservationRequest
+        patch: UpdateReservationRequest,
+        actor?: ReservationEventActor
       ): Promise<UpdateReservationResult>;
       modifyByGuest(
         reservation: Reservation,
         changes: ReservationChanges,
         manageToken: string,
-        hold?: ModifyHold
+        hold?: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult>;
       confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
-      createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
-      createByStaff(body: CreateReservationRequest, userId?: string): Promise<CreateReservationResult>;
+      createWalkIn(
+        body: WalkInRequest,
+        userId?: string,
+        actor?: ReservationEventActor
+      ): Promise<CreateReservationResult>;
+      createByStaff(
+        body: CreateReservationRequest,
+        userId?: string,
+        actor?: ReservationEventActor
+      ): Promise<CreateReservationResult>;
       /** No-op unless the reservation is PENDING (the guard moved here from the route). */
-      confirmAttendance(reservation: Reservation): Promise<void>;
+      confirmAttendance(reservation: Reservation, actor?: ReservationEventActor): Promise<void>;
     }
     export function createReservationTransitions(
       deps: ReservationTransitionsDeps
@@ -16341,6 +16904,7 @@
               initiator: options.initiator,
               cancellationReason: options.reason,
               cancellationNote: options.note,
+              actor: options.actor,
             }
           );
           if (result.success) {
@@ -16359,16 +16923,16 @@
           return result;
         },
     
-        async noShow(reservation, log) {
-          const result = await recordNoShow(reservation, log, deposits);
+        async noShow(reservation, log, actor) {
+          const result = await recordNoShow(reservation, log, deposits, actor);
           if (result.success) {
             await settle({ kind: "no-show", reservation: result.reservation }, reservation.venueId);
           }
           return result;
         },
     
-        async updateByStaff(before, patch) {
-          const result = await reservationService.updateWithConflictCheck(before.id, patch);
+        async updateByStaff(before, patch, actor) {
+          const result = await reservationService.updateWithConflictCheck(before.id, patch, actor);
           if (result.success && result.reservation) {
             await settle(
               { kind: "staff-updated", before, after: result.reservation, patch },
@@ -16378,8 +16942,8 @@
           return result;
         },
     
-        async modifyByGuest(reservation, changes, manageToken, hold) {
-          const result = await modifyReservation(reservation, changes, deposits, hold);
+        async modifyByGuest(reservation, changes, manageToken, hold, actor) {
+          const result = await modifyReservation(reservation, changes, deposits, hold, actor);
           if (result.success) {
             await settle(
               {
@@ -16411,8 +16975,8 @@
           return result;
         },
     
-        async createWalkIn(body, userId) {
-          const result = await reservationService.createWalkIn(body, userId);
+        async createWalkIn(body, userId, actor) {
+          const result = await reservationService.createWalkIn(body, userId, actor);
           if (result.success && result.reservation) {
             await settle(
               {
@@ -16427,8 +16991,8 @@
           return result;
         },
     
-        async createByStaff(body, userId) {
-          const result = await reservationService.createWithConflictCheck(body, userId);
+        async createByStaff(body, userId, actor) {
+          const result = await reservationService.createWithConflictCheck(body, userId, actor);
           if (result.success && result.reservation) {
             await settle(
               {
@@ -16442,11 +17006,13 @@
           return result;
         },
     
-        async confirmAttendance(reservation) {
+        async confirmAttendance(reservation, actor) {
           if (reservation.status !== "PENDING") return;
-          const updated = await reservationService.update(reservation.id, {
-            status: "CONFIRMED",
-          });
+          const updated = await reservationService.update(
+            reservation.id,
+            { status: "CONFIRMED" },
+            actor
+          );
           if (updated) {
             await settle({ kind: "attendance-confirmed", reservation: updated }, reservation.venueId);
           }

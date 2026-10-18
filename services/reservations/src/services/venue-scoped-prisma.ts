@@ -21,6 +21,7 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   "deposit",
   "waitlistEntry",
   "reservationEvent",
+  "tableEvent",
 ]);
 
 /** A Prisma model delegate — its query methods, keyed by name. */

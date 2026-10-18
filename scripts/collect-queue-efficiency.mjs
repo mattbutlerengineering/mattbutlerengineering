@@ -206,8 +206,12 @@ function scoreFirstPass(rate) {
   return rate;
 }
 
-/** @param {number} costPerIssue - USD per merged issue. $1 = excellent, $5 = poor. */
+/**
+ * @param {number|null} costPerIssue - USD per merged issue. $1 = excellent, $5 = poor.
+ * @returns {number|null} null when the cost is unknown — never coerced to $0 (#6941).
+ */
 function scoreCost(costPerIssue) {
+  if (costPerIssue == null) return null;
   return Math.max(0, Math.min(1, 1 - (costPerIssue - 1) / 4));
 }
 
@@ -220,11 +224,13 @@ function scoreTtm(ttmHours) {
  * Weighted composite from the three normalised sub-scores.
  *
  * @param {number} fps - first-pass-success score
- * @param {number} cost - cost score
+ * @param {number|null} cost - cost score; null (unknown cost) reweights the
+ *   remaining terms to fps 0.4/0.6 and ttm 0.2/0.6 instead of scoring $0 (#6941).
  * @param {number} ttm - time-to-merge score
  * @returns {number}
  */
 function computeComposite(fps, cost, ttm) {
+  if (cost == null) return Math.round(((0.4 * fps + 0.2 * ttm) / 0.6) * 1000) / 1000;
   return Math.round((0.4 * fps + 0.4 * cost + 0.2 * ttm) * 1000) / 1000;
 }
 
@@ -233,6 +239,9 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
 
 /**
  * Share of the window's PRs that carry a real `pass`/`flag` review verdict.
+ * A PR whose row records an `unknown_reasons.reviewer_verdict` is excluded
+ * from the denominator (the verdict is unknowable, not missing); a PR with
+ * no row at all stays in it.
  *
  * The denominator is `windowPrs.length` — the PRs that *should* have gone
  * through the review gate — not `windowRows.length`. A gate that stops
@@ -247,25 +256,27 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
  *
  * @param {Array<object>} windowPrs
  * @param {Array<{ pr_number?: number, reviewer_verdict?: string }>} windowRows
- * @returns {number|null}
+ * @returns {{ coverage: number|null, n: number }}
  */
 function reviewCoverage(windowPrs, windowRows) {
-  if (windowPrs.length === 0) {
-    return null;
-  }
-
   const reviewed = windowRows.filter((r) => REAL_VERDICTS.has(r.reviewer_verdict)).length;
-  return Math.round((reviewed / windowPrs.length) * 1000) / 1000;
+  const unknowable = windowRows.filter(
+    (r) => !REAL_VERDICTS.has(r.reviewer_verdict) && r.unknown_reasons?.reviewer_verdict
+  ).length;
+  const denominator = windowPrs.length - unknowable;
+  if (denominator <= 0) return { coverage: null, n: 0 };
+  return { coverage: Math.round((reviewed / denominator) * 1000) / 1000, n: denominator };
 }
 
 /**
  * Compute sub-metrics for a set of merged AI PRs and their cost window.
  *
  * Cost preference (in order):
- *   1. Precise per-issue cost from telemetry rows when ALL window PRs have
- *      a matching row with a numeric `cost_usd` field.
- *   2. ccusage daily total ÷ issues (existing behaviour) — used when
- *      telemetry coverage is incomplete, absent, or missing `cost_usd`.
+ *   1. Mean of the numeric `cost_usd` over the window PRs whose telemetry row
+ *      has one (known rows only; `cost_coverage_n` says how many).
+ *   2. ccusage daily total ÷ issues — only when no row has a cost AND ccusage
+ *      returned a non-zero total.
+ *   3. null (unknown) — never $0 (#6941).
  *
  * @param {Array<object>} windowPrs
  * @param {Array<{ totalCost?: number }>} ccusageDays
@@ -294,20 +305,24 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
     .filter((r) => typeof r.cost_usd === "number")
     .map((r) => r.cost_usd);
 
-  const totalCost =
-    matchedCosts.length === windowPrs.length
-      ? matchedCosts.reduce((sum, c) => sum + c, 0)
-      : (ccusageDays ?? []).reduce((sum, d) => sum + (d.totalCost ?? 0), 0);
-
-  const costPerIssue = totalCost / windowPrs.length;
+  const ccusageTotal = (ccusageDays ?? []).reduce((sum, d) => sum + (d.totalCost ?? 0), 0);
+  let costPerIssue = null;
+  if (matchedCosts.length > 0) {
+    costPerIssue = matchedCosts.reduce((sum, c) => sum + c, 0) / matchedCosts.length;
+  } else if (ccusageTotal > 0) {
+    costPerIssue = ccusageTotal / windowPrs.length;
+  }
+  const review = reviewCoverage(windowPrs, windowRows);
 
   return {
     issues_merged: windowPrs.length,
     first_pass_success_rate: firstPassRate,
     median_time_to_merge_hours: Math.round(medianTtmHours * 10) / 10,
     median_rework_cycles: Math.round(medianReworkCycles * 10) / 10,
-    cost_per_issue_usd: Math.round(costPerIssue * 1000) / 1000,
-    review_coverage: reviewCoverage(windowPrs, windowRows),
+    cost_per_issue_usd: costPerIssue == null ? null : Math.round(costPerIssue * 1000) / 1000,
+    cost_coverage_n: matchedCosts.length,
+    review_coverage: review.coverage,
+    review_coverage_n: review.n,
   };
 }
 
@@ -655,7 +670,7 @@ export function collectQueueEfficiency(
       const day = new Date(d.period);
       return day >= weekStart && day < weekEnd;
     });
-    weekMetrics.push(computeWindowMetrics(weekPrs, weekCcusageDays));
+    weekMetrics.push(computeWindowMetrics(weekPrs, weekCcusageDays, telemetryRows));
   }
 
   const fpScore = scoreFirstPass(currentMetrics.first_pass_success_rate);
@@ -679,7 +694,9 @@ export function collectQueueEfficiency(
           weeks_sampled: weekMetrics.length,
           fps_median: median(weekMetrics.map((m) => m.first_pass_success_rate)),
           ttm_median: median(weekMetrics.map((m) => m.median_time_to_merge_hours)),
-          cost_per_issue_median: median(weekMetrics.map((m) => m.cost_per_issue_usd)),
+          cost_per_issue_median: median(
+            weekMetrics.map((m) => m.cost_per_issue_usd).filter((c) => c != null)
+          ),
         };
 
   const regressions = [];

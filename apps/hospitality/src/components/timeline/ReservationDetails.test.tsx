@@ -4,7 +4,7 @@ import { ApiClientError } from "@mbe/api-client";
 import { ReservationDetails, type ReservationDetailsProps } from "./ReservationDetails.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import type { Reservation, Table } from "@mbe/types";
-import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
+import enUS from "../../i18n/catalogs/en-US.json";
 import { EMPTY_NOTES, TWO_LINE_NOTE } from "../../test/special-requests-fixtures.js";
 
 vi.mock("../crm/GuestCard.js", () => ({
@@ -293,7 +293,7 @@ describe("ReservationDetails", () => {
   });
 
   describe("Special Requests (remembered-on-arrival SC3)", () => {
-    const label = CONFIRMATION_COPY.specialRequestsLabel;
+    const label = enUS.bookingWidget.specialRequests.label;
 
     it("shows the guest's request under Special Requests, not Notes", () => {
       renderDetails({ reservation: makeReservation({ notes: TWO_LINE_NOTE }) });

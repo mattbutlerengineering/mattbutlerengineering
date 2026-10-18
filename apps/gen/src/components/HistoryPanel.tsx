@@ -227,6 +227,10 @@ export function HistoryPanel({
               ? `${entryPrompt.slice(0, PROMPT_TRUNCATE_LENGTH)}\u2026`
               : entryPrompt;
             const isRefined = kind === "refine";
+            const nodeRefineType = entry.refinement
+              ? entry.refinement.after.elements[entry.refinement.path]?.type
+              : undefined;
+            const canReplay = !isRefined || Boolean(entry.refinement);
             const isFailed = kind === "failed";
             const isFocused = index === focusedIndex;
             const isConfirmingDelete = confirmingDeleteId === entry.id;
@@ -263,6 +267,14 @@ export function HistoryPanel({
                       <>
                         <span className={styles.metaDot}>{"\u00B7"}</span>
                         <span className={styles.refinedTag}>Refined</span>
+                      </>
+                    )}
+                    {nodeRefineType && (
+                      <>
+                        <span className={styles.metaDot}>{"\u00B7"}</span>
+                        <span className={styles.nodeRefineTag}>
+                          {`node refine \u00B7 ${nodeRefineType}`}
+                        </span>
                       </>
                     )}
                     {isFailed && (
@@ -338,10 +350,10 @@ export function HistoryPanel({
                         e.stopPropagation();
                         onReplay(entry.id);
                       }}
-                      disabled={isRefined}
+                      disabled={!canReplay}
                       aria-label="Replay prompt"
                       title={
-                        isRefined
+                        !canReplay
                           ? "Refinements can't be replayed without their original spec"
                           : "Replay this prompt"
                       }

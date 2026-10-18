@@ -203,6 +203,128 @@ describe("usePlaygroundSession", () => {
       expect(result.current.activeSpecId).toBe("new-id");
     });
 
+    it("saves the node refinement as a diff on the active entry", async () => {
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "parent", spec: BASE })],
+        isLoading: false,
+      };
+      const { result } = setup();
+      act(() => result.current.selectHistory("parent"));
+      act(() => result.current.refineNode("card", "grid"));
+      await complete(REPLACEMENT);
+
+      const saved = mockSaveSpec.mock.calls[0]?.[0] as { refinement: unknown };
+      expect(saved.refinement).toEqual({
+        parentId: "parent",
+        path: "card",
+        before: {
+          root: "card",
+          elements: { card: BASE.elements.card, label: BASE.elements.label },
+        },
+        after: REPLACEMENT,
+      });
+    });
+
+    it("saves a null parentId when the refined spec is not a saved entry", async () => {
+      const { result } = setup();
+      act(() => result.current.refineNode("card", "grid"));
+      await complete(REPLACEMENT);
+
+      const saved = mockSaveSpec.mock.calls[0]?.[0] as {
+        refinement: { parentId: unknown; path: string };
+      };
+      expect(saved.refinement.parentId).toBeNull();
+      expect(saved.refinement.path).toBe("card");
+    });
+
+    describe("undo / redo", () => {
+      async function refined() {
+        const view = setup();
+        mockSaveSpec.mockImplementationOnce(async (data: { spec: unknown }) => {
+          specsApiState = {
+            specs: [makeStoredSpec({ id: "new-id", spec: data.spec })],
+            isLoading: false,
+          };
+          return { id: "new-id" };
+        });
+        act(() => view.result.current.refineNode("card", "grid"));
+        await complete(REPLACEMENT);
+        mockSend.mockClear();
+        mockSaveSpec.mockClear();
+        return view;
+      }
+
+      it("undo restores the pre-refine spec and redo the refined one, with no model call or new entry", async () => {
+        const { result } = await refined();
+        const refinedSpec = result.current.displaySpec;
+        expect(result.current.canUndo).toBe(true);
+        expect(result.current.canRedo).toBe(false);
+
+        act(() => result.current.undo());
+        expect(result.current.displaySpec).toEqual(BASE);
+        expect(result.current.canRedo).toBe(true);
+
+        act(() => result.current.redo());
+        expect(result.current.displaySpec).toEqual(refinedSpec);
+
+        expect(mockSend).not.toHaveBeenCalled();
+        expect(mockSaveSpec).not.toHaveBeenCalled();
+      });
+
+      it("ignores undo while the refinement is still being saved", async () => {
+        const view = setup();
+        let finishSave: (stored: { id: string }) => void = () => {};
+        mockSaveSpec.mockImplementationOnce(
+          () => new Promise<{ id: string }>((resolve) => (finishSave = resolve))
+        );
+        act(() => view.result.current.refineNode("card", "grid"));
+        await complete(REPLACEMENT);
+
+        act(() => view.result.current.undo());
+        expect(view.result.current.canRedo).toBe(false);
+        expect(view.result.current.canUndo).toBe(true);
+
+        await act(async () => {
+          finishSave({ id: "new-id" });
+          await Promise.resolve();
+        });
+        act(() => view.result.current.undo());
+        expect(view.result.current.canRedo).toBe(true);
+      });
+
+      it("a new refinement after an undo clears redo", async () => {
+        const { result } = await refined();
+        act(() => result.current.undo());
+        expect(result.current.canRedo).toBe(true);
+
+        act(() => result.current.refineNode("footer", "louder"));
+        await complete({
+          root: "footer",
+          elements: { footer: { type: "Text", props: { text: "BYE" }, children: [] } },
+        });
+        expect(result.current.canRedo).toBe(false);
+      });
+
+      it("exposes the last change for the inspector and clears history on a whole-spec submit", async () => {
+        const { result } = await refined();
+        expect(result.current.lastChange?.path).toBe("card");
+        act(() => result.current.undo());
+        expect(result.current.lastChange?.after).toEqual(expect.objectContaining({ root: "card" }));
+
+        act(() => result.current.submit("something else"));
+        expect(result.current.canUndo).toBe(false);
+        expect(result.current.canRedo).toBe(false);
+        expect(result.current.lastChange).toBeNull();
+      });
+
+      it("undo and redo are no-ops with nothing to do", () => {
+        const { result } = setup();
+        act(() => result.current.undo());
+        act(() => result.current.redo());
+        expect(result.current.displaySpec).toBe(BASE);
+      });
+    });
+
     it("rejects a spliced spec the catalog does not accept and keeps the original on screen", async () => {
       mockValidateSpec.mockReturnValue({ ok: false, message: "unknown type Nope" });
       const { result } = setup();
@@ -315,6 +437,61 @@ describe("usePlaygroundSession", () => {
       const { result } = renderHook(() => usePlaygroundSession());
       act(() => result.current.replay("s1"));
       expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    describe("diff-backed refine entries", () => {
+      const PARENT: Spec = {
+        root: "root",
+        elements: {
+          root: { type: "Stack", props: {}, children: ["card"] },
+          card: { type: "Stack", props: {}, children: [] },
+        },
+      };
+      const AFTER: Spec = {
+        root: "card",
+        elements: { card: { type: "Grid", props: { columns: 3 }, children: [] } },
+      };
+      const REFINED: Spec = {
+        root: "root",
+        elements: { root: PARENT.elements.root!, card: AFTER.elements.card! },
+      };
+      const refinement = {
+        parentId: "parent",
+        path: "card",
+        before: { root: "card", elements: { card: PARENT.elements.card! } },
+        after: AFTER,
+      };
+
+      it("rebuilds the refined spec from the parent without a model call", () => {
+        specsApiState = {
+          specs: [
+            makeStoredSpec({ id: "parent", spec: PARENT }),
+            makeStoredSpec({ id: "child", kind: "refine", spec: REFINED, refinement }),
+          ],
+          isLoading: false,
+        };
+        const onNotice = vi.fn();
+        const { result } = renderHook(() => usePlaygroundSession({ onNotice }));
+        act(() => result.current.replay("child"));
+
+        expect(mockSend).not.toHaveBeenCalled();
+        expect(result.current.displaySpec).toEqual(REFINED);
+        expect(onNotice).not.toHaveBeenCalled();
+      });
+
+      it("falls back to the entry's own spec and says so when the parent is gone", () => {
+        specsApiState = {
+          specs: [makeStoredSpec({ id: "child", kind: "refine", spec: REFINED, refinement })],
+          isLoading: false,
+        };
+        const onNotice = vi.fn();
+        const { result } = renderHook(() => usePlaygroundSession({ onNotice }));
+        act(() => result.current.replay("child"));
+
+        expect(mockSend).not.toHaveBeenCalled();
+        expect(result.current.displaySpec).toEqual(REFINED);
+        expect(onNotice).toHaveBeenCalledTimes(1);
+      });
     });
 
     it("does not replay a legacy Refined:-prefixed entry", () => {

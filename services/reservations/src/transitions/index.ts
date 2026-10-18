@@ -49,6 +49,7 @@ import { planEffects, type CancelDoor, type HoldDoor, type TransitionFact } from
 import type { DepositService } from "../services/deposit.js";
 import { runEffects, type EffectLogger } from "./run.js";
 import type { CancelInitiator, EffectPorts } from "./ports.js";
+import type { ReservationEventActor } from "../services/reservation-events.js";
 import type { VenueEffectPolicySource } from "./venue-policy.js";
 
 type ReservationWrites = Pick<
@@ -75,6 +76,8 @@ export interface CancelOptions {
   manageToken: string;
   reason?: string;
   note?: string;
+  /** Who is cancelling; omitted by non-staff doors (the service defaults to the system actor). */
+  actor?: ReservationEventActor;
   log: DomainLogger;
 }
 
@@ -86,22 +89,36 @@ export interface ConfirmHoldOptions {
 
 export interface ReservationTransitions {
   cancel(reservation: Reservation, options: CancelOptions): Promise<CancelReservationResult>;
-  noShow(reservation: Reservation, log: DomainLogger): Promise<RecordNoShowResult>;
+  noShow(
+    reservation: Reservation,
+    log: DomainLogger,
+    actor?: ReservationEventActor
+  ): Promise<RecordNoShowResult>;
   updateByStaff(
     before: Reservation,
-    patch: UpdateReservationRequest
+    patch: UpdateReservationRequest,
+    actor?: ReservationEventActor
   ): Promise<UpdateReservationResult>;
   modifyByGuest(
     reservation: Reservation,
     changes: ReservationChanges,
     manageToken: string,
-    hold?: ModifyHold
+    hold?: ModifyHold,
+    actor?: ReservationEventActor
   ): Promise<ModifyReservationResult>;
   confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
-  createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
-  createByStaff(body: CreateReservationRequest, userId?: string): Promise<CreateReservationResult>;
+  createWalkIn(
+    body: WalkInRequest,
+    userId?: string,
+    actor?: ReservationEventActor
+  ): Promise<CreateReservationResult>;
+  createByStaff(
+    body: CreateReservationRequest,
+    userId?: string,
+    actor?: ReservationEventActor
+  ): Promise<CreateReservationResult>;
   /** No-op unless the reservation is PENDING (the guard moved here from the route). */
-  confirmAttendance(reservation: Reservation): Promise<void>;
+  confirmAttendance(reservation: Reservation, actor?: ReservationEventActor): Promise<void>;
 }
 
 export function createReservationTransitions(
@@ -132,6 +149,7 @@ export function createReservationTransitions(
           initiator: options.initiator,
           cancellationReason: options.reason,
           cancellationNote: options.note,
+          actor: options.actor,
         }
       );
       if (result.success) {
@@ -150,16 +168,16 @@ export function createReservationTransitions(
       return result;
     },
 
-    async noShow(reservation, log) {
-      const result = await recordNoShow(reservation, log, deposits);
+    async noShow(reservation, log, actor) {
+      const result = await recordNoShow(reservation, log, deposits, actor);
       if (result.success) {
         await settle({ kind: "no-show", reservation: result.reservation }, reservation.venueId);
       }
       return result;
     },
 
-    async updateByStaff(before, patch) {
-      const result = await reservationService.updateWithConflictCheck(before.id, patch);
+    async updateByStaff(before, patch, actor) {
+      const result = await reservationService.updateWithConflictCheck(before.id, patch, actor);
       if (result.success && result.reservation) {
         await settle(
           { kind: "staff-updated", before, after: result.reservation, patch },
@@ -169,8 +187,8 @@ export function createReservationTransitions(
       return result;
     },
 
-    async modifyByGuest(reservation, changes, manageToken, hold) {
-      const result = await modifyReservation(reservation, changes, deposits, hold);
+    async modifyByGuest(reservation, changes, manageToken, hold, actor) {
+      const result = await modifyReservation(reservation, changes, deposits, hold, actor);
       if (result.success) {
         await settle(
           {
@@ -202,8 +220,8 @@ export function createReservationTransitions(
       return result;
     },
 
-    async createWalkIn(body, userId) {
-      const result = await reservationService.createWalkIn(body, userId);
+    async createWalkIn(body, userId, actor) {
+      const result = await reservationService.createWalkIn(body, userId, actor);
       if (result.success && result.reservation) {
         await settle(
           {
@@ -218,8 +236,8 @@ export function createReservationTransitions(
       return result;
     },
 
-    async createByStaff(body, userId) {
-      const result = await reservationService.createWithConflictCheck(body, userId);
+    async createByStaff(body, userId, actor) {
+      const result = await reservationService.createWithConflictCheck(body, userId, actor);
       if (result.success && result.reservation) {
         await settle(
           {
@@ -233,11 +251,13 @@ export function createReservationTransitions(
       return result;
     },
 
-    async confirmAttendance(reservation) {
+    async confirmAttendance(reservation, actor) {
       if (reservation.status !== "PENDING") return;
-      const updated = await reservationService.update(reservation.id, {
-        status: "CONFIRMED",
-      });
+      const updated = await reservationService.update(
+        reservation.id,
+        { status: "CONFIRMED" },
+        actor
+      );
       if (updated) {
         await settle({ kind: "attendance-confirmed", reservation: updated }, reservation.venueId);
       }

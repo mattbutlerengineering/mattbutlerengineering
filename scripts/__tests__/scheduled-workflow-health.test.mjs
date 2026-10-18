@@ -7,6 +7,9 @@ import {
   DEFAULT_THRESHOLD,
   DEFAULT_OVERDUE_TOLERANCE_HOURS,
   DEPLOY_WORKFLOW_FILES,
+  MAIN_PUSH_WORKFLOW_FILES,
+  findMainPushWorkflows,
+  mainPushRunArgs,
   classifyScheduledWorkflowHealth,
   hasScheduleTrigger,
   findScheduledWorkflows,
@@ -1215,5 +1218,134 @@ describe("runScheduledWorkflowRecencyCheck", () => {
     expect(results[0].status).toBe("overdue");
     expect(created).toHaveLength(1);
     expect(created[0].title).toBe("ci-fix: scheduled-workflow-health.yml missed its scheduled run");
+  });
+});
+
+// #6955: push-triggered advisory workflows on main are in neither the
+// scheduled set nor the deploy list, so one can stay red on main with no
+// issue filed. This third arm watches an explicit list, on `main` + `push`
+// runs only (PR runs fail for PR-specific reasons and must not count).
+describe("main-push workflow arm (#6955)", () => {
+  let dir;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "main-push-workflows-"));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("pins the exact list of watched advisory workflows", () => {
+    expect(MAIN_PUSH_WORKFLOW_FILES).toEqual([
+      "apps-visual.yml",
+      "e2e-screenshots.yml",
+      "rialto-visual.yml",
+    ]);
+  });
+
+  it("every listed file exists in the real repo", () => {
+    const real = findMainPushWorkflows(
+      join(import.meta.dirname, "..", "..", ".github", "workflows")
+    );
+    expect(real.map((w) => w.file)).toEqual([...MAIN_PUSH_WORKFLOW_FILES].sort());
+  });
+
+  it("skips a listed file that does not exist on disk and reads the workflow name", () => {
+    writeFileSync(join(dir, "e2e-screenshots.yml"), "name: E2E Screenshots\non:\n  push:\n");
+    expect(findMainPushWorkflows(dir)).toEqual([
+      {
+        name: "E2E Screenshots",
+        file: "e2e-screenshots.yml",
+        path: ".github/workflows/e2e-screenshots.yml",
+      },
+    ]);
+  });
+
+  it("queries runs on branch main and event push only", () => {
+    const args = mainPushRunArgs("E2E Screenshots", 3);
+    expect(args).toEqual(
+      expect.arrayContaining([
+        "--workflow",
+        "E2E Screenshots",
+        "--branch",
+        "main",
+        "--event",
+        "push",
+      ])
+    );
+    expect(args[args.indexOf("--limit") + 1]).toBe("8");
+  });
+
+  it("yields failing-streak for a 3-run red streak, titled without 'scheduled'", () => {
+    const created = [];
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [
+        {
+          name: "E2E Screenshots",
+          path: ".github/workflows/e2e-screenshots.yml",
+          kind: "main-push",
+        },
+      ],
+      threshold: 3,
+      getRuns: () => [
+        { conclusion: "failure", url: "u1" },
+        { conclusion: "failure", url: "u2" },
+        { conclusion: "failure", url: "u3" },
+      ],
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 7;
+      },
+    });
+    expect(results[0].status).toBe("failing-streak");
+    expect(created[0].title).toBe("ci-fix: E2E Screenshots has failed 3 consecutive runs");
+    expect(created[0].body).toContain("`main`");
+    expect(created[0].body).not.toContain("scheduled");
+  });
+
+  it("dedupes: an existing open issue for the workflow is not refiled", () => {
+    let createCalled = false;
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [
+        {
+          name: "E2E Screenshots",
+          path: ".github/workflows/e2e-screenshots.yml",
+          kind: "main-push",
+        },
+      ],
+      threshold: 3,
+      getRuns: () => Array.from({ length: 3 }, (_, i) => ({ conclusion: "failure", url: `u${i}` })),
+      searchCiFixIssues: () => [
+        { number: 9, title: "ci-fix: E2E Screenshots has failed 3 consecutive runs" },
+      ],
+      getIssueState: () => "open",
+      createIssue: () => {
+        createCalled = true;
+        return 1;
+      },
+    });
+    expect(createCalled).toBe(false);
+    expect(results[0].action).toBe("skip");
+  });
+
+  it("a red PR-only history yields nothing because the arm never fetches PR runs", () => {
+    // The fetch is already filtered to main+push (asserted above), so a
+    // history containing only green push runs is healthy.
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [
+        {
+          name: "E2E Screenshots",
+          path: ".github/workflows/e2e-screenshots.yml",
+          kind: "main-push",
+        },
+      ],
+      threshold: 3,
+      getRuns: () => [{ conclusion: "success", url: "u1" }],
+      createIssue: () => {
+        throw new Error("must not file");
+      },
+    });
+    expect(results[0].status).not.toBe("failing-streak");
   });
 });

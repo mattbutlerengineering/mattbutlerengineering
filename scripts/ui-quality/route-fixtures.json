@@ -4,7 +4,8 @@
     "floor-plans/:id": "/floor-plans/fp_e2e_001"
   },
   "marketing": {
-    "*": "/ui-quality-not-found"
+    "*": "/ui-quality-not-found",
+    "shipped/:slug": "/shipped/ideation-batch-2026-10-15-6717"
   },
   "rialto-web": {
     "demos/drivers/:id": "/demos/drivers/1",

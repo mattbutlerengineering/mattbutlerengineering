@@ -203,9 +203,28 @@ describe("modifyReservation", () => {
 
     await modifyReservation(reservation, { specialRequests: "No peanuts please" }, deposits);
 
-    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith("res_1", {
-      notes: "No peanuts please",
-    });
+    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith(
+      "res_1",
+      { notes: "No peanuts please" },
+      undefined
+    );
+  });
+
+  it("forwards the actor to the conflict-checked update", async () => {
+    const reservation = makeReservation();
+    const actor = { type: "guest", id: "guest_1" } as const;
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation,
+    } as never);
+
+    await modifyReservation(reservation, { specialRequests: "quiet" }, deposits, undefined, actor);
+
+    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith(
+      "res_1",
+      { notes: "quiet" },
+      actor
+    );
   });
 
   it("updates partySize when there is no held/pending deposit at all", async () => {

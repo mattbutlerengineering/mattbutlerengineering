@@ -27,6 +27,7 @@ import {
   readTelemetryRows,
   telemetryPath,
   coveredPrNumbers,
+  TELEMETRY_UNKNOWN_REASONS,
 } from "../queue-telemetry-store.mjs";
 import { deriveTelemetryRows } from "../collect-queue-telemetry-from-github.mjs";
 import { evaluateTelemetryDuplicates } from "../check-queue-telemetry-dupes.mjs";
@@ -226,5 +227,35 @@ describe("append contract", () => {
     expect(() => appendTelemetryRow({ ...row(1, 2), api_key: "x" }, { root })).toThrow(
       /unknown field/
     );
+  });
+});
+
+describe("unknown_reasons validation", () => {
+  const append = (extra) => {
+    const root = tempRoot();
+    return () => appendTelemetryRow(row(1, 2, extra), { root });
+  };
+
+  it("exports a frozen reason list", () => {
+    expect(Object.isFrozen(TELEMETRY_UNKNOWN_REASONS)).toBe(true);
+    expect(TELEMETRY_UNKNOWN_REASONS).toContain("no-ledger-row");
+  });
+
+  it("accepts a known field with a known reason", () => {
+    expect(append({ cost_usd: null, unknown_reasons: { cost_usd: "no-ledger-row" } })()).toEqual({
+      written: true,
+    });
+  });
+
+  it("rejects an unknown reason", () => {
+    expect(append({ unknown_reasons: { cost_usd: "nope" } })).toThrow(/unknown_reasons/);
+  });
+
+  it("rejects a non-reconcilable field key", () => {
+    expect(append({ unknown_reasons: { foo: "no-pr" } })).toThrow(/unknown_reasons/);
+  });
+
+  it("rejects a non-object unknown_reasons", () => {
+    expect(append({ unknown_reasons: "no-pr" })).toThrow(/unknown_reasons/);
   });
 });

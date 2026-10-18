@@ -23,17 +23,29 @@ this failure mode).
 - `<N>` — an open PR number.
 - `--ready` — the PR is a draft; without this flag a draft PR is refused
   outright (an explicit author hold, not something this skill flips on its
-  own). With it, run `gh pr ready <N>` first, then continue.
+  own). With it, run `gh pr ready <N>` once step 1's hold check clears,
+  then continue.
 
 ## Protocol
 
 Stop at the first step that doesn't clear — never fall through to the merge
 step on anything but a clean pass.
 
-1. **Precondition.** Confirm the PR is open and read its draft state:
-   `gh pr view <N> --json state,isDraft,labels,headRefOid`. If it's a draft and `--ready`
-   was not passed, stop and report "draft PR — pass `--ready` to proceed."
-   If `--ready` was passed, run `gh pr ready <N>`.
+1. **Precondition.** Confirm the PR is open and read its draft state and
+   labels: `gh pr view <N> --json state,isDraft,labels,headRefOid,body`. If
+   it's a draft and `--ready` was not passed, stop and report "draft PR — pass
+   `--ready` to proceed."
+
+   Then check holds. The linked issues are the ones a GitHub closing keyword
+   in the PR body names (`Closes` / `Fixes` / `Resolves #M`, any tense or
+   case; none → only the PR's own labels count); read each one's labels with
+   `gh issue view <M> --json labels`. If the PR or a linked issue carries any
+   label in the profile's `hold_labels` (`.claude/implement-queue.md`
+   frontmatter), stop here and report `held — <label>`: nothing is written to
+   the PR, no review is dispatched, and nothing is merged.
+
+   Only once holds clear, and only if `--ready` was passed, run
+   `gh pr ready <N>`.
 
 2. **Build freshness.**
 
@@ -41,8 +53,10 @@ step on anything but a clean pass.
    node scripts/agent-core-build-freshness.mjs check
    ```
 
-   Exit 0 → the dist both `classifyCiGateStatus` support code and
-   `reviewersForDiff` depend on is proven fresh (or was rebuilt). Exit 1 →
+   This governs only the dist-backed classifiers, `reviewersForDiff` and
+   `qualifiesForLowRiskFastPath`; step 3's `scripts/ci-gate-status.mjs`
+   imports only Node built-ins and does not depend on it. Exit 0 → that dist
+   is proven fresh (or was rebuilt). Exit 1 →
    do not trust `reviewersForDiff` for this run; fall straight through to
    the full specialist set in step 4 as if every specialist applies — see
    `.claude/implement-queue.md` § fast-path for the exact fail-closed rule.
@@ -60,34 +74,52 @@ step on anything but a clean pass.
    named, per that section's table — do not re-derive the handling for
    `failed`/`pending`/`gate-missing`/`gate-unattributed`/`unknown` here.
 
-4. **Review.** First read the changed files (`gh pr diff <N> --name-only`)
-   and the labels from step 1. The profile holds gate-path PRs (`GATE_PATHS`)
-   for a human merge (ADR-0087), so a gate-path match or a `needs-review`
-   label is checked **before** the fast path is consulted, not after (found
-   in the #6639 dry walk-through on #6674); since #6769
-   `qualifiesForLowRiskFastPath` also returns `false` for gate paths. A
-   gate-path PR still gets the review below, then step 5 holds it. Follow `.claude/implement-queue.md` § reviewers (and the
-   `fast-path` hook's `qualifiesForLowRiskFastPath` short-circuit, which
-   composes `isLowRiskPR` with `reviewersForDiff` and already decides when
-   review can be skipped — don't re-decide it here): dispatch the
-   diff-matched specialists `reviewersForDiff(changedFiles)` names, plus
-   the universal `reviewer` subagent unless the fast path applies. A
-   `block`/`flag` verdict from either is terminal for this invocation — stop
-   and report it per that section's retry/hold policy, do not proceed to
-   step 5.
+4. **Review.** Follow `.claude/implement-queue.md` § fast-path and §
+   reviewers as written: whether review can be skipped is decided there and
+   by `qualifiesForLowRiskFastPath`, not re-decided here. Dispatch the
+   diff-matched specialists `reviewersForDiff(changedFiles)` names
+   (`gh pr diff <N> --name-only`), plus the universal `reviewer` subagent
+   unless the fast path applies. A gate-path PR is still reviewed; step 5
+   holds it.
 
-5. **Merge.** On an all-pass verdict (or a fast-path skip), follow
-   `.claude/implement-queue.md` § merge-command:
+   § reviewers assumes a queue worker. For a single PR, take its inputs
+   from here instead:
+
+   - **Acceptance criteria** — from the PR body plus the issues step 1
+     found. Only when both lack them, pass `acceptanceCriteria: []` and say
+     so in the `ReviewInput`'s `taskDescription`.
+   - **Code on disk** — there is no `.claude/worktrees/agent-<taskId>/`.
+     Create a throwaway worktree of the PR head
+     (`git fetch origin pull/<N>/head` then
+     `git worktree add --detach <scratch-path> <headRefOid>`), give the
+     reviewers that path in place of the worker's, and remove it
+     (`git worktree remove --force <scratch-path>`) once they return.
+   - **Verdict handling** — a `flag` (reviewer) or `block` (specialist)
+     verdict stops this invocation: report it with the reviewer's output.
+     There is no retry and no worker dispatch (the section's retry policy
+     re-dispatches a worker, which `/ship-pr` does not have). Do not
+     proceed to step 5.
+
+5. **Merge.** On an all-pass verdict (or a fast-path skip), first re-read
+   holds, since a label can land while review runs:
+   `gh pr view <N> --json labels` (plus the linked issues', as in step 1).
+   Two things hold the PR for a human merge, and either one means the merge
+   command below is not run:
+
+   - a label in the profile's `hold_labels` on the PR or a linked issue — report
+     `held — <label>`;
+   - a changed file matching a gate path (`GATE_PATHS` in `@mbe/agent-core`)
+     — report `held for human merge — gate path`.
+
+   Otherwise follow `.claude/implement-queue.md` § merge-command:
 
    ```bash
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
-   A changed file matching a gate path (`GATE_PATHS` in `@mbe/agent-core`) holds the PR for a human merge instead
-   — do not run the merge command; report `held for human merge — gate
-path` (per that section, not re-derived here). If GitHub reports the PR
-   `CLEAN` and refuses `--auto`, merge directly with the same command minus
-   `--auto`. If the merge call itself is denied with
+   If GitHub reports the PR `CLEAN` and refuses `--auto`, merge directly
+   with the same command minus `--auto` — this path, too, runs only after
+   the hold re-read above cleared. If the merge call itself is denied with
    `[Merge Without Review]` (Claude Code Remote sessions, gotchas § CCR
    #6125), do not retry through this or any other tool — report the PR as
    reviewed, green, and awaiting a human merge.
@@ -101,7 +133,7 @@ PR #<N>
   CI:       <classifyCiGateStatus state>
   Reviewers: <specialist list + verdicts, or "fast path — skipped">
   Universal: <reviewer verdict, or "fast path — skipped">
-  Action:   <armed --auto | merged directly | held for human merge | stopped at <step> — <reason>>
+  Action:   <armed --auto | merged directly | held — <label> | held for human merge — gate path | stopped at <step> — <reason>>
 ```
 
 ## Scope

@@ -43,6 +43,7 @@ export function usePlayground(): UsePlaygroundResult {
   const { toggleTheme } = useTheme();
 
   const session = usePlaygroundSession({
+    onNotice: (message) => toast({ title: message, variant: "accent", duration: 4000 }),
     onGenerationComplete: () =>
       toast({ title: "Generation complete", variant: "success", duration: 3000 }),
   });

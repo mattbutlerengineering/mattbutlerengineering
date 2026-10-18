@@ -2,7 +2,6 @@ import type { Locator, Page } from "@playwright/test";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { test, expect } from "./fixtures.js";
-import { CONFIRMATION_COPY } from "../src/constants/confirmation-copy.js";
 
 // Special Requests said back (remembered-on-arrival SC1, SC3, SC9). Guest pages run at a
 // 375 px phone; the host ticket runs on the desktop sidebar and the tablet sheet.
@@ -10,7 +9,37 @@ import { CONFIRMATION_COPY } from "../src/constants/confirmation-copy.js";
 const VENUE_SLUG = "e2e-test-bistro";
 const VENUE_NAME = "E2E Test Bistro";
 const MANAGE_TOKEN = "e2e-special-requests-token";
-const LABEL = CONFIRMATION_COPY.specialRequestsLabel;
+interface SpecialRequestsCopy {
+  label: string;
+  acknowledgement: string;
+  hostCaption: string;
+}
+
+/** A locale's catalog is the only source of its copy (SC4). */
+function specialRequestsCopy(locale: string): SpecialRequestsCopy {
+  const url = new URL(`../src/i18n/catalogs/${locale}.json`, import.meta.url);
+  return (
+    JSON.parse(readFileSync(url, "utf8")) as {
+      bookingWidget: { specialRequests: SpecialRequestsCopy };
+    }
+  ).bookingWidget.specialRequests;
+}
+
+/** The caption nests the acknowledgement by key; compose it rather than retype the sentence. */
+function hostCaptionOf(copy: SpecialRequestsCopy): string {
+  return copy.hostCaption.replace(
+    "$t(bookingWidget.specialRequests.acknowledgement)",
+    copy.acknowledgement
+  );
+}
+
+/** These specs run in en-US unless a test stores another staff locale. */
+const SPECIAL_REQUESTS = specialRequestsCopy("en-US");
+const LABEL = SPECIAL_REQUESTS.label;
+const ACKNOWLEDGEMENT = SPECIAL_REQUESTS.acknowledgement;
+const HOST_CAPTION = hostCaptionOf(SPECIAL_REQUESTS);
+/** Mirrors LOCALE_STORAGE_KEY in src/i18n/runtime.tsx: the staff (dashboard) locale. */
+const STAFF_LOCALE_KEY = "mbe-hospitality-locale";
 
 /** The guest pressed return once; the second line must start on its own line box. */
 const TWO_LINE_NOTE = "Our anniversary.\nWindow seat if you can, and she can't have tree nuts.";
@@ -172,7 +201,7 @@ test.describe("Guest pages say the Special Requests back (375 px)", () => {
     await bookThroughTheWidget(mockedPage, LONG_NOTE);
     const group = mockedPage.getByRole("group", { name: LABEL });
     await expect(group).toBeVisible();
-    await expect(group.getByText(CONFIRMATION_COPY.acknowledgement)).toBeVisible();
+    await expect(group.getByText(ACKNOWLEDGEMENT)).toBeVisible();
     await expectNoSidewaysScroll(mockedPage, group);
   });
 
@@ -191,7 +220,7 @@ test.describe("Guest pages say the Special Requests back (375 px)", () => {
     await mockedPage.goto(`reservations/manage?token=${MANAGE_TOKEN}`);
     const group = mockedPage.getByRole("group", { name: LABEL });
     await expect(group).toBeVisible();
-    await expect(group.getByText(CONFIRMATION_COPY.acknowledgement)).toBeVisible();
+    await expect(group.getByText(ACKNOWLEDGEMENT)).toBeVisible();
     await expectNoSidewaysScroll(mockedPage, group);
   });
 
@@ -216,9 +245,29 @@ test.describe("The host ticket carries the same words", () => {
     const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     const group = sidebar.getByRole("group", { name: LABEL });
     await expect(group).toBeVisible();
-    await expect(group.getByText(CONFIRMATION_COPY.hostCaption)).toBeVisible();
+    await expect(group.getByText(HOST_CAPTION)).toBeVisible();
     await expect(group.getByText("Birthday celebration")).toBeVisible();
   });
+
+  for (const locale of ["es-MX", "fr-CA"] as const) {
+    test(`desktop sidebar in ${locale}: label and caption follow the staff locale`, async ({
+      mockedPage,
+    }) => {
+      const copy = specialRequestsCopy(locale);
+      await mockedPage.addInitScript(([key, tag]) => localStorage.setItem(key, tag), [
+        STAFF_LOCALE_KEY,
+        locale,
+      ] as const);
+      await mockedPage.goto("timeline");
+      await expect(mockedPage.locator("html")).toHaveAttribute("lang", locale);
+      await mockedPage.getByTestId(`reservation-block-${BOB}`).click();
+      const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
+      const group = sidebar.getByRole("group", { name: copy.label });
+      await expect(group).toBeVisible();
+      await expect(group.getByText(hostCaptionOf(copy))).toBeVisible();
+      await expect(group.getByText("Birthday celebration")).toBeVisible();
+    });
+  }
 
   test("tablet sheet at 1024×768: the request is in view without pressing More", async ({
     mockedPage,

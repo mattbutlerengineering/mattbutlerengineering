@@ -7,11 +7,12 @@ functions with every input passed in, a thin main, cd:-prefixed problem
 strings, cli.report for the exit. Mirrored into the factory payload with
 its siblings (factory_init.MIRRORS, #678). Capabilities that would push this
 file past the 800-line ceiling live in sibling modules that import its
-row grammar (breakdown assumption 6): conductor_plan (plan, open),
-conductor_flow (the item state machine and the stall rule in next),
-conductor_run (the Worker runner), conductor_merge (the merge
+row grammar (breakdown assumption 6): conductor_plan (plan, open and
+--version), conductor_flow (the item state machine and the stall rule
+in next), conductor_run (the Worker runner), conductor_merge (the merge
 precondition and the merge turn), conductor_close (the scorecard and
-closing a batch) and conductor_calibrate (calibrate).
+closing a batch), conductor_calibrate (calibrate) and conductor_consent
+(standing consent, and the ask and answer argv).
 
   python3 conductor.py plan [--agents DIR] <#N>...
         Price and order a batch of issues and show each item's reserved
@@ -23,7 +24,13 @@ closing a batch) and conductor_calibrate (calibrate).
         conductor/<batch> branch and worktree from origin/main, write the
         plan and reserve rows, and queue the spend ask.
   python3 conductor.py next <batch>
-        Record any new stall and gate asks, then print as JSON the oldest
+        Record any new stall, gate and clarify asks (a runner found dead
+        gets its run row and a spend row at its full ceiling on its
+        item branch; a finished run whose spend commit, push or PR
+        failed gets that bookkeeping redone on a retry answer, never a
+        relaunch; an item whose issue is closed, or unreadable, is held
+        behind a clarify ask before anything spends), then print as
+        JSON the oldest
         unanswered ask, the steps ready to launch under wip_cap (a
         `merge` step once an answer covers a shipped item), the ids of
         the asks just recorded, and the shipped items waiting for a
@@ -53,7 +60,7 @@ closing a batch) and conductor_calibrate (calibrate).
         Join every closed batch's ledger with docs/factory/costs.jsonl
         into one actuals row per run, and print as JSON the suggested
         step weights and size budgets with their sample sizes; below
-        the floor it suggests nothing. Writes nothing (#799).
+        the floor it suggests nothing but warns (#940). Writes nothing.
   python3 conductor.py scorecards [N]
         Print each metric of the last N (default 5) scorecards in
         docs/factory/scorecards.jsonl, oldest first, with its change
@@ -79,6 +86,11 @@ closing a batch) and conductor_calibrate (calibrate).
         Append the Owner's answer row. Written only straight after the
         Owner picks that option in this session; refused for any call
         with CONDUCTOR_WORKER set.
+  python3 conductor.py --version
+        Print the payload these tools were stamped from — the plugin
+        name and version factory/manifest.json records — or that they
+        are unversioned (copied by hand, no manifest). `plan` and `open`
+        end with the same line (#941).
 
 The batch ledger (docs/factory/batches/<batch>/ledger.jsonl) is
 append-only JSONL. Every row has `at`, `kind` and `item`; ROW_FIELDS
@@ -680,50 +692,6 @@ def answer(root, batch, now, ask_id, choice, note, env):
     return written, problems
 
 
-def _flags(args, repeatable):
-    """{flag: value or [values]} for `--flag value` pairs, or None when
-    the args are not such pairs."""
-    if len(args) % 2:
-        return None
-    flags = {}
-    for flag, value in zip(args[::2], args[1::2]):
-        if not flag.startswith("--"):
-            return None
-        if flag in repeatable:
-            flags.setdefault(flag, []).append(value)
-        elif flag in flags:
-            return None
-        else:
-            flags[flag] = value
-    return flags
-
-
-def _ask_cli(root, batch, args, now):
-    flags = _flags(args, ("--option", "--covers"))
-    needed = ("--kind", "--question", "--option", "--recommended", "--why")
-    if flags is None or any(flag not in flags for flag in needed) or set(
-            flags) - set(needed) - {"--item", "--covers"}:
-        return None
-    row, problems = ask(root, batch, now, flags.get("--item"),
-                        flags["--kind"], flags["--question"],
-                        flags["--option"], flags["--recommended"],
-                        flags["--why"], covers=flags.get("--covers"))
-    if row is not None:
-        print(row["id"])
-    return problems
-
-
-def _answer_cli(root, batch, args, now, env):
-    if len(args) < 2:
-        return None
-    flags = _flags(args[2:], ())
-    if flags is None or set(flags) - {"--note"}:
-        return None
-    _, problems = answer(root, batch, now, args[0], args[1],
-                         flags.get("--note", ""), env)
-    return problems
-
-
 # Every git call the Conductor makes itself skips the repo's hooks (#833):
 # it commits only generated evidence (ledger, spend rows, scorecards, a
 # merge of a checked main, a mechanical renumber), and land_branch waits
@@ -747,12 +715,15 @@ def main(argv, env=None, clock=None, root=None, run=gh_runner, git=None,
     # are imported here, not at the top: one owner, no import cycle.
     import conductor_calibrate
     import conductor_close
-    import conductor_flow
+    import conductor_consent
+    import conductor_next
     import conductor_merge
     import conductor_plan
     import conductor_run
     problems = None
-    if argv[:1] == ["plan"]:
+    if argv == ["--version"]:
+        problems = conductor_plan.version_cli(root)
+    elif argv[:1] == ["plan"]:
         problems = conductor_plan.plan_cli(root, argv[1:], now, run, git)
     elif argv[:1] == ["calibrate"]:
         problems = conductor_calibrate.calibrate_cli(root, argv[1:])
@@ -769,12 +740,13 @@ def main(argv, env=None, clock=None, root=None, run=gh_runner, git=None,
             problems = [f"cd: next refused: {WORKER_ENV} is set, and a"
                         " Worker never advances a batch"]
         elif command == "next":
-            problems = conductor_flow.next_cli(root, batch, args, now,
+            problems = conductor_next.next_cli(root, batch, args, now,
                                                git, alive, run)
         elif command == "ask":
-            problems = _ask_cli(root, batch, args, now)
+            problems = conductor_consent.ask_cli(root, batch, args, now)
         elif command == "answer":
-            problems = _answer_cli(root, batch, args, now, env)
+            problems = conductor_consent.answer_cli(root, batch, args, now,
+                                                    env)
         elif command == "run":
             problems = conductor_run.run_cli(root, [batch, *args], clock,
                                              git, run, harness)

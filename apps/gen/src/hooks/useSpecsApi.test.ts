@@ -215,3 +215,48 @@ describe("useSpecsApi — deleteSpec", () => {
     expect(ids).not.toContain("spec-b");
   });
 });
+
+describe("useSpecsApi — refinement", () => {
+  const sub = (type: string) => ({ root: "card", elements: { card: { type, props: {} } } });
+  const diff = { parentId: null, path: "card", before: sub("Stack"), after: sub("Grid") };
+
+  it("keeps a valid refinement and nulls a malformed one on fetch", async () => {
+    mockGet.mockResolvedValue({
+      data: [
+        { ...makeSpec({ id: "ok" }), refinement: diff },
+        { ...makeSpec({ id: "bad" }), refinement: { parentId: 1, path: "", before: 1, after: 2 } },
+        makeSpec({ id: "legacy" }),
+      ],
+    });
+    const { result } = renderHook(() => useSpecsApi());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const byId = Object.fromEntries(result.current.specs.map((s) => [s.id, s]));
+    expect(byId.ok!.refinement).toEqual(diff);
+    expect(byId.bad!.refinement).toBeNull();
+    expect(byId.legacy!.refinement).toBeUndefined();
+  });
+
+  it("sends the refinement on save and decodes the response", async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
+    mockPost.mockResolvedValueOnce({ data: { ...makeSpec({ id: "new" }), refinement: diff } });
+    const { result } = renderHook(() => useSpecsApi());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let created: StoredSpec | undefined;
+    await act(async () => {
+      created = await result.current.saveSpec({
+        prompt: "grid",
+        kind: "refine",
+        spec: {},
+        rawLines: [],
+        refinement: diff,
+      });
+    });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      "/api/gen/specs",
+      expect.objectContaining({ refinement: diff })
+    );
+    expect(created!.refinement).toEqual(diff);
+  });
+});

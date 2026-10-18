@@ -20,6 +20,7 @@ import type { DomainServices } from "../services/domain-services.js";
 import { venueScoped, type VenueSource } from "./venue-scope.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { generateManageToken } from "./public-reservations.js";
+import { staffActor } from "../services/reservation-events.js";
 
 // Session ID header name
 const SESSION_ID_HEADER = "x-session-id";
@@ -396,6 +397,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
             sessionId,
             guestDetails: request.body,
             venueId,
+            actor: staffActor(request.user?.id),
           },
           { door: "staff-hold" }
         );

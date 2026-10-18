@@ -43,6 +43,7 @@ import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metr
 import { describeGhError, listRunArtifacts, downloadArtifactZip } from "@mbe/gh-client";
 import { extractZipEntries } from "./extract-zip-entries.mjs";
 import { parseJUnitXml } from "./parse-junit-xml.mjs";
+import { partitionPhantomRuns } from "./phantom-runs.mjs";
 
 /**
  * @typedef {{ verified: boolean; reason: string; confidence?: string }} VerifyResult
@@ -588,7 +589,12 @@ export const SENSORS = [
       }
       if (runs.length === 0) return { available: false };
 
-      const completed = runs.filter((r) => r.status === "completed");
+      // #6344: zero-job failures on bot branches are phantoms (approval-parked
+      // runs), reported separately. Needs `headBranch` + `jobCount` on the run;
+      // the main-scoped query above cannot return them today, so this is
+      // defence in depth should the scope ever widen.
+      const { counted, phantom } = partitionPhantomRuns(runs);
+      const completed = counted.filter((r) => r.status === "completed");
       const passed = completed.filter((r) => r.conclusion === "success");
       const failed = completed.filter((r) => r.conclusion === "failure");
       // #4685: skipped (intentional no-op) and cancelled (concurrency-superseded
@@ -603,6 +609,7 @@ export const SENSORS = [
         completed: completed.length,
         passed: passed.length,
         failed: failed.length,
+        phantom: phantom.length,
         pass_rate_pct: passRate,
         most_recent: runs[0] ?? null,
       };
@@ -1046,7 +1053,12 @@ export const SENSORS = [
         data.baseline != null
           ? ` (baseline ${data.baseline.composite_median?.toFixed(3)}, ${data.baseline.weeks_sampled}w)`
           : " (no baseline yet)";
-      return `${name}: composite ${data.composite} | fps ${data.sub_metrics?.first_pass_success_rate} | ttm ${data.sub_metrics?.median_time_to_merge_hours}h | $${data.sub_metrics?.cost_per_issue_usd}/issue${baselineStr}`;
+      const sub = data.sub_metrics;
+      const costStr =
+        sub?.cost_per_issue_usd == null
+          ? `cost unknown (${sub?.cost_coverage_n ?? 0}/${sub?.issues_merged ?? 0})`
+          : `$${sub.cost_per_issue_usd}/issue (n=${sub.cost_coverage_n ?? 0}/${sub.issues_merged ?? 0})`;
+      return `${name}: composite ${data.composite} | fps ${data.sub_metrics?.first_pass_success_rate} | ttm ${data.sub_metrics?.median_time_to_merge_hours}h | ${costStr}${baselineStr}`;
     },
     thresholds: {
       queue_efficiency_composite_drop: QUEUE_EFFICIENCY_COMPOSITE_DROP,
@@ -1067,7 +1079,18 @@ export const SENSORS = [
       // under the live reader — as it was in 100% of historical
       // `metrics/sensor-report.jsonl` reports. Below the floor, this sensor
       // currently raises nothing for that report.
-      if (previous?.available && sampleSize >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE) {
+      // #7023: the cost term is weighted 0.4 and scores any average >= $5/issue as
+      // 0, so a cost newly non-null from a sparse reconciliation sample (9 of 264
+      // after #6941) swings the composite with no real change. Hold the same floor
+      // against the cost sample itself.
+      const costSampleTooSparse =
+        current.sub_metrics?.cost_per_issue_usd != null &&
+        (current.sub_metrics?.cost_coverage_n ?? 0) < QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE;
+      if (
+        previous?.available &&
+        sampleSize >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE &&
+        !costSampleTooSparse
+      ) {
         const delta = current.composite - previous.composite;
         if (delta < -thresholds.queue_efficiency_composite_drop) {
           regressions.push({

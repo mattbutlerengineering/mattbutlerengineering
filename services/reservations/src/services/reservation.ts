@@ -26,6 +26,14 @@ import { bookSlot } from "./book-slot.js";
 import { toReservation, toTable } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import { guestService } from "./guest.js";
+import { recordTableEvent, SYSTEM_TABLE_ACTOR } from "./table-events.js";
+import {
+  recordReservationEvent,
+  toEventState,
+  SYSTEM_ACTOR,
+  type EventState,
+  type ReservationEventActor,
+} from "./reservation-events.js";
 import { isTableInVenue, loadTableFit, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
 
 export { ReservationTransitionError };
@@ -217,28 +225,49 @@ export const reservationService = {
     return row?.originSessionId ?? null;
   },
 
-  async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
-    const reservation = await prisma.reservation.create({
-      data: {
-        date: new Date(data.date),
-        startTime: new Date(data.startTime),
-        endTime: new Date(data.endTime),
-        partySize: data.partySize,
-        tableId: data.tableId,
-        notes: data.notes ?? null,
-        occasion: data.occasion ?? null,
-        seatingPreference: data.seatingPreference ?? null,
-        guestName: data.guestName ?? null,
-        guestEmail: data.guestEmail ?? null,
-        guestPhone: data.guestPhone ?? null,
-        guestId: data.guestId ?? null,
-        userId: userId ?? null,
-        venueId: data.venueId ?? null,
-      },
-      include: {
-        table: true,
-        guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
-      },
+  async create(
+    data: CreateReservationRequest,
+    userId?: string,
+    actor: ReservationEventActor = SYSTEM_ACTOR
+  ): Promise<Reservation> {
+    // Explicit transaction so the `created` event joins the insert. This call
+    // bypasses the per-call auto-wrap in `services/venue-scoped-prisma.ts`, so
+    // set app.venue_id on THIS transaction's own `tx` (ADR-026 part 6).
+    const reservation = await prisma.$transaction(async (tx) => {
+      await setVenueContext(tx, getCurrentVenueId());
+      const created = await tx.reservation.create({
+        data: {
+          date: new Date(data.date),
+          startTime: new Date(data.startTime),
+          endTime: new Date(data.endTime),
+          partySize: data.partySize,
+          tableId: data.tableId,
+          notes: data.notes ?? null,
+          occasion: data.occasion ?? null,
+          seatingPreference: data.seatingPreference ?? null,
+          guestName: data.guestName ?? null,
+          guestEmail: data.guestEmail ?? null,
+          guestPhone: data.guestPhone ?? null,
+          guestId: data.guestId ?? null,
+          userId: userId ?? null,
+          venueId: data.venueId ?? null,
+        },
+        include: {
+          table: true,
+          guest: {
+            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+          },
+        },
+      });
+      await recordReservationEvent(tx, {
+        reservationId: created.id,
+        venueId: created.venueId,
+        kind: "created",
+        actor,
+        from: null,
+        to: toEventState(created),
+      });
+      return created;
     });
     return toReservation(reservation);
   },
@@ -249,7 +278,8 @@ export const reservationService = {
    */
   async createWithConflictCheck(
     data: CreateReservationRequest,
-    userId?: string
+    userId?: string,
+    actor: ReservationEventActor = SYSTEM_ACTOR
   ): Promise<CreateReservationResult> {
     const startTime = new Date(data.startTime);
     const endTime = new Date(data.endTime);
@@ -320,8 +350,8 @@ export const reservationService = {
       window: { startTime, endTime },
       partySize: data.partySize,
       checkHoldConflict: true,
-      write: (tx) =>
-        tx.reservation.create({
+      write: async (tx) => {
+        const created = await tx.reservation.create({
           data: {
             date: new Date(data.date),
             startTime,
@@ -344,7 +374,17 @@ export const reservationService = {
               select: { visitCount: true, communicationPreference: true, unsubscribed: true },
             },
           },
-        }),
+        });
+        await recordReservationEvent(tx, {
+          reservationId: created.id,
+          venueId: created.venueId,
+          kind: "created",
+          actor,
+          from: null,
+          to: toEventState(created),
+        });
+        return created;
+      },
     });
 
     if (!result.ok) {
@@ -358,7 +398,11 @@ export const reservationService = {
     return { success: true, reservation: toReservation(result.value) };
   },
 
-  async update(id: string, data: UpdateReservationRequest): Promise<Reservation | null> {
+  async update(
+    id: string,
+    data: UpdateReservationRequest,
+    actor: ReservationEventActor = SYSTEM_ACTOR
+  ): Promise<Reservation | null> {
     try {
       const updateData = {
         ...(data.date !== undefined && { date: new Date(data.date) }),
@@ -389,11 +433,39 @@ export const reservationService = {
       if (data.status !== undefined) {
         const existing = await prisma.reservation.findUnique({
           where: { id },
-          select: { status: true, guestId: true, startTime: true },
+          select: {
+            status: true,
+            guestId: true,
+            venueId: true,
+            tableId: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+            partySize: true,
+          },
         });
         if (!existing) return null;
-        // Throws ReservationTransitionError on invalid transition.
-        transitionReservation(existing.status, data.status);
+        try {
+          // Throws ReservationTransitionError on invalid transition.
+          transitionReservation(existing.status, data.status);
+        } catch (err: unknown) {
+          if (err instanceof ReservationTransitionError) {
+            // Leave a trail for the refused transition in its own short
+            // venue-scoped transaction, then rethrow unchanged.
+            await prisma.$transaction(async (tx) => {
+              await setVenueContext(tx, getCurrentVenueId());
+              await recordReservationEvent(tx, {
+                reservationId: id,
+                venueId: existing.venueId,
+                kind: "transition_rejected",
+                actor,
+                from: toEventState(existing),
+                to: { status: data.status } as EventState,
+              });
+            });
+          }
+          throw err;
+        }
 
         // The status CAS plus write. Shared by both branches below so the
         // NO_SHOW guest-counter bump can be run against the same client
@@ -426,34 +498,72 @@ export const reservationService = {
             await guestService.recordVisit(existing.guestId, existing.startTime, undefined, client);
           }
 
-          return client.reservation.findUnique({
+          const after = await client.reservation.findUnique({
             where: { id },
             include: { table: true },
           });
+          if (after) {
+            await recordReservationEvent(client, {
+              reservationId: id,
+              venueId: existing.venueId,
+              kind:
+                data.status === "CANCELLED"
+                  ? "cancelled"
+                  : data.status === "NO_SHOW"
+                    ? "no_show"
+                    : "status_changed",
+              actor,
+              from: toEventState(existing),
+              to: toEventState(after),
+            });
+          }
+          return after;
         };
 
-        const touchesGuest =
-          (data.status === "NO_SHOW" || data.status === "COMPLETED") && existing.guestId;
-        const updated = touchesGuest
-          ? await prisma.$transaction(async (tx) => {
-              // This `prisma.$transaction` call bypasses the per-call
-              // auto-wrap `services/venue-scoped-prisma.ts` gives the
-              // `prisma` export — set app.venue_id on THIS transaction's
-              // own `tx` explicitly (ADR-026 part 6).
-              await setVenueContext(tx, getCurrentVenueId());
-              return writeStatusChange(tx);
-            })
-          : await writeStatusChange(prisma);
+        // Always an explicit transaction so the CAS, its side effects and the
+        // event commit together. This `prisma.$transaction` call bypasses the
+        // per-call auto-wrap `services/venue-scoped-prisma.ts` gives the
+        // `prisma` export — set app.venue_id on THIS transaction's own `tx`
+        // explicitly (ADR-026 part 6).
+        const updated = await prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, getCurrentVenueId());
+          return writeStatusChange(tx);
+        });
 
         return updated ? toReservation(updated) : null;
       }
 
-      const reservation = await prisma.reservation.update({
-        where: { id },
-        data: updateData,
-        include: { table: true },
+      const reservation = await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, getCurrentVenueId());
+        const before = await tx.reservation.findUnique({
+          where: { id },
+          select: {
+            status: true,
+            venueId: true,
+            tableId: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+            partySize: true,
+          },
+        });
+        if (!before) return null;
+        const after = await tx.reservation.update({
+          where: { id },
+          data: updateData,
+          include: { table: true },
+        });
+        await recordReservationEvent(tx, {
+          reservationId: id,
+          venueId: before.venueId,
+          kind: "updated",
+          actor,
+          from: toEventState(before),
+          to: toEventState(after),
+        });
+        return after;
       });
-      return toReservation(reservation);
+      return reservation ? toReservation(reservation) : null;
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
@@ -466,7 +576,8 @@ export const reservationService = {
    */
   async updateWithConflictCheck(
     id: string,
-    data: UpdateReservationRequest
+    data: UpdateReservationRequest,
+    actor: ReservationEventActor = SYSTEM_ACTOR
   ): Promise<UpdateReservationResult> {
     // Get the existing reservation
     const existing = await prisma.reservation.findUnique({
@@ -527,7 +638,7 @@ export const reservationService = {
 
     // Notes / party-size / preference edits are not slot moves — no lock needed.
     if (!timeOrTableChanged) {
-      const reservation = await this.update(id, data);
+      const reservation = await this.update(id, data, actor);
       if (!reservation) {
         return { success: false, error: "Failed to update reservation" };
       }
@@ -611,11 +722,20 @@ export const reservationService = {
       checkHoldConflict: true,
       write: async (tx) => {
         try {
-          return await tx.reservation.update({
+          const moved = await tx.reservation.update({
             where: { id },
             data: updateData,
             include: { table: true },
           });
+          await recordReservationEvent(tx, {
+            reservationId: id,
+            venueId: existing.venueId,
+            kind: "moved",
+            actor,
+            from: toEventState(existing),
+            to: toEventState(moved),
+          });
+          return moved;
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return null;
           throw err;
@@ -638,7 +758,11 @@ export const reservationService = {
     return { success: true, reservation: toReservation(result.value) };
   },
 
-  async createWalkIn(data: WalkInRequest, userId?: string): Promise<CreateReservationResult> {
+  async createWalkIn(
+    data: WalkInRequest,
+    userId?: string,
+    actor: ReservationEventActor = SYSTEM_ACTOR
+  ): Promise<CreateReservationResult> {
     const now = new Date();
     const durationMinutes = data.durationMinutes ?? 90;
     const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
@@ -734,9 +858,30 @@ export const reservationService = {
           },
         });
 
+        await recordReservationEvent(tx, {
+          reservationId: createdReservation.id,
+          venueId: createdReservation.venueId,
+          kind: "created",
+          actor,
+          from: null,
+          to: toEventState(createdReservation),
+        });
+
+        const seatedFrom = await tx.table.findUniqueOrThrow({
+          where: { id: data.tableId },
+          select: { status: true, venueId: true },
+        });
         const occupiedTable = await tx.table.update({
           where: { id: data.tableId },
           data: { status: "OCCUPIED" },
+        });
+        await recordTableEvent(tx, {
+          tableId: data.tableId,
+          venueId: seatedFrom.venueId,
+          fromStatus: seatedFrom.status,
+          toStatus: "OCCUPIED",
+          actor: actor.type === "staff" ? { type: "staff", id: actor.id } : SYSTEM_TABLE_ACTOR,
+          reservationId: createdReservation.id,
         });
 
         return { reservation: createdReservation, table: occupiedTable };

@@ -530,6 +530,11 @@
       export const publicWaitlistRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/reservation-events.ts">
+    <item priority="high">
+      export const reservationEventRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/reservation-owner.ts">
     <item priority="high">
       export function resolveReservationGuestEmail(
@@ -1077,11 +1082,18 @@
       }
     </item>
     <item priority="low">
+      interface ReservationEventCounts {
+        byKind: Record<ReservationEventKind, number>;
+        rejectedTransitions: number;
+      }
+    </item>
+    <item priority="low">
       interface DailyBookingMetrics {
         date: string;
         venueId: string;
         reservations: ReservationStatusCounts;
         deposits: DepositTransitionCounts;
+        events: ReservationEventCounts;
       }
     </item>
     <item priority="low">
@@ -1678,6 +1690,7 @@
         initiator?: CancelInitiator;
         cancellationReason?: string;
         cancellationNote?: string;
+        actor?: ReservationEventActor;
       }
     </item>
     <item priority="low">
@@ -1727,6 +1740,88 @@
         deps: CancelReservationDeps,
         options: CancelReservationOptions = {}
       ): Promise<CancelReservationResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/reservation-events.ts">
+    <item priority="high">
+      export const RESERVATION_EVENT_KINDS: unknown;
+    </item>
+    <item priority="low">
+      type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
+    </item>
+    <item priority="low">
+      type ReservationEventActor = { type: "staff"; id: string } | { type: "guest"; id: string |  | { type: "system"; id: string };
+    </item>
+    <item priority="high">
+      export const SYSTEM_ACTOR: ReservationEventActor;
+    </item>
+    <item priority="high">
+      export const guestActor: unknown;
+    </item>
+    <item priority="high">
+      export const staffActor: unknown;
+    </item>
+    <item priority="low">
+      type EventState = {
+        status: string;
+        tableId: string;
+        date: string;
+        ...;
+    </item>
+    <item priority="low">
+      type DepositEventState = { depositStatus: string };
+    </item>
+    <item priority="high">
+      export function toEventState(row: {
+        status: string;
+        tableId: string;
+        date: Date;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }): EventState { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordReservationEvent(
+        tx: Prisma.TransactionClient,
+        input: {
+          reservationId: string;
+          venueId: string | null;
+          kind: ReservationEventKind;
+          actor: ReservationEventActor;
+          from?: EventState | DepositEventState | null;
+          to?: EventState | DepositEventState | null;
+        }
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEFAULT_EVENT_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_EVENT_PAGE_SIZE: unknown;
+    </item>
+    <item priority="low">
+      interface ReservationEventDto {
+        id: string;
+        kind: string;
+        actorType: string;
+        actorId: string | null;
+        fromState: unknown;
+      }
+    </item>
+    <item priority="high">
+      class InvalidEventCursorError {
+        
+      }
+    </item>
+    <item priority="medium">
+      function decodeCursor(cursor: string): { createdAt: Date; id: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listForReservation(
+        reservationId: string,
+        { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
+      ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation-modification.ts">
@@ -1793,7 +1888,8 @@
         reservation: Reservation,
         changes: ReservationChanges,
         deposits: DepositService,
-        hold?: ModifyHold
+        hold?: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -1801,7 +1897,8 @@
         reservation: Reservation,
         changes: ReservationChanges,
         deposits: DepositService,
-        { holdId, sessionId }: ModifyHold
+        { holdId, sessionId }: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
@@ -1852,7 +1949,8 @@
       export async function recordNoShow(
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        deposits: DepositService
+        deposits: DepositService,
+        actor?: ReservationEventActor
       ): Promise<RecordNoShowResult> { /* ... */ }
     </item>
   </file>
@@ -2309,6 +2407,30 @@
         async capturePaymentIntent(): Promise<unknown>;
         async cancelPaymentIntent(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="src/services/table-events.ts">
+    <item priority="low">
+      type TableEventActor = { type: "staff"; id: string } | { type: "system"; id: string |;
+    </item>
+    <item priority="high">
+      export const SYSTEM_TABLE_ACTOR: TableEventActor;
+    </item>
+    <item priority="high">
+      export const staffTableActor: unknown;
+    </item>
+    <item priority="high">
+      export async function recordTableEvent(
+        tx: Prisma.TransactionClient,
+        input: {
+          tableId: string;
+          venueId: string | null;
+          fromStatus: TableStatus;
+          toStatus: TableStatus;
+          actor: TableEventActor;
+          reservationId?: string | null;
+        }
+      ) { /* ... */ }
     </item>
   </file>
   <file path="src/services/table-state-machine.ts">

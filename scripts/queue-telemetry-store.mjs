@@ -51,6 +51,12 @@
  *                                 needed a human commit. Absent on rows
  *                                 written before this field existed, and on
  *                                 rows where no human touch occurred.
+ *   unknown_reasons object|undefined  { [field]: reason } for a reconcilable
+ *                                 field (merged, merged_at, ci_first_pass,
+ *                                 reviewer_verdict, cost_usd, model_tier) that
+ *                                 is null. Reason is one of
+ *                                 TELEMETRY_UNKNOWN_REASONS. The field itself
+ *                                 stays null -- never the string "unknown".
  *
  * Writer rows are schema-checked: unknown fields (which could carry
  * credentials) throw before any write.
@@ -75,6 +81,32 @@ export const HUMAN_TOUCH_REASONS = Object.freeze([
   "other",
 ]);
 
+/**
+ * Why a reconcilable field is still null: separates "not reconciled yet" or
+ * "can't be known" from a silent gap.
+ */
+export const TELEMETRY_UNKNOWN_REASONS = Object.freeze([
+  "no-pr",
+  "no-claimed-at",
+  "pr-open",
+  "pr-not-found",
+  "no-ci-gate-run",
+  "no-verdict-comment",
+  "no-ledger-row",
+  "unmapped-model",
+  "source-error",
+]);
+
+/** Fields the reconciler fills; the only valid `unknown_reasons` keys. */
+export const RECONCILABLE_FIELDS = Object.freeze([
+  "merged",
+  "merged_at",
+  "ci_first_pass",
+  "reviewer_verdict",
+  "cost_usd",
+  "model_tier",
+]);
+
 /** Permitted schema fields -- unknown fields are rejected before any write. */
 const SAFE_FIELDS = new Set([
   "issue_number",
@@ -92,6 +124,7 @@ const SAFE_FIELDS = new Set([
   "merged_at",
   "cost_usd",
   "human_touch_reason",
+  "unknown_reasons",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -225,6 +258,24 @@ function validateRow(row) {
     throw new Error(
       `human_touch_reason must be one of ${HUMAN_TOUCH_REASONS.join(", ")}, got: ${row.human_touch_reason}`
     );
+  }
+  if (row.unknown_reasons !== undefined) {
+    const reasons = row.unknown_reasons;
+    if (typeof reasons !== "object" || reasons === null || Array.isArray(reasons)) {
+      throw new Error("unknown_reasons must be an object of { field: reason }");
+    }
+    for (const [field, reason] of Object.entries(reasons)) {
+      if (!RECONCILABLE_FIELDS.includes(field)) {
+        throw new Error(
+          `unknown_reasons key must be one of ${RECONCILABLE_FIELDS.join(", ")}, got: ${field}`
+        );
+      }
+      if (!TELEMETRY_UNKNOWN_REASONS.includes(reason)) {
+        throw new Error(
+          `unknown_reasons.${field} must be one of ${TELEMETRY_UNKNOWN_REASONS.join(", ")}, got: ${reason}`
+        );
+      }
+    }
   }
 }
 

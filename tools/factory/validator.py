@@ -86,6 +86,7 @@ from this file is a decision, not a hole.
 """
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -245,11 +246,18 @@ def declared_conflict(declared, reviewer):
 
 def render_findings(wo, author, reviewer, output, status):
     """The review comment body: who reviewed whom, the verdict, and the
-    literal output that produced it (truncated, never summarised away)."""
+    literal output that produced it (truncated, never summarised away).
+
+    The output is untrusted text (ADR-0098), so its fence is one backtick
+    longer than the longest backtick run inside it (minimum three): by
+    CommonMark, no line of the output can close the block and write prose
+    in the reviewer's voice."""
     verdict = "PASS" if status == 0 else "FAIL"
     if len(output) > MAX_FINDINGS_CHARS:
         output = (output[:MAX_FINDINGS_CHARS]
                   + "\n… truncated; see the check job's log for the rest.\n")
+    longest = max((len(run) for run in re.findall(r"`+", output)), default=0)
+    fence = "`" * max(3, longest + 1)
     return (
         f"{REVIEW_MARKER}\n"
         f"## Factory review — {wo}\n\n"
@@ -259,7 +267,7 @@ def render_findings(wo, author, reviewer, output, status):
         " judgment, not linting).\n\n"
         f"**Detectors and tests: {verdict}**\n\n"
         "<details><summary>Check output</summary>\n\n"
-        f"```text\n{output.rstrip()}\n```\n\n"
+        f"{fence}text\n{output.rstrip()}\n{fence}\n\n"
         "</details>\n")
 
 
@@ -349,11 +357,16 @@ def run_review(root, findings, status, env, run=gh_runner):
         return problems
     # Hand-written rather than cli.read_file (ADR-0075): an absent
     # findings file is an OSError message here, where read_file gives
-    # (None, None).
+    # (None, None). The file is another job's output handed over as
+    # untrusted data (ADR-0098): read only as many bytes as the rendered
+    # cap can use (four per UTF-8 character at worst), and replace what
+    # does not decode rather than let the text refuse its own review.
     try:
-        output = Path(findings).read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as err:
+        with open(findings, "rb") as handle:
+            raw = handle.read(4 * MAX_FINDINGS_CHARS)
+    except OSError as err:
         return [f"V: cannot read findings file {findings}: {err}"]
+    output = raw.decode("utf-8", errors="replace")
     # The heading is cosmetic. An unresolvable citation must not silence the
     # reviewer (the findings are the point) — but it must not name a work
     # order this PR may not implement either. Only the merged-label step,

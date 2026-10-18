@@ -94,6 +94,8 @@ module.exports = {
           "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$",
           "(^|/)scripts/",
           "(^|/)infrastructure/pulumi/github\\.ts$",
+          // Compile-time contracts checked by `pnpm typecheck`, never imported.
+          "(^|/)[^/]+\\.typecheck\\.[cm]?[jt]sx?$",
           ...TEST_PATHS,
         ],
       },

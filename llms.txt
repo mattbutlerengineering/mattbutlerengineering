@@ -1810,11 +1810,6 @@
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
     </item>
   </file>
-  <file path="apps/hospitality/src/constants/confirmation-copy.ts">
-    <item priority="high">
-      export const CONFIRMATION_COPY: unknown;
-    </item>
-  </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
@@ -2505,6 +2500,43 @@
   <file path="apps/gen/e2e/fixtures.ts">
     <item priority="high">
       export const test: unknown;
+    </item>
+  </file>
+  <file path="apps/gen/e2e/gen-api-mocks.ts">
+    <item priority="low">
+      interface FlatElementLine {
+        key: string;
+        type: string;
+        props: Record<string, unknown>;
+        parentKey?: string;
+      }
+    </item>
+    <item priority="high">
+      interface StoredEntry {
+        id: string;
+        userId: string;
+        prompt: string;
+        kind?: string;
+        spec: unknown;
+      }
+    </item>
+    <item priority="low">
+      interface GenApiMocks {
+        uiRequests: Array<Record<string, unknown>>;
+        entries: StoredEntry[];
+      }
+    </item>
+    <item priority="low">
+      interface GenApiResponses {
+        generate: FlatElementLine[];
+        refineSubtree: FlatElementLine[];
+      }
+    </item>
+    <item priority="medium">
+      function ndjson(lines: FlatElementLine[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockGenApi(page: Page, responses: GenApiResponses): Promise<GenApiMocks> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/api-mocks.ts">
@@ -3625,6 +3657,20 @@
       export function useShortcuts(handlers: ShortcutHandlers): void { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/hooks/useSpecDiffHistory.ts">
+    <item priority="low">
+      interface UseSpecDiffHistoryReturn {
+        canUndo: boolean;
+        canRedo: boolean;
+        push: (diff: SpecDiff) => void;
+        undo: () => SpecDiff | null;
+        redo: () => SpecDiff | null;
+      }
+    </item>
+    <item priority="high">
+      export function useSpecDiffHistory(): UseSpecDiffHistoryReturn { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/hooks/useSpecsApi.ts">
     <item priority="low">
       interface SaveSpecData {
@@ -3632,7 +3678,11 @@
         kind?: EntryKind;
         spec: unknown;
         rawLines: string[];
+        refinement?: SpecDiff;
       }
+    </item>
+    <item priority="medium">
+      function decodeStored(entry: StoredSpec): StoredSpec { /* ... */ }
     </item>
     <item priority="low">
       interface UseSpecsApiReturn {
@@ -5150,7 +5200,7 @@
   </file>
   <file path="apps/gen/src/lib/shortcuts.ts">
     <item priority="low">
-      type ShortcutAction = "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
+      type ShortcutAction = "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help" | "undo" | "redo";
     </item>
     <item priority="low">
       type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";
@@ -5238,6 +5288,9 @@
     </item>
     <item priority="high">
       export function decodeSpec(value: unknown): Spec | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decodeSpecDiff(value: unknown): SpecDiff | null { /* ... */ }
     </item>
     <item priority="high">
       export function specStats(spec: Spec | null): SpecStats | null { /* ... */ }
@@ -5586,6 +5639,7 @@
         base: Spec;
         key: string;
         instruction: string;
+        parentId: string | null;
       }
     </item>
     <item priority="low">
@@ -5600,6 +5654,7 @@
     <item priority="low">
       interface UsePlaygroundSessionOptions {
         onGenerationComplete?: () => void;
+        onNotice?: (message: string) => void;
       }
     </item>
     <item priority="high">
@@ -6889,6 +6944,11 @@
       export const publicWaitlistRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/reservation-events.ts">
+    <item priority="high">
+      export const reservationEventRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/reservation-owner.ts">
     <item priority="high">
       export function resolveReservationGuestEmail(
@@ -7950,6 +8010,223 @@
   </file>
   </section>
   <section priority="medium" role="scripts">
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff-lib.ts">
+    <item priority="low">
+      type ProviderId = "anthropic" | "openai" | "gemini";
+    </item>
+    <item priority="low">
+      interface ChatMessage {
+        role: "user" | "assistant";
+        content: string;
+      }
+    </item>
+    <item priority="low">
+      interface ProviderRequest {
+        system: string;
+        messages: readonly ChatMessage[];
+        maxOutputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface ProviderResponse {
+        text: string;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface Pricing {
+        inPerM: number;
+        outPerM: number;
+      }
+    </item>
+    <item priority="low">
+      interface Provider {
+        id: ProviderId;
+        label: string;
+        model: string;
+        pricing: Pricing;
+        call: (req: ProviderRequest) => Promise<ProviderResponse>;
+      }
+    </item>
+    <item priority="low">
+      interface PromptResult {
+        provider: ProviderId;
+        prompt: string;
+        validFirstTry: boolean;
+        validAfterRepair: boolean;
+        inputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface BakeoffReport {
+        results: readonly PromptResult[];
+        spentUsd: number;
+        maxUsd: number;
+        aborted: boolean;
+        abortReason?: string;
+      }
+    </item>
+    <item priority="high">
+      export const PRICING: Readonly<Record<ProviderId, Pricing>>;
+    </item>
+    <item priority="high">
+      export function costUsd(
+        tokens: { inputTokens: number; outputTokens: number },
+        pricing: Pricing
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SYSTEM_PROMPT: unknown;
+    </item>
+    <item priority="low">
+      type Validation = { ok: true } | { ok: false; error: string };
+    </item>
+    <item priority="medium">
+      function extractJson(text: string): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatIssues(error: {
+        issues?: readonly { path: PropertyKey[]; message: string }[];
+      }): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateModelOutput(text: string): Validation { /* ... */ }
+    </item>
+    <item priority="high">
+      class SpendLimitError {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createSpendGuard(maxUsd: number) { /* ... */ }
+    </item>
+    <item priority="high">
+      type SpendGuard = ReturnType<typeof createSpendGuard>;
+    </item>
+    <item priority="medium">
+      function worstCaseUsd(provider: Provider, req: ProviderRequest): number { /* ... */ }
+    </item>
+    <item priority="low">
+      async function guardedCall(provider: Provider, req: ProviderRequest, guard: SpendGuard) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function repairPrompt(error: string): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runPrompt(
+        provider: Provider,
+        prompt: string,
+        guard: SpendGuard
+      ): Promise<PromptResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function errorResult(provider: Provider, prompt: string, err: unknown): PromptResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runBakeoff(opts: {
+        providers: readonly Provider[];
+        prompts: readonly string[];
+        maxUsd: number;
+      }): Promise<BakeoffReport> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createStubProvider(opts: {
+        id: ProviderId;
+        prompts: readonly string[];
+        label?: string;
+        model?: string;
+      }): Provider { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ProviderSummary {
+        provider: ProviderId;
+        n: number;
+        errors: number;
+        validFirstTryPct: number;
+        validAfterRepairPct: number;
+      }
+    </item>
+    <item priority="high">
+      export function summarize(results: readonly PromptResult[]): ProviderSummary[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTable(summaries: readonly ProviderSummary[]): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff-providers.ts">
+    <item priority="high">
+      type FetchLike = typeof fetch;
+    </item>
+    <item priority="high">
+      export const DEFAULT_MODELS: Readonly<Record<ProviderId, string>>;
+    </item>
+    <item priority="high">
+      export const ENV_KEYS: Readonly<Record<ProviderId, string>>;
+    </item>
+    <item priority="high">
+      interface Wire {
+        url: string;
+        headers: Record<string, string>;
+        body: unknown;
+      }
+    </item>
+    <item priority="medium">
+      function anthropicWire(key: string, model: string, req: ProviderRequest): Wire { /* ... */ }
+    </item>
+    <item priority="medium">
+      function openaiWire(key: string, model: string, req: ProviderRequest): Wire { /* ... */ }
+    </item>
+    <item priority="medium">
+      function geminiWire(key: string, model: string, req: ProviderRequest): Wire { /* ... */ }
+    </item>
+    <item priority="high">
+      type Parsed = { text: string; inputTokens: number; outputTokens: number };
+    </item>
+    <item priority="high">
+      interface AnthropicJson {
+        content?: { type?: string; text?: string }[];
+        usage?: { input_tokens?: number; output_tokens?: number };
+      }
+    </item>
+    <item priority="high">
+      interface OpenAiJson {
+        choices?: { message?: { content?: string } }[];
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+      }
+    </item>
+    <item priority="high">
+      interface GeminiJson {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount...;
+      }
+    </item>
+    <item priority="high">
+      export function createProvider(
+        id: ProviderId,
+        apiKey: string,
+        fetchImpl: FetchLike = fetch,
+        model: string = DEFAULT_MODELS[id]
+      ): Provider { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff.ts">
+    <item priority="medium">
+      function loadPrompts(limit: number | undefined): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveProviders(
+        ids: readonly ProviderId[],
+        dryRun: boolean,
+        prompts: string[]
+      ): Provider[] { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main(): Promise<number> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto-catalog/scripts/generate-catalog.ts">
     <item priority="medium">
       function findCatalogMetaFiles(dir: string): string[] { /* ... */ }
@@ -8546,6 +8823,14 @@
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
     <item priority="low">
+      interface SpecRefinement {
+        parentId: string | null;
+        path: string;
+        before: unknown;
+        after: unknown;
+      }
+    </item>
+    <item priority="low">
       interface StoredSpecResponse {
         id: string;
         userId: string;
@@ -8718,11 +9003,18 @@
       }
     </item>
     <item priority="low">
+      interface ReservationEventCounts {
+        byKind: Record<ReservationEventKind, number>;
+        rejectedTransitions: number;
+      }
+    </item>
+    <item priority="low">
       interface DailyBookingMetrics {
         date: string;
         venueId: string;
         reservations: ReservationStatusCounts;
         deposits: DepositTransitionCounts;
+        events: ReservationEventCounts;
       }
     </item>
     <item priority="low">
@@ -9319,6 +9611,7 @@
         initiator?: CancelInitiator;
         cancellationReason?: string;
         cancellationNote?: string;
+        actor?: ReservationEventActor;
       }
     </item>
     <item priority="low">
@@ -9368,6 +9661,88 @@
         deps: CancelReservationDeps,
         options: CancelReservationOptions = {}
       ): Promise<CancelReservationResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/reservation-events.ts">
+    <item priority="high">
+      export const RESERVATION_EVENT_KINDS: unknown;
+    </item>
+    <item priority="low">
+      type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
+    </item>
+    <item priority="low">
+      type ReservationEventActor = { type: "staff"; id: string } | { type: "guest"; id: string |  | { type: "system"; id: string };
+    </item>
+    <item priority="high">
+      export const SYSTEM_ACTOR: ReservationEventActor;
+    </item>
+    <item priority="high">
+      export const guestActor: unknown;
+    </item>
+    <item priority="high">
+      export const staffActor: unknown;
+    </item>
+    <item priority="low">
+      type EventState = {
+        status: string;
+        tableId: string;
+        date: string;
+        ...;
+    </item>
+    <item priority="low">
+      type DepositEventState = { depositStatus: string };
+    </item>
+    <item priority="high">
+      export function toEventState(row: {
+        status: string;
+        tableId: string;
+        date: Date;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }): EventState { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordReservationEvent(
+        tx: Prisma.TransactionClient,
+        input: {
+          reservationId: string;
+          venueId: string | null;
+          kind: ReservationEventKind;
+          actor: ReservationEventActor;
+          from?: EventState | DepositEventState | null;
+          to?: EventState | DepositEventState | null;
+        }
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEFAULT_EVENT_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_EVENT_PAGE_SIZE: unknown;
+    </item>
+    <item priority="low">
+      interface ReservationEventDto {
+        id: string;
+        kind: string;
+        actorType: string;
+        actorId: string | null;
+        fromState: unknown;
+      }
+    </item>
+    <item priority="high">
+      class InvalidEventCursorError {
+        
+      }
+    </item>
+    <item priority="medium">
+      function decodeCursor(cursor: string): { createdAt: Date; id: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listForReservation(
+        reservationId: string,
+        { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
+      ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
@@ -9434,7 +9809,8 @@
         reservation: Reservation,
         changes: ReservationChanges,
         deposits: DepositService,
-        hold?: ModifyHold
+        hold?: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -9442,7 +9818,8 @@
         reservation: Reservation,
         changes: ReservationChanges,
         deposits: DepositService,
-        { holdId, sessionId }: ModifyHold
+        { holdId, sessionId }: ModifyHold,
+        actor?: ReservationEventActor
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
@@ -9493,7 +9870,8 @@
       export async function recordNoShow(
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        deposits: DepositService
+        deposits: DepositService,
+        actor?: ReservationEventActor
       ): Promise<RecordNoShowResult> { /* ... */ }
     </item>
   </file>
@@ -9950,6 +10328,30 @@
         async capturePaymentIntent(): Promise<unknown>;
         async cancelPaymentIntent(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/table-events.ts">
+    <item priority="low">
+      type TableEventActor = { type: "staff"; id: string } | { type: "system"; id: string |;
+    </item>
+    <item priority="high">
+      export const SYSTEM_TABLE_ACTOR: TableEventActor;
+    </item>
+    <item priority="high">
+      export const staffTableActor: unknown;
+    </item>
+    <item priority="high">
+      export async function recordTableEvent(
+        tx: Prisma.TransactionClient,
+        input: {
+          tableId: string;
+          venueId: string | null;
+          fromStatus: TableStatus;
+          toStatus: TableStatus;
+          actor: TableEventActor;
+          reservationId?: string | null;
+        }
+      ) { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/table-state-machine.ts">

@@ -1,12 +1,20 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useApi } from "./useApi.js";
 import type { EntryKind, StoredSpec } from "../types.js";
+import type { SpecDiff } from "../lib/spec-subtree.js";
+import { decodeSpecDiff } from "../lib/spec.js";
 
 export interface SaveSpecData {
   prompt: string;
   kind?: EntryKind;
   spec: unknown;
   rawLines: string[];
+  refinement?: SpecDiff;
+}
+
+// The payload is untrusted: a malformed refinement becomes null rather than reaching replay.
+function decodeStored(entry: StoredSpec): StoredSpec {
+  return "refinement" in entry ? { ...entry, refinement: decodeSpecDiff(entry.refinement) } : entry;
 }
 
 export interface UseSpecsApiReturn {
@@ -45,7 +53,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
     // own UI state, or we can introduce a separate `isRefreshing` flag later.
     try {
       const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
-      setSpecs(json.data);
+      setSpecs(json.data.map(decodeStored));
     } catch (err) {
       console.error("[useSpecsApi] fetchSpecs error:", err);
     } finally {
@@ -56,7 +64,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
   const saveSpec = useCallback(
     async (data: SaveSpecData): Promise<StoredSpec> => {
       const json = await client.post<{ data: StoredSpec }>("/api/gen/specs", data);
-      const created = json.data;
+      const created = decodeStored(json.data);
       // Prepend to local state (immutable update)
       setSpecs((prev) => [created, ...prev]);
       return created;

@@ -524,6 +524,28 @@ describe("sensors-registry", () => {
       expect(result.pass_rate_pct).toBe(100);
     });
 
+    // #6344: zero-job failures on bot branches are phantoms, not CI failures.
+    it("ci sensor reports zero-job bot-branch failures as phantom, outside failed and the denominator", () => {
+      const runs = [
+        { status: "completed", conclusion: "success", headBranch: "main", jobCount: 4 },
+        {
+          status: "completed",
+          conclusion: "failure",
+          headBranch: "automation/production-feedback",
+          jobCount: 0,
+        },
+        { status: "completed", conclusion: "failure", headBranch: "main", jobCount: 3 },
+      ];
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue(runs) } };
+      const sensor = SENSORS.find((s) => s.id === "ci");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.phantom).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.pass_rate_pct).toBe(50);
+    });
+
     // #4713: format used to print `${passed}/${completed}`, which still
     // included skipped/cancelled runs in its denominator even after #4687
     // scoped pass_rate_pct to passed/(passed+failed) — so the human-readable
@@ -1079,6 +1101,33 @@ describe("sensors-registry", () => {
       expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeDefined();
     });
 
+    // #7023: #6941's per-PR cost reconciliation made cost_per_issue_usd non-null
+    // for the first time off a 9-of-264 sample. That one $13/issue average scored
+    // 0 at weight 0.4 and dropped the composite 0.958 -> 0.559 with no real change.
+    it("does not flag composite_vs_previous_report when cost is newly non-null from a sparse sample (#7023)", () => {
+      const current = {
+        available: true,
+        composite: 0.559,
+        sub_metrics: { issues_merged: 264, cost_per_issue_usd: 13.196, cost_coverage_n: 9 },
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.958 };
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeUndefined();
+    });
+
+    it("still flags composite_vs_previous_report when cost coverage reaches the minimum size (#7023)", () => {
+      const current = {
+        available: true,
+        composite: 0.559,
+        sub_metrics: { issues_merged: 264, cost_per_issue_usd: 13.196, cost_coverage_n: 15 },
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.958 };
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeDefined();
+    });
+
     // Reviewer follow-up on the original #5746 PR: prove a realistically-sized
     // window (readMergedAiPrsPaged reliably yields ~90-110 AI PRs — see its
     // own comment) with a genuine composite collapse still raises the alarm,
@@ -1565,5 +1614,39 @@ describe("reviewBurden sensor (#5530)", () => {
     expect(line).toContain("3 reviewer");
     expect(line).toContain("11 review");
     expect(line).toContain("9%");
+  });
+});
+
+describe("queueEfficiency summary line — cost coverage (#6941)", () => {
+  const format = SENSORS.find((s) => s.id === "queueEfficiency").format;
+  const data = (sub) => ({ composite: 0.7, baseline: null, sub_metrics: sub });
+
+  it("prints a known cost with its coverage", () => {
+    const line = format(
+      data({
+        first_pass_success_rate: 1,
+        median_time_to_merge_hours: 2,
+        cost_per_issue_usd: 2,
+        cost_coverage_n: 2,
+        issues_merged: 4,
+      }),
+      "queueEfficiency"
+    );
+    expect(line).toContain("$2/issue (n=2/4)");
+  });
+
+  it("prints cost unknown when cost is null", () => {
+    const line = format(
+      data({
+        first_pass_success_rate: 1,
+        median_time_to_merge_hours: 2,
+        cost_per_issue_usd: null,
+        cost_coverage_n: 0,
+        issues_merged: 4,
+      }),
+      "queueEfficiency"
+    );
+    expect(line).toContain("cost unknown (0/4)");
+    expect(line).not.toContain("$null");
   });
 });

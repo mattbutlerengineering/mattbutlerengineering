@@ -122,7 +122,30 @@ describe("PATCH /public/v1/reservations/confirm", () => {
     expect(response.statusCode).toBe(200);
     expect(response.headers["content-type"]).toContain("text/html");
     expect(response.body).toContain("confirmed");
-    expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "CONFIRMED" });
+    expect(reservationService.update).toHaveBeenCalledWith(
+      "res_1",
+      { status: "CONFIRMED" },
+      { type: "guest", id: null }
+    );
+  });
+
+  it("attributes the confirmation to the reservation's guest, never the manage token", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+    const pending = { ...makePendingReservation(), guestId: "guest_1" };
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(pending as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...pending,
+      status: "CONFIRMED",
+    } as never);
+
+    await app.inject({
+      method: "PATCH",
+      url: `/public/v1/reservations/confirm?token=${token}`,
+    });
+
+    const actor = vi.mocked(reservationService.update).mock.calls[0]![2];
+    expect(actor).toEqual({ type: "guest", id: "guest_1" });
+    expect(JSON.stringify(actor)).not.toContain(token);
   });
 
   it("returns success for already-CONFIRMED reservation (idempotent)", async () => {

@@ -69,12 +69,21 @@ def child_env():
     return {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
 
-def detail(err, every_line=False):
+# The stderr tail a problem string keeps when its caller asks for one
+# (#939): a commit hook prints its complaint and then husky's one-liner,
+# a push its rejection above "failed to push some refs"; the last line
+# alone carried only the summary into the Conductor's stall asks.
+STDERR_TAIL = 3
+
+
+def detail(err, every_line=False, tail=1):
     """One-line detail for a failed CLI call's problem string: the
     command's own stderr when it ran, else the OS error (e.g. the binary
-    not installed). Its last line by default; with every_line, each
-    non-blank line stripped and joined on " | ", for a command like git
-    whose reason sits above a last line such as "Aborting" (#726)."""
+    not installed). Its last line by default; its last `tail` non-blank
+    lines, each stripped and joined on " | ", for a command whose reason
+    sits above its last line (#939: a commit hook, a push); with
+    every_line, every line, for one like git merge whose reason sits
+    above "Aborting" (#726)."""
     stderr = getattr(err, "stderr", None) or ""
     if isinstance(stderr, bytes):
         # subprocess.run attaches a timed-out child's output undecoded,
@@ -83,7 +92,7 @@ def detail(err, every_line=False):
     lines = [line.strip() for line in stderr.splitlines() if line.strip()]
     if not lines:
         return str(err)
-    return " | ".join(lines) if every_line else lines[-1]
+    return " | ".join(lines if every_line else lines[-tail:])
 
 
 def report(label, problems, prefix="", suffix=""):

@@ -611,6 +611,27 @@ describe("PATCH /public/v1/reservations/manage — hold-required changes", () =>
     expect(response.statusCode).toBe(200);
   });
 
+  it("attributes a guest edit to the reservation's guest, never the manage token", async () => {
+    const owned = { ...mockReservation, guestId: "guest_1" };
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: { ...owned, notes: "quiet" },
+    } as never);
+    const token = generateManageToken("res_1", "jane@example.com");
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(owned as never);
+    vi.mocked(venueService.getById).mockResolvedValue(mockVenue as never);
+
+    await holdApp.inject({
+      method: "PATCH",
+      url: `/public/v1/reservations/manage?token=${token}`,
+      payload: { specialRequests: "quiet" },
+    });
+
+    const actor = vi.mocked(reservationService.updateWithConflictCheck).mock.calls[0]![2];
+    expect(actor).toEqual({ type: "guest", id: "guest_1" });
+    expect(JSON.stringify(actor)).not.toContain(token);
+  });
+
   it("answers 410 HOLD_EXPIRED and leaves the reservation alone when the hold lapsed", async () => {
     mockHold();
     vi.mocked(moveReservationToHold).mockResolvedValueOnce({

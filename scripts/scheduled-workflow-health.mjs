@@ -184,7 +184,50 @@ export const DEPLOY_WORKFLOW_FILES = ["deploy-services.yml", "deploy-static.yml"
  * @returns {Array<{name: string, file: string, path: string}>}
  */
 export function findDeployWorkflows(workflowsDir) {
-  return DEPLOY_WORKFLOW_FILES.filter((file) => existsSync(join(workflowsDir, file)))
+  return findListedWorkflows(workflowsDir, DEPLOY_WORKFLOW_FILES);
+}
+
+/**
+ * Explicit, never-a-glob list of push-triggered ADVISORY workflows on `main`
+ * (#6955). They are not in `CI Gate`'s `needs`, so nothing blocks on them, and
+ * they have neither a `schedule:` trigger nor a place in
+ * `DEPLOY_WORKFLOW_FILES` — one could stay red on `main` indefinitely with no
+ * issue filed. Same never-a-glob rationale as `DEPLOY_WORKFLOW_FILES`.
+ */
+export const MAIN_PUSH_WORKFLOW_FILES = [
+  "apps-visual.yml",
+  "e2e-screenshots.yml",
+  "rialto-visual.yml",
+];
+
+/** Mirrors `findDeployWorkflows` for `MAIN_PUSH_WORKFLOW_FILES`. */
+export function findMainPushWorkflows(workflowsDir) {
+  return findListedWorkflows(workflowsDir, MAIN_PUSH_WORKFLOW_FILES);
+}
+
+/**
+ * Pure: the `gh run list` args for the main-push arm. `--branch main --event
+ * push` keeps PR runs out — they fail for PR-specific reasons and must not
+ * count (same lesson as the `ciHealth` sensor's `--branch main` fix, #4538).
+ */
+export function mainPushRunArgs(workflowName, threshold) {
+  return [
+    "--workflow",
+    workflowName,
+    "--branch",
+    "main",
+    "--event",
+    "push",
+    "--limit",
+    String(threshold + 5),
+    "--json",
+    "conclusion,url,createdAt",
+  ];
+}
+
+function findListedWorkflows(workflowsDir, files) {
+  return files
+    .filter((file) => existsSync(join(workflowsDir, file)))
     .map((file) => {
       const source = readFileSync(join(workflowsDir, file), "utf-8");
       const nameMatch = WORKFLOW_NAME_PATTERN.exec(source);
@@ -514,8 +557,13 @@ export function buildScheduledFailureBody({
     ? `\n**Workflow file last changed:** ${workflowModifiedAt} — at least one failing run above postdates it.\n`
     : "";
 
-  const runsNoun = kind === "deploy" ? "consecutive runs" : "consecutive scheduled runs";
-  const workflowNoun = kind === "deploy" ? "workflow" : "scheduled workflow";
+  const runsNoun =
+    kind === "main-push"
+      ? "consecutive `main` push runs"
+      : kind === "deploy"
+        ? "consecutive runs"
+        : "consecutive scheduled runs";
+  const workflowNoun = kind === "scheduled" ? "scheduled workflow" : "workflow";
 
   return `\`${workflowPath}\` has failed its last ${streak} ${runsNoun}.
 ${modifiedLine}
@@ -537,7 +585,7 @@ export function buildDeployFailureBody(args) {
  * against) one `ci-fix` issue via the shared `fileIssue()` seam.
  *
  * @param {{
- *   workflows: Array<{name: string, path: string, kind?: "scheduled"|"deploy"}>,
+ *   workflows: Array<{name: string, path: string, kind?: "scheduled"|"deploy"|"main-push"}>,
  *   getRuns: (workflowName: string) => Array<{conclusion?: string|null}>,
  *   threshold?: number,
  *   searchCiFixIssues?: () => Array<{number: number, title: string}>,
@@ -583,7 +631,7 @@ export function runScheduledWorkflowHealthCheck({
     // title/body wording — only deploy-workflow callers opt into "deploy".
     const kind = workflow.kind ?? "scheduled";
     const title =
-      kind === "deploy"
+      kind !== "scheduled"
         ? buildDeployFailureTitle(workflow.name, health.streak)
         : buildScheduledFailureTitle(workflow.name, health.streak);
     const body = buildScheduledFailureBody({
@@ -680,12 +728,13 @@ function main() {
   const workflowsDir = join(ROOT, ".github", "workflows");
   const scheduledWorkflows = findScheduledWorkflows(workflowsDir);
   const deployWorkflows = findDeployWorkflows(workflowsDir);
+  const mainPushWorkflows = findMainPushWorkflows(workflowsDir);
 
   // Diagnostic/progress output goes to stderr; the final stdout write below
   // is this script's actual product (a machine-readable JSON summary),
   // mirroring revert-watchdog.mjs's checkBaseline() convention.
   console.error(
-    `Checking ${scheduledWorkflows.length} scheduled + ${deployWorkflows.length} deploy workflow(s) (threshold=${threshold}).`
+    `Checking ${scheduledWorkflows.length} scheduled + ${deployWorkflows.length} deploy + ${mainPushWorkflows.length} main-push workflow(s) (threshold=${threshold}).`
   );
 
   const ghClient = createGhClient();
@@ -756,7 +805,14 @@ function main() {
       ]),
   });
 
-  const results = [...scheduledResults, ...deployResults];
+  // Advisory workflows on main (#6955): `--branch main --event push` only.
+  const mainPushResults = runScheduledWorkflowHealthCheck({
+    ...commonDeps,
+    workflows: mainPushWorkflows.map((w) => ({ ...w, kind: "main-push" })),
+    getRuns: (name) => ghClient.workflow.runs(mainPushRunArgs(name, threshold)),
+  });
+
+  const results = [...scheduledResults, ...deployResults, ...mainPushResults];
 
   const failing = results.filter((r) => r.status === "failing-streak");
   if (failing.length > 0) {

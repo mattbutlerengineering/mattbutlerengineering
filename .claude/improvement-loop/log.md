@@ -3806,3 +3806,74 @@ None — 0 `agent-skip`.
 - **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalations.
 - **Coverage before this fire:** 98.4% (131/133, provisional; uncovered: marketing `shipped`, marketing `shipped/:slug`).
 - **Note (not filed — no rubric v1 tell covers it):** two mobile (375×812) layout collisions seen while judging. rialto-web `components/breadcrumb` — deep-path trails overrun their chevron separators, text overlapping the separator glyphs, and the "collapses deep paths with ellipsis" behaviour the page documents does not engage at that width. rialto-web `demos/session-expired` — the cookie banner crushes into a ~50px column over the card's sign-in button (possibly a fixed-position full-page-capture artifact rather than a live defect; unverified). Rubric v1 has no tell for layout collision or overflow, so neither is a Finding. Worth a human's judgement on whether v2 should grow one.
+
+## 2026-10-17 — mbe-learning-loop
+
+**Sensors:** 14/17 available (`lighthouse`, `mutationScore`, `e2eStability` not available — expected, no live-site egress / not configured)
+**Regressions:** 1 detected, 1 issue created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed/reopened, 5 skipped (no matching verifier / no completed CI runs / Lighthouse unavailable — same as prior runs, not new)
+**Sentry triage (1b):** skipped — Sentry MCP access token expired (`find_organizations` returned "Authorization Expired"); needs re-auth, not actionable from this session
+**AI issue feedback (2b):** collected; budgets unchanged at 3/category (highest rejection rate: audit 25%, none over the 40% halving threshold)
+**Skill proposals:** 0 — today is Saturday, not the configured Friday extraction day
+
+### Regression: queueEfficiency.composite_vs_previous_report (0.958 → 0.559, -0.399, high) — root-caused, not a real drop
+
+Investigated before filing rather than filed mechanically. `first_pass_success_rate` (0.898) and time-to-merge (0.2h) are both healthy and unchanged; the entire swing is the cost term. #6941 (merged recently) made `cost_per_issue_usd` reflect real per-PR telemetry instead of always-null — today a `cost_coverage_n=9` sample out of 264 merged issues (3.4% coverage) got its first real cost match, averaging $13.196/issue, which `scoreCost()` maps to 0 and the 0.4-weighted composite term tanks accordingly. The existing `QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE=15` floor in `scripts/sensors-registry.mjs`'s `detectRegression` checks `issues_merged` (264, passes), not `cost_coverage_n` (9, the actual thin denominator) — so the detector has no guard against exactly this shape, the same false-positive class as the already-closed #5738 on this same detector. The dedicated `/optimize-implement-queue` skill ran earlier today and independently reported `composite 0.959 — healthy` via its own baseline comparison, corroborating "nothing actually regressed."
+
+**Filed #7023** (`meta-improvement`, budget 3/3 available) proposing a `cost_coverage_n` floor on the cost-driven delta, analogous to the existing PR-count floor — not a "queue got worse" issue, a detector-gap issue. No duplicate existed (checked open `meta-improvement`-labeled issues).
+
+**Threshold notes:** false positive rate and fix-effectiveness rate from `metrics/verifications.jsonl` (30d) not computed this run — the 48h verification window produced 0 verified/0 failed (all skipped for lack of a matching verifier), so there's no new evidence either way this run; no threshold change indicated. Worth tracking: this is the second time (#5738, now this) the `composite_vs_previous_report` detector has produced a high-severity false alarm — if a third instance occurs before #7023 lands, consider suppressing `queueEfficiency`'s generic day-over-day check entirely in favor of `/optimize-implement-queue`'s baseline-normalized one.
+
+### Addendum — CI triage on this run's own PR (#7024) surfaced an unrelated main-branch break
+
+`Visual Regression (marketing)` failed on #7024 (metrics-only diff). Root-caused rather than dismissed: not this PR's fault — it's a pre-existing break on `main` since this morning, only now exercised because most runs since have been path-filter `skipped`. Two causes: (1) `b7e2d90b`/#6969 added homepage Factory-section content without a baseline regen (stale `home@*` baselines, +230-270px height, 12-14% pixel diff); (2) `/shipped` and `/shipped/:slug` (added by #6962/#6968) were never baselined at all, already known via today's `mbe-ui-quality` coverage note. Filed **#7025** (`ci-fix`) with the documented fix (`visual-baseline-regen.yml -f app=marketing`) and full evidence. Could not dispatch it myself — `actions: write` unavailable to this session (`403 Resource not accessible by integration`, matching the recorded CCR gotcha) — so this needs a human or local session. Commented on #7024 explaining the failure is not this PR's. This check is advisory, not part of required `CI Gate`, so #7024 itself is not blocked.
+
+## 2026-10-18
+
+**queueEfficiency:** composite 0.556 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:46, size:xl:24, size:s:58, size:m:74, size:l:36
+**Issues filed:** 0
+
+**Note on "healthy":** `isRealRegression()` reports healthy only because `regressions: []` came back from the sensor itself this run — there is nothing in this run's own output to triage per Step 4, so that's correctly the mechanical verdict. But the raw composite is the same false-positive shape flagged in today's earlier `mbe-learning-loop` entry (`cost_per_issue_usd=13.196` at `cost_coverage_n=9`, 3.8% of 238 merged issues, dragging the 0.4-weighted cost term to 0): #7023's fix (#7026, merged today) evidently now suppresses the day-over-day _delta_ check on a sparse cost sample, which is why no regression was emitted here either — a real improvement over this morning's false alarm. `first_pass_success_rate` (0.891) and `median_time_to_merge_hours` (0.2) are both in line with the last week of history (0.891-0.909, 0.2-0.3h); nothing in the non-cost sub-metrics suggests an actual process regression. Not re-filing — this is the same tracked gap (#7023/#7026), not a new finding, and today's number is additional evidence the fix is working as intended.
+
+## 2026-10-18 — mbe-evening (progress-tracker)
+
+### Metrics (7d window, since 2026-10-11)
+
+| Metric        | Value                                                                                                                                                                                                                                                       | Status            |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Created       | 40 (15 audit + 25 ci-fix)                                                                                                                                                                                                                                   | -                 |
+| Closed        | 39 (15 audit + 24 ci-fix)                                                                                                                                                                                                                                   | -                 |
+| Closure Rate  | 97.5% (39/40)                                                                                                                                                                                                                                               | Green             |
+| Time-to-Close | mean 12.9h, median 5.0h, n=39 (audit mean 22.5h/median 8.9h; ci-fix mean 7.0h/median 1.6h) — both central measures agree this time, no long-tail skew worth flagging                                                                                        | Green             |
+| Agent Success | N/A — 0 `has-pr` and 0 `agent-failed` open right now                                                                                                                                                                                                        | -                 |
+| CI Pass       | 11/11 non-skipped/cancelled runs on main (sample of last 20; 7 skipped, 2 cancelled excluded) = 100%                                                                                                                                                        | Green             |
+| Queue         | 1 `ready` (#7025) — does **not** cross yesterday's flagged 3-day-at-zero threshold (queue wasn't 0 today)                                                                                                                                                   | Green             |
+| Stale         | 0 (#7025 filed today, not yet 7d old)                                                                                                                                                                                                                       | Green             |
+| Blocked       | 0 `agent-failed` open                                                                                                                                                                                                                                       | Green             |
+| Skipped       | 0 `agent-skip` open                                                                                                                                                                                                                                         | Green             |
+| Daily Spend   | $0 attributed (`recordSpend`) today; queue-worker cost is reported only as a 7d rollup, not split per-day, so today's share is unknown, not $0                                                                                                              | N/A               |
+| 7d Spend      | $3.96 (`recordSpend`, 5 sessions) + $121.77 (30 queue-worker sessions, 3,123,432 tokens; 193 rows still without usage) ≈ **$125.73** total                                                                                                                  | Red               |
+| Cost/Issue    | ≈ $3.22 (= $125.73 / 39 audit+ci-fix closed) — **overstated**: see Patterns, the queue's spend this week was overwhelmingly `mbe-feature-drain` (feature) issues, not audit/ci-fix, so this denominator excludes most of what the $125.73 actually paid for | Yellow (caveated) |
+
+### This iteration's own implement-queue run (mbe-evening Step 1, same session)
+
+Fresh cloud checkout — ran `pnpm install --frozen-lockfile` (24s) plus `pnpm build --filter @mbe/gh-client...` to unblock the `agentCost` sensor used below; neither needed for the queue iteration itself. Phase 0 pre-flight: main green (0 failures in last 5 runs via REST `gh run list`), 0 open PRs. Phase 1: `list_issues` (GitHub MCP, REST-backed) labeled `ready` returned exactly **one** candidate, **#7025** (`ci-fix: marketing homepage visual baseline stale...`) — and its own issue body already documents that it needs `visual-baseline-regen.yml` dispatched via `actions: write`, which this Claude Code Remote session does not have (the same CCR gotcha #7025 itself cites). Correctly not claimable by a worktree worker; left as `ready` rather than touched. 0 issues carried `in-progress` or `has-pr`. Nothing to claim, so Phases 2-3 had no PRs to gate, review, or merge; no merge-train lock was ever acquired so none needed releasing; no worktrees to reap. No telemetry row appended and `git status` on `metrics/queue-telemetry.jsonl` was clean, so no metrics PR was needed from Step 1.
+
+**Session note:** `gh issue list`/`gh pr list`/`gh issue list --label agent-skip` (GraphQL) all 403'd as expected; every list/query above used GitHub MCP tools (REST-backed) or `gh api`/`gh run list` directly, consistent with #5958 and the prior several entries' confirmation.
+
+### Patterns
+
+- **The `ready`-labeled queue this skill drains and the high-throughput `mbe-feature-drain` pipeline are two different things, and today's numbers make the split obvious.** 30 queue-worker telemetry sessions costing $121.77 landed in the 7d window, but the `ready` queue itself sat at 0-1 issues the whole time (per yesterday's and today's entries) — almost all of that spend and the ~25 `feat/issue-69xx...(mbe-feature-drain #NNNN)` PRs merged on 10-17 alone came from a separate feature-drain loop that claims issues outside the `ready`/`in-progress`/`has-pr` state machine this routine watches. Worth naming explicitly since it was previously invisible: this routine's "queue is empty, nothing stuck" read is accurate for _its_ queue, but materially understates total agent throughput and spend for the week.
+- Three `🚨 CRITICAL: Broken Main` ci-fix issues this week (#6851, #6732, #6557), all self-resolved by auto-rollback/revert-watchdog in 5-22 minutes each — not escalating, this is the safety net working as designed, not a quality regression. Zero PR reverts in the last 7 days (`git log --grep=Revert`), separately confirming main stayed healthy.
+- Time-to-close mean and median converged this week (12.9h / 5.0h) versus the long-tail split flagged the last two entries (76.1h mean / 9.6h median on 10-17) — the backlog of old stragglers that was pulling the mean up appears to have fully drained. Reads as the system settling, not a new concern.
+- Partial progress on the long-standing spend-attribution gap (#5885): queue-worker `cost_usd` is now populated for 30/223 telemetry rows this week (vs. "cost unknown" entirely in yesterday's entry) — real dollar figures instead of token-only. Still 193 rows without usage; not re-filing, this is the existing tracked gap closing gradually rather than a new finding.
+
+### Recommendations
+
+- None urgent. #7025 is correctly unclaimable from this session type and already has the right label and a clear human/local-session action documented in its own body — no action needed here beyond leaving it as `ready`.
+- Cost/Issue as currently formulated (7d spend ÷ audit+ci-fix closed) is misleading while `mbe-feature-drain` spend dominates the numerator — worth a future pass at a denominator that includes feature-labeled closures too, so the ratio reflects what's actually being paid for. Not filing a meta-improvement for this yet; noting it here first per the "3+ days consistent" bar.
+
+### Skipped Issues
+
+None — 0 `agent-skip`.

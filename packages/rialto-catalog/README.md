@@ -14,6 +14,5 @@ import { getCatalog } from "@mbe/rialto-catalog/catalog";
 ```bash
 pnpm generate     # Regenerate catalog from Rialto components
 pnpm build        # Compile TypeScript
-pnpm lint         # ESLint
 pnpm typecheck    # TypeScript check
 ```

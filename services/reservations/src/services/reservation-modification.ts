@@ -9,6 +9,7 @@ import {
   isSlotInBookingWindow,
 } from "./slot-rules.js";
 import type { DepositService } from "./deposit.js";
+import type { ReservationEventActor } from "./reservation-events.js";
 
 /** Guest-supplied fields for a modify request; all optional (at least one required). */
 export interface ReservationChanges {
@@ -212,7 +213,8 @@ export async function modifyReservation(
   reservation: Reservation,
   changes: ReservationChanges,
   deposits: DepositService,
-  hold?: ModifyHold
+  hold?: ModifyHold,
+  actor?: ReservationEventActor
 ): Promise<ModifyReservationResult> {
   if (!hasAnyChange(changes) && !hold) {
     return NO_CHANGES_RESULT;
@@ -223,14 +225,16 @@ export async function modifyReservation(
   }
 
   if (hold) {
-    return modifyViaHold(reservation, changes, deposits, hold);
+    return modifyViaHold(reservation, changes, deposits, hold, actor);
   }
 
   // Only a specialRequests edit reaches here: it needs no hold, no venue and
   // no conflict check.
-  const updateResult = await reservationService.updateWithConflictCheck(reservation.id, {
-    notes: changes.specialRequests,
-  });
+  const updateResult = await reservationService.updateWithConflictCheck(
+    reservation.id,
+    { notes: changes.specialRequests },
+    actor
+  );
   if (!updateResult.success) {
     return {
       success: false,
@@ -252,7 +256,8 @@ async function modifyViaHold(
   reservation: Reservation,
   changes: ReservationChanges,
   deposits: DepositService,
-  { holdId, sessionId }: ModifyHold
+  { holdId, sessionId }: ModifyHold,
+  actor?: ReservationEventActor
 ): Promise<ModifyReservationResult> {
   const venueId = reservation.venueId;
   const held = venueId ? await prisma.reservationHold.findUnique({ where: { id: holdId } }) : null;
@@ -294,6 +299,7 @@ async function modifyViaHold(
     sessionId,
     venueId: venueId,
     notes: changes.specialRequests,
+    actor,
   });
   if (!moved.success) {
     return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };

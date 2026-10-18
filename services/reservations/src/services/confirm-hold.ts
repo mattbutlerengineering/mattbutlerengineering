@@ -5,6 +5,12 @@ import { assertBookable } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
 import { runWithVenueContext } from "./venue-context-store.js";
+import {
+  recordReservationEvent,
+  toEventState,
+  SYSTEM_ACTOR,
+  type ReservationEventActor,
+} from "./reservation-events.js";
 
 type ConfirmHoldErrorCode =
   "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
@@ -22,6 +28,8 @@ export interface ConfirmHoldInput {
    * Checked in the same lookup as the session id, before any write.
    */
   venueId?: string;
+  /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
+  actor?: ReservationEventActor;
 }
 
 export type ConfirmHoldResult =
@@ -46,7 +54,7 @@ export type ConfirmHoldResult =
  * cannot both pass their conflict checks and commit (write-skew double-booking).
  */
 export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> {
-  const { holdId, sessionId, guestDetails, userId, venueId } = input;
+  const { holdId, sessionId, guestDetails, userId, venueId, actor = SYSTEM_ACTOR } = input;
 
   // Step 1: Look up hold
   const hold = await prisma.reservationHold.findUnique({
@@ -149,6 +157,15 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
           table: true,
           guest: { select: { visitCount: true, communicationPreference: true } },
         },
+      });
+
+      await recordReservationEvent(tx, {
+        reservationId: reservation.id,
+        venueId: reservation.venueId,
+        kind: "created",
+        actor,
+        from: null,
+        to: toEventState(reservation),
       });
 
       // Delete the hold in the same transaction as the reservation insert.

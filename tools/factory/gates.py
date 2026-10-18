@@ -22,7 +22,8 @@ ai-tooling suite where the rule is the same idea):
                      payload (no hand-edited mirrors), and in a stamped
                      repo the executable payload in use — tools/factory/
                      and .github/workflows/ — matches what it was stamped
-                     from (no hand-edited stamped files)
+                     from (no hand-edited stamped files); a tools-only
+                     stamp has no mirror, and its manifest says so
   F CONFIG-SHAPE   — factory config parses and every field is a valid
                      token (budgets, routing, caps)
   J LABEL-WIRING   — every label the tools and the Makefile's lifecycle
@@ -734,6 +735,15 @@ def manifest_files(root):
 PRISTINE_PREFIXES = ("templates/tools/factory/",
                      "templates/.github/workflows/")
 
+# A tools-only stamp's manifest (#941) carries INSTALL_KEY: TOOLS_ONLY.
+# factory_init writes it when the stamp lands tools/factory/ and
+# factory.json alone — no mirror, no workflows, no Makefile, no seeds —
+# and E reads it: there is no factory/templates/ to compare by design, so
+# the mirror half stands down and the stamped half is the whole gate. A
+# manifest without the marker is a full stamp's, checked as always.
+INSTALL_KEY = "install"
+TOOLS_ONLY = "tools-only"
+
 
 def install_destination(rel):
     """Where a manifest key installs in a stamped repo, or None if it is not
@@ -795,10 +805,27 @@ def stamped_destination_problems(root, expected):
     return problems
 
 
+def mirror_problems(root, expected):
+    """E's first half: the template payload under factory/templates/
+    must match its checksum manifest exactly, file for file."""
+    problems = []
+    actual = manifest_files(root)
+    for rel, digest in sorted(expected.items()):
+        if rel not in actual:
+            problems.append(f"E: manifest lists missing file factory/{rel}")
+        elif actual[rel] != digest:
+            problems.append(
+                f"E: factory/{rel} does not match its manifest checksum"
+                " (re-run manifest update, never hand-edit)")
+    return problems + [f"E: factory/{rel} is not in the manifest"
+                       for rel in sorted(actual) if rel not in expected]
+
+
 def check_scaffold_sync(root):
     """E: the template payload must match its checksum manifest exactly, and
     a stamped repo's executable payload must match what it was stamped
-    from."""
+    from. A tools-only stamp (INSTALL_KEY) has no payload mirror by
+    design, so only the second half runs there."""
     manifest, problem = read_file(root / "factory" / "manifest.json",
                                   "factory/manifest.json", dict)
     if problem:
@@ -808,18 +835,9 @@ def check_scaffold_sync(root):
     files = manifest.get("files")
     if not isinstance(files, dict) or not files:
         return ["E: factory/manifest.json has no files map"]
-    problems = []
-    actual = manifest_files(root)
-    for rel, expected in sorted(files.items()):
-        if rel not in actual:
-            problems.append(f"E: manifest lists missing file factory/{rel}")
-        elif actual[rel] != expected:
-            problems.append(
-                f"E: factory/{rel} does not match its manifest checksum"
-                " (re-run manifest update, never hand-edit)")
-    problems += [f"E: factory/{rel} is not in the manifest"
-                 for rel in sorted(actual) if rel not in files]
-    return problems + stamped_destination_problems(root, files)
+    mirror = ([] if manifest.get(INSTALL_KEY) == TOOLS_ONLY
+              else mirror_problems(root, files))
+    return mirror + stamped_destination_problems(root, files)
 
 
 # Where the factory's label literals are declared: every module beside

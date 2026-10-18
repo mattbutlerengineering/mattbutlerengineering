@@ -6,9 +6,14 @@ vi.mock("../services/reservation-cancellation.js", () => ({
 }));
 vi.mock("../services/reservation-no-show.js", () => ({ recordNoShow: vi.fn() }));
 vi.mock("../services/confirm-hold.js", () => ({ confirmHold: vi.fn() }));
+vi.mock("../services/reservation-modification.js", () => ({
+  modifyReservation: vi.fn(),
+  isTimeChange: vi.fn(() => false),
+}));
 
 import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
 import { recordNoShow } from "../services/reservation-no-show.js";
+import { modifyReservation } from "../services/reservation-modification.js";
 import { ReservationTransitionError } from "../services/reservation-state-machine.js";
 import { createReservationTransitions } from "./index.js";
 import { createInMemoryEvents, createInMemoryJobs, createInMemoryMessaging } from "./in-memory.js";
@@ -88,7 +93,7 @@ describe("reservation transitions — verbs", () => {
       detail: "x",
     } as never);
     await transitions.noShow(reservation, log);
-    expect(recordNoShow).toHaveBeenCalledWith(reservation, log, deposits);
+    expect(recordNoShow).toHaveBeenCalledWith(reservation, log, deposits, undefined);
   });
 
   it("cancel: a committed cancel sets off its planned effects", async () => {
@@ -164,7 +169,11 @@ describe("reservation transitions — verbs", () => {
 
     reservationService.update.mockResolvedValue(reservation);
     await transitions.confirmAttendance({ ...reservation, status: "PENDING" } as Reservation);
-    expect(reservationService.update).toHaveBeenCalledWith("res-1", { status: "CONFIRMED" });
+    expect(reservationService.update).toHaveBeenCalledWith(
+      "res-1",
+      { status: "CONFIRMED" },
+      undefined
+    );
     expect(events.published.map((e) => e.type)).toEqual(["reservation:updated"]);
   });
 
@@ -172,9 +181,71 @@ describe("reservation transitions — verbs", () => {
     const { transitions, reservationService, events } = setup();
     reservationService.updateWithConflictCheck.mockResolvedValue({ success: false, error: "nope" });
     await transitions.updateByStaff(reservation, { notes: "x" });
-    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith("res-1", {
-      notes: "x",
-    });
+    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith(
+      "res-1",
+      {
+        notes: "x",
+      },
+      undefined
+    );
     expect(events.published).toEqual([]);
+  });
+
+  it("forwards the staff actor to each staff-door domain write", async () => {
+    const { transitions, reservationService } = setup();
+    const actor = { type: "staff", id: "user-1" } as const;
+    vi.mocked(cancelReservationWithDeposit).mockResolvedValue({
+      success: false,
+      status: 409,
+      title: "Conflict",
+      detail: "x",
+    } as never);
+    vi.mocked(recordNoShow).mockResolvedValue({
+      success: false,
+      status: 409,
+      detail: "x",
+    } as never);
+    reservationService.updateWithConflictCheck.mockResolvedValue({ success: false, error: "n" });
+    reservationService.createWalkIn.mockResolvedValue({ success: false, error: "n" });
+    reservationService.createWithConflictCheck.mockResolvedValue({ success: false, error: "n" });
+
+    await transitions.cancel(reservation, { ...cancelOptions, actor });
+    await transitions.noShow(reservation, log, actor);
+    await transitions.updateByStaff(reservation, { notes: "x" }, actor);
+    await transitions.createWalkIn({} as never, "user-1", actor);
+    await transitions.createByStaff({} as never, "user-1", actor);
+
+    expect(vi.mocked(cancelReservationWithDeposit).mock.calls[0]![3]).toMatchObject({ actor });
+    expect(recordNoShow).toHaveBeenCalledWith(reservation, log, deposits, actor);
+    expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith(
+      "res-1",
+      { notes: "x" },
+      actor
+    );
+    expect(reservationService.createWalkIn).toHaveBeenCalledWith({}, "user-1", actor);
+    expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith({}, "user-1", actor);
+  });
+
+  it("forwards the guest actor to the guest-door domain writes", async () => {
+    const { transitions, reservationService } = setup();
+    const actor = { type: "guest", id: "guest-1" } as const;
+    vi.mocked(modifyReservation).mockResolvedValue({ success: false } as never);
+    reservationService.update.mockResolvedValue(null);
+
+    const changes = { specialRequests: "quiet" };
+    await transitions.modifyByGuest(reservation, changes, "tok", undefined, actor);
+    await transitions.confirmAttendance(
+      { ...reservation, status: "PENDING" } as Reservation,
+      actor
+    );
+
+    expect(modifyReservation).toHaveBeenCalledWith(
+      reservation,
+      changes,
+      deposits,
+      undefined,
+      actor
+    );
+    expect(reservationService.update).toHaveBeenCalledWith("res-1", { status: "CONFIRMED" }, actor);
   });
 });

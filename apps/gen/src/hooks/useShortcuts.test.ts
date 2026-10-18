@@ -34,6 +34,8 @@ describe("useShortcuts", () => {
       fullscreen: vi.fn(),
       stop: vi.fn(),
       help: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn(),
     };
     renderHook(() => useShortcuts(handlers));
 
@@ -128,5 +130,19 @@ describe("shortcut table", () => {
     if (!history) throw new Error("missing history");
     expect(displayKeys(history, true)).toEqual(["⌥", "1"]);
     expect(displayKeys(history, false)).toEqual(["Alt", "1"]);
+  });
+
+  it("does not hijack native text undo: Cmd/Ctrl+Z is never matched, Alt+Z is ignored while typing", () => {
+    const undo = vi.fn();
+    renderHook(() => useShortcuts({ undo }));
+    press({ key: "z", ctrlKey: true });
+    press({ key: "z", metaKey: true });
+    expect(undo).not.toHaveBeenCalled();
+
+    const textarea = document.createElement("textarea");
+    document.body.appendChild(textarea);
+    press({ altKey: true, code: "KeyZ", key: "Ω" }, textarea);
+    expect(undo).not.toHaveBeenCalled();
+    textarea.remove();
   });
 });

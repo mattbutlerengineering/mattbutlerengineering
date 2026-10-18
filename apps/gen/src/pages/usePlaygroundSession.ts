@@ -2,18 +2,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Spec } from "@json-render/react";
 import { useGenStream } from "../hooks/useGenStream.js";
 import { useSpecsApi } from "../hooks/useSpecsApi.js";
+import { useSpecDiffHistory } from "../hooks/useSpecDiffHistory.js";
 import { createRefinementPrompt } from "./createRefinementPrompt.js";
 import { createErrorRecoveryPrompt } from "./createErrorRecoveryPrompt.js";
 import { isTransportError } from "./classifyGenerationError.js";
 import { usePlaygroundState } from "./usePlaygroundState.js";
 import type { PlaygroundMode } from "./usePlaygroundState.js";
 import { decodeSpec } from "../lib/spec.js";
-import { ancestorChain, extractSubtree, spliceSubtree } from "../lib/spec-subtree.js";
+import {
+  ancestorChain,
+  applySpecDiff,
+  extractSubtree,
+  spliceSubtree,
+} from "../lib/spec-subtree.js";
 import type { SpecError } from "../lib/spec-subtree.js";
 import { validateSpecAgainstCatalog } from "../lib/validate-spec.js";
 import { createSubtreeRefinementPrompt } from "./createSubtreeRefinementPrompt.js";
 import { resolveEntry } from "../lib/entry-kind.js";
 import type { EntryKind, StoredSpec } from "../types.js";
+import type { SpecDiff } from "../lib/spec-subtree.js";
 
 // A real, safely-renderable "empty" Spec — exactly what @json-render/react's
 // own flatToTree([]) produces, and Renderer no-ops on it (`!spec.root`).
@@ -33,6 +40,8 @@ interface NodeRefine {
   base: Spec;
   key: string;
   instruction: string;
+  /** The saved entry the refined spec came from, null for an unsaved one. */
+  parentId: string | null;
 }
 
 export interface PlaygroundSession {
@@ -78,6 +87,13 @@ export interface PlaygroundSession {
   selectHistory: (id: string) => void;
   toggleFavorite: (id: string) => void;
   deleteSpec: (id: string) => void;
+  /** Revert / re-apply the latest node refinement of this session; never calls the model. */
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  /** The refinement most recently applied, undone or redone, for the before/after view. */
+  lastChange: SpecDiff | null;
   reset: () => void;
   stop: () => void;
 }
@@ -98,6 +114,8 @@ export interface UsePlaygroundSessionOptions {
    * toast) — the hook itself stays UI-agnostic.
    */
   onGenerationComplete?: () => void;
+  /** Invoked with a short message when the session wants to tell the user something. */
+  onNotice?: (message: string) => void;
 }
 
 export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): PlaygroundSession {
@@ -129,12 +147,17 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
   const [refineError, setRefineError] = useState<Error | null>(null);
   const nodeRefineRef = useRef<NodeRefine | null>(null);
+  const savePendingRef = useRef(false);
+  const diffHistory = useSpecDiffHistory();
+  const { push: pushDiff, clear: clearDiffs } = diffHistory;
+  const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
 
   const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
     api: "/api/gen/ui",
     onComplete: (completedSpec, completedRawLines) => {
       const nodeRefine = nodeRefineRef.current;
       let savedSpec = completedSpec;
+      let refinement: SpecDiff | undefined;
       if (nodeRefine) {
         // Reject, never render, a subtree that can't be spliced or isn't in the catalog.
         const spliced = spliceSubtree(nodeRefine.base, nodeRefine.key, completedSpec);
@@ -150,19 +173,37 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
           return;
         }
         savedSpec = spliced.spec;
+        const before = extractSubtree(nodeRefine.base, nodeRefine.key);
+        if (before) {
+          refinement = {
+            parentId: nodeRefine.parentId,
+            path: nodeRefine.key,
+            before,
+            after: completedSpec,
+          };
+          pushDiff(refinement);
+          setLastChange(refinement);
+        }
         nodeRefineRef.current = null;
         setPinnedSpec(savedSpec);
       }
       options?.onGenerationComplete?.();
+      // Undo/redo wait for the save: its late .then would otherwise overwrite them.
+      savePendingRef.current = true;
       void saveSpec({
         prompt: promptRef.current,
         kind: kindRef.current,
         spec: savedSpec,
         rawLines: completedRawLines,
-      }).then((stored) => {
-        setActiveId(stored.id);
-        setPinnedSpec(null);
-      });
+        refinement,
+      })
+        .then((stored) => {
+          setActiveId(stored.id);
+          setPinnedSpec(null);
+        })
+        .finally(() => {
+          savePendingRef.current = false;
+        });
     },
     // Record the failed attempt in the same history mechanism (kind
     // "failed") so a
@@ -208,7 +249,10 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     nodeRefineRef.current = null;
     setPinnedSpec(null);
     setRefineError(null);
-  }, []);
+    // A new spec makes the old diffs meaningless: they were made on the previous one.
+    clearDiffs();
+    setLastChange(null);
+  }, [clearDiffs]);
 
   const resetTo = useCallback(
     (id: string | null) => {
@@ -251,7 +295,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       promptRef.current = instruction;
       kindRef.current = "refine";
       refineSpecRef.current = null;
-      nodeRefineRef.current = { base: displaySpec, key, instruction };
+      nodeRefineRef.current = { base: displaySpec, key, instruction, parentId: activeId };
       setPinnedSpec(displaySpec);
       setRefineError(null);
       setActiveId(null);
@@ -261,7 +305,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         { target: { key, type: displaySpec.elements[key]?.type ?? "" } }
       );
     },
-    [displaySpec, send]
+    [displaySpec, send, activeId]
   );
 
   // Pre-load a deep-linked prompt (e.g. from the marketing site's playground
@@ -295,9 +339,25 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       const entry = specs.find((s) => s.id === id);
       if (!entry) return;
       const { kind, prompt } = resolveEntry(entry);
-      // A refine entry only makes sense on top of its parent spec, which isn't
-      // stored — replaying the bare instruction would be meaningless.
-      if (kind === "refine") return;
+      if (kind === "refine") {
+        // A refine entry is replayed by re-applying its stored diff, never by
+        // re-sending the bare instruction. Legacy entries carry no diff.
+        const diff = entry.refinement;
+        if (!diff) return;
+        const parent = diff.parentId ? specs.find((s) => s.id === diff.parentId) : undefined;
+        const parentSpec = parent ? decodeSpec(parent.spec) : null;
+        let rebuilt = parentSpec ? applySpecDiff(parentSpec, diff) : null;
+        if (!rebuilt?.ok) {
+          // Parent evicted or deleted: the diff's `after` onto the entry's own spec.
+          const ownSpec = decodeSpec(entry.spec);
+          rebuilt = ownSpec ? applySpecDiff(ownSpec, diff) : null;
+          if (!rebuilt?.ok) return;
+          options?.onNotice?.("The original spec is gone; showing this refinement as saved.");
+        }
+        resetTo(null);
+        setPinnedSpec(rebuilt.spec);
+        return;
+      }
       promptRef.current = prompt;
       kindRef.current = "generate";
       setRawPrompt(prompt);
@@ -305,7 +365,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       resetTo(null);
       void send(prompt);
     },
-    [specs, resetTo, send]
+    [specs, resetTo, send, options]
   );
 
   // "Retry with error context": when the last attempt failed with a
@@ -341,6 +401,30 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       void send(retryPrompt);
     }
   }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
+
+  const applyDiff = useCallback(
+    (diff: SpecDiff | null) => {
+      if (!diff || !displaySpec) return;
+      const applied = applySpecDiff(displaySpec, diff);
+      if (!applied.ok) {
+        // The stacks no longer match what is on screen; drop them rather than drift.
+        clearDiffs();
+        setLastChange(null);
+        return;
+      }
+      setActiveId(null);
+      setPinnedSpec(applied.spec);
+      setLastChange(diff);
+    },
+    [displaySpec, clearDiffs]
+  );
+  const { undo: popUndo, redo: popRedo } = diffHistory;
+  const undo = useCallback(() => {
+    if (!isStreaming && !savePendingRef.current) applyDiff(popUndo());
+  }, [isStreaming, applyDiff, popUndo]);
+  const redo = useCallback(() => {
+    if (!isStreaming && !savePendingRef.current) applyDiff(popRedo());
+  }, [isStreaming, applyDiff, popRedo]);
 
   const selectHistory = useCallback(
     (id: string) => {
@@ -402,6 +486,11 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     selectHistory,
     toggleFavorite,
     deleteSpec: handleDeleteSpec,
+    undo,
+    redo,
+    canUndo: diffHistory.canUndo,
+    canRedo: diffHistory.canRedo,
+    lastChange,
     reset,
     stop,
   };

@@ -6,6 +6,7 @@ import {
   reservationNotFoundProblem,
 } from "./load-reservation-for-manage.js";
 import { manageTokenScoped } from "./manage-token-scope.js";
+import { guestActor } from "../services/reservation-events.js";
 
 export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{
@@ -44,6 +45,7 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
           manageToken: token,
           reason: request.body?.cancellationReason,
           note: request.body?.cancellationNote,
+          actor: guestActor(preamble.reservation.guestId),
           log: request.log,
         });
 

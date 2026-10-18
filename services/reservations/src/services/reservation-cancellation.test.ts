@@ -16,6 +16,9 @@ vi.mock("./database.js", async () => {
           const row = depositRows.get(where.id);
           return row ? { ...row } : null;
         }),
+        findUniqueOrThrow: vi.fn(async ({ where }: { where: { id: string } }) => ({
+          reservationId: depositRows.get(where.id)?.reservationId ?? "res-123",
+        })),
         updateMany: vi.fn(
           async ({
             where,
@@ -31,9 +34,14 @@ vi.mock("./database.js", async () => {
           }
         ),
       },
+      reservationEvent: { create: vi.fn() },
     },
   });
 });
+
+// Deposit CAS writes run in a venue-scoped transaction; this suite asserts the
+// cancellation money flow, not RLS (see rls-route-sweep.integration.test.ts).
+vi.mock("../middleware/venue-context.js", () => ({ setVenueContext: vi.fn() }));
 
 vi.mock("./reservation.js", () => ({
   reservationService: {
@@ -629,11 +637,15 @@ describe("cancelReservationWithDeposit", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(reservationService.update).toHaveBeenCalledWith("res_1", {
-        status: "CANCELLED",
-        cancellationReason: "no_show_policy",
-        cancellationNote: "Guest called ahead",
-      });
+      expect(reservationService.update).toHaveBeenCalledWith(
+        "res_1",
+        {
+          status: "CANCELLED",
+          cancellationReason: "no_show_policy",
+          cancellationNote: "Guest called ahead",
+        },
+        undefined
+      );
     });
 
     it("still replays a partial_refunded retry from persisted amounts (retry guard is initiator-agnostic)", async () => {

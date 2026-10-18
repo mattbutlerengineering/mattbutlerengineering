@@ -219,12 +219,14 @@ describe("collectQueueEfficiency", () => {
     expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(10 / 3, 2);
   });
 
-  it("uses zero cost when ccusage reader returns null", () => {
+  it("reports cost as unknown (null), never $0, when ccusage reader returns null (#6941)", () => {
     const result = collectQueueEfficiency(() => CLEAN_PRS, NO_CCUSAGE, TEST_NOW);
-    expect(result.sub_metrics.cost_per_issue_usd).toBe(0);
+    expect(result.sub_metrics.cost_per_issue_usd).toBeNull();
+    expect(result.sub_metrics.cost_coverage_n).toBe(0);
+    expect(Number.isFinite(result.composite)).toBe(true);
   });
 
-  it("uses zero cost when ccusage reader throws", () => {
+  it("reports cost as unknown (null) when ccusage reader throws", () => {
     const result = collectQueueEfficiency(
       () => CLEAN_PRS,
       () => {
@@ -233,7 +235,7 @@ describe("collectQueueEfficiency", () => {
       TEST_NOW
     );
     expect(result.available).toBe(true);
-    expect(result.sub_metrics.cost_per_issue_usd).toBe(0);
+    expect(result.sub_metrics.cost_per_issue_usd).toBeNull();
   });
 
   it("returns baseline:null when no prior-week data is available", () => {
@@ -552,7 +554,7 @@ describe("collectQueueEfficiency — telemetry precise-cost preference", () => {
     expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(3.0, 3);
   });
 
-  it("falls back to ccusage when telemetry is only partial (not all PRs covered)", () => {
+  it("averages over the known rows only when telemetry is partial (#6941)", () => {
     const prs = [
       makePr({ number: 10, commitCount: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }),
       makePr({ number: 11, commitCount: 1, createdAt: isoAgo(5), mergedAt: isoAgo(4) }),
@@ -569,8 +571,9 @@ describe("collectQueueEfficiency — telemetry precise-cost preference", () => {
     );
 
     expect(result.available).toBe(true);
-    // Falls back to ccusage: 6.0 / 2 = 3.0
-    expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(3.0, 3);
+    // Known rows only: $0.10 over the 1 costed PR; ccusage is not blended in.
+    expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(0.1, 3);
+    expect(result.sub_metrics.cost_coverage_n).toBe(1);
   });
 
   it("falls back to ccusage when telemetry reader returns null", () => {
@@ -702,6 +705,75 @@ describe("collectQueueEfficiency — review_coverage", () => {
     // covered" (1) — the exact failure mode the metric exists to catch.
     const result = collect([]);
     expect(result.sub_metrics.review_coverage).toBe(0);
+  });
+});
+
+// ── #6941: known-row cost, honest review denominator, null-safe scoring ────
+
+describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () => {
+  const prsN = (n) =>
+    Array.from({ length: n }, (_, i) =>
+      makePr({
+        number: 10 + i,
+        commitCount: 1,
+        createdAt: isoAgo(4 + i * 0.1),
+        mergedAt: isoAgo(3 + i * 0.1),
+      })
+    );
+  const run = (prs, rows, ccusage = null) =>
+    collectQueueEfficiency(
+      () => prs,
+      () => ccusage,
+      TEST_NOW,
+      () => rows
+    );
+
+  it("averages 2 costed of 4 window PRs ($1 and $3) to $2 with cost_coverage_n 2", () => {
+    const result = run(prsN(4), [
+      { pr_number: 10, cost_usd: 1 },
+      { pr_number: 11, cost_usd: 3 },
+    ]);
+    expect(result.sub_metrics.cost_per_issue_usd).toBe(2);
+    expect(result.sub_metrics.cost_coverage_n).toBe(2);
+    expect(result.sub_metrics.issues_merged).toBe(4);
+  });
+
+  it("falls back to ccusage only when it returned a non-zero total", () => {
+    const zero = run(prsN(2), [], { daily: [makeCcusage(0, 0)] });
+    expect(zero.sub_metrics.cost_per_issue_usd).toBeNull();
+    const real = run(prsN(2), [], { daily: [makeCcusage(0, 4)] });
+    expect(real.sub_metrics.cost_per_issue_usd).toBe(2);
+    expect(real.sub_metrics.cost_coverage_n).toBe(0);
+  });
+
+  it("excludes unknown_reasons.reviewer_verdict rows from the review denominator but keeps no-row PRs", () => {
+    const result = run(prsN(3), [
+      { pr_number: 10, reviewer_verdict: "pass" },
+      {
+        pr_number: 11,
+        reviewer_verdict: null,
+        unknown_reasons: { reviewer_verdict: "no-review-record" },
+      },
+    ]);
+    // PR 12 has no row at all: still uncovered (#5005). Denominator = 3 - 1 = 2.
+    expect(result.sub_metrics.review_coverage).toBe(0.5);
+    expect(result.sub_metrics.review_coverage_n).toBe(2);
+  });
+
+  it("passes telemetry rows into the baseline weeks", () => {
+    const current = makePr({ number: 10, createdAt: isoAgo(4), mergedAt: isoAgo(3) });
+    const prior = makePr({ number: 20, createdAt: isoAgo(11), mergedAt: isoAgo(10) });
+    const result = run([current, prior], [{ pr_number: 20, cost_usd: 1.5 }]);
+    expect(result.baseline.cost_per_issue_median).toBe(1.5);
+  });
+
+  it("keeps the composite finite when the baseline cost is unknown", () => {
+    const current = makePr({ number: 10, createdAt: isoAgo(4), mergedAt: isoAgo(3) });
+    const prior = makePr({ number: 20, createdAt: isoAgo(11), mergedAt: isoAgo(10) });
+    const result = run([current, prior], []);
+    expect(result.baseline.cost_per_issue_median).toBeNull();
+    expect(Number.isFinite(result.baseline.composite_median)).toBe(true);
+    expect(Number.isFinite(result.composite)).toBe(true);
   });
 });
 

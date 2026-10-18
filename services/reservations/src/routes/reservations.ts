@@ -1,4 +1,4 @@
-import type { FastifyBaseLogger, FastifyPluginAsync } from "fastify";
+import type { FastifyBaseLogger, FastifyPluginAsync, FastifyRequest } from "fastify";
 import type {
   Reservation,
   ReservationStatus,
@@ -22,6 +22,7 @@ import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { ReservationTransitionError } from "../services/reservation.js";
+import { staffActor, type ReservationEventActor } from "../services/reservation-events.js";
 import type { DomainServices } from "../services/domain-services.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
@@ -29,6 +30,10 @@ import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { generateManageToken } from "./public-reservations.js";
 import { bodyVenueId, inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
+
+/** The authenticated user as the reservation event log's staff actor. */
+const requestActor = (request: FastifyRequest): ReservationEventActor =>
+  staffActor(request.user?.id);
 
 /**
  * Venue-id resolver for the staff reservations list (#4865, Sentry
@@ -100,7 +105,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     logger: FastifyBaseLogger,
     isAdmin: boolean,
     door: "staff-patch" | "staff-delete",
-    options: { cancellationReason?: string; cancellationNote?: string } = {}
+    options: {
+      cancellationReason?: string;
+      cancellationNote?: string;
+      actor?: ReservationEventActor;
+    } = {}
   ) {
     const manageToken = reservation.guestEmail
       ? generateManageToken(reservation.id, reservation.guestEmail)
@@ -111,6 +120,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       manageToken,
       reason: options.cancellationReason,
       note: options.cancellationNote,
+      actor: options.actor,
       log: logger,
     });
   }
@@ -278,7 +288,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       // a single transaction. If the table update fails the whole thing rolls
       // back and rejects, so its live events are set off only after a
       // committed, consistent state.
-      const result = await fastify.transitions.createWalkIn(request.body, userId);
+      const result = await fastify.transitions.createWalkIn(
+        request.body,
+        userId,
+        requestActor(request)
+      );
       if (result.tableNotInVenue) {
         return reply
           .code(403)
@@ -444,7 +458,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           }
         }
 
-        const result = await fastify.transitions.createByStaff(body, userId);
+        const result = await fastify.transitions.createByStaff(body, userId, requestActor(request));
 
         if (result.tableNotInVenue) {
           return reply
@@ -565,6 +579,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             {
               cancellationReason: request.body.cancellationReason,
               cancellationNote: request.body.cancellationNote,
+              actor: isAdmin ? requestActor(request) : undefined,
             }
           );
 
@@ -585,7 +600,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (request.body.status === "NO_SHOW") {
         try {
-          const result = await fastify.transitions.noShow(reservation, request.log);
+          const result = await fastify.transitions.noShow(
+            reservation,
+            request.log,
+            isAdmin ? requestActor(request) : undefined
+          );
 
           if (!result.success) {
             return reply
@@ -636,7 +655,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const result = await fastify.transitions.updateByStaff(reservation, request.body);
+        const result = await fastify.transitions.updateByStaff(
+          reservation,
+          request.body,
+          isAdmin ? requestActor(request) : undefined
+        );
 
         if (!result.success) {
           if (result.error === "Reservation not found") {
@@ -741,7 +764,8 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           reservation,
           request.log,
           isAdmin,
-          "staff-delete"
+          "staff-delete",
+          { actor: isAdmin ? requestActor(request) : undefined }
         );
         if (!result.success) {
           return reply

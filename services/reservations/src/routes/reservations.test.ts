@@ -515,7 +515,8 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(201);
       expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
         expect.any(Object),
-        "auth0|user-123"
+        "auth0|user-123",
+        { type: "staff", id: "auth0|user-123" }
       );
     });
 
@@ -553,7 +554,8 @@ describe("Reservation Routes", () => {
           occasion: "birthday",
           seatingPreference: "patio",
         }),
-        "auth0|user-123"
+        "auth0|user-123",
+        expect.objectContaining({ type: "staff" })
       );
     });
 
@@ -709,7 +711,8 @@ describe("Reservation Routes", () => {
         expect.objectContaining({
           occasion: "anniversary",
           seatingPreference: "window",
-        })
+        }),
+        expect.objectContaining({ type: "staff" })
       );
     });
 
@@ -892,10 +895,14 @@ describe("Reservation Routes", () => {
         expect(response.statusCode).toBe(200);
         const body = JSON.parse(response.body);
         expect(body.data.status).toBe("CANCELLED");
-        expect(reservationService.update).toHaveBeenCalledWith("res-123", {
-          status: "CANCELLED",
-          cancellationReason: "Changed mind",
-        });
+        expect(reservationService.update).toHaveBeenCalledWith(
+          "res-123",
+          {
+            status: "CANCELLED",
+            cancellationReason: "Changed mind",
+          },
+          expect.objectContaining({ type: "staff" })
+        );
       });
 
       it("cancels reservation without reason", async () => {
@@ -917,7 +924,11 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "CANCELLED" });
+        expect(reservationService.update).toHaveBeenCalledWith(
+          "res-123",
+          { status: "CANCELLED" },
+          expect.objectContaining({ type: "staff" })
+        );
       });
 
       it("returns 404 when cancelling nonexistent reservation via PATCH", async () => {
@@ -965,7 +976,8 @@ describe("Reservation Routes", () => {
         // Money resolves BEFORE the status flip, never after.
         expect(reservationService.update).toHaveBeenCalledWith(
           "res-123",
-          expect.objectContaining({ status: "CANCELLED" })
+          expect.objectContaining({ status: "CANCELLED" }),
+          expect.objectContaining({ type: "staff" })
         );
       });
 
@@ -1031,7 +1043,11 @@ describe("Reservation Routes", () => {
         expect(body.data.status).toBe("NO_SHOW");
         expect(depositService.forfeit).toHaveBeenCalledWith("dep-1", "no_show");
         // Deposit forfeiture resolves BEFORE the status flip.
-        expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "NO_SHOW" });
+        expect(reservationService.update).toHaveBeenCalledWith(
+          "res-123",
+          { status: "NO_SHOW" },
+          expect.objectContaining({ type: "staff" })
+        );
       });
 
       it("surfaces a depositWarning as `warning` in the HTTP response body (#5719 M2)", async () => {
@@ -1075,7 +1091,11 @@ describe("Reservation Routes", () => {
 
         expect(response.statusCode).toBe(200);
         expect(depositService.forfeit).not.toHaveBeenCalled();
-        expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "NO_SHOW" });
+        expect(reservationService.update).toHaveBeenCalledWith(
+          "res-123",
+          { status: "NO_SHOW" },
+          expect.objectContaining({ type: "staff" })
+        );
       });
 
       it("aborts the no-show and does not flip status when deposit forfeiture fails (no ghost state)", async () => {
@@ -1314,7 +1334,8 @@ describe("Reservation Routes", () => {
           guestName: "Sarah Smith",
           durationMinutes: 90,
         }),
-        "auth0|user-123"
+        "auth0|user-123",
+        expect.objectContaining({ type: "staff" })
       );
     });
 
@@ -1358,7 +1379,8 @@ describe("Reservation Routes", () => {
           occasion: "birthday",
           seatingPreference: "booth",
         }),
-        "auth0|user-123"
+        "auth0|user-123",
+        expect.objectContaining({ type: "staff" })
       );
     });
 
@@ -1418,7 +1440,8 @@ describe("Reservation Routes", () => {
       expect(guestService.getById).toHaveBeenCalledWith("gst_1");
       expect(reservationService.createWalkIn).toHaveBeenCalledWith(
         expect.objectContaining({ guestId: "gst_1", venueId: "venue-123" }),
-        "auth0|user-123"
+        "auth0|user-123",
+        expect.objectContaining({ type: "staff" })
       );
       const body = JSON.parse(response.body);
       expect(body.data.guestId).toBe("gst_1");
@@ -1443,7 +1466,8 @@ describe("Reservation Routes", () => {
       expect(guestService.getById).not.toHaveBeenCalled();
       expect(reservationService.createWalkIn).toHaveBeenCalledWith(
         expect.not.objectContaining({ guestId: expect.anything() }),
-        "auth0|user-123"
+        "auth0|user-123",
+        expect.objectContaining({ type: "staff" })
       );
     });
 
@@ -1481,7 +1505,11 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data.status).toBe("CANCELLED");
-      expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "CANCELLED" });
+      expect(reservationService.update).toHaveBeenCalledWith(
+        "res-123",
+        { status: "CANCELLED" },
+        expect.objectContaining({ type: "staff" })
+      );
     });
 
     it("returns 404 when cancelling nonexistent reservation", async () => {
@@ -2146,7 +2174,8 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
     expect(guestService.getById).toHaveBeenCalledWith("gst_1");
     expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
       expect.objectContaining({ guestId: "gst_1", venueId: "venue-123" }),
-      "auth0|operator-A"
+      "auth0|operator-A",
+      { type: "staff", id: "auth0|operator-A" }
     );
     expect(guestService.create).not.toHaveBeenCalled();
   });
@@ -2202,7 +2231,8 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
     expect(guestService.findByEmail).toHaveBeenCalledWith("venue-123", "ada@example.com");
     expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
       expect.objectContaining({ guestId: "gst_match", guestName: "Ada" }),
-      "auth0|operator-A"
+      "auth0|operator-A",
+      expect.objectContaining({ type: "staff" })
     );
     expect(guestService.create).not.toHaveBeenCalled();
   });
@@ -2236,7 +2266,8 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
     });
     expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
       expect.objectContaining({ guestId: "gst_new" }),
-      "auth0|operator-A"
+      "auth0|operator-A",
+      expect.objectContaining({ type: "staff" })
     );
   });
 
@@ -2304,7 +2335,8 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
     expect(lookup).not.toHaveBeenCalled();
     expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
       expect.objectContaining({ venueId: "venue-123" }),
-      "auth0|admin-1"
+      "auth0|admin-1",
+      expect.objectContaining({ type: "staff" })
     );
   });
 

@@ -116,6 +116,7 @@ model Venue {
   floorPlans                FloorPlan[]
   holds                     ReservationHold[]
   reservationEvents         ReservationEvent[]
+  tableEvents               TableEvent[]
   memberships               VenueMembership[]
   createdAt                 DateTime          @default(now()) @map("created_at")
   updatedAt                 DateTime          @updatedAt @map("updated_at")
@@ -161,6 +162,7 @@ model Table {
   updatedAt     DateTime          @updatedAt @map("updated_at")
   reservations  Reservation[]
   holds         ReservationHold[]
+  events        TableEvent[]
 
   @@unique([venueId, name])
   @@index([venueId])
@@ -259,6 +261,30 @@ model ReservationEvent {
   @@index([reservationId, createdAt])
   @@index([venueId, createdAt])
   @@map("reservation_events")
+}
+
+/// Append-only log of every `Table.status` transition. `Table.status` stays the
+/// source of truth (not event sourcing; no backfill). `venueId` is NOT NULL so
+/// rows can pass FORCE RLS WITH CHECK -- tables with a NULL `venueId` get no
+/// events. `reservationId` is a plain column, not a FK: it names the booking a
+/// transition belongs to (e.g. a walk-in seat) and must outlive it in history.
+/// `app_reservations` holds SELECT + INSERT only.
+model TableEvent {
+  id            String      @id @default(cuid())
+  tableId       String      @map("table_id")
+  table         Table       @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  venueId       String      @map("venue_id")
+  venue         Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  fromStatus    TableStatus @map("from_status")
+  toStatus      TableStatus @map("to_status")
+  actorType     String      @map("actor_type")
+  actorId       String?     @map("actor_id")
+  reservationId String?     @map("reservation_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([tableId, createdAt])
+  @@index([venueId, createdAt])
+  @@map("table_events")
 }
 
 model Deposit {
