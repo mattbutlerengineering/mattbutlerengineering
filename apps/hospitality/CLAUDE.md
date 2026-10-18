@@ -18,19 +18,20 @@ Build-time env vars (set in CI and `.env`):
 
 ## Pages
 
-| Page                  | Route              | Description                                     |
-| --------------------- | ------------------ | ----------------------------------------------- |
-| HomePage              | `/`                | Dashboard landing; `NeonSign` header instrument |
-| TimelinePage          | `/timeline`        | Reservation timeline view (largest page, ~18KB) |
-| ReservationsPage      | `/reservations`    | Reservation list/management                     |
-| GuestsPage            | `/guests`          | Guest directory                                 |
-| FloorPlansPage        | `/floor-plans`     | Floor plan list                                 |
-| FloorPlanEditorPage   | `/floor-plans/:id` | Interactive floor plan editor                   |
-| BookingWidgetDemoPage | `/booking-widget`  | Embeddable booking widget preview               |
-| VenueOnboardingPage   | `/onboarding`      | Multi-step venue setup wizard                   |
-| ProfilePage           | `/profile`         | User profile                                    |
-| SettingsPage          | `/settings`        | App settings                                    |
-| AdminPage             | `/admin`           | Admin panel                                     |
+| Page                  | Route                      | Description                                                |
+| --------------------- | -------------------------- | ---------------------------------------------------------- |
+| HomePage              | `/`                        | Dashboard landing; `NeonSign` header instrument            |
+| TimelinePage          | `/timeline`                | Reservation timeline view (largest page, ~18KB)            |
+| ReservationsPage      | `/reservations`            | Reservation list/management                                |
+| GuestsPage            | `/guests`                  | Guest directory                                            |
+| FloorPlansPage        | `/floor-plans`             | Floor plan list                                            |
+| FloorPlanEditorPage   | `/floor-plans/:id`         | Interactive floor plan editor                              |
+| MenusPage             | `/menus`, `/menus/:menuId` | Menu list; menu editor (sections, dishes, sold-out toggle) |
+| BookingWidgetDemoPage | `/booking-widget`          | Embeddable booking widget preview                          |
+| VenueOnboardingPage   | `/onboarding`              | Multi-step venue setup wizard                              |
+| ProfilePage           | `/profile`                 | User profile                                               |
+| SettingsPage          | `/settings`                | App settings                                               |
+| AdminPage             | `/admin`                   | Admin panel                                                |
 
 ## Key Components
 

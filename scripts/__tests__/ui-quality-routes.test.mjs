@@ -57,7 +57,7 @@ describe("hospitality adapter", () => {
     expect(byRoute["reservations/manage"].auth).toBe("public");
     expect(byRoute["timeline"].auth).toBe("auth0");
     expect(byRoute["/"].auth).toBe("auth0");
-    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(19);
+    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(21);
   });
 
   it("classifies callback as a redirect and * as not-found", () => {

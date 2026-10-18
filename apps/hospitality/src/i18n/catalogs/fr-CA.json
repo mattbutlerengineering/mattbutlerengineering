@@ -359,7 +359,8 @@
       "floorPlans": "Plans de salle",
       "bookingWidget": "Widget de réservation",
       "signOut": "Se déconnecter",
-      "chat": "Clavardage"
+      "chat": "Clavardage",
+      "menus": "Menus"
     }
   },
   "layout": {
@@ -381,7 +382,8 @@
       "admin": "Administration",
       "dashboard": "Tableau de bord",
       "setup": "Configuration",
-      "hours": "Heures d'ouverture"
+      "hours": "Heures d'ouverture",
+      "menus": "Menus"
     },
     "venuesNotLoaded": "Les établissements n'ont pas été chargés.",
     "searchPlaceholder": "Rechercher des pages et des actions...",
@@ -1637,6 +1639,93 @@
         "description": "Les clients reçoivent immédiatement la confirmation avec les détails de leur réservation.",
         "badge": "UX"
       }
+    }
+  },
+  "menus": {
+    "title": "Menus",
+    "description": "Composez les menus que lisent les convives et marquez les plats épuisés pendant le service.",
+    "newButton": "Nouveau menu",
+    "emptyHeading": "Aucun menu pour le moment",
+    "emptyDescription": "Créez votre premier menu, ajoutez des sections et des plats, puis passez-le à Actif pour le publier.",
+    "loadFailed": "Menus non chargés.",
+    "saveFailed": "Modification non enregistrée.",
+    "notFound": "Menu introuvable",
+    "notFoundDescription": "Ce menu n’existe pas pour ce restaurant.",
+    "status": {
+      "label": "Statut",
+      "DRAFT": "Brouillon",
+      "ACTIVE": "Actif",
+      "INACTIVE": "Inactif"
+    },
+    "list": {
+      "openAria": "Modifier {{name}}",
+      "open": "Modifier",
+      "deleteAria": "Supprimer {{name}}",
+      "delete": "Supprimer",
+      "slugLabel": "/{{slug}}"
+    },
+    "form": {
+      "name": "Nom",
+      "slug": "Identifiant d’URL",
+      "slugHint": "Minuscules, chiffres et traits d’union, comme menu-souper.",
+      "slugInvalid": "Utilisez seulement des minuscules, des chiffres et des traits d’union.",
+      "slugTaken": "Un autre menu utilise déjà cet identifiant.",
+      "create": "Créer le menu",
+      "save": "Enregistrer les modifications",
+      "cancel": "Annuler"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer {{name}} ?",
+      "description": "Ses sections et ses plats sont supprimés aussi. Cette action est irréversible.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "deleteSectionConfirm": {
+      "title": "Supprimer la section {{name}} ?",
+      "description": "Ses plats sont supprimés aussi. Cette action est irréversible."
+    },
+    "deleteItemConfirm": {
+      "title": "Supprimer {{name}} ?",
+      "description": "Ce plat est retiré du menu. Cette action est irréversible."
+    },
+    "editor": {
+      "back": "Tous les menus",
+      "details": "Détails du menu",
+      "sections": "Sections",
+      "addSection": "Ajouter une section",
+      "sectionName": "Nom de la section",
+      "sectionsEmpty": "Aucune section pour le moment. Ajoutez-en une pour commencer à ajouter des plats.",
+      "itemsEmpty": "Cette section ne contient aucun plat.",
+      "rename": "Renommer",
+      "renameAria": "Renommer {{name}}",
+      "deleteSectionAria": "Supprimer la section {{name}}",
+      "addItem": "Ajouter un plat",
+      "itemName": "Nom du plat",
+      "itemDescription": "Description",
+      "price": "Prix ({{currency}})",
+      "priceInvalid": "Entrez un montant comme 12.50, avec au plus deux décimales.",
+      "edit": "Modifier",
+      "editAria": "Modifier {{name}}",
+      "deleteItemAria": "Supprimer {{name}}",
+      "saveItem": "Enregistrer le plat",
+      "moveUpAria": "Monter {{name}}",
+      "moveDownAria": "Descendre {{name}}",
+      "dragAria": "Faites glisser {{name}} pour réordonner",
+      "soldOut": "Épuisé",
+      "soldOutAria": "{{name}} épuisé",
+      "announceSoldOut": "{{name}} marqué comme épuisé.",
+      "announceAvailable": "{{name}} est de nouveau disponible.",
+      "announceMoved": "{{name}} déplacé à la position {{position}} sur {{count}}.",
+      "announceSaved": "Modifications enregistrées.",
+      "addItemTo": "Ajouter un plat à {{name}}"
+    },
+    "qr": {
+      "title": "Code QR",
+      "draftHint": "Le code QR ne fonctionnera pas tant que le menu n’est pas Actif.",
+      "format": "Format",
+      "size": "Taille",
+      "pixels": "{{size}} px",
+      "download": "Télécharger le code QR"
     }
   }
 }

@@ -54,6 +54,9 @@ const FloorPlansPage = lazy(() =>
     default: m.FloorPlansPage,
   }))
 );
+const MenusPage = lazy(() =>
+  import("./pages/MenusPage.js").then((m) => ({ default: m.MenusPage }))
+);
 const FloorPlanEditorPage = lazy(() =>
   import("./pages/FloorPlanEditorPage.js").then((m) => ({
     default: m.FloorPlanEditorPage,
@@ -270,6 +273,22 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <FloorPlanEditorPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "menus",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <MenusPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "menus/:menuId",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <MenusPage />
                 </Suspense>
               ),
             },

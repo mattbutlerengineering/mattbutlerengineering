@@ -1,0 +1,37 @@
+.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-sm) 0;
+}
+
+.grip {
+  cursor: grab;
+  color: var(--rialto-text-secondary);
+  user-select: none;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.price {
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  width: 100%;
+}
