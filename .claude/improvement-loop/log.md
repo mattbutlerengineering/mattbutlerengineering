@@ -3895,3 +3895,14 @@ Fix PR: **none** — `fix_pr_candidate` was `null` (no findings at all, so nothi
 P1 SLA: **0 open `ui-quality:p1` issues**, so 0 breaches and 0 escalations.
 
 No blockers: Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`, filing was never stopped, and no pipeline bug was hit (every script exited 0). A clean no-op fire on the finding side, with one previously build-unreachable route recovered into coverage.
+
+## 2026-10-18 — mbe-learning-loop
+
+**Sensors:** 13/17 available (lighthouse, mutationScore, flakyTests, e2eStability not available — no egress/not configured). acmm L5 (73/84), ciHealth 100% pass rate (25/25), queueEfficiency composite 0.556 (fps 0.889, ttm 0.2h, $13.196/issue, n=9/217, no baseline yet), metricsFreshness 0 unhealthy (review-burden/queue-telemetry/queueEfficiency/sdlcSpeed/ai-issue-feedback all fresh), reviewBurden (no formal review stage, 100 PRs/0 submissions), prCategoryMetrics 95/95 merged (signal uninformative — fix-forward pattern), agentCost $3.96 (7d)/$0 (today), codeChurn 0% (2044 deleted/791411 added, 7d), issues 200 created/200 closed/1 ready.
+**Sentry triage:** skipped — stored Sentry OAuth token rejected ("Authorization Expired"); no retriage possible this run.
+**Regressions:** 0 detected, 0 issues created — status: Healthy.
+**Verifications:** 5 checked (issues closed in last 48h: #7042, #7038, #7023, #7020, #7011), 0 verified, 0 failed, 5 skipped (no completed/matching CI runs or Lighthouse inventory to verify against yet). Nothing reopened.
+**AI issue feedback:** budgets unchanged, all categories at the default budget of 3 — feature 3% rejected (120 total), ci-fix 13% (30), audit 26% (19), meta-improvement 0% (24), acmm 17% (6), dependencies 0% (1). No category crossed the 40% halving threshold.
+**Skill proposals:** 0 (Sunday — session-log analysis is Friday-only this run).
+**Threshold notes:** auto-tuner (run inside verify-fixes.mjs) applied 1 adjustment: `acmm` headroom 1.17 → 1.198. 30d fix-effectiveness rate 87.5% (14 verified / 2 failed, 81 skipped excluded from the denominator) — consistent with prior runs, well above the 50% floor. 30d false-positive rate (issues closed `not_planned` among 293 closed sensor-labeled issues) 5.8% (17/293) — well under the 30% loosening trigger, computed via `gh api repos/.../issues?state=closed&labels=<sensor-label>` per-label REST calls (the search API's cross-repo endpoint is blocked in this session type; see Environment note).
+**Environment note:** fresh cloud checkout had no `node_modules` or built workspace `dist/` outputs; ran `pnpm install --frozen-lockfile` + `node scripts/bootstrap-worktree.mjs` before any sensor/script could resolve `@mbe/gh-client` etc. (per the worktree-bootstrap gotcha). The usual GraphQL-blocked `gh issue/pr list` 403s (per #5958) surfaced in `queueEfficiency` and `collect-ai-issue-feedback`, both with working REST fallbacks — no new finding.
