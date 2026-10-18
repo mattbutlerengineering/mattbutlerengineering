@@ -92,3 +92,18 @@ One observed non-en-US use — a Sentry event or Cloudflare analytics hit
 carrying a non-en-US locale, or a booking made in es-MX, fr-CA or en-GB —
 OR one ui-quality-loop daily judgment of a translated page. Count
 users-observed honestly from what the stage finds; 0 is valid.
+
+## Review decisions 2026-10-18 (Owner, live — not assumptions)
+
+`review.md` (`131b96288`) returned no critical, three majors, six minors
+deferred. The Owner answered the majors together:
+
+3. **Majors 1-3 (English ThemeToggle aria-label live on every staff page;
+   five rialto components still rendering English; lint rule and e2e sweep
+   blind to literals inside conditionals):** "One fix run, all 3." A
+   separate maintenance run, outside this run's Ship, tightens
+   `mbe-local/no-literal-ui-strings` to catch conditional/logical literals
+   (RED on the ~9 found today), then moves those strings into
+   en-US/es-MX/fr-CA catalog keys with a rialto changeset. Ship records all
+   three as open known defects (major 1 live in production) with that fix
+   run pending; they do not block the record.
