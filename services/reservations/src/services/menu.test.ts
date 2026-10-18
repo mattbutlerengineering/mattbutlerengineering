@@ -130,4 +130,44 @@ describe("menuService", () => {
     expect(whereOf(db.menuItem.updateMany)).toEqual(where);
     expect(whereOf(db.menuItem.deleteMany)).toEqual(where);
   });
+
+  it("drops body keys that would move a row across venues (mass assignment)", async () => {
+    const evil = { name: "x", id: "forged", venueId: "B", menuId: "B-menu", sectionId: "B-sec" };
+    db.menuSection.updateMany.mockResolvedValue({ count: 0 });
+    db.menuItem.updateMany.mockResolvedValue({ count: 0 });
+    db.menu.updateMany.mockResolvedValue({ count: 0 });
+
+    await menuService.updateSection("A", "m1", "s1", evil as never);
+    await menuService.updateItem("A", "m1", "s1", "i1", evil as never);
+    await menuService.update("A", "m1", evil as never);
+
+    for (const mock of [db.menuSection.updateMany, db.menuItem.updateMany, db.menu.updateMany]) {
+      expect((mock.mock.calls[0]?.[0] as { data: unknown }).data).toEqual({ name: "x" });
+    }
+  });
+
+  it("create ignores forged id and ownership keys in the body", async () => {
+    db.menu.findFirst.mockResolvedValue({ id: "m1" });
+    db.menuSection.findFirst.mockResolvedValue({ id: "s1" });
+    db.menu.create.mockResolvedValue({ id: "new" });
+    db.menuSection.create.mockResolvedValue({ id: "new" });
+    db.menuItem.create.mockResolvedValue({ id: "new" });
+    const evil = { name: "x", id: "forged", venueId: "B", menuId: "B-menu", sectionId: "B-sec" };
+
+    await menuService.create("A", { ...evil, slug: "x" } as never).catch(() => undefined);
+    await menuService.createSection("A", "m1", evil as never).catch(() => undefined);
+    await menuService
+      .createItem("A", "m1", "s1", { ...evil, priceCents: 1 } as never)
+      .catch(() => undefined);
+
+    const created = (m: Mock) => (m.mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
+    expect(created(db.menu.create)).toEqual({ name: "x", slug: "x", venueId: "A" });
+    expect(created(db.menuSection.create)).toEqual({ name: "x", venueId: "A", menuId: "m1" });
+    expect(created(db.menuItem.create)).toEqual({
+      name: "x",
+      priceCents: 1,
+      venueId: "A",
+      sectionId: "s1",
+    });
+  });
 });

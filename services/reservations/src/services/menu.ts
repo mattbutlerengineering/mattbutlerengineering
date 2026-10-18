@@ -9,6 +9,14 @@ import type {
   CreateMenuItemRequest,
   UpdateMenuItemRequest,
 } from "@mbe/types";
+import {
+  CreateMenuRequestSchema,
+  UpdateMenuRequestSchema,
+  CreateMenuSectionRequestSchema,
+  UpdateMenuSectionRequestSchema,
+  CreateMenuItemRequestSchema,
+  UpdateMenuItemRequestSchema,
+} from "@mbe/types";
 import { prisma } from "./database.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
@@ -111,7 +119,11 @@ export const menuService = {
 
   async create(venueId: string, data: CreateMenuRequest): Promise<Menu> {
     try {
-      const menu = await prisma.menu.create({ data: { ...data, venueId } });
+      // Re-parsing strips unknown keys: the route schema allows extras, and an
+      // `id`/`venueId` smuggled into the body must never reach Prisma.
+      const menu = await prisma.menu.create({
+        data: { ...CreateMenuRequestSchema.parse(data), venueId },
+      });
       return mapMenu(menu);
     } catch (err) {
       if (isUniqueViolation(err)) throw new MenuSlugConflictError(data.slug);
@@ -121,7 +133,10 @@ export const menuService = {
 
   async update(venueId: string, menuId: string, data: UpdateMenuRequest): Promise<Menu | null> {
     try {
-      const { count } = await prisma.menu.updateMany({ where: { id: menuId, venueId }, data });
+      const { count } = await prisma.menu.updateMany({
+        where: { id: menuId, venueId },
+        data: UpdateMenuRequestSchema.parse(data),
+      });
       if (count === 0) return null;
     } catch (err) {
       if (isUniqueViolation(err)) throw new MenuSlugConflictError(data.slug ?? "");
@@ -146,7 +161,11 @@ export const menuService = {
       select: { id: true },
     });
     if (!menu) return null;
-    return mapSection(await prisma.menuSection.create({ data: { ...data, venueId, menuId } }));
+    return mapSection(
+      await prisma.menuSection.create({
+        data: { ...CreateMenuSectionRequestSchema.parse(data), venueId, menuId },
+      })
+    );
   },
 
   async updateSection(
@@ -156,7 +175,12 @@ export const menuService = {
     data: UpdateMenuSectionRequest
   ): Promise<MenuSection | null> {
     const where = { id: sectionId, menuId, venueId };
-    const { count } = await prisma.menuSection.updateMany({ where, data });
+    // Allowlist via the schema: a body `menuId` would otherwise re-parent the
+    // section under another venue's menu (the FK is not composite on venue_id).
+    const { count } = await prisma.menuSection.updateMany({
+      where,
+      data: UpdateMenuSectionRequestSchema.parse(data),
+    });
     if (count === 0) return null;
     const section = await prisma.menuSection.findFirst({ where });
     return section ? mapSection(section) : null;
@@ -180,7 +204,11 @@ export const menuService = {
       select: { id: true },
     });
     if (!section) return null;
-    return mapItem(await prisma.menuItem.create({ data: { ...data, venueId, sectionId } }));
+    return mapItem(
+      await prisma.menuItem.create({
+        data: { ...CreateMenuItemRequestSchema.parse(data), venueId, sectionId },
+      })
+    );
   },
 
   async updateItem(
@@ -191,7 +219,11 @@ export const menuService = {
     data: UpdateMenuItemRequest
   ): Promise<MenuItem | null> {
     const where = { id: itemId, sectionId, venueId, section: { menuId } };
-    const { count } = await prisma.menuItem.updateMany({ where, data });
+    // Same allowlist: a body `sectionId` must not move the item to another venue's section.
+    const { count } = await prisma.menuItem.updateMany({
+      where,
+      data: UpdateMenuItemRequestSchema.parse(data),
+    });
     if (count === 0) return null;
     const item = await prisma.menuItem.findFirst({ where });
     return item ? mapItem(item) : null;
