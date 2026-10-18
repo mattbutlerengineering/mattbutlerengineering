@@ -131,3 +131,19 @@ At least one ui-quality-loop daily judgment of the touched hospitality
 pages dated after 2026-10-15, AND one Owner look at a real
 hospitality page at 1280x720. Count users-observed from what the
 stage finds; 0 is honest if neither exists.
+
+## Review decisions 2026-10-18 (Owner, live — not assumptions)
+
+`review.md` (`33ba20c49`) returned `pass-with-findings`, no critical, two
+majors. The Owner answered both:
+
+3. **Major 1 — title flush against the breadcrumb bar (live in prod):**
+   "Fix: 8px gap." A follow-up PR, outside this run's Ship, sets
+   `PageHeader` `margin-block-start: var(--rialto-space-sm)`, keeps the
+   312px Timeline ratchet unchanged, and regenerates visual baselines
+   from the Linux CI artifact only. Ship records the defect as live in
+   production with that fix pending; it does not block the record.
+4. **Major 2 — fold guard measures status-chrome wrappers, not data:**
+   "Defer to seed." Ship lists it as a follow-up; Operate (or Ship's
+   follow-ups) proposes the `docs/backlog.md` seed: move the fold markers
+   onto the table/data wrappers and re-measure every ratchet from CI.
