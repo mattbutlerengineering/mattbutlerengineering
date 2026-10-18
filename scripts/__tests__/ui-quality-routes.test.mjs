@@ -47,9 +47,9 @@ describe("hospitality adapter", () => {
   const rows = extractApp("hospitality", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 21 route templates (20 leaf paths + 2 index routes, one of which shares `onboarding`)", () => {
-    expect(rows).toHaveLength(21);
-    expect(new Set(rows.map((r) => r.route)).size).toBe(21);
+  it("yields 23 route templates (22 leaf paths + 2 index routes, one of which shares `onboarding`)", () => {
+    expect(rows).toHaveLength(23);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(23);
   });
 
   it("marks the two routes outside <App /> public and everything under it auth0", () => {
@@ -57,14 +57,14 @@ describe("hospitality adapter", () => {
     expect(byRoute["reservations/manage"].auth).toBe("public");
     expect(byRoute["timeline"].auth).toBe("auth0");
     expect(byRoute["/"].auth).toBe("auth0");
-    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(19);
+    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(21);
   });
 
   it("classifies callback as a redirect and * as not-found", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(19);
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(21);
   });
 
   it("names the page module and main.tsx in every row's source_files", () => {
@@ -200,7 +200,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(21 + 11 + 123);
+    expect(rows).toHaveLength(23 + 11 + 123);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([
