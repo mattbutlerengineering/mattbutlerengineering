@@ -287,7 +287,7 @@ all of them `worktree-agent-*` / `chore/queue-telemetry-*` branches lacking the
 is primed to fire false alarms and mask real ones at that error size. The
 `pulls` endpoint supplies `head.ref`, `labels` and `merged_at` together (this
 retro's own numbers were computed that way) and is repo-scoped, so it also
-clears the 403. Highest leverage item this week: one endpoint swap, two bugs.
+clears the 403. Highest leverage item this week: one endpoint swap, two bugs. **Filed as #7090.**
 
 **2. Give the retro's Pass 2 input a freshness guard and an open-state filter.**
 Tonight's prescribed source would have escalated nine issues that closed a month
@@ -297,7 +297,7 @@ honest fix: a `scripts/stale-human-blocked-latest.mjs` that returns the latest
 batch _with_ a freshness verdict and current issue state, so a stale or
 all-closed batch reports "no usable data" instead of nine phantom escalations —
 and the retro calls one command rather than hand-rolling `jq` over an
-append-only file.
+append-only file. **Filed as #7091.**
 
 **3. Add the missing gotchas bullet joining visual-baseline regen to
 `actions: write`.** Proposed wording for § CI, under the existing
@@ -310,13 +310,16 @@ rialto-web-baselines entry:
 > _clear_ them: `apps-visual.yml` sat red 54 of 60 runs over 2026-10-12→18
 > with #7025 open and `ready` the whole time, unworkable by every session
 > that picked it up. A stale-baseline issue should be labelled
-> `ready-for-human` (with the exact `gh workflow run visual-baseline-regen.yml
--f app=<app>` line in the body), not `ready` — an agent-queue label on a
+> `ready-for-human` (with the exact
+> `gh workflow run visual-baseline-regen.yml -f app=<app>` line in the body),
+> not `ready` — an agent-queue label on a
 > dispatch-only remedy burns a worker every pass and leaves the check red.
 > The tell that baselines are stale rather than genuinely regressed is an
 > **identical pixel delta across unrelated routes** (3123 px on both
 > hospitality `home` and `admin`), which means one shared chrome element
 > moved.
+
+**Filed as #7092.**
 
 ### Escalations
 
