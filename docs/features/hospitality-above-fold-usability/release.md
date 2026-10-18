@@ -278,7 +278,7 @@ These are read-only, unauthenticated probes. No login was attempted.
   follow-up PR, **outside this run**, sets `PageHeader`
   `margin-block-start: var(--rialto-space-sm)`, keeps the 312px Timeline
   ratchet unchanged (Timeline is about 305px with 8px), and regenerates
-  visual baselines from the Linux CI artifact only. **That PR is pending.**
+  visual baselines from the Linux CI artifact only. **That PR is #7051 (open, `579bb8aa1`).**
   Ship records the defect and does not block on it.
 
 ## Follow-ups
