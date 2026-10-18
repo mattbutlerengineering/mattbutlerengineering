@@ -38,7 +38,7 @@ const MAX_LOCKFILE_SAMPLES = 60;
 const LOCKFILE = "pnpm-lock.yaml";
 const MS_PER_MIN = 60_000;
 
-/** @param {{ author?: string, labels?: string[] }} pr */
+/** @param {{ author?: string, labels?: string[], headRefName?: string }} pr */
 export function classifyAuthor(pr) {
   const login = (pr.author ?? "")
     .toLowerCase()
@@ -46,7 +46,9 @@ export function classifyAuthor(pr) {
     .replace(/\[bot\]$/, "");
   if (login === "dependabot") return "dependabot";
   if (login === "github-actions") return "github-actions";
-  return isAgentPr({ author: pr.author, labels: pr.labels ?? [] }) ? "agent" : "human";
+  return isAgentPr({ author: pr.author, labels: pr.labels ?? [], headRefName: pr.headRefName })
+    ? "agent"
+    : "human";
 }
 
 /** Nearest-rank percentile; 0 for an empty list (never NaN). */
@@ -60,18 +62,31 @@ export function percentile(values, p) {
 const minutesBetween = (from, to) => (Date.parse(to) - Date.parse(from)) / MS_PER_MIN;
 const round1 = (n) => Math.round(n * 10) / 10;
 
-/** @param {object} item one `items[]` entry of `gh api search/issues` */
-export function normalizeSearchPr(item) {
-  const mergedAt = item?.pull_request?.merged_at;
+/**
+ * @param {object} item one entry of `gh api repos/{owner}/{repo}/pulls`. Unlike
+ *   `search/issues` it carries `head.ref`, which the canonical agent predicate needs.
+ */
+export function normalizePull(item) {
+  const mergedAt = item?.merged_at;
   if (!mergedAt || !item.created_at) return null;
   const labels = (item.labels ?? []).map((l) => l.name);
   const minutes = minutesBetween(item.created_at, mergedAt);
   if (!Number.isFinite(minutes)) return null;
   return {
     number: item.number,
-    authorClass: classifyAuthor({ author: item.user?.login, labels }),
+    authorClass: classifyAuthor({
+      author: item.user?.login,
+      labels,
+      headRefName: item.head?.ref,
+    }),
     openToMergeMin: round1(minutes),
   };
+}
+
+/** `pulls` has no server-side merged filter, so the window is applied here. */
+export function mergedWithin(item, days, now) {
+  const mergedMs = Date.parse(item?.merged_at ?? "");
+  return Number.isFinite(mergedMs) && mergedMs >= now.getTime() - days * 86_400_000;
 }
 
 /** @param {object} run one `workflow_runs[]` entry; null unless success/failure */
@@ -198,19 +213,31 @@ export function upsertSensorRow(jsonlText, entry) {
   return [...kept, JSON.stringify(entry)].join("\n") + "\n";
 }
 
-/**
- * `owner/repo` without a GraphQL-backed `gh repo view` (403 in Claude Code
- * Remote): GITHUB_REPOSITORY when set (Actions), else one REST lookup.
- */
-export function resolveRepoSlug(env, lookup) {
-  const fromEnv = (env.GITHUB_REPOSITORY ?? "").trim();
-  return fromEnv || lookup().trim();
-}
-
 // ── I/O (CLI only) ───────────────────────────────────────────────────────
 
 function gh(args) {
   return execFileSync("gh", args, { encoding: "utf-8", maxBuffer: 256 * 1024 * 1024 });
+}
+
+/**
+ * `gh api --paginate` follows the Link header, whose next-page URL is the
+ * numeric `repositories/{id}/...` form the Claude Code Remote proxy answers 403
+ * to. Page explicitly instead; `jq` must emit exactly one line per item.
+ */
+function ghPaged(path, jq, perPage = 100) {
+  const out = [];
+  for (let page = 1; ; page++) {
+    const chunk = gh([
+      "api",
+      `${path}${path.includes("?") ? "&" : "?"}per_page=${perPage}&page=${page}`,
+      "--jq",
+      jq,
+    ])
+      .split("\n")
+      .filter((l) => l.trim());
+    out.push(...chunk);
+    if (chunk.length < perPage) return out;
+  }
 }
 
 const lines = (text) =>
@@ -219,38 +246,36 @@ const lines = (text) =>
     .filter((l) => l.trim())
     .map((l) => JSON.parse(l));
 
+/**
+ * Merged PRs from the repo-scoped `pulls` endpoint (`search/*` answers 403 in
+ * Claude Code Remote). Paged most-recently-updated first; `updated_at` is never
+ * earlier than `merged_at`, so once a page's oldest entry was last updated before
+ * the window starts nothing later in the listing can have merged inside it.
+ */
 function fetchPrs(days, now) {
-  const repo = resolveRepoSlug(process.env, () =>
-    gh(["api", "repos/{owner}/{repo}", "--jq", ".full_name"])
-  );
-  const since = new Date(now.getTime() - days * 86_400_000).toISOString().slice(0, 10);
-  const q = `repo:${repo} is:pr is:merged merged:>=${since}`;
-  const out = gh([
-    "api",
-    "--method",
-    "GET", // -f alone would POST
-    "--paginate",
-    "search/issues",
-    "-f",
-    `q=${q}`,
-    "-f",
-    "per_page=100",
-    "--jq",
-    ".items[]",
-  ]);
-  return lines(out).map(normalizeSearchPr).filter(Boolean);
+  const windowStartMs = now.getTime() - days * 86_400_000;
+  const merged = [];
+  for (let page = 1; ; page++) {
+    const batch = JSON.parse(
+      gh([
+        "api",
+        `repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=${page}`,
+      ])
+    );
+    merged.push(...batch.filter((p) => mergedWithin(p, days, now)));
+    const oldestMs = Math.min(...batch.map((p) => Date.parse(p.updated_at)));
+    if (batch.length < 100 || oldestMs < windowStartMs) break;
+  }
+  return merged.map(normalizePull).filter(Boolean);
 }
 
 function fetchCiRuns(days, now) {
   const since = new Date(now.getTime() - days * 86_400_000).toISOString().slice(0, 10);
-  const path = `repos/{owner}/{repo}/actions/workflows/ci.yml/runs?event=pull_request&created=>=${since}&per_page=100`;
-  const out = gh([
-    "api",
-    "--paginate",
+  const path = `repos/{owner}/{repo}/actions/workflows/ci.yml/runs?event=pull_request&created=>=${since}`;
+  const out = ghPaged(
     path,
-    "--jq",
-    ".workflow_runs[] | {id,conclusion,run_started_at,updated_at,sha:.head_sha,pr:(.pull_requests[0].number // null)}",
-  ]);
+    ".workflow_runs[] | {id,conclusion,run_started_at,updated_at,sha:.head_sha,pr:(.pull_requests[0].number // null)}"
+  ).join("\n");
   const runs = lines(out);
   const fileCache = new Map();
   // A merged PR's branch is usually deleted, which empties the run's
@@ -268,13 +293,7 @@ function fetchCiRuns(days, now) {
   const touchesLock = (n) => {
     if (n === null) return null;
     if (!fileCache.has(n)) {
-      const files = gh([
-        "api",
-        "--paginate",
-        `repos/{owner}/{repo}/pulls/${n}/files`,
-        "--jq",
-        ".[].filename",
-      ]);
+      const files = ghPaged(`repos/{owner}/{repo}/pulls/${n}/files`, ".[].filename").join("\n");
       fileCache.set(n, files.split("\n").includes(LOCKFILE));
     }
     return fileCache.get(n);
@@ -314,13 +333,9 @@ function readRows(path) {
 }
 
 function openReadyTitles() {
-  const out = gh([
-    "api",
-    "--paginate",
-    "repos/{owner}/{repo}/issues?state=open&labels=ready&per_page=100",
-    "--jq",
-    ".[].title",
-  ]);
+  const out = ghPaged("repos/{owner}/{repo}/issues?state=open&labels=ready", ".[].title").join(
+    "\n"
+  );
   return out.split("\n").filter(Boolean);
 }
 
