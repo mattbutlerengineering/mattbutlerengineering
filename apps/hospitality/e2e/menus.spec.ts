@@ -35,9 +35,11 @@ async function buildDinnerMenu(page: Page): Promise<void> {
 async function setMenuActive(page: Page): Promise<void> {
   const details = page.getByRole("form", { name: "Menu details" });
   await details.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Active" }).click();
-  await details.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Changes saved.")).toBeAttached();
+  await page.getByRole("option", { name: "Active", exact: true }).click();
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().includes("/menus/")),
+    details.getByRole("button", { name: "Save changes" }).click(),
+  ]);
 }
 
 test.describe("Menus — operator to guest loop (#7073)", () => {
@@ -70,8 +72,13 @@ test.describe("Menus — operator to guest loop (#7073)", () => {
 
     await mockedPage.goto("menus");
     await mockedPage.getByRole("link", { name: "Edit Dinner" }).click();
-    await mockedPage.getByRole("switch", { name: "Soup sold out" }).click();
-    await expect(mockedPage.getByRole("switch", { name: "Soup sold out" })).toBeChecked();
+    // The toggle is optimistic: wait for the PATCH to land before leaving the page.
+    await Promise.all([
+      mockedPage.waitForResponse(
+        (r) => r.request().method() === "PATCH" && r.url().includes("/items/")
+      ),
+      mockedPage.getByRole("switch", { name: "Soup sold out" }).check(),
+    ]);
 
     await mockedPage.goto(GUEST_URL);
     await expect(mockedPage.getByRole("listitem").filter({ hasText: "Soup" })).toContainText(
