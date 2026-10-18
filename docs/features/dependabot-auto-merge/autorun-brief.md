@@ -182,3 +182,21 @@ At least 10 Dependabot PRs opened after #6680 merged, with the measured
 p90 open->merge time for the in-policy ones compared against the
 2026-10-14 baseline (~24 h). users-observed counts PRs and humans
 honestly; 0 is valid.
+
+## Review decisions 2026-10-18 (Owner, live — not assumptions)
+
+`review.md` (`7020754c3`) returned no critical, two majors, four minors. The
+Owner answered:
+
+3. **M1 — armed auto-merge is never revoked (security):** "Fix now + m4."
+   A separate fix PR, outside this run's Ship, makes
+   `dependabot-auto-merge.yml` re-evaluate on every `synchronize` and run
+   `gh pr merge --disable-auto` unless the head commit is still authored by
+   `dependabot[bot]` and the policy still decides `merge`; and adds the
+   `github.event.pull_request.user.login == 'dependabot[bot]'` gate (m4).
+   RED test first; the Owner merges. Ship records M1 as open with that fix
+   pending; it does not block the record.
+4. **M2 — GITHUB_TOKEN-completed merges fire no `push` workflows:**
+   "Defer to seed." Ship lists it as a follow-up seed tied to the existing
+   `AUTOMATION_PAT` gap (docs/SECRETS.md): merge with an App/PAT token so
+   push workflows run. Needs an Owner-minted secret.
