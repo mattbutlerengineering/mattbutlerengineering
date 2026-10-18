@@ -114,6 +114,7 @@ model Venue {
   reservations              Reservation[]
   guests                    Guest[]
   floorPlans                FloorPlan[]
+  menus                     Menu[]
   holds                     ReservationHold[]
   reservationEvents         ReservationEvent[]
   tableEvents               TableEvent[]
@@ -124,6 +125,66 @@ model Venue {
   @@unique([venueGroupId, slug])
   @@index([venueGroupId])
   @@map("venues")
+}
+
+enum MenuStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
+enum MenuItemStatus {
+  AVAILABLE
+  SOLD_OUT
+  HIDDEN
+}
+
+model Menu {
+  id           String        @id @default(cuid())
+  venueId      String        @map("venue_id")
+  venue        Venue         @relation(fields: [venueId], references: [id])
+  name         String
+  slug         String
+  description  String?
+  status       MenuStatus    @default(DRAFT)
+  displayOrder Int           @default(0) @map("display_order")
+  sections     MenuSection[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@unique([venueId, slug])
+  @@index([venueId, status])
+  @@map("menus")
+}
+
+model MenuSection {
+  id           String     @id @default(cuid())
+  venueId      String     @map("venue_id")
+  menuId       String     @map("menu_id")
+  menu         Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  name         String
+  displayOrder Int        @default(0) @map("display_order")
+  items        MenuItem[]
+
+  @@index([venueId])
+  @@index([menuId, displayOrder])
+  @@map("menu_sections")
+}
+
+model MenuItem {
+  id           String         @id @default(cuid())
+  venueId      String         @map("venue_id")
+  sectionId    String         @map("section_id")
+  section      MenuSection    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  priceCents   Int            @map("price_cents")
+  status       MenuItemStatus @default(AVAILABLE)
+  displayOrder Int            @default(0) @map("display_order")
+
+  @@index([venueId])
+  @@index([sectionId, displayOrder])
+  @@map("menu_items")
 }
 
 model FloorPlan {

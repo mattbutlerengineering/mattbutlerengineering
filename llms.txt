@@ -7705,6 +7705,74 @@
       export const cancelReservationBodyJsonSchema: unknown;
     </item>
   </file>
+  <file path="packages/types/src/schemas/menu.ts">
+    <item priority="high">
+      export const MenuStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const MenuItemStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const MenuSchema: unknown;
+    </item>
+    <item priority="high">
+      export const MenuSectionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const MenuItemSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateMenuRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateMenuRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateMenuSectionRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateMenuSectionRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateMenuItemRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateMenuItemRequestSchema: unknown;
+    </item>
+    <item priority="low">
+      type MenuStatus = z.infer<typeof MenuStatusSchema>;
+    </item>
+    <item priority="low">
+      type MenuItemStatus = z.infer<typeof MenuItemStatusSchema>;
+    </item>
+    <item priority="low">
+      type Menu = z.infer<typeof MenuSchema>;
+    </item>
+    <item priority="low">
+      type MenuSection = z.infer<typeof MenuSectionSchema>;
+    </item>
+    <item priority="low">
+      type MenuItem = z.infer<typeof MenuItemSchema>;
+    </item>
+    <item priority="low">
+      type CreateMenuRequest = z.infer<typeof CreateMenuRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateMenuRequest = z.infer<typeof UpdateMenuRequestSchema>;
+    </item>
+    <item priority="low">
+      type CreateMenuSectionRequest = z.infer<typeof CreateMenuSectionRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateMenuSectionRequest = z.infer<typeof UpdateMenuSectionRequestSchema>;
+    </item>
+    <item priority="low">
+      type CreateMenuItemRequest = z.infer<typeof CreateMenuItemRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateMenuItemRequest = z.infer<typeof UpdateMenuItemRequestSchema>;
+    </item>
+  </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
     <item priority="high">
       export const ListReservationsQuerySchema: unknown;
