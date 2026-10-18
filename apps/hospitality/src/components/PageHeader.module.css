@@ -1,6 +1,8 @@
-/* No top margin: DashboardLayout's .content padding already spaces the title
-   from the breadcrumb bar (#6367). */
+/* The breadcrumb bar cancels .content's top padding (negative margin in
+   DashboardLayout.module.css), so this is the only gap between bar and title.
+   Kept at --rialto-space-xs (8px) so Timeline stays inside the fold budget (#6367). */
 .header {
+  margin-block-start: var(--rialto-space-xs);
   margin-block-end: var(--rialto-space-md);
 }
 
