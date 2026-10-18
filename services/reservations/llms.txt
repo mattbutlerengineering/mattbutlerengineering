@@ -355,6 +355,16 @@
       ): Handler<RG> { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/menus.ts">
+    <item priority="high">
+      interface MenuQuery {
+        venueId: string;
+      }
+    </item>
+    <item priority="high">
+      export const menuRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/modify-reservation.ts">
     <item priority="high">
       interface ModifyBody {
@@ -717,6 +727,21 @@
     </item>
     <item priority="medium">
       function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
+    </item>
+    <item priority="high">
+      interface MenuTreeIds {
+        menuId: string;
+        sectionId: string;
+        itemId: string;
+      }
+    </item>
+    <item priority="low">
+      async function seedMenuTree(ctx: SweepContext, venueId: string): Promise<MenuTreeIds> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okMenuRoute(
+        build: (ids: MenuTreeIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+      ): RouteFixture { /* ... */ }
     </item>
     <item priority="high">
       export const FIXTURES: Record<string, RouteFixture>;
@@ -1603,6 +1628,41 @@
         userSub: string,
         client: PrismaClient = prisma
       ): Promise<string[]> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/menu.ts">
+    <item priority="low">
+      type MenuWithSections = Menu & {
+        sections: (MenuSection & { items: MenuItem[] }...;
+    </item>
+    <item priority="high">
+      class MenuSlugConflictError {
+        
+      }
+    </item>
+    <item priority="high">
+      interface PrismaMenu {
+        id: string;
+        venueId: string;
+        name: string;
+        slug: string;
+        description: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function mapMenu(menu: PrismaMenu): Menu { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapSection(section: MenuSection): MenuSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapItem(item: MenuItem): MenuItem { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isUniqueViolation(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const menuService: unknown;
     </item>
   </file>
   <file path="src/services/move-to-hold.ts">

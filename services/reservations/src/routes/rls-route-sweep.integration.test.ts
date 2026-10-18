@@ -435,6 +435,8 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
         await seedClient.query("DELETE FROM guests WHERE venue_id = $1", [venueId]);
         await seedClient.query("DELETE FROM tables WHERE venue_id = $1", [venueId]);
         await seedClient.query("DELETE FROM floor_plans WHERE venue_id = $1", [venueId]);
+        // Menus cascade to sections and items; the menu fixtures seed through the API.
+        await seedClient.query("DELETE FROM menus WHERE venue_id = $1", [venueId]);
         await seedClient.query("DELETE FROM venues WHERE id = $1", [venueId]);
       });
     }

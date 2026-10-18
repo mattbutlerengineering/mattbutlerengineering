@@ -75,3 +75,11 @@ export type CreateMenuSectionRequest = z.infer<typeof CreateMenuSectionRequestSc
 export type UpdateMenuSectionRequest = z.infer<typeof UpdateMenuSectionRequestSchema>;
 export type CreateMenuItemRequest = z.infer<typeof CreateMenuItemRequestSchema>;
 export type UpdateMenuItemRequest = z.infer<typeof UpdateMenuItemRequestSchema>;
+
+/** Every operator menu route names its venue in the query string. */
+export const MenuVenueQuerySchema = z.object({ venueId: z.string().min(1) });
+
+/** Ids in their new order; the position in the array becomes `displayOrder`. */
+export const ReorderMenuRequestSchema = z.object({ ids: z.array(z.string().min(1)).min(1) });
+
+export type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
