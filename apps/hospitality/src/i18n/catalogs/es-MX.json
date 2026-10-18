@@ -359,7 +359,8 @@
       "floorPlans": "Planos de sala",
       "bookingWidget": "Widget de reservas",
       "signOut": "Cerrar sesión",
-      "chat": "Chat"
+      "chat": "Chat",
+      "menus": "Menús"
     }
   },
   "layout": {
@@ -381,7 +382,8 @@
       "admin": "Administración",
       "dashboard": "Panel",
       "setup": "Configuración inicial",
-      "hours": "Horario de operación"
+      "hours": "Horario de operación",
+      "menus": "Menús"
     },
     "venuesNotLoaded": "No se cargaron los locales.",
     "searchPlaceholder": "Buscar páginas y acciones...",
@@ -1623,6 +1625,85 @@
         "description": "Los clientes reciben de inmediato la confirmación con los detalles de su reserva.",
         "badge": "UX"
       }
+    }
+  },
+  "menus": {
+    "title": "Menús",
+    "description": "Arma los menús que leen los comensales y marca los platillos agotados durante el servicio.",
+    "newButton": "Nuevo menú",
+    "emptyHeading": "Aún no hay menús",
+    "emptyDescription": "Crea tu primer menú, agrega secciones y platillos, y ponlo en Activo para publicarlo.",
+    "loadFailed": "No se cargaron los menús.",
+    "saveFailed": "No se guardó el cambio.",
+    "notFound": "Menú no encontrado",
+    "notFoundDescription": "Ese menú no existe en este local.",
+    "status": {
+      "label": "Estado",
+      "DRAFT": "Borrador",
+      "ACTIVE": "Activo",
+      "INACTIVE": "Inactivo"
+    },
+    "list": {
+      "openAria": "Editar {{name}}",
+      "open": "Editar",
+      "deleteAria": "Eliminar {{name}}",
+      "delete": "Eliminar",
+      "slugLabel": "/{{slug}}"
+    },
+    "form": {
+      "name": "Nombre",
+      "slug": "Identificador en la URL",
+      "slugHint": "Minúsculas, números y guiones, como menu-cena.",
+      "slugInvalid": "Usa solo minúsculas, números y guiones.",
+      "slugTaken": "Otro menú ya usa ese identificador.",
+      "create": "Crear menú",
+      "save": "Guardar cambios",
+      "cancel": "Cancelar"
+    },
+    "deleteConfirm": {
+      "title": "¿Eliminar {{name}}?",
+      "description": "También se eliminan sus secciones y platillos. No se puede deshacer.",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "deleteSectionConfirm": {
+      "title": "¿Eliminar la sección {{name}}?",
+      "description": "También se eliminan sus platillos. No se puede deshacer."
+    },
+    "deleteItemConfirm": {
+      "title": "¿Eliminar {{name}}?",
+      "description": "Este platillo se quita del menú. No se puede deshacer."
+    },
+    "editor": {
+      "back": "Todos los menús",
+      "details": "Detalles del menú",
+      "sections": "Secciones",
+      "addSection": "Agregar sección",
+      "sectionName": "Nombre de la sección",
+      "sectionsEmpty": "Aún no hay secciones. Agrega una para empezar a añadir platillos.",
+      "itemsEmpty": "Esta sección aún no tiene platillos.",
+      "rename": "Renombrar",
+      "renameAria": "Renombrar {{name}}",
+      "deleteSectionAria": "Eliminar la sección {{name}}",
+      "addItem": "Agregar platillo",
+      "itemName": "Nombre del platillo",
+      "itemDescription": "Descripción",
+      "price": "Precio ({{currency}})",
+      "priceInvalid": "Ingresa un monto como 12.50, con máximo dos decimales.",
+      "edit": "Editar",
+      "editAria": "Editar {{name}}",
+      "deleteItemAria": "Eliminar {{name}}",
+      "saveItem": "Guardar platillo",
+      "moveUpAria": "Subir {{name}}",
+      "moveDownAria": "Bajar {{name}}",
+      "dragAria": "Arrastra {{name}} para reordenar",
+      "soldOut": "Agotado",
+      "soldOutAria": "{{name}} agotado",
+      "announceSoldOut": "{{name}} marcado como agotado.",
+      "announceAvailable": "{{name}} vuelve a estar disponible.",
+      "announceMoved": "{{name}} se movió a la posición {{position}} de {{count}}.",
+      "announceSaved": "Cambios guardados.",
+      "addItemTo": "Agregar un platillo a {{name}}"
     }
   }
 }
