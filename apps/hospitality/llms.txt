@@ -1096,6 +1096,91 @@
       export function useIsAdmin(): boolean { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useMenus.ts">
+    <item priority="high">
+      export const MENUS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const MENU_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useMenus: unknown;
+    </item>
+    <item priority="high">
+      interface MenuParams {
+        venueId?: string | null;
+        menuId?: string | null;
+      }
+    </item>
+    <item priority="high">
+      export const useMenu: unknown;
+    </item>
+    <item priority="high">
+      export function menuQueryKey(venueId: string, menuId: string): readonly unknown[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface MenuTarget {
+        venueId: string;
+        menuId: string;
+      }
+    </item>
+    <item priority="high">
+      interface SectionTarget {
+        sectionId: string;
+      }
+    </item>
+    <item priority="high">
+      interface ItemTarget {
+        itemId: string;
+      }
+    </item>
+    <item priority="high">
+      export const useCreateMenu: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateMenu: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteMenu: unknown;
+    </item>
+    <item priority="high">
+      export const useCreateSection: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateSection: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteSection: unknown;
+    </item>
+    <item priority="high">
+      export const useReorderSections: unknown;
+    </item>
+    <item priority="high">
+      export const useCreateItem: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateItem: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteItem: unknown;
+    </item>
+    <item priority="high">
+      export const useReorderItems: unknown;
+    </item>
+    <item priority="high">
+      type SoldOutVariables = ItemTarget & { soldOut: boolean };
+    </item>
+    <item priority="medium">
+      function withItemStatus(
+        menu: MenuWithSections,
+        itemId: string,
+        status: "AVAILABLE" | "SOLD_OUT"
+      ): MenuWithSections { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useToggleItemSoldOut() { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useNow.ts">
     <item priority="high">
       export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
@@ -1825,6 +1910,26 @@
         reconnectAttempts: unknown;
         lastEventId: string | null;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="menus">
+  <file path="src/components/menus/price.ts">
+    <item priority="high">
+      export function parsePriceToCents(text: string): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCentsForInput(cents: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/menus/reorder.ts">
+    <item priority="high">
+      export function moveId(ids: readonly string[], id: string, toIndex: number): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/menus/useDragReorder.ts">
+    <item priority="high">
+      export function useDragReorder(ids: readonly string[], onReorder: (ids: string[]) => void) { /* ... */ }
     </item>
   </file>
   </section>

@@ -1,0 +1,61 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-md);
+  background: var(--rialto-surface);
+  border-radius: var(--rialto-radius-soft);
+  box-shadow: var(--rialto-shadow-sm);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-md);
+}
+
+.sectionTitle {
+  flex: 1 1 10rem;
+  margin: 0;
+}
+
+.inline {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+}
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.grip {
+  cursor: grab;
+  color: var(--rialto-text-secondary);
+  user-select: none;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
