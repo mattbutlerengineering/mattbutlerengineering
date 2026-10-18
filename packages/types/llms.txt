@@ -387,6 +387,30 @@
       export const listFloorPlansQueryJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const menuVenueQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createMenuBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateMenuBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createMenuSectionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateMenuSectionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createMenuItemBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateMenuItemBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const reorderMenuBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const createFloorPlanBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -567,6 +591,15 @@
     </item>
     <item priority="low">
       type UpdateMenuItemRequest = z.infer<typeof UpdateMenuItemRequestSchema>;
+    </item>
+    <item priority="high">
+      export const MenuVenueQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReorderMenuRequestSchema: unknown;
+    </item>
+    <item priority="low">
+      type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
     </item>
   </file>
   <file path="src/schemas/reservation-requests.ts">

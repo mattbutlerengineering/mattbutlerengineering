@@ -23749,6 +23749,339 @@
       return scopedHandler as unknown as Handler<RG>;
     }
   </file>
+  <file path="services/reservations/src/routes/menus.ts">
+    interface MenuQuery {
+      venueId: string;
+    }
+    export const menuRoutes: FastifyPluginAsync = async (fastify) => {
+      const { menuService } = fastify.services;
+    
+      fastify.get<{ Querystring: MenuQuery; Reply: { data: Menu[] } | ProblemDetails }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: { summary: "List a venue's menus", querystring: menuVenueQueryJsonSchema },
+        },
+        venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => ({
+          data: await menuService.list(venueId),
+        }))
+      );
+    
+      fastify.post<{
+        Querystring: MenuQuery;
+        Body: CreateMenuRequest;
+        Reply: ApiResponse<Menu> | ProblemDetails;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a menu",
+            querystring: menuVenueQueryJsonSchema,
+            body: createMenuBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          try {
+            const menu = await menuService.create(venueId, request.body);
+            return reply.code(201).send({ data: menu });
+          } catch (err) {
+            if (err instanceof MenuSlugConflictError) {
+              return reply.code(409).send(createProblemDetails(409, titleForStatus(409), err.message));
+            }
+            throw err;
+          }
+        })
+      );
+    
+      fastify.get<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Reply: ApiResponse<MenuWithSections> | ProblemDetails;
+      }>(
+        "/:menuId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get a menu with its sections and items",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const menu = await menuService.getById(venueId, request.params.menuId);
+          if (!menu) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", MENU_NOT_FOUND));
+          }
+          return { data: menu };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Body: UpdateMenuRequest;
+        Reply: ApiResponse<Menu> | ProblemDetails;
+      }>(
+        "/:menuId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update a menu",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: updateMenuBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          try {
+            const menu = await menuService.update(venueId, request.params.menuId, request.body);
+            if (!menu) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", MENU_NOT_FOUND));
+            }
+            return { data: menu };
+          } catch (err) {
+            if (err instanceof MenuSlugConflictError) {
+              return reply.code(409).send(createProblemDetails(409, titleForStatus(409), err.message));
+            }
+            throw err;
+          }
+        })
+      );
+    
+      fastify.delete<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Reply: void | ProblemDetails;
+      }>(
+        "/:menuId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a menu (cascades to its sections and items)",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          if (!(await menuService.delete(venueId, request.params.menuId))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", MENU_NOT_FOUND));
+          }
+          return reply.code(204).send();
+        })
+      );
+    
+      fastify.post<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Body: CreateMenuSectionRequest;
+        Reply: ApiResponse<MenuSection> | ProblemDetails;
+      }>(
+        "/:menuId/sections",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add a section to a menu",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: createMenuSectionBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const section = await menuService.createSection(venueId, request.params.menuId, request.body);
+          if (!section) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", MENU_NOT_FOUND));
+          }
+          return reply.code(201).send({ data: section });
+        })
+      );
+    
+      fastify.put<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Body: ReorderMenuRequest;
+        Reply: { data: MenuSection[] } | ProblemDetails;
+      }>(
+        "/:menuId/sections/order",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Reorder a menu's sections",
+            description: "`ids` lists every section to place; its index becomes `displayOrder`.",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: reorderMenuBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const sections = await menuService.reorderSections(
+            venueId,
+            request.params.menuId,
+            request.body.ids
+          );
+          if (!sections) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return { data: sections };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { menuId: string; sectionId: string };
+        Querystring: MenuQuery;
+        Body: UpdateMenuSectionRequest;
+        Reply: ApiResponse<MenuSection> | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update a menu section",
+            params: paramsSchema("menuId", "sectionId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: updateMenuSectionBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const section = await menuService.updateSection(
+            venueId,
+            request.params.menuId,
+            request.params.sectionId,
+            request.body
+          );
+          if (!section) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return { data: section };
+        })
+      );
+    
+      fastify.delete<{
+        Params: { menuId: string; sectionId: string };
+        Querystring: MenuQuery;
+        Reply: void | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a menu section (cascades to its items)",
+            params: paramsSchema("menuId", "sectionId"),
+            querystring: menuVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId } = request.params;
+          if (!(await menuService.deleteSection(venueId, menuId, sectionId))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return reply.code(204).send();
+        })
+      );
+    
+      fastify.post<{
+        Params: { menuId: string; sectionId: string };
+        Querystring: MenuQuery;
+        Body: CreateMenuItemRequest;
+        Reply: ApiResponse<MenuItem> | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId/items",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add an item to a menu section",
+            params: paramsSchema("menuId", "sectionId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: createMenuItemBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId } = request.params;
+          const item = await menuService.createItem(venueId, menuId, sectionId, request.body);
+          if (!item) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return reply.code(201).send({ data: item });
+        })
+      );
+    
+      fastify.put<{
+        Params: { menuId: string; sectionId: string };
+        Querystring: MenuQuery;
+        Body: ReorderMenuRequest;
+        Reply: { data: MenuItem[] } | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId/items/order",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Reorder a section's items",
+            description: "`ids` lists every item to place; its index becomes `displayOrder`.",
+            params: paramsSchema("menuId", "sectionId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: reorderMenuBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId } = request.params;
+          const items = await menuService.reorderItems(venueId, menuId, sectionId, request.body.ids);
+          if (!items) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ITEM_NOT_FOUND));
+          }
+          return { data: items };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { menuId: string; sectionId: string; itemId: string };
+        Querystring: MenuQuery;
+        Body: UpdateMenuItemRequest;
+        Reply: ApiResponse<MenuItem> | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId/items/:itemId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update a menu item",
+            params: paramsSchema("menuId", "sectionId", "itemId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: updateMenuItemBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId, itemId } = request.params;
+          const item = await menuService.updateItem(venueId, menuId, sectionId, itemId, request.body);
+          if (!item) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ITEM_NOT_FOUND));
+          }
+          return { data: item };
+        })
+      );
+    
+      fastify.delete<{
+        Params: { menuId: string; sectionId: string; itemId: string };
+        Querystring: MenuQuery;
+        Reply: void | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId/items/:itemId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a menu item",
+            params: paramsSchema("menuId", "sectionId", "itemId"),
+            querystring: menuVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId, itemId } = request.params;
+          if (!(await menuService.deleteItem(venueId, menuId, sectionId, itemId))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ITEM_NOT_FOUND));
+          }
+          return reply.code(204).send();
+        })
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/modify-reservation.ts">
     interface ModifyBody {
       date?: string;
@@ -26357,12 +26690,58 @@
         );
       });
     }
+    interface MenuTreeIds {
+      menuId: string;
+      sectionId: string;
+      itemId: string;
+    }
+    async function seedMenuTree(ctx: SweepContext, venueId: string): Promise<MenuTreeIds> {
+      const q = `?venueId=${venueId}`;
+      const menuRes = await asAdmin(ctx, {
+        method: "POST",
+        url: `${MENUS_PATH}${q}`,
+        payload: { name: "Sweep menu", slug: `sweep-${randomUUID().slice(0, 8)}` },
+      });
+      expectOk(menuRes, "seed menu");
+      const menuId = menuRes.json<{ data: { id: string } }>().data.id;
+      const sectionRes = await asAdmin(ctx, {
+        method: "POST",
+        url: `${MENUS_PATH}/${menuId}/sections${q}`,
+        payload: { name: "Starters" },
+      });
+      expectOk(sectionRes, "seed menu section");
+      const sectionId = sectionRes.json<{ data: { id: string } }>().data.id;
+      const itemRes = await asAdmin(ctx, {
+        method: "POST",
+        url: `${MENUS_PATH}/${menuId}/sections/${sectionId}/items${q}`,
+        payload: { name: "Soup", priceCents: 850 },
+      });
+      expectOk(itemRes, "seed menu item");
+      const itemId = itemRes.json<{ data: { id: string } }>().data.id;
+      return { menuId, sectionId, itemId };
+    }
+    function okMenuRoute(
+      build: (ids: MenuTreeIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+    ): RouteFixture {
+      return ok(async (ctx) => {
+        const adminTree = await seedMenuTree(ctx, ctx.venueA.id);
+        expectOk(await asAdmin(ctx, build(adminTree, ctx.venueA.id)), "admin venue A");
+    
+        const memberTree = await seedMenuTree(ctx, ctx.venueA.id);
+        expectOk(await asMember(ctx, build(memberTree, ctx.venueA.id)), "member venue A");
+    
+        const tree = await seedMenuTree(ctx, ctx.venueA.id);
+        expectDenied(await asMember(ctx, build(tree, ctx.venueB.id)), "member venue B");
+        expectDenied(await asAdmin(ctx, build(tree, ctx.venueB.id)), "admin venue B, venue A's ids");
+      });
+    }
     export const FIXTURES: Record<string, RouteFixture> = {
       ...notRlsFixtures,
       ...tableFixtures,
       ...venueFixtures,
       ...availabilityFixtures,
       ...floorPlanFixtures,
+      ...menuFixtures,
       ...guestFixtures,
       ...reservationFixtures,
       ...waitlistFixtures,
@@ -29105,6 +29484,14 @@
     export const eventsStreamQueryJsonSchema = toRequestJsonSchema(EventsStreamQuerySchema);
     export const testEventBodyJsonSchema = toRequestJsonSchema(TestEventBodySchema);
     export const listFloorPlansQueryJsonSchema = toRequestJsonSchema(ListFloorPlansQuerySchema);
+    export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema);
+    export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
+    export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
+    export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
+    export const updateMenuSectionBodyJsonSchema = toRequestJsonSchema(UpdateMenuSectionRequestSchema);
+    export const createMenuItemBodyJsonSchema = toRequestJsonSchema(CreateMenuItemRequestSchema);
+    export const updateMenuItemBodyJsonSchema = toRequestJsonSchema(UpdateMenuItemRequestSchema);
+    export const reorderMenuBodyJsonSchema = toRequestJsonSchema(ReorderMenuRequestSchema);
     export const createFloorPlanBodyJsonSchema = toRequestJsonSchema(CreateFloorPlanBodySchema);
     export const updateFloorPlanBodyJsonSchema = toRequestJsonSchema(UpdateFloorPlanBodySchema);
     export const updateTablePositionsBodyJsonSchema = toRequestJsonSchema(
@@ -29211,6 +29598,9 @@
     export type UpdateMenuSectionRequest = z.infer<typeof UpdateMenuSectionRequestSchema>;
     export type CreateMenuItemRequest = z.infer<typeof CreateMenuItemRequestSchema>;
     export type UpdateMenuItemRequest = z.infer<typeof UpdateMenuItemRequestSchema>;
+    export const MenuVenueQuerySchema = z.object({ venueId: z.string().min(1) });
+    export const ReorderMenuRequestSchema = z.object({ ids: z.array(z.string().min(1)).min(1) });
+    export type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
     export const ListReservationsQuerySchema = z.object({
@@ -35331,6 +35721,7 @@
       reservationService: typeof reservationService;
       guestService: typeof guestService;
       floorPlanService: typeof floorPlanService;
+      menuService: typeof menuService;
       holdService: typeof holdService;
       /** Built in `buildApp` over the one payments adapter — never a module singleton. */
       depositService: DepositService;
@@ -35345,6 +35736,7 @@
       reservationService,
       guestService,
       floorPlanService,
+      menuService,
       holdService,
       waitlistService,
       briefingService,
@@ -37166,6 +37558,240 @@
       });
       return memberships.map((membership) => membership.venueId);
     }
+  </file>
+  <file path="services/reservations/src/services/menu.ts">
+    export type MenuWithSections = Menu & {
+      sections: (MenuSection & { items: MenuItem[] })[];
+    };
+    export class MenuSlugConflictError extends Error {
+      constructor(slug: string) {
+        super(`A menu with slug "${slug}" already exists for this venue`);
+        this.name = "MenuSlugConflictError";
+      }
+    }
+    interface PrismaMenu {
+      id: string;
+      venueId: string;
+      name: string;
+      slug: string;
+      description: string | null;
+      status: Menu["status"];
+      displayOrder: number;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    function mapMenu(menu: PrismaMenu): Menu {
+      return {
+        id: menu.id,
+        venueId: menu.venueId,
+        name: menu.name,
+        slug: menu.slug,
+        description: menu.description,
+        status: menu.status,
+        displayOrder: menu.displayOrder,
+        createdAt: menu.createdAt.toISOString(),
+        updatedAt: menu.updatedAt.toISOString(),
+      };
+    }
+    function mapSection(section: MenuSection): MenuSection {
+      return {
+        id: section.id,
+        venueId: section.venueId,
+        menuId: section.menuId,
+        name: section.name,
+        displayOrder: section.displayOrder,
+      };
+    }
+    function mapItem(item: MenuItem): MenuItem {
+      return {
+        id: item.id,
+        venueId: item.venueId,
+        sectionId: item.sectionId,
+        name: item.name,
+        description: item.description,
+        priceCents: item.priceCents,
+        status: item.status,
+        displayOrder: item.displayOrder,
+      };
+    }
+    function isUniqueViolation(err: unknown): boolean {
+      return typeof err === "object" && err !== null && "code" in err && err.code === "P2002";
+    }
+    export const menuService = {
+      async list(venueId: string): Promise<Menu[]> {
+        const menus = await prisma.menu.findMany({ where: { venueId }, orderBy: BY_ORDER });
+        return menus.map(mapMenu);
+      },
+    
+      async getById(venueId: string, menuId: string): Promise<MenuWithSections | null> {
+        const menu = await prisma.menu.findFirst({
+          where: { id: menuId, venueId },
+          include: {
+            sections: { orderBy: BY_ORDER, include: { items: { orderBy: BY_ORDER } } },
+          },
+        });
+        if (!menu) return null;
+        return {
+          ...mapMenu(menu),
+          sections: menu.sections.map((section) => ({
+            ...mapSection(section),
+            items: section.items.map(mapItem),
+          })),
+        };
+      },
+    
+      async create(venueId: string, data: CreateMenuRequest): Promise<Menu> {
+        try {
+          const menu = await prisma.menu.create({ data: { ...data, venueId } });
+          return mapMenu(menu);
+        } catch (err) {
+          if (isUniqueViolation(err)) throw new MenuSlugConflictError(data.slug);
+          throw err;
+        }
+      },
+    
+      async update(venueId: string, menuId: string, data: UpdateMenuRequest): Promise<Menu | null> {
+        try {
+          const { count } = await prisma.menu.updateMany({ where: { id: menuId, venueId }, data });
+          if (count === 0) return null;
+        } catch (err) {
+          if (isUniqueViolation(err)) throw new MenuSlugConflictError(data.slug ?? "");
+          throw err;
+        }
+        const menu = await prisma.menu.findFirst({ where: { id: menuId, venueId } });
+        return menu ? mapMenu(menu) : null;
+      },
+    
+      async delete(venueId: string, menuId: string): Promise<boolean> {
+        const { count } = await prisma.menu.deleteMany({ where: { id: menuId, venueId } });
+        return count > 0;
+      },
+    
+      async createSection(
+        venueId: string,
+        menuId: string,
+        data: CreateMenuSectionRequest
+      ): Promise<MenuSection | null> {
+        const menu = await prisma.menu.findFirst({
+          where: { id: menuId, venueId },
+          select: { id: true },
+        });
+        if (!menu) return null;
+        return mapSection(await prisma.menuSection.create({ data: { ...data, venueId, menuId } }));
+      },
+    
+      async updateSection(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        data: UpdateMenuSectionRequest
+      ): Promise<MenuSection | null> {
+        const where = { id: sectionId, menuId, venueId };
+        const { count } = await prisma.menuSection.updateMany({ where, data });
+        if (count === 0) return null;
+        const section = await prisma.menuSection.findFirst({ where });
+        return section ? mapSection(section) : null;
+      },
+    
+      async deleteSection(venueId: string, menuId: string, sectionId: string): Promise<boolean> {
+        const { count } = await prisma.menuSection.deleteMany({
+          where: { id: sectionId, menuId, venueId },
+        });
+        return count > 0;
+      },
+    
+      async createItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        data: CreateMenuItemRequest
+      ): Promise<MenuItem | null> {
+        const section = await prisma.menuSection.findFirst({
+          where: { id: sectionId, menuId, venueId },
+          select: { id: true },
+        });
+        if (!section) return null;
+        return mapItem(await prisma.menuItem.create({ data: { ...data, venueId, sectionId } }));
+      },
+    
+      async updateItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        itemId: string,
+        data: UpdateMenuItemRequest
+      ): Promise<MenuItem | null> {
+        const where = { id: itemId, sectionId, venueId, section: { menuId } };
+        const { count } = await prisma.menuItem.updateMany({ where, data });
+        if (count === 0) return null;
+        const item = await prisma.menuItem.findFirst({ where });
+        return item ? mapItem(item) : null;
+      },
+    
+      async deleteItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        itemId: string
+      ): Promise<boolean> {
+        const { count } = await prisma.menuItem.deleteMany({
+          where: { id: itemId, sectionId, venueId, section: { menuId } },
+        });
+        return count > 0;
+      },
+    
+      /**
+       * Persists `displayOrder = index` for the given section ids. Returns `null`
+       * (nothing written) unless every id is a distinct section of this menu in
+       * this venue — a foreign or duplicated id fails the whole reorder.
+       */
+      async reorderSections(
+        venueId: string,
+        menuId: string,
+        ids: string[]
+      ): Promise<MenuSection[] | null> {
+        if (new Set(ids).size !== ids.length) return null;
+        // Explicit transaction: bypasses the per-call auto-wrap, so set the venue ourselves.
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const owned = await tx.menuSection.count({ where: { id: { in: ids }, menuId, venueId } });
+          if (owned !== ids.length) return null;
+          for (const [displayOrder, id] of ids.entries()) {
+            await tx.menuSection.updateMany({ where: { id, menuId, venueId }, data: { displayOrder } });
+          }
+          const sections = await tx.menuSection.findMany({
+            where: { menuId, venueId },
+            orderBy: BY_ORDER,
+          });
+          return sections.map(mapSection);
+        });
+      },
+    
+      /** Same contract as {@link reorderSections}, for the items of one section. */
+      async reorderItems(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        ids: string[]
+      ): Promise<MenuItem[] | null> {
+        if (new Set(ids).size !== ids.length) return null;
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const section = await tx.menuSection.count({ where: { id: sectionId, menuId, venueId } });
+          if (section === 0) return null;
+          const owned = await tx.menuItem.count({ where: { id: { in: ids }, sectionId, venueId } });
+          if (owned !== ids.length) return null;
+          for (const [displayOrder, id] of ids.entries()) {
+            await tx.menuItem.updateMany({ where: { id, sectionId, venueId }, data: { displayOrder } });
+          }
+          const items = await tx.menuItem.findMany({
+            where: { sectionId, venueId },
+            orderBy: BY_ORDER,
+          });
+          return items.map(mapItem);
+        });
+      },
+    };
   </file>
   <file path="services/reservations/src/services/move-to-hold.ts">
     type MoveToHoldErrorCode =
@@ -52525,6 +53151,7 @@
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
+        menus: new MenusClient(client),
         publicVenue: new PublicVenueClient(client),
         waitlist: new WaitlistClient(client),
         availability: new AvailabilityClient(client),
@@ -52533,6 +53160,139 @@
         deposits: new DepositsClient(client),
         health: new HealthClient(client),
       };
+    }
+  </file>
+  <file path="packages/api-client/src/menus.ts">
+    export type MenuWithSections = Menu & {
+      sections: (MenuSection & { items: MenuItem[] })[];
+    };
+    export class MenusClient {
+      constructor(private client: ApiClient) {}
+    
+      private menuPath(venueId: string, menuId?: string, ...rest: string[]): string {
+        const segments = menuId === undefined ? [] : [menuId, ...rest];
+        const path = ["/api/v1/menus", ...segments.map(encodeURIComponent)].join("/");
+        return `${path}?venueId=${encodeURIComponent(venueId)}`;
+      }
+    
+      async list(venueId: string): Promise<Menu[]> {
+        const response = await this.client.get<{ data: Menu[] }>(
+          this.menuPath(venueId),
+          undefined,
+          menuListSchema
+        );
+        return response.data;
+      }
+    
+      async getById(venueId: string, menuId: string): Promise<MenuWithSections> {
+        return this.client.getOne<MenuWithSections>(
+          this.menuPath(venueId, menuId),
+          undefined,
+          MenuWithSectionsSchema
+        );
+      }
+    
+      async create(venueId: string, data: CreateMenuRequest): Promise<Menu> {
+        return this.client.postOne<Menu>(this.menuPath(venueId), data, MenuSchema);
+      }
+    
+      async update(venueId: string, menuId: string, data: UpdateMenuRequest): Promise<Menu> {
+        return this.client.patchOne<Menu>(this.menuPath(venueId, menuId), data, MenuSchema);
+      }
+    
+      async delete(venueId: string, menuId: string): Promise<void> {
+        return this.client.delete(this.menuPath(venueId, menuId));
+      }
+    
+      async createSection(
+        venueId: string,
+        menuId: string,
+        data: CreateMenuSectionRequest
+      ): Promise<MenuSection> {
+        return this.client.postOne<MenuSection>(
+          this.menuPath(venueId, menuId, "sections"),
+          data,
+          MenuSectionSchema
+        );
+      }
+    
+      async updateSection(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        data: UpdateMenuSectionRequest
+      ): Promise<MenuSection> {
+        return this.client.patchOne<MenuSection>(
+          this.menuPath(venueId, menuId, "sections", sectionId),
+          data,
+          MenuSectionSchema
+        );
+      }
+    
+      async deleteSection(venueId: string, menuId: string, sectionId: string): Promise<void> {
+        return this.client.delete(this.menuPath(venueId, menuId, "sections", sectionId));
+      }
+    
+      /** Persists `displayOrder` as each id's index (`PUT /:menuId/sections/order`). */
+      async reorderSections(venueId: string, menuId: string, ids: string[]): Promise<MenuSection[]> {
+        return this.client.putOne<MenuSection[]>(
+          this.menuPath(venueId, menuId, "sections", "order"),
+          { ids },
+          sectionListSchema
+        );
+      }
+    
+      async createItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        data: CreateMenuItemRequest
+      ): Promise<MenuItem> {
+        return this.client.postOne<MenuItem>(
+          this.menuPath(venueId, menuId, "sections", sectionId, "items"),
+          data,
+          MenuItemSchema
+        );
+      }
+    
+      async updateItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        itemId: string,
+        data: UpdateMenuItemRequest
+      ): Promise<MenuItem> {
+        return this.client.patchOne<MenuItem>(
+          this.menuPath(venueId, menuId, "sections", sectionId, "items", itemId),
+          data,
+          MenuItemSchema
+        );
+      }
+    
+      async deleteItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        itemId: string
+      ): Promise<void> {
+        return this.client.delete(
+          this.menuPath(venueId, menuId, "sections", sectionId, "items", itemId)
+        );
+      }
+    
+      /** Persists `displayOrder` as each id's index (`PUT .../items/order`). */
+      async reorderItems(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        ids: string[]
+      ): Promise<MenuItem[]> {
+        return this.client.putOne<MenuItem[]>(
+          this.menuPath(venueId, menuId, "sections", sectionId, "items", "order"),
+          { ids },
+          itemListSchema
+        );
+      }
     }
   </file>
   <file path="packages/api-client/src/problem-details.ts">
@@ -60556,6 +61316,7 @@
       await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
       await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
       await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+      await fastify.register(menuRoutes, { prefix: "/api/v1/menus" });
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
       await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
       await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });

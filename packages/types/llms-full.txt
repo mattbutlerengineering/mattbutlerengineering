@@ -633,6 +633,14 @@
     export const eventsStreamQueryJsonSchema = toRequestJsonSchema(EventsStreamQuerySchema);
     export const testEventBodyJsonSchema = toRequestJsonSchema(TestEventBodySchema);
     export const listFloorPlansQueryJsonSchema = toRequestJsonSchema(ListFloorPlansQuerySchema);
+    export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema);
+    export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
+    export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
+    export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
+    export const updateMenuSectionBodyJsonSchema = toRequestJsonSchema(UpdateMenuSectionRequestSchema);
+    export const createMenuItemBodyJsonSchema = toRequestJsonSchema(CreateMenuItemRequestSchema);
+    export const updateMenuItemBodyJsonSchema = toRequestJsonSchema(UpdateMenuItemRequestSchema);
+    export const reorderMenuBodyJsonSchema = toRequestJsonSchema(ReorderMenuRequestSchema);
     export const createFloorPlanBodyJsonSchema = toRequestJsonSchema(CreateFloorPlanBodySchema);
     export const updateFloorPlanBodyJsonSchema = toRequestJsonSchema(UpdateFloorPlanBodySchema);
     export const updateTablePositionsBodyJsonSchema = toRequestJsonSchema(
@@ -739,6 +747,9 @@
     export type UpdateMenuSectionRequest = z.infer<typeof UpdateMenuSectionRequestSchema>;
     export type CreateMenuItemRequest = z.infer<typeof CreateMenuItemRequestSchema>;
     export type UpdateMenuItemRequest = z.infer<typeof UpdateMenuItemRequestSchema>;
+    export const MenuVenueQuerySchema = z.object({ venueId: z.string().min(1) });
+    export const ReorderMenuRequestSchema = z.object({ ids: z.array(z.string().min(1)).min(1) });
+    export type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
   </file>
   <file path="src/schemas/reservation-requests.ts">
     export const ListReservationsQuerySchema = z.object({
