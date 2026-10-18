@@ -38,8 +38,10 @@ import time
 from pathlib import Path
 
 import conductor_flow as flow
+import conductor_landed
 import conductor_merge
-import conductor_run
+import conductor_next
+import conductor_spend
 import cost_ledger
 import factory_config
 import label_sync
@@ -137,6 +139,11 @@ def compute(rows, lines, shown, entries, now):
     return {
         "batch": plan["batch"], "at": stamp(now), "items": len(items),
         "merged": merged, "blocked": finals.count("blocked"),
+        # #938: a merge the Conductor's turn did not make (from stalled
+        # or blocked) counts under merged, and here (ADR-0105).
+        "merged_outside": sum(1 for row in rows if row["kind"] == "state"
+                              and row["to"] == "merged"
+                              and row["from"] != "merging"),
         "owner_touches_per_merged": _ratio(
             sum(1 for row in rows if row["kind"] == "answer"), merged),
         "metered_usd": metered,
@@ -319,7 +326,7 @@ def update_from_main(git, root, branch, refused="close refused"):
 
 
 def _at(git, root):
-    """The git port run inside root: conductor_run's readers take a port
+    """The git port run inside root: conductor_spend's readers take a port
     that needs no -C."""
     return lambda args: git(["-C", str(root), *args])
 
@@ -333,12 +340,12 @@ def carry_blocked_spend(git, root, batch, blocked):
     """Copy onto the batch branch, as per-run files, every spend row a
     blocked item's branch holds for its runs: so all spend reaches main
     without another writer of the shared aggregate. The rows are read by
-    conductor_run.ref_rows, where an absent ledger holds none (#708,
+    conductor_spend.ref_rows, where an absent ledger holds none (#708,
     #772), and land through cost_ledger.record_isolated, which skips a
     row the batch branch already holds (row_key, ADR-0049), so a re-run
     never writes a row twice."""
     for item in blocked:
-        found, unread, malformed = conductor_run.ref_rows(
+        found, unread, malformed = conductor_spend.ref_rows(
             _at(git, root), flow.item_branch(batch, item))
         if unread or malformed:
             return _refused(unread) + malformed
@@ -357,7 +364,7 @@ def sort_blocked_branches(git, root, batch, blocked):
     """({"delete": [(branch, sha)], "keep": [branches]}, problems): a
     blocked item's branch is deleted when its commits beyond origin/main
     are all spend commits of that item's own runs in this batch
-    (conductor_run.spend_run, run_item), whose rows carry_blocked_spend
+    (conductor_spend.spend_run, run_item), whose rows carry_blocked_spend
     put on the batch branch; it is kept when any commit is something
     else — a Worker's own `chore(cost): ...` commit, or another batch's
     run, included (#771). The sha is the local ref inspected, which the
@@ -370,12 +377,12 @@ def sort_blocked_branches(git, root, batch, blocked):
         sha, problems = _git(git, root, ["rev-parse", branch],
                              f"reading {branch}'s head")
         subjects, problems = (None, problems) if problems else \
-            conductor_run.run_commits(_at(git, root), branch, sha.strip())
+            conductor_spend.run_commits(_at(git, root), branch, sha.strip())
         if problems:
             return None, _refused(problems)
         if not subjects:
             continue
-        if all(run_item(batch, conductor_run.spend_run(subject) or "")
+        if all(run_item(batch, conductor_spend.spend_run(subject) or "")
                == item for subject in subjects):
             sorted_branches["delete"].append((branch, sha.strip()))
         else:
@@ -558,16 +565,53 @@ def _publish(root, batch, git, gh, finals, reasons, branches):
     return []
 
 
+def reconcile_landed(gh, root, batch, now, blocked):
+    """(the blocked items whose PR merged after the block, in item
+    order, problems): each is moved blocked → merged as merged outside
+    the batch (#938, ADR-0105), before the close reads its finals,
+    carries spend or labels anything — its branch merged, so its spend
+    rows reached main on that PR, and it needs no needs-human label.
+    Every branch is read before any row is written: a read that fails
+    refuses the close with nothing written."""
+    landed = {}
+    for item in blocked:
+        found, problems = conductor_next.merged_pr(
+            gh, flow.item_branch(batch, item))
+        if problems:
+            return None, _refused(problems)
+        if found is not None:
+            landed[item] = found
+    for item, found in landed.items():
+        reason, fields = conductor_landed.merge(found)
+        _, problems = flow.move(root, batch, now, item,
+                                conductor_landed.MERGED, reason, **fields)
+        if problems:
+            return None, problems
+    return list(landed), []
+
+
 def close_batch(root, batch, clock, git, gh):
     """(summary, problems): close the batch. Nothing is appended to
     scorecards.jsonl, and no close row is written, unless the scorecard
-    computes."""
+    computes. A blocked item whose PR merged since is reconciled first
+    (reconcile_landed); its merged rows stay if a later step refuses."""
     rows, problems = load(root, batch)
     if problems:
         return None, problems
     finals, problems = _final_items(rows, batch)
     if problems:
         return None, problems
+    now = clock()
+    landed, problems = reconcile_landed(gh, root, batch, now,
+                                        finals["blocked"])
+    if problems:
+        return None, problems
+    if landed:
+        rows, problems = load(root, batch)
+        finals, problems = (None, problems) if problems \
+            else _final_items(rows, batch)
+        if problems:
+            return None, problems
     problems = (update_from_main(git, root, batch_branch(batch))
                 or carry_blocked_spend(git, root, batch, finals["blocked"]))
     if problems:
@@ -576,7 +620,6 @@ def close_batch(root, batch, clock, git, gh):
                                                finals["blocked"])
     if problems:
         return None, problems
-    now = clock()
     card, problems = scorecard(root, batch, now)
     if problems:
         return None, problems
@@ -588,8 +631,8 @@ def close_batch(root, batch, clock, git, gh):
         return None, problems
     reasons = {item: item_view(rows, item)["last"]["reason"]
                for item in finals["blocked"]}
-    return {"batch": batch, **finals, "ask": ask_id}, _publish(
-        root, batch, git, gh, finals, reasons, branches)
+    return {"batch": batch, **finals, "ask": ask_id, "landed": landed}, \
+        _publish(root, batch, git, gh, finals, reasons, branches)
 
 
 def _closing_answer(rows, batch):
@@ -678,8 +721,10 @@ def close_cli(root, args, clock, git, gh, sleep=None):
         return None
     summary, problems = close_batch(root, args[0], clock, git, gh)
     if summary is not None:
+        outside = (f" ({', '.join(summary['landed'])} outside the batch)"
+                   if summary["landed"] else "")
         print(f"cd: closed batch {summary['batch']}: merged"
-              f" {', '.join(summary['merged']) or 'none'}; blocked"
+              f" {', '.join(summary['merged']) or 'none'}{outside}; blocked"
               f" {', '.join(summary['blocked']) or 'none'}; merge ask"
               f" {summary['ask']}")
     return problems

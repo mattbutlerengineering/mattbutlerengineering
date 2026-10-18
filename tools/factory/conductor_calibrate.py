@@ -9,7 +9,9 @@ grammar and conductor_close's rounding, which keep one owner each.
 actuals row per run (step, band, model, ceiling, cost, wall time,
 attempt, outcome) and prints suggested step weights and size budgets
 with their sample sizes. It reads the ledgers close already commits, so
-it writes no file of its own, and never writes factory.json.
+it writes no file of its own, and never writes factory.json. It also
+owns the ceiling warning `plan` repeats (#940): the one rule and the
+one text, read here by both verbs.
 """
 import json
 import math
@@ -20,9 +22,35 @@ import factory_config
 from conductor import LEDGER, parsed_at, view
 from conductor_close import PLACES, closed_batches
 
-# The fewest samples calibrate suggests from. One real batch is all
-# there is today, so below it the verb prints n and suggests nothing.
-CALIBRATE_FLOOR = 5
+# Below the floor the counters still give a verdict (#940): a step whose
+# attempts spent their ceiling WARN_SHARE of the time or more, at
+# WARN_ATTEMPTS attempts or more, is underweighted. The suggestion only
+# ever scales a weight DOWN from runs that stopped at their ceiling —
+# what an uncapped run would have spent is not recorded — so this is
+# the one signal that a weight is too low; it prints floor or no floor,
+# and again from `plan` when it prices from the same weights. A lost
+# runner's row is charged its ceiling (conductor_spend, #967), so it is
+# a hit: the ceiling was spent, whoever spent it.
+WARN_ATTEMPTS = 2
+WARN_SHARE = 0.5
+WARNING = ("{step}: {hits} of {attempts} attempts spent the ceiling; the"
+           " weight is too low")
+# The step whose sample unit is one breakdown row (its work order), not
+# the item. A build row keyed by its item instead — an older tool wrote
+# the item into `wo`, the row named no work order, or the runner was
+# lost before it metered (#967) — is one attempt of the step, and a hit
+# when it spent the ceiling, but no unit of the sample: keyed by item,
+# every such row of a batch would collapse into one unit against one
+# row's ceiling (#940).
+PER_ROW_STEP = "build"
+SET_ASIDE = ("{step}: {n} run(s) set aside from the sample: their spend row"
+             " names the item, not a work order (older tools, or a runner"
+             " lost before it metered); they still count as attempts")
+# What `plan` prints when a closed batch does not join its spend rows:
+# the warnings are advisory, so the read's problems never refuse a
+# plan; `calibrate` names them.
+UNREAD = ("cd: ceiling warnings unread: a closed batch does not join its"
+          " spend rows (conductor.py calibrate names the problem)")
 
 
 def actuals(rows, lines, shown, entries):
@@ -89,6 +117,10 @@ def actuals(rows, lines, shown, entries):
 
 
 def _spread(samples):
+    """n, mean and max of `samples`; None figures for an empty sample (a
+    step every row of which was set aside)."""
+    if not samples:
+        return {"n": 0, "mean_usd": None, "max_usd": None}
     return {"n": len(samples),
             "mean_usd": round(sum(samples) / len(samples), 2),
             "max_usd": round(max(samples), 2)}
@@ -127,51 +159,89 @@ def _scaled(samples, weights):
             for step, weight in weights.items()}, []
 
 
-def calibrate(rows, weights, floor=CALIBRATE_FLOOR):
-    """Suggested step weights and size budgets, PURE over actuals rows
-    and the step weights in force, with every figure's sample size. A
-    step's sample is one unit of its work over every attempt: one item's
-    run of the step, or for build one breakdown row's (its work order),
-    which is what the step's ceiling caps (ceiling_hits counts the
-    attempts that spent their ceiling); a size's is one item's whole
-    spend. A suggested weight is the weight in force scaled by the
-    step's mean spend over its ceiling, suggested only when every
-    weighted step has `floor` samples; a size's budget is its dearest
-    item, rounded up to the dollar, suggested only at `floor` items. It
-    suggests and never writes factory.json: model and pricing choices
-    stay the Owner's (PRD-0013, ADR-0034)."""
-    units, by_item, sizes, attempts, hits = {}, {}, {}, {}, {}
+def _figures(rows):
+    """(step -> [(unit spend, ceiling)], step -> figures, set-aside
+    lines), PURE over actuals rows. A step's sample is one unit of its
+    work over every attempt: one item's run of the step, or for build
+    one breakdown row's (its work order), which is what the step's
+    ceiling caps. attempts and ceiling_hits count every run of the step,
+    the build rows SET_ASIDE from its sample included."""
+    units, attempts, hits, aside = {}, {}, {}, {}
     for row in rows:
-        item, step, cost = (row["batch"], row["item"]), row["step"], \
-            row["cost_usd"]
-        unit = units.setdefault(step, {}).setdefault(
-            (item, row["wo"]), [0, row["ceiling_usd"]])
-        unit[0] += cost
-        by_item[item] = by_item.get(item, 0) + cost
-        sizes[item] = row["size"]
+        step, cost = row["step"], row["cost_usd"]
         attempts[step] = attempts.get(step, 0) + 1
         hits[step] = hits.get(step, 0) + (cost >= row["ceiling_usd"])
+        if (step == PER_ROW_STEP
+                and cost_ledger.ISSUE_KEY.fullmatch(row["wo"])):
+            aside[step] = aside.get(step, 0) + 1
+            continue
+        unit = units.setdefault(step, {}).setdefault(
+            ((row["batch"], row["item"]), row["wo"]),
+            [0, row["ceiling_usd"]])
+        unit[0] += cost
     samples = {step: [tuple(unit) for unit in found.values()]
                for step, found in units.items()}
-    steps = {step: {**_spread([cost for cost, _ in found]),
+    steps = {step: {**_spread([cost for cost, _ in samples.get(step, [])]),
                     "attempts": attempts[step], "ceiling_hits": hits[step]}
-             for step, found in samples.items()}
+             for step in attempts}
+    return samples, steps, [SET_ASIDE.format(step=step, n=n)
+                            for step, n in aside.items()]
+
+
+def _budgets(rows, floor):
+    """size -> the spread of its items' whole spend, with budget_usd the
+    dearest item rounded up to the dollar at `floor` items, else None.
+    A set-aside build row is still the item's spend."""
+    by_item, sizes = {}, {}
+    for row in rows:
+        item = (row["batch"], row["item"])
+        by_item[item] = by_item.get(item, 0) + row["cost_usd"]
+        sizes[item] = row["size"]
     totals = {}
     for item, total in by_item.items():
         totals.setdefault(sizes[item], []).append(total)
-    budgets = {size: _spread(spent) for size, spent in totals.items()}
-    for figures in budgets.values():
-        figures["budget_usd"] = (math.ceil(figures["max_usd"])
-                                 if figures["n"] >= floor else None)
+    budgets = {}
+    for size, spent in totals.items():
+        spread = _spread(spent)
+        budgets[size] = {**spread, "budget_usd": (
+            math.ceil(spread["max_usd"]) if spread["n"] >= floor else None)}
+    return budgets
+
+
+def ceiling_warnings(steps):
+    """One advisory line per step whose attempts spent their ceiling
+    WARN_SHARE of the time or more, at WARN_ATTEMPTS attempts or more,
+    in step order (#940): never a problem, never a suggested weight."""
+    return [WARNING.format(step=step, hits=figures["ceiling_hits"],
+                           attempts=figures["attempts"])
+            for step, figures in steps.items()
+            if figures["attempts"] >= WARN_ATTEMPTS
+            and figures["ceiling_hits"] >= WARN_SHARE * figures["attempts"]]
+
+
+def calibrate(rows, weights, floor=factory_config.DEFAULT_CALIBRATE_FLOOR):
+    """Suggested step weights and size budgets, PURE over actuals rows
+    and the step weights in force, with every figure's sample size
+    (_figures says what a sample is). A suggested weight is the weight
+    in force scaled by the step's mean spend over its ceiling, suggested
+    only when every weighted step has `floor` samples; a size's budget
+    is its dearest item, rounded up to the dollar, suggested only at
+    `floor` items. `warnings` are the ceiling warnings, floor or no
+    floor, and `set_aside` says which rows left a sample and why. It
+    suggests and never writes factory.json: model and pricing choices
+    stay the Owner's (PRD-0013, ADR-0034)."""
     if not rows:
         return {"floor": floor, "steps": {}, "step_weights": None,
-                "sizes": {},
+                "sizes": {}, "warnings": [], "set_aside": [],
                 "refused": ["no closed batch has a run to calibrate from"]}
+    samples, steps, set_aside = _figures(rows)
+    budgets = _budgets(rows, floor)
     suggested, refused = _scaled(samples, weights)
     weights_short = _short(steps, "step_weights", floor)
     return {"floor": floor, "steps": steps,
             "step_weights": None if weights_short else suggested,
-            "sizes": budgets,
+            "sizes": budgets, "warnings": ceiling_warnings(steps),
+            "set_aside": set_aside,
             "refused": refused + weights_short
             + _short(budgets, "budgets_usd", floor)}
 
@@ -198,17 +268,40 @@ def closed_actuals(root):
     return found, gaps["unreadable"], []
 
 
+def warning_lines(root):
+    """The ceiling warnings over every closed batch at `root` as plan
+    output lines, each `cd: `-labelled (#940): what `plan` and `open`
+    print after the plan they priced from the same weights. Advisory: a
+    join the ledgers refuse is UNREAD, one line and never a problem, so
+    a bad closed ledger cannot refuse the next batch."""
+    rows, _, problems = closed_actuals(root)
+    if problems:
+        return [UNREAD]
+    return [f"cd: {line}" for line in ceiling_warnings(_figures(rows)[1])]
+
+
+def _settings(root):
+    """((the step weights in force, the floor), problems) from
+    factory.json."""
+    config, problems = factory_config.load(root)
+    if problems:
+        return None, problems
+    weights, problems = factory_config.resolve_step_weights(config)
+    if problems:
+        return None, problems
+    floor, problems = factory_config.resolve_calibrate_floor(config)
+    return (None, problems) if problems else ((weights, floor), [])
+
+
 def calibrate_cli(root, args):
     if args:
         return None
-    config, problems = factory_config.load(root)
-    weights, problems = (None, problems) if problems \
-        else factory_config.resolve_step_weights(config)
+    settings, problems = _settings(root)
     if problems:
         return problems
     rows, unreadable, problems = closed_actuals(root)
     if rows is not None:
-        card = calibrate(rows, weights)
+        card = calibrate(rows, *settings)
         refused = [f"ledgers: {name} does not load, so its runs are left"
                    " out" for name in unreadable]
         print(json.dumps({**card, "refused": refused + card["refused"]},

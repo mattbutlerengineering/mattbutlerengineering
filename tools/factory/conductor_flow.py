@@ -12,21 +12,24 @@ An item moves only along
 A fix may skip awaiting-gate when its branch changes no gate file; an
 order starts at build; review returns to build once, for the reviewer's
 first request for changes. `stalled` is reachable from any non-terminal
-state and left only for the step it stalled in, after a retry answer.
-`blocked` is written only by conductor.answer. The Owner's 2026-10-10
-answers (breakdown.md Notes, rows 0157 and 0158) settle the launch
-record, readiness, gate asks and verdicts used here.
+state and left only for the step it stalled in, after a retry answer —
+or for merged, after a `merged` answer to the stall a PR merged outside
+the batch raises (#938). `blocked` is written only by conductor.answer,
+and left only for merged, when close finds the item's PR merged after
+the block. The Owner's 2026-10-10 answers (breakdown.md Notes, rows
+0157 and 0158) settle the launch record, readiness, gate asks and
+verdicts used here.
 """
-import json
-import os
 import re
 
 import conductor_consent as consent
+import conductor_landed as landed
 import factory_config
 from cli import CLI_FAILURES, detail
 from conductor import (BLOCK, COMPLETED, TERMINAL, answers, append,
-                       ask_row, current_state, item_branch, item_view, load,
-                       next_ask, parsed_at, stamp, view)
+                       ask_row, current_state, item_branch, item_view,
+                       parsed_at, stamp, view)
+from conductor_spend import LOST
 
 STEPS = ("spec", "build", "verify", "review", "ship")
 SEQUENCE = ("planned", "spec", "awaiting-gate", "build", "verify",
@@ -48,7 +51,7 @@ UNCHECKED_ROW = re.compile(r"- \[ \] .*")
 VERDICTS = ("pass", "changes")
 
 
-def _shipped(rows):
+def shipped_items(rows):
     """The plan's items whose ship step completed, in plan order."""
     read = view(rows)
     return [entry["item"] for entry in (read["plan"] or {}).get("items", [])
@@ -66,7 +69,7 @@ def merge_due(rows, facts, policy=None):
     pending = [row for row in rows if row["kind"] == "ask"
                and row["ask_kind"] == "merge" and row["id"] not in given]
     due = []
-    for item in _shipped(rows):
+    for item in shipped_items(rows):
         blobs = facts.get(item, {}).get("gate_blobs")
         if blobs is None or item_view(rows, item)["pending"] is not None \
                 or any(item in row.get("covers", []) for row in pending):
@@ -105,11 +108,24 @@ def _successors(item_type, state, rows, item):
     return list(SEQUENCE[following:following + 1])
 
 
-def _stalled_problems(found, to):
-    stalled = found["last"]
+def _stalled_problems(rows, found, to, fields):
+    stalled, resumed = found["last"], found["resumed"]
+    if to == landed.MERGED:
+        # A PR merged outside the batch (#938): the answer records it.
+        if resumed is not None and resumed["choice"] == landed.MERGED:
+            return []
+        return [f"cd: {found['item']} leaves stalled for merged only after"
+                " a merged answer to its stall ask"]
     if to != stalled["from"] or not found["retry"]:
         return [f"cd: {found['item']} leaves stalled only for"
                 f" {stalled['from']}, after a retry answer"]
+    # A launch carries a fresh run id; `next`'s bookkeeping resume
+    # carries the completed run's own (#939).
+    run = delivered_run(rows, found)
+    if run is not None and fields.get("run_id") != run["run_id"]:
+        return [f"cd: {found['item']}'s {to} run {run['run_id']} completed;"
+                " its bookkeeping is retried by next, never by another"
+                " Worker run"]
     return []
 
 
@@ -120,6 +136,9 @@ def transition_problems(rows, item, to, fields):
     entry, state = found["entry"], found["state"]
     if found["unknown"]:
         return [found["unknown"]]
+    if state == "blocked" and to == landed.MERGED:
+        # Its PR merged after the block (#938): close reconciles it.
+        return []
     if state in TERMINAL:
         return [f"cd: {item} is {state}, and {state} is terminal"]
     if to == "blocked":
@@ -132,7 +151,7 @@ def transition_problems(rows, item, to, fields):
         return ([] if state != "stalled"
                 else [f"cd: {item} cannot move from stalled to stalled"])
     if state == "stalled":
-        return _stalled_problems(found, to)
+        return _stalled_problems(rows, found, to, fields)
     if to not in _successors(entry["type"], state, rows, item):
         return [f"cd: {item} cannot move from {state} to {to}"]
     if state == "awaiting-gate":
@@ -188,18 +207,27 @@ def _choices(options):
     return said[0].upper() + said[1:] + "?"
 
 
-def stall_rows(rows, now, entry, reason, cause, recommended, why):
+def stall_rows(rows, now, entry, reason, cause, recommended, why,
+               options=None, **fields):
     """[state row, stall ask] for an item that stalls in its current
     state, for `reason` of class `cause` (conductor.CAUSES, #819).
     retry-up is offered only when the run leaving this state (if any — a
     dead runner leaves none) was not already at the top band: the
-    planned band alone misses a prior retry-up bump (#732)."""
+    planned band alone misses a prior retry-up bump (#732). `options`
+    given replace the band's; `fields` go on the state row."""
     item = entry["item"]
     found = item_view(rows, item)
     state, finishing = found["state"], found["finishing"]
-    options = stall_options(finishing["band"] if finishing is not None
-                            else found["steps"].get(state, {}).get("band"))
-    moved = state_row(now, item, state, "stalled", reason, cause=cause)
+    if options is None:
+        options = stall_options(finishing["band"] if finishing is not None
+                                else found["steps"].get(state, {})
+                                .get("band"))
+    if cause == "delivery-failed":
+        # The Worker finished; a retry redoes its bookkeeping (#939),
+        # and no band is involved.
+        options = [option for option in options if option != "retry-up"]
+    moved = state_row(now, item, state, "stalled", reason, cause=cause,
+                      **fields)
     asked, problems = ask_row(
         rows + [moved], now, item, "stall",
         f"{item} stalled in {state}: {reason}. {_choices(options)}",
@@ -225,27 +253,86 @@ def prior_stalls(rows, item, step):
     return streak
 
 
-def worker_advice(rows, entry, step, band, reason):
+def delivered_run(rows, found):
+    """The completed run row behind an item's delivery-failed stall
+    (#939) — its Worker finished; the spend commit, push or PR did not
+    — else None. The retry of such a stall is `next`'s bookkeeping
+    turn, never another Worker run."""
+    last = found["last"]
+    if found["state"] != "stalled" or last.get("cause") != "delivery-failed":
+        return None
+    earlier = prior_stalls(rows, found["item"], last["from"])
+    run = earlier[-1][0] if earlier else None
+    return run if run is not None and run["outcome"] == COMPLETED else None
+
+
+def worker_advice(rows, entry, step, band, reason, result=None, cause=None):
     """(recommended, why) for the stall ask of a failed Worker run of
     `step` at `band`, from the item's rows before that run launched
-    (#725). A first failure recommends retry; a second consecutive
-    budget stop at the same band recommends retry-up while it is offered
-    and the run was not already one band up, else block, since the
-    ceiling is the same and so is the outcome."""
+    (#725) and the run's `result` event when the harness gave one. A
+    delivery failure (`cause`, #939) recommends retry for the
+    bookkeeping it redoes. Otherwise a first failure recommends retry,
+    unless it is a budget stop whose result shows the ceiling never let
+    the Worker start (#936); that, like a second consecutive budget stop
+    at the same band, recommends retry-up while it is offered and the
+    run was not already one band up, else block, since the ceiling is
+    the same and so is the outcome."""
+    if cause == "delivery-failed":
+        return "retry", DELIVERY_WHY
     earlier = prior_stalls(rows, entry["item"], step)
+    stopped = reason == BUDGET_REASON
+    figures = never_started(result) if stopped and not earlier else None
+    if figures is not None:
+        return _ceiling_advice(rows, entry, step, band, FIRST_BUDGET_WHY,
+                               figures)
     if not earlier:
         return "retry", WORKER_WHY
     run, last = earlier[-1]
-    if reason == BUDGET_REASON and last == BUDGET_REASON \
+    if stopped and last == BUDGET_REASON \
             and (run or {}).get("band") == band:
-        policy = item_view(rows, entry["item"])["steps"][step]
-        up = "retry-up" in stall_options(band) \
-            and band == policy["band"] and not policy["bumped"]
-        return ("retry-up" if up else BLOCK), REPEAT_BUDGET_WHY.format(
-            step=step, ceiling=policy["ceiling_usd"],
-            remedy=("retry it one band up, on a stronger model" if up
-                    else "block it"))
+        return _ceiling_advice(rows, entry, step, band, REPEAT_BUDGET_WHY,
+                               {})
     return "retry", ATTEMPT_WHY.format(n=len(earlier) + 1, step=step)
+
+
+def _ceiling_advice(rows, entry, step, band, why, figures):
+    """(recommended, why) when the outcome repeats at the step's ceiling:
+    retry-up while it is offered and the run was not already one band
+    up, else block. `why` is filled with the step, its ceiling, the
+    remedy, and `figures`."""
+    policy = item_view(rows, entry["item"])["steps"][step]
+    up = "retry-up" in stall_options(band) \
+        and band == policy["band"] and not policy["bumped"]
+    return ("retry-up" if up else BLOCK), why.format(
+        step=step, ceiling=policy["ceiling_usd"],
+        remedy=("retry it one band up, on a stronger model" if up
+                else "block it"), **figures)
+
+
+def _output_tokens(result):
+    """A result event's output tokens: usage's, else the per-model sum
+    from modelUsage, which is where a budget stop leaves its counts
+    (#725). Both were metered by cli.read_execution before a budget
+    stop reaches the stall rule, so the counts are integers."""
+    tokens = (result.get("usage") or {}).get("output_tokens", 0)
+    return tokens or sum(counts.get("outputTokens", 0)
+                         for counts in (result.get("modelUsage") or {})
+                         .values())
+
+
+def never_started(result):
+    """The {"turns", "tokens"} a budget-stopped run ended at when they
+    show its ceiling went before the Worker started — under
+    STARTED_TURNS turns and STARTED_OUTPUT_TOKENS output tokens (#936)
+    — else None; also None for no event, or one with no num_turns
+    count, so nothing unreadable reads as a run that never started."""
+    turns = (result or {}).get("num_turns")
+    if isinstance(turns, bool) or not isinstance(turns, int):
+        return None
+    figures = {"turns": turns, "tokens": _output_tokens(result)}
+    started = turns >= STARTED_TURNS \
+        or figures["tokens"] >= STARTED_OUTPUT_TOKENS
+    return None if started else figures
 
 
 def queue_stall(root, batch, now, item, reason, cause, recommended, why):
@@ -260,9 +347,12 @@ def queue_stall(root, batch, now, item, reason, cause, recommended, why):
 
 
 OPTION_WORDS = {"retry": "retry", "retry-up": "retry one band up",
-                "block": "block"}
+                "block": "block", landed.MERGED: "treat it as merged"}
 WORKER_WHY = ("a first failure is evidence about the item as often as about"
               " the agent, so nothing retries without your answer")
+DELIVERY_WHY = ("the Worker finished; only its spend commit, push or PR"
+                " failed, so a retry redoes that bookkeeping in your"
+                " session and launches no run")
 ATTEMPT_WHY = ("attempt {n} at {step} failed after an earlier one did, so"
                " the item is as likely a cause as the agent; nothing"
                " retries without your answer")
@@ -273,6 +363,18 @@ BUDGET_REASON = f"the Worker run ended {BUDGET_STOP}"
 REPEAT_BUDGET_WHY = ("a second consecutive budget stop on {step} at the same"
                      " ${ceiling:.2f} ceiling: the outcome repeats at that"
                      " ceiling, so a plain retry spends it again; {remedy}")
+# A budget stop under these counts never let the Worker start (#936):
+# review-1 of consumer batch b20261013 stopped after 5 turns and 1,072
+# output tokens, its ceiling spent loading the brief and the tree, so the
+# outcome repeats at that ceiling as surely as after a second stop. A
+# Worker that started writes tool calls every turn, so its output runs
+# to thousands of tokens within ten turns (#725's stop had 9,000).
+STARTED_TURNS = 10
+STARTED_OUTPUT_TOKENS = 2000
+FIRST_BUDGET_WHY = ("a first budget stop on {step} at its ${ceiling:.2f}"
+                    " ceiling after {turns} turn(s) and {tokens} output"
+                    " tokens: the ceiling never let the Worker start, so a"
+                    " plain retry spends it again; {remedy}")
 IDLE_WHY = ("a dead runner or an idle step is evidence about the run more"
             " than about the item")
 CHANGES_WHY = "a second request for changes is evidence about the item"
@@ -360,23 +462,38 @@ def needs_facts(rows):
             if one["state"] in ("spec", "build") and one["completed"]]
 
 
+def landed_rows(rows, now, entry, found, unchecked):
+    """[state row, stall ask] for an item whose PR the repo merged
+    outside the batch (#938, conductor_landed): the stall row carries
+    the PR, so the same PR is never asked about twice."""
+    pr, state = found["pr"], item_view(rows, entry["item"])["state"]
+    recommended, why = landed.advice(state, unchecked, pr)
+    return stall_rows(rows, now, entry, landed.REASON.format(pr=pr),
+                      landed.CAUSE, recommended, why,
+                      options=landed.OPTIONS, pr=pr)
+
+
 def _build_usd(ceiling, rows):
     """The build's price: one run per breakdown row, each up to the
     build step's `ceiling` (the --max-budget-usd it runs under)."""
     return round(rows * ceiling, 2)
 
 
-def _gate_question(entry, ceiling, rows):
+def _gate_question(entry, ceiling, rows, review):
     """The gate ask, which doubles as the build-spend question
     (architecture.md, `plan`): the plan priced one build run, so the
-    item is re-priced with one per breakdown row."""
+    item is re-priced with one per breakdown row, and the review that
+    reads what those rows produce is priced beside it (#936) at its
+    `review` ceiling — one run, already in the plan estimate, so it is
+    stated rather than added to the re-price."""
     item = entry["item"]
     build = _build_usd(ceiling, rows)
     repriced = entry["estimate_usd"] - ceiling + build
-    return (f"{item}'s spec is ready for its gate: approve these gate files"
-            f" and its build of {rows} breakdown row(s) at up to"
-            f" ${ceiling:.2f} each (${build:.2f}), re-pricing {item} at"
-            f" ${repriced:.2f} against its ${entry['estimate_usd']:.2f}"
+    return (f"{item}'s spec is ready for its gate: approve these gate files,"
+            f" its build of {rows} breakdown row(s) at up to"
+            f" ${ceiling:.2f} each (${build:.2f}) and its review of what"
+            f" those rows produce at up to ${review:.2f}, re-pricing {item}"
+            f" at ${repriced:.2f} against its ${entry['estimate_usd']:.2f}"
             " plan estimate?")
 
 
@@ -394,11 +511,13 @@ def _after_step(rows, now, entry, launched, facts, policy):
                           f"spec run {launched['run_id']} completed")
         files = (f"the gate files are {', '.join(sorted(blobs))}" if blobs
                  else "the item branch changes no gate file")
-        ceiling = item_view(rows, item)["steps"]["build"]["ceiling_usd"]
+        steps = item_view(rows, item)["steps"]
+        ceiling = steps["build"]["ceiling_usd"]
         unchecked = facts[item]["unchecked"]
         asked, problems = ask_row(
             rows + [moved], now, item, "gate", _gate_question(
-                entry, ceiling, unchecked), GATE_OPTIONS, "approve",
+                entry, ceiling, unchecked, steps["review"]["ceiling_usd"]),
+            GATE_OPTIONS, "approve",
             f"the spec step completed; {files}", gate_blobs=blobs,
             build_usd=_build_usd(ceiling, unchecked))
         return None, ([moved, asked] if not problems else [])
@@ -425,19 +544,38 @@ def _after_step(rows, now, entry, launched, facts, policy):
 
 def _in_flight(rows, now, entry, launched, alive):
     """(True when the launched step's runner is still running, stall
-    rows when it has died or idled)."""
-    pid = launched["pid"]
+    rows when it has died or idled). A dead runner's run gets its run
+    row first (#937): outcome LOST, under the policy it was launched
+    with, so the stall offers retry-up by the band it ran at (#732) and
+    the spend row `next` charges joins it like any failed run's. An
+    idle runner is alive and may yet write its own."""
+    pid, lost = launched["pid"], []
     if not alive(pid):
         reason = f"its runner (pid {pid}) is gone with no finishing run row"
+        lost = [lost_run_row(rows, now, entry, launched)]
     else:
         limit = 2 * WALL_CLOCK_MINUTES[entry["size"]]
         idle = (now - parsed_at(launched["at"])).total_seconds() / 60
         if idle <= limit:
             return True, []
         reason = f"no state change for over {limit} minutes"
-    written, _ = stall_rows(rows, now, entry, reason, "runner-lost",
+    written, _ = stall_rows(rows + lost, now, entry, reason, "runner-lost",
                             "retry", IDLE_WHY)
-    return False, written
+    return False, lost + written
+
+
+def lost_run_row(rows, now, entry, launched):
+    """The run row of a run whose runner died (#937): the launch row's
+    run id and pid, the step's policy as the rows before that launch
+    resolved it (a retry-up's bump included, as the runner read it),
+    no model reported, and outcome LOST."""
+    item, step = entry["item"], launched["to"]
+    policy = item_view(rows[:rows.index(launched)], item)["steps"][step]
+    return {"at": stamp(now), "kind": "run", "item": item, "step": step,
+            "charter": policy["charter"], "band": policy["band"],
+            "model": policy["model"], "models_reported": [],
+            "effort": policy["effort"], "run_id": launched["run_id"],
+            "pid": launched["pid"], "outcome": LOST}
 
 
 def _merge_gone(rows, now, entry, merging, alive):
@@ -454,7 +592,29 @@ def _merge_gone(rows, now, entry, merging, alive):
 
 
 def _candidate(rows, now, entry, alive, facts, policy):
-    """(ready step or None, in flight?, rows to write) for one item."""
+    """(ready step or None, in flight?, rows to write) for one item. A
+    PR the repo merged outside the batch (#938, facts["merged_pr"])
+    stalls the item instead of launching its next step, once per PR;
+    a `merged` answer to that stall records the PR as the merge."""
+    item = entry["item"]
+    found = facts.get(item, {}).get("merged_pr")
+    if found is not None and landed.answered_merged(item_view(rows, item)):
+        reason, fields = landed.merge(found)
+        return None, False, [state_row(now, item, "stalled", landed.MERGED,
+                                       reason, **fields)]
+    ready, in_flight, written = _step(rows, now, entry, alive, facts,
+                                      policy)
+    if ready in (None, "merge") or found is None or written \
+            or landed.asked(rows, item, found["pr"]):
+        return ready, in_flight, written
+    stalled, _ = landed_rows(rows, now, entry, found,
+                             facts[item].get("unchecked"))
+    return None, False, stalled
+
+
+def _step(rows, now, entry, alive, facts, policy):
+    """(ready step or None, in flight?, rows to write) by the item's
+    state alone; _candidate applies the merged-PR rule over it."""
     found = item_view(rows, entry["item"])
     state, launched = found["state"], found["last"]
     if state in TERMINAL:
@@ -462,8 +622,9 @@ def _candidate(rows, now, entry, alive, facts, policy):
     if state == "merging":
         return None, False, _merge_gone(rows, now, entry, launched, alive)
     if state == "stalled":
-        if found["retry"]:
-            # A merge turn that stalled resumes as a merge, not a step.
+        # A finished run's bookkeeping is `next`'s own turn (#939), and
+        # a merge turn that stalled resumes as a merge, not a step.
+        if found["retry"] and delivered_run(rows, found) is None:
             resume = launched["from"]
             return ("merge" if resume == "merging" else resume), False, []
         return None, False, []
@@ -589,100 +750,3 @@ def branch_facts(git, batch, items):
             return None, problems
         facts[item] = {"gate_blobs": blobs, "unchecked": len(rows)}
     return facts, []
-
-
-def pid_alive(pid):
-    """True while a process with this pid exists (signal 0 probes)."""
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
-def shipped_facts(git, batch, rows):
-    """({item: {"gate_blobs"}}, problems) for the shipped items, which
-    conductor_consent.cover reads (issue #734)."""
-    facts = {}
-    for item in _shipped(rows):
-        blobs, problems = gate_blobs(git, item_branch(batch, item))
-        if problems:
-            return None, problems
-        facts[item] = {"gate_blobs": blobs}
-    return facts, []
-
-
-def standing_facts(gh, rows, facts, policy):
-    """({item: {"problems", "labels", "policy"}}, problems): the standing
-    policy's verdict on each item it may cover (ADR-0086), from the item
-    branch's gate files in `facts` and, under a tier list, its issue's
-    labels. Empty while the policy is off."""
-    verdicts = {}
-    for item in standing_due(rows, facts, policy) if policy["enabled"] \
-            else []:
-        labels, problems = consent.issue_labels(gh, item, policy)
-        if problems:
-            return None, problems
-        verdicts[item] = {"problems": consent.standing_problems(
-            item, facts[item]["gate_blobs"], labels, policy),
-            "labels": labels, "policy": policy}
-    return verdicts, []
-
-
-def advance(root, batch, now, wip_cap, alive, git, gh=None, policy=None):
-    """(result, problems): `next`. Reads branch facts for finished steps
-    and the standing policy's facts for shipped items, then surveys and
-    writes new asks and consent rows under the ledger lock."""
-    rows, problems = load(root, batch)
-    if problems:
-        return None, problems
-    policy = policy or {"enabled": False}
-    facts, problems = branch_facts(git, batch, needs_facts(rows))
-    if problems:
-        return None, problems
-    shipped, problems = shipped_facts(git, batch, rows)
-    if problems:
-        return None, problems
-    facts.update(shipped)
-    standing, problems = standing_facts(gh, rows, facts, policy)
-    if problems:
-        return None, problems
-    for item, verdict in standing.items():
-        facts.setdefault(item, {})["standing"] = verdict
-    outcome = {}
-
-    def build(rows):
-        ready, writes, problems = survey(rows, now, wip_cap, alive, facts,
-                                         policy)
-        outcome.update(ready=ready, writes=writes or [], rows=rows)
-        return writes, problems
-    _, problems = append(root, batch, build)
-    if problems:
-        return None, problems
-    recorded = [row["id"] for row in outcome["writes"]
-                if row["kind"] == "ask"]
-    after = outcome["rows"] + outcome["writes"]
-    return {"ask": next_ask(after), "ready": outcome["ready"],
-            "recorded": recorded,
-            "merge_due": merge_due(after, facts, policy)}, []
-
-
-def next_cli(root, batch, args, now, git, alive, gh=None):
-    if args:
-        return None
-    config, problems = factory_config.load(root)
-    if problems:
-        return problems
-    wip = config.get("wip_cap")
-    if isinstance(wip, bool) or not isinstance(wip, int) or wip < 1:
-        return ["cd: factory.json wip_cap must be a positive integer"]
-    policy, problems = factory_config.resolve_standing_consent(config)
-    if problems:
-        return problems
-    result, problems = advance(root, batch, now, wip, alive or pid_alive,
-                               git, gh, policy)
-    if result is not None:
-        print(json.dumps(result, indent=2))
-    return problems

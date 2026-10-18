@@ -1,6 +1,6 @@
 ---
 stage: review
-run: hospitality-above-fold-usability
+run: feature:hospitality-above-fold-usability
 date: 2026-10-13
 verdict: pass
 ---
