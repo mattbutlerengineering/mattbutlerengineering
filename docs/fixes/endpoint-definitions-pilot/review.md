@@ -2,7 +2,7 @@
 stage: review
 run: maintenance:endpoint-definitions-pilot
 date: 2026-10-05
-reviewed-head: fb9d2dc8e (review fixes on top: b06bf63f3, 8051c7b1d)
+reviewed-head: "fb9d2dc8e (review fixes on top: b06bf63f3, 8051c7b1d)"
 base: 2433bbdbd
 pr: 6060
 assumptions:

@@ -3,7 +3,7 @@ stage: capture
 run: maintenance:sentry-dsn-static-builds
 date: 2026-08-17
 re-entry: implement
-origin: backlog seed (from: feature:rialto-game-ui)
+origin: "backlog seed (from: feature:rialto-game-ui)"
 ---
 
 # Defect: marketing and rialto-web ship the Sentry SDK but never initialize it
