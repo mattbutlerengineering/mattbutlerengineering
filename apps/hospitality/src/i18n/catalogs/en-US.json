@@ -1254,6 +1254,20 @@
     "tagline": "Reserve your table online",
     "poweredBy": "Powered by Matt Butler Engineering"
   },
+  "publicMenu": {
+    "menuLabel": "Menu",
+    "menusDocumentTitle": "Menus — {{venue}}",
+    "menuDocumentTitle": "{{menu}} — {{venue}}",
+    "notFoundHeading": "Menu not found",
+    "notFoundDescription": "We couldn't find the menu you're looking for. Double-check the link, or contact the venue directly.",
+    "backToMenus": "Back to menus",
+    "emptyHeading": "No menus yet",
+    "emptyDescription": "This venue hasn't published a menu yet. Check back soon.",
+    "loading": "Loading menu...",
+    "soldOut": "Sold out",
+    "viewMenu": "View menu",
+    "menusHeading": "Menus"
+  },
   "manageReservation": {
     "documentTitle": "Your reservation — Hospitality",
     "venueDocumentTitle": "{{venue}} — Your reservation",

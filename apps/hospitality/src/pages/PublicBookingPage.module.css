@@ -54,3 +54,8 @@
 .notFoundLink:focus-visible {
   text-decoration: underline;
 }
+
+.menuLink {
+  color: var(--rialto-text-primary);
+  text-decoration: underline;
+}
