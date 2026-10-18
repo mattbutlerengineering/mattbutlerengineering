@@ -1273,6 +1273,20 @@
     "tagline": "Reserva tu mesa en línea",
     "poweredBy": "Con tecnología de Matt Butler Engineering"
   },
+  "publicMenu": {
+    "menuLabel": "Menú",
+    "menusDocumentTitle": "Menús — {{venue}}",
+    "menuDocumentTitle": "{{menu}} — {{venue}}",
+    "notFoundHeading": "No se encontró el menú",
+    "notFoundDescription": "No encontramos el menú que buscas. Revisa el enlace o comunícate directamente con el restaurante.",
+    "backToMenus": "Volver a los menús",
+    "emptyHeading": "Aún no hay menús",
+    "emptyDescription": "Este restaurante todavía no ha publicado un menú. Vuelve pronto.",
+    "loading": "Cargando menú...",
+    "soldOut": "Agotado",
+    "viewMenu": "Ver menú",
+    "menusHeading": "Menús"
+  },
   "manageReservation": {
     "documentTitle": "Tu reserva — Hospitality",
     "venueDocumentTitle": "{{venue}} — Tu reserva",

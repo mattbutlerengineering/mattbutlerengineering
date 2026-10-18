@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { useParams } from "react-router";
+import { useParams, Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { EmptyState, Button, Text } from "@mattbutlerengineering/rialto";
@@ -58,6 +58,14 @@ function PublicBookingPageContent() {
       if (!venueSlug) throw new Error("No venue specified.");
       return publicApiClient.venues.getBySlug(venueSlug);
     },
+    enabled: !!venueSlug,
+    retry: false,
+  });
+
+  // Optional extra: a failed menus request just means no link, never a broken booking page.
+  const { data: menus } = useQuery({
+    queryKey: ["publicMenus", venueSlug],
+    queryFn: () => publicApiClient.menus.listPublic(venueSlug as string),
     enabled: !!venueSlug,
     retry: false,
   });
@@ -152,6 +160,13 @@ function PublicBookingPageContent() {
         <Text variant="body" color="secondary" align="center">
           {t("publicBooking.tagline")}
         </Text>
+        {menus && menus.length > 0 ? (
+          <Text variant="body" align="center">
+            <Link className={styles.menuLink} to={`/menu/${venueSlug}`}>
+              {t("publicMenu.viewMenu")}
+            </Link>
+          </Text>
+        ) : null}
       </header>
 
       <div className={styles.widgetWrapper}>

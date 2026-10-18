@@ -91,6 +91,16 @@ const PublicBookingPage = lazy(() =>
     default: m.PublicBookingPage,
   }))
 );
+const PublicMenusPage = lazy(() =>
+  import("./pages/PublicMenusPage.js").then((m) => ({
+    default: m.PublicMenusPage,
+  }))
+);
+const PublicMenuPage = lazy(() =>
+  import("./pages/PublicMenuPage.js").then((m) => ({
+    default: m.PublicMenuPage,
+  }))
+);
 const ManageReservationPage = lazy(() =>
   import("./pages/ManageReservationPage.js").then((m) => ({
     default: m.ManageReservationPage,
@@ -132,6 +142,23 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingPage />}>
           <PublicBookingPage />
+        </Suspense>
+      ),
+    },
+    // Public menus — no auth, same guest surface as the booking page
+    {
+      path: "menu/:venueSlug",
+      element: (
+        <Suspense fallback={<LoadingPage />}>
+          <PublicMenusPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: "menu/:venueSlug/:menuSlug",
+      element: (
+        <Suspense fallback={<LoadingPage />}>
+          <PublicMenuPage />
         </Suspense>
       ),
     },

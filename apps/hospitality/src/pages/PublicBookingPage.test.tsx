@@ -7,13 +7,15 @@ import type { Venue } from "@mbe/types";
 // Mock react-router
 vi.mock("react-router", () => ({
   useParams: vi.fn(),
+  Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>,
 }));
 
 // Hoisted mock for the seam hook — the public booking page resolves the venue
 // through the unauthenticated by-slug read (getBySlug -> /api/v1/venues/by-slug/:slug),
 // the endpoint dedicated to public booking URLs.
-const { mockGetBySlug } = vi.hoisted(() => ({
+const { mockGetBySlug, mockListPublicMenus } = vi.hoisted(() => ({
   mockGetBySlug: vi.fn(),
+  mockListPublicMenus: vi.fn(),
 }));
 
 vi.mock("../hooks/usePublicApiClient.js", () => ({
@@ -21,6 +23,7 @@ vi.mock("../hooks/usePublicApiClient.js", () => ({
     venues: {
       getBySlug: mockGetBySlug,
     },
+    menus: { listPublic: mockListPublicMenus },
   })),
 }));
 
@@ -96,6 +99,7 @@ vi.mock("./PublicBookingPage.module.css", () => ({
     header: "header",
     widgetWrapper: "widgetWrapper",
     footer: "footer",
+    menuLink: "menuLink",
     notFoundLink: "notFoundLink",
   },
 }));
@@ -143,6 +147,7 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockUseParams.mockReturnValue({ venueSlug: "the-grand-table" });
+  mockListPublicMenus.mockResolvedValue([]);
 });
 
 describe("PublicBookingPage", () => {
@@ -154,6 +159,34 @@ describe("PublicBookingPage", () => {
       await waitFor(() => {
         expect(document.title).toBe("Book a table — The Grand Table");
       });
+    });
+  });
+
+  describe("menu link", () => {
+    it("links to the venue's menus when it has at least one active menu", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      mockListPublicMenus.mockResolvedValue([
+        { id: "m1", name: "Dinner", slug: "dinner", description: null, displayOrder: 0 },
+      ]);
+      renderPage();
+      const link = await screen.findByRole("link", { name: "View menu" });
+      expect(link.getAttribute("href")).toBe("/menu/the-grand-table");
+    });
+
+    it("shows no menu link when the venue has no active menus", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId("booking-widget")).toBeDefined());
+      await waitFor(() => expect(mockListPublicMenus).toHaveBeenCalled());
+      expect(screen.queryByRole("link", { name: "View menu" })).toBeNull();
+    });
+
+    it("still renders the booking widget when the menus request fails", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      mockListPublicMenus.mockRejectedValue(new Error("boom"));
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId("booking-widget")).toBeDefined());
+      expect(screen.queryByRole("link", { name: "View menu" })).toBeNull();
     });
   });
 

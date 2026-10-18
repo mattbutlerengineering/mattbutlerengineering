@@ -1273,6 +1273,20 @@
     "tagline": "Réservez votre table en ligne",
     "poweredBy": "Propulsé par Matt Butler Engineering"
   },
+  "publicMenu": {
+    "menuLabel": "Menu",
+    "menusDocumentTitle": "Menus — {{venue}}",
+    "menuDocumentTitle": "{{menu}} — {{venue}}",
+    "notFoundHeading": "Menu introuvable",
+    "notFoundDescription": "Nous n’avons pas trouvé le menu que vous cherchez. Vérifiez le lien ou communiquez directement avec l’établissement.",
+    "backToMenus": "Retour aux menus",
+    "emptyHeading": "Aucun menu pour l’instant",
+    "emptyDescription": "Cet établissement n’a pas encore publié de menu. Revenez bientôt.",
+    "loading": "Chargement du menu...",
+    "soldOut": "Épuisé",
+    "viewMenu": "Voir le menu",
+    "menusHeading": "Menus"
+  },
   "manageReservation": {
     "documentTitle": "Votre réservation — Hospitality",
     "venueDocumentTitle": "{{venue}} — Votre réservation",
