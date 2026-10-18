@@ -241,6 +241,25 @@ describe("MenuEditor", () => {
     );
   });
 
+  it("discards a half-typed dish edit on Cancel", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    const row = () => screen.getByText("Soup").closest("li") as HTMLElement;
+    await user.click(await screen.findByRole("button", { name: "Edit Soup" }));
+    const price = () =>
+      within(
+        screen.getByLabelText("Price (USD)", { selector: "li input" }).closest("li") as HTMLElement
+      ).getByLabelText("Price (USD)");
+    await user.clear(price());
+    await user.type(price(), "abc");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(within(row()).getByRole("button", { name: "Edit Soup" }));
+
+    expect(price()).toHaveValue("8.50");
+    expect(screen.getByRole("button", { name: "Save dish" })).toBeEnabled();
+  });
+
   it("passes axe", async () => {
     const { container } = renderEditor();
     await screen.findByRole("heading", { name: "Starters" });

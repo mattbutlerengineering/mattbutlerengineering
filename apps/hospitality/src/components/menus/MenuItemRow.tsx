@@ -47,6 +47,13 @@ export function MenuItemRow({
   const [priceCents, setPriceCents] = useState<number | null>(item.priceCents);
   const soldOut = item.status === "SOLD_OUT";
 
+  const cancelEdit = () => {
+    setName(item.name);
+    setDescription(item.description ?? "");
+    setPriceCents(item.priceCents);
+    setEditing(false);
+  };
+
   const canSave = name.trim().length > 0 && priceCents !== null;
 
   if (editing) {
@@ -84,7 +91,7 @@ export function MenuItemRow({
             <Button type="submit" variant="primary" size="sm" disabled={!canSave}>
               {t("menus.editor.saveItem")}
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
+            <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>
               {t("menus.form.cancel")}
             </Button>
           </div>
