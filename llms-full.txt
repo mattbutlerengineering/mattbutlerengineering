@@ -24863,6 +24863,79 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/public-menus.ts">
+    export const publicMenuRoutes: FastifyPluginAsync = async (fastify) => {
+      const { menuService, venueService } = fastify.services;
+    
+      fastify.get<{
+        Params: { slug: string };
+        Reply: { data: PublicMenu[] } | ProblemDetails;
+      }>(
+        "/:slug/menus",
+        {
+          schema: {
+            summary: "List a venue's active menus",
+            tags: ["Public"],
+            params: { type: "object", properties: { slug: { type: "string" } }, required: ["slug"] },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { type: "array", items: publicMenuResponseJsonSchema } },
+              },
+            },
+          },
+        },
+        publicVenueScoped(
+          { slug: (request) => request.params.slug },
+          async (_request, _reply, scope) => ({
+            data: await menuService.listPublic(scope.venueId),
+          })
+        )
+      );
+    
+      fastify.get<{
+        Params: { slug: string; menuSlug: string };
+        Reply: ApiResponse<PublicMenuDetail> | ProblemDetails;
+      }>(
+        "/:slug/menus/:menuSlug",
+        {
+          schema: {
+            summary: "Get one active menu with sections and items",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" }, menuSlug: { type: "string" } },
+              required: ["slug", "menuSlug"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: publicMenuDetailResponseJsonSchema },
+              },
+            },
+          },
+        },
+        publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply, scope) => {
+          const [menu, venue] = await Promise.all([
+            menuService.getPublicBySlug(scope.venueId, request.params.menuSlug),
+            venueService.getPublicConfigBySlug(scope.slug),
+          ]);
+          if (!menu || !venue) {
+            return reply
+              .code(404)
+              .send(
+                createProblemDetails(
+                  404,
+                  "Not Found",
+                  `No menu found with slug '${request.params.menuSlug}'.`
+                )
+              );
+          }
+          return { data: { ...menu, currencyCode: venue.currencyCode } };
+        })
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/public-reservations.ts">
     export function generateManageToken(reservationId: string, guestEmail: string): string {
       const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
@@ -29485,6 +29558,8 @@
     export const testEventBodyJsonSchema = toRequestJsonSchema(TestEventBodySchema);
     export const listFloorPlansQueryJsonSchema = toRequestJsonSchema(ListFloorPlansQuerySchema);
     export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema);
+    export const publicMenuResponseJsonSchema = toResponseJsonSchema(PublicMenuSchema);
+    export const publicMenuDetailResponseJsonSchema = toResponseJsonSchema(PublicMenuDetailSchema);
     export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
     export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
     export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
@@ -29566,6 +29641,31 @@
       status: MenuItemStatusSchema,
       displayOrder: z.number().int(),
     });
+    export const PublicMenuSchema = z.object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+      description: z.string().nullable(),
+      displayOrder: z.number().int(),
+    });
+    export const PublicMenuItemSchema = z.object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string().nullable(),
+      priceCents: PriceCentsSchema,
+      status: z.enum(["AVAILABLE", "SOLD_OUT"]),
+      displayOrder: z.number().int(),
+    });
+    export const PublicMenuSectionSchema = z.object({
+      id: z.string(),
+      name: z.string(),
+      displayOrder: z.number().int(),
+      items: z.array(PublicMenuItemSchema),
+    });
+    export const PublicMenuDetailSchema = PublicMenuSchema.extend({
+      currencyCode: z.string(),
+      sections: z.array(PublicMenuSectionSchema),
+    });
     export const CreateMenuRequestSchema = z.object({
       name: z.string().min(1),
       slug: SlugSchema,
@@ -29592,6 +29692,10 @@
     export type Menu = z.infer<typeof MenuSchema>;
     export type MenuSection = z.infer<typeof MenuSectionSchema>;
     export type MenuItem = z.infer<typeof MenuItemSchema>;
+    export type PublicMenu = z.infer<typeof PublicMenuSchema>;
+    export type PublicMenuItem = z.infer<typeof PublicMenuItemSchema>;
+    export type PublicMenuSection = z.infer<typeof PublicMenuSectionSchema>;
+    export type PublicMenuDetail = z.infer<typeof PublicMenuDetailSchema>;
     export type CreateMenuRequest = z.infer<typeof CreateMenuRequestSchema>;
     export type UpdateMenuRequest = z.infer<typeof UpdateMenuRequestSchema>;
     export type CreateMenuSectionRequest = z.infer<typeof CreateMenuSectionRequestSchema>;
@@ -37563,6 +37667,7 @@
     export type MenuWithSections = Menu & {
       sections: (MenuSection & { items: MenuItem[] })[];
     };
+    export type PublicMenuBody = Omit<PublicMenuDetail, "currencyCode">;
     export class MenuSlugConflictError extends Error {
       constructor(slug: string) {
         super(`A menu with slug "${slug}" already exists for this venue`);
@@ -37814,6 +37919,55 @@
           });
           return items.map(mapItem);
         });
+      },
+    
+      /** ACTIVE menus only, guest-facing fields, in display order. */
+      async listPublic(venueId: string): Promise<PublicMenu[]> {
+        const menus = await prisma.menu.findMany({
+          where: { venueId, status: "ACTIVE" },
+          orderBy: BY_ORDER,
+        });
+        return menus.map(({ id, name, slug, description, displayOrder }) => ({
+          id,
+          name,
+          slug,
+          description,
+          displayOrder,
+        }));
+      },
+    
+      /** One ACTIVE menu by slug; HIDDEN items are excluded in the query, SOLD_OUT stay. */
+      async getPublicBySlug(venueId: string, menuSlug: string): Promise<PublicMenuBody | null> {
+        const menu = await prisma.menu.findFirst({
+          where: { venueId, slug: menuSlug, status: "ACTIVE" },
+          include: {
+            sections: {
+              orderBy: BY_ORDER,
+              include: { items: { where: { status: { not: "HIDDEN" } }, orderBy: BY_ORDER } },
+            },
+          },
+        });
+        if (!menu) return null;
+        return {
+          id: menu.id,
+          name: menu.name,
+          slug: menu.slug,
+          description: menu.description,
+          displayOrder: menu.displayOrder,
+          sections: menu.sections.map((section) => ({
+            id: section.id,
+            name: section.name,
+            displayOrder: section.displayOrder,
+            items: section.items.map((item) => ({
+              id: item.id,
+              name: item.name,
+              description: item.description,
+              priceCents: item.priceCents,
+              status: item.status === "SOLD_OUT" ? "SOLD_OUT" : "AVAILABLE",
+              displayOrder: item.displayOrder,
+            })),
+          })),
+        };
       },
     };
   </file>
@@ -53195,6 +53349,10 @@
       const path = ["/api/v1/menus", ...segments.map(encodeURIComponent)].join("/");
       return `${path}?venueId=${encodeURIComponent(venueId)}`;
     }
+    function publicMenuPath(venueSlug: string, menuSlug?: string): string {
+      const base = `/public/v1/venues/${encodeURIComponent(venueSlug)}/menus`;
+      return menuSlug === undefined ? base : `${base}/${encodeURIComponent(menuSlug)}`;
+    }
     export class MenusClient {
       constructor(private client: ApiClient) {}
     
@@ -53312,6 +53470,25 @@
           menuPath(venueId, menuId, "sections", sectionId, "items", "order"),
           { ids },
           itemListSchema
+        );
+      }
+    
+      /** Guest-facing, unauthenticated: ACTIVE menus of the venue with this slug. */
+      async listPublic(venueSlug: string): Promise<PublicMenu[]> {
+        const response = await this.client.get<{ data: PublicMenu[] }>(
+          publicMenuPath(venueSlug),
+          undefined,
+          publicMenuListSchema
+        );
+        return response.data;
+      }
+    
+      /** Guest-facing, unauthenticated: one ACTIVE menu with sections, items and the venue currency. */
+      async getPublic(venueSlug: string, menuSlug: string): Promise<PublicMenuDetail> {
+        return this.client.getOne<PublicMenuDetail>(
+          publicMenuPath(venueSlug, menuSlug),
+          undefined,
+          PublicMenuDetailSchema
         );
       }
     }
@@ -61345,6 +61522,7 @@
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
+      await fastify.register(publicMenuRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(publicAvailabilityRoutes, {
         prefix: "/public/v1/venues",
       });

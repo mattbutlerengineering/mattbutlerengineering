@@ -8,6 +8,8 @@ import type {
   UpdateMenuSectionRequest,
   CreateMenuItemRequest,
   UpdateMenuItemRequest,
+  PublicMenu,
+  PublicMenuDetail,
 } from "@mbe/types";
 import {
   CreateMenuRequestSchema,
@@ -24,6 +26,9 @@ import { setVenueContext } from "../middleware/venue-context.js";
 export type MenuWithSections = Menu & {
   sections: (MenuSection & { items: MenuItem[] })[];
 };
+
+/** A public menu detail before the route adds the venue's `currencyCode`. */
+export type PublicMenuBody = Omit<PublicMenuDetail, "currencyCode">;
 
 /** Thrown when a menu slug is already taken within the venue (`@@unique([venueId, slug])`). */
 export class MenuSlugConflictError extends Error {
@@ -291,5 +296,54 @@ export const menuService = {
       });
       return items.map(mapItem);
     });
+  },
+
+  /** ACTIVE menus only, guest-facing fields, in display order. */
+  async listPublic(venueId: string): Promise<PublicMenu[]> {
+    const menus = await prisma.menu.findMany({
+      where: { venueId, status: "ACTIVE" },
+      orderBy: BY_ORDER,
+    });
+    return menus.map(({ id, name, slug, description, displayOrder }) => ({
+      id,
+      name,
+      slug,
+      description,
+      displayOrder,
+    }));
+  },
+
+  /** One ACTIVE menu by slug; HIDDEN items are excluded in the query, SOLD_OUT stay. */
+  async getPublicBySlug(venueId: string, menuSlug: string): Promise<PublicMenuBody | null> {
+    const menu = await prisma.menu.findFirst({
+      where: { venueId, slug: menuSlug, status: "ACTIVE" },
+      include: {
+        sections: {
+          orderBy: BY_ORDER,
+          include: { items: { where: { status: { not: "HIDDEN" } }, orderBy: BY_ORDER } },
+        },
+      },
+    });
+    if (!menu) return null;
+    return {
+      id: menu.id,
+      name: menu.name,
+      slug: menu.slug,
+      description: menu.description,
+      displayOrder: menu.displayOrder,
+      sections: menu.sections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        displayOrder: section.displayOrder,
+        items: section.items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          priceCents: item.priceCents,
+          status: item.status === "SOLD_OUT" ? "SOLD_OUT" : "AVAILABLE",
+          displayOrder: item.displayOrder,
+        })),
+      })),
+    };
   },
 };

@@ -287,6 +287,9 @@
     <item priority="medium">
       function menuPath(venueId: string, menuId?: string, ...rest: string[]): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function publicMenuPath(venueSlug: string, menuSlug?: string): string { /* ... */ }
+    </item>
     <item priority="high">
       class MenusClient {
         async list(): Promise<unknown>;

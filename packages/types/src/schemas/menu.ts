@@ -37,6 +37,37 @@ export const MenuItemSchema = z.object({
   displayOrder: z.number().int(),
 });
 
+/** Guest-facing menu summary: no status, venue id or timestamps. */
+export const PublicMenuSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  description: z.string().nullable(),
+  displayOrder: z.number().int(),
+});
+
+export const PublicMenuItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  priceCents: PriceCentsSchema,
+  status: z.enum(["AVAILABLE", "SOLD_OUT"]),
+  displayOrder: z.number().int(),
+});
+
+export const PublicMenuSectionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  displayOrder: z.number().int(),
+  items: z.array(PublicMenuItemSchema),
+});
+
+/** One ACTIVE menu with sections and non-HIDDEN items, plus the venue's currency. */
+export const PublicMenuDetailSchema = PublicMenuSchema.extend({
+  currencyCode: z.string(),
+  sections: z.array(PublicMenuSectionSchema),
+});
+
 export const CreateMenuRequestSchema = z.object({
   name: z.string().min(1),
   slug: SlugSchema,
@@ -69,6 +100,10 @@ export type MenuItemStatus = z.infer<typeof MenuItemStatusSchema>;
 export type Menu = z.infer<typeof MenuSchema>;
 export type MenuSection = z.infer<typeof MenuSectionSchema>;
 export type MenuItem = z.infer<typeof MenuItemSchema>;
+export type PublicMenu = z.infer<typeof PublicMenuSchema>;
+export type PublicMenuItem = z.infer<typeof PublicMenuItemSchema>;
+export type PublicMenuSection = z.infer<typeof PublicMenuSectionSchema>;
+export type PublicMenuDetail = z.infer<typeof PublicMenuDetailSchema>;
 export type CreateMenuRequest = z.infer<typeof CreateMenuRequestSchema>;
 export type UpdateMenuRequest = z.infer<typeof UpdateMenuRequestSchema>;
 export type CreateMenuSectionRequest = z.infer<typeof CreateMenuSectionRequestSchema>;

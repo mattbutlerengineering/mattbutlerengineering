@@ -128,6 +128,56 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       );
     },
   },
+  "GET /public/v1/venues/:slug/menus": {
+    kind: "ok",
+    run: async (ctx) => {
+      expectOk(
+        await asAdmin(ctx, { method: "GET", url: `/public/v1/venues/${ctx.venueA.slug}/menus` }),
+        "list public menus"
+      );
+      expectDenied(
+        await asAdmin(ctx, { method: "GET", url: `/public/v1/venues/${UNKNOWN_SLUG}/menus` }),
+        "unknown slug"
+      );
+    },
+  },
+  "GET /public/v1/venues/:slug/menus/:menuSlug": {
+    kind: "ok",
+    run: async (ctx) => {
+      const menuSlug = `sweep-${randomUUID().slice(0, 8)}`;
+      expectOk(
+        await asAdmin(ctx, {
+          method: "POST",
+          url: `/api/v1/menus?venueId=${ctx.venueA.id}`,
+          payload: { name: "Public sweep menu", slug: menuSlug, status: "ACTIVE" },
+        }),
+        "seed active menu"
+      );
+      const res = await asAdmin(ctx, {
+        method: "GET",
+        url: `/public/v1/venues/${ctx.venueA.slug}/menus/${menuSlug}`,
+      });
+      expectOk(res, "get public menu");
+      expect(JSON.parse(res.body).data.slug, "must serve the menu matching the slug").toBe(
+        menuSlug
+      );
+
+      expectDenied(
+        await asAdmin(ctx, {
+          method: "GET",
+          url: `/public/v1/venues/${UNKNOWN_SLUG}/menus/${menuSlug}`,
+        }),
+        "unknown venue slug"
+      );
+      expectDenied(
+        await asAdmin(ctx, {
+          method: "GET",
+          url: `/public/v1/venues/${ctx.venueB.slug}/menus/${menuSlug}`,
+        }),
+        "venue A's menu slug under venue B"
+      );
+    },
+  },
   "GET /public/v1/venues/:slug/availability": {
     kind: "ok",
     run: async (ctx) => {

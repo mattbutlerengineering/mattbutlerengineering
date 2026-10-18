@@ -12,6 +12,7 @@ import { floorPlanRoutes } from "./routes/floor-plans.js";
 import { menuRoutes } from "./routes/menus.js";
 import { guestRoutes } from "./routes/guests.js";
 import { publicVenueRoutes } from "./routes/public-venues.js";
+import { publicMenuRoutes } from "./routes/public-menus.js";
 import { publicAvailabilityRoutes } from "./routes/public-availability.js";
 import { publicHoldRoutes } from "./routes/public-holds.js";
 import { publicReservationRoutes } from "./routes/public-reservations.js";
@@ -276,6 +277,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 
   // Public routes (no auth required)
   await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
+  await fastify.register(publicMenuRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(publicAvailabilityRoutes, {
     prefix: "/public/v1/venues",
   });

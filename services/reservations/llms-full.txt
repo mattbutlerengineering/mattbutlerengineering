@@ -3829,6 +3829,79 @@
       );
     };
   </file>
+  <file path="src/routes/public-menus.ts">
+    export const publicMenuRoutes: FastifyPluginAsync = async (fastify) => {
+      const { menuService, venueService } = fastify.services;
+    
+      fastify.get<{
+        Params: { slug: string };
+        Reply: { data: PublicMenu[] } | ProblemDetails;
+      }>(
+        "/:slug/menus",
+        {
+          schema: {
+            summary: "List a venue's active menus",
+            tags: ["Public"],
+            params: { type: "object", properties: { slug: { type: "string" } }, required: ["slug"] },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { type: "array", items: publicMenuResponseJsonSchema } },
+              },
+            },
+          },
+        },
+        publicVenueScoped(
+          { slug: (request) => request.params.slug },
+          async (_request, _reply, scope) => ({
+            data: await menuService.listPublic(scope.venueId),
+          })
+        )
+      );
+    
+      fastify.get<{
+        Params: { slug: string; menuSlug: string };
+        Reply: ApiResponse<PublicMenuDetail> | ProblemDetails;
+      }>(
+        "/:slug/menus/:menuSlug",
+        {
+          schema: {
+            summary: "Get one active menu with sections and items",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" }, menuSlug: { type: "string" } },
+              required: ["slug", "menuSlug"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: publicMenuDetailResponseJsonSchema },
+              },
+            },
+          },
+        },
+        publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply, scope) => {
+          const [menu, venue] = await Promise.all([
+            menuService.getPublicBySlug(scope.venueId, request.params.menuSlug),
+            venueService.getPublicConfigBySlug(scope.slug),
+          ]);
+          if (!menu || !venue) {
+            return reply
+              .code(404)
+              .send(
+                createProblemDetails(
+                  404,
+                  "Not Found",
+                  `No menu found with slug '${request.params.menuSlug}'.`
+                )
+              );
+          }
+          return { data: { ...menu, currencyCode: venue.currencyCode } };
+        })
+      );
+    };
+  </file>
   <file path="src/routes/public-reservations.ts">
     export function generateManageToken(reservationId: string, guestEmail: string): string {
       const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
@@ -11676,6 +11749,7 @@
     export type MenuWithSections = Menu & {
       sections: (MenuSection & { items: MenuItem[] })[];
     };
+    export type PublicMenuBody = Omit<PublicMenuDetail, "currencyCode">;
     export class MenuSlugConflictError extends Error {
       constructor(slug: string) {
         super(`A menu with slug "${slug}" already exists for this venue`);
@@ -11927,6 +12001,55 @@
           });
           return items.map(mapItem);
         });
+      },
+    
+      /** ACTIVE menus only, guest-facing fields, in display order. */
+      async listPublic(venueId: string): Promise<PublicMenu[]> {
+        const menus = await prisma.menu.findMany({
+          where: { venueId, status: "ACTIVE" },
+          orderBy: BY_ORDER,
+        });
+        return menus.map(({ id, name, slug, description, displayOrder }) => ({
+          id,
+          name,
+          slug,
+          description,
+          displayOrder,
+        }));
+      },
+    
+      /** One ACTIVE menu by slug; HIDDEN items are excluded in the query, SOLD_OUT stay. */
+      async getPublicBySlug(venueId: string, menuSlug: string): Promise<PublicMenuBody | null> {
+        const menu = await prisma.menu.findFirst({
+          where: { venueId, slug: menuSlug, status: "ACTIVE" },
+          include: {
+            sections: {
+              orderBy: BY_ORDER,
+              include: { items: { where: { status: { not: "HIDDEN" } }, orderBy: BY_ORDER } },
+            },
+          },
+        });
+        if (!menu) return null;
+        return {
+          id: menu.id,
+          name: menu.name,
+          slug: menu.slug,
+          description: menu.description,
+          displayOrder: menu.displayOrder,
+          sections: menu.sections.map((section) => ({
+            id: section.id,
+            name: section.name,
+            displayOrder: section.displayOrder,
+            items: section.items.map((item) => ({
+              id: item.id,
+              name: item.name,
+              description: item.description,
+              priceCents: item.priceCents,
+              status: item.status === "SOLD_OUT" ? "SOLD_OUT" : "AVAILABLE",
+              displayOrder: item.displayOrder,
+            })),
+          })),
+        };
       },
     };
   </file>
@@ -17003,6 +17126,7 @@
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
+      await fastify.register(publicMenuRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(publicAvailabilityRoutes, {
         prefix: "/public/v1/venues",
       });

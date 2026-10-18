@@ -33,6 +33,8 @@ import {
 } from "./guest.js";
 import {
   MenuVenueQuerySchema,
+  PublicMenuSchema,
+  PublicMenuDetailSchema,
   CreateMenuRequestSchema,
   UpdateMenuRequestSchema,
   CreateMenuSectionRequestSchema,
@@ -367,6 +369,9 @@ export const testEventBodyJsonSchema = toRequestJsonSchema(TestEventBodySchema);
 
 export const listFloorPlansQueryJsonSchema = toRequestJsonSchema(ListFloorPlansQuerySchema);
 export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema);
+/** Response schemas: fast-json-stringify drops any field not listed, so internals cannot leak. */
+export const publicMenuResponseJsonSchema = toResponseJsonSchema(PublicMenuSchema);
+export const publicMenuDetailResponseJsonSchema = toResponseJsonSchema(PublicMenuDetailSchema);
 export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
 export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
 export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
