@@ -2580,6 +2580,15 @@
       export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
+      type StoredSection = MenuSection & { items: MenuItem[] };
+    </item>
+    <item priority="high">
+      type StoredMenu = Menu & { sections: StoredSection[] };
+    </item>
+    <item priority="low">
+      async function mockMenus(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
     </item>
   </file>
