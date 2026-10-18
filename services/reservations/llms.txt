@@ -445,6 +445,11 @@
       export const publicHoldRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/public-menus.ts">
+    <item priority="high">
+      export const publicMenuRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/public-reservations.ts">
     <item priority="high">
       export function generateManageToken(reservationId: string, guestEmail: string): string { /* ... */ }
@@ -1634,6 +1639,9 @@
     <item priority="low">
       type MenuWithSections = Menu & {
         sections: (MenuSection & { items: MenuItem[] }...;
+    </item>
+    <item priority="low">
+      type PublicMenuBody = Omit<PublicMenuDetail, "currencyCode">;
     </item>
     <item priority="high">
       class MenuSlugConflictError {

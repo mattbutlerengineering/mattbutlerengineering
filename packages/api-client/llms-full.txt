@@ -1084,6 +1084,10 @@
       const path = ["/api/v1/menus", ...segments.map(encodeURIComponent)].join("/");
       return `${path}?venueId=${encodeURIComponent(venueId)}`;
     }
+    function publicMenuPath(venueSlug: string, menuSlug?: string): string {
+      const base = `/public/v1/venues/${encodeURIComponent(venueSlug)}/menus`;
+      return menuSlug === undefined ? base : `${base}/${encodeURIComponent(menuSlug)}`;
+    }
     export class MenusClient {
       constructor(private client: ApiClient) {}
     
@@ -1201,6 +1205,25 @@
           menuPath(venueId, menuId, "sections", sectionId, "items", "order"),
           { ids },
           itemListSchema
+        );
+      }
+    
+      /** Guest-facing, unauthenticated: ACTIVE menus of the venue with this slug. */
+      async listPublic(venueSlug: string): Promise<PublicMenu[]> {
+        const response = await this.client.get<{ data: PublicMenu[] }>(
+          publicMenuPath(venueSlug),
+          undefined,
+          publicMenuListSchema
+        );
+        return response.data;
+      }
+    
+      /** Guest-facing, unauthenticated: one ACTIVE menu with sections, items and the venue currency. */
+      async getPublic(venueSlug: string, menuSlug: string): Promise<PublicMenuDetail> {
+        return this.client.getOne<PublicMenuDetail>(
+          publicMenuPath(venueSlug, menuSlug),
+          undefined,
+          PublicMenuDetailSchema
         );
       }
     }

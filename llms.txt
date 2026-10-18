@@ -6859,6 +6859,11 @@
       export const publicHoldRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/public-menus.ts">
+    <item priority="high">
+      export const publicMenuRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/public-reservations.ts">
     <item priority="high">
       export function generateManageToken(reservationId: string, guestEmail: string): string { /* ... */ }
@@ -7619,6 +7624,12 @@
       export const menuVenueQueryJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const publicMenuResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicMenuDetailResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const createMenuBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -7771,6 +7782,18 @@
       export const MenuItemSchema: unknown;
     </item>
     <item priority="high">
+      export const PublicMenuSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicMenuItemSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicMenuSectionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicMenuDetailSchema: unknown;
+    </item>
+    <item priority="high">
       export const CreateMenuRequestSchema: unknown;
     </item>
     <item priority="high">
@@ -7802,6 +7825,18 @@
     </item>
     <item priority="low">
       type MenuItem = z.infer<typeof MenuItemSchema>;
+    </item>
+    <item priority="low">
+      type PublicMenu = z.infer<typeof PublicMenuSchema>;
+    </item>
+    <item priority="low">
+      type PublicMenuItem = z.infer<typeof PublicMenuItemSchema>;
+    </item>
+    <item priority="low">
+      type PublicMenuSection = z.infer<typeof PublicMenuSectionSchema>;
+    </item>
+    <item priority="low">
+      type PublicMenuDetail = z.infer<typeof PublicMenuDetailSchema>;
     </item>
     <item priority="low">
       type CreateMenuRequest = z.infer<typeof CreateMenuRequestSchema>;
@@ -9656,6 +9691,9 @@
     <item priority="low">
       type MenuWithSections = Menu & {
         sections: (MenuSection & { items: MenuItem[] }...;
+    </item>
+    <item priority="low">
+      type PublicMenuBody = Omit<PublicMenuDetail, "currencyCode">;
     </item>
     <item priority="high">
       class MenuSlugConflictError {
@@ -14044,6 +14082,9 @@
     </item>
     <item priority="medium">
       function menuPath(venueId: string, menuId?: string, ...rest: string[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function publicMenuPath(venueSlug: string, menuSlug?: string): string { /* ... */ }
     </item>
     <item priority="high">
       class MenusClient {

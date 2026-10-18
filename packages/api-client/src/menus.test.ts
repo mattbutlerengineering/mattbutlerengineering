@@ -145,3 +145,62 @@ describe("MenusClient", () => {
     expect(lastCall()[1]).toBe("https://api.test.com/api/v1/menus/m%2F1?venueId=v%201");
   });
 });
+
+describe("MenusClient public reads", () => {
+  beforeEach(() => mockFetch.mockReset());
+
+  it("listPublic GETs /public/v1/venues/:slug/menus and unwraps data", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: [{ id: "m1", name: "Dinner", slug: "dinner", description: null, displayOrder: 0 }],
+      })
+    );
+
+    const menus = await client.listPublic("the oak");
+
+    expect(menus).toHaveLength(1);
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(String(url)).toBe("https://api.test.com/public/v1/venues/the%20oak/menus");
+    expect(init?.method ?? "GET").toBe("GET");
+  });
+
+  it("getPublic GETs one menu with sections, items and currency", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: {
+          id: "m1",
+          name: "Dinner",
+          slug: "dinner",
+          description: null,
+          displayOrder: 0,
+          currencyCode: "USD",
+          sections: [
+            {
+              id: "s1",
+              name: "Starters",
+              displayOrder: 0,
+              items: [
+                {
+                  id: "i1",
+                  name: "Soup",
+                  description: null,
+                  priceCents: 850,
+                  status: "SOLD_OUT",
+                  displayOrder: 0,
+                },
+              ],
+            },
+          ],
+        },
+      })
+    );
+
+    const menu = await client.getPublic("the-oak", "dinner");
+
+    expect(menu.currencyCode).toBe("USD");
+    expect(menu.sections[0]!.items[0]!.status).toBe("SOLD_OUT");
+    expect(String(mockFetch.mock.calls[0]![0])).toBe(
+      "https://api.test.com/public/v1/venues/the-oak/menus/dinner"
+    );
+  });
+});

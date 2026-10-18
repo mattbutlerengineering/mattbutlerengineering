@@ -9,8 +9,16 @@ import type {
   UpdateMenuSectionRequest,
   CreateMenuItemRequest,
   UpdateMenuItemRequest,
+  PublicMenu,
+  PublicMenuDetail,
 } from "@mbe/types";
-import { MenuSchema, MenuSectionSchema, MenuItemSchema } from "@mbe/types";
+import {
+  MenuSchema,
+  MenuSectionSchema,
+  MenuItemSchema,
+  PublicMenuSchema,
+  PublicMenuDetailSchema,
+} from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
 /** A menu with its sections, each with its items — what `GET /menus/:menuId` returns. */
@@ -23,6 +31,7 @@ const MenuWithSectionsSchema: z.ZodSchema<MenuWithSections> = MenuSchema.extend(
 });
 
 const menuListSchema = z.object({ data: z.array(MenuSchema) });
+const publicMenuListSchema = z.object({ data: z.array(PublicMenuSchema) });
 const sectionListSchema = z.array(MenuSectionSchema);
 const itemListSchema = z.array(MenuItemSchema);
 
@@ -31,6 +40,12 @@ function menuPath(venueId: string, menuId?: string, ...rest: string[]): string {
   const segments = menuId === undefined ? [] : [menuId, ...rest];
   const path = ["/api/v1/menus", ...segments.map(encodeURIComponent)].join("/");
   return `${path}?venueId=${encodeURIComponent(venueId)}`;
+}
+
+/** `/public/v1/venues/:slug/menus[/:menuSlug]` — the unauthenticated guest routes. */
+function publicMenuPath(venueSlug: string, menuSlug?: string): string {
+  const base = `/public/v1/venues/${encodeURIComponent(venueSlug)}/menus`;
+  return menuSlug === undefined ? base : `${base}/${encodeURIComponent(menuSlug)}`;
 }
 
 /**
@@ -154,6 +169,25 @@ export class MenusClient {
       menuPath(venueId, menuId, "sections", sectionId, "items", "order"),
       { ids },
       itemListSchema
+    );
+  }
+
+  /** Guest-facing, unauthenticated: ACTIVE menus of the venue with this slug. */
+  async listPublic(venueSlug: string): Promise<PublicMenu[]> {
+    const response = await this.client.get<{ data: PublicMenu[] }>(
+      publicMenuPath(venueSlug),
+      undefined,
+      publicMenuListSchema
+    );
+    return response.data;
+  }
+
+  /** Guest-facing, unauthenticated: one ACTIVE menu with sections, items and the venue currency. */
+  async getPublic(venueSlug: string, menuSlug: string): Promise<PublicMenuDetail> {
+    return this.client.getOne<PublicMenuDetail>(
+      publicMenuPath(venueSlug, menuSlug),
+      undefined,
+      PublicMenuDetailSchema
     );
   }
 }
