@@ -27,7 +27,15 @@
       "Bash(gh secret list *)",
       "Bash(pnpm exec prettier --check *)",
       "Bash(pnpm check:markdown)",
-      "Bash(pnpm check:i18n-catalogs)"
+      "Bash(pnpm check:i18n-catalogs)",
+      "Bash(node scripts/ci-gate-status.mjs check *)",
+      "Bash(node scripts/check-claude-md-table-drift.mjs)",
+      "Bash(node scripts/detect-instruction-rot.mjs)",
+      "Bash(node scripts/check-doc-freshness.mjs)",
+      "Bash(node scripts/check-skill-references.mjs)",
+      "Bash(node scripts/worktree-base-freshness.mjs check)",
+      "mcp__claude_ai_Gmail__get_thread",
+      "mcp__claude_ai_Gmail__search_threads"
     ]
   },
   "hooks": {
