@@ -14880,6 +14880,9 @@
       "waitlistEntry",
       "reservationEvent",
       "tableEvent",
+      "menu",
+      "menuSection",
+      "menuItem",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
