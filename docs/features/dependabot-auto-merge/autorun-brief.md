@@ -2,7 +2,7 @@
 kind: autorun-brief
 run: feature:dependabot-auto-merge
 date: 2026-10-14
-stop-after: decompose
+stop-after-lifted: decompose (2026-10-18, see § Resume 2026-10-18)
 ---
 
 # Autorun brief: auto-merge official-action and @types Dependabot bumps on green CI
@@ -13,7 +13,7 @@ this run. Where it is silent, a stage takes its skill's recommended default
 and logs it under `assumptions:`; where no default exists, it stops and
 surfaces.
 
-`stop-after: decompose` — this run is driven up to the blueprint gate
+`stop-after: decompose` (lifted 2026-10-18, see § Resume) — this run is driven up to the blueprint gate
 (`breakdown.md` committed) and stops there. Implement onward belongs to a
 later session.
 
@@ -133,3 +133,52 @@ None — CI/dependency automation only. PRD records `ux: not-applicable`.
 None requested and none granted. Moot in practice: `stop-after: decompose`
 ends the run before Implement. The blueprint PR itself is opened by the
 Conductor from `pr-body.md`; this session never pushes or merges.
+
+## Resume 2026-10-18 — shipped by the Conductor; Verify + Review + Ship record
+
+The Owner re-invoked autorun on this run on 2026-10-18 and answered two gap
+questions live (not assumptions):
+
+1. **Shape:** "Verify + Review + Ship record." The `stop-after: decompose`
+   in the frontmatter is lifted.
+2. **Operate:** see `operate:` below.
+
+Facts measured at resume, not assumptions:
+
+- Shipped: **#6680** `3e336927a` ("ci(deps): auto-merge official-action and
+  @types Dependabot bumps on green CI"), merged 2026-10-15T05:52:32Z; #6650
+  closed 2026-10-15T05:52:34Z. Related: #6677 (why armed auto-merge #6577
+  waited 24h), conductor batch #6668, ledger #6949. `breakdown.md` 4/4.
+- This session HAS `gh` and network (the original pre-flight could not run;
+  it now can). Open-PR pre-flight 2026-10-18: no open PR touches any
+  `dependabot` path.
+- Remaining stages run in `.claude/worktrees/dependabot-close`, branch
+  `docs/dependabot-auto-merge-close`, cut from `origin/main`. Run
+  `pnpm install --frozen-lockfile` there before tests.
+
+What each stage does:
+
+- **Verify** grades the PRD success criteria against `main`: the pure
+  policy's unit tests and workflow tests (real commands, quoted), plus a
+  read-only replay over every real Dependabot PR opened since #6680 merged:
+  for each, what the policy decided, whether auto-merge was armed, whether
+  it merged and how long open->merge took, and whether anything outside
+  the policy (production deps, majors, third-party actions) auto-merged —
+  that would be a critical finding. Read-only on GitHub: no merges,
+  labels, comments, approvals, or workflow dispatches.
+- **Review** reviews #6680 as merged plus anything on `main` since that
+  touched the same files. A major finding stays open for the Owner.
+- **Ship** records the release that already happened (`outcome:
+released`): the workflow/config on `main` took effect at merge; evidence
+  is the first real `dependabot-auto-merge.yml` runs after it. No new
+  release action. A critical finding is a live defect, reported.
+- The orchestrator opens the docs PR and leaves it for the Owner.
+
+## Operate
+
+operate:
+minimum-signal: >-
+At least 10 Dependabot PRs opened after #6680 merged, with the measured
+p90 open->merge time for the in-policy ones compared against the
+2026-10-14 baseline (~24 h). users-observed counts PRs and humans
+honestly; 0 is valid.
