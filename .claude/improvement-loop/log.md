@@ -3877,3 +3877,21 @@ Fresh cloud checkout — ran `pnpm install --frozen-lockfile` (24s) plus `pnpm b
 ### Skipped Issues
 
 None — 0 `agent-skip`.
+
+## 2026-10-18 — mbe-ui-quality
+
+State source: `branch` (`ui-quality/ledger` at `1237aaa10`, merged `origin/main` `a4d28f62` cleanly, 0 conflicts resolved). Coverage before this fire: **100%** (provisional, 132/132 covered, 0 uncovered; 18 rows `unreachable:auth`, 1 row `unreachable:build`).
+
+Routes due **1** / captured **1** / audited **1** — `marketing shipped/:slug`. All three capture suites ran: marketing captured its one planned route; rialto-web and hospitality skipped with "no routes planned" (nothing due for them). All three app builds succeeded, so no route fell to `unreachable:build` this fire — `marketing shipped/:slug`, which the ledger carried as `unreachable:build`, was reachable and audited today. 18 hospitality rows stayed `unreachable:auth` and were never captured, as designed.
+
+Unjudged: **0**. Dropped tells: **0**. Mechanical detectors: **0 findings**. Judged: **0 findings** — `shipped/:slug` was read at 1280x720 and 375x812 and is clean on every judged tell (no unrequested dark theme, no gradient, no icon-card grid, domain-specific headline, headings accurate for their sections, no vague repeated link text).
+
+Calibration stamp: **stale**. `calibration-status --model-id claude-opus-5` returned exit 3 (stale) — the only calibration trigger — so calibration was attempted once: `rate.mjs pairs --calibration` exited 0 but wrote no `calibration-plan.json`, reporting that `docs/ui-quality/calibration.json` has no labelled pairs yet (the Verify-stage labelling is Matt's, still outstanding). With no plan there were no pairs to view and `calibrate` was never reachable, so this is an exit 3 that calibration could not clear; not retried. Per the gate that path still rates: `rate.mjs pairs` produced 2 pairs (marketing fold vs. the `mantine-home` and `shadcn-home` references), both judged A (the references' folds compose a hero with hierarchy and weighted CTAs; ours is legible but flat with an unused right half), and `rate.mjs record` wrote them. Agent-built findings stay suppressed while the stamp is `stale` — nothing was dropped by it this fire, since the judge found none.
+
+Filing: `findings.mjs plan` exited 0 with **no actions and 0 seeds**. Issues created **0**, reopened **0**, commented **0**, adopted **0**. Seeds appended to `docs/backlog.md`: **0**. No rubric migration needed — every key in `metrics/ui-quality-findings.json` is already `r1` and the rubric is at v1. State read was complete: all 28 distinct issue numbers in the findings ledger were fetched individually (all `closed`, none 404/`missing`), and the `ui-quality` label listing returned `totalCount: 28` with `hasNextPage: false` — exactly the same 28 numbers, so no unknown labelled issue and no escalation issue.
+
+Fix PR: **none** — `fix_pr_candidate` was `null` (no findings at all, so nothing was a candidate).
+
+P1 SLA: **0 open `ui-quality:p1` issues**, so 0 breaches and 0 escalations.
+
+No blockers: Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`, filing was never stopped, and no pipeline bug was hit (every script exited 0). A clean no-op fire on the finding side, with one previously build-unreachable route recovered into coverage.
