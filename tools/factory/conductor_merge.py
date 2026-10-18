@@ -37,7 +37,7 @@ from pathlib import Path, PurePosixPath
 import conductor_consent as consent
 import conductor_flow as flow
 import conductor_plan
-import conductor_run
+import conductor_spend
 import factory_config
 from cli import CLI_FAILURES, detail, gh_read
 from conductor import BLOCK, append, current_state, is_text, \
@@ -727,7 +727,7 @@ def merge_turn(root, batch, item, clock, git, gh, tool, sleep, pid=None,
     problems = merge_problems(rows, item, blobs, policy)
     if problems:
         return None, problems
-    worktree, problems = conductor_run.worktree_path(git, batch, item)
+    worktree, problems = conductor_spend.worktree_path(git, batch, item)
     if not problems and not worktree.is_dir():
         problems = [f"cd: no item worktree at {worktree}"]
     if problems:

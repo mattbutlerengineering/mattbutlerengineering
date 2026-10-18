@@ -177,15 +177,29 @@ def resolve_cap(config):
 # nothing defers for its labels alone.
 #
 # `step_weights` (#724) weights how an item's size budget splits across
-# its steps as their ceilings. The default gives spec three shares and
-# every other step one: spec drives the whole run from idea to breakdown
-# at the top band, and an even share ran out of budget on 3 runs of 3.
-# A configured weight replaces that step's default; the rest keep theirs.
+# its steps as their ceilings. The default weighs a step by the band its
+# charter declares (factory/agents): spec and review, the two steps at
+# the top band, get three shares each and every other step one. Spec
+# drives the whole run from idea to breakdown there, and an even share
+# ran out of budget on 3 runs of 3; review reads everything the build
+# rows produced at the same band's price, and verify's one share ended
+# 2 review runs of 2 before the reviewer reviewed (#936). The band is
+# read here by step name rather than resolved per step: weights are
+# config that `calibrate` scales with no agents directory in hand, so a
+# charter a consumer re-bands keeps its step's weight until the Owner
+# sets it. A configured weight replaces that step's default; the rest
+# keep theirs.
+#
+# `calibrate_floor` (#940) is the fewest samples `calibrate` suggests a
+# step weight or a size budget from, a positive integer. Five is many
+# batches for a single-owner repo, so the Owner sets it; below it the
+# counters still warn (conductor_calibrate.ceiling_warnings).
 CONDUCTOR_KEYS = ("gate_command", "standing_consent", "type_labels",
                   "size_labels", "default_size", "defer_labels",
-                  "step_weights", "worktree_setup")
-DEFAULT_STEP_WEIGHTS = {"spec": 3, "build": 1, "verify": 1, "review": 1,
+                  "step_weights", "worktree_setup", "calibrate_floor")
+DEFAULT_STEP_WEIGHTS = {"spec": 3, "build": 1, "verify": 1, "review": 3,
                         "ship": 1}
+DEFAULT_CALIBRATE_FLOOR = 5
 LABEL_ITEM_TYPES = ("feature", "fix")
 SIZES = ("S", "M", "L")
 
@@ -244,7 +258,19 @@ def conductor_problems(config):
     if "worktree_setup" in table and not _argv(table["worktree_setup"]):
         problems.append("conductor.worktree_setup must be a non-empty list"
                         " of non-blank argument strings")
+    if ("calibrate_floor" in table
+            and not _positive_integer(table["calibrate_floor"])):
+        problems.append("conductor.calibrate_floor must be a positive"
+                        " integer")
     return problems
+
+
+def _positive_integer(value):
+    """True for an int of 1 or more that is not a bool: a count, where
+    True (an int in Python) would be a typo, as _positive_number rules
+    for a dollar amount."""
+    return (not isinstance(value, bool) and isinstance(value, int)
+            and value >= 1)
 
 
 def _argv(value):
@@ -361,6 +387,16 @@ def resolve_step_weights(config):
     if problems:
         return None, problems
     return {**DEFAULT_STEP_WEIGHTS, **(table or {})}, []
+
+
+def resolve_calibrate_floor(config):
+    """(the fewest samples calibrate suggests from, problems):
+    factory.json's conductor.calibrate_floor, DEFAULT_CALIBRATE_FLOOR
+    when absent (#940)."""
+    floor, problems = _conductor_value(config, "calibrate_floor")
+    if problems:
+        return None, problems
+    return (DEFAULT_CALIBRATE_FLOOR if floor is None else floor), []
 
 
 def resolve_worktree_setup(config):

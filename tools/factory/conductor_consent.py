@@ -23,7 +23,8 @@ its author runs, with its reviewed head; and the merge turn lands only
 after the check runs on the updated head are green.
 """
 from cli import gh_read, label_names
-from conductor import STANDING, answers, current_state, item_view, stamp
+from conductor import (STANDING, answer, answers, ask, current_state,
+                       item_view, stamp)
 
 REASON = "standing consent (ADR-0086): no gate-path file changed"
 # The consenting choice of a merge ask: an item's own ask, and a train
@@ -145,3 +146,54 @@ def issue_labels(gh, item, policy):
     if result.problems:
         return None, result.problems
     return label_names(result.value), []
+
+
+# The `ask` and `answer` argv, parsed here for conductor.main (#941):
+# the rows they append are conductor's, as every row is; the parsing
+# sits beside the policy that reads answers back so that conductor.py
+# stays under its 800-line ceiling.
+def _flags(args, repeatable):
+    """{flag: value or [values]} for `--flag value` pairs, or None when
+    the args are not such pairs."""
+    if len(args) % 2:
+        return None
+    flags = {}
+    for flag, value in zip(args[::2], args[1::2]):
+        if not flag.startswith("--"):
+            return None
+        if flag in repeatable:
+            flags.setdefault(flag, []).append(value)
+        elif flag in flags:
+            return None
+        else:
+            flags[flag] = value
+    return flags
+
+
+def ask_cli(root, batch, args, now):
+    """`ask`: append the ask row its flags describe and print its id;
+    None (usage) when the flags are not an ask's."""
+    flags = _flags(args, ("--option", "--covers"))
+    needed = ("--kind", "--question", "--option", "--recommended", "--why")
+    if flags is None or any(flag not in flags for flag in needed) or set(
+            flags) - set(needed) - {"--item", "--covers"}:
+        return None
+    row, problems = ask(root, batch, now, flags.get("--item"),
+                        flags["--kind"], flags["--question"],
+                        flags["--option"], flags["--recommended"],
+                        flags["--why"], covers=flags.get("--covers"))
+    if row is not None:
+        print(row["id"])
+    return problems
+
+
+def answer_cli(root, batch, args, now, env):
+    """`answer <ask-id> <choice> [--note TEXT]`; None (usage) otherwise."""
+    if len(args) < 2:
+        return None
+    flags = _flags(args[2:], ())
+    if flags is None or set(flags) - {"--note"}:
+        return None
+    _, problems = answer(root, batch, now, args[0], args[1],
+                         flags.get("--note", ""), env)
+    return problems
