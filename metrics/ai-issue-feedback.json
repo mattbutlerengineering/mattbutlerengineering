@@ -1,47 +1,47 @@
 {
-  "collected_at": "2026-10-17T18:18:01.704Z",
+  "collected_at": "2026-10-18T14:43:18.924Z",
   "period_days": 90,
   "categories": {
-    "meta-improvement": {
-      "total": 23,
-      "accepted": 0,
-      "rejected": 0,
-      "wontfix": 23,
-      "rejection_rate": 0
-    },
     "ci-fix": {
-      "total": 29,
+      "total": 36,
       "accepted": 0,
-      "rejected": 4,
-      "wontfix": 25,
-      "rejection_rate": 0.13793103448275862
-    },
-    "feature": {
-      "total": 121,
-      "accepted": 0,
-      "rejected": 4,
-      "wontfix": 117,
-      "rejection_rate": 0.03305785123966942
+      "rejected": 2,
+      "wontfix": 34,
+      "rejection_rate": 0.05555555555555555
     },
     "audit": {
-      "total": 20,
+      "total": 22,
       "accepted": 0,
       "rejected": 5,
-      "wontfix": 15,
-      "rejection_rate": 0.25
+      "wontfix": 17,
+      "rejection_rate": 0.22727272727272727
     },
-    "acmm": {
-      "total": 6,
-      "accepted": 0,
-      "rejected": 1,
-      "wontfix": 5,
-      "rejection_rate": 0.16666666666666666
-    },
-    "dependencies": {
-      "total": 1,
+    "meta-improvement": {
+      "total": 22,
       "accepted": 0,
       "rejected": 0,
-      "wontfix": 1,
+      "wontfix": 22,
+      "rejection_rate": 0
+    },
+    "feature": {
+      "total": 112,
+      "accepted": 0,
+      "rejected": 4,
+      "wontfix": 108,
+      "rejection_rate": 0.03571428571428571
+    },
+    "acmm": {
+      "total": 3,
+      "accepted": 0,
+      "rejected": 1,
+      "wontfix": 2,
+      "rejection_rate": 0.3333333333333333
+    },
+    "sentry": {
+      "total": 5,
+      "accepted": 0,
+      "rejected": 0,
+      "wontfix": 5,
       "rejection_rate": 0
     }
   },
