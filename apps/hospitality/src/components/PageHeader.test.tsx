@@ -103,8 +103,8 @@ describe("vertical spend above content (#6367 WO-3)", () => {
   );
   const headerRule = css.match(/\.header\s*\{([^}]*)\}/)?.[1] ?? "";
 
-  it("adds no top margin: DashboardLayout's content padding already spaces the title", () => {
-    expect(headerRule).not.toMatch(/margin-block-start/);
+  it("keeps a --rialto-space-xs (8px) gap below the breadcrumb bar, which cancels the content padding", () => {
+    expect(headerRule).toMatch(/margin-block-start:\s*var\(--rialto-space-xs\)/);
   });
 
   it("separates the title block from content with --rialto-space-md", () => {
