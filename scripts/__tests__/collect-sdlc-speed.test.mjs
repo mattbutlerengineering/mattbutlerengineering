@@ -5,19 +5,20 @@ import {
   summarizeSdlcSpeed,
   detectSdlcRegressions,
   dedupeProposals,
-  normalizeSearchPr,
+  normalizePull,
+  mergedWithin,
   normalizeCiRun,
   upsertSensorRow,
-  resolveRepoSlug,
 } from "../collect-sdlc-speed.mjs";
 
-// Shape captured from `gh api search/issues?q=repo:..+is:pr+is:merged` (items[]).
-const searchItem = (over = {}) => ({
+// Shape of a `gh api repos/{owner}/{repo}/pulls?state=closed` item (repo-scoped, carries head.ref).
+const pull = (over = {}) => ({
   number: 6678,
   user: { login: "mattbutlerengineering" },
   labels: [{ name: "tier:trivial" }],
   created_at: "2026-10-15T05:26:59Z",
-  pull_request: { merged_at: "2026-10-15T05:37:59Z" },
+  merged_at: "2026-10-15T05:37:59Z",
+  head: { ref: "fix/issue-6678-thing" },
   ...over,
 });
 
@@ -59,16 +60,48 @@ describe("percentile", () => {
 });
 
 describe("normalizers", () => {
-  it("normalizes a search item to minutes open->merge", () => {
-    expect(normalizeSearchPr(searchItem())).toMatchObject({
+  it("normalizes a pull to minutes open->merge", () => {
+    expect(normalizePull(pull())).toMatchObject({
       number: 6678,
       authorClass: "human",
       openToMergeMin: 11,
     });
   });
-  it("drops items that were never merged", () => {
-    expect(normalizeSearchPr(searchItem({ pull_request: { merged_at: null } }))).toBeNull();
+  it("drops pulls that were never merged", () => {
+    expect(normalizePull(pull({ merged_at: null }))).toBeNull();
   });
+  it("classifies an unlabeled worktree-agent branch as agent", () => {
+    expect(normalizePull(pull({ head: { ref: "worktree-agent-ab12cd" } }))).toMatchObject({
+      authorClass: "agent",
+    });
+  });
+  it("does not count a bookkeeping branch as agent even when labeled agent-authored", () => {
+    const labels = [{ name: "agent-authored" }];
+    expect(
+      normalizePull(pull({ labels, head: { ref: "chore/queue-telemetry-2026-10-15" } }))
+    ).toMatchObject({
+      authorClass: "human",
+    });
+    expect(normalizePull(pull({ labels, head: { ref: "automation/drift-fix" } }))).toMatchObject({
+      authorClass: "human",
+    });
+    expect(normalizePull(pull({ labels, head: { ref: "metrics/learning-loop" } }))).toMatchObject({
+      authorClass: "human",
+    });
+  });
+});
+
+describe("mergedWithin", () => {
+  const now = new Date("2026-10-18T12:00:00Z");
+  it("keeps pulls merged inside the window and drops older or unmerged ones", () => {
+    const inside = pull({ merged_at: "2026-10-12T12:00:01Z" });
+    const outside = pull({ merged_at: "2026-10-11T11:59:59Z" });
+    const unmerged = pull({ merged_at: null });
+    expect([inside, outside, unmerged].filter((p) => mergedWithin(p, 7, now))).toEqual([inside]);
+  });
+});
+
+describe("ci runs", () => {
   it("drops cancelled/skipped/in-flight runs", () => {
     const base = { run_started_at: "2026-10-15T05:00:00Z", updated_at: "2026-10-15T05:10:00Z" };
     expect(normalizeCiRun({ ...base, conclusion: "cancelled" })).toBeNull();
@@ -220,18 +253,6 @@ describe("upsertSensorRow", () => {
     expect(out.trim().split("\n")).toHaveLength(3);
     expect(out).toContain('"v":2');
     expect(out).not.toContain('"v":1');
-  });
-});
-
-describe("resolveRepoSlug", () => {
-  it("prefers GITHUB_REPOSITORY and skips the lookup", () => {
-    const lookup = () => {
-      throw new Error("should not be called");
-    };
-    expect(resolveRepoSlug({ GITHUB_REPOSITORY: "o/r" }, lookup)).toBe("o/r");
-  });
-  it("falls back to the REST lookup", () => {
-    expect(resolveRepoSlug({}, () => "o/r\n")).toBe("o/r");
   });
 });
 
