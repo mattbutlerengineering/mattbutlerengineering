@@ -1704,6 +1704,14 @@
       "announceMoved": "{{name}} déplacé à la position {{position}} sur {{count}}.",
       "announceSaved": "Modifications enregistrées.",
       "addItemTo": "Ajouter un plat à {{name}}"
+    },
+    "qr": {
+      "title": "Code QR",
+      "draftHint": "Le code QR ne fonctionnera pas tant que le menu n’est pas Actif.",
+      "format": "Format",
+      "size": "Taille",
+      "pixels": "{{size}} px",
+      "download": "Télécharger le code QR"
     }
   }
 }
