@@ -1089,6 +1089,166 @@
         },
       ];
     }
+    type StoredSection = MenuSection & { items: MenuItem[] };
+    type StoredMenu = Menu & { sections: StoredSection[] };
+    async function mockMenus(page: Page): Promise<void> {
+      const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
+      const venueId = venues.data[0]?.id ?? "";
+      const menus: StoredMenu[] = [];
+      let seq = 0;
+      const nextId = (prefix: string): string => `${prefix}_e2e_${++seq}`;
+      const bodyOf = (route: Route): Record<string, unknown> => {
+        try {
+          const parsed = route.request().postDataJSON();
+          return parsed !== null && typeof parsed === "object"
+            ? (parsed as Record<string, unknown>)
+            : {};
+        } catch {
+          return {};
+        }
+      };
+      const summary = ({ sections: _sections, ...menu }: StoredMenu): Menu => menu;
+      const notFound = (route: Route): Promise<void> =>
+        route.fulfill({
+          status: 404,
+          contentType: "application/problem+json",
+          body: JSON.stringify(createProblemDetails(404, "Not Found", "not found")),
+        });
+    
+      await page.route(/\/api\/v1\/menus(\/|\?|$)/, (route) => {
+        const method = route.request().method();
+        const [menuId, kind, sectionId, itemsKind, itemId] = new URL(route.request().url()).pathname
+          .replace(/^\/api\/v1\/menus\/?/, "")
+          .split("/")
+          .filter(Boolean);
+        const body = bodyOf(route);
+        const now = new Date().toISOString();
+    
+        if (menuId === undefined) {
+          if (method === "GET") return jsonOk(route, menus.map(summary));
+          if (method !== "POST") return route.fallback();
+          const menu: StoredMenu = {
+            description: null,
+            status: "DRAFT",
+            displayOrder: menus.length,
+            ...(body as Pick<Menu, "name" | "slug"> & Partial<Menu>),
+            id: nextId("menu"),
+            venueId,
+            createdAt: now,
+            updatedAt: now,
+            sections: [],
+          };
+          menus.push(menu);
+          return route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({ data: summary(menu) }),
+          });
+        }
+    
+        const menu = menus.find((m) => m.id === menuId);
+        if (!menu) return notFound(route);
+    
+        if (kind === undefined) {
+          if (method === "GET") return jsonOk(route, menu);
+          if (method !== "PATCH") return route.fallback();
+          Object.assign(menu, body, { updatedAt: now });
+          return jsonOk(route, summary(menu));
+        }
+        if (kind !== "sections") return route.fallback();
+    
+        if (sectionId === undefined) {
+          if (method !== "POST") return route.fallback();
+          const section: StoredSection = {
+            displayOrder: menu.sections.length,
+            ...(body as Pick<MenuSection, "name"> & Partial<MenuSection>),
+            id: nextId("sec"),
+            venueId,
+            menuId: menu.id,
+            items: [],
+          };
+          menu.sections.push(section);
+          const { items: _items, ...created } = section;
+          return route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({ data: created }),
+          });
+        }
+    
+        const section = menu.sections.find((s) => s.id === sectionId);
+        if (!section) return notFound(route);
+        if (itemsKind !== "items") return route.fallback();
+    
+        if (itemId === undefined) {
+          if (method !== "POST") return route.fallback();
+          const item: MenuItem = {
+            description: null,
+            status: "AVAILABLE",
+            displayOrder: section.items.length,
+            ...(body as Pick<MenuItem, "name" | "priceCents"> & Partial<MenuItem>),
+            id: nextId("item"),
+            venueId,
+            sectionId: section.id,
+          };
+          section.items.push(item);
+          return route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({ data: item }),
+          });
+        }
+    
+        const item = section.items.find((i) => i.id === itemId);
+        if (!item) return notFound(route);
+        if (method !== "PATCH") return route.fallback();
+        Object.assign(item, body);
+        return jsonOk(route, item);
+      });
+    
+      // Guest routes: ACTIVE menus only, HIDDEN items withheld — the public projection.
+      await page.route(/\/public\/v1\/venues\/[^/?]+\/menus(\/[^/?]+)?(\?.*)?$/, (route) => {
+        const menuSlug = new URL(route.request().url()).pathname.split("/")[6];
+        const active = menus.filter((m) => m.status === "ACTIVE");
+        if (menuSlug === undefined) {
+          return jsonOk(
+            route,
+            active.map(({ id, name, slug, description, displayOrder }) => ({
+              id,
+              name,
+              slug,
+              description,
+              displayOrder,
+            }))
+          );
+        }
+        const menu = active.find((m) => m.slug === menuSlug);
+        if (!menu) return notFound(route);
+        return jsonOk(route, {
+          id: menu.id,
+          name: menu.name,
+          slug: menu.slug,
+          description: menu.description,
+          displayOrder: menu.displayOrder,
+          currencyCode: "USD",
+          sections: menu.sections.map((section) => ({
+            id: section.id,
+            name: section.name,
+            displayOrder: section.displayOrder,
+            items: section.items
+              .filter((item) => item.status !== "HIDDEN")
+              .map(({ id, name, description, priceCents, status, displayOrder }) => ({
+                id,
+                name,
+                description,
+                priceCents,
+                status: status === "SOLD_OUT" ? ("SOLD_OUT" as const) : ("AVAILABLE" as const),
+                displayOrder,
+              })),
+          })),
+        });
+      });
+    }
     export async function mockApi(page: Page): Promise<void> {
       // Signal to QueryProvider to disable react-query retries so error states
       // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
@@ -1804,6 +1964,8 @@
       await page.route("**/public/v1/venues/*", (route) =>
         jsonOk(route, buildPublicVenueConfigFixture())
       );
+    
+      await mockMenus(page);
     }
   </file>
   <file path="e2e/auth-helpers.ts">
