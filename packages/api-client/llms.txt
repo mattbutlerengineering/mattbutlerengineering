@@ -284,12 +284,15 @@
       type MenuWithSections = Menu & {
         sections: (MenuSection & { items: MenuItem[] }...;
     </item>
+    <item priority="medium">
+      function menuPath(venueId: string, menuId?: string, ...rest: string[]): string { /* ... */ }
+    </item>
     <item priority="high">
       class MenusClient {
-        async menuPath(): Promise<unknown>;
         async list(): Promise<unknown>;
         async getById(): Promise<unknown>;
         async create(): Promise<unknown>;
+        async update(): Promise<unknown>;
       }
     </item>
   </file>
