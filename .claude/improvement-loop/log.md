@@ -3835,6 +3835,7 @@ Investigated before filing rather than filed mechanically. `first_pass_success_r
 **Issues filed:** 0
 
 **Note on "healthy":** `isRealRegression()` reports healthy only because `regressions: []` came back from the sensor itself this run — there is nothing in this run's own output to triage per Step 4, so that's correctly the mechanical verdict. But the raw composite is the same false-positive shape flagged in today's earlier `mbe-learning-loop` entry (`cost_per_issue_usd=13.196` at `cost_coverage_n=9`, 3.8% of 238 merged issues, dragging the 0.4-weighted cost term to 0): #7023's fix (#7026, merged today) evidently now suppresses the day-over-day _delta_ check on a sparse cost sample, which is why no regression was emitted here either — a real improvement over this morning's false alarm. `first_pass_success_rate` (0.891) and `median_time_to_merge_hours` (0.2) are both in line with the last week of history (0.891-0.909, 0.2-0.3h); nothing in the non-cost sub-metrics suggests an actual process regression. Not re-filing — this is the same tracked gap (#7023/#7026), not a new finding, and today's number is additional evidence the fix is working as intended.
+
 ## 2026-10-18 — mbe-evening (progress-tracker)
 
 ### Metrics (7d window, since 2026-10-11)
