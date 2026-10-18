@@ -8,16 +8,34 @@ name: Auto-merge Dependabot bumps
 # the BASE repo only (no `ref:` — never the PR head) to obtain the trusted
 # policy script, and passes every PR-derived value through `env:`, never by
 # interpolating `${{ }}` into a script body.
+#
+# DISARM (review M1): an armed auto-merge persists, and GitHub merges whatever
+# the head is when CI goes green — #6577 merged a human "fix CI" commit that
+# way. So every run (opened, synchronize, reopened) re-reads the PR's live
+# commits and auto-merge state and arms only when the policy says merge AND
+# every commit is Dependabot's (author dependabot[bot], committer web-flow,
+# GitHub-verified signature — see isDependabotCommit). That is checked against
+# the REST commits API rather than fetch-metadata, because fetch-metadata
+# verifies only commits[0] and so cannot see a later push. Any other actor
+# pushing to a Dependabot PR runs `disarm-foreign-push`, which can only disarm.
 
-on: pull_request_target
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
   pull-requests: write
 
+# One run per PR at a time, in order, so an arm from an earlier event cannot
+# land after a later event's disarm.
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   auto-merge:
-    if: github.actor == 'dependabot[bot]'
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout base repo (policy script only)
@@ -47,11 +65,52 @@ jobs:
           echo "action=$(echo "$decision" | jq -r .action)" >> "$GITHUB_OUTPUT"
           echo "reason=$(echo "$decision" | jq -r .reason)" >> "$GITHUB_OUTPUT"
 
+      - name: Read PR state
+        id: pr
+        env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          gh api --paginate --slurp "repos/$REPO/pulls/$PR_NUMBER/commits" > "$RUNNER_TEMP/commits.json"
+          echo "auto_merge=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.auto_merge != null')" >> "$GITHUB_OUTPUT"
+
+      - name: Decide arm state
+        id: arm
+        env:
+          DECISION: ${{ steps.decide.outputs.action }}
+          AUTO_MERGE_ENABLED: ${{ steps.pr.outputs.auto_merge }}
+        run: |
+          set -o pipefail
+          result=$(node scripts/dependabot-auto-merge-policy.mjs arm-state \
+            --decision "$DECISION" \
+            --commits-file "$RUNNER_TEMP/commits.json" \
+            --auto-merge-enabled "$AUTO_MERGE_ENABLED")
+          echo "$result"
+          echo "state=$(echo "$result" | jq -r .state)" >> "$GITHUB_OUTPUT"
+          echo "reason=$(echo "$result" | jq -r .reason)" >> "$GITHUB_OUTPUT"
+
       - name: Auto-merge
-        if: steps.decide.outputs.action == 'merge'
+        if: steps.arm.outputs.state == 'arm'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Disable auto-merge
+        if: steps.arm.outputs.state == 'disarm'
+        run: |
+          # Idempotent: tolerate a PR that is no longer armed (e.g. a human
+          # disabled it between the read and here); fail on anything else.
+          gh pr merge --disable-auto "$PR_URL" ||
+            [ "$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq ".auto_merge == null")" = true ]
+          gh pr comment "$PR_URL" --body "⚠️ $REASON"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REASON: ${{ steps.arm.outputs.reason }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Comment on PRs needing manual review
@@ -60,4 +119,55 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           REASON: ${{ steps.decide.outputs.reason }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  disarm-foreign-push:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base repo (policy script only)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          persist-credentials: false
+
+      - name: Read PR state
+        id: pr
+        env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          gh api --paginate --slurp "repos/$REPO/pulls/$PR_NUMBER/commits" > "$RUNNER_TEMP/commits.json"
+          echo "auto_merge=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.auto_merge != null')" >> "$GITHUB_OUTPUT"
+
+      # No policy decision here (`--decision none`): a run triggered by anyone
+      # but Dependabot can only disarm, never arm.
+      - name: Decide arm state
+        id: arm
+        env:
+          AUTO_MERGE_ENABLED: ${{ steps.pr.outputs.auto_merge }}
+        run: |
+          set -o pipefail
+          result=$(node scripts/dependabot-auto-merge-policy.mjs arm-state \
+            --decision none \
+            --commits-file "$RUNNER_TEMP/commits.json" \
+            --auto-merge-enabled "$AUTO_MERGE_ENABLED")
+          echo "$result"
+          echo "state=$(echo "$result" | jq -r .state)" >> "$GITHUB_OUTPUT"
+          echo "reason=$(echo "$result" | jq -r .reason)" >> "$GITHUB_OUTPUT"
+
+      - name: Disable auto-merge
+        if: steps.arm.outputs.state == 'disarm'
+        run: |
+          # Idempotent: tolerate a PR that is no longer armed (e.g. a human
+          # disabled it between the read and here); fail on anything else.
+          gh pr merge --disable-auto "$PR_URL" ||
+            [ "$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq ".auto_merge == null")" = true ]
+          gh pr comment "$PR_URL" --body "⚠️ $REASON"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REASON: ${{ steps.arm.outputs.reason }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

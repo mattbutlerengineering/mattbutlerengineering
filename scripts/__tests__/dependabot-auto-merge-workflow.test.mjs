@@ -10,25 +10,87 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { load as loadYaml } from "js-yaml";
 import { getJob, getStep, loadWorkflow } from "../lib/workflow.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const WORKFLOW = "dependabot-auto-merge.yml";
 const job = () => getJob(loadWorkflow(WORKFLOW), "auto-merge");
+const disarmJob = () => getJob(loadWorkflow(WORKFLOW), "disarm-foreign-push");
+const allJobs = () => [job(), disarmJob()];
 
 describe("dependabot-auto-merge.yml", () => {
   it("keeps pull_request_target and the dependabot actor gate", () => {
     const wf = loadWorkflow(WORKFLOW);
     expect(Object.keys(wf.on)).toEqual(["pull_request_target"]);
-    expect(job().if).toBe("github.actor == 'dependabot[bot]'");
+  });
+
+  it("re-evaluates on every push to the PR, not only when it opens (M1)", () => {
+    const wf = loadWorkflow(WORKFLOW);
+    expect(wf.on.pull_request_target.types).toEqual(["opened", "synchronize", "reopened"]);
+  });
+
+  it("arming job requires both the dependabot actor and a dependabot-opened PR (m4)", () => {
+    expect(job().if).toBe(
+      "github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]'"
+    );
+  });
+
+  it("disarm job runs for any other actor pushing to a Dependabot PR (M1)", () => {
+    expect(disarmJob().if).toBe(
+      "github.event.pull_request.user.login == 'dependabot[bot]' && github.actor != 'dependabot[bot]'"
+    );
+  });
+
+  it("serialises runs per PR so an arm cannot land after a later disarm", () => {
+    // scripts/lib/workflow.mjs does not surface `concurrency`; read it raw.
+    const wf = loadYaml(readFileSync(resolve(ROOT, ".github/workflows", WORKFLOW), "utf8"));
+    expect(wf.concurrency.group).toBe(
+      "dependabot-auto-merge-${{ github.event.pull_request.number }}"
+    );
+    expect(wf.concurrency["cancel-in-progress"]).toBe(false);
   });
 
   it("never checks out PR head code (no ref/repository on checkout)", () => {
-    const checkouts = job().steps.filter((s) => (s.uses ?? "").startsWith("actions/checkout@"));
-    expect(checkouts).toHaveLength(1);
-    expect(checkouts[0].with ?? {}).not.toHaveProperty("ref");
-    expect(checkouts[0].with ?? {}).not.toHaveProperty("repository");
-    expect(checkouts[0].with?.["persist-credentials"]).toBe(false);
+    for (const j of allJobs()) {
+      const checkouts = j.steps.filter((s) => (s.uses ?? "").startsWith("actions/checkout@"));
+      expect(checkouts).toHaveLength(1);
+      expect(checkouts[0].with ?? {}).not.toHaveProperty("ref");
+      expect(checkouts[0].with ?? {}).not.toHaveProperty("repository");
+      expect(checkouts[0].with?.["persist-credentials"]).toBe(false);
+    }
+  });
+
+  it("both jobs read live PR commits + auto-merge state and decide via arm-state", () => {
+    for (const j of allJobs()) {
+      const read = getStep(j, "Read PR state");
+      expect(read.run).toContain("set -o pipefail");
+      expect(read.run).toMatch(
+        /gh api --paginate --slurp "repos\/\$REPO\/pulls\/\$PR_NUMBER\/commits"/
+      );
+      expect(read.run).toContain(".auto_merge != null");
+      const decide = getStep(j, "Decide arm state");
+      expect(decide.run).toContain("set -o pipefail");
+      expect(decide.run).toContain("scripts/dependabot-auto-merge-policy.mjs arm-state");
+    }
+    expect(getStep(job(), "Decide arm state").env.DECISION).toBe(
+      "${{ steps.decide.outputs.action }}"
+    );
+    expect(getStep(disarmJob(), "Decide arm state").run).toContain("--decision none");
+  });
+
+  it("disarms with --disable-auto only when the arm-state says disarm, in both jobs", () => {
+    for (const j of allJobs()) {
+      const step = getStep(j, "Disable auto-merge");
+      expect(step.if).toBe("steps.arm.outputs.state == 'disarm'");
+      expect(step.run).toContain("gh pr merge --disable-auto");
+    }
+  });
+
+  it("the disarm job can never arm", () => {
+    for (const step of disarmJob().steps.filter((s) => s.run)) {
+      expect(step.run).not.toContain("--auto --squash");
+    }
   });
 
   it("decides via the policy CLI with pipefail, metadata passed through env", () => {
@@ -44,9 +106,9 @@ describe("dependabot-auto-merge.yml", () => {
     ]);
   });
 
-  it("merges only on a merge decision and comments the policy reason otherwise", () => {
+  it("arms only on an arm state and comments the policy reason otherwise", () => {
     const mergeStep = getStep(job(), "Auto-merge");
-    expect(mergeStep.if).toBe("steps.decide.outputs.action == 'merge'");
+    expect(mergeStep.if).toBe("steps.arm.outputs.state == 'arm'");
     expect(mergeStep.run).toContain("gh pr merge --auto --squash");
 
     const commentStep = getStep(job(), /manual review/);
@@ -57,8 +119,10 @@ describe("dependabot-auto-merge.yml", () => {
   });
 
   it("no run: block interpolates expressions directly", () => {
-    for (const step of job().steps.filter((s) => s.run)) {
-      expect(step.run).not.toContain("${{");
+    for (const j of allJobs()) {
+      for (const step of j.steps.filter((s) => s.run)) {
+        expect(step.run).not.toContain("${{");
+      }
     }
   });
 });
