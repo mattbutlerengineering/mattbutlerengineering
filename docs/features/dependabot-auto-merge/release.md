@@ -244,9 +244,8 @@ gh api repos/mattbutlerengineering/mattbutlerengineering/contents/.github/depend
     `merge`. It also adds the
     `github.event.pull_request.user.login == 'dependabot[bot]'` gate (m4). It
     is written RED-test-first, and the Owner merges it.
-  - **Status: fix PR pending.** No open PR for it existed at 2026-10-18 (the
-    open PRs were checked for `dependabot` and `auto-merge`). The orchestrator
-    links the number.
+  - **Status: fix PR open, awaiting the Owner's merge: #7087** (`0cb0ad6ed`,
+    branch `fix/dependabot-disarm-on-foreign-push`). It includes m4.
   - Exposure until it lands: no Dependabot PR is open or armed today (Release
     log 4). The first in-policy PRs can arrive Monday 2026-10-19. Until the
     fix merges, do not push non-Dependabot commits onto an armed Dependabot PR
