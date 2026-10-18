@@ -640,4 +640,29 @@ describe("feature flags plugin", () => {
     const res = await app.inject({ method: "GET", url: "/flag-check" });
     expect(res.json()).toEqual({ enabled: false });
   });
+  it("request.ip resolves to the real client behind the edge worker and DO ingress hops", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    app.get("/ip", async (request) => ({ ip: request.ip }));
+    // Edge worker sets X-Forwarded-For to CF-Connecting-IP; DO ingress may append its own hop.
+    const res = await app.inject({
+      method: "GET",
+      url: "/ip",
+      remoteAddress: "10.0.0.1",
+      headers: { "x-forwarded-for": "203.0.113.7, 172.70.0.9" },
+    });
+    expect(res.json()).toEqual({ ip: "203.0.113.7" });
+  });
+
+  it("request.ip ignores a client-spoofed extra X-Forwarded-For hop", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    app.get("/ip", async (request) => ({ ip: request.ip }));
+    // Spoofed leftmost entry must not win over the hop the edge recorded.
+    const res = await app.inject({
+      method: "GET",
+      url: "/ip",
+      remoteAddress: "10.0.0.1",
+      headers: { "x-forwarded-for": "198.51.100.99, 203.0.113.7, 172.70.0.9" },
+    });
+    expect(res.json()).toEqual({ ip: "203.0.113.7" });
+  });
 });
