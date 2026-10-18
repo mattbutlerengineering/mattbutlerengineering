@@ -1704,6 +1704,14 @@
       "announceMoved": "{{name}} se movió a la posición {{position}} de {{count}}.",
       "announceSaved": "Cambios guardados.",
       "addItemTo": "Agregar un platillo a {{name}}"
+    },
+    "qr": {
+      "title": "Código QR",
+      "draftHint": "El código QR no funcionará hasta que el menú esté Activo.",
+      "format": "Formato",
+      "size": "Tamaño",
+      "pixels": "{{size}} px",
+      "download": "Descargar QR"
     }
   }
 }

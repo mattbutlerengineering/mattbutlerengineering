@@ -1680,6 +1680,14 @@
       "announceMoved": "{{name}} moved to position {{position}} of {{count}}.",
       "announceSaved": "Changes saved.",
       "addItemTo": "Add a dish to {{name}}"
+    },
+    "qr": {
+      "title": "QR code",
+      "draftHint": "The QR code won’t work until the menu is Active.",
+      "format": "Format",
+      "size": "Size",
+      "pixels": "{{size}} px",
+      "download": "Download QR"
     }
   }
 }

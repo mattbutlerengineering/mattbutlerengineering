@@ -28,6 +28,7 @@ import {
   useUpdateSection,
 } from "../../hooks/useMenus.js";
 import { MenuItemRow, type ItemDraft } from "./MenuItemRow.js";
+import { MenuQrDownload } from "./MenuQrDownload.js";
 import { PriceInput } from "./PriceInput.js";
 import { moveId } from "./reorder.js";
 import { useDragReorder } from "./useDragReorder.js";
@@ -44,6 +45,7 @@ interface Failure {
 interface MenuEditorProps {
   venueId: string;
   menuId: string;
+  venueSlug: string;
   currencyCode: string;
   formatMoney: (cents: number) => string;
 }
@@ -52,7 +54,13 @@ type PendingDelete =
   | { kind: "section"; section: MenuSection }
   | { kind: "item"; section: MenuSection; item: MenuItem };
 
-export function MenuEditor({ venueId, menuId, currencyCode, formatMoney }: MenuEditorProps) {
+export function MenuEditor({
+  venueId,
+  menuId,
+  venueSlug,
+  currencyCode,
+  formatMoney,
+}: MenuEditorProps) {
   const { t } = useTranslation();
   const { data: menu, isLoading, error, refetch } = useMenu({ venueId, menuId });
   const updateMenu = useUpdateMenu();
@@ -170,6 +178,12 @@ export function MenuEditor({ venueId, menuId, currencyCode, formatMoney }: MenuE
             () => setLiveMessage(t("menus.editor.announceSaved"))
           )
         }
+      />
+
+      <MenuQrDownload
+        url={`${window.location.origin}/menu/${venueSlug}/${menu.slug}`}
+        active={menu.status === "ACTIVE"}
+        menuSlug={menu.slug}
       />
 
       <section aria-labelledby="menu-sections-heading" className={styles.editor}>

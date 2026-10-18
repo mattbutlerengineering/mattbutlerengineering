@@ -65,6 +65,7 @@ function renderEditor() {
       <MenuEditor
         venueId="v1"
         menuId="m1"
+        venueSlug="oak-table"
         currencyCode="USD"
         formatMoney={(cents) => `$${(cents / 100).toFixed(2)}`}
       />
@@ -98,6 +99,12 @@ describe("MenuEditor", () => {
     expect(screen.getByText("Soup")).toBeInTheDocument();
     expect(screen.getByText("$8.50")).toBeInTheDocument();
     expect(screen.getByText("No dishes in this section yet.")).toBeInTheDocument();
+  });
+
+  it("offers a QR download for the menu's public page", async () => {
+    renderEditor();
+
+    expect(await screen.findByRole("button", { name: "Download QR" })).toBeInTheDocument();
   });
 
   it("marks a dish sold out immediately and sends SOLD_OUT", async () => {

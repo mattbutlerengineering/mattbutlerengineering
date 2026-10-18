@@ -100,6 +100,7 @@ export function MenusPage() {
           <MenuEditor
             venueId={selectedVenueId}
             menuId={menuId}
+            venueSlug={selectedVenue?.slug ?? ""}
             currencyCode={selectedVenue?.currencyCode ?? "USD"}
             formatMoney={fmt.formatMoney}
           />
