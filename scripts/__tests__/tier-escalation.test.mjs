@@ -16,10 +16,25 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const f = (path, additions) => ({ path, additions });
 
 describe("countReviewSurfaceAdditions / decideSizeEscalation", () => {
-  it("#6610: generated churn does not push 988 code lines over the threshold", () => {
+  // #6610's real shape (Owner decision 2026-10-18): the 16 non-code lines are
+  // in services/reservations/CLAUDE.md, which stays counted -> 1004 -> T4.
+  it("#6610: 988 code + 16 CLAUDE.md lines = 1004 counted, generated excluded -> escalates", () => {
     const files = [
       f("llms-full.txt", 600),
       f("apps/hospitality/llms.txt", 300),
+      f("packages/rialto-catalog/src/generated-schemas.ts", 294),
+      f("services/reservations/CLAUDE.md", 16),
+      f("services/a/src/routes/r.ts", 988),
+    ];
+    expect(countReviewSurfaceAdditions(files)).toBe(1004);
+    const v = decideSizeEscalation({ files, highestTier: 3 });
+    expect(v.escalate).toBe(true);
+    expect(v.counted).toBe(1004);
+  });
+
+  it("generated churn and run-artifact md alone do not push 988 code lines over", () => {
+    const files = [
+      f("llms-full.txt", 600),
       f("packages/rialto-catalog/src/generated-schemas.ts", 294),
       f("docs/features/x/prd.md", 16),
       f("services/a/src/routes/r.ts", 988),
