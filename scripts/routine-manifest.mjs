@@ -42,13 +42,15 @@
  * #5748's "known limitation" question — should mbe-night/mbe-midday/
  * mbe-daily-issue also log a line on a no-op (empty-backlog) fire, the way
  * mbe-weekly-improve step 5 does, so a healthy no-op run doesn't read as
- * `dark` — is deliberately left unresolved here rather than decided by
- * editing the three live RemoteTrigger prompts in this PR. That edit is a
- * separate, riskier change (it touches production automation prompts, not
- * this file) and isn't needed to flip the one signature #5748 could
- * actually confirm (mbe-monthly-meta-audit, via PR #5950); mbe-night and
- * mbe-midday stay paused and `unverifiable` regardless. Tracked as its own
- * follow-up rather than bundled into this mechanical flip.
+ * `dark` — was deliberately left unresolved when #5748 made its mechanical
+ * signature flips, rather than decided by editing live RemoteTrigger prompts
+ * in that PR. #7043 resolves it for mbe-daily-issue: its docs/routines/*.md
+ * prompt now carries a heartbeat final step (mirroring mbe-auditor/
+ * mbe-morning, #6190/#6157), and this manifest's entry is flipped to
+ * `signature: { type: "heartbeat" }` with an `activatedAt` grace date until
+ * the live RemoteTrigger prompt is confirmed updated to match. mbe-night and
+ * mbe-midday remain open follow-ups — both stay `paused` and `unverifiable`
+ * regardless, so there is nothing live to break by leaving them as-is.
  *
  * @module routine-manifest
  */
@@ -177,14 +179,18 @@ const BUILTIN_ROUTINES = [
     name: "mbe-daily-issue",
     triggerId: "trig_01Df3XFeJnGYeH33NeqE1Mp3",
     periodDays: 1,
-    // Confirmed live 2026-09-25 by #5763, titled "… (mbe-daily-issue #5759)"
-    // (#5748). The routine closes an existing issue rather than filing one,
-    // so the PR it opens is its own artifact, marked by a title suffix.
-    signature: {
-      type: "pr-title",
-      pattern: String.raw`\(mbe-daily-issue #\d+\)`,
-      searchTerm: "mbe-daily-issue",
-    },
+    // #7043: the pr-title signature confirmed live 2026-09-25 by #5763 ("…
+    // (mbe-daily-issue #5759)") could not see a healthy no-op day — step 1
+    // explicitly allows "open nothing, comment nothing, end the run" when the
+    // `ready` queue is empty, so a run with nothing to do produced no PR and
+    // read identically to the routine not having run at all. Switched to the
+    // same heartbeat convention already proven for mbe-auditor/mbe-morning
+    // (#6190/#6157); the merged-PR title suffix (step 5) is untouched and
+    // still required, it just isn't the liveness signal anymore.
+    // activatedAt: grace until the live RemoteTrigger prompt gains the
+    // heartbeat step (docs/scheduled-tasks.md's edit-then-apply process).
+    activatedAt: "2026-10-19",
+    signature: { type: "heartbeat" },
   },
   {
     name: "mbe-morning",
