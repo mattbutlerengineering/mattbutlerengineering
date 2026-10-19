@@ -161,7 +161,6 @@ mattbutlerengineering/
 │   ├── config/                 # Shared ESLint / TypeScript / Prettier presets
 │   ├── database/               # Prisma connection-pool wrapper
 │   ├── gh-client/              # Typed GitHub wrapper (exec timeouts, REST fallback)
-│   ├── jobs/                   # BullMQ background jobs over Redis
 │   ├── notifications/          # Email (Resend) + SMS (Twilio) delivery
 │   ├── observability/          # OpenTelemetry tracing/metrics wrapper
 │   ├── rialto/                 # Design system (React components)

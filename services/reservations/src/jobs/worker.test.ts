@@ -43,8 +43,6 @@ function makeHandlers(): JobHandlerMap {
     [JOB_TYPES.BOOKING_REMINDER]: vi.fn().mockResolvedValue(undefined),
     [JOB_TYPES.DAY_OF_REMINDER]: vi.fn().mockResolvedValue(undefined),
     [JOB_TYPES.POST_VISIT_FOLLOWUP]: vi.fn().mockResolvedValue(undefined),
-    [JOB_TYPES.PRE_ARRIVAL_BRIEFING]: vi.fn().mockResolvedValue(undefined),
-    [JOB_TYPES.LAPSED_GUEST_SCAN]: vi.fn().mockResolvedValue(undefined),
     [JOB_TYPES.WAITLIST_EXPIRY]: vi.fn().mockResolvedValue(undefined),
   };
 }

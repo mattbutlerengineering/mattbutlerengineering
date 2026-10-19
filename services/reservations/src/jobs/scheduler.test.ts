@@ -36,16 +36,11 @@ vi.mock("ioredis", () => {
 
 import { JobScheduler } from "./scheduler.js";
 import { JOB_TYPES, DEFAULT_QUEUE_NAME, DEFAULT_JOB_OPTIONS } from "./job-types.js";
-import type { ReminderPayload, LapsedGuestScanPayload } from "./job-types.js";
+import type { ReminderPayload } from "./job-types.js";
 
 const bookingPayload: ReminderPayload = {
   reservationId: "res_abc123",
   venueId: "venue_xyz",
-};
-
-const lapsedPayload: LapsedGuestScanPayload = {
-  venueId: "venue_xyz",
-  lapsedAfterDays: 90,
 };
 
 describe("JobScheduler", () => {
@@ -95,21 +90,21 @@ describe("JobScheduler", () => {
   it("scheduleCron() registers a repeatable cron job", async () => {
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
 
-    await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, lapsedPayload, "0 9 * * *");
+    await scheduler.scheduleCron(JOB_TYPES.DAY_OF_REMINDER, bookingPayload, "0 9 * * *");
 
     expect(mocks.upsertJobScheduler).toHaveBeenCalledOnce();
     const [schedulerId, opts] = mocks.upsertJobScheduler.mock.calls[0]!;
-    expect(schedulerId).toContain(JOB_TYPES.LAPSED_GUEST_SCAN);
+    expect(schedulerId).toContain(JOB_TYPES.DAY_OF_REMINDER);
     expect(opts).toMatchObject({ pattern: "0 9 * * *" });
   });
 
   it("scheduleCron() passes the typed payload", async () => {
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
 
-    await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, lapsedPayload, "0 9 * * *");
+    await scheduler.scheduleCron(JOB_TYPES.DAY_OF_REMINDER, bookingPayload, "0 9 * * *");
 
     const [, , template] = mocks.upsertJobScheduler.mock.calls[0]!;
-    expect(template.data).toEqual(lapsedPayload);
+    expect(template.data).toEqual(bookingPayload);
   });
 
   it("close() disconnects from Redis and BullMQ", async () => {
@@ -207,7 +202,7 @@ describe("JobScheduler", () => {
   it("scheduleCron() passes attempts: 3 retry policy to BullMQ", async () => {
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
 
-    await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, lapsedPayload, "0 9 * * *");
+    await scheduler.scheduleCron(JOB_TYPES.DAY_OF_REMINDER, bookingPayload, "0 9 * * *");
 
     const [, , template] = mocks.upsertJobScheduler.mock.calls[0]!;
     expect(template.opts).toMatchObject({

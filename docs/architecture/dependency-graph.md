@@ -26,7 +26,6 @@ flowchart TD
     config["config"]
     database["database"]
     gh_client["gh-client"]
-    jobs["jobs"]
     notifications["notifications"]
     observability["observability"]
     rialto["rialto"]
@@ -83,7 +82,6 @@ flowchart TD
   reservations_service --> auth
   reservations_service --> cancellation_policy
   reservations_service --> database
-  reservations_service --> jobs
   reservations_service --> notifications
   reservations_service --> observability
   reservations_service --> sentry
@@ -107,7 +105,6 @@ flowchart TD
   cancellation_policy --> config
   database --> config
   gh_client --> config
-  jobs --> config
   notifications --> api_client
   notifications --> types
   notifications --> config
@@ -160,7 +157,6 @@ flowchart TD
   class config shared
   class database shared
   class gh_client shared
-  class jobs shared
   class notifications shared
   class observability shared
   class rialto shared

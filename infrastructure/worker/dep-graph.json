@@ -71,11 +71,6 @@
       "path": "packages/gh-client"
     },
     {
-      "name": "@mbe/jobs",
-      "type": "package",
-      "path": "packages/jobs"
-    },
-    {
       "name": "@mbe/notifications",
       "type": "package",
       "path": "packages/notifications"
@@ -350,11 +345,6 @@
     },
     {
       "from": "@mbe/reservations-service",
-      "to": "@mbe/jobs",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
       "to": "@mbe/notifications",
       "type": "dependency"
     },
@@ -465,11 +455,6 @@
     },
     {
       "from": "@mbe/gh-client",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/jobs",
       "to": "@mbe/config",
       "type": "devDependency"
     },

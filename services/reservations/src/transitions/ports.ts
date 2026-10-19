@@ -6,8 +6,8 @@
  * (`in-memory.ts`) implement them. Type-only imports — no Fastify, Prisma,
  * BullMQ or EventEmitter at runtime.
  */
-import type { JobScheduler, ReminderPayload } from "@mbe/jobs";
-import type { JOB_TYPES } from "@mbe/jobs";
+import type { JobScheduler, ReminderPayload } from "../jobs/index.js";
+import type { JOB_TYPES } from "../jobs/index.js";
 import type { Reservation } from "@mbe/types";
 import type { ReservationEvent } from "../services/events.js";
 import type { StripeService } from "../services/stripe.js";

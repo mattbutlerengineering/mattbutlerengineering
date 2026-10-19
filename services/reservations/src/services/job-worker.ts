@@ -1,6 +1,11 @@
 import type { FastifyBaseLogger } from "fastify";
-import { JobWorker, JOB_TYPES } from "@mbe/jobs";
-import type { JobContext, JobHandlerMap, ReminderPayload, WaitlistExpiryPayload } from "@mbe/jobs";
+import { JobWorker, JOB_TYPES } from "../jobs/index.js";
+import type {
+  JobContext,
+  JobHandlerMap,
+  ReminderPayload,
+  WaitlistExpiryPayload,
+} from "../jobs/index.js";
 import { PartialDeliveryError } from "@mbe/notifications";
 import type {
   BookingNotificationInput,
@@ -61,7 +66,7 @@ export interface ReservationJobHandlerDeps {
  * `getCurrentVenueId()` would otherwise be `null` and every RLS-scoped Prisma
  * query the two finders issue would silently return zero rows once
  * `FORCE ROW LEVEL SECURITY` lands — no error, no retry, no log line.
- * `ReminderPayload` (`@mbe/jobs`) already declares `venueId` required, so the
+ * `ReminderPayload` (`jobs/job-types.ts`) already declares `venueId` required, so the
  * venue is in hand at dispatch; this is simply the same
  * `runWithVenueContext(venueId, …)` convention `../routes/deposits.ts` already
  * uses, applied to the job-worker call site. `handleWaitlistExpiryJob` closes
@@ -125,7 +130,7 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
    * exactly like `deliverReminder` above, closing the other half of ADR-026
    * §3.3 item 7. `payload.venueId` is populated at the job's one enqueue
    * site (`waitlist-notifier.ts`'s `notifyTableReady`) — see
-   * `WaitlistExpiryPayload` (`@mbe/jobs`) for why it stays optional rather
+   * `WaitlistExpiryPayload` (`jobs/job-types.ts`) for why it stays optional rather
    * than required: a job enqueued before this fix shipped is already
    * sitting in Redis without it, and BullMQ never re-serializes a payload
    * once queued. For that legacy case, fall back to the pre-fix behavior
@@ -169,7 +174,7 @@ export interface ReservationJobRuntime {
 }
 
 /**
- * Wraps @mbe/jobs' JobWorker with a start/stop lifecycle so worker
+ * Wraps the jobs module's JobWorker with a start/stop lifecycle so worker
  * construction (which opens the Redis consumer) is deferred out of buildApp,
  * keeping app construction side-effect-free. Mirrors createLapsedGuestMonitor's
  * onReady/onClose wiring.

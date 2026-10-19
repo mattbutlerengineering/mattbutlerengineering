@@ -34,9 +34,9 @@
  *               cancellation / no-show / modification services use. Reads are
  *               not recorded.
  */
-import { JOB_TYPES } from "@mbe/jobs";
+import { JOB_TYPES } from "../jobs/index.js";
 import type { NotificationDispatcher } from "@mbe/notifications";
-import type { ReminderPayload } from "@mbe/jobs";
+import type { ReminderPayload } from "../jobs/index.js";
 import { ReservationEventEmitter, type ReservationEvent } from "../services/events.js";
 import type { DepositService } from "../services/deposit.js";
 import type { ReservationsAppOptions } from "../app.js";
