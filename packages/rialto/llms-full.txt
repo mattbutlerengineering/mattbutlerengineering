@@ -3219,6 +3219,8 @@
       readonly switchToDarkMode: string;
       /** Form error-summary heading for `count` invalid fields. Each locale picks its own plural form (French singular covers 0 and 1). */
       readonly fieldsNeedAttention: (count: number) => string;
+      /** TapeChart noun after a separately formatted reservation count, capitalized ("Reservation" / "Reservations"). */
+      readonly reservationCount: (count: number) => string;
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
@@ -3313,6 +3315,7 @@
       switchToDarkMode: "Switch to dark mode",
       fieldsNeedAttention: (count) =>
         count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
+      reservationCount: (count) => (count === 1 ? "Reservation" : "Reservations"),
     };
   </file>
   </section>
@@ -3469,6 +3472,7 @@
       switchToDarkMode: "Cambiar a modo oscuro",
       fieldsNeedAttention: (count) =>
         count === 1 ? `${count} campo requiere atención` : `${count} campos requieren atención`,
+      reservationCount: (count) => (count === 1 ? "Reservación" : "Reservaciones"),
     };
   </file>
   <file path="src/i18n/locales/fr-CA.ts">
@@ -3570,6 +3574,7 @@
         count < 2
           ? `${count} champ nécessite votre attention`
           : `${count} champs nécessitent votre attention`,
+      reservationCount: (count) => (count < 2 ? "Réservation" : "Réservations"),
     };
   </file>
   </section>

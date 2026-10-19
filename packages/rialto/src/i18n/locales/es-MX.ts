@@ -97,4 +97,5 @@ export const esMX: RialtoMessages = {
   switchToDarkMode: "Cambiar a modo oscuro",
   fieldsNeedAttention: (count) =>
     count === 1 ? `${count} campo requiere atención` : `${count} campos requieren atención`,
+  reservationCount: (count) => (count === 1 ? "Reservación" : "Reservaciones"),
 };

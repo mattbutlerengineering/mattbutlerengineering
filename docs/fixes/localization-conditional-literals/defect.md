@@ -10,6 +10,7 @@ assumptions:
   - "TapeChart's English defaultStrings.ts is in scope because the brief lists it under defect 2. Its defaults come from RialtoMessages through context, as the review's fix line says. Its existing strings prop stays the consumer override."
   - 'Hospitality catalogs get an en-GB entry only if its wording differs from en-US (brief). For "Ctrl" it does not.'
   - "Implement (2026-10-18): rialto plurals stay count-taking message functions, the shape TapeChart's nightsLabel/partySizeLabel already use; RialtoMessages has no plural-category mechanism and the brief says not to invent one. Each locale encodes its own rule inside its function: en-US and es-MX singular only at 1, fr-CA singular for 0 and 1 (CLDR 'one' for fr). The CLDR 'many' form for es/fr (millions) is not modelled, since these counts are fields, results, reservations and nights."
+  - "Implement (2026-10-18): TapeChart counts use ONE key, reservationCount (capitalized, as the stat pill shows it); the mobile day-card meta lowercases it with toLocaleLowerCase(formatters.locale). Right for en/es/fr; marked with a lean: comment naming the ceiling (a locale that keeps nouns capitalized needs its own key)."
 ---
 
 # Defect: rialto and hospitality render English through conditional string literals that no localization gate can see
@@ -222,7 +223,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
       `Form.tsx:87-88` (singular and plural) to `RialtoMessages` and every locale.
   - Accept: the Form locale test shows the es-MX and fr-CA summary for 1 and for
     N errors. The lint error is gone.
-- [ ] **TapeChart counts.** Add a count-taking reservation message for
+- [x] **TapeChart counts.** Add a count-taking reservation message for
       `TapeChartStatPills.tsx:34` and `TapeChartMobileStack.tsx:83`. One key is
       enough if the casing difference can be resolved; otherwise use two.
   - Accept: the TapeChart locale test renders the localized pill and day-card

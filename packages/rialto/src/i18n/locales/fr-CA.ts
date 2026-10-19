@@ -99,4 +99,5 @@ export const frCA: RialtoMessages = {
     count < 2
       ? `${count} champ nécessite votre attention`
       : `${count} champs nécessitent votre attention`,
+  reservationCount: (count) => (count < 2 ? "Réservation" : "Réservations"),
 };

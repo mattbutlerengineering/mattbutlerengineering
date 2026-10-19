@@ -190,6 +190,8 @@ export interface RialtoMessages {
   readonly switchToDarkMode: string;
   /** Form error-summary heading for `count` invalid fields. Each locale picks its own plural form (French singular covers 0 and 1). */
   readonly fieldsNeedAttention: (count: number) => string;
+  /** TapeChart noun after a separately formatted reservation count, capitalized ("Reservation" / "Reservations"). */
+  readonly reservationCount: (count: number) => string;
 }
 
 export const enUS: RialtoMessages = {
@@ -285,4 +287,5 @@ export const enUS: RialtoMessages = {
   switchToDarkMode: "Switch to dark mode",
   fieldsNeedAttention: (count) =>
     count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
+  reservationCount: (count) => (count === 1 ? "Reservation" : "Reservations"),
 };
