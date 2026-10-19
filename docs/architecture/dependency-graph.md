@@ -34,7 +34,6 @@ flowchart TD
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
     service_bootstrap["service-bootstrap"]
-    supply_chain_scanner["supply-chain-scanner"]
     test_fixtures["test-fixtures"]
     types["types"]
   end
@@ -129,7 +128,6 @@ flowchart TD
   service_bootstrap --> sentry
   service_bootstrap --> types
   service_bootstrap --> config
-  supply_chain_scanner --> config
   test_fixtures --> types
   test_fixtures --> config
   types --> config
@@ -174,7 +172,6 @@ flowchart TD
   class rialto_plugin entrypoint
   class sentry shared
   class service_bootstrap shared
-  class supply_chain_scanner entrypoint
   class test_fixtures shared
   class types shared
   class cli tooling

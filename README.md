@@ -70,7 +70,6 @@ mattbutlerengineering/
 │   ├── rialto-plugin/        # Claude Code plugin for Rialto
 │   ├── sentry/               # Sentry error tracking integration
 │   ├── service-bootstrap/    # createServiceApp — configured Fastify instance
-│   ├── supply-chain-scanner/ # Static scan of third-party skills and MCP packages
 │   ├── test-fixtures/        # Shared mock-data factories
 │   └── types/                # Shared TypeScript type definitions
 ├── plugins/

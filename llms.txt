@@ -3524,23 +3524,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="heuristics">
-  <file path="packages/supply-chain-scanner/src/heuristics/data-exfiltration.ts">
-    <item priority="high">
-      export function detectDataExfiltration(file: SourceFile): Finding[] { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/heuristics/malicious-commands.ts">
-    <item priority="high">
-      export function detectMaliciousCommands(file: SourceFile): Finding[] { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/heuristics/prompt-injection.ts">
-    <item priority="high">
-      export function detectPromptInjection(file: SourceFile): Finding[] { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useApi.ts">
     <item priority="high">
@@ -15956,111 +15939,6 @@
     </item>
     <item priority="high">
       export function validateStartupConfig(env: NodeJS.ProcessEnv = process.env): void { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/collect-files.ts">
-    <item priority="medium">
-      function extensionOf(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function hasShebang(path: string): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isScannable(name: string, full: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function collectFiles(rootDir: string): SourceFile[] { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/rule-engine.ts">
-    <item priority="low">
-      interface Rule {
-        pattern: RegExp;
-        category: Category;
-        severity: Severity;
-        excludes?: RegExp;
-        excludeLanguages?: readonly Language[];
-      }
-    </item>
-    <item priority="low">
-      type Language = "python" | "other";
-    </item>
-    <item priority="high">
-      export function detectLanguage(file: string, content: string): Language { /* ... */ }
-    </item>
-    <item priority="high">
-      interface Group {
-        text: string;
-        rest: readonly string[];
-      }
-    </item>
-    <item priority="medium">
-      function continuationGroup(
-        lines: readonly string[],
-        start: number,
-        continues: RegExp
-      ): Group | null { /* ... */ }
-    </item>
-    <item priority="high">
-      export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function isProseFile(relPath: string): boolean { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/run-cli.ts">
-    <item priority="low">
-      interface CliIo {
-        stdout: (text: string) => void;
-        stderr: (text: string) => void;
-      }
-    </item>
-    <item priority="high">
-      export function run(argv: readonly string[], io: CliIo): number { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/scan-package.ts">
-    <item priority="high">
-      export function computeVerdict(findings: readonly Finding[]): Verdict { /* ... */ }
-    </item>
-    <item priority="medium">
-      function correlateCrossFileExfiltration(findings: readonly Finding[]): Finding[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function scanPackage(dir: string): ScanResult { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/types.ts">
-    <item priority="low">
-      type Category = "prompt-injection" | "data-exfiltration" | "malicious-command";
-    </item>
-    <item priority="low">
-      type Severity = "low" | "med" | "high";
-    </item>
-    <item priority="low">
-      type Verdict = "pass" | "flag" | "block";
-    </item>
-    <item priority="low">
-      interface Finding {
-        category: Category;
-        severity: Severity;
-        file: string;
-        line: number;
-        evidence: string;
-      }
-    </item>
-    <item priority="low">
-      interface ScanResult {
-        verdict: Verdict;
-        findings: readonly Finding[];
-        correlatedFindings?: readonly Finding[];
-      }
-    </item>
-    <item priority="low">
-      interface SourceFile {
-        relPath: string;
-        content: string;
-      }
     </item>
   </file>
   <file path="packages/test-fixtures/src/jwt.ts">
