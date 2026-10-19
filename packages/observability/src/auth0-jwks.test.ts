@@ -77,7 +77,7 @@ describe("resolveJwksUrl / buildJwksUrl", () => {
     delete process.env.AUTH0_JWKS_URL;
     delete process.env.AUTH_AUTHORITY;
     process.env.NODE_ENV = "test";
-    expect(resolveJwksUrl()).toContain("dev-ytbgmz5ls3wh4xdx");
+    expect(resolveJwksUrl()).toMatch(/^https:\/\/[^/]+\.auth0\.com\/\.well-known\/jwks\.json$/);
     process.env.NODE_ENV = "production";
     expect(resolveJwksUrl()).toBeNull();
   });
