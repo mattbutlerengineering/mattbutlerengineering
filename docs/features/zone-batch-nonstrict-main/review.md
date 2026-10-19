@@ -57,6 +57,7 @@ $ node scripts/main-strictness.mjs
 - **Fix, for the Owner to decide:** strip trailing `.` and `,` from each extracted token, either in `extractPathsFromBody` or in a shared normaliser that both `pathsOverlap` and `hotspotLocks` call. Add the E1, E2 and hotspot cases as tests.
 - **Standard:** none.
 - **Decision:** **open, left for the Owner** (brief: a major is never decided by Review).
+- **Resolution:** fixed in-run at the Owner's decision (Implement re-entry, WO-30, commit `fix(issue-zone): strip trailing sentence punctuation from extracted path tokens`). Tokens are normalised at extraction; E1, E2 and the hotspot case (both modes) are now tests and defer to `[1]`.
 
 ### Minor: #6811 rewrote ADR-027's Decision section, and that section now contradicts the code's default mode
 
