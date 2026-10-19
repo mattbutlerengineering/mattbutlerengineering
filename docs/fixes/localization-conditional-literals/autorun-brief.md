@@ -108,3 +108,20 @@ limit") and `Combobox.tsx:150` ("N result(s) available"). The Owner answered
 keys + locale values) so `packages/rialto/CLAUDE.md:198` can state the
 corrected claim without listing them as gaps. The size-limit stop-and-surface
 rule still applies.
+
+## Implement decision 2026-10-18 (Owner, live — not assumptions)
+
+Implement stopped after item 5 (`3224c0bbe`): rialto locale bundles went over
+the 1.5 kB brotli per-locale limit (es-MX 1.8 kB, fr-CA 1.91 kB; projected
+~2.0 kB with the remaining keys). The Owner answered **"Raise to 2.2 kB."**
+Implement raises the rialto per-locale `size-limit` entries to 2.2 kB (all
+locale entries that share the 1.5 kB budget), states the reason (TapeChart
+default strings moved into the locale dictionaries, ~0.5 kB per translated
+locale, lazily loaded) in the changeset and defect.md Notes, and continues
+items 6-10. A further overrun past 2.2 kB is a new stop-and-surface.
+
+Coordination: another session (package-consolidation batch, issues
+#7098-#7106) may touch `packages/rialto` ChatPanel. Before editing
+`useChatStream.ts`, check `git fetch origin main && git log origin/main
+--since=2026-10-18 -- packages/rialto/src/components/ChatPanel` and open PRs
+touching it; if it moved, adapt to its new location rather than reverting it.
