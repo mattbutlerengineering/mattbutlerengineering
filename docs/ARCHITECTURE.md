@@ -162,7 +162,6 @@ mattbutlerengineering/
 │   ├── database/               # Prisma connection-pool wrapper
 │   ├── gh-client/              # Typed GitHub wrapper (exec timeouts, REST fallback)
 │   ├── jobs/                   # BullMQ background jobs over Redis
-│   ├── mcp-server/             # Infrastructure MCP server (stdio transport)
 │   ├── notifications/          # Email (Resend) + SMS (Twilio) delivery
 │   ├── observability/          # OpenTelemetry tracing/metrics wrapper
 │   ├── rialto/                 # Design system (React components)

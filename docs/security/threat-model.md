@@ -103,15 +103,14 @@ OMEGA MCP server is declared in `.mcp.json` under `root-signals`.
 The agent runtime grants access to external services via MCP servers declared in
 `.mcp.json`. Active servers include:
 
-| MCP server     | Binary / source                            | External service accessed               |
-| -------------- | ------------------------------------------ | --------------------------------------- |
-| `semgrep`      | `npx @semgrep/mcp`                         | Semgrep cloud API                       |
-| `mbe-infra`    | `npx tsx packages/mcp-server/src/index.ts` | Internal infra (in-process)             |
-| `langfuse`     | `npx mcp-server-langfuse`                  | Langfuse Cloud (traces, prompts)        |
-| `root-signals` | `uvx root-signals-mcp` (from GitHub)       | Root Signals cloud (OMEGA memory)       |
-| `github`       | `npx @modelcontextprotocol/server-github`  | GitHub API (issues, PRs, repos)         |
-| `sentry`       | `npx @sentry/mcp-server@latest`            | Sentry (error events, project data)     |
-| `playwright`   | `npx @playwright/mcp@latest`               | Browser automation (live site crawling) |
+| MCP server     | Binary / source                           | External service accessed               |
+| -------------- | ----------------------------------------- | --------------------------------------- |
+| `semgrep`      | `npx @semgrep/mcp`                        | Semgrep cloud API                       |
+| `langfuse`     | `npx mcp-server-langfuse`                 | Langfuse Cloud (traces, prompts)        |
+| `root-signals` | `uvx root-signals-mcp` (from GitHub)      | Root Signals cloud (OMEGA memory)       |
+| `github`       | `npx @modelcontextprotocol/server-github` | GitHub API (issues, PRs, repos)         |
+| `sentry`       | `npx @sentry/mcp-server@latest`           | Sentry (error events, project data)     |
+| `playwright`   | `npx @playwright/mcp@latest`              | Browser automation (live site crawling) |
 
 **Relevant security properties:**
 

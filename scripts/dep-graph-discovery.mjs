@@ -38,11 +38,10 @@ const TYPE_BY_WORKSPACE_ROOT = { apps: "app", services: "service", packages: "pa
 const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 // Packages with zero internal importers by design — invoked externally
-// (CLI bin, MCP server config, editor/build plugin) rather than imported by
+// (CLI bin, editor/build plugin) rather than imported by
 // another workspace package. Without this tag they're indistinguishable
 // from dead code in the graph. Update when adding a new standalone tool.
 export const ENTRYPOINT_PACKAGES = [
-  "@mbe/mcp-server", // launched by path from .mcp.json, not package.json
   "@mbe/supply-chain-scanner", // invoked via its `mbe-scan` bin
   "@mbe/rialto-plugin", // Claude Code plugin, loaded outside the dep graph
 ];

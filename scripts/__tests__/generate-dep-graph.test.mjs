@@ -15,7 +15,7 @@ describe("generateMermaid", () => {
   const graph = {
     nodes: [
       { name: "@mattbutlerengineering/rialto", type: "package", path: "packages/rialto" },
-      { name: "@mbe/mcp-server", type: "package", path: "packages/mcp-server", entrypoint: true },
+      { name: "@mbe/scanner", type: "package", path: "packages/scanner", entrypoint: true },
       { name: "@mbe/config", type: "package", path: "packages/config" },
       { name: "@mbe/scripts", type: "package", path: "scripts" },
       { name: "@mbe/gh-client", type: "package", path: "packages/gh-client" },
@@ -40,7 +40,7 @@ describe("generateMermaid", () => {
   it("assigns the entrypoint classDef to tagged entrypoint packages", () => {
     const mermaid = generateMermaid(graph);
     expect(mermaid).toContain("classDef entrypoint");
-    expect(mermaid).toContain("class mcp_server entrypoint");
+    expect(mermaid).toContain("class scanner entrypoint");
   });
 
   it("does not assign the entrypoint class to regular packages", () => {

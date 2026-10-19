@@ -27,7 +27,6 @@ flowchart TD
     database["database"]
     gh_client["gh-client"]
     jobs["jobs"]
-    mcp_server["mcp-server"]
     notifications["notifications"]
     observability["observability"]
     rialto["rialto"]
@@ -112,7 +111,6 @@ flowchart TD
   database --> config
   gh_client --> config
   jobs --> config
-  mcp_server --> config
   notifications --> api_client
   notifications --> types
   notifications --> config
@@ -169,7 +167,6 @@ flowchart TD
   class database shared
   class gh_client shared
   class jobs shared
-  class mcp_server entrypoint
   class notifications shared
   class observability shared
   class rialto shared
