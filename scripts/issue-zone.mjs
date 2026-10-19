@@ -265,10 +265,23 @@ function extractPathsFromBody(body) {
   if (typeof body !== "string" || body.length === 0) return [];
   const section = extractFilesSection(body);
   if (section) {
-    const sectionPaths = section.match(PATH_TOKEN_PATTERN) ?? [];
+    const sectionPaths = matchPathTokens(section);
     if (sectionPaths.length > 0) return sectionPaths;
   }
-  return body.match(PATH_TOKEN_PATTERN) ?? [];
+  return matchPathTokens(body);
+}
+
+/**
+ * Matches path tokens and strips trailing sentence punctuation. The token
+ * class `[\w.-]` keeps a sentence-final `.` or `...` ("Edit a.ts."), which
+ * would make the same file look disjoint and dodge the hotspot locks.
+ * Interior dots (`a.ts`, `.claude/`, `llms-full.txt`) are untouched.
+ *
+ * @param {string} text
+ * @returns {string[]}
+ */
+function matchPathTokens(text) {
+  return (text.match(PATH_TOKEN_PATTERN) ?? []).map((token) => token.replace(/[.,]+$/, ""));
 }
 
 // ---------------------------------------------------------------------------

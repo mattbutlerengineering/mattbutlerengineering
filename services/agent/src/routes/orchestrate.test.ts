@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { calculateCost } from "@mbe/agent-test-utils";
+import { calculateCost } from "@mbe/agent-core/testing";
 
 // Mock all dependencies
 vi.mock("../services/session.js", async (importOriginal) => {

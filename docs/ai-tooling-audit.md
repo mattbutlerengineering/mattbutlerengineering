@@ -48,7 +48,6 @@
 | Server         | Purpose                           | Notes                                                    |
 | -------------- | --------------------------------- | -------------------------------------------------------- |
 | `semgrep`      | Security scanning (SAST)          | Project-specific; covers supply-chain rule               |
-| `mbe-infra`    | Internal infra MCP                | Project-specific                                         |
 | `langfuse`     | LLM observability + cost tracking | Covers Observability STACK requirement                   |
 | `root-signals` | Eval quality signals              | Project-specific                                         |
 | `github`       | GitHub API                        | Duplicates global `github` plugin                        |

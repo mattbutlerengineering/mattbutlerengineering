@@ -155,7 +155,6 @@ mattbutlerengineering/
 │   └── users/                  # Users API (Fastify, port 3001)
 ├── packages/
 │   ├── agent-core/             # Autonomous coding-agent runtime (worktrees, SDK sessions)
-│   ├── agent-test-utils/       # Deterministic mocks/simulators for agent-core
 │   ├── api-client/             # Typed fetch wrapper (auth, retry, problem-details)
 │   ├── auth/                   # OIDC/JWT helpers for React + Fastify
 │   ├── cancellation-policy/    # Pure cancellation-fee decision engine
@@ -163,7 +162,6 @@ mattbutlerengineering/
 │   ├── database/               # Prisma connection-pool wrapper
 │   ├── gh-client/              # Typed GitHub wrapper (exec timeouts, REST fallback)
 │   ├── jobs/                   # BullMQ background jobs over Redis
-│   ├── mcp-server/             # Infrastructure MCP server (stdio transport)
 │   ├── notifications/          # Email (Resend) + SMS (Twilio) delivery
 │   ├── observability/          # OpenTelemetry tracing/metrics wrapper
 │   ├── rialto/                 # Design system (React components)

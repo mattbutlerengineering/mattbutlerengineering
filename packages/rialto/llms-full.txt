@@ -338,6 +338,7 @@
       cancelAction: () => void;
     }
     export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn {
+      const { messages: t } = useRialtoLocale();
       const [messages, setMessages] = useState<ChatMessage[]>([]);
       const [isStreaming, setIsStreaming] = useState(false);
       const [error, setError] = useState<Error | null>(null);
@@ -413,7 +414,7 @@
               } else if (line.type === "permission_denied" && line.toolName) {
                 const denial: PermissionDenial = {
                   toolName: line.toolName,
-                  reason: line.reason ?? "Not allowed",
+                  reason: line.reason ?? t.notAllowed,
                 };
                 setPermissionDenials((prev) => [...prev, denial]);
               }
@@ -439,7 +440,7 @@
             setIsStreaming(false);
           }
         },
-        [api]
+        [api, t]
       );
     
       const send = useCallback(
@@ -1506,6 +1507,24 @@
     }
   </file>
   <file path="src/components/TapeChart/defaultStrings.ts">
+    function ariaTemplateFor(messages: RialtoMessages) {
+      const t = messages.tapeChart;
+      return (r: TapeChartReservation, fmt: TapeChartFormattedParts): string => {
+        const pieces = [
+          r.guestName ?? messages.reservation,
+          `${fmt.roomName}`,
+          messages.dateSpan(fmt.startLong, fmt.endLong),
+          t.nightsLabel(fmt.nights),
+        ];
+        if (fmt.partySize) pieces.push(fmt.partySize);
+        pieces.push(fmt.statusLabel);
+        if (fmt.overlapLabel) pieces.push(fmt.overlapLabel);
+        if (r.source) pieces.push(t.viaSource(r.source));
+        if (fmt.priceTotal) pieces.push(fmt.priceTotal);
+        if (r.blockedReason) pieces.push(t.blockedReason(r.blockedReason));
+        return pieces.join(", ");
+      };
+    }
     export type ResolvedStrings = Required<
       Omit<
         TapeChartStrings,
@@ -1524,44 +1543,31 @@
       roomStatusLabels: Record<TapeChartRoomStatus, string>;
       overlapLabels: Record<TapeChartOverlapKind, string>;
     };
-    export const DEFAULT_STRINGS: ResolvedStrings = {
-      regionLabel: "Reservations tape chart",
-      roomsColumnLabel: "Rooms",
-      arrivalsLabel: "Arrivals",
-      departuresLabel: "Departures",
-      inHouseLabel: "In-house",
-      viewModeToggleLabel: "View mode",
-      viewModeGridLabel: "Grid",
-      viewModeListLabel: "List",
-      todayLabel: "Today",
-      emptyTitle: "No rooms configured",
-      emptyBody: "Add a room to start managing reservations.",
-      errorTitle: "Couldn't load reservations",
-      errorRetryLabel: "Try again",
-      loadingLabel: "Loading reservations",
-      moveDialogTitle: "Move reservation",
-      moveConfirmLabel: "Move",
-      moveCancelLabel: "Cancel",
-      conflictWarning: "This move conflicts with another reservation.",
-      statusLabels: STATUS_LABELS_EN,
-      roomStatusLabels: ROOM_STATUS_LABELS_EN,
-      overlapLabels: OVERLAP_LABELS_EN,
-      reservationAriaTemplate: defaultReservationAriaTemplate,
-      nightsLabel: defaultNightsLabel,
-      partySizeLabel: defaultPartySizeLabel,
-    };
-    export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings {
-      if (!overrides) return DEFAULT_STRINGS;
+    export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
+      const { viaSource: _via, blockedReason: _reason, ...labels } = messages.tapeChart;
       return {
-        ...DEFAULT_STRINGS,
+        ...labels,
+        errorRetryLabel: messages.tryAgain,
+        moveCancelLabel: messages.cancel,
+        reservationAriaTemplate: ariaTemplateFor(messages),
+      };
+    }
+    export const DEFAULT_STRINGS: ResolvedStrings = defaultStringsFor(enUS);
+    export function mergeStrings(
+      overrides?: TapeChartStrings,
+      messages: RialtoMessages = enUS
+    ): ResolvedStrings {
+      const defaults = messages === enUS ? DEFAULT_STRINGS : defaultStringsFor(messages);
+      if (!overrides) return defaults;
+      return {
+        ...defaults,
         ...overrides,
-        statusLabels: { ...DEFAULT_STRINGS.statusLabels, ...overrides.statusLabels },
-        roomStatusLabels: { ...DEFAULT_STRINGS.roomStatusLabels, ...overrides.roomStatusLabels },
-        overlapLabels: { ...DEFAULT_STRINGS.overlapLabels, ...overrides.overlapLabels },
-        reservationAriaTemplate:
-          overrides.reservationAriaTemplate ?? DEFAULT_STRINGS.reservationAriaTemplate,
-        nightsLabel: overrides.nightsLabel ?? DEFAULT_STRINGS.nightsLabel,
-        partySizeLabel: overrides.partySizeLabel ?? DEFAULT_STRINGS.partySizeLabel,
+        statusLabels: { ...defaults.statusLabels, ...overrides.statusLabels },
+        roomStatusLabels: { ...defaults.roomStatusLabels, ...overrides.roomStatusLabels },
+        overlapLabels: { ...defaults.overlapLabels, ...overrides.overlapLabels },
+        reservationAriaTemplate: overrides.reservationAriaTemplate ?? defaults.reservationAriaTemplate,
+        nightsLabel: overrides.nightsLabel ?? defaults.nightsLabel,
+        partySizeLabel: overrides.partySizeLabel ?? defaults.partySizeLabel,
       };
     }
   </file>
@@ -3036,6 +3042,35 @@
   </section>
   <section priority="medium" role="i18n">
   <file path="src/i18n/messages.ts">
+    export interface TapeChartMessages {
+      readonly regionLabel: string;
+      readonly roomsColumnLabel: string;
+      readonly arrivalsLabel: string;
+      readonly departuresLabel: string;
+      readonly inHouseLabel: string;
+      readonly viewModeToggleLabel: string;
+      readonly viewModeGridLabel: string;
+      readonly viewModeListLabel: string;
+      readonly todayLabel: string;
+      readonly emptyTitle: string;
+      readonly emptyBody: string;
+      readonly errorTitle: string;
+      readonly loadingLabel: string;
+      readonly moveDialogTitle: string;
+      readonly moveConfirmLabel: string;
+      readonly conflictWarning: string;
+      readonly statusLabels: Readonly<Record<TapeChartStatus, string>>;
+      readonly roomStatusLabels: Readonly<Record<TapeChartRoomStatus, string>>;
+      readonly overlapLabels: Readonly<Record<TapeChartOverlapKind, string>>;
+      /** Night count with its noun, e.g. "2 nights". */
+      readonly nightsLabel: (count: number) => string;
+      /** Party size with its noun, e.g. "2 guests". */
+      readonly partySizeLabel: (count: number) => string;
+      /** Booking channel in the reservation's accessible name, e.g. "via Direct". */
+      readonly viaSource: (source: string) => string;
+      /** Block reason in the reservation's accessible name, e.g. "reason: Maintenance". */
+      readonly blockedReason: (reason: string) => string;
+    }
     export interface RialtoMessages {
       /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
       readonly dismiss: string;
@@ -3213,6 +3248,26 @@
       readonly closeSafetyCover: (label: string) => string;
       /** MasterOverride cover button name while safe. */
       readonly liftSafetyCover: (label: string) => string;
+      /** ThemeToggle name while dark (pressing it switches to light). */
+      readonly switchToLightMode: string;
+      /** ThemeToggle name while light (pressing it switches to dark). */
+      readonly switchToDarkMode: string;
+      /** Form error-summary heading for `count` invalid fields. Each locale picks its own plural form (French singular covers 0 and 1). */
+      readonly fieldsNeedAttention: (count: number) => string;
+      /** TapeChart noun after a separately formatted reservation count, capitalized ("Reservation" / "Reservations"). */
+      readonly reservationCount: (count: number) => string;
+      /** DataTable per-row checkbox name when no `selectionLabel` is given (screen-reader only). */
+      readonly selectThisRow: string;
+      /** PinInput live-region announcement once every cell is filled. */
+      readonly codeComplete: string;
+      /** ChatPanel tool-denial reason when the server sends none. */
+      readonly notAllowed: string;
+      /** TextArea character-counter announcement; `over` adds the over-limit note. */
+      readonly characterCount: (current: number, max: number, over: boolean) => string;
+      /** Combobox live-region announcement of `count` (at least 1) visible options. */
+      readonly resultsAvailable: (count: number) => string;
+      /** TapeChart default labels; its `strings` prop overrides them. */
+      readonly tapeChart: TapeChartMessages;
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
@@ -3303,6 +3358,54 @@
       coverOpenStatus: (label, state) => `${label} safety cover open. Switch is ${state}.`,
       closeSafetyCover: (label) => `Close safety cover for ${label}`,
       liftSafetyCover: (label) => `Lift safety cover for ${label}`,
+      switchToLightMode: "Switch to light mode",
+      switchToDarkMode: "Switch to dark mode",
+      fieldsNeedAttention: (count) =>
+        count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
+      reservationCount: (count) => (count === 1 ? "Reservation" : "Reservations"),
+      selectThisRow: "Select row",
+      codeComplete: "Code complete",
+      notAllowed: "Not allowed",
+      characterCount: (current, max, over) =>
+        `${current} of ${max} characters${over ? ", over limit" : ""}`,
+      resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
+      tapeChart: {
+        regionLabel: "Reservations tape chart",
+        roomsColumnLabel: "Rooms",
+        arrivalsLabel: "Arrivals",
+        departuresLabel: "Departures",
+        inHouseLabel: "In-house",
+        viewModeToggleLabel: "View mode",
+        viewModeGridLabel: "Grid",
+        viewModeListLabel: "List",
+        todayLabel: "Today",
+        emptyTitle: "No rooms configured",
+        emptyBody: "Add a room to start managing reservations.",
+        errorTitle: "Couldn't load reservations",
+        loadingLabel: "Loading reservations",
+        moveDialogTitle: "Move reservation",
+        moveConfirmLabel: "Move",
+        conflictWarning: "This move conflicts with another reservation.",
+        statusLabels: {
+          tentative: "Tentative",
+          confirmed: "Confirmed",
+          checkedIn: "Checked in",
+          checkedOut: "Checked out",
+          cancelled: "Cancelled",
+          noShow: "No-show",
+        },
+        roomStatusLabels: {
+          ready: "Ready",
+          dirty: "Dirty",
+          outOfOrder: "Out of order",
+          occupied: "Occupied",
+        },
+        overlapLabels: { conflict: "Double-booked", shared: "Shared occupancy" },
+        nightsLabel: (count) => (count === 1 ? `${count} night` : `${count} nights`),
+        partySizeLabel: (count) => (count === 1 ? `${count} guest` : `${count} guests`),
+        viaSource: (source) => `via ${source}`,
+        blockedReason: (reason) => `reason: ${reason}`,
+      },
     };
   </file>
   </section>
@@ -3455,6 +3558,55 @@
         `Cubierta de seguridad de ${label} abierta. El interruptor está en ${state}.`,
       closeSafetyCover: (label) => `Cerrar la cubierta de seguridad de ${label}`,
       liftSafetyCover: (label) => `Levantar la cubierta de seguridad de ${label}`,
+      switchToLightMode: "Cambiar a modo claro",
+      switchToDarkMode: "Cambiar a modo oscuro",
+      fieldsNeedAttention: (count) =>
+        count === 1 ? `${count} campo requiere atención` : `${count} campos requieren atención`,
+      reservationCount: (count) => (count === 1 ? "Reservación" : "Reservaciones"),
+      selectThisRow: "Seleccionar fila",
+      codeComplete: "Código completo",
+      notAllowed: "No permitido",
+      characterCount: (current, max, over) =>
+        `${current} de ${max} caracteres${over ? ", límite excedido" : ""}`,
+      resultsAvailable: (count) =>
+        count === 1 ? `${count} resultado disponible` : `${count} resultados disponibles`,
+      tapeChart: {
+        regionLabel: "Cuadro de reservaciones",
+        roomsColumnLabel: "Habitaciones",
+        arrivalsLabel: "Llegadas",
+        departuresLabel: "Salidas",
+        inHouseLabel: "Hospedados",
+        viewModeToggleLabel: "Modo de vista",
+        viewModeGridLabel: "Cuadrícula",
+        viewModeListLabel: "Lista",
+        todayLabel: "Hoy",
+        emptyTitle: "No hay habitaciones configuradas",
+        emptyBody: "Agrega una habitación para empezar a gestionar reservaciones.",
+        errorTitle: "No se pudieron cargar las reservaciones",
+        loadingLabel: "Cargando reservaciones",
+        moveDialogTitle: "Mover reservación",
+        moveConfirmLabel: "Mover",
+        conflictWarning: "Este cambio entra en conflicto con otra reservación.",
+        statusLabels: {
+          tentative: "Tentativa",
+          confirmed: "Confirmada",
+          checkedIn: "Registrada",
+          checkedOut: "Salida registrada",
+          cancelled: "Cancelada",
+          noShow: "No se presentó",
+        },
+        roomStatusLabels: {
+          ready: "Lista",
+          dirty: "Sucia",
+          outOfOrder: "Fuera de servicio",
+          occupied: "Ocupada",
+        },
+        overlapLabels: { conflict: "Doble reservación", shared: "Ocupación compartida" },
+        nightsLabel: (count) => (count === 1 ? `${count} noche` : `${count} noches`),
+        partySizeLabel: (count) => (count === 1 ? `${count} huésped` : `${count} huéspedes`),
+        viaSource: (source) => `vía ${source}`,
+        blockedReason: (reason) => `motivo: ${reason}`,
+      },
     };
   </file>
   <file path="src/i18n/locales/fr-CA.ts">
@@ -3550,6 +3702,57 @@
         `Capot de sécurité de ${label} ouvert. L'interrupteur est sur ${state}.`,
       closeSafetyCover: (label) => `Fermer le capot de sécurité de ${label}`,
       liftSafetyCover: (label) => `Soulever le capot de sécurité de ${label}`,
+      switchToLightMode: "Passer au mode clair",
+      switchToDarkMode: "Passer au mode sombre",
+      fieldsNeedAttention: (count) =>
+        count < 2
+          ? `${count} champ nécessite votre attention`
+          : `${count} champs nécessitent votre attention`,
+      reservationCount: (count) => (count < 2 ? "Réservation" : "Réservations"),
+      selectThisRow: "Sélectionner la ligne",
+      codeComplete: "Code complet",
+      notAllowed: "Non autorisé",
+      characterCount: (current, max, over) =>
+        `${current} sur ${max} caractères${over ? ", limite dépassée" : ""}`,
+      resultsAvailable: (count) =>
+        count < 2 ? `${count} résultat disponible` : `${count} résultats disponibles`,
+      tapeChart: {
+        regionLabel: "Tableau des réservations",
+        roomsColumnLabel: "Chambres",
+        arrivalsLabel: "Arrivées",
+        departuresLabel: "Départs",
+        inHouseLabel: "En séjour",
+        viewModeToggleLabel: "Mode d'affichage",
+        viewModeGridLabel: "Grille",
+        viewModeListLabel: "Liste",
+        todayLabel: "Aujourd'hui",
+        emptyTitle: "Aucune chambre configurée",
+        emptyBody: "Ajoutez une chambre pour commencer à gérer les réservations.",
+        errorTitle: "Impossible de charger les réservations",
+        loadingLabel: "Chargement des réservations",
+        moveDialogTitle: "Déplacer la réservation",
+        moveConfirmLabel: "Déplacer",
+        conflictWarning: "Ce déplacement entre en conflit avec une autre réservation.",
+        statusLabels: {
+          tentative: "Provisoire",
+          confirmed: "Confirmée",
+          checkedIn: "Arrivée enregistrée",
+          checkedOut: "Départ enregistré",
+          cancelled: "Annulée",
+          noShow: "Non présentée",
+        },
+        roomStatusLabels: {
+          ready: "Prête",
+          dirty: "Sale",
+          outOfOrder: "Hors service",
+          occupied: "Occupée",
+        },
+        overlapLabels: { conflict: "Double réservation", shared: "Occupation partagée" },
+        nightsLabel: (count) => (count < 2 ? `${count} nuit` : `${count} nuits`),
+        partySizeLabel: (count) => (count < 2 ? `${count} personne` : `${count} personnes`),
+        viaSource: (source) => `via ${source}`,
+        blockedReason: (reason) => `motif : ${reason}`,
+      },
     };
   </file>
   </section>

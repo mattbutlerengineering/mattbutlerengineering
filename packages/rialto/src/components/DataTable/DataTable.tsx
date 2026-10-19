@@ -402,7 +402,7 @@ function DataTableInner<T extends Record<string, unknown>>(
                         onCheckedChange={() => toggleRow(key)}
                         label={
                           <span className={styles.srOnly}>
-                            {selectionLabel ? selectionLabel(row) : "Select row"}
+                            {selectionLabel ? selectionLabel(row) : messages.selectThisRow}
                           </span>
                         }
                       />

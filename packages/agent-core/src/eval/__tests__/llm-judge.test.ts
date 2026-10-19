@@ -5,7 +5,7 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
 }));
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createMockQueryStream } from "@mbe/agent-test-utils";
+import { createMockQueryStream } from "../../testing/index.js";
 import { createEvalJudge } from "../llm-judge.js";
 import { EMPTY_DIFF_MARKER } from "../../success-evaluator.js";
 import type { TaskRunResult } from "../types.js";

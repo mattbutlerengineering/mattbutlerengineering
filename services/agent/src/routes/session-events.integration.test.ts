@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { AgentSessionEvent } from "@mbe/types";
-import { buildBugFixFixture } from "@mbe/agent-test-utils";
+import { buildBugFixFixture } from "@mbe/agent-core/testing";
 
 /**
  * Integration tests for the session events SSE endpoint.

@@ -1,9 +1,0 @@
-{
-  "extends": "@mbe/config/typescript/node",
-  "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
-    "types": ["node"]
-  },
-  "include": ["src"]
-}
