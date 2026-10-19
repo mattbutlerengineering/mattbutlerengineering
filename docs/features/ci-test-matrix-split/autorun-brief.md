@@ -135,3 +135,14 @@ At least 20 main/PR ci.yml runs after #6684 merged, measuring p50/p90
 wall-clock of the slowest Test leg against the 14m49s single-job
 baseline, plus a count of red runs caused by a leg (flake, imbalance,
 coverage-join failure). users-observed counts honestly; 0 is valid.
+
+## Review decision 2026-10-18 (Owner, live — not assumptions)
+
+`review.md` (`5b6bd1b3d`): no critical, one major, three minors deferred. The
+Owner answered the major — `report-health` (`ci.yml:980`) does not need
+`test-coverage-gate`, so a coverage failure on `main` leaves
+`GET /health/system` reporting healthy — **"Fix now."** A separate fix PR,
+outside this run's Ship, adds `test-coverage-gate` to `report-health`'s
+`needs` and result loop and pins the edge in `ci-test-shards.test.mjs`, RED
+first; the Owner merges. Ship records the major as open (latent, not live)
+with that fix pending.
