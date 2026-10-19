@@ -35,7 +35,7 @@
  *               not recorded.
  */
 import { JOB_TYPES } from "../jobs/index.js";
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationDispatcher } from "../notifications/index.js";
 import type { ReminderPayload } from "../jobs/index.js";
 import { ReservationEventEmitter, type ReservationEvent } from "../services/events.js";
 import type { DepositService } from "../services/deposit.js";

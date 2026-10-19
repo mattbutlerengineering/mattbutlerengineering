@@ -1,4 +1,4 @@
-import { retry } from "@mbe/api-client";
+import { retry } from "./retry.js";
 import { toVenueLocalTime } from "./venue-time.js";
 import type {
   SmsPort,

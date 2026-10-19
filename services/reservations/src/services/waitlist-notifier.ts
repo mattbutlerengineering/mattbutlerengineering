@@ -1,5 +1,5 @@
 import { JOB_TYPES } from "../jobs/index.js";
-import type { SmsPort } from "@mbe/notifications";
+import type { SmsPort } from "../notifications/index.js";
 import { waitlistService } from "./waitlist.js";
 import type { NotifierRuntime, NotifierScheduler } from "./notifier-runtime.js";
 
