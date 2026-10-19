@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { RialtoLocaleProvider } from "../i18n/RialtoLocaleProvider";
@@ -195,4 +195,54 @@ describe("announcements and fallbacks built in a conditional localize", () => {
     );
     expect(screen.getByRole("status").textContent).toBe(text);
   });
+
+  it.each([
+    ["en-US", undefined, "7 of 5 characters, over limit"],
+    ["es-MX", esMX, "7 de 5 caracteres, límite excedido"],
+    ["fr-CA", frCA, "7 sur 5 caractères, limite dépassée"],
+  ] as const)("TextArea over-limit counter announcement in %s", (_tag, messages, text) => {
+    render(
+      <RialtoLocaleProvider messages={messages}>
+        <TextArea label="Notes" maxLength={5} value="abcdefg" onChange={noop} />
+      </RialtoLocaleProvider>
+    );
+    expect(screen.getByRole("status").textContent).toBe(text);
+  });
+
+  it.each([
+    ["en-US", undefined, "5 of 10 characters"],
+    ["es-MX", esMX, "5 de 10 caracteres"],
+    ["fr-CA", frCA, "5 sur 10 caractères"],
+  ] as const)("TextArea within-limit counter announcement in %s", (_tag, messages, text) => {
+    render(
+      <RialtoLocaleProvider messages={messages}>
+        <TextArea label="Notes" maxLength={10} value="abcde" onChange={noop} />
+      </RialtoLocaleProvider>
+    );
+    expect(screen.getByRole("status").textContent).toBe(text);
+  });
+
+  it.each([
+    ["en-US", 1, undefined, "1 result available"],
+    ["en-US", 2, undefined, "2 results available"],
+    ["es-MX", 1, esMX, "1 resultado disponible"],
+    ["es-MX", 2, esMX, "2 resultados disponibles"],
+    ["fr-CA", 1, frCA, "1 résultat disponible"],
+    ["fr-CA", 2, frCA, "2 résultats disponibles"],
+  ] as const)(
+    "Combobox result-count announcement in %s for %i",
+    async (_tag, n, messages, text) => {
+      const opts = [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ].slice(0, n);
+      render(
+        <RialtoLocaleProvider messages={messages}>
+          <Combobox label="Pick" options={opts} />
+        </RialtoLocaleProvider>
+      );
+      screen.getByRole("combobox").focus();
+      await waitFor(() => expect(screen.getByRole("status").textContent).toBe(text));
+    }
+  );
 });

@@ -142,12 +142,13 @@ function announce(
   loading: boolean,
   loadingText: string,
   count: number,
-  emptyText: string
+  emptyText: string,
+  resultsAvailable: (count: number) => string
 ): string {
   if (!open) return "";
   if (loading) return loadingText;
   if (count === 0) return emptyText;
-  return `${count} result${count === 1 ? "" : "s"} available`;
+  return resultsAvailable(count);
 }
 
 /* ── Component ───────────────────────────────── */
@@ -341,7 +342,14 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
           .filter((o): o is ComboboxOption => o !== undefined)
       : [];
     const showEmpty = open && !loading && visible.length === 0;
-    const liveMessage = announce(open, loading, loadingText, visible.length, emptyText);
+    const liveMessage = announce(
+      open,
+      loading,
+      loadingText,
+      visible.length,
+      emptyText,
+      messages.resultsAvailable
+    );
 
     return (
       <div ref={wrapperRef} className={cn(styles.wrapper, className)}>

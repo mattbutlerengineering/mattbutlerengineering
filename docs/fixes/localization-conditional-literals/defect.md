@@ -247,7 +247,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
     uses for `toolBlocked`.
   - Accept: a locale test covers each under es-MX and fr-CA. The DataTable lint
     error is gone.
-- [ ] **TextArea and Combobox announcements (scope widened by the Owner, 2026-10-18).**
+- [x] **TextArea and Combobox announcements (scope widened by the Owner, 2026-10-18).**
       `TextArea.tsx:96` ("N of M characters, over limit") and `Combobox.tsx:150`
       ("N result(s) available") build English through a conditional in a
       variable or return position, which the tightened rule cannot see. Add

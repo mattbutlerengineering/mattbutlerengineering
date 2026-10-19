@@ -103,6 +103,10 @@ export const frCA: RialtoMessages = {
   selectThisRow: "Sélectionner la ligne",
   codeComplete: "Code complet",
   notAllowed: "Non autorisé",
+  characterCount: (current, max, over) =>
+    `${current} sur ${max} caractères${over ? ", limite dépassée" : ""}`,
+  resultsAvailable: (count) =>
+    count < 2 ? `${count} résultat disponible` : `${count} résultats disponibles`,
   tapeChart: {
     regionLabel: "Tableau des réservations",
     roomsColumnLabel: "Chambres",

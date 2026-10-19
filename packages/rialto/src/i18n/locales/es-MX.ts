@@ -101,6 +101,10 @@ export const esMX: RialtoMessages = {
   selectThisRow: "Seleccionar fila",
   codeComplete: "Código completo",
   notAllowed: "No permitido",
+  characterCount: (current, max, over) =>
+    `${current} de ${max} caracteres${over ? ", límite excedido" : ""}`,
+  resultsAvailable: (count) =>
+    count === 1 ? `${count} resultado disponible` : `${count} resultados disponibles`,
   tapeChart: {
     regionLabel: "Cuadro de reservaciones",
     roomsColumnLabel: "Habitaciones",

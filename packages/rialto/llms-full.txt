@@ -3262,6 +3262,10 @@
       readonly codeComplete: string;
       /** ChatPanel tool-denial reason when the server sends none. */
       readonly notAllowed: string;
+      /** TextArea character-counter announcement; `over` adds the over-limit note. */
+      readonly characterCount: (current: number, max: number, over: boolean) => string;
+      /** Combobox live-region announcement of `count` (at least 1) visible options. */
+      readonly resultsAvailable: (count: number) => string;
       /** TapeChart default labels; its `strings` prop overrides them. */
       readonly tapeChart: TapeChartMessages;
     }
@@ -3362,6 +3366,9 @@
       selectThisRow: "Select row",
       codeComplete: "Code complete",
       notAllowed: "Not allowed",
+      characterCount: (current, max, over) =>
+        `${current} of ${max} characters${over ? ", over limit" : ""}`,
+      resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
       tapeChart: {
         regionLabel: "Reservations tape chart",
         roomsColumnLabel: "Rooms",
@@ -3559,6 +3566,10 @@
       selectThisRow: "Seleccionar fila",
       codeComplete: "Código completo",
       notAllowed: "No permitido",
+      characterCount: (current, max, over) =>
+        `${current} de ${max} caracteres${over ? ", límite excedido" : ""}`,
+      resultsAvailable: (count) =>
+        count === 1 ? `${count} resultado disponible` : `${count} resultados disponibles`,
       tapeChart: {
         regionLabel: "Cuadro de reservaciones",
         roomsColumnLabel: "Habitaciones",
@@ -3701,6 +3712,10 @@
       selectThisRow: "Sélectionner la ligne",
       codeComplete: "Code complet",
       notAllowed: "Non autorisé",
+      characterCount: (current, max, over) =>
+        `${current} sur ${max} caractères${over ? ", limite dépassée" : ""}`,
+      resultsAvailable: (count) =>
+        count < 2 ? `${count} résultat disponible` : `${count} résultats disponibles`,
       tapeChart: {
         regionLabel: "Tableau des réservations",
         roomsColumnLabel: "Chambres",

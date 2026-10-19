@@ -238,6 +238,10 @@ export interface RialtoMessages {
   readonly codeComplete: string;
   /** ChatPanel tool-denial reason when the server sends none. */
   readonly notAllowed: string;
+  /** TextArea character-counter announcement; `over` adds the over-limit note. */
+  readonly characterCount: (current: number, max: number, over: boolean) => string;
+  /** Combobox live-region announcement of `count` (at least 1) visible options. */
+  readonly resultsAvailable: (count: number) => string;
   /** TapeChart default labels; its `strings` prop overrides them. */
   readonly tapeChart: TapeChartMessages;
 }
@@ -339,6 +343,9 @@ export const enUS: RialtoMessages = {
   selectThisRow: "Select row",
   codeComplete: "Code complete",
   notAllowed: "Not allowed",
+  characterCount: (current, max, over) =>
+    `${current} of ${max} characters${over ? ", over limit" : ""}`,
+  resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
   tapeChart: {
     regionLabel: "Reservations tape chart",
     roomsColumnLabel: "Rooms",
