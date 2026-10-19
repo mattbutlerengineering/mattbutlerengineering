@@ -261,7 +261,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
   - Accept: `pnpm check:i18n-catalogs` is green. The hospitality lint error is
     gone. `pnpm --dir apps/hospitality lint` and `pnpm --dir packages/rialto lint`
     both exit 0.
-- [ ] **Correct `packages/rialto/CLAUDE.md:198`.** Rewrite the Localization claim
+- [x] **Correct `packages/rialto/CLAUDE.md:198`.** Rewrite the Localization claim
       so it is true of the code at merge. Also name the limit: the lint rule only
       sees JSX children and guarded attributes, so a literal in a variable,
       object property or return is not caught.
@@ -332,3 +332,12 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
   import that locale. Re-measured right after the change (before items 6-10):
   en-GB 116 B, es-MX 1.8 kB, fr-CA 1.91 kB, all under 2.2 kB. A further overrun
   past 2.2 kB is a new stop-and-surface.
+
+- **CLAUDE.md claim re-check (Implement, 2026-10-18).** The Owner widened scope
+  to TextArea and Combobox (fixed in `b66df7ea6`), so the "Surfaced, not in
+  scope" note above is resolved. Re-running `scratchpad/loc-capture/scan.mjs`
+  over `packages/rialto/src` after items 1-7 finds zero lint-shape hits and no
+  English words among the remaining conditional literals outside `src/i18n/`
+  (all are enum tokens, roles, ids or CSS values). The scan covers conditional
+  and logical operands only, which is why the rewritten CLAUDE.md names the
+  lint rule's JSX-only limit instead of claiming a gate covers every position.
