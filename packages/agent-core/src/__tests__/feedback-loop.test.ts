@@ -19,7 +19,7 @@ vi.mock("../tool-permissions.js", () => ({
 }));
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createMockQueryStream } from "@mbe/agent-core/testing";
+import { createMockQueryStream } from "../testing/index.js";
 import { buildReviewFixPrompt } from "../feedback-prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { runFeedbackLoop } from "../feedback-loop.js";

@@ -5,7 +5,7 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
 }));
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createMockQueryStream } from "@mbe/agent-core/testing";
+import { createMockQueryStream } from "../testing/index.js";
 import { reviewDiff, DEFAULT_REVIEW_CONFIG } from "../diff-reviewer.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
