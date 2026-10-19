@@ -14,7 +14,7 @@ import {
   capturePage,
   loadCapturePlan,
   resetManifest,
-} from "@mbe/test-fixtures/ui-quality-capture";
+} from "@mbe/ui-quality-capture";
 import { mockApi } from "./api-mocks.js";
 import { localDay } from "./local-day.js";
 

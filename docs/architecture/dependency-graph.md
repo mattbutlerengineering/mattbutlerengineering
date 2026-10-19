@@ -33,8 +33,8 @@ flowchart TD
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
     service_bootstrap["service-bootstrap"]
-    test_fixtures["test-fixtures"]
     types["types"]
+    ui_quality_capture["ui-quality-capture"]
   end
   subgraph tools["Developer Tools"]
     cli["cli"]
@@ -59,16 +59,16 @@ flowchart TD
   hospitality --> sentry
   hospitality --> types
   hospitality --> config
-  hospitality --> test_fixtures
+  hospitality --> ui_quality_capture
   marketing --> rialto
   marketing --> sentry
   marketing --> config
-  marketing --> test_fixtures
+  marketing --> ui_quality_capture
   rialto_web --> rialto
   rialto_web --> api_client
   rialto_web --> sentry
   rialto_web --> config
-  rialto_web --> test_fixtures
+  rialto_web --> ui_quality_capture
   agent_service --> agent_core
   agent_service --> api_client
   agent_service --> auth
@@ -88,7 +88,6 @@ flowchart TD
   reservations_service --> service_bootstrap
   reservations_service --> types
   reservations_service --> config
-  reservations_service --> test_fixtures
   users_service --> auth
   users_service --> database
   users_service --> observability
@@ -96,7 +95,6 @@ flowchart TD
   users_service --> service_bootstrap
   users_service --> types
   users_service --> config
-  users_service --> test_fixtures
   agent_core --> api_client
   agent_core --> types
   agent_core --> config
@@ -125,9 +123,8 @@ flowchart TD
   service_bootstrap --> sentry
   service_bootstrap --> types
   service_bootstrap --> config
-  test_fixtures --> types
-  test_fixtures --> config
   types --> config
+  ui_quality_capture --> config
   cli --> agent_core
   cli --> api_client
   cli --> gh_client
@@ -168,8 +165,8 @@ flowchart TD
   class rialto_plugin entrypoint
   class sentry shared
   class service_bootstrap shared
-  class test_fixtures shared
   class types shared
+  class ui_quality_capture shared
   class cli tooling
   class mutation_testing tooling
   class route_contract tooling

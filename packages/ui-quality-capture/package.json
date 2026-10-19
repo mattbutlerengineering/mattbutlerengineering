@@ -1,15 +1,10 @@
 {
-  "name": "@mbe/test-fixtures",
+  "name": "@mbe/ui-quality-capture",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "production": "./dist/index.js",
-      "default": "./src/index.ts"
-    },
-    "./ui-quality-capture": {
       "types": "./src/ui-quality-capture.ts",
       "production": "./dist/ui-quality-capture.js",
       "default": "./src/ui-quality-capture.ts"
@@ -25,7 +20,6 @@
   },
   "dependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@mbe/types": "workspace:*",
     "@playwright/test": "^1.64.0"
   },
   "devDependencies": {

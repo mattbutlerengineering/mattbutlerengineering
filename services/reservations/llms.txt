@@ -3085,6 +3085,55 @@
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
     </item>
   </file>
+  <file path="src/test/mocks.ts">
+    <item priority="high">
+      type MockTable = Table;
+    </item>
+    <item priority="high">
+      type MockReservation = Reservation & { readonly table: Table };
+    </item>
+    <item priority="high">
+      interface MockPagination {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface MockJWTPayload {
+        sub: string;
+        iss: string;
+        aud: string;
+        exp: number;
+        iat: number;
+      }
+    </item>
+    <item priority="high">
+      export function createMockTable(overrides?: Partial<MockTable>): MockTable { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockReservation(
+        overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
+      ): MockReservation { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ERROR_UNAUTHORIZED: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_CONFLICT: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_FORBIDDEN: unknown;
+    </item>
+  </file>
   <file path="src/test/shared-schema-compilers.ts">
     <item priority="high">
       type RouteSchemaDef = {
