@@ -84,6 +84,36 @@
   <section priority="medium" role="test">
   <file path="src/test/fixtures.ts">
     <item priority="high">
+      interface MockJWTPayload {
+        sub: string;
+        iss: string;
+        aud: string;
+        exp: number;
+        iat: number;
+      }
+    </item>
+    <item priority="high">
+      interface MockPaginatedResponse {
+        data: T[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;...;
+      }
+    </item>
+    <item priority="medium">
+      function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makeUser(overrides: Partial<User> = {}): User { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makePaginatedResponse<T>(
+        data: T[],
+        opts: { page?: number; limit?: number; total?: number } = {}
+      ): MockPaginatedResponse<T> { /* ... */ }
+    </item>
+    <item priority="high">
       export const MOCK_JWT_PAYLOAD: unknown;
     </item>
     <item priority="high">

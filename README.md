@@ -73,8 +73,8 @@ mattbutlerengineering/
 │   ├── sentry/               # Sentry error tracking integration
 │   ├── service-bootstrap/    # createServiceApp — configured Fastify instance
 │   ├── supply-chain-scanner/ # Static scan of third-party skills and MCP packages
-│   ├── test-fixtures/        # Shared mock-data factories
-│   └── types/                # Shared TypeScript type definitions
+│   ├── types/                # Shared TypeScript type definitions
+│   └── ui-quality-capture/   # Shared ui-quality e2e capture helper
 ├── plugins/
 │   └── acmm/                 # AI Codebase Maturity Model audit plugin
 ├── tools/
