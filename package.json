@@ -84,7 +84,7 @@
     "knip": "6.41.0",
     "lint-staged": "^17.6.0",
     "size-limit": "^14.1.0",
-    "turbo": "^2.11.7",
+    "turbo": "^2.11.9",
     "vitest": "catalog:"
   },
   "pnpm": {
