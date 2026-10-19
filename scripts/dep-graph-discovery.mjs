@@ -42,7 +42,6 @@ const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 // another workspace package. Without this tag they're indistinguishable
 // from dead code in the graph. Update when adding a new standalone tool.
 export const ENTRYPOINT_PACKAGES = [
-  "@mbe/supply-chain-scanner", // invoked via its `mbe-scan` bin
   "@mbe/rialto-plugin", // Claude Code plugin, loaded outside the dep graph
 ];
 

@@ -362,7 +362,7 @@ function DashboardLayoutInner() {
             onClick={() => setPaletteOpen(true)}
             aria-label={t("layout.openPalette")}
           >
-            <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</Kbd>
+            <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : t("layout.ctrlKey")}</Kbd>
             <Kbd>{SEARCH_KEY}</Kbd>
             <Text className={styles.commandHintLabel}>{t("layout.search")}</Text>
           </Button>

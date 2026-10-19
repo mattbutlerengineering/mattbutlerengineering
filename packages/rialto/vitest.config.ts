@@ -22,7 +22,7 @@ export default defineVitestConfig({
   extend: {
     resolve: {
       alias: {
-        // useChatStream.test.ts mocks this module (vi.mock) but Vite still
+        // useChatStream.test.tsx mocks this module (vi.mock) but Vite still
         // has to resolve the bare specifier before the mock intercepts it.
         // The package's exports map only points at dist/streaming.js, so
         // this test failed with "Failed to resolve import" whenever

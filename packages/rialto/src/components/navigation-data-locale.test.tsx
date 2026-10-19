@@ -21,6 +21,7 @@ import { ScrollArea } from "./ScrollArea/ScrollArea";
 import { Sidebar } from "./Sidebar/Sidebar";
 import { SkeletonGroup } from "./Skeleton/Skeleton";
 import { Steps } from "./Steps/Steps";
+import { ThemeToggle } from "./ThemeToggle/ThemeToggle";
 import { TimePicker } from "./TimePicker/TimePicker";
 import { Timeline } from "./Timeline/Timeline";
 
@@ -243,6 +244,28 @@ describe("navigation and data components localize their built-in text (ADR-028)"
     expect(enGB).toEqual(enUS);
     expect(Object.keys(frCA).sort()).toEqual(Object.keys(enUS).sort());
     expect(Object.keys(esMX).sort()).toEqual(Object.keys(enUS).sort());
+  });
+});
+
+describe("ThemeToggle accessible name follows the locale", () => {
+  const LABELS = [
+    ["es-MX", esMX, "Cambiar a modo claro", "Cambiar a modo oscuro"],
+    ["fr-CA", frCA, "Passer au mode clair", "Passer au mode sombre"],
+  ] as const;
+
+  it.each(LABELS)("%s names both toggle directions", (_tag, messages, toLight, toDark) => {
+    const { rerender } = render(
+      <RialtoLocaleProvider messages={messages}>
+        <ThemeToggle theme="dark" onToggle={noop} />
+      </RialtoLocaleProvider>
+    );
+    expect(screen.getByRole("button", { name: toLight })).toBeInTheDocument();
+    rerender(
+      <RialtoLocaleProvider messages={messages}>
+        <ThemeToggle theme="light" onToggle={noop} />
+      </RialtoLocaleProvider>
+    );
+    expect(screen.getByRole("button", { name: toDark })).toBeInTheDocument();
   });
 });
 

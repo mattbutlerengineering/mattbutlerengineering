@@ -2,11 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   // eslint configs are loaded by eslint, not imported; k6 script is run by k6
   // (its `k6/http` import is not an npm package); scanner fixtures are test data.
-  "ignore": [
-    "**/eslint.config.js",
-    ".github/workflows/load-test.js",
-    "packages/supply-chain-scanner/fixtures/**",
-  ],
+  "ignore": ["**/eslint.config.js", ".github/workflows/load-test.js"],
   // Exports only consumed inside their own file are an intentional style here;
   // only cross-module dead exports are flagged.
   "ignoreExportsUsedInFile": true,

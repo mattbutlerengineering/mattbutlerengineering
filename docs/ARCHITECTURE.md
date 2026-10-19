@@ -169,7 +169,6 @@ mattbutlerengineering/
 │   ├── rialto-plugin/          # Claude Code plugin for Rialto
 │   ├── sentry/                 # Sentry wiring for Node services + React apps
 │   ├── service-bootstrap/      # createServiceApp — configured Fastify instance
-│   ├── supply-chain-scanner/   # Static scan of third-party skills/MCP packages
 │   ├── ui-quality-capture/     # Shared ui-quality e2e capture helper
 │   └── types/                  # Shared TypeScript types + Zod schemas
 ├── plugins/

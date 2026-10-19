@@ -391,6 +391,7 @@
     "closeSidebar": "Fermer la barre latérale",
     "openPalette": "Ouvrir la palette de commandes",
     "search": "Rechercher",
+    "ctrlKey": "Ctrl",
     "errorHeading": "Une erreur s'est produite",
     "errorBody": "Une erreur inattendue s'est produite dans cette page.",
     "reload": "Recharger"

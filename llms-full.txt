@@ -338,6 +338,7 @@
       cancelAction: () => void;
     }
     export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn {
+      const { messages: t } = useRialtoLocale();
       const [messages, setMessages] = useState<ChatMessage[]>([]);
       const [isStreaming, setIsStreaming] = useState(false);
       const [error, setError] = useState<Error | null>(null);
@@ -413,7 +414,7 @@
               } else if (line.type === "permission_denied" && line.toolName) {
                 const denial: PermissionDenial = {
                   toolName: line.toolName,
-                  reason: line.reason ?? "Not allowed",
+                  reason: line.reason ?? t.notAllowed,
                 };
                 setPermissionDenials((prev) => [...prev, denial]);
               }
@@ -439,7 +440,7 @@
             setIsStreaming(false);
           }
         },
-        [api]
+        [api, t]
       );
     
       const send = useCallback(
@@ -1605,6 +1606,24 @@
     }
   </file>
   <file path="packages/rialto/src/components/TapeChart/defaultStrings.ts">
+    function ariaTemplateFor(messages: RialtoMessages) {
+      const t = messages.tapeChart;
+      return (r: TapeChartReservation, fmt: TapeChartFormattedParts): string => {
+        const pieces = [
+          r.guestName ?? messages.reservation,
+          `${fmt.roomName}`,
+          messages.dateSpan(fmt.startLong, fmt.endLong),
+          t.nightsLabel(fmt.nights),
+        ];
+        if (fmt.partySize) pieces.push(fmt.partySize);
+        pieces.push(fmt.statusLabel);
+        if (fmt.overlapLabel) pieces.push(fmt.overlapLabel);
+        if (r.source) pieces.push(t.viaSource(r.source));
+        if (fmt.priceTotal) pieces.push(fmt.priceTotal);
+        if (r.blockedReason) pieces.push(t.blockedReason(r.blockedReason));
+        return pieces.join(", ");
+      };
+    }
     export type ResolvedStrings = Required<
       Omit<
         TapeChartStrings,
@@ -1623,44 +1642,31 @@
       roomStatusLabels: Record<TapeChartRoomStatus, string>;
       overlapLabels: Record<TapeChartOverlapKind, string>;
     };
-    export const DEFAULT_STRINGS: ResolvedStrings = {
-      regionLabel: "Reservations tape chart",
-      roomsColumnLabel: "Rooms",
-      arrivalsLabel: "Arrivals",
-      departuresLabel: "Departures",
-      inHouseLabel: "In-house",
-      viewModeToggleLabel: "View mode",
-      viewModeGridLabel: "Grid",
-      viewModeListLabel: "List",
-      todayLabel: "Today",
-      emptyTitle: "No rooms configured",
-      emptyBody: "Add a room to start managing reservations.",
-      errorTitle: "Couldn't load reservations",
-      errorRetryLabel: "Try again",
-      loadingLabel: "Loading reservations",
-      moveDialogTitle: "Move reservation",
-      moveConfirmLabel: "Move",
-      moveCancelLabel: "Cancel",
-      conflictWarning: "This move conflicts with another reservation.",
-      statusLabels: STATUS_LABELS_EN,
-      roomStatusLabels: ROOM_STATUS_LABELS_EN,
-      overlapLabels: OVERLAP_LABELS_EN,
-      reservationAriaTemplate: defaultReservationAriaTemplate,
-      nightsLabel: defaultNightsLabel,
-      partySizeLabel: defaultPartySizeLabel,
-    };
-    export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings {
-      if (!overrides) return DEFAULT_STRINGS;
+    export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
+      const { viaSource: _via, blockedReason: _reason, ...labels } = messages.tapeChart;
       return {
-        ...DEFAULT_STRINGS,
+        ...labels,
+        errorRetryLabel: messages.tryAgain,
+        moveCancelLabel: messages.cancel,
+        reservationAriaTemplate: ariaTemplateFor(messages),
+      };
+    }
+    export const DEFAULT_STRINGS: ResolvedStrings = defaultStringsFor(enUS);
+    export function mergeStrings(
+      overrides?: TapeChartStrings,
+      messages: RialtoMessages = enUS
+    ): ResolvedStrings {
+      const defaults = messages === enUS ? DEFAULT_STRINGS : defaultStringsFor(messages);
+      if (!overrides) return defaults;
+      return {
+        ...defaults,
         ...overrides,
-        statusLabels: { ...DEFAULT_STRINGS.statusLabels, ...overrides.statusLabels },
-        roomStatusLabels: { ...DEFAULT_STRINGS.roomStatusLabels, ...overrides.roomStatusLabels },
-        overlapLabels: { ...DEFAULT_STRINGS.overlapLabels, ...overrides.overlapLabels },
-        reservationAriaTemplate:
-          overrides.reservationAriaTemplate ?? DEFAULT_STRINGS.reservationAriaTemplate,
-        nightsLabel: overrides.nightsLabel ?? DEFAULT_STRINGS.nightsLabel,
-        partySizeLabel: overrides.partySizeLabel ?? DEFAULT_STRINGS.partySizeLabel,
+        statusLabels: { ...defaults.statusLabels, ...overrides.statusLabels },
+        roomStatusLabels: { ...defaults.roomStatusLabels, ...overrides.roomStatusLabels },
+        overlapLabels: { ...defaults.overlapLabels, ...overrides.overlapLabels },
+        reservationAriaTemplate: overrides.reservationAriaTemplate ?? defaults.reservationAriaTemplate,
+        nightsLabel: overrides.nightsLabel ?? defaults.nightsLabel,
+        partySizeLabel: overrides.partySizeLabel ?? defaults.partySizeLabel,
       };
     }
   </file>
@@ -11662,56 +11668,6 @@
     }
   </file>
   </section>
-  <section priority="medium" role="heuristics">
-  <file path="packages/supply-chain-scanner/src/heuristics/data-exfiltration.ts">
-    export function detectDataExfiltration(file: SourceFile): Finding[] {
-      const outbound = applyRules(file.relPath, file.content, OUTBOUND_RULES);
-      const secrets = applyRules(file.relPath, file.content, SECRET_RULES);
-      const findings: Finding[] = [...outbound, ...secrets];
-    
-      const firstOutbound = outbound[0];
-      const firstSecret = secrets[0];
-      if (firstOutbound && firstSecret) {
-        findings.push({
-          category: "data-exfiltration",
-          severity: "high",
-          file: file.relPath,
-          line: firstOutbound.line,
-          evidence: `outbound call (line ${firstOutbound.line}) combined with secret read (line ${firstSecret.line})`,
-        });
-      }
-    
-      return findings;
-    }
-  </file>
-  <file path="packages/supply-chain-scanner/src/heuristics/malicious-commands.ts">
-    export function detectMaliciousCommands(file: SourceFile): Finding[] {
-      return applyRules(file.relPath, file.content, RULES);
-    }
-  </file>
-  <file path="packages/supply-chain-scanner/src/heuristics/prompt-injection.ts">
-    export function detectPromptInjection(file: SourceFile): Finding[] {
-      const findings = applyRules(file.relPath, file.content, RULES);
-    
-      if (isProseFile(file.relPath)) {
-        const lines = file.content.split(/\r?\n/);
-        for (const [i, line] of lines.entries()) {
-          if (BASE64_BLOB.test(line)) {
-            findings.push({
-              category: "prompt-injection",
-              severity: "med",
-              file: file.relPath,
-              line: i + 1,
-              evidence: `base64-like blob (${line.trim().length} chars) embedded in prose`,
-            });
-          }
-        }
-      }
-    
-      return findings;
-    }
-  </file>
-  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useApi.ts">
     export function useApi(): ApiClient {
@@ -15880,6 +15836,35 @@
     }
   </file>
   <file path="packages/rialto/src/i18n/messages.ts">
+    export interface TapeChartMessages {
+      readonly regionLabel: string;
+      readonly roomsColumnLabel: string;
+      readonly arrivalsLabel: string;
+      readonly departuresLabel: string;
+      readonly inHouseLabel: string;
+      readonly viewModeToggleLabel: string;
+      readonly viewModeGridLabel: string;
+      readonly viewModeListLabel: string;
+      readonly todayLabel: string;
+      readonly emptyTitle: string;
+      readonly emptyBody: string;
+      readonly errorTitle: string;
+      readonly loadingLabel: string;
+      readonly moveDialogTitle: string;
+      readonly moveConfirmLabel: string;
+      readonly conflictWarning: string;
+      readonly statusLabels: Readonly<Record<TapeChartStatus, string>>;
+      readonly roomStatusLabels: Readonly<Record<TapeChartRoomStatus, string>>;
+      readonly overlapLabels: Readonly<Record<TapeChartOverlapKind, string>>;
+      /** Night count with its noun, e.g. "2 nights". */
+      readonly nightsLabel: (count: number) => string;
+      /** Party size with its noun, e.g. "2 guests". */
+      readonly partySizeLabel: (count: number) => string;
+      /** Booking channel in the reservation's accessible name, e.g. "via Direct". */
+      readonly viaSource: (source: string) => string;
+      /** Block reason in the reservation's accessible name, e.g. "reason: Maintenance". */
+      readonly blockedReason: (reason: string) => string;
+    }
     export interface RialtoMessages {
       /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
       readonly dismiss: string;
@@ -16057,6 +16042,26 @@
       readonly closeSafetyCover: (label: string) => string;
       /** MasterOverride cover button name while safe. */
       readonly liftSafetyCover: (label: string) => string;
+      /** ThemeToggle name while dark (pressing it switches to light). */
+      readonly switchToLightMode: string;
+      /** ThemeToggle name while light (pressing it switches to dark). */
+      readonly switchToDarkMode: string;
+      /** Form error-summary heading for `count` invalid fields. Each locale picks its own plural form (French singular covers 0 and 1). */
+      readonly fieldsNeedAttention: (count: number) => string;
+      /** TapeChart noun after a separately formatted reservation count, capitalized ("Reservation" / "Reservations"). */
+      readonly reservationCount: (count: number) => string;
+      /** DataTable per-row checkbox name when no `selectionLabel` is given (screen-reader only). */
+      readonly selectThisRow: string;
+      /** PinInput live-region announcement once every cell is filled. */
+      readonly codeComplete: string;
+      /** ChatPanel tool-denial reason when the server sends none. */
+      readonly notAllowed: string;
+      /** TextArea character-counter announcement; `over` adds the over-limit note. */
+      readonly characterCount: (current: number, max: number, over: boolean) => string;
+      /** Combobox live-region announcement of `count` (at least 1) visible options. */
+      readonly resultsAvailable: (count: number) => string;
+      /** TapeChart default labels; its `strings` prop overrides them. */
+      readonly tapeChart: TapeChartMessages;
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
@@ -16147,6 +16152,54 @@
       coverOpenStatus: (label, state) => `${label} safety cover open. Switch is ${state}.`,
       closeSafetyCover: (label) => `Close safety cover for ${label}`,
       liftSafetyCover: (label) => `Lift safety cover for ${label}`,
+      switchToLightMode: "Switch to light mode",
+      switchToDarkMode: "Switch to dark mode",
+      fieldsNeedAttention: (count) =>
+        count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
+      reservationCount: (count) => (count === 1 ? "Reservation" : "Reservations"),
+      selectThisRow: "Select row",
+      codeComplete: "Code complete",
+      notAllowed: "Not allowed",
+      characterCount: (current, max, over) =>
+        `${current} of ${max} characters${over ? ", over limit" : ""}`,
+      resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
+      tapeChart: {
+        regionLabel: "Reservations tape chart",
+        roomsColumnLabel: "Rooms",
+        arrivalsLabel: "Arrivals",
+        departuresLabel: "Departures",
+        inHouseLabel: "In-house",
+        viewModeToggleLabel: "View mode",
+        viewModeGridLabel: "Grid",
+        viewModeListLabel: "List",
+        todayLabel: "Today",
+        emptyTitle: "No rooms configured",
+        emptyBody: "Add a room to start managing reservations.",
+        errorTitle: "Couldn't load reservations",
+        loadingLabel: "Loading reservations",
+        moveDialogTitle: "Move reservation",
+        moveConfirmLabel: "Move",
+        conflictWarning: "This move conflicts with another reservation.",
+        statusLabels: {
+          tentative: "Tentative",
+          confirmed: "Confirmed",
+          checkedIn: "Checked in",
+          checkedOut: "Checked out",
+          cancelled: "Cancelled",
+          noShow: "No-show",
+        },
+        roomStatusLabels: {
+          ready: "Ready",
+          dirty: "Dirty",
+          outOfOrder: "Out of order",
+          occupied: "Occupied",
+        },
+        overlapLabels: { conflict: "Double-booked", shared: "Shared occupancy" },
+        nightsLabel: (count) => (count === 1 ? `${count} night` : `${count} nights`),
+        partySizeLabel: (count) => (count === 1 ? `${count} guest` : `${count} guests`),
+        viaSource: (source) => `via ${source}`,
+        blockedReason: (reason) => `reason: ${reason}`,
+      },
     };
   </file>
   </section>
@@ -17346,6 +17399,55 @@
         `Cubierta de seguridad de ${label} abierta. El interruptor está en ${state}.`,
       closeSafetyCover: (label) => `Cerrar la cubierta de seguridad de ${label}`,
       liftSafetyCover: (label) => `Levantar la cubierta de seguridad de ${label}`,
+      switchToLightMode: "Cambiar a modo claro",
+      switchToDarkMode: "Cambiar a modo oscuro",
+      fieldsNeedAttention: (count) =>
+        count === 1 ? `${count} campo requiere atención` : `${count} campos requieren atención`,
+      reservationCount: (count) => (count === 1 ? "Reservación" : "Reservaciones"),
+      selectThisRow: "Seleccionar fila",
+      codeComplete: "Código completo",
+      notAllowed: "No permitido",
+      characterCount: (current, max, over) =>
+        `${current} de ${max} caracteres${over ? ", límite excedido" : ""}`,
+      resultsAvailable: (count) =>
+        count === 1 ? `${count} resultado disponible` : `${count} resultados disponibles`,
+      tapeChart: {
+        regionLabel: "Cuadro de reservaciones",
+        roomsColumnLabel: "Habitaciones",
+        arrivalsLabel: "Llegadas",
+        departuresLabel: "Salidas",
+        inHouseLabel: "Hospedados",
+        viewModeToggleLabel: "Modo de vista",
+        viewModeGridLabel: "Cuadrícula",
+        viewModeListLabel: "Lista",
+        todayLabel: "Hoy",
+        emptyTitle: "No hay habitaciones configuradas",
+        emptyBody: "Agrega una habitación para empezar a gestionar reservaciones.",
+        errorTitle: "No se pudieron cargar las reservaciones",
+        loadingLabel: "Cargando reservaciones",
+        moveDialogTitle: "Mover reservación",
+        moveConfirmLabel: "Mover",
+        conflictWarning: "Este cambio entra en conflicto con otra reservación.",
+        statusLabels: {
+          tentative: "Tentativa",
+          confirmed: "Confirmada",
+          checkedIn: "Registrada",
+          checkedOut: "Salida registrada",
+          cancelled: "Cancelada",
+          noShow: "No se presentó",
+        },
+        roomStatusLabels: {
+          ready: "Lista",
+          dirty: "Sucia",
+          outOfOrder: "Fuera de servicio",
+          occupied: "Ocupada",
+        },
+        overlapLabels: { conflict: "Doble reservación", shared: "Ocupación compartida" },
+        nightsLabel: (count) => (count === 1 ? `${count} noche` : `${count} noches`),
+        partySizeLabel: (count) => (count === 1 ? `${count} huésped` : `${count} huéspedes`),
+        viaSource: (source) => `vía ${source}`,
+        blockedReason: (reason) => `motivo: ${reason}`,
+      },
     };
   </file>
   <file path="packages/rialto/src/i18n/locales/fr-CA.ts">
@@ -17441,6 +17543,57 @@
         `Capot de sécurité de ${label} ouvert. L'interrupteur est sur ${state}.`,
       closeSafetyCover: (label) => `Fermer le capot de sécurité de ${label}`,
       liftSafetyCover: (label) => `Soulever le capot de sécurité de ${label}`,
+      switchToLightMode: "Passer au mode clair",
+      switchToDarkMode: "Passer au mode sombre",
+      fieldsNeedAttention: (count) =>
+        count < 2
+          ? `${count} champ nécessite votre attention`
+          : `${count} champs nécessitent votre attention`,
+      reservationCount: (count) => (count < 2 ? "Réservation" : "Réservations"),
+      selectThisRow: "Sélectionner la ligne",
+      codeComplete: "Code complet",
+      notAllowed: "Non autorisé",
+      characterCount: (current, max, over) =>
+        `${current} sur ${max} caractères${over ? ", limite dépassée" : ""}`,
+      resultsAvailable: (count) =>
+        count < 2 ? `${count} résultat disponible` : `${count} résultats disponibles`,
+      tapeChart: {
+        regionLabel: "Tableau des réservations",
+        roomsColumnLabel: "Chambres",
+        arrivalsLabel: "Arrivées",
+        departuresLabel: "Départs",
+        inHouseLabel: "En séjour",
+        viewModeToggleLabel: "Mode d'affichage",
+        viewModeGridLabel: "Grille",
+        viewModeListLabel: "Liste",
+        todayLabel: "Aujourd'hui",
+        emptyTitle: "Aucune chambre configurée",
+        emptyBody: "Ajoutez une chambre pour commencer à gérer les réservations.",
+        errorTitle: "Impossible de charger les réservations",
+        loadingLabel: "Chargement des réservations",
+        moveDialogTitle: "Déplacer la réservation",
+        moveConfirmLabel: "Déplacer",
+        conflictWarning: "Ce déplacement entre en conflit avec une autre réservation.",
+        statusLabels: {
+          tentative: "Provisoire",
+          confirmed: "Confirmée",
+          checkedIn: "Arrivée enregistrée",
+          checkedOut: "Départ enregistré",
+          cancelled: "Annulée",
+          noShow: "Non présentée",
+        },
+        roomStatusLabels: {
+          ready: "Prête",
+          dirty: "Sale",
+          outOfOrder: "Hors service",
+          occupied: "Occupée",
+        },
+        overlapLabels: { conflict: "Double réservation", shared: "Occupation partagée" },
+        nightsLabel: (count) => (count < 2 ? `${count} nuit` : `${count} nuits`),
+        partySizeLabel: (count) => (count < 2 ? `${count} personne` : `${count} personnes`),
+        viaSource: (source) => `via ${source}`,
+        blockedReason: (reason) => `motif : ${reason}`,
+      },
     };
   </file>
   </section>
@@ -58884,228 +59037,6 @@
             `Expected ${EXPECTED_SHAPE}.`
         );
       }
-    }
-  </file>
-  <file path="packages/supply-chain-scanner/src/collect-files.ts">
-    function extensionOf(name: string): string {
-      const dot = name.lastIndexOf(".");
-      return dot === -1 ? "" : name.slice(dot).toLowerCase();
-    }
-    function hasShebang(path: string): boolean {
-      const fd = openSync(path, "r");
-      try {
-        const buf = Buffer.alloc(2);
-        return readSync(fd, buf, 0, 2, 0) === 2 && buf.toString("latin1") === "#!";
-      } finally {
-        closeSync(fd);
-      }
-    }
-    function isScannable(name: string, full: string): boolean {
-      const ext = extensionOf(name);
-      return ext === "" ? hasShebang(full) : TEXT_EXTENSIONS.has(ext);
-    }
-    export function collectFiles(rootDir: string): SourceFile[] {
-      const out: SourceFile[] = [];
-    
-      const walk = (dir: string): void => {
-        const entries = readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const full = join(dir, entry.name);
-          if (entry.isDirectory()) {
-            if (!SKIP_DIRS.has(entry.name)) walk(full);
-            continue;
-          }
-          if (!entry.isFile()) continue; // ignore symlinks/sockets — never follow them
-          if (!isScannable(entry.name, full)) continue;
-          if (statSync(full).size > MAX_FILE_BYTES) continue;
-          const relPath = relative(rootDir, full).split(sep).join("/");
-          out.push({ relPath, content: readFileSync(full, "utf8") });
-        }
-      };
-    
-      walk(rootDir);
-      return out;
-    }
-  </file>
-  <file path="packages/supply-chain-scanner/src/rule-engine.ts">
-    export interface Rule {
-      /** Non-global regex tested per line / folded continuation. (Global regexes carry lastIndex state — banned.) */
-      readonly pattern: RegExp;
-      readonly category: Category;
-      readonly severity: Severity;
-      /** Optional file-path filter; the rule is skipped for files that match. */
-      readonly excludes?: RegExp;
-      /** Optional language filter; the rule is skipped for files detected as one of these. */
-      readonly excludeLanguages?: readonly Language[];
-    }
-    export type Language = "python" | "other";
-    export function detectLanguage(file: string, content: string): Language {
-      const base = file.slice(file.lastIndexOf("/") + 1);
-      if (base.includes(".")) return /\.py$/i.test(base) ? "python" : "other";
-      const firstLine = content.split(/\r?\n/, 1)[0] ?? "";
-      return PYTHON_SHEBANG.test(firstLine) ? "python" : "other";
-    }
-    interface Group {
-      readonly text: string;
-      /** Physical lines in the group after the first. */
-      readonly rest: readonly string[];
-    }
-    function continuationGroup(
-      lines: readonly string[],
-      start: number,
-      continues: RegExp
-    ): Group | null {
-      let text = lines[start]!;
-      const rest: string[] = [];
-      while (
-        continues.test(text) &&
-        rest.length + 1 < MAX_JOINED_LINES &&
-        start + rest.length + 1 < lines.length
-      ) {
-        const next = lines[start + rest.length + 1]!;
-        rest.push(next);
-        text = `${text.replace(/\\\s*$/, "")} ${next.trim()}`;
-      }
-      return rest.length > 0 ? { text, rest } : null;
-    }
-    export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
-      const findings: Finding[] = [];
-      const lines = content.split(/\r?\n/);
-      const prose = isProseFile(file);
-      const continues = prose ? PROSE_CONTINUES : CONTINUES;
-      const language = detectLanguage(file, content);
-      const active = rules.filter(
-        (r) => (!r.excludes || !r.excludes.test(file)) && !r.excludeLanguages?.includes(language)
-      );
-      const add = (rule: Rule, line: number, text: string): void => {
-        findings.push({
-          category: rule.category,
-          severity: rule.severity,
-          file,
-          line,
-          evidence: text.trim().slice(0, MAX_EVIDENCE),
-        });
-      };
-      for (const [i, line] of lines.entries()) {
-        const group = continuationGroup(lines, i, continues);
-        for (const rule of active) {
-          if (rule.pattern.test(line)) {
-            add(rule, i + 1, line);
-          } else if (group && rule.pattern.test(group.text)) {
-            if (!group.rest.some((l) => rule.pattern.test(l))) add(rule, i + 1, group.text);
-          }
-        }
-      }
-      return findings;
-    }
-    export function isProseFile(relPath: string): boolean {
-      const lower = relPath.toLowerCase();
-      return PROSE_EXTENSIONS.some((ext) => lower.endsWith(ext));
-    }
-  </file>
-  <file path="packages/supply-chain-scanner/src/run-cli.ts">
-    export interface CliIo {
-      readonly stdout: (text: string) => void;
-      readonly stderr: (text: string) => void;
-    }
-    export function run(argv: readonly string[], io: CliIo): number {
-      const target = argv[2];
-      if (!target) {
-        io.stderr("usage: mbe-scan <path-to-package>\n");
-        return 2;
-      }
-      const result = scanPackage(target);
-      io.stdout(`${JSON.stringify(result, null, 2)}\n`);
-      return result.verdict === "block" ? 1 : 0;
-    }
-  </file>
-  <file path="packages/supply-chain-scanner/src/scan-package.ts">
-    export function computeVerdict(findings: readonly Finding[]): Verdict {
-      if (findings.some((f) => f.severity === "high")) return "block";
-      if (findings.some((f) => f.severity === "med")) return "flag";
-      return "pass";
-    }
-    function correlateCrossFileExfiltration(findings: readonly Finding[]): Finding[] {
-      const firstByFile = (predicate: (f: Finding) => boolean): Map<string, Finding> => {
-        const map = new Map<string, Finding>();
-        for (const f of findings) {
-          if (predicate(f) && !map.has(f.file)) map.set(f.file, f);
-        }
-        return map;
-      };
-    
-      const outbound = firstByFile((f) => f.category === "data-exfiltration" && f.severity === "med");
-      const secrets = firstByFile((f) => f.category === "data-exfiltration" && f.severity === "low");
-    
-      const correlated: Finding[] = [];
-      for (const [outFile, outFinding] of outbound) {
-        for (const [secretFile, secretFinding] of secrets) {
-          if (outFile === secretFile) continue; // intra-file: already escalated by the heuristic
-          correlated.push({
-            category: "data-exfiltration",
-            severity: "high",
-            file: outFile,
-            correlatedWith: secretFile,
-            line: outFinding.line,
-            evidence:
-              `cross-file exfiltration: secret read in ${secretFile} (line ${secretFinding.line}) ` +
-              `sent via outbound call in ${outFile} (line ${outFinding.line})`,
-          });
-        }
-      }
-      return correlated;
-    }
-    export function scanPackage(dir: string): ScanResult {
-      const files = collectFiles(dir);
-      const perFile: Finding[] = files.flatMap((file) => [
-        ...detectPromptInjection(file),
-        ...detectDataExfiltration(file),
-        ...detectMaliciousCommands(file),
-      ]);
-      const correlatedFindings = correlateCrossFileExfiltration(perFile);
-      const findings: Finding[] = [...perFile, ...correlatedFindings];
-      return {
-        verdict: computeVerdict(findings),
-        findings,
-        ...(correlatedFindings.length > 0 ? { correlatedFindings } : {}),
-      };
-    }
-  </file>
-  <file path="packages/supply-chain-scanner/src/types.ts">
-    export type Category = "prompt-injection" | "data-exfiltration" | "malicious-command";
-    export type Severity = "low" | "med" | "high";
-    export type Verdict = "pass" | "flag" | "block";
-    export interface Finding {
-      readonly category: Category;
-      readonly severity: Severity;
-      /** Path of the offending file, relative to the scanned package root. */
-      readonly file: string;
-      /** 1-indexed line number of the match. */
-      readonly line: number;
-      /** Short snippet of the matched text (truncated, never the whole file). */
-      readonly evidence: string;
-      /**
-       * For a synthetic cross-file correlation finding, the path of the OTHER file
-       * involved in the pattern — i.e. the secret-read file when `file` is the
-       * outbound-call file. Absent on ordinary single-file findings.
-       */
-      readonly correlatedWith?: string;
-    }
-    export interface ScanResult {
-      readonly verdict: Verdict;
-      readonly findings: readonly Finding[];
-      /**
-       * Synthetic `high` findings from the cross-file correlation phase: a secret
-       * read in one file paired with an outbound call in another. Present only when
-       * at least one cross-file exfiltration pattern was detected, so callers have
-       * an inspectable record of what was correlated and why.
-       */
-      readonly correlatedFindings?: readonly Finding[];
-    }
-    export interface SourceFile {
-      /** Path relative to the scanned package root (POSIX separators). */
-      readonly relPath: string;
-      readonly content: string;
     }
   </file>
   <file path="packages/types/src/agent.ts">

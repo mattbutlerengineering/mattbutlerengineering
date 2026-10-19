@@ -1,6 +1,6 @@
 # Autorun brief — zone-batch-nonstrict-main
 
-stop-after: decompose
+<!-- stop-after: decompose — lifted 2026-10-18, see § Resume 2026-10-18 -->
 
 ## Feature description (what and why)
 
@@ -96,3 +96,56 @@ after Matt's go-ahead on the policy change.
 PRD 3; ADR 95-97; WO 26-35. If exhausted, stop and surface. (The issue
 text's "ADR-028" was a decompose-time guess; the reserved block is
 authoritative, so the amending ADR is ADR-027.)
+
+## Resume 2026-10-18 — shipped by the Conductor; Verify + Review + Ship record
+
+The Owner re-invoked autorun on this run on 2026-10-18 and answered two gap
+questions live (not assumptions):
+
+1. **Shape:** "Verify + Review + Ship record." The `stop-after: decompose`
+   line above is lifted.
+2. **Operate:** see `operate:` below.
+
+Facts measured at resume, not assumptions:
+
+- Shipped: **#6678** `d1047723e` ("feat(merge-train): batch same-zone
+  issues while main is non-strict"), merged 2026-10-15T05:37:59Z; ADR-027
+  amending ADR-023 via #6661 `14c71bc53`; #6640 closed
+  2026-10-15T05:38:01Z; ledger #6949. `breakdown.md` 4/4 checked.
+- This session has `gh` and network. Open-PR pre-flight 2026-10-18: no
+  open PR touches `scripts/issue-zone*`, `.claude/implement-queue.md` or
+  ADR-023/027.
+- Remaining stages run in `.claude/worktrees/zone-batch-close`, branch
+  `docs/zone-batch-close`, cut from `origin/main`. Run
+  `pnpm install --frozen-lockfile` and `pnpm build --filter '@mbe/scripts^...'`
+  before scripts tests (run from repo root:
+  `pnpm exec vitest run --config scripts/vitest.config.mjs <filter>`).
+
+What each stage does:
+
+- **Verify** grades the PRD success criteria against `main` with real
+  commands: the module's unit tests; a live read of
+  `branches/main/protection/required_status_checks` (`strict`); the
+  fail-closed path when that read errors (exercise it through the real
+  code with an injected failing reader, not by reasoning); and a read-only
+  replay of real implement-queue batches since 2026-10-15 (from
+  implement-queue ledgers/logs/telemetry or PR timelines — find the
+  source; say if none is reliable): which batches held >=2 same-zone
+  issues, whether their file sets were disjoint, and whether any pair
+  needed `update-branch` or conflicted. Read-only on GitHub.
+- **Review** reviews #6678 + ADR-027 as merged plus anything on `main`
+  since touching the same files. A major stays open for the Owner.
+- **Ship** records the release that already happened (`outcome:
+released`); evidence is the first real implement-queue runs using the
+  new selection. No new release action. A critical finding is a live
+  defect, reported.
+- The orchestrator opens the docs PR and leaves it for the Owner.
+
+## Operate
+
+operate:
+minimum-signal: >-
+At least 5 implement-queue batches since 2026-10-15 that held 2 or
+more same-zone issues, with a count of how many of those pairs hit a
+merge conflict or needed update-branch. users-observed counts
+honestly; 0 is valid.

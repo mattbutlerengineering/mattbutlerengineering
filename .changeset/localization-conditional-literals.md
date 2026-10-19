@@ -1,0 +1,5 @@
+---
+"@mattbutlerengineering/rialto": patch
+---
+
+Localize built-in strings that were English literals inside conditionals: the ThemeToggle accessible name, Form's error-summary count, TapeChart's reservation counts and default labels, DataTable's per-row checkbox name, PinInput's completion announcement, ChatPanel's no-reason tool denial, TextArea's character counter and Combobox's result count. Each now resolves from `RialtoMessages` (new keys include `switchToLightMode`, `switchToDarkMode`, `fieldsNeedAttention`, `reservationCount`, `selectThisRow`, `codeComplete`, `notAllowed`, `characterCount`, `resultsAvailable` and the nested `tapeChart` group), with es-MX and fr-CA values; en-US text is unchanged and TapeChart's `strings` prop still overrides its defaults. The per-locale bundle budget rises from 1.5 kB to 2.2 kB brotli, because TapeChart's default strings moved into the locale dictionaries (about 0.5 kB per translated locale); each locale is a lazily imported subpath, so only consumers that import it pay for it.

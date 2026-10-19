@@ -112,12 +112,6 @@
       "path": "packages/service-bootstrap"
     },
     {
-      "name": "@mbe/supply-chain-scanner",
-      "type": "package",
-      "path": "packages/supply-chain-scanner",
-      "entrypoint": true
-    },
-    {
       "name": "@mbe/types",
       "type": "package",
       "path": "packages/types"
@@ -566,11 +560,6 @@
     },
     {
       "from": "@mbe/service-bootstrap",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/supply-chain-scanner",
       "to": "@mbe/config",
       "type": "devDependency"
     },

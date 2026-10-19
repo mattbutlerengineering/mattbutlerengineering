@@ -116,8 +116,6 @@ export const FAMILIES = [
       "packages/sentry/llms-full.txt",
       "packages/service-bootstrap/llms.txt",
       "packages/service-bootstrap/llms-full.txt",
-      "packages/supply-chain-scanner/llms.txt",
-      "packages/supply-chain-scanner/llms-full.txt",
       "packages/types/llms.txt",
       "packages/types/llms-full.txt",
       "packages/ui-quality-capture/llms.txt",

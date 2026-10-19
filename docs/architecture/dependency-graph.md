@@ -34,7 +34,6 @@ flowchart TD
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
     service_bootstrap["service-bootstrap"]
-    supply_chain_scanner["supply-chain-scanner"]
     types["types"]
     ui_quality_capture["ui-quality-capture"]
   end
@@ -127,7 +126,6 @@ flowchart TD
   service_bootstrap --> sentry
   service_bootstrap --> types
   service_bootstrap --> config
-  supply_chain_scanner --> config
   types --> config
   ui_quality_capture --> config
   cli --> agent_core
@@ -171,7 +169,6 @@ flowchart TD
   class rialto_plugin entrypoint
   class sentry shared
   class service_bootstrap shared
-  class supply_chain_scanner entrypoint
   class types shared
   class ui_quality_capture shared
   class cli tooling

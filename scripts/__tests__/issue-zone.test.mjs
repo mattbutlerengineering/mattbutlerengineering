@@ -640,3 +640,66 @@ describe("selectZoneSpreadBatch — shared-registry locks", () => {
     expect(numbers(batch)).toEqual([1, 3]);
   });
 });
+
+describe("selectZoneSpreadBatch — sentence punctuation on path tokens", () => {
+  const numbers = (batch) => batch.map((i) => i.number);
+
+  test("a sentence-final period does not make the same file look disjoint", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        issue("fix(hospitality): a", { number: 1, body: "Edit apps/hospitality/src/a.ts." }),
+        issue("fix(hospitality): b", {
+          number: 2,
+          body: "Edit `apps/hospitality/src/a.ts` too",
+        }),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test("a trailing ellipsis does not make the same file look disjoint", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        issue("fix(hospitality): a", { number: 1, body: "Files: apps/hospitality/src/a.ts..." }),
+        issue("fix(hospitality): b", { number: 2, body: "Files: apps/hospitality/src/a.ts" }),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1]);
+  });
+
+  test.each([true, false])(
+    "a sentence-final period does not bypass the hotspot lock (strictMain: %s)",
+    (strictMain) => {
+      const batch = selectZoneSpreadBatch(
+        [
+          issue("fix(hospitality): a", {
+            number: 1,
+            body: "Record it in .claude/rules/gotchas.md.",
+          }),
+          issue("fix(reservations): b", {
+            number: 2,
+            body: "Files: `.claude/rules/gotchas.md`",
+          }),
+        ],
+        { strictMain }
+      );
+      expect(numbers(batch)).toEqual([1]);
+    }
+  );
+
+  test("real dotted paths survive normalisation", () => {
+    const batch = selectZoneSpreadBatch(
+      [
+        issue("fix(hospitality): a", {
+          number: 1,
+          body: "Edit apps/hospitality/llms-full.txt, then stop.",
+        }),
+        issue("fix(hospitality): b", { number: 2, body: "Edit apps/hospitality/llms.txt" }),
+      ],
+      { strictMain: false }
+    );
+    expect(numbers(batch)).toEqual([1, 2]);
+  });
+});
