@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { createReadinessTracker, registerStandardChecks, buildJwksUrl } from "./readiness.js";
+import { createReadinessTracker, registerStandardChecks } from "./readiness.js";
+import { buildJwksUrl } from "./auth0-jwks.js";
 
 describe("createReadinessTracker", () => {
   it("returns not ready when no checks are registered", async () => {
@@ -296,7 +297,7 @@ describe("registerStandardChecks", () => {
     registerStandardChecks(tracker, { prisma: mockPrisma, fetchFn: mockFetch });
     await tracker.evaluate();
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json",
+      expect.stringMatching(/^https:\/\/dev-[a-z0-9]+\.us\.auth0\.com\/\.well-known\/jwks\.json$/),
       expect.anything()
     );
   });

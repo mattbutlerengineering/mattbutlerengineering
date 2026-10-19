@@ -129,7 +129,7 @@ describe("checkAuth0", () => {
 
     await checkAuth0();
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-      "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json",
+      expect.stringMatching(/^https:\/\/dev-[a-z0-9]+\.us\.auth0\.com\/\.well-known\/jwks\.json$/),
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });

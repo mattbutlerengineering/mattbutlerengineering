@@ -109,6 +109,7 @@ flowchart TD
   notifications --> types
   notifications --> config
   observability --> config
+  observability --> database
   rialto --> config
   rialto_catalog --> rialto
   rialto_catalog --> config

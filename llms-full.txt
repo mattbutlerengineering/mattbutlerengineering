@@ -56826,6 +56826,53 @@
       return Math.floor(ms / 1000);
     }
   </file>
+  <file path="packages/observability/src/auth0-jwks.ts">
+    export const AUTH0_UNCONFIGURED_MESSAGE =
+      "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)";
+    export function buildJwksUrl(authority: string | undefined): string | undefined {
+      if (!authority) {
+        return undefined;
+      }
+      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
+    }
+    export function resolveJwksUrl(explicit?: string): string | null {
+      const configured =
+        explicit ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
+      if (configured) {
+        return configured;
+      }
+      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
+    }
+    export type JwksProbeResult =
+      | { readonly kind: "ok"; readonly latency: number }
+      | { readonly kind: "http"; readonly status: number; readonly latency: number }
+      | { readonly kind: "timeout"; readonly error: unknown; readonly latency: number }
+      | { readonly kind: "network"; readonly error: unknown; readonly latency: number };
+    export interface JwksProbeOptions {
+      readonly timeoutMs: number;
+      /** Defaults to a per-call lookup of global `fetch` so test stubs are honoured. */
+      readonly fetchFn?: typeof fetch;
+    }
+    export async function probeJwks(url: string, options: JwksProbeOptions): Promise<JwksProbeResult> {
+      const { timeoutMs, fetchFn = (...args: Parameters<typeof fetch>) => fetch(...args) } = options;
+      const start = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetchFn(url, { signal: controller.signal });
+        const latency = Date.now() - start;
+        return response.ok
+          ? { kind: "ok", latency }
+          : { kind: "http", status: response.status, latency };
+      } catch (error) {
+        const latency = Date.now() - start;
+        const aborted = error instanceof Error && error.name === "AbortError";
+        return { kind: aborted ? "timeout" : "network", error, latency };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  </file>
   <file path="packages/observability/src/build-info.ts">
     export const UNKNOWN_BUILD = "unknown";
     export interface BuildInfo {
@@ -57150,29 +57197,12 @@
         return probe();
       }
     }
-    export function buildJwksUrl(authority: string | undefined): string | undefined {
-      if (!authority) {
-        return undefined;
-      }
-      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    }
-    function resolveAuth0Url(explicit: string | undefined): string | null {
-      const configured =
-        explicit ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
-      if (configured) {
-        return configured;
-      }
-      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
-    }
-    export interface PrismaLike {
-      readonly $queryRaw: (strings: TemplateStringsArray) => Promise<unknown>;
-    }
     export interface StandardChecksOptions {
       /** Prisma (or compatible) client used to ping the database. */
-      readonly prisma: PrismaLike;
+      readonly prisma: Pick<PrismaLike, "$queryRaw">;
       /**
        * Auth0 JWKS endpoint URL. Falls back to `AUTH0_JWKS_URL`, then
-       * `AUTH_AUTHORITY` (via {@link buildJwksUrl}), then a dev-tenant default —
+       * `AUTH_AUTHORITY` (via {@link resolveJwksUrl}), then a dev-tenant default —
        * the dev-tenant default is refused when `NODE_ENV=production` and the
        * `auth` check fails instead of probing it. See {@link registerStandardChecks}.
        */
@@ -57189,14 +57219,9 @@
       tracker: ReadinessTracker,
       options: StandardChecksOptions
     ): void {
-      const {
-        prisma,
-        auth0Url,
-        jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS,
-        fetchFn = (...args: Parameters<typeof fetch>) => fetch(...args),
-      } = options;
+      const { prisma, auth0Url, jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS, fetchFn } = options;
     
-      const resolvedAuth0Url = resolveAuth0Url(auth0Url);
+      const resolvedAuth0Url = resolveJwksUrl(auth0Url);
     
       tracker.registerCheck("database", () =>
         withTransientRetry(async () => {
@@ -57209,15 +57234,12 @@
           throw new Error(AUTH0_UNCONFIGURED_MESSAGE);
         }
         await withTransientRetry(async () => {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
-          try {
-            const response = await fetchFn(resolvedAuth0Url, { signal: controller.signal });
-            if (!response.ok) {
-              throw new Error(`JWKS returned ${response.status}`);
-            }
-          } finally {
-            clearTimeout(timeout);
+          const result = await probeJwks(resolvedAuth0Url, { timeoutMs: jwksTimeoutMs, fetchFn });
+          if (result.kind === "http") {
+            throw new Error(`JWKS returned ${result.status}`);
+          }
+          if (result.kind === "timeout" || result.kind === "network") {
+            throw result.error;
           }
         });
       });
@@ -58723,9 +58745,7 @@
   </file>
   <file path="packages/service-bootstrap/src/health-routes.ts">
     export interface HealthDb {
-      readonly prisma: {
-        $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
-      };
+      readonly prisma: Pick<PrismaLike, "$queryRaw">;
       readonly getSlowQueryStats: () => SlowQueryStats;
       readonly getServiceStatus: () => ServiceStatus;
       readonly getPoolMetrics: () => PoolMetrics;
@@ -58789,41 +58809,33 @@
     
       return { record, checkAnomaly };
     }
-    function resolveJwksUrl(jwksUrl?: string): string | null {
-      const configured =
-        jwksUrl ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
-      if (configured) {
-        return configured;
-      }
-      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
-    }
     export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> {
       const url = resolveJwksUrl(jwksUrl);
       if (url === null) {
-        return {
-          status: "degraded",
-          latency: 0,
-          message: "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)",
-        };
+        return { status: "degraded", latency: 0, message: AUTH0_UNCONFIGURED_MESSAGE };
       }
-      const start = Date.now();
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), AUTH0_TIMEOUT_MS);
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeout);
-        const latency = Date.now() - start;
-        if (!response.ok) {
-          return { status: "degraded", latency, message: `Auth0 JWKS returned ${response.status}` };
-        }
-        return { status: "ok", latency };
-      } catch (error) {
-        const latency = Date.now() - start;
-        const message =
-          error instanceof Error && error.name === "AbortError"
-            ? "Auth0 JWKS unreachable (timeout >2s)"
-            : `Auth0 JWKS unreachable: ${error instanceof Error ? error.message : String(error)}`;
-        return { status: "degraded", latency, message };
+      const result = await probeJwks(url, { timeoutMs: AUTH0_TIMEOUT_MS });
+      switch (result.kind) {
+        case "ok":
+          return { status: "ok", latency: result.latency };
+        case "http":
+          return {
+            status: "degraded",
+            latency: result.latency,
+            message: `Auth0 JWKS returned ${result.status}`,
+          };
+        case "timeout":
+          return {
+            status: "degraded",
+            latency: result.latency,
+            message: "Auth0 JWKS unreachable (timeout >2s)",
+          };
+        case "network":
+          return {
+            status: "degraded",
+            latency: result.latency,
+            message: `Auth0 JWKS unreachable: ${result.error instanceof Error ? result.error.message : String(result.error)}`,
+          };
       }
     }
   </file>

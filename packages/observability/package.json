@@ -48,6 +48,7 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
+    "@mbe/database": "workspace:*",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

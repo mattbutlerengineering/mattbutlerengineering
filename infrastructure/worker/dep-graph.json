@@ -479,6 +479,11 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/observability",
+      "to": "@mbe/database",
+      "type": "devDependency"
+    },
+    {
       "from": "@mattbutlerengineering/rialto",
       "to": "@mbe/config",
       "type": "devDependency"

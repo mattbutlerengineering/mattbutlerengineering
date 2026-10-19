@@ -63,7 +63,10 @@ vi.mock("@mbe/sentry/node", () => ({
   captureRequestError: vi.fn(),
 }));
 
-const DEV_URL = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
+// The dev-tenant URL literal lives in exactly one place (observability auth0-jwks.ts).
+const DEV_URL = expect.stringMatching(
+  /^https:\/\/dev-[a-z0-9]+\.us\.auth0\.com\/\.well-known\/jwks\.json$/
+);
 const AUTHORITY = "https://authority.example.com";
 const AUTHORITY_JWKS = `${AUTHORITY}/.well-known/jwks.json`;
 const EXPLICIT_JWKS = "https://explicit.example.com/.well-known/jwks.json";
@@ -255,7 +258,7 @@ describe("Auth0 JWKS checks via createServiceApp", () => {
       globalThis.fetch = b as never;
       app = await buildApp();
       await ready();
-      expect(b.mock.calls[0]?.[0]).toBe(DEV_URL);
+      expect(b.mock.calls[0]?.[0]).toEqual(DEV_URL);
     });
   });
 
@@ -270,7 +273,7 @@ describe("Auth0 JWKS checks via createServiceApp", () => {
       expect(auth0.status).toBe("ok");
       expect(typeof auth0.latency).toBe("number");
       expect(auth0.message).toBeUndefined();
-      expect(fetchMock.mock.calls[0]?.[0]).toBe(DEV_URL);
+      expect(fetchMock.mock.calls[0]?.[0]).toEqual(DEV_URL);
     });
 
     it("reports degraded with the status code, without retrying", async () => {
@@ -318,7 +321,7 @@ describe("Auth0 JWKS checks via createServiceApp", () => {
       globalThis.fetch = first as never;
       app = await buildApp();
       await health();
-      expect(first.mock.calls[0]?.[0]).toBe(DEV_URL);
+      expect(first.mock.calls[0]?.[0]).toEqual(DEV_URL);
 
       const second = vi.fn().mockResolvedValue(okResponse);
       globalThis.fetch = second as never;
