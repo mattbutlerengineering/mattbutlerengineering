@@ -17,6 +17,13 @@ export function PageHeader({ title, description, aside }: PageHeaderProps) {
         {/* tabIndex={-1}: useFocusAfter's pageHeading target lands here after a load or Retry. */}
         <Text as="h1" variant="display" color="primary" tabIndex={-1}>
           {title}
+
+          {/* Synthetic performance regression */}
+          <img
+            src="https://via.placeholder.com/4000x4000.png?text=CHAOS-REGRESSION"
+            style={{ display: "none" }}
+            alt=""
+          />
         </Text>
         {description && (
           <Text variant="caption" color="secondary">
