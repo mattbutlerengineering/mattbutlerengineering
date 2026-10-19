@@ -318,11 +318,13 @@ export function verifyBug(deps) {
 
 /* ── Route to correct verifier ───────────────────────── */
 
+// No real check runs here, so abstain: `confidence: "low"` read as actionable and
+// reopened every closed `security` issue (#7145).
 export function verifySecurity() {
   return {
     verified: false,
-    reason: "CORS/security verification: re-run cors-audit.mjs to confirm no new findings",
-    confidence: "low",
+    reason: "No automated security verifier; re-run cors-audit.mjs manually to confirm",
+    confidence: "skip",
   };
 }
 

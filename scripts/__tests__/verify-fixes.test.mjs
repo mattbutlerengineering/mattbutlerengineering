@@ -373,11 +373,18 @@ describe("verifySentry", () => {
 });
 
 describe("verifySecurity", () => {
-  it("always returns a low-confidence not-verified result", () => {
+  it("abstains: no real check runs, so it must not be actionable", () => {
     const result = verifySecurity();
 
     expect(result.verified).toBe(false);
-    expect(result.confidence).toBe("low");
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
+  });
+
+  it("routes a security-labeled issue to an abstention, never a reopen", () => {
+    const result = verifyIssue({ labels: [{ name: "security" }], title: "fix(security): x" });
+
+    expect(shouldActOnResult(result)).toBe(false);
   });
 });
 
