@@ -95,4 +95,8 @@ export const frCA: RialtoMessages = {
   liftSafetyCover: (label) => `Soulever le capot de sécurité de ${label}`,
   switchToLightMode: "Passer au mode clair",
   switchToDarkMode: "Passer au mode sombre",
+  fieldsNeedAttention: (count) =>
+    count < 2
+      ? `${count} champ nécessite votre attention`
+      : `${count} champs nécessitent votre attention`,
 };

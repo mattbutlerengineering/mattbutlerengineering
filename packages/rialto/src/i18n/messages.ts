@@ -188,6 +188,8 @@ export interface RialtoMessages {
   readonly switchToLightMode: string;
   /** ThemeToggle name while light (pressing it switches to dark). */
   readonly switchToDarkMode: string;
+  /** Form error-summary heading for `count` invalid fields. Each locale picks its own plural form (French singular covers 0 and 1). */
+  readonly fieldsNeedAttention: (count: number) => string;
 }
 
 export const enUS: RialtoMessages = {
@@ -281,4 +283,6 @@ export const enUS: RialtoMessages = {
   liftSafetyCover: (label) => `Lift safety cover for ${label}`,
   switchToLightMode: "Switch to light mode",
   switchToDarkMode: "Switch to dark mode",
+  fieldsNeedAttention: (count) =>
+    count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
 };

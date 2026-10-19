@@ -9,6 +9,7 @@ assumptions:
   - 'DataTable''s per-row fallback gets a NEW RialtoMessages key with en-US value "Select row". It does not reuse the existing selectRow key: that key is the select column header ("Select" / "Seleccionar" / "Sélectionner", DataTable.tsx:284), so reusing it would silently change the en-US accessible name of every row checkbox.'
   - "TapeChart's English defaultStrings.ts is in scope because the brief lists it under defect 2. Its defaults come from RialtoMessages through context, as the review's fix line says. Its existing strings prop stays the consumer override."
   - 'Hospitality catalogs get an en-GB entry only if its wording differs from en-US (brief). For "Ctrl" it does not.'
+  - "Implement (2026-10-18): rialto plurals stay count-taking message functions, the shape TapeChart's nightsLabel/partySizeLabel already use; RialtoMessages has no plural-category mechanism and the brief says not to invent one. Each locale encodes its own rule inside its function: en-US and es-MX singular only at 1, fr-CA singular for 0 and 1 (CLDR 'one' for fr). The CLDR 'many' form for es/fr (millions) is not modelled, since these counts are fields, results, reservations and nights."
 ---
 
 # Defect: rialto and hospitality render English through conditional string literals that no localization gate can see
@@ -217,7 +218,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
   - Accept: the existing en-US assertions in `ThemeToggle.test.tsx` still pass. A
     locale test renders the es-MX and fr-CA labels. The lint error at
     `ThemeToggle.tsx:28` is gone.
-- [ ] **Form error summary.** Add a count-taking message function for
+- [x] **Form error summary.** Add a count-taking message function for
       `Form.tsx:87-88` (singular and plural) to `RialtoMessages` and every locale.
   - Accept: the Form locale test shows the es-MX and fr-CA summary for 1 and for
     N errors. The lint error is gone.

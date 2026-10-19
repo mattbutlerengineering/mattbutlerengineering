@@ -95,4 +95,6 @@ export const esMX: RialtoMessages = {
   liftSafetyCover: (label) => `Levantar la cubierta de seguridad de ${label}`,
   switchToLightMode: "Cambiar a modo claro",
   switchToDarkMode: "Cambiar a modo oscuro",
+  fieldsNeedAttention: (count) =>
+    count === 1 ? `${count} campo requiere atención` : `${count} campos requieren atención`,
 };

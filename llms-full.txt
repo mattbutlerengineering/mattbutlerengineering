@@ -16066,6 +16066,8 @@
       readonly switchToLightMode: string;
       /** ThemeToggle name while light (pressing it switches to dark). */
       readonly switchToDarkMode: string;
+      /** Form error-summary heading for `count` invalid fields. Each locale picks its own plural form (French singular covers 0 and 1). */
+      readonly fieldsNeedAttention: (count: number) => string;
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
@@ -16158,6 +16160,8 @@
       liftSafetyCover: (label) => `Lift safety cover for ${label}`,
       switchToLightMode: "Switch to light mode",
       switchToDarkMode: "Switch to dark mode",
+      fieldsNeedAttention: (count) =>
+        count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
     };
   </file>
   </section>
@@ -17359,6 +17363,8 @@
       liftSafetyCover: (label) => `Levantar la cubierta de seguridad de ${label}`,
       switchToLightMode: "Cambiar a modo claro",
       switchToDarkMode: "Cambiar a modo oscuro",
+      fieldsNeedAttention: (count) =>
+        count === 1 ? `${count} campo requiere atención` : `${count} campos requieren atención`,
     };
   </file>
   <file path="packages/rialto/src/i18n/locales/fr-CA.ts">
@@ -17456,6 +17462,10 @@
       liftSafetyCover: (label) => `Soulever le capot de sécurité de ${label}`,
       switchToLightMode: "Passer au mode clair",
       switchToDarkMode: "Passer au mode sombre",
+      fieldsNeedAttention: (count) =>
+        count < 2
+          ? `${count} champ nécessite votre attention`
+          : `${count} champs nécessitent votre attention`,
     };
   </file>
   </section>

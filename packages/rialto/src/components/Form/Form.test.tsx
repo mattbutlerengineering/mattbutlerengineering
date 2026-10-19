@@ -1,6 +1,10 @@
 import { useEffect } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { RialtoLocaleProvider } from "../../i18n/RialtoLocaleProvider";
+import { esMX } from "../../i18n/locales/es-MX";
+import { frCA } from "../../i18n/locales/fr-CA";
+import type { RialtoMessages } from "../../i18n/messages";
 import { Form } from "./Form";
 import { useFormContext } from "./FormContext";
 
@@ -123,5 +127,35 @@ describe("Form", () => {
       await user.click(screen.getByRole("button", { name: "Submit" }));
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("Form error summary localization", () => {
+  const required = () => "Required";
+
+  async function submitWithErrors(messages: RialtoMessages, count: number) {
+    const user = userEvent.setup();
+    render(
+      <RialtoLocaleProvider messages={messages}>
+        <Form>
+          {Array.from({ length: count }, (_, i) => (
+            <RegisteringField key={i} name={`f${i}`} validate={required} />
+          ))}
+          <button type="submit">Submit</button>
+        </Form>
+      </RialtoLocaleProvider>
+    );
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+    return screen.getByRole("alert");
+  }
+
+  it.each([
+    ["es-MX", 1, esMX, "1 campo requiere atención"],
+    ["es-MX", 3, esMX, "3 campos requieren atención"],
+    ["fr-CA", 1, frCA, "1 champ nécessite votre attention"],
+    ["fr-CA", 3, frCA, "3 champs nécessitent votre attention"],
+  ] as const)("%s summarizes %i error(s)", async (_tag, count, messages, summary) => {
+    const alert = await submitWithErrors(messages, count);
+    expect(alert).toHaveTextContent(summary);
   });
 });
