@@ -97,3 +97,14 @@ The deployed hospitality `rialto-vendor` bundle no longer contains
 which the tightened rule caught a real new conditional literal, or 14
 days elapsed since merge with none. users-observed counts honestly; 0 is
 valid.
+
+## Capture decision 2026-10-18 (Owner, live — not assumptions)
+
+Capture (`77d197a54`) found two more rialto announcements built in English
+through a conditional that the review missed and the tightened JSX rule cannot
+see (variable / return statement): `TextArea.tsx:96` ("N of M characters, over
+limit") and `Combobox.tsx:150` ("N result(s) available"). The Owner answered
+**"Widen: include both."** Implement adds them as a work item (RialtoMessages
+keys + locale values) so `packages/rialto/CLAUDE.md:198` can state the
+corrected claim without listing them as gaps. The size-limit stop-and-surface
+rule still applies.
