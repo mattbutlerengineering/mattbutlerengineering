@@ -199,8 +199,20 @@
       }
     </item>
     <item priority="low">
+      interface ChatStreamRequest {
+        url: string;
+        body: unknown;
+        headers?: Record<string, string>;
+        signal?: AbortSignal;
+      }
+    </item>
+    <item priority="low">
+      type ChatStreamFn = (request: ChatStreamRequest) => AsyncIterable<unknown>;
+    </item>
+    <item priority="low">
       interface UseChatStreamOptions {
         api: string;
+        stream: ChatStreamFn;
         domainContext: DomainContext;
         getAccessToken: () => string | null | Promise<string | null>;
       }
@@ -215,7 +227,11 @@
       }
     </item>
     <item priority="high">
-      export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
+      export function useChatStream({
+        api,
+        stream,
+        getAccessToken,
+      }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
     </item>
   </file>
   </section>

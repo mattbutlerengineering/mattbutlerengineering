@@ -34,6 +34,9 @@ const defaultProps = {
   onClose: vi.fn(),
   api: "/api/gen/agent",
   getAccessToken: () => "token",
+  stream: async function* () {
+    yield { type: "text", content: "hi" };
+  },
   domainContext: {
     schemas: [{ name: "Reservation", description: "A booking", fields: "id, guestName" }],
   },

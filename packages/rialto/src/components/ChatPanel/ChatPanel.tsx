@@ -1,6 +1,6 @@
 import { forwardRef, useState, useCallback, type KeyboardEvent } from "react";
 import { Drawer } from "../Drawer/Drawer.js";
-import { useChatStream } from "./useChatStream.js";
+import { useChatStream, type ChatStreamFn } from "./useChatStream.js";
 import type { DomainContext } from "./types.js";
 import type { ChatMessageElement } from "./useChatStream.js";
 import { sanitizeElementProps } from "./sanitize.js";
@@ -26,6 +26,8 @@ function renderElement(el: ChatMessageElement, registry?: ComponentRegistry) {
 export interface ChatPanelProps {
   onClose: () => void;
   api: string;
+  /** Streaming transport the host app injects (see `ChatStreamFn`). */
+  stream: ChatStreamFn;
   domainContext: DomainContext;
   getAccessToken: () => string | null | Promise<string | null>;
   standalone?: boolean;
@@ -33,7 +35,7 @@ export interface ChatPanelProps {
 }
 
 export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function ChatPanel(
-  { onClose, api, domainContext, getAccessToken, standalone, registry },
+  { onClose, api, stream, domainContext, getAccessToken, standalone, registry },
   ref
 ) {
   const { messages: t } = useRialtoLocale();
@@ -50,6 +52,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
     cancelAction,
   } = useChatStream({
     api,
+    stream,
     domainContext,
     getAccessToken,
   });

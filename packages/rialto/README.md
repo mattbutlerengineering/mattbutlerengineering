@@ -21,19 +21,28 @@ import "@mattbutlerengineering/rialto/styles"; // Import before any component re
 ## Compatibility
 
 Every component works from a registry install (`npm.pkg.github.com`,
-scoped `@mattbutlerengineering`) **except `ChatPanel`**. `ChatPanel` (and
-its `useChatStream` hook) imports `@mbe/api-client/streaming`, a private,
-workspace-only package that is never published anywhere — it exists only
-inside this monorepo. Rialto's build externalizes that import rather than
-bundling it (so the design-system bundle doesn't inline an app-specific
-data client), which means a registry consumer would need to supply
-`@mbe/api-client` themselves — something no consumer outside this
-monorepo can do, since the package isn't resolvable from any registry.
-`ChatPanel` is therefore usable only by workspace-internal consumers of
-this monorepo (`apps/hospitality`, `apps/rialto-web`, `apps/gen`), which
-already declare `@mbe/api-client` as their own direct dependency. See
-`.claude/rules/gotchas.md` § Releases for the changesets-versioning side
-of this (#3322).
+scoped `@mattbutlerengineering`), including `ChatPanel`. Rialto has no
+dependency on any `@mbe/*` workspace package: `ChatPanel` takes its
+streaming transport as a required `stream` prop, so the host app supplies the
+HTTP client.
+
+```tsx
+import { ChatPanel, type ChatStreamFn } from "@mattbutlerengineering/rialto";
+
+// (request: { url, body, headers?, signal? }) => AsyncIterable<unknown>
+// Each yielded value is one decoded NDJSON line from the agent endpoint.
+const stream: ChatStreamFn = (request) => myNdjsonClient(request);
+
+<ChatPanel
+  api="/api/agent"
+  stream={stream}
+  getAccessToken={getToken}
+  domainContext={ctx}
+  onClose={close}
+/>;
+```
+
+In this monorepo, apps pass `streamNDJSON` from the shared API client's `streaming` entry.
 
 ## Design Principles
 

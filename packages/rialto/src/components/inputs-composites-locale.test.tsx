@@ -126,6 +126,7 @@ const CASES: readonly Case[] = [
         standalone
         onClose={noop}
         api="/x"
+        stream={async function* () {}}
         domainContext={{} as never}
         getAccessToken={() => null}
       />
