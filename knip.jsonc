@@ -91,14 +91,13 @@
       "ignoreDependencies": ["prettier", "@mbe/config"],
     },
     // Per service: Prisma client/adapter are imported by the generated client
-    // (ignored); @mbe/observability + @mbe/sentry are Docker/turbo build-graph
+    // (ignored); @mbe/sentry is a Docker/turbo build-graph
     // deps; pg is loaded by the Prisma pg adapter.
     "services/agent": {
       "ignoreDependencies": [
         "@prisma/adapter-pg",
         "@prisma/client",
         "@prisma/client-runtime-utils",
-        "@mbe/observability",
         "@mbe/sentry",
         "pg",
         "@types/pg",
@@ -108,7 +107,6 @@
       "ignoreDependencies": [
         "@prisma/client",
         "@prisma/client-runtime-utils",
-        "@mbe/observability",
         "@mbe/sentry",
         "@fastify/rate-limit",
       ],
@@ -118,7 +116,6 @@
         "@prisma/adapter-pg",
         "@prisma/client",
         "@prisma/client-runtime-utils",
-        "@mbe/observability",
         "@mbe/sentry",
         "pg",
         "@types/pg",

@@ -8,11 +8,11 @@
  *
  * `buildJwksUrl` — the shared `AUTH_AUTHORITY` -> JWKS-URL contract used by
  * both the boot-time validation here and the runtime readiness probe in
- * `readiness-routes.ts` — now lives in `@mbe/observability` (co-located with
+ * `readiness-routes.ts` — now lives in `./observability/index.js` (co-located with
  * `registerStandardChecks`, its runtime consumer; see #4200) and is
  * re-exported here so this file's existing import sites keep working.
  */
-import { buildJwksUrl } from "@mbe/observability";
+import { buildJwksUrl } from "./observability/index.js";
 export { buildJwksUrl };
 
 /**

@@ -74,7 +74,7 @@ describe("buildGraph", () => {
     const names = new Set(graph.nodes.map((n) => n.name));
     expect(names.has("@mbe/config")).toBe(true);
     expect(names.has("@mbe/types")).toBe(true);
-    expect(names.has("@mbe/observability")).toBe(true);
+    expect(names.has("@mbe/service-bootstrap")).toBe(true);
     expect(names.has("@mbe/cli")).toBe(true);
   });
 

@@ -29,16 +29,3 @@ export function createRequestIdMiddleware(options: RequestIdOptions = {}) {
     { name: "request-id-middleware" }
   );
 }
-
-export function getRequestId(request: { id?: string }): string {
-  return request.id ?? "unknown";
-}
-
-export function logWithRequestId(
-  logger: { info: (msg: string, ctx: Record<string, unknown>) => void },
-  requestId: string,
-  message: string,
-  ctx: Record<string, unknown> = {}
-) {
-  logger.info(message, { ...ctx, requestId });
-}

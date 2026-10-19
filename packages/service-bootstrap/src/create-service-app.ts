@@ -12,7 +12,7 @@ import {
   errorRatePlugin_,
   createRateLimitMonitor,
   type RateLimitMonitor,
-} from "@mbe/observability";
+} from "./observability/index.js";
 import { createLatencyTracker, type LatencyTracker } from "./health.js";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { errorHandlerPlugin } from "./error-handler.js";

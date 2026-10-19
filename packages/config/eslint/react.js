@@ -38,12 +38,8 @@ export default [
         {
           paths: [
             {
-              name: "@mbe/observability",
-              message: "Backend-only package. Cannot import in frontend apps.",
-            },
-            {
-              name: "@mbe/observability/sentry/node",
-              message: "Backend entrypoint. Use @mbe/observability/sentry/react in frontend apps.",
+              name: "@mbe/sentry/node",
+              message: "Backend entrypoint. Use @mbe/sentry/react in frontend apps.",
             },
             {
               name: "@mbe/auth/fastify",
@@ -56,7 +52,7 @@ export default [
               message: "Backend-only package. Cannot import in frontend apps.",
             },
             {
-              group: ["@mbe/observability/sentry/node"],
+              group: ["@mbe/sentry/node"],
               message: "Backend entrypoint. Cannot import in frontend apps.",
             },
           ],

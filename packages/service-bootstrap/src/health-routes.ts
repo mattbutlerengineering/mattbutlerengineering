@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import type { HealthResponse } from "@mbe/types";
-import { createErrorRateHealthCheck, resolveBuildInfo } from "@mbe/observability";
+import { resolveBuildInfo } from "@mbe/sentry";
+import { createErrorRateHealthCheck } from "./observability/index.js";
 import type { SlowQueryStats, PoolMetrics, ServiceStatus } from "@mbe/database";
 import { checkAuth0 as defaultCheckAuth0 } from "./health.js";
 import type { PrismaLike } from "@mbe/database";

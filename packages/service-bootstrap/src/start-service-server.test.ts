@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-// Mock @mbe/observability — must be static so vi.mock hoists correctly
-vi.mock("@mbe/observability", () => ({
+// Mock ./observability/index.js — must be static so vi.mock hoists correctly
+vi.mock("./observability/index.js", () => ({
   initTelemetry: vi.fn().mockReturnValue({
     start: vi.fn(),
     shutdown: vi.fn().mockResolvedValue(undefined),
@@ -16,7 +16,7 @@ vi.mock("@mbe/sentry/node", () => ({
 
 // Import AFTER mocks are set up
 const { startServiceServer } = await import("./start-service-server.js");
-const { initTelemetry } = await import("@mbe/observability");
+const { initTelemetry } = await import("./observability/index.js");
 const { initSentry } = await import("@mbe/sentry/node");
 
 type TelemetrySdk = ReturnType<typeof initTelemetry>;

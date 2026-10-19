@@ -18989,6 +18989,546 @@
     }
   </file>
   </section>
+  <section priority="medium" role="observability">
+  <file path="packages/service-bootstrap/src/observability/auth0-jwks.ts">
+    export const AUTH0_UNCONFIGURED_MESSAGE =
+      "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)";
+    export function buildJwksUrl(authority: string | undefined): string | undefined {
+      if (!authority) {
+        return undefined;
+      }
+      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
+    }
+    export function resolveJwksUrl(explicit?: string): string | null {
+      const configured =
+        explicit ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
+      if (configured) {
+        return configured;
+      }
+      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
+    }
+    export type JwksProbeResult =
+      | { readonly kind: "ok"; readonly latency: number }
+      | { readonly kind: "http"; readonly status: number; readonly latency: number }
+      | { readonly kind: "timeout"; readonly error: unknown; readonly latency: number }
+      | { readonly kind: "network"; readonly error: unknown; readonly latency: number };
+    export interface JwksProbeOptions {
+      readonly timeoutMs: number;
+      /** Defaults to a per-call lookup of global `fetch` so test stubs are honoured. */
+      readonly fetchFn?: typeof fetch;
+    }
+    export async function probeJwks(url: string, options: JwksProbeOptions): Promise<JwksProbeResult> {
+      const { timeoutMs, fetchFn = (...args: Parameters<typeof fetch>) => fetch(...args) } = options;
+      const start = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetchFn(url, { signal: controller.signal });
+        const latency = Date.now() - start;
+        return response.ok
+          ? { kind: "ok", latency }
+          : { kind: "http", status: response.status, latency };
+      } catch (error) {
+        const latency = Date.now() - start;
+        const aborted = error instanceof Error && error.name === "AbortError";
+        return { kind: aborted ? "timeout" : "network", error, latency };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/observability/error-rates.ts">
+    interface RequestRecord {
+      readonly timestamp: number;
+      readonly isError: boolean;
+    }
+    export interface EndpointErrorRate {
+      readonly endpoint: string;
+      readonly total: number;
+      readonly errors: number;
+      readonly rate: number;
+    }
+    export interface ErrorRateSnapshot {
+      readonly endpoints: readonly EndpointErrorRate[];
+      readonly degraded: boolean;
+    }
+    export interface ErrorRateHealthCheckResult {
+      readonly status: "ok" | "degraded";
+      readonly endpoints: readonly EndpointErrorRate[];
+      readonly message?: string;
+    }
+    function createErrorRateTracker() {
+      const records = new Map<string, RequestRecord[]>();
+    
+      function record(endpoint: string, statusCode: number): void {
+        const entry: RequestRecord = {
+          timestamp: Date.now(),
+          isError: statusCode >= 400,
+        };
+    
+        const existing = records.get(endpoint) ?? [];
+        records.set(endpoint, [...existing, entry]);
+      }
+    
+      function prune(): void {
+        const cutoff = Date.now() - WINDOW_MS;
+        for (const [endpoint, entries] of records) {
+          const pruned = entries.filter((r) => r.timestamp >= cutoff);
+          if (pruned.length === 0) {
+            records.delete(endpoint);
+          } else {
+            records.set(endpoint, pruned);
+          }
+        }
+      }
+    
+      function snapshot(): ErrorRateSnapshot {
+        prune();
+    
+        const endpoints: EndpointErrorRate[] = [];
+        let degraded = false;
+    
+        for (const [endpoint, entries] of records) {
+          const total = entries.length;
+          const errors = entries.filter((r) => r.isError).length;
+          const rate = total > 0 ? errors / total : 0;
+    
+          endpoints.push({ endpoint, total, errors, rate: Math.round(rate * 1000) / 1000 });
+    
+          if (rate > DEGRADATION_THRESHOLD && total >= 5) {
+            degraded = true;
+          }
+        }
+    
+        return {
+          endpoints: endpoints.sort((a, b) => b.rate - a.rate),
+          degraded,
+        };
+      }
+    
+      return { record, snapshot };
+    }
+    function normalizeRoute(request: FastifyRequest): string {
+      // Use the route pattern (e.g., "/api/v1/users/:id") not the actual URL
+      const routeUrl =
+        (request.routeOptions as { url?: string })?.url ?? request.url.split("?")[0] ?? request.url;
+      return routeUrl;
+    }
+    async function errorRatePlugin(fastify: FastifyInstance): Promise<void> {
+      const tracker = createErrorRateTracker();
+    
+      fastify.addHook("onResponse", async (request: FastifyRequest, reply: FastifyReply) => {
+        const route = normalizeRoute(request);
+    
+        // Skip health/docs endpoints
+        if (IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
+    
+        tracker.record(route, reply.statusCode);
+      });
+    
+      fastify.decorate("getErrorRates", () => tracker.snapshot());
+    }
+    export const errorRatePlugin_ = fp(errorRatePlugin, {
+      name: "error-rate-tracker",
+      fastify: "5.x",
+    });
+    export function createErrorRateHealthCheck(
+      snapshot: ErrorRateSnapshot
+    ): ErrorRateHealthCheckResult {
+      if (!snapshot.degraded) {
+        return { status: "ok", endpoints: snapshot.endpoints };
+      }
+    
+      const degradedEndpoints = snapshot.endpoints.filter(
+        (e) => e.rate > DEGRADATION_THRESHOLD && e.total >= 5
+      );
+      const message = `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`;
+    
+      return { status: "degraded", endpoints: snapshot.endpoints, message };
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/observability/otel-config.ts">
+    export type TelemetryMode = "disabled" | "unconfigured" | "exporting";
+    export interface TelemetryPlan {
+      readonly mode: TelemetryMode;
+      readonly exportTraces: boolean;
+      readonly exportMetrics: boolean;
+      /** One log-safe line naming which KEY decided the mode. Never a value. */
+      readonly reason: string;
+    }
+    function isSet(env: NodeJS.ProcessEnv, key: string): boolean {
+      const raw = env[key];
+      return raw != null && raw.trim() !== "";
+    }
+    function isDisabled(env: NodeJS.ProcessEnv): boolean {
+      return env[DISABLED_KEY]?.trim().toLowerCase() === "true";
+    }
+    export function resolveTelemetryPlan(env: NodeJS.ProcessEnv = process.env): TelemetryPlan {
+      if (isDisabled(env)) {
+        return {
+          mode: "disabled",
+          exportTraces: false,
+          exportMetrics: false,
+          reason: `${DISABLED_KEY} is set`,
+        };
+      }
+    
+      const genericSet = isSet(env, ENDPOINT_KEY);
+      const tracesKey = isSet(env, TRACES_ENDPOINT_KEY)
+        ? TRACES_ENDPOINT_KEY
+        : genericSet
+          ? ENDPOINT_KEY
+          : undefined;
+      const metricsKey = isSet(env, METRICS_ENDPOINT_KEY)
+        ? METRICS_ENDPOINT_KEY
+        : genericSet
+          ? ENDPOINT_KEY
+          : undefined;
+    
+      if (tracesKey === undefined && metricsKey === undefined) {
+        return {
+          mode: "unconfigured",
+          exportTraces: false,
+          exportMetrics: false,
+          reason: `no OTLP destination — ${ENDPOINT_KEY}, ${TRACES_ENDPOINT_KEY} and ${METRICS_ENDPOINT_KEY} are all unset`,
+        };
+      }
+    
+      return {
+        mode: "exporting",
+        exportTraces: tracesKey !== undefined,
+        exportMetrics: metricsKey !== undefined,
+        reason: `traces via ${tracesKey ?? "no key"}, metrics via ${metricsKey ?? "no key"}`,
+      };
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/observability/rate-limit-monitor.ts">
+    export interface RateLimitHit {
+      readonly ip: string;
+      readonly endpoint: string;
+      readonly timestamp: number;
+    }
+    export interface RateLimitHealthStats {
+      readonly hits_last_hour: number;
+      readonly blocked_ips: number;
+    }
+    export interface RateLimitSnapshot {
+      readonly stats: RateLimitHealthStats;
+      readonly isDegraded: boolean;
+    }
+    export interface RateLimitMonitorConfig {
+      /** How far back (ms) the "last hour" window extends. Default: 3_600_000 */
+      readonly hourWindowMs?: number;
+      /** How far back (ms) the "degraded" window extends. Default: 300_000 (5 min) */
+      readonly degradedWindowMs?: number;
+      /** Threshold of hits within the degraded window to trigger degraded status. Default: 50 */
+      readonly degradedThreshold?: number;
+    }
+    export interface RateLimitMonitor {
+      /** Record a rate-limit hit. */
+      readonly recordHit: (ip: string, endpoint: string) => void;
+      /** Get a frozen snapshot for health check reporting. */
+      readonly getSnapshot: () => RateLimitSnapshot;
+      /** Reset all recorded data (useful in tests). */
+      readonly reset: () => void;
+    }
+    export function createRateLimitMonitor(config: RateLimitMonitorConfig = {}): RateLimitMonitor {
+      const hourWindowMs = config.hourWindowMs ?? DEFAULT_HOUR_WINDOW_MS;
+      const degradedWindowMs = config.degradedWindowMs ?? DEFAULT_DEGRADED_WINDOW_MS;
+      const degradedThreshold = config.degradedThreshold ?? DEFAULT_DEGRADED_THRESHOLD;
+    
+      // Internal mutable log — never exposed directly.
+      let hits: RateLimitHit[] = [];
+    
+      function prune(now: number): void {
+        const cutoff = now - hourWindowMs;
+        hits = hits.filter((h) => h.timestamp > cutoff);
+      }
+    
+      function recordHit(ip: string, endpoint: string): void {
+        const now = Date.now();
+        hits = [...hits, { ip, endpoint, timestamp: now }];
+        prune(now);
+      }
+    
+      function getSnapshot(): RateLimitSnapshot {
+        const now = Date.now();
+        prune(now);
+    
+        const hitsLastHour = hits.length;
+    
+        const uniqueIps = new Set(hits.map((h) => h.ip));
+        const blockedIps = uniqueIps.size;
+    
+        const degradedCutoff = now - degradedWindowMs;
+        const recentHits = hits.filter((h) => h.timestamp > degradedCutoff).length;
+        const isDegraded = recentHits > degradedThreshold;
+    
+        const stats: RateLimitHealthStats = Object.freeze({
+          hits_last_hour: hitsLastHour,
+          blocked_ips: blockedIps,
+        });
+    
+        return Object.freeze({ stats, isDegraded });
+      }
+    
+      function reset(): void {
+        hits = [];
+      }
+    
+      return Object.freeze({ recordHit, getSnapshot, reset });
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/observability/readiness.ts">
+    export interface ReadinessCheckResult {
+      readonly name: string;
+      readonly status: "ok" | "error";
+      readonly message?: string;
+    }
+    export interface ReadinessSnapshot {
+      readonly ready: boolean;
+      readonly checks: readonly ReadinessCheckResult[];
+      readonly timestamp: string;
+    }
+    export type ReadinessCheckFn = () => Promise<void>;
+    interface RegisteredCheck {
+      readonly name: string;
+      readonly check: ReadinessCheckFn;
+    }
+    export interface ReadinessTracker {
+      /**
+       * Register a named readiness check. The check function should throw
+       * if the dependency is not ready.
+       */
+      readonly registerCheck: (name: string, check: ReadinessCheckFn) => void;
+    
+      /**
+       * Run all registered checks and return an immutable snapshot.
+       */
+      readonly evaluate: () => Promise<ReadinessSnapshot>;
+    }
+    export function createReadinessTracker(): ReadinessTracker {
+      const checks: RegisteredCheck[] = [];
+    
+      const registerCheck = (name: string, check: ReadinessCheckFn): void => {
+        checks.push({ name, check });
+      };
+    
+      const evaluate = async (): Promise<ReadinessSnapshot> => {
+        const results = await Promise.all(
+          checks.map(async ({ name, check }): Promise<ReadinessCheckResult> => {
+            try {
+              await check();
+              return { name, status: "ok" };
+            } catch (error) {
+              return {
+                name,
+                status: "error",
+                message: error instanceof Error ? error.message : String(error),
+              };
+            }
+          })
+        );
+    
+        const ready = results.length > 0 && results.every((r) => r.status === "ok");
+    
+        return {
+          ready,
+          checks: results,
+          timestamp: new Date().toISOString(),
+        };
+      };
+    
+      return { registerCheck, evaluate };
+    }
+    async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> {
+      try {
+        return await probe();
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
+        return probe();
+      }
+    }
+    export interface StandardChecksOptions {
+      /** Prisma (or compatible) client used to ping the database. */
+      readonly prisma: Pick<PrismaLike, "$queryRaw">;
+      /**
+       * Auth0 JWKS endpoint URL. Falls back to `AUTH0_JWKS_URL`, then
+       * `AUTH_AUTHORITY` (via {@link resolveJwksUrl}), then a dev-tenant default —
+       * the dev-tenant default is refused when `NODE_ENV=production` and the
+       * `auth` check fails instead of probing it. See {@link registerStandardChecks}.
+       */
+      readonly auth0Url?: string;
+      /** Timeout in ms for the JWKS fetch. Defaults to 2000. */
+      readonly jwksTimeoutMs?: number;
+      /**
+       * Override the global fetch function — useful in tests to avoid real HTTP
+       * requests without monkey-patching globals.
+       */
+      readonly fetchFn?: typeof fetch;
+    }
+    export function registerStandardChecks(
+      tracker: ReadinessTracker,
+      options: StandardChecksOptions
+    ): void {
+      const { prisma, auth0Url, jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS, fetchFn } = options;
+    
+      const resolvedAuth0Url = resolveJwksUrl(auth0Url);
+    
+      tracker.registerCheck("database", () =>
+        withTransientRetry(async () => {
+          await prisma.$queryRaw`SELECT 1`;
+        })
+      );
+    
+      tracker.registerCheck("auth", async () => {
+        if (resolvedAuth0Url === null) {
+          throw new Error(AUTH0_UNCONFIGURED_MESSAGE);
+        }
+        await withTransientRetry(async () => {
+          const result = await probeJwks(resolvedAuth0Url, { timeoutMs: jwksTimeoutMs, fetchFn });
+          if (result.kind === "http") {
+            throw new Error(`JWKS returned ${result.status}`);
+          }
+          if (result.kind === "timeout" || result.kind === "network") {
+            throw result.error;
+          }
+        });
+      });
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/observability/request-id.ts">
+    export interface RequestIdOptions {
+      headerName?: string;
+      generator?: () => string;
+    }
+    export function createRequestIdMiddleware(options: RequestIdOptions = {}) {
+      const { headerName, generator } = { ...DEFAULT_OPTIONS, ...options };
+    
+      return fp(
+        async function requestIdPlugin(fastify: FastifyInstance) {
+          fastify.addHook("onRequest", async (request) => {
+            const clientRequestId = request.headers[headerName];
+            if (typeof clientRequestId === "string" && clientRequestId.length > 0) {
+              request.id = clientRequestId;
+            } else {
+              request.id = generator();
+            }
+          });
+        },
+        { name: "request-id-middleware" }
+      );
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/observability/sdk.ts">
+    export interface OtelConfig {
+      readonly serviceName: string;
+      readonly serviceVersion?: string;
+    }
+    export function shouldIgnoreRequest(req: IncomingMessage): boolean {
+      const url = req.url ?? "";
+      return IGNORED_PATH_PREFIXES.some((prefix) => url === prefix || url.startsWith(`${prefix}/`));
+    }
+    export function initTelemetry(config: OtelConfig): NodeSDK {
+      if (telemetrySdk) {
+        return telemetrySdk;
+      }
+    
+      const plan = resolveTelemetryPlan(process.env);
+      const isDisabled = plan.mode === "disabled";
+    
+      // One line, every boot, every mode. The defect this package just fixed was
+      // invisible precisely because an unconfigured process and a healthy one
+      // rendered identically — nothing said which state the service was in until
+      // an export failed. Emitted for `disabled` too, so an absent line always
+      // means "initTelemetry did not run", never "it ran and had nothing to say".
+      //
+      // `console.info` rather than `diag` from @opentelemetry/api: diag is silent unless
+      // OTEL_LOG_LEVEL is set, so it would say nothing in exactly the deployment
+      // that needs it. This runs before Fastify, so pino does not exist yet;
+      // start-service-server.ts already writes to console at the same stage. `info`
+      // specifically because the repo eslint config allows only warn/error/info.
+      // `plan.reason` names the KEY that decided the mode and never its value,
+      // following validateStartupConfig's describeShape discipline.
+      console.info(`[telemetry] mode=${plan.mode} — ${plan.reason}`);
+    
+      const resource = resourceFromAttributes({
+        [ATTR_SERVICE_NAME]: config.serviceName,
+        [ATTR_SERVICE_VERSION]: config.serviceVersion ?? resolveBuildInfo(process.env).version,
+        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV ?? "development",
+        "deploy.sha": resolveBuildInfo(process.env).sha,
+        "deploy.pr_number": process.env.DEPLOY_PR_NUMBER ?? "",
+        "deploy.author": process.env.DEPLOY_AUTHOR ?? "",
+      });
+    
+      const spanProcessors: SpanProcessor[] = [];
+      if (!isDisabled && process.env.LANGFUSE_PUBLIC_KEY) {
+        spanProcessors.push(new LangfuseSpanProcessor());
+      }
+    
+      // The empty collections below are load-bearing, and `undefined` is NOT an
+      // equivalent way to write them. Measured against @opentelemetry/sdk-node
+      // @0.221.0: when `spanProcessors` is absent and `traceExporter` is undefined,
+      // NodeSDK.start() falls through to getSpanProcessorsFromEnv() (sdk.js:213),
+      // which reads an unset OTEL_TRACES_EXPORTER as "otlp" (utils.js:133) and
+      // rebuilds an exporter pointed at http://localhost:4318 — the very defect
+      // this code exists to remove. The metric path falls through identically in
+      // the constructor (sdk.js:147, defaulting OTEL_METRICS_EXPORTER at :29-32),
+      // and so does the LOGS path: with `logRecordProcessors` absent the
+      // constructor never sets _loggerProviderConfig (sdk.js:121-125), so start()
+      // calls configureLoggerProviderFromEnv (sdk.js:231), which reads an unset
+      // OTEL_LOGS_EXPORTER as "otlp" (sdk.js:262-264) and builds a third exporter
+      // at http://localhost:4318/v1/logs. Logs are the worst of the three here:
+      // PinoInstrumentation leaves disableLogSending false, so every Fastify log
+      // line feeds it, and BatchLogRecordProcessor's default scheduledDelayMillis
+      // is 1000 — roughly one connection attempt per second under traffic.
+      // An empty array is truthy, so it takes the caller-supplied branch instead
+      // (sdk.js:202 for spans, :132 for metrics) and yields a collection start()
+      // then declines to register (:217, :182-184). Nothing is exported and
+      // nothing is constructed. Re-read those lines on any sdk-node bump.
+      //
+      // `spanProcessors` is omitted — not emptied — only when there is a real
+      // trace destination and no Langfuse processor, so NodeSDK builds its own
+      // batch processor via createBatchSpanProcessorFromEnv (sdk.js:208-212) and
+      // the OTEL_BSP_* tuning variables keep working. That is today's behaviour.
+      //
+      // The exporters are constructed with NO arguments on purpose: endpoint,
+      // headers, timeout, compression and the /v1/traces vs /v1/metrics suffix all
+      // stay owned by the OTel SDK's own env resolution. This module decides
+      // *whether* to export, never *where* to.
+      const omitSpanProcessors = spanProcessors.length === 0 && plan.exportTraces;
+    
+      const sdk = new NodeSDK({
+        resource,
+        ...(omitSpanProcessors ? {} : { spanProcessors }),
+        ...(plan.exportTraces ? { traceExporter: new OTLPTraceExporter() } : {}),
+        metricReaders: plan.exportMetrics
+          ? [
+              new PeriodicExportingMetricReader({
+                exporter: new OTLPMetricExporter(),
+                exportIntervalMillis: 30_000,
+              }),
+            ]
+          : [],
+        // Always empty: this run fixes the unconfigured-default defect, and
+        // turning log export ON is a separate decision nobody has made.
+        logRecordProcessors: [],
+        instrumentations: isDisabled
+          ? []
+          : [
+              new HttpInstrumentation({
+                ignoreIncomingRequestHook: shouldIgnoreRequest,
+              }),
+              new FastifyOtelInstrumentation({ registerOnInitialization: true }),
+              new PinoInstrumentation(),
+            ],
+      });
+    
+      telemetrySdk = sdk;
+      return sdk;
+    }
+  </file>
+  </section>
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/classifyGenerationError.ts">
     export function isTransportError(error: Error): boolean {
@@ -56878,599 +57418,6 @@
       }
     }
   </file>
-  <file path="packages/observability/src/auth0-jwks.ts">
-    export const AUTH0_UNCONFIGURED_MESSAGE =
-      "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)";
-    export function buildJwksUrl(authority: string | undefined): string | undefined {
-      if (!authority) {
-        return undefined;
-      }
-      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    }
-    export function resolveJwksUrl(explicit?: string): string | null {
-      const configured =
-        explicit ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
-      if (configured) {
-        return configured;
-      }
-      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
-    }
-    export type JwksProbeResult =
-      | { readonly kind: "ok"; readonly latency: number }
-      | { readonly kind: "http"; readonly status: number; readonly latency: number }
-      | { readonly kind: "timeout"; readonly error: unknown; readonly latency: number }
-      | { readonly kind: "network"; readonly error: unknown; readonly latency: number };
-    export interface JwksProbeOptions {
-      readonly timeoutMs: number;
-      /** Defaults to a per-call lookup of global `fetch` so test stubs are honoured. */
-      readonly fetchFn?: typeof fetch;
-    }
-    export async function probeJwks(url: string, options: JwksProbeOptions): Promise<JwksProbeResult> {
-      const { timeoutMs, fetchFn = (...args: Parameters<typeof fetch>) => fetch(...args) } = options;
-      const start = Date.now();
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const response = await fetchFn(url, { signal: controller.signal });
-        const latency = Date.now() - start;
-        return response.ok
-          ? { kind: "ok", latency }
-          : { kind: "http", status: response.status, latency };
-      } catch (error) {
-        const latency = Date.now() - start;
-        const aborted = error instanceof Error && error.name === "AbortError";
-        return { kind: aborted ? "timeout" : "network", error, latency };
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-  </file>
-  <file path="packages/observability/src/build-info.ts">
-    export const UNKNOWN_BUILD = "unknown";
-    export interface BuildInfo {
-      readonly sha: string;
-      /** The single "which build is this" string: Sentry release, OTel service.version, /health version. */
-      readonly version: string;
-    }
-    export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo {
-      const sha = env.DEPLOY_SHA?.trim() || UNKNOWN_BUILD;
-      return { sha, version: sha };
-    }
-  </file>
-  <file path="packages/observability/src/error-rates.ts">
-    interface RequestRecord {
-      readonly timestamp: number;
-      readonly isError: boolean;
-    }
-    export interface EndpointErrorRate {
-      readonly endpoint: string;
-      readonly total: number;
-      readonly errors: number;
-      readonly rate: number;
-    }
-    export interface ErrorRateSnapshot {
-      readonly endpoints: readonly EndpointErrorRate[];
-      readonly degraded: boolean;
-    }
-    export interface ErrorRateHealthCheckResult {
-      readonly status: "ok" | "degraded";
-      readonly endpoints: readonly EndpointErrorRate[];
-      readonly message?: string;
-    }
-    function createErrorRateTracker() {
-      const records = new Map<string, RequestRecord[]>();
-    
-      function record(endpoint: string, statusCode: number): void {
-        const entry: RequestRecord = {
-          timestamp: Date.now(),
-          isError: statusCode >= 400,
-        };
-    
-        const existing = records.get(endpoint) ?? [];
-        records.set(endpoint, [...existing, entry]);
-      }
-    
-      function prune(): void {
-        const cutoff = Date.now() - WINDOW_MS;
-        for (const [endpoint, entries] of records) {
-          const pruned = entries.filter((r) => r.timestamp >= cutoff);
-          if (pruned.length === 0) {
-            records.delete(endpoint);
-          } else {
-            records.set(endpoint, pruned);
-          }
-        }
-      }
-    
-      function snapshot(): ErrorRateSnapshot {
-        prune();
-    
-        const endpoints: EndpointErrorRate[] = [];
-        let degraded = false;
-    
-        for (const [endpoint, entries] of records) {
-          const total = entries.length;
-          const errors = entries.filter((r) => r.isError).length;
-          const rate = total > 0 ? errors / total : 0;
-    
-          endpoints.push({ endpoint, total, errors, rate: Math.round(rate * 1000) / 1000 });
-    
-          if (rate > DEGRADATION_THRESHOLD && total >= 5) {
-            degraded = true;
-          }
-        }
-    
-        return {
-          endpoints: endpoints.sort((a, b) => b.rate - a.rate),
-          degraded,
-        };
-      }
-    
-      return { record, snapshot };
-    }
-    function normalizeRoute(request: FastifyRequest): string {
-      // Use the route pattern (e.g., "/api/v1/users/:id") not the actual URL
-      const routeUrl =
-        (request.routeOptions as { url?: string })?.url ?? request.url.split("?")[0] ?? request.url;
-      return routeUrl;
-    }
-    async function errorRatePlugin(fastify: FastifyInstance): Promise<void> {
-      const tracker = createErrorRateTracker();
-    
-      fastify.addHook("onResponse", async (request: FastifyRequest, reply: FastifyReply) => {
-        const route = normalizeRoute(request);
-    
-        // Skip health/docs endpoints
-        if (IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
-    
-        tracker.record(route, reply.statusCode);
-      });
-    
-      fastify.decorate("getErrorRates", () => tracker.snapshot());
-    }
-    export const errorRatePlugin_ = fp(errorRatePlugin, {
-      name: "error-rate-tracker",
-      fastify: "5.x",
-    });
-    export function createErrorRateHealthCheck(
-      snapshot: ErrorRateSnapshot
-    ): ErrorRateHealthCheckResult {
-      if (!snapshot.degraded) {
-        return { status: "ok", endpoints: snapshot.endpoints };
-      }
-    
-      const degradedEndpoints = snapshot.endpoints.filter(
-        (e) => e.rate > DEGRADATION_THRESHOLD && e.total >= 5
-      );
-      const message = `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`;
-    
-      return { status: "degraded", endpoints: snapshot.endpoints, message };
-    }
-  </file>
-  <file path="packages/observability/src/otel-config.ts">
-    export type TelemetryMode = "disabled" | "unconfigured" | "exporting";
-    export interface TelemetryPlan {
-      readonly mode: TelemetryMode;
-      readonly exportTraces: boolean;
-      readonly exportMetrics: boolean;
-      /** One log-safe line naming which KEY decided the mode. Never a value. */
-      readonly reason: string;
-    }
-    function isSet(env: NodeJS.ProcessEnv, key: string): boolean {
-      const raw = env[key];
-      return raw != null && raw.trim() !== "";
-    }
-    function isDisabled(env: NodeJS.ProcessEnv): boolean {
-      return env[DISABLED_KEY]?.trim().toLowerCase() === "true";
-    }
-    export function resolveTelemetryPlan(env: NodeJS.ProcessEnv = process.env): TelemetryPlan {
-      if (isDisabled(env)) {
-        return {
-          mode: "disabled",
-          exportTraces: false,
-          exportMetrics: false,
-          reason: `${DISABLED_KEY} is set`,
-        };
-      }
-    
-      const genericSet = isSet(env, ENDPOINT_KEY);
-      const tracesKey = isSet(env, TRACES_ENDPOINT_KEY)
-        ? TRACES_ENDPOINT_KEY
-        : genericSet
-          ? ENDPOINT_KEY
-          : undefined;
-      const metricsKey = isSet(env, METRICS_ENDPOINT_KEY)
-        ? METRICS_ENDPOINT_KEY
-        : genericSet
-          ? ENDPOINT_KEY
-          : undefined;
-    
-      if (tracesKey === undefined && metricsKey === undefined) {
-        return {
-          mode: "unconfigured",
-          exportTraces: false,
-          exportMetrics: false,
-          reason: `no OTLP destination — ${ENDPOINT_KEY}, ${TRACES_ENDPOINT_KEY} and ${METRICS_ENDPOINT_KEY} are all unset`,
-        };
-      }
-    
-      return {
-        mode: "exporting",
-        exportTraces: tracesKey !== undefined,
-        exportMetrics: metricsKey !== undefined,
-        reason: `traces via ${tracesKey ?? "no key"}, metrics via ${metricsKey ?? "no key"}`,
-      };
-    }
-  </file>
-  <file path="packages/observability/src/rate-limit-monitor.ts">
-    export interface RateLimitHit {
-      readonly ip: string;
-      readonly endpoint: string;
-      readonly timestamp: number;
-    }
-    export interface RateLimitHealthStats {
-      readonly hits_last_hour: number;
-      readonly blocked_ips: number;
-    }
-    export interface RateLimitSnapshot {
-      readonly stats: RateLimitHealthStats;
-      readonly isDegraded: boolean;
-    }
-    export interface RateLimitMonitorConfig {
-      /** How far back (ms) the "last hour" window extends. Default: 3_600_000 */
-      readonly hourWindowMs?: number;
-      /** How far back (ms) the "degraded" window extends. Default: 300_000 (5 min) */
-      readonly degradedWindowMs?: number;
-      /** Threshold of hits within the degraded window to trigger degraded status. Default: 50 */
-      readonly degradedThreshold?: number;
-    }
-    export interface RateLimitMonitor {
-      /** Record a rate-limit hit. */
-      readonly recordHit: (ip: string, endpoint: string) => void;
-      /** Get a frozen snapshot for health check reporting. */
-      readonly getSnapshot: () => RateLimitSnapshot;
-      /** Reset all recorded data (useful in tests). */
-      readonly reset: () => void;
-    }
-    export function createRateLimitMonitor(config: RateLimitMonitorConfig = {}): RateLimitMonitor {
-      const hourWindowMs = config.hourWindowMs ?? DEFAULT_HOUR_WINDOW_MS;
-      const degradedWindowMs = config.degradedWindowMs ?? DEFAULT_DEGRADED_WINDOW_MS;
-      const degradedThreshold = config.degradedThreshold ?? DEFAULT_DEGRADED_THRESHOLD;
-    
-      // Internal mutable log — never exposed directly.
-      let hits: RateLimitHit[] = [];
-    
-      function prune(now: number): void {
-        const cutoff = now - hourWindowMs;
-        hits = hits.filter((h) => h.timestamp > cutoff);
-      }
-    
-      function recordHit(ip: string, endpoint: string): void {
-        const now = Date.now();
-        hits = [...hits, { ip, endpoint, timestamp: now }];
-        prune(now);
-      }
-    
-      function getSnapshot(): RateLimitSnapshot {
-        const now = Date.now();
-        prune(now);
-    
-        const hitsLastHour = hits.length;
-    
-        const uniqueIps = new Set(hits.map((h) => h.ip));
-        const blockedIps = uniqueIps.size;
-    
-        const degradedCutoff = now - degradedWindowMs;
-        const recentHits = hits.filter((h) => h.timestamp > degradedCutoff).length;
-        const isDegraded = recentHits > degradedThreshold;
-    
-        const stats: RateLimitHealthStats = Object.freeze({
-          hits_last_hour: hitsLastHour,
-          blocked_ips: blockedIps,
-        });
-    
-        return Object.freeze({ stats, isDegraded });
-      }
-    
-      function reset(): void {
-        hits = [];
-      }
-    
-      return Object.freeze({ recordHit, getSnapshot, reset });
-    }
-  </file>
-  <file path="packages/observability/src/readiness.ts">
-    export interface ReadinessCheckResult {
-      readonly name: string;
-      readonly status: "ok" | "error";
-      readonly message?: string;
-    }
-    export interface ReadinessSnapshot {
-      readonly ready: boolean;
-      readonly checks: readonly ReadinessCheckResult[];
-      readonly timestamp: string;
-    }
-    export type ReadinessCheckFn = () => Promise<void>;
-    interface RegisteredCheck {
-      readonly name: string;
-      readonly check: ReadinessCheckFn;
-    }
-    export interface ReadinessTracker {
-      /**
-       * Register a named readiness check. The check function should throw
-       * if the dependency is not ready.
-       */
-      readonly registerCheck: (name: string, check: ReadinessCheckFn) => void;
-    
-      /**
-       * Run all registered checks and return an immutable snapshot.
-       */
-      readonly evaluate: () => Promise<ReadinessSnapshot>;
-    }
-    export function createReadinessTracker(): ReadinessTracker {
-      const checks: RegisteredCheck[] = [];
-    
-      const registerCheck = (name: string, check: ReadinessCheckFn): void => {
-        checks.push({ name, check });
-      };
-    
-      const evaluate = async (): Promise<ReadinessSnapshot> => {
-        const results = await Promise.all(
-          checks.map(async ({ name, check }): Promise<ReadinessCheckResult> => {
-            try {
-              await check();
-              return { name, status: "ok" };
-            } catch (error) {
-              return {
-                name,
-                status: "error",
-                message: error instanceof Error ? error.message : String(error),
-              };
-            }
-          })
-        );
-    
-        const ready = results.length > 0 && results.every((r) => r.status === "ok");
-    
-        return {
-          ready,
-          checks: results,
-          timestamp: new Date().toISOString(),
-        };
-      };
-    
-      return { registerCheck, evaluate };
-    }
-    async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> {
-      try {
-        return await probe();
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
-        return probe();
-      }
-    }
-    export interface StandardChecksOptions {
-      /** Prisma (or compatible) client used to ping the database. */
-      readonly prisma: Pick<PrismaLike, "$queryRaw">;
-      /**
-       * Auth0 JWKS endpoint URL. Falls back to `AUTH0_JWKS_URL`, then
-       * `AUTH_AUTHORITY` (via {@link resolveJwksUrl}), then a dev-tenant default —
-       * the dev-tenant default is refused when `NODE_ENV=production` and the
-       * `auth` check fails instead of probing it. See {@link registerStandardChecks}.
-       */
-      readonly auth0Url?: string;
-      /** Timeout in ms for the JWKS fetch. Defaults to 2000. */
-      readonly jwksTimeoutMs?: number;
-      /**
-       * Override the global fetch function — useful in tests to avoid real HTTP
-       * requests without monkey-patching globals.
-       */
-      readonly fetchFn?: typeof fetch;
-    }
-    export function registerStandardChecks(
-      tracker: ReadinessTracker,
-      options: StandardChecksOptions
-    ): void {
-      const { prisma, auth0Url, jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS, fetchFn } = options;
-    
-      const resolvedAuth0Url = resolveJwksUrl(auth0Url);
-    
-      tracker.registerCheck("database", () =>
-        withTransientRetry(async () => {
-          await prisma.$queryRaw`SELECT 1`;
-        })
-      );
-    
-      tracker.registerCheck("auth", async () => {
-        if (resolvedAuth0Url === null) {
-          throw new Error(AUTH0_UNCONFIGURED_MESSAGE);
-        }
-        await withTransientRetry(async () => {
-          const result = await probeJwks(resolvedAuth0Url, { timeoutMs: jwksTimeoutMs, fetchFn });
-          if (result.kind === "http") {
-            throw new Error(`JWKS returned ${result.status}`);
-          }
-          if (result.kind === "timeout" || result.kind === "network") {
-            throw result.error;
-          }
-        });
-      });
-    }
-  </file>
-  <file path="packages/observability/src/redact.ts">
-    export const REDACTED = "[redacted]";
-    function isSecretShaped(value: string): boolean {
-      return SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value));
-    }
-    function isPlainObject(value: unknown): value is Record<string, unknown> {
-      if (value === null || typeof value !== "object" || Array.isArray(value)) {
-        return false;
-      }
-      const proto: unknown = Object.getPrototypeOf(value);
-      return proto === Object.prototype || proto === null;
-    }
-    export function redactSignal(value: unknown): unknown {
-      if (typeof value === "string") {
-        return isSecretShaped(value) ? REDACTED : value;
-      }
-    
-      if (Array.isArray(value)) {
-        return value.map(redactSignal);
-      }
-    
-      if (isPlainObject(value)) {
-        return Object.fromEntries(
-          Object.entries(value).map(([key, entry]) =>
-            CREDENTIAL_KEYS.has(key.toLowerCase()) ? [key, REDACTED] : [key, redactSignal(entry)]
-          )
-        );
-      }
-    
-      return value;
-    }
-  </file>
-  <file path="packages/observability/src/request-id.ts">
-    export interface RequestIdOptions {
-      headerName?: string;
-      generator?: () => string;
-    }
-    export function createRequestIdMiddleware(options: RequestIdOptions = {}) {
-      const { headerName, generator } = { ...DEFAULT_OPTIONS, ...options };
-    
-      return fp(
-        async function requestIdPlugin(fastify: FastifyInstance) {
-          fastify.addHook("onRequest", async (request) => {
-            const clientRequestId = request.headers[headerName];
-            if (typeof clientRequestId === "string" && clientRequestId.length > 0) {
-              request.id = clientRequestId;
-            } else {
-              request.id = generator();
-            }
-          });
-        },
-        { name: "request-id-middleware" }
-      );
-    }
-    export function getRequestId(request: { id?: string }): string {
-      return request.id ?? "unknown";
-    }
-    export function logWithRequestId(
-      logger: { info: (msg: string, ctx: Record<string, unknown>) => void },
-      requestId: string,
-      message: string,
-      ctx: Record<string, unknown> = {}
-    ) {
-      logger.info(message, { ...ctx, requestId });
-    }
-  </file>
-  <file path="packages/observability/src/sdk.ts">
-    export interface OtelConfig {
-      readonly serviceName: string;
-      readonly serviceVersion?: string;
-    }
-    export function shouldIgnoreRequest(req: IncomingMessage): boolean {
-      const url = req.url ?? "";
-      return IGNORED_PATH_PREFIXES.some((prefix) => url === prefix || url.startsWith(`${prefix}/`));
-    }
-    export function initTelemetry(config: OtelConfig): NodeSDK {
-      if (telemetrySdk) {
-        return telemetrySdk;
-      }
-    
-      const plan = resolveTelemetryPlan(process.env);
-      const isDisabled = plan.mode === "disabled";
-    
-      // One line, every boot, every mode. The defect this package just fixed was
-      // invisible precisely because an unconfigured process and a healthy one
-      // rendered identically — nothing said which state the service was in until
-      // an export failed. Emitted for `disabled` too, so an absent line always
-      // means "initTelemetry did not run", never "it ran and had nothing to say".
-      //
-      // `console.info` rather than `diag` from @opentelemetry/api: diag is silent unless
-      // OTEL_LOG_LEVEL is set, so it would say nothing in exactly the deployment
-      // that needs it. This runs before Fastify, so pino does not exist yet;
-      // start-service-server.ts already writes to console at the same stage. `info`
-      // specifically because the repo eslint config allows only warn/error/info.
-      // `plan.reason` names the KEY that decided the mode and never its value,
-      // following validateStartupConfig's describeShape discipline.
-      console.info(`[telemetry] mode=${plan.mode} — ${plan.reason}`);
-    
-      const resource = resourceFromAttributes({
-        [ATTR_SERVICE_NAME]: config.serviceName,
-        [ATTR_SERVICE_VERSION]: config.serviceVersion ?? resolveBuildInfo(process.env).version,
-        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV ?? "development",
-        "deploy.sha": resolveBuildInfo(process.env).sha,
-        "deploy.pr_number": process.env.DEPLOY_PR_NUMBER ?? "",
-        "deploy.author": process.env.DEPLOY_AUTHOR ?? "",
-      });
-    
-      const spanProcessors: SpanProcessor[] = [];
-      if (!isDisabled && process.env.LANGFUSE_PUBLIC_KEY) {
-        spanProcessors.push(new LangfuseSpanProcessor());
-      }
-    
-      // The empty collections below are load-bearing, and `undefined` is NOT an
-      // equivalent way to write them. Measured against @opentelemetry/sdk-node
-      // @0.221.0: when `spanProcessors` is absent and `traceExporter` is undefined,
-      // NodeSDK.start() falls through to getSpanProcessorsFromEnv() (sdk.js:213),
-      // which reads an unset OTEL_TRACES_EXPORTER as "otlp" (utils.js:133) and
-      // rebuilds an exporter pointed at http://localhost:4318 — the very defect
-      // this code exists to remove. The metric path falls through identically in
-      // the constructor (sdk.js:147, defaulting OTEL_METRICS_EXPORTER at :29-32),
-      // and so does the LOGS path: with `logRecordProcessors` absent the
-      // constructor never sets _loggerProviderConfig (sdk.js:121-125), so start()
-      // calls configureLoggerProviderFromEnv (sdk.js:231), which reads an unset
-      // OTEL_LOGS_EXPORTER as "otlp" (sdk.js:262-264) and builds a third exporter
-      // at http://localhost:4318/v1/logs. Logs are the worst of the three here:
-      // PinoInstrumentation leaves disableLogSending false, so every Fastify log
-      // line feeds it, and BatchLogRecordProcessor's default scheduledDelayMillis
-      // is 1000 — roughly one connection attempt per second under traffic.
-      // An empty array is truthy, so it takes the caller-supplied branch instead
-      // (sdk.js:202 for spans, :132 for metrics) and yields a collection start()
-      // then declines to register (:217, :182-184). Nothing is exported and
-      // nothing is constructed. Re-read those lines on any sdk-node bump.
-      //
-      // `spanProcessors` is omitted — not emptied — only when there is a real
-      // trace destination and no Langfuse processor, so NodeSDK builds its own
-      // batch processor via createBatchSpanProcessorFromEnv (sdk.js:208-212) and
-      // the OTEL_BSP_* tuning variables keep working. That is today's behaviour.
-      //
-      // The exporters are constructed with NO arguments on purpose: endpoint,
-      // headers, timeout, compression and the /v1/traces vs /v1/metrics suffix all
-      // stay owned by the OTel SDK's own env resolution. This module decides
-      // *whether* to export, never *where* to.
-      const omitSpanProcessors = spanProcessors.length === 0 && plan.exportTraces;
-    
-      const sdk = new NodeSDK({
-        resource,
-        ...(omitSpanProcessors ? {} : { spanProcessors }),
-        ...(plan.exportTraces ? { traceExporter: new OTLPTraceExporter() } : {}),
-        metricReaders: plan.exportMetrics
-          ? [
-              new PeriodicExportingMetricReader({
-                exporter: new OTLPMetricExporter(),
-                exportIntervalMillis: 30_000,
-              }),
-            ]
-          : [],
-        // Always empty: this run fixes the unconfigured-default defect, and
-        // turning log export ON is a separate decision nobody has made.
-        logRecordProcessors: [],
-        instrumentations: isDisabled
-          ? []
-          : [
-              new HttpInstrumentation({
-                ignoreIncomingRequestHook: shouldIgnoreRequest,
-              }),
-              new FastifyOtelInstrumentation({ registerOnInitialization: true }),
-              new PinoInstrumentation(),
-            ],
-      });
-    
-      telemetrySdk = sdk;
-      return sdk;
-    }
-  </file>
   <file path="packages/rialto-catalog/src/catalog-meta.ts">
     export type CatalogCharLimits = Readonly<Record<string, number>>;
     export type CatalogAliases = Readonly<Record<string, string>>;
@@ -57983,6 +57930,18 @@
       }),
     } as const;
   </file>
+  <file path="packages/sentry/src/build-info.ts">
+    export const UNKNOWN_BUILD = "unknown";
+    export interface BuildInfo {
+      readonly sha: string;
+      /** The single "which build is this" string: Sentry release, OTel service.version, /health version. */
+      readonly version: string;
+    }
+    export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo {
+      const sha = env.DEPLOY_SHA?.trim() || UNKNOWN_BUILD;
+      return { sha, version: sha };
+    }
+  </file>
   <file path="packages/sentry/src/config.ts">
     export interface SentryConfig {
       readonly dsn: string;
@@ -58053,7 +58012,7 @@
         // Measured against the installed SDK: `getDefaultIntegrations({})` -> 24
         // integrations, Fastify present (v10: 17, Fastify absent). Without this
         // filter, Sentry's Fastify integration decorates the request with
-        // `opentelemetry`, which @mbe/observability's FastifyOtelInstrumentation has
+        // `opentelemetry`, which the OTel SDK's FastifyOtelInstrumentation has
         // already decorated, so Fastify throws FST_ERR_DEC_ALREADY_PRESENT during
         // boot and the container exits non-zero. Filtering by name rather than
         // replacing the list wholesale keeps future Sentry defaults arriving.
@@ -58083,7 +58042,7 @@
         },
         // Every event is walked by the shared redaction policy before it leaves the
         // process, so a credential can never reach Sentry.io. The policy is owned by
-        // @mbe/observability so one rule governs every outbound signal — no exporter
+        // service-bootstrap so one rule governs every outbound signal — no exporter
         // re-implements it locally.
         beforeSend: (event) => redactSignal(event) as Sentry.ErrorEvent,
         // Deliberately NOT `tracesSampleRate: 0`. To Sentry, a DEFINED rate means
@@ -58093,7 +58052,7 @@
         // against the installed SDK: { tracesSampleRate: 0 } -> 54 integrations.
         // Omitting the key is what actually disables tracing; `0` only sampled none
         // of it while still loading every instrumentation. Tracing is owned by
-        // @mbe/observability's own OTel SDK and is out of scope for this run
+        // the OTel SDK's own OTel SDK and is out of scope for this run
         // (M2/M3, deferred).
       });
     }
@@ -58248,6 +58207,38 @@
       } else if (code === 401 || code === 403) {
         Sentry.captureMessage(error.message, "warning");
       }
+    }
+  </file>
+  <file path="packages/sentry/src/redact.ts">
+    export const REDACTED = "[redacted]";
+    function isSecretShaped(value: string): boolean {
+      return SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value));
+    }
+    function isPlainObject(value: unknown): value is Record<string, unknown> {
+      if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        return false;
+      }
+      const proto: unknown = Object.getPrototypeOf(value);
+      return proto === Object.prototype || proto === null;
+    }
+    export function redactSignal(value: unknown): unknown {
+      if (typeof value === "string") {
+        return isSecretShaped(value) ? REDACTED : value;
+      }
+    
+      if (Array.isArray(value)) {
+        return value.map(redactSignal);
+      }
+    
+      if (isPlainObject(value)) {
+        return Object.fromEntries(
+          Object.entries(value).map(([key, entry]) =>
+            CREDENTIAL_KEYS.has(key.toLowerCase()) ? [key, REDACTED] : [key, redactSignal(entry)]
+          )
+        );
+      }
+    
+      return value;
     }
   </file>
   <file path="packages/service-bootstrap/src/apply-versioning.ts">
@@ -58992,7 +58983,7 @@
       });
     }
     export async function startServiceServer(options: StartServiceServerOptions): Promise<void> {
-      const { initTelemetry } = await import("@mbe/observability");
+      const { initTelemetry } = await import("./observability/index.js");
       const { initSentry } = await import("@mbe/sentry/node");
     
       const sdk = initTelemetry({ serviceName: options.serviceName });

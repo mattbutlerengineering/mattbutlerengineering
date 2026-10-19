@@ -40,7 +40,7 @@ import type { User, Reservation, Venue } from "@mbe/types";
 import { UserSchema, ReservationSchema } from "@mbe/types";
 ```
 
-Primary consumers: `@mbe/api-client` (7+ modules), `@mbe/observability`, all services.
+Primary consumers: `@mbe/api-client` (7+ modules), all services.
 
 ## Commands
 

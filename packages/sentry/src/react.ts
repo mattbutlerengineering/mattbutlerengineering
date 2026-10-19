@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/react";
 import type { ErrorInfo } from "react";
-import { UNKNOWN_BUILD } from "@mbe/observability/build-info";
+import { UNKNOWN_BUILD } from "./build-info.js";
 import { resolveConfig } from "./config.js";
 
 /**

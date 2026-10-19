@@ -12,7 +12,7 @@ src/
 ├── apply-versioning.ts         # API-Version / Link / Sunset header policy (ADR-002)
 ├── classify-error.ts           # Maps a thrown error to { status, title, detail, extensions }
 ├── error-handler.ts            # Fastify error-handler plugin — wraps classify-error into RFC 7807 problem-details bodies
-├── readiness-routes.ts         # registerReadinessRoutes — /ready probe backed by @mbe/observability checks
+├── readiness-routes.ts         # registerReadinessRoutes — /ready probe backed by ./observability checks
 ├── feature-flags.ts            # Inline feature-flag evaluation (former @mbe/feature-flags)
 ├── feature-flags.test.ts
 ├── start-service-server.ts     # Telemetry + listen + graceful shutdown
@@ -28,7 +28,7 @@ Registers all shared plugins in order:
 
 1. **JSON schemas** — service-specific schemas via `registerSchemas` callback
 2. **CORS** — validates against `*.mattbutlerengineering.com` + localhost in dev
-3. **Request ID** — `x-request-id` propagation (`@mbe/observability`)
+3. **Request ID** — `x-request-id` propagation (`src/observability/`)
 4. **Error rate tracking** — per-endpoint error rates
 5. **Feature flags** — `x-feature-flags` header → `request.features`
 6. **Rate limiting** — 100 req/min per IP
