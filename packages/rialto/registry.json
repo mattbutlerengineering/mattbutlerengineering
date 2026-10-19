@@ -727,6 +727,12 @@
           "required": true
         },
         {
+          "name": "stream",
+          "type": "ChatStreamFn",
+          "required": true,
+          "description": "Streaming transport the host app injects (see `ChatStreamFn`)."
+        },
+        {
           "name": "domainContext",
           "type": "DomainContext",
           "required": true
@@ -747,6 +753,20 @@
           "required": false
         }
       ],
+      "slots": []
+    },
+    {
+      "name": "ChatStreamFn",
+      "description": "Transport the host app injects: performs the request and yields each decoded\nNDJSON line. Rialto owns no HTTP client, so the app supplies one.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "ChatStreamRequest",
+      "description": "A streaming request issued by the chat hook.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
       "slots": []
     },
     {

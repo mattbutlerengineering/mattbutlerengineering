@@ -495,11 +495,6 @@
     },
     {
       "from": "@mattbutlerengineering/rialto",
-      "to": "@mbe/api-client",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mattbutlerengineering/rialto",
       "to": "@mbe/config",
       "type": "devDependency"
     },

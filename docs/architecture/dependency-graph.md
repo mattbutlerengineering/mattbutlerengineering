@@ -112,7 +112,6 @@ flowchart TD
   notifications --> types
   notifications --> config
   observability --> config
-  rialto --> api_client
   rialto --> config
   rialto_catalog --> rialto
   rialto_catalog --> config

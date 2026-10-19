@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { streamNDJSON } from "@mbe/api-client/streaming";
 import { useAuth } from "@mbe/auth/react";
 import { ChatPanel } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader.js";
@@ -24,6 +25,7 @@ export function ChatPage() {
         standalone
         onClose={NOOP}
         api="/api/gen/agent"
+        stream={streamNDJSON}
         domainContext={HOSPITALITY_DOMAIN_CONTEXT}
         getAccessToken={getAccessToken}
       />

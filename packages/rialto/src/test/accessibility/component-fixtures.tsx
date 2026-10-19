@@ -32,8 +32,7 @@ import {
   ChalkboardSection,
   ChalkboardItem,
 } from "../../components/Chalkboard/Chalkboard";
-// ChatPanel is in SKIPPED_COMPONENTS — its useChatStream requires @mbe/api-client/streaming
-// which is not built in the test environment. Axe coverage lives in ChatPanel.test.tsx.
+import { ChatPanel } from "../../components/ChatPanel/ChatPanel";
 import { Checkbox } from "../../components/Checkbox/Checkbox";
 import { Collapsible } from "../../components/Collapsible/Collapsible";
 import { Combobox } from "../../components/Combobox/Combobox";
@@ -308,6 +307,20 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Card: {
     element: <Card title="Title">Card content</Card>,
+  },
+
+  ChatPanel: {
+    // In-memory stream adapter: renders with no transport (nothing sends in axe).
+    element: (
+      <ChatPanel
+        standalone
+        onClose={() => {}}
+        api="/api/agent"
+        stream={async function* () {}}
+        getAccessToken={() => "token"}
+        domainContext={{ schemas: [] }}
+      />
+    ),
   },
 
   Chalkboard: {
@@ -820,15 +833,4 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
  * A component here is explicitly excluded from the axe matrix, but still
  * documented — it does NOT silently fall through.
  */
-export const SKIPPED_COMPONENTS: Record<string, { reason: string }> = {
-  /**
-   * ChatPanel imports useChatStream which imports @mbe/api-client/streaming.
-   * That package is not built in the test environment, causing a Vite import
-   * resolution failure. Axe coverage is provided by ChatPanel.test.tsx which
-   * mocks useChatStream at the module level.
-   */
-  ChatPanel: {
-    reason:
-      "useChatStream imports @mbe/api-client/streaming (not built in test env); axe tested in ChatPanel.test.tsx",
-  },
-};
+export const SKIPPED_COMPONENTS: Record<string, { reason: string }> = {};
