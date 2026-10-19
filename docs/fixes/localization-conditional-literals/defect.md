@@ -247,6 +247,14 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
     uses for `toolBlocked`.
   - Accept: a locale test covers each under es-MX and fr-CA. The DataTable lint
     error is gone.
+- [ ] **TextArea and Combobox announcements (scope widened by the Owner, 2026-10-18).**
+      `TextArea.tsx:96` ("N of M characters, over limit") and `Combobox.tsx:150`
+      ("N result(s) available") build English through a conditional in a
+      variable or return position, which the tightened rule cannot see. Add
+      `RialtoMessages` keys (a count-taking function for each) with en-US,
+      es-MX and fr-CA values.
+  - Accept: a locale test renders each announcement under es-MX and fr-CA; the
+    en-US text is unchanged.
 - [ ] **Hospitality "Ctrl" key hint.** `DashboardLayout.tsx:365` reads its
       non-Mac key name from a catalog key in `en-US.json`, `es-MX.json` and
       `fr-CA.json` (no `en-GB.json` entry, because the wording is the same).
@@ -303,3 +311,14 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
   only, so this is still a candidate seed for Review or Ship to file.
 - Scratch evidence: `scratchpad/loc-capture/` (`fixture.tsx`, `control.tsx`,
   `scan.mjs`, `scan.out`, and `dl/` with the fetched index and chunk).
+
+- **Size-limit stop (Implement, 2026-10-18).** After the TapeChart
+  `defaultStrings.ts` item (`5aea2b5e6`), `pnpm --dir packages/rialto exec size-limit`
+  reports both translated locale subpaths over their 1.5 kB brotli budget:
+  es-MX 1.8 kB (over by 296 B), fr-CA 1.91 kB (over by 410 B); en-GB 116 B.
+  Before this run they were es-MX 1.28 kB and fr-CA 1.36 kB; after the first
+  three rialto items, 1.37 kB and 1.45 kB. A throwaway probe that added the
+  five remaining rialto keys (DataTable, PinInput, ChatPanel, TextArea,
+  Combobox) to the locale modules, then reverted them, measured es-MX 1.9 kB
+  and fr-CA 2 kB. Per the brief, Implement stopped here instead of raising the
+  limit: the remaining items wait on the Owner's decision on the budget.
