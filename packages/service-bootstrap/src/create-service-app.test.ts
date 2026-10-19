@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
-import type * as ObservabilityModule from "@mbe/observability";
+import type * as ObservabilityModule from "./observability/index.js";
 import {
   createServiceApp,
   validateCorsOrigins,
@@ -47,7 +47,7 @@ vi.mock("@mbe/auth/fastify", () => ({
   authPlugin: vi.fn().mockImplementation(async () => {}),
   getAuthPluginOptionsFromEnv: vi.fn().mockReturnValue({}),
 }));
-vi.mock("@mbe/observability", async (importOriginal) => {
+vi.mock("./observability/index.js", async (importOriginal) => {
   // Keep real exports (e.g. buildJwksUrl, used transitively by
   // validate-startup-config.ts — see #4200) and only override the plugin
   // factories that would otherwise require a real server/network.
@@ -141,13 +141,13 @@ describe("createServiceApp", () => {
   });
 
   it("registers request-ID middleware", async () => {
-    const obs = await import("@mbe/observability");
+    const obs = await import("./observability/index.js");
     app = await createServiceApp(createTestConfig());
     expect(obs.createRequestIdMiddleware).toHaveBeenCalled();
   });
 
   it("registers error rate plugin", async () => {
-    const obs = await import("@mbe/observability");
+    const obs = await import("./observability/index.js");
     app = await createServiceApp(createTestConfig());
     expect(obs.errorRatePlugin_).toHaveBeenCalled();
   });
@@ -430,7 +430,7 @@ describe("createServiceApp", () => {
 
   it("rate limit onExceeded logs and records hit", async () => {
     const rateLimit = await import("@fastify/rate-limit");
-    const obs = await import("@mbe/observability");
+    const obs = await import("./observability/index.js");
     app = await createServiceApp(createTestConfig());
 
     // Extract the onExceeded callback from the rate limit registration call

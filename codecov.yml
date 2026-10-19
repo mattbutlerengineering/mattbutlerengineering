@@ -68,10 +68,6 @@ flags:
     paths:
       - packages/api-client/
     carryforward: true
-  observability:
-    paths:
-      - packages/observability/
-    carryforward: true
   cli:
     paths:
       - tools/cli/

@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/node";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { redactSignal } from "@mbe/observability";
+import { redactSignal } from "./redact.js";
 import { resolveConfig } from "./config.js";
 
 /**
@@ -69,7 +69,7 @@ export function initSentry(options: InitOptions): void {
     // Measured against the installed SDK: `getDefaultIntegrations({})` -> 24
     // integrations, Fastify present (v10: 17, Fastify absent). Without this
     // filter, Sentry's Fastify integration decorates the request with
-    // `opentelemetry`, which @mbe/observability's FastifyOtelInstrumentation has
+    // `opentelemetry`, which @mbe/service-bootstrap's telemetry's FastifyOtelInstrumentation has
     // already decorated, so Fastify throws FST_ERR_DEC_ALREADY_PRESENT during
     // boot and the container exits non-zero. Filtering by name rather than
     // replacing the list wholesale keeps future Sentry defaults arriving.
@@ -99,7 +99,7 @@ export function initSentry(options: InitOptions): void {
     },
     // Every event is walked by the shared redaction policy before it leaves the
     // process, so a credential can never reach Sentry.io. The policy is owned by
-    // @mbe/observability so one rule governs every outbound signal — no exporter
+    // @mbe/service-bootstrap's telemetry so one rule governs every outbound signal — no exporter
     // re-implements it locally.
     beforeSend: (event) => redactSignal(event) as Sentry.ErrorEvent,
     // Deliberately NOT `tracesSampleRate: 0`. To Sentry, a DEFINED rate means
@@ -109,7 +109,7 @@ export function initSentry(options: InitOptions): void {
     // against the installed SDK: { tracesSampleRate: 0 } -> 54 integrations.
     // Omitting the key is what actually disables tracing; `0` only sampled none
     // of it while still loading every instrumentation. Tracing is owned by
-    // @mbe/observability's own OTel SDK and is out of scope for this run
+    // @mbe/service-bootstrap's telemetry's own OTel SDK and is out of scope for this run
     // (M2/M3, deferred).
   });
 }

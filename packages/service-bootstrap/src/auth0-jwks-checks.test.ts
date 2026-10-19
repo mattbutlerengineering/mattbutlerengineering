@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
-import type * as ObservabilityModule from "@mbe/observability";
+import type * as ObservabilityModule from "./observability/index.js";
 import { createServiceApp } from "./create-service-app.js";
 
 vi.mock("@fastify/cors", () => ({ default: vi.fn().mockImplementation(async () => {}) }));
@@ -38,7 +38,7 @@ vi.mock("@mbe/auth/fastify", () => ({
   authPlugin: vi.fn().mockImplementation(async () => {}),
   getAuthPluginOptionsFromEnv: vi.fn(() => ({})),
 }));
-vi.mock("@mbe/observability", async (importOriginal) => {
+vi.mock("./observability/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof ObservabilityModule>();
   return {
     ...actual,

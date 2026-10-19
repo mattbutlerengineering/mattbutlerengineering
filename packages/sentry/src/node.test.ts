@@ -157,7 +157,7 @@ describe("initSentry (node)", () => {
     // getDefaultIntegrations({ tracesSampleRate: 0 }) returns 44 including
     // Fastify, Prisma, Postgres, Redis and Kafka. Sentry's Fastify
     // instrumentation decorates the request with `opentelemetry`, which
-    // @mbe/observability's FastifyOtelInstrumentation has already decorated, so
+    // @mbe/service-bootstrap's telemetry's FastifyOtelInstrumentation has already decorated, so
     // both active means FST_ERR_DEC_ALREADY_PRESENT at boot and a container that
     // exits non-zero. Setting any number here -- including 0 -- reintroduces that.
     process.env.SENTRY_DSN = "https://key@sentry.io/123";
@@ -171,7 +171,7 @@ describe("initSentry (node)", () => {
 
   it("drops Sentry's own Fastify integration so it cannot double-decorate the request", () => {
     // Regression test for a boot crash that only became reachable once a DSN
-    // actually existed. @mbe/observability registers @fastify/otel's
+    // actually existed. @mbe/service-bootstrap's telemetry registers @fastify/otel's
     // FastifyOtelInstrumentation, which decorates the request with
     // `opentelemetry`; Sentry's built-in Fastify integration decorates the same
     // property, so with both active Fastify throws

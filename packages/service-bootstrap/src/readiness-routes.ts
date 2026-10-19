@@ -1,13 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
 import fp from "fastify-plugin";
 import type { ReadinessResponse } from "@mbe/types";
-import { createReadinessTracker, registerStandardChecks } from "@mbe/observability";
-import type { StandardChecksOptions } from "@mbe/observability";
+import { createReadinessTracker, registerStandardChecks } from "./observability/index.js";
+import type { StandardChecksOptions } from "./observability/index.js";
 import { buildJwksUrl } from "./validate-startup-config.js";
 
 /**
  * Options for the readiness-route factory.
- * Mirrors StandardChecksOptions from @mbe/observability so callers only need one import.
+ * Mirrors StandardChecksOptions from ./observability so callers only need one import.
  */
 export type ReadinessRoutesOptions = StandardChecksOptions;
 

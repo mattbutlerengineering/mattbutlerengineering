@@ -62,7 +62,6 @@ mattbutlerengineering/
 │   ├── config/               # Shared ESLint, TypeScript, Prettier configs
 │   ├── database/             # Prisma connection-pool wrapper
 │   ├── gh-client/            # Typed GitHub wrapper (exec timeouts, REST fallback)
-│   ├── observability/        # OpenTelemetry SDK wrapper
 │   ├── rialto/               # Rialto design system (component library)
 │   ├── rialto-catalog/       # Component catalog generator for Rialto
 │   ├── rialto-plugin/        # Claude Code plugin for Rialto

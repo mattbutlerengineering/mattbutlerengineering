@@ -156,7 +156,9 @@ describe("reviewersForDiff — e2e-selector-drift-reviewer", () => {
 
 describe("reviewersForDiff — no match / dedupe / order", () => {
   it("returns no reviewers for a plain library source file", () => {
-    expect(reviewersForDiff(["packages/observability/src/error-rates.ts"])).toEqual([]);
+    expect(
+      reviewersForDiff(["packages/service-bootstrap/src/observability/error-rates.ts"])
+    ).toEqual([]);
   });
 
   it("returns nothing for an empty diff", () => {

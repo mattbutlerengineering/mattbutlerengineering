@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createRequestIdMiddleware, getRequestId, logWithRequestId } from "./request-id.js";
+import { createRequestIdMiddleware } from "./request-id.js";
 
 // We test the plugin logic by directly interacting with the plugin's hook callbacks.
 // fastify-plugin just registers the plugin function, so we simulate it inline.
@@ -156,49 +156,5 @@ describe("createRequestIdMiddleware", () => {
 
     await capturedHook!(fakeRequest);
     expect(fakeRequest.id).toBe("from-trace");
-  });
-});
-
-describe("getRequestId", () => {
-  it("returns request.id when it exists", () => {
-    expect(getRequestId({ id: "req-123" })).toBe("req-123");
-  });
-
-  it("returns 'unknown' when id is undefined", () => {
-    expect(getRequestId({})).toBe("unknown");
-  });
-
-  it("returns 'unknown' when id is explicitly undefined", () => {
-    expect(getRequestId({ id: undefined })).toBe("unknown");
-  });
-});
-
-describe("logWithRequestId", () => {
-  it("calls logger.info with message and merged context including requestId", () => {
-    const logger = { info: vi.fn() };
-    logWithRequestId(logger, "req-abc", "User logged in", { userId: "u1" });
-
-    expect(logger.info).toHaveBeenCalledTimes(1);
-    expect(logger.info).toHaveBeenCalledWith("User logged in", {
-      userId: "u1",
-      requestId: "req-abc",
-    });
-  });
-
-  it("works with empty context (defaults to {})", () => {
-    const logger = { info: vi.fn() };
-    logWithRequestId(logger, "req-xyz", "Health check");
-
-    expect(logger.info).toHaveBeenCalledWith("Health check", { requestId: "req-xyz" });
-  });
-
-  it("does not mutate the original context object", () => {
-    const logger = { info: vi.fn() };
-    const ctx = { key: "value" };
-    const original = { ...ctx };
-
-    logWithRequestId(logger, "req-1", "Test", ctx);
-
-    expect(ctx).toEqual(original);
   });
 });

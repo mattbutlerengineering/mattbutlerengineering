@@ -71,11 +71,6 @@
       "path": "packages/gh-client"
     },
     {
-      "name": "@mbe/observability",
-      "type": "package",
-      "path": "packages/observability"
-    },
-    {
       "name": "@mattbutlerengineering/rialto",
       "type": "package",
       "path": "packages/rialto"
@@ -295,11 +290,6 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/agent-service",
       "to": "@mbe/rialto-catalog",
       "type": "dependency"
     },
@@ -340,11 +330,6 @@
     },
     {
       "from": "@mbe/reservations-service",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
       "to": "@mbe/sentry",
       "type": "dependency"
     },
@@ -371,11 +356,6 @@
     {
       "from": "@mbe/users-service",
       "to": "@mbe/database",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/users-service",
-      "to": "@mbe/observability",
       "type": "dependency"
     },
     {
@@ -449,16 +429,6 @@
       "type": "devDependency"
     },
     {
-      "from": "@mbe/observability",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/observability",
-      "to": "@mbe/database",
-      "type": "devDependency"
-    },
-    {
       "from": "@mattbutlerengineering/rialto",
       "to": "@mbe/config",
       "type": "devDependency"
@@ -485,11 +455,6 @@
     },
     {
       "from": "@mbe/sentry",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/sentry",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -501,11 +466,6 @@
     {
       "from": "@mbe/service-bootstrap",
       "to": "@mbe/database",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/service-bootstrap",
-      "to": "@mbe/observability",
       "type": "dependency"
     },
     {
