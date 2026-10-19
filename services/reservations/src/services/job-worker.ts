@@ -6,12 +6,12 @@ import type {
   ReminderPayload,
   WaitlistExpiryPayload,
 } from "../jobs/index.js";
-import { PartialDeliveryError } from "@mbe/notifications";
+import { PartialDeliveryError } from "../notifications/index.js";
 import type {
   BookingNotificationInput,
   ReminderChannel,
   ReminderOptions,
-} from "@mbe/notifications";
+} from "../notifications/index.js";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
 import { resolveChannel } from "./contact-policy.js";
 import { runWithVenueContext } from "./venue-context-store.js";

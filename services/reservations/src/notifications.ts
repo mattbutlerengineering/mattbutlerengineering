@@ -3,7 +3,7 @@ import {
   ResendNotificationAdapter,
   TwilioSmsAdapter,
   NotificationDispatcher,
-} from "@mbe/notifications";
+} from "./notifications/index.js";
 import { getPublicApiBaseUrlConfig } from "./config/public-api-base-url.js";
 
 /**

@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation, Venue } from "@mbe/types";
-import { PartialDeliveryError } from "@mbe/notifications";
+import { PartialDeliveryError } from "../notifications/index.js";
 
 interface JobsModuleShape {
   dispatchJob(handlers: unknown, job: { name: string; data: unknown }): Promise<void>;

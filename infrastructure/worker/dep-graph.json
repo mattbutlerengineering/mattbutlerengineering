@@ -71,11 +71,6 @@
       "path": "packages/gh-client"
     },
     {
-      "name": "@mbe/notifications",
-      "type": "package",
-      "path": "packages/notifications"
-    },
-    {
       "name": "@mbe/observability",
       "type": "package",
       "path": "packages/observability"
@@ -345,11 +340,6 @@
     },
     {
       "from": "@mbe/reservations-service",
-      "to": "@mbe/notifications",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
       "to": "@mbe/observability",
       "type": "dependency"
     },
@@ -455,21 +445,6 @@
     },
     {
       "from": "@mbe/gh-client",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/notifications",
-      "to": "@mbe/api-client",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/notifications",
-      "to": "@mbe/types",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/notifications",
       "to": "@mbe/config",
       "type": "devDependency"
     },
