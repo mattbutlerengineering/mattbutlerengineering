@@ -238,7 +238,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
     unchanged.
   - This item carries the most new keys. Run the rialto `size-limit` right after
     it (see the last item).
-- [ ] **DataTable row label, PinInput announcement, ChatPanel fallback.**
+- [x] **DataTable row label, PinInput announcement, ChatPanel fallback.**
   - DataTable: a new key for the per-row fallback (`DataTable.tsx:405`), en-US
     value "Select row" (see assumptions).
   - PinInput: a key for "Code complete" (`PinInput.tsx:189`).

@@ -338,6 +338,7 @@
       cancelAction: () => void;
     }
     export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn {
+      const { messages: t } = useRialtoLocale();
       const [messages, setMessages] = useState<ChatMessage[]>([]);
       const [isStreaming, setIsStreaming] = useState(false);
       const [error, setError] = useState<Error | null>(null);
@@ -413,7 +414,7 @@
               } else if (line.type === "permission_denied" && line.toolName) {
                 const denial: PermissionDenial = {
                   toolName: line.toolName,
-                  reason: line.reason ?? "Not allowed",
+                  reason: line.reason ?? t.notAllowed,
                 };
                 setPermissionDenials((prev) => [...prev, denial]);
               }
@@ -439,7 +440,7 @@
             setIsStreaming(false);
           }
         },
-        [api]
+        [api, t]
       );
     
       const send = useCallback(
@@ -3255,6 +3256,12 @@
       readonly fieldsNeedAttention: (count: number) => string;
       /** TapeChart noun after a separately formatted reservation count, capitalized ("Reservation" / "Reservations"). */
       readonly reservationCount: (count: number) => string;
+      /** DataTable per-row checkbox name when no `selectionLabel` is given (screen-reader only). */
+      readonly selectThisRow: string;
+      /** PinInput live-region announcement once every cell is filled. */
+      readonly codeComplete: string;
+      /** ChatPanel tool-denial reason when the server sends none. */
+      readonly notAllowed: string;
       /** TapeChart default labels; its `strings` prop overrides them. */
       readonly tapeChart: TapeChartMessages;
     }
@@ -3352,6 +3359,9 @@
       fieldsNeedAttention: (count) =>
         count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
       reservationCount: (count) => (count === 1 ? "Reservation" : "Reservations"),
+      selectThisRow: "Select row",
+      codeComplete: "Code complete",
+      notAllowed: "Not allowed",
       tapeChart: {
         regionLabel: "Reservations tape chart",
         roomsColumnLabel: "Rooms",
@@ -3546,6 +3556,9 @@
       fieldsNeedAttention: (count) =>
         count === 1 ? `${count} campo requiere atención` : `${count} campos requieren atención`,
       reservationCount: (count) => (count === 1 ? "Reservación" : "Reservaciones"),
+      selectThisRow: "Seleccionar fila",
+      codeComplete: "Código completo",
+      notAllowed: "No permitido",
       tapeChart: {
         regionLabel: "Cuadro de reservaciones",
         roomsColumnLabel: "Habitaciones",
@@ -3685,6 +3698,9 @@
           ? `${count} champ nécessite votre attention`
           : `${count} champs nécessitent votre attention`,
       reservationCount: (count) => (count < 2 ? "Réservation" : "Réservations"),
+      selectThisRow: "Sélectionner la ligne",
+      codeComplete: "Code complet",
+      notAllowed: "Non autorisé",
       tapeChart: {
         regionLabel: "Tableau des réservations",
         roomsColumnLabel: "Chambres",

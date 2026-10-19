@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { streamNDJSON } from "@mbe/api-client/streaming";
 import type { DomainContext } from "./types.js";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
 export interface ChatMessageElement {
   id: string;
@@ -61,6 +62,7 @@ export interface UseChatStreamReturn {
 }
 
 export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn {
+  const { messages: t } = useRialtoLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -136,7 +138,7 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
           } else if (line.type === "permission_denied" && line.toolName) {
             const denial: PermissionDenial = {
               toolName: line.toolName,
-              reason: line.reason ?? "Not allowed",
+              reason: line.reason ?? t.notAllowed,
             };
             setPermissionDenials((prev) => [...prev, denial]);
           }
@@ -162,7 +164,7 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
         setIsStreaming(false);
       }
     },
-    [api]
+    [api, t]
   );
 
   const send = useCallback(

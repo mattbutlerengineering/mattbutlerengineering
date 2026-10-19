@@ -98,6 +98,9 @@ export const esMX: RialtoMessages = {
   fieldsNeedAttention: (count) =>
     count === 1 ? `${count} campo requiere atención` : `${count} campos requieren atención`,
   reservationCount: (count) => (count === 1 ? "Reservación" : "Reservaciones"),
+  selectThisRow: "Seleccionar fila",
+  codeComplete: "Código completo",
+  notAllowed: "No permitido",
   tapeChart: {
     regionLabel: "Cuadro de reservaciones",
     roomsColumnLabel: "Habitaciones",

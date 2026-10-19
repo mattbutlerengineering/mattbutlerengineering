@@ -100,6 +100,9 @@ export const frCA: RialtoMessages = {
       ? `${count} champ nécessite votre attention`
       : `${count} champs nécessitent votre attention`,
   reservationCount: (count) => (count < 2 ? "Réservation" : "Réservations"),
+  selectThisRow: "Sélectionner la ligne",
+  codeComplete: "Code complet",
+  notAllowed: "Non autorisé",
   tapeChart: {
     regionLabel: "Tableau des réservations",
     roomsColumnLabel: "Chambres",

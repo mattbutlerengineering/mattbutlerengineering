@@ -232,6 +232,12 @@ export interface RialtoMessages {
   readonly fieldsNeedAttention: (count: number) => string;
   /** TapeChart noun after a separately formatted reservation count, capitalized ("Reservation" / "Reservations"). */
   readonly reservationCount: (count: number) => string;
+  /** DataTable per-row checkbox name when no `selectionLabel` is given (screen-reader only). */
+  readonly selectThisRow: string;
+  /** PinInput live-region announcement once every cell is filled. */
+  readonly codeComplete: string;
+  /** ChatPanel tool-denial reason when the server sends none. */
+  readonly notAllowed: string;
   /** TapeChart default labels; its `strings` prop overrides them. */
   readonly tapeChart: TapeChartMessages;
 }
@@ -330,6 +336,9 @@ export const enUS: RialtoMessages = {
   fieldsNeedAttention: (count) =>
     count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
   reservationCount: (count) => (count === 1 ? "Reservation" : "Reservations"),
+  selectThisRow: "Select row",
+  codeComplete: "Code complete",
+  notAllowed: "Not allowed",
   tapeChart: {
     regionLabel: "Reservations tape chart",
     roomsColumnLabel: "Rooms",

@@ -163,3 +163,36 @@ describe("inputs and composites localize built-in text", () => {
     }
   }
 });
+
+describe("announcements and fallbacks built in a conditional localize", () => {
+  const rowTable = () => (
+    <DataTable
+      columns={[{ key: "n", header: "N" }]}
+      data={[{ id: "1", n: "x" }]}
+      rowKey={(r) => String(r.id)}
+      selectionMode="multiple"
+    />
+  );
+
+  it.each([
+    ["en-US", undefined, "Select row"],
+    ["es-MX", esMX, "Seleccionar fila"],
+    ["fr-CA", frCA, "Sélectionner la ligne"],
+  ] as const)("DataTable row checkbox fallback name in %s", (_tag, messages, name) => {
+    render(<RialtoLocaleProvider messages={messages}>{rowTable()}</RialtoLocaleProvider>);
+    expect(screen.getByRole("checkbox", { name })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["en-US", undefined, "Code complete"],
+    ["es-MX", esMX, "Código completo"],
+    ["fr-CA", frCA, "Code complet"],
+  ] as const)("PinInput completion announcement in %s", (_tag, messages, text) => {
+    render(
+      <RialtoLocaleProvider messages={messages}>
+        <PinInput label="PIN" length={2} value="12" onChange={noop} />
+      </RialtoLocaleProvider>
+    );
+    expect(screen.getByRole("status").textContent).toBe(text);
+  });
+});
