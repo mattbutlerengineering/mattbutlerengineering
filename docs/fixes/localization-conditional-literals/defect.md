@@ -268,7 +268,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
   - Accept: every component named in that paragraph's claim renders localized
     text under an es-MX provider. The two out-of-scope announcements in Notes
     are either named as known gaps or fixed, if the Owner widens scope.
-- [ ] **Release hygiene.**
+- [x] **Release hygiene.**
   - Add a rialto **patch** changeset in `.changeset/*.md`.
   - `pnpm check:i18n-catalogs` is green.
   - The rialto `size-limit` is green, with each `Locale <tag> (subpath)` entry at
@@ -341,3 +341,13 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
   (all are enum tokens, roles, ids or CSS values). The scan covers conditional
   and logical operands only, which is why the rewritten CLAUDE.md names the
   lint rule's JSX-only limit instead of claiming a gate covers every position.
+
+- **Release-hygiene gates (Implement, 2026-10-18, branch head before the
+  changeset commit `6d0982d3c`).** `pnpm lint` exit 0 (52/52 tasks, no
+  `no-literal-ui-strings` errors); `pnpm typecheck` exit 0 (52/52);
+  `packages/config` 104/104, `packages/rialto` 2717/2717 (173 files),
+  `apps/hospitality` 3045/3045 (231 files); `pnpm check:i18n-catalogs` PASS;
+  rialto `size-limit` exit 0 with en-GB 114 B, es-MX 1.89 kB, fr-CA 2 kB
+  against 2.2 kB; `local-ci-precheck` steps: frozen install OK, `check-adr`
+  and `check-deps` clean, dep-graph regen with no diff, every `mbe pack
+--check` clean, `pnpm regen --check` "All generated artifacts are up to date".
