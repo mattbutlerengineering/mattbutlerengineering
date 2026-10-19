@@ -23,6 +23,10 @@ const meta: Meta<typeof ChatPanel> = {
     api: "storybook-mock-agent-endpoint",
     domainContext,
     getAccessToken: () => "storybook-demo-token",
+    // In-memory adapter: stories never hit a network.
+    stream: async function* () {
+      yield { type: "text", content: "This is a canned storybook reply." };
+    },
   },
 };
 

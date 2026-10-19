@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { streamNDJSON } from "@mbe/api-client/streaming";
 import type { DomainContext } from "./types.js";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
@@ -39,8 +38,23 @@ interface NDJSONLine {
   toolInput?: Record<string, unknown>;
 }
 
+/** A streaming request issued by the chat hook. */
+export interface ChatStreamRequest {
+  url: string;
+  body: unknown;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+
+/**
+ * Transport the host app injects: performs the request and yields each decoded
+ * NDJSON line. Rialto owns no HTTP client, so the app supplies one.
+ */
+export type ChatStreamFn = (request: ChatStreamRequest) => AsyncIterable<unknown>;
+
 export interface UseChatStreamOptions {
   api: string;
+  stream: ChatStreamFn;
   domainContext: DomainContext;
   getAccessToken: () => string | null | Promise<string | null>;
 }
@@ -61,7 +75,11 @@ export interface UseChatStreamReturn {
   cancelAction: () => void;
 }
 
-export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn {
+export function useChatStream({
+  api,
+  stream,
+  getAccessToken,
+}: UseChatStreamOptions): UseChatStreamReturn {
   const { messages: t } = useRialtoLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -72,6 +90,7 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const getAccessTokenRef = useRef(getAccessToken);
+  const streamRef = useRef(stream);
   const messagesRef = useRef(messages);
   const pendingActionRef = useRef(pendingAction);
   const lastRequestRef = useRef<{
@@ -82,6 +101,10 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
   useEffect(() => {
     getAccessTokenRef.current = getAccessToken;
   }, [getAccessToken]);
+
+  useEffect(() => {
+    streamRef.current = stream;
+  }, [stream]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -109,14 +132,15 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
 
       try {
         const token = await Promise.resolve(getAccessTokenRef.current());
-        const stream = streamNDJSON<NDJSONLine>({
+        const lines = streamRef.current({
           url: api,
           body,
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           signal: controller.signal,
         });
 
-        for await (const line of stream) {
+        for await (const raw of lines) {
+          const line = raw as NDJSONLine;
           if (line.type === "text" && line.content) {
             assistantContent += line.content;
             const msg: ChatMessage = { role: "assistant", content: assistantContent };

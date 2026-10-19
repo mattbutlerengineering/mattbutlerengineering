@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Navigate, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { streamNDJSON } from "@mbe/api-client/streaming";
 import { useAuth, useAccessToken } from "@mbe/auth/react";
 import {
   Banner,
@@ -420,6 +421,7 @@ function DashboardLayoutInner() {
           <ChatPanel
             onClose={() => setChatOpen(false)}
             api="/api/gen/agent"
+            stream={streamNDJSON}
             domainContext={HOSPITALITY_DOMAIN_CONTEXT}
             getAccessToken={getAccessToken}
             registry={registry}

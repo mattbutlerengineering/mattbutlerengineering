@@ -5,17 +5,16 @@ import { RialtoLocaleProvider } from "../../i18n/RialtoLocaleProvider";
 import { esMX } from "../../i18n/locales/es-MX";
 import { frCA } from "../../i18n/locales/fr-CA";
 import type { RialtoMessages } from "../../i18n/messages";
-import { useChatStream } from "./useChatStream.js";
+import { useChatStream, type ChatStreamFn } from "./useChatStream.js";
 
-vi.mock("@mbe/api-client/streaming", () => ({
-  streamNDJSON: vi.fn(),
-}));
-
-import { streamNDJSON } from "@mbe/api-client/streaming";
+// In-memory stream adapter: the second implementation of ChatStreamFn that
+// justifies the injection seam (the app supplies the real NDJSON transport).
+const streamNDJSON = vi.fn<ChatStreamFn>();
 
 function createMockProps() {
   return {
     api: "/api/gen/agent",
+    stream: streamNDJSON,
     getAccessToken: vi.fn(() => "test-token"),
     domainContext: {
       schemas: [{ name: "Reservation", description: "A booking", fields: "id, guestName" }],
@@ -291,7 +290,7 @@ describe("useChatStream", () => {
       await streamPromise;
     }
 
-    vi.mocked(streamNDJSON).mockReturnValueOnce(slowStream() as never);
+    vi.mocked(streamNDJSON).mockReturnValueOnce(slowStream());
 
     const { result } = renderHook(() => useChatStream(createMockProps()));
 
@@ -367,7 +366,7 @@ describe("useChatStream", () => {
       await gate;
       yield { type: "tool_status", tool: "lookup_reservation", status: "complete" };
     }
-    vi.mocked(streamNDJSON).mockReturnValueOnce(stream() as never);
+    vi.mocked(streamNDJSON).mockReturnValueOnce(stream());
 
     const { result } = renderHook(() => useChatStream(createMockProps()));
 
