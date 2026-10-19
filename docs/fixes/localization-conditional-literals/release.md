@@ -3,7 +3,7 @@ stage: ship
 run: maintenance:localization-conditional-literals
 date: 2026-10-18
 outcome: prepared
-pending-merge: <PR url>
+pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7108
 assumptions:
   - "Autorun: the brief's Release authorization is prepare-and-stop. Ship pushes the branch and opens one PR (code plus run docs). It does not merge, enable auto-merge, deploy, publish rialto, tag, or run `changeset version`."
   - "Pre-flight ran the local-ci-precheck steps directly (the skill is disable-model-invocation), as CLAUDE.md § Pipeline Stage Hooks requires. The llms drift half ran as `pnpm regen --check`, which runs `mbe pack --check` for every llms package plus the git-diff check (scripts/regen.mjs runCheck), instead of the skill's hand-written per-directory loop. It is a superset of that loop."
@@ -61,7 +61,7 @@ not affected. npm consumers notice nothing until a rialto release ships.
 
 ```
 # After merge, if the deploy misbehaves:
-gh pr view <N> --json mergeCommit --jq .mergeCommit.oid   # squash SHA on main
+gh pr view 7108 --json mergeCommit --jq .mergeCommit.oid   # squash SHA on main
 git checkout main && git pull
 git revert <squash-sha>
 git push origin HEAD:revert/localization-conditional-literals
@@ -74,8 +74,8 @@ gh pr create --base main --head revert/localization-conditional-literals \
 
 1. Pre-flight (above) on `062c92513` → all green.
 2. Committed this artifact as `docs(localization-conditional-literals): ship — prepared`.
-3. `git push -u origin fix/localization-conditional-literals` → see PR.
-4. Opened the PR to `main` → `pending-merge:` above. Stopped there:
+3. `git push -u origin fix/localization-conditional-literals` → exit 0; `git ls-remote` = local `1541ac392`.
+4. Opened PR #7108 to `main` (https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7108). Stopped there:
    prepare-and-stop, no merge, no auto-merge, no deploy.
 
 ## Post-release checks
@@ -101,5 +101,5 @@ the bundle as the en-US `RialtoMessages` values:
 ## Outcome
 
 Prepared and stopped. The run is waiting on the pull request that
-`pending-merge:` names. The write-back (`gh pr view <N> --json state,mergedAt`)
+`pending-merge:` names. The write-back (`gh pr view 7108 --json state,mergedAt`)
 records `released` and `released-at:` once the Owner merges.
