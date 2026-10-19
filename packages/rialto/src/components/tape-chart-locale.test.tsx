@@ -81,3 +81,56 @@ describe("TapeChart reservation counts follow the locale", () => {
     expect(screen.getAllByText("2 reservations").length).toBeGreaterThan(0);
   });
 });
+
+describe("TapeChart default strings come from the locale", () => {
+  const chart = (strings?: { regionLabel: string }) => (
+    <TapeChart
+      reservations={ONE}
+      rooms={ROOMS}
+      startDate="2026-04-20"
+      endDate="2026-04-27"
+      timeZone="UTC"
+      strings={strings}
+    />
+  );
+
+  it.each([
+    [
+      "es-MX",
+      esMX,
+      "Cuadro de reservaciones",
+      "Habitaciones",
+      /Reservación, 101, .*2 noches, Confirmada/,
+    ],
+    [
+      "fr-CA",
+      frCA,
+      "Tableau des réservations",
+      "Chambres",
+      /Réservation, 101, .*2 nuits, Confirmée/,
+    ],
+  ] as const)("%s labels with no strings prop", (_tag, messages, region, rooms, bar) => {
+    render(<RialtoLocaleProvider messages={messages}>{chart()}</RialtoLocaleProvider>);
+    expect(screen.getByRole("region", { name: region })).toBeInTheDocument();
+    expect(screen.getByText(rooms, { selector: "span" })).toBeInTheDocument();
+    expect(screen.getAllByLabelText(bar).length).toBeGreaterThan(0);
+  });
+
+  it("a consumer's strings prop still wins over the locale", () => {
+    render(
+      <RialtoLocaleProvider messages={esMX}>
+        {chart({ regionLabel: "Planning" })}
+      </RialtoLocaleProvider>
+    );
+    expect(screen.getByRole("region", { name: "Planning" })).toBeInTheDocument();
+    expect(screen.getByText("Habitaciones", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("keeps en-US output with no provider", () => {
+    render(chart());
+    expect(screen.getByRole("region", { name: "Reservations tape chart" })).toBeInTheDocument();
+    expect(
+      screen.getAllByLabelText(/Reservation, 101, .*2 nights, Confirmed/).length
+    ).toBeGreaterThan(0);
+  });
+});

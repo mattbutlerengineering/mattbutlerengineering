@@ -634,6 +634,9 @@
     </item>
   </file>
   <file path="packages/rialto/src/components/TapeChart/defaultStrings.ts">
+    <item priority="medium">
+      function ariaTemplateFor(messages: RialtoMessages) { /* ... */ }
+    </item>
     <item priority="low">
       type ResolvedStrings = Required<
         Omit<
@@ -641,10 +644,16 @@
           | "reservatio...;
     </item>
     <item priority="high">
+      export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
+    </item>
+    <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
     </item>
     <item priority="high">
-      export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings { /* ... */ }
+      export function mergeStrings(
+        overrides?: TapeChartStrings,
+        messages: RialtoMessages = enUS
+      ): ResolvedStrings { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/components/TapeChart/types.ts">
@@ -5160,6 +5169,15 @@
     </item>
   </file>
   <file path="packages/rialto/src/i18n/messages.ts">
+    <item priority="low">
+      interface TapeChartMessages {
+        regionLabel: string;
+        roomsColumnLabel: string;
+        arrivalsLabel: string;
+        departuresLabel: string;
+        inHouseLabel: string;
+      }
+    </item>
     <item priority="low">
       interface RialtoMessages {
         dismiss: string;

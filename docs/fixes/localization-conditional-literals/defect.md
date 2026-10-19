@@ -11,6 +11,7 @@ assumptions:
   - 'Hospitality catalogs get an en-GB entry only if its wording differs from en-US (brief). For "Ctrl" it does not.'
   - "Implement (2026-10-18): rialto plurals stay count-taking message functions, the shape TapeChart's nightsLabel/partySizeLabel already use; RialtoMessages has no plural-category mechanism and the brief says not to invent one. Each locale encodes its own rule inside its function: en-US and es-MX singular only at 1, fr-CA singular for 0 and 1 (CLDR 'one' for fr). The CLDR 'many' form for es/fr (millions) is not modelled, since these counts are fields, results, reservations and nights."
   - "Implement (2026-10-18): TapeChart counts use ONE key, reservationCount (capitalized, as the stat pill shows it); the mobile day-card meta lowercases it with toLocaleLowerCase(formatters.locale). Right for en/es/fr; marked with a lean: comment naming the ceiling (a locale that keeps nouns capitalized needs its own key)."
+  - "Implement (2026-10-18): TapeChart's defaults live in RialtoMessages as ONE nested group, tapeChart (type TapeChartMessages), whose fields mirror the component's strings prop, so mergeStrings stays a spread; this is the dictionary's first nested entry (every other key is flat). errorRetryLabel and moveCancelLabel reuse the existing tryAgain and cancel keys. The default aria template builds from messages.reservation, messages.dateSpan and two new group functions (viaSource, blockedReason). DEFAULT_STRINGS stays exported as the en-US value, so defaultStrings.test.ts is unchanged."
 ---
 
 # Defect: rialto and hospitality render English through conditional string literals that no localization gate can see
@@ -228,7 +229,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
       enough if the casing difference can be resolved; otherwise use two.
   - Accept: the TapeChart locale test renders the localized pill and day-card
     meta. Both lint errors are gone.
-- [ ] **TapeChart `defaultStrings.ts` from context.** The defaults (status,
+- [x] **TapeChart `defaultStrings.ts` from context.** The defaults (status,
       room-status and overlap labels, the night and guest plurals, and the
       reservation aria template) resolve from `RialtoMessages`. A consumer's
       `strings` prop still overrides them.

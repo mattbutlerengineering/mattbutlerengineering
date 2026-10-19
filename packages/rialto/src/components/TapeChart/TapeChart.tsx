@@ -1,5 +1,6 @@
 import type { ForwardedRef } from "react";
 import { forwardRef, useCallback, useMemo, useRef, useState } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
 import styles from "./TapeChart.module.css";
 import { useDeviceContext } from "../../providers/useDeviceContext";
@@ -68,7 +69,8 @@ export const TapeChart = forwardRef(function TapeChart(
 
   const device = useDeviceContext();
   const formatters = useTapeChartI18n(locale, timeZone, currency);
-  const resolved = useMemo(() => mergeStrings(strings), [strings]);
+  const { messages } = useRialtoLocale();
+  const resolved = useMemo(() => mergeStrings(strings, messages), [strings, messages]);
   const layout = useTapeChartLayout(reservations, rooms, startDate, endDate, classifyOverlap);
   const todayISO = formatters.todayISO();
 
