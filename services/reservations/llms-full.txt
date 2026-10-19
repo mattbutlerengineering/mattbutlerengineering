@@ -295,6 +295,261 @@
     }
   </file>
   </section>
+  <section priority="medium" role="jobs">
+  <file path="src/jobs/dispatch-job.ts">
+    export class UnknownJobTypeError extends UnrecoverableError {
+      constructor(name: string, reason: "unknown-type" | "no-handler" = "unknown-type") {
+        super(
+          reason === "no-handler"
+            ? `No handler registered for job type: "${name}"`
+            : `Unknown job type: "${name}"`
+        );
+        this.name = "UnknownJobTypeError";
+      }
+    }
+    export async function dispatchJob(
+      handlers: JobHandlerMap,
+      job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+    ): Promise<void> {
+      if (!JOB_TYPE_SET.has(job.name)) {
+        throw new UnknownJobTypeError(job.name);
+      }
+    
+      const jobType = job.name as JobType;
+      const handler = (
+        handlers as Partial<Record<JobType, (data: unknown, ctx: JobContext) => Promise<void>>>
+      )[jobType];
+      if (!handler) {
+        throw new UnknownJobTypeError(jobType, "no-handler");
+      }
+      const ctx: JobContext = {
+        updateData: async (patch) => {
+          await (job.updateData as ((d: object) => Promise<void>) | undefined)?.({
+            ...(job.data as object),
+            ...patch,
+          });
+        },
+      };
+      await handler(job.data, ctx);
+    }
+  </file>
+  <file path="src/jobs/job-types.ts">
+    export const DEFAULT_QUEUE_NAME = "mbe-notifications";
+    export const DEFAULT_JOB_OPTIONS = {
+      attempts: 3,
+      backoff: { type: "exponential" as const, delay: 1000 },
+    } as const;
+    export const JOB_TYPES = {
+      BOOKING_REMINDER: "booking-reminder",
+      DAY_OF_REMINDER: "day-of-reminder",
+      POST_VISIT_FOLLOWUP: "post-visit-followup",
+      WAITLIST_EXPIRY: "waitlist-expiry",
+    } as const;
+    export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    export interface ReminderPayload {
+      reservationId: string;
+      venueId: string;
+      /**
+       * Channels already delivered by an earlier attempt of this job. Written back
+       * via JobContext.updateData before a retry so a delivered channel is never
+       * re-sent.
+       */
+      deliveredChannels?: ("email" | "sms")[];
+    }
+    export interface JobContext {
+      /** Persist a patch of new job data (shallow-merged over the current payload) for the retry. */
+      updateData(patch: object): Promise<void>;
+    }
+    export interface PostVisitFollowupPayload {
+      reservationId: string;
+      guestId: string;
+      guestEmail: string | null;
+      guestPhone: string | null;
+      venueId: string;
+    }
+    export interface WaitlistExpiryPayload {
+      waitlistEntryId: string;
+      // guestPhone/guestEmail stay declared (optional) for forward-compatible
+      // payload enrichment; nothing enqueues or reads them today.
+      guestPhone?: string | null;
+      guestEmail?: string | null;
+      // Populated at enqueue time (services/reservations' waitlist-notifier.ts —
+      // notifyTableReady, this job's one enqueue site) so the handler can run
+      // inside runWithVenueContext(venueId, ...) instead of deriving the venue
+      // from an RLS-protected read with no context (ADR-026 §3.3 item 7). Stays
+      // optional rather than required: a job enqueued before this fix shipped is
+      // already sitting in Redis without it, and BullMQ never re-serializes a
+      // payload once queued. The handler (services/reservations'
+      // job-worker.ts) falls back to its pre-fix behavior, with a warning log,
+      // for any payload missing it. Safe to make required (and delete that
+      // fallback) once one WAITLIST_EXPIRY TTL (FIVE_MINUTES_MS,
+      // waitlist-notifier.ts) has elapsed post-deploy — every legacy job will
+      // have drained by then.
+      venueId?: string;
+    }
+    export type JobPayloadMap = {
+      [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
+      [JOB_TYPES.DAY_OF_REMINDER]: ReminderPayload;
+      [JOB_TYPES.POST_VISIT_FOLLOWUP]: PostVisitFollowupPayload;
+      [JOB_TYPES.WAITLIST_EXPIRY]: WaitlistExpiryPayload;
+    };
+    export type JobHandlerMap = Partial<{
+      [K in JobType]: (payload: JobPayloadMap[K], ctx: JobContext) => Promise<void>;
+    }>;
+  </file>
+  <file path="src/jobs/scheduler.ts">
+    export interface JobSchedulerConfig {
+      redisUrl: string;
+      queueName?: string;
+    }
+    export class JobScheduler {
+      private readonly queue: Queue;
+      private readonly redis: Redis;
+    
+      constructor(config: JobSchedulerConfig) {
+        this.redis = new Redis(config.redisUrl, {
+          maxRetriesPerRequest: null,
+          // Defer the connection to the first command so constructing a JobScheduler
+          // is side-effect-free. Without this, ioredis connects eagerly and (with
+          // maxRetriesPerRequest: null) retries forever, so merely building app
+          // wiring — e.g. createDefaultWaitlistNotifier() in reservations — opens a
+          // background ECONNREFUSED loop in tests/CI where no Redis is present.
+          lazyConnect: true,
+        });
+    
+        this.queue = new Queue(config.queueName ?? DEFAULT_QUEUE_NAME, {
+          connection: this.redis,
+        });
+      }
+    
+      /**
+       * Schedule a one-time delayed job.
+       * @param jobType  The type of job to run.
+       * @param payload  Typed payload for the job.
+       * @param delayMs  Milliseconds to delay before processing (0 = immediate).
+       * @returns The created job ID.
+       */
+      async schedule<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        delayMs: number,
+        jobId?: string
+      ): Promise<string> {
+        const job = await this.queue.add(jobType, payload, {
+          delay: delayMs,
+          ...DEFAULT_JOB_OPTIONS,
+          removeOnComplete: { count: 100 },
+          removeOnFail: { count: 50 },
+          ...(jobId !== undefined ? { jobId } : {}),
+        });
+        return job.id as string;
+      }
+    
+      /**
+       * Schedule a recurring cron job.
+       * @param jobType        The type of job to run.
+       * @param payload        Typed payload for the job.
+       * @param cronExpression Cron expression (e.g. "0 9 * * *").
+       */
+      async scheduleCron<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        cronExpression: string
+      ): Promise<void> {
+        const schedulerId = `${jobType}:cron`;
+        await this.queue.upsertJobScheduler(
+          schedulerId,
+          {
+            pattern: cronExpression,
+          },
+          {
+            name: jobType,
+            data: payload,
+            opts: { ...DEFAULT_JOB_OPTIONS },
+          }
+        );
+      }
+    
+      /**
+       * Cancel a scheduled job by its job ID.
+       * Never throws: resolves `true` when a job was removed, `false` when there
+       * was none (or it could not be removed, e.g. it is locked while running).
+       * @param jobId The job ID to cancel.
+       */
+      async cancel(jobId: string): Promise<boolean> {
+        try {
+          return (await this.queue.remove(jobId)) === 1;
+        } catch {
+          // Job may already be processed or not exist — nothing was removed
+          return false;
+        }
+      }
+    
+      /**
+       * Gracefully close BullMQ queue and Redis connections.
+       */
+      async close(): Promise<void> {
+        await this.queue.close();
+        await this.redis.quit();
+      }
+    }
+  </file>
+  <file path="src/jobs/worker.ts">
+    export interface JobWorkerConfig {
+      redisUrl: string;
+      queueName?: string;
+      handlers: JobHandlerMap;
+      /** Receives final job failures and worker-level errors. */
+      logger?: JobWorkerErrorLogger;
+    }
+    export interface JobWorkerErrorLogger {
+      error(details: object, msg: string): void;
+    }
+    export class JobWorker {
+      private readonly worker: Worker;
+      private readonly redis: Redis;
+    
+      constructor(config: JobWorkerConfig) {
+        this.redis = new Redis(config.redisUrl, {
+          maxRetriesPerRequest: null,
+          // Defer the connection to the first command so constructing a JobWorker
+          // is side-effect-free. Without this, ioredis connects eagerly and (with
+          // maxRetriesPerRequest: null) retries forever, so merely building app
+          // wiring opens a background ECONNREFUSED loop in tests/CI where no Redis
+          // is present.
+          lazyConnect: true,
+        });
+    
+        this.worker = new Worker(
+          config.queueName ?? DEFAULT_QUEUE_NAME,
+          (job) => dispatchJob(config.handlers, job),
+          { connection: this.redis }
+        );
+    
+        const logger = config.logger;
+        if (logger) {
+          this.worker.on("failed", (job, err) => {
+            logger.error(
+              { jobId: job?.id, jobName: job?.name, attemptsMade: job?.attemptsMade, err },
+              "job failed"
+            );
+          });
+          this.worker.on("error", (err) => {
+            logger.error({ err }, "job worker error");
+          });
+        }
+      }
+    
+      /**
+       * Gracefully close the worker and Redis connection.
+       */
+      async close(): Promise<void> {
+        await this.worker.close();
+        await this.redis.quit();
+      }
+    }
+  </file>
+  </section>
   <section priority="medium" role="middleware">
   <file path="src/middleware/public-rate-limit.ts">
     interface RateLimitEntry {
@@ -11460,7 +11715,7 @@
        * exactly like `deliverReminder` above, closing the other half of ADR-026
        * §3.3 item 7. `payload.venueId` is populated at the job's one enqueue
        * site (`waitlist-notifier.ts`'s `notifyTableReady`) — see
-       * `WaitlistExpiryPayload` (`@mbe/jobs`) for why it stays optional rather
+       * `WaitlistExpiryPayload` (`jobs/job-types.ts`) for why it stays optional rather
        * than required: a job enqueued before this fix shipped is already
        * sitting in Redis without it, and BullMQ never re-serializes a payload
        * once queued. For that legacy case, fall back to the pre-fix behavior

@@ -1,5 +1,5 @@
-import { JobScheduler } from "@mbe/jobs";
-import type { JobType, JobPayloadMap } from "@mbe/jobs";
+import { JobScheduler } from "../jobs/index.js";
+import type { JobType, JobPayloadMap } from "../jobs/index.js";
 import { TwilioSmsAdapter } from "@mbe/notifications";
 import type { SmsPort } from "@mbe/notifications";
 

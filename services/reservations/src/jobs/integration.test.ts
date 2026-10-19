@@ -51,8 +51,6 @@ function makeHandlers(overrides: Partial<JobHandlerMap> = {}): JobHandlerMap {
     [JOB_TYPES.BOOKING_REMINDER]: vi.fn().mockResolvedValue(undefined),
     [JOB_TYPES.DAY_OF_REMINDER]: vi.fn().mockResolvedValue(undefined),
     [JOB_TYPES.POST_VISIT_FOLLOWUP]: vi.fn().mockResolvedValue(undefined),
-    [JOB_TYPES.PRE_ARRIVAL_BRIEFING]: vi.fn().mockResolvedValue(undefined),
-    [JOB_TYPES.LAPSED_GUEST_SCAN]: vi.fn().mockResolvedValue(undefined),
     [JOB_TYPES.WAITLIST_EXPIRY]: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -100,9 +98,9 @@ describe("JobScheduler + JobWorker integration", () => {
     await scheduler.close();
   });
 
-  it("scheduleCron() sets up recurring job and lapsed-guest-scan handler called", async () => {
-    const lapsedGuestScanHandler = vi.fn().mockResolvedValue(undefined);
-    const handlers = makeHandlers({ [JOB_TYPES.LAPSED_GUEST_SCAN]: lapsedGuestScanHandler });
+  it("scheduleCron() sets up recurring job and day-of-reminder handler called", async () => {
+    const dayOfReminderHandler = vi.fn().mockResolvedValue(undefined);
+    const handlers = makeHandlers({ [JOB_TYPES.DAY_OF_REMINDER]: dayOfReminderHandler });
 
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
     new JobWorker({
@@ -110,19 +108,19 @@ describe("JobScheduler + JobWorker integration", () => {
       handlers,
     });
 
-    const lapsedPayload = { venueId: "venue_abc", lapsedAfterDays: 90 };
+    const reminderPayload: ReminderPayload = { reservationId: "res_abc", venueId: "venue_abc" };
 
     // Schedule cron
-    await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, lapsedPayload, "0 9 * * *");
+    await scheduler.scheduleCron(JOB_TYPES.DAY_OF_REMINDER, reminderPayload, "0 9 * * *");
 
     // Simulate worker firing for cron job
     await mocks.workerProcessor!({
-      name: JOB_TYPES.LAPSED_GUEST_SCAN,
-      data: lapsedPayload,
+      name: JOB_TYPES.DAY_OF_REMINDER,
+      data: reminderPayload,
     });
 
-    expect(lapsedGuestScanHandler).toHaveBeenCalledOnce();
-    expect(lapsedGuestScanHandler).toHaveBeenCalledWith(lapsedPayload, expect.any(Object));
+    expect(dayOfReminderHandler).toHaveBeenCalledOnce();
+    expect(dayOfReminderHandler).toHaveBeenCalledWith(reminderPayload, expect.any(Object));
 
     await scheduler.close();
   });

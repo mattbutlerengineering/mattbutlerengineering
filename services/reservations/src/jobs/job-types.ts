@@ -9,8 +9,6 @@ export const JOB_TYPES = {
   BOOKING_REMINDER: "booking-reminder",
   DAY_OF_REMINDER: "day-of-reminder",
   POST_VISIT_FOLLOWUP: "post-visit-followup",
-  PRE_ARRIVAL_BRIEFING: "pre-arrival-briefing",
-  LAPSED_GUEST_SCAN: "lapsed-guest-scan",
   WAITLIST_EXPIRY: "waitlist-expiry",
 } as const;
 
@@ -49,17 +47,6 @@ export interface PostVisitFollowupPayload {
   venueId: string;
 }
 
-export interface PreArrivalBriefingPayload {
-  reservationId: string;
-  guestEmail: string;
-  venueId: string;
-}
-
-export interface LapsedGuestScanPayload {
-  venueId: string;
-  lapsedAfterDays: number;
-}
-
 export interface WaitlistExpiryPayload {
   waitlistEntryId: string;
   // guestPhone/guestEmail stay declared (optional) for forward-compatible
@@ -85,8 +72,6 @@ export type JobPayloadMap = {
   [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
   [JOB_TYPES.DAY_OF_REMINDER]: ReminderPayload;
   [JOB_TYPES.POST_VISIT_FOLLOWUP]: PostVisitFollowupPayload;
-  [JOB_TYPES.PRE_ARRIVAL_BRIEFING]: PreArrivalBriefingPayload;
-  [JOB_TYPES.LAPSED_GUEST_SCAN]: LapsedGuestScanPayload;
   [JOB_TYPES.WAITLIST_EXPIRY]: WaitlistExpiryPayload;
 };
 

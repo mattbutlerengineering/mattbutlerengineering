@@ -10,7 +10,5 @@ export type {
   JobPayloadMap,
   ReminderPayload,
   PostVisitFollowupPayload,
-  PreArrivalBriefingPayload,
-  LapsedGuestScanPayload,
   WaitlistExpiryPayload,
 } from "./job-types.js";

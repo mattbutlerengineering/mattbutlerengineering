@@ -10,8 +10,8 @@
  * the domain writes (`cancelReservationWithDeposit`, `recordNoShow`), byte for
  * byte, per the 2026-10-04 ruling "money unchanged".
  */
-import { JOB_TYPES } from "@mbe/jobs";
-import type { ReminderPayload } from "@mbe/jobs";
+import { JOB_TYPES } from "../jobs/index.js";
+import type { ReminderPayload } from "../jobs/index.js";
 import type { Reservation, Table, UpdateReservationRequest } from "@mbe/types";
 import type {
   CancelInitiator,

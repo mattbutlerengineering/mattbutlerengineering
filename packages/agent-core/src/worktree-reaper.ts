@@ -9,7 +9,7 @@
  * isolation model — it is hygiene only.
  *
  * We use a lightweight in-process retry rather than the reservations-domain
- * `@mbe/jobs` scheduler: cleanup runs inside a single long-lived `runSession`
+ * BullMQ job scheduler: cleanup runs inside a single long-lived `runSession`
  * process, the operation is a fire-and-forget filesystem retry, and agent-core
  * already owns the `withRetry` backoff helper. Pulling in a Prisma-backed,
  * off-domain job queue would be disproportionate.
