@@ -3,7 +3,7 @@
  *
  * `.ui-quality/` is gitignored and holds one fire's inputs and outputs
  * (docs/features/ui-quality-loop/architecture.md § Components). The capture
- * layer (packages/test-fixtures/src/ui-quality-capture.ts) writes
+ * layer (packages/ui-quality-capture/src/ui-quality-capture.ts) writes
  * `captures/<app>/manifest.jsonl` beside the plan it is handed; every script
  * in this directory reads it back through `readManifests` here.
  *

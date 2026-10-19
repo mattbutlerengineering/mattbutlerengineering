@@ -70,8 +70,8 @@ mattbutlerengineering/
 │   ├── rialto-plugin/        # Claude Code plugin for Rialto
 │   ├── sentry/               # Sentry error tracking integration
 │   ├── service-bootstrap/    # createServiceApp — configured Fastify instance
-│   ├── test-fixtures/        # Shared mock-data factories
-│   └── types/                # Shared TypeScript type definitions
+│   ├── types/                # Shared TypeScript type definitions
+│   └── ui-quality-capture/   # Shared ui-quality e2e capture helper
 ├── plugins/
 │   └── acmm/                 # AI Codebase Maturity Model audit plugin
 ├── tools/

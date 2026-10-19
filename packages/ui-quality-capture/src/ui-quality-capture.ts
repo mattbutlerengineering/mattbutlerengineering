@@ -13,11 +13,11 @@
  * It never throws: a route that fails to load (or whose axe run fails) still
  * yields a row, carrying `error`, so `ledger.mjs record` can mark it.
  *
- * Lives in `@mbe/test-fixtures` because dependency-cruiser's
+ * Lives in `@mbe/ui-quality-capture` because dependency-cruiser's
  * `apps-not-imported` rule keeps capture inside each app's e2e boundary
  * (hospitality needs its own `mockApi`), so the shared logic has to be a
  * workspace package. Import only from e2e code:
- * `@mbe/test-fixtures/ui-quality-capture`.
+ * `@mbe/ui-quality-capture`.
  */
 import { createHash } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

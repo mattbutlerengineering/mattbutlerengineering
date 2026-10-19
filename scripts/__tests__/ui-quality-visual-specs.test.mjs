@@ -164,7 +164,7 @@ describe("marketing visual spec — scroll-revealed sections are rendered, never
 
   it("reveals scroll-triggered content with the shared capture helper before the screenshot", () => {
     expect(spec).toMatch(
-      /import \{[^}]*\brevealLazyContent\b[^}]*\} from "@mbe\/test-fixtures\/ui-quality-capture"/
+      /import \{[^}]*\brevealLazyContent\b[^}]*\} from "@mbe\/ui-quality-capture"/
     );
     const reveal = spec.indexOf("await revealLazyContent(page)");
     expect(reveal).toBeGreaterThan(-1);
