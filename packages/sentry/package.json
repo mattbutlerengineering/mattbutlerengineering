@@ -40,7 +40,6 @@
     }
   },
   "dependencies": {
-    "@mbe/observability": "workspace:^",
     "@sentry/node": "^11.6.0",
     "@sentry/react": "^11.6.0",
     "fastify-plugin": "^6.0.1"

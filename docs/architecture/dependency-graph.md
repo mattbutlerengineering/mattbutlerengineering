@@ -26,7 +26,6 @@ flowchart TD
     config["config"]
     database["database"]
     gh_client["gh-client"]
-    observability["observability"]
     rialto["rialto"]
     rialto_catalog["rialto-catalog"]
     rialto_plugin["rialto-plugin"]
@@ -72,7 +71,6 @@ flowchart TD
   agent_service --> api_client
   agent_service --> auth
   agent_service --> database
-  agent_service --> observability
   agent_service --> rialto_catalog
   agent_service --> sentry
   agent_service --> service_bootstrap
@@ -81,14 +79,12 @@ flowchart TD
   reservations_service --> auth
   reservations_service --> cancellation_policy
   reservations_service --> database
-  reservations_service --> observability
   reservations_service --> sentry
   reservations_service --> service_bootstrap
   reservations_service --> types
   reservations_service --> config
   users_service --> auth
   users_service --> database
-  users_service --> observability
   users_service --> sentry
   users_service --> service_bootstrap
   users_service --> types
@@ -103,18 +99,14 @@ flowchart TD
   cancellation_policy --> config
   database --> config
   gh_client --> config
-  observability --> config
-  observability --> database
   rialto --> config
   rialto_catalog --> rialto
   rialto_catalog --> config
   rialto_plugin --> rialto
   rialto_plugin --> config
-  sentry --> observability
   sentry --> config
   service_bootstrap --> auth
   service_bootstrap --> database
-  service_bootstrap --> observability
   service_bootstrap --> sentry
   service_bootstrap --> types
   service_bootstrap --> config
@@ -153,7 +145,6 @@ flowchart TD
   class config shared
   class database shared
   class gh_client shared
-  class observability shared
   class rialto shared
   class rialto_catalog shared
   class rialto_plugin entrypoint

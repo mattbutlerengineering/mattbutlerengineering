@@ -109,7 +109,7 @@ describe("deploy-services.yml wiring", () => {
     // does not model transitive dependencies. These packages are never NAMED by
     // this workflow -- they arrive inside the Docker images it deploys.
     const trigger = DEPLOY_WORKFLOW.slice(0, DEPLOY_WORKFLOW.indexOf("workflow_dispatch"));
-    for (const pkg of ["packages/observability", "packages/sentry", "packages/service-bootstrap"]) {
+    for (const pkg of ["packages/sentry", "packages/service-bootstrap"]) {
       expect(trigger, `${pkg} can change without redeploying the services that run it`).toContain(
         `"${pkg}/**"`
       );

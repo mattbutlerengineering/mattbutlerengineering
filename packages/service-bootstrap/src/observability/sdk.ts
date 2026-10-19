@@ -15,7 +15,7 @@ import {
 } from "@opentelemetry/semantic-conventions";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { resolveTelemetryPlan } from "./otel-config.js";
-import { resolveBuildInfo } from "./build-info.js";
+import { resolveBuildInfo } from "@mbe/sentry";
 
 export interface OtelConfig {
   readonly serviceName: string;

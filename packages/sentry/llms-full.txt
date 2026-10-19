@@ -1,5 +1,17 @@
 <codebase path="packages/sentry">
   <section priority="medium" role="src">
+  <file path="src/build-info.ts">
+    export const UNKNOWN_BUILD = "unknown";
+    export interface BuildInfo {
+      readonly sha: string;
+      /** The single "which build is this" string: Sentry release, OTel service.version, /health version. */
+      readonly version: string;
+    }
+    export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo {
+      const sha = env.DEPLOY_SHA?.trim() || UNKNOWN_BUILD;
+      return { sha, version: sha };
+    }
+  </file>
   <file path="src/config.ts">
     export interface SentryConfig {
       readonly dsn: string;
@@ -70,7 +82,7 @@
         // Measured against the installed SDK: `getDefaultIntegrations({})` -> 24
         // integrations, Fastify present (v10: 17, Fastify absent). Without this
         // filter, Sentry's Fastify integration decorates the request with
-        // `opentelemetry`, which @mbe/observability's FastifyOtelInstrumentation has
+        // `opentelemetry`, which @mbe/service-bootstrap's telemetry's FastifyOtelInstrumentation has
         // already decorated, so Fastify throws FST_ERR_DEC_ALREADY_PRESENT during
         // boot and the container exits non-zero. Filtering by name rather than
         // replacing the list wholesale keeps future Sentry defaults arriving.
@@ -100,7 +112,7 @@
         },
         // Every event is walked by the shared redaction policy before it leaves the
         // process, so a credential can never reach Sentry.io. The policy is owned by
-        // @mbe/observability so one rule governs every outbound signal — no exporter
+        // @mbe/service-bootstrap's telemetry so one rule governs every outbound signal — no exporter
         // re-implements it locally.
         beforeSend: (event) => redactSignal(event) as Sentry.ErrorEvent,
         // Deliberately NOT `tracesSampleRate: 0`. To Sentry, a DEFINED rate means
@@ -110,7 +122,7 @@
         // against the installed SDK: { tracesSampleRate: 0 } -> 54 integrations.
         // Omitting the key is what actually disables tracing; `0` only sampled none
         // of it while still loading every instrumentation. Tracing is owned by
-        // @mbe/observability's own OTel SDK and is out of scope for this run
+        // @mbe/service-bootstrap's telemetry's own OTel SDK and is out of scope for this run
         // (M2/M3, deferred).
       });
     }
@@ -265,6 +277,38 @@
       } else if (code === 401 || code === 403) {
         Sentry.captureMessage(error.message, "warning");
       }
+    }
+  </file>
+  <file path="src/redact.ts">
+    export const REDACTED = "[redacted]";
+    function isSecretShaped(value: string): boolean {
+      return SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value));
+    }
+    function isPlainObject(value: unknown): value is Record<string, unknown> {
+      if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        return false;
+      }
+      const proto: unknown = Object.getPrototypeOf(value);
+      return proto === Object.prototype || proto === null;
+    }
+    export function redactSignal(value: unknown): unknown {
+      if (typeof value === "string") {
+        return isSecretShaped(value) ? REDACTED : value;
+      }
+    
+      if (Array.isArray(value)) {
+        return value.map(redactSignal);
+      }
+    
+      if (isPlainObject(value)) {
+        return Object.fromEntries(
+          Object.entries(value).map(([key, entry]) =>
+            CREDENTIAL_KEYS.has(key.toLowerCase()) ? [key, REDACTED] : [key, redactSignal(entry)]
+          )
+        );
+      }
+    
+      return value;
     }
   </file>
   </section>

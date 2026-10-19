@@ -1,4 +1,4 @@
-import { AUTH0_UNCONFIGURED_MESSAGE, probeJwks, resolveJwksUrl } from "@mbe/observability";
+import { AUTH0_UNCONFIGURED_MESSAGE, probeJwks, resolveJwksUrl } from "./observability/index.js";
 
 const AUTH0_TIMEOUT_MS = 2000;
 const LATENCY_WINDOW = 100;
