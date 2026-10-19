@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "production": "./dist/testing/index.js",
+      "default": "./src/testing/index.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "production": "./dist/index.js",
@@ -27,7 +32,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@mbe/agent-test-utils": "workspace:*",
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",

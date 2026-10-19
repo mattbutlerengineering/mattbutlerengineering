@@ -1635,11 +1635,6 @@
       export const loopCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/mcp.ts">
-    <item priority="high">
-      export const mcpCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/pack.ts">
     <item priority="medium">
       function truncateType(type: string, maxLength = 60): string { /* ... */ }
@@ -13556,360 +13551,6 @@
       ): Promise<ReapOutcome> { /* ... */ }
     </item>
   </file>
-  <file path="packages/agent-test-utils/src/cost-estimator.ts">
-    <item priority="low">
-      interface ModelPricing {
-        model: string;
-        inputCostPer1MTokens: number;
-        outputCostPer1MTokens: number;
-        cacheWritePer1MTokens?: number;
-        cacheReadPer1MTokens?: number;
-      }
-    </item>
-    <item priority="high">
-      export const MODEL_PRICING: Record<string, ModelPricing>;
-    </item>
-    <item priority="high">
-      export function estimateTokenCount(text: string): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function estimatePromptTokens(taskDescription: string, systemPromptOverhead = 2000): number { /* ... */ }
-    </item>
-    <item priority="low">
-      interface TokenUsageInput {
-        inputTokens: number;
-        outputTokens: number;
-        cacheWriteTokens?: number;
-        cacheReadTokens?: number;
-      }
-    </item>
-    <item priority="low">
-      interface CostBreakdown {
-        model: string;
-        inputCostUsd: number;
-        outputCostUsd: number;
-        cacheWriteCostUsd: number;
-        cacheReadCostUsd: number;
-      }
-    </item>
-    <item priority="high">
-      export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown { /* ... */ }
-    </item>
-    <item priority="high">
-      export function estimateSessionCost(
-        taskDescription: string,
-        options: {
-          readonly model?: string;
-          readonly expectedOutputTokens?: number;
-          readonly numTurns?: number;
-          readonly systemPromptOverhead?: number;
-        } = {}
-      ): CostBreakdown { /* ... */ }
-    </item>
-    <item priority="low">
-      interface SessionCostProfile {
-        sessionId: string;
-        model: string;
-        usage: TokenUsageInput;
-        breakdown: CostBreakdown;
-        durationMs: number;
-      }
-    </item>
-    <item priority="low">
-      interface CostProfilerSummary {
-        totalSessions: number;
-        totalCostUsd: number;
-        averageCostUsd: number;
-        totalInputTokens: number;
-        totalOutputTokens: number;
-      }
-    </item>
-    <item priority="low">
-      interface CostProfiler {
-        record: (
-          sessionId: string,
-          usage: TokenUsageInput,
-          ...;
-        summary: () => CostProfilerSummary;
-        profiles: () => readonly SessionCostProfile[];
-        reset: () => void;
-      }
-    </item>
-    <item priority="high">
-      export function createCostProfiler(): CostProfiler { /* ... */ }
-    </item>
-    <item priority="high">
-      export function wouldExceedBudget(
-        taskDescription: string,
-        maxBudgetUsd: number,
-        options: {
-          readonly model?: string;
-          readonly expectedOutputTokens?: number;
-          readonly numTurns?: number;
-        } = {}
-      ): boolean { /* ... */ }
-    </item>
-    <item priority="low">
-      interface LatencyProfile {
-        baseMs: number;
-        msPerKInputTokens: number;
-        msPerHundredOutputTokens: number;
-        jitterMs: number;
-      }
-    </item>
-    <item priority="high">
-      export const DEFAULT_LATENCY_PROFILE: LatencyProfile;
-    </item>
-    <item priority="high">
-      export function estimateLatency(
-        usage: TokenUsageInput,
-        profile: LatencyProfile = DEFAULT_LATENCY_PROFILE
-      ): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function simulateLatency(
-        usage: TokenUsageInput,
-        profile: LatencyProfile = DEFAULT_LATENCY_PROFILE
-      ): Promise<number> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-test-utils/src/mock-claude-client.ts">
-    <item priority="low">
-      type MockMode = "replay" | "deterministic";
-    </item>
-    <item priority="low">
-      interface MockTokenUsage {
-        input_tokens: number;
-        output_tokens: number;
-        cache_creation_input_tokens: number;
-        cache_read_input_tokens: number;
-      }
-    </item>
-    <item priority="low">
-      interface MockClientOptions {
-        mode?: MockMode;
-        fixtures?: readonly (readonly SDKMessage[])[];
-        errorOnCall?: number;
-        errorToInject?: Error;
-        simulatedLatencyMs?: number;
-      }
-    </item>
-    <item priority="low">
-      interface MockCallRecord {
-        callIndex: number;
-        prompt: string;
-        model: string;
-        timestamp: string;
-      }
-    </item>
-    <item priority="medium">
-      function buildDeterministicResult(
-        callIndex: number,
-        tokens: Readonly<{ input: number; output: number }>,
-        costUsd: number
-      ): SDKResultMessage { /* ... */ }
-    </item>
-    <item priority="low">
-      interface MockClaudeClient {
-        query: (options: {
-          prompt: string;
-          model?: string;
-          [...;
-        calls: readonly MockCallRecord[];
-        reset: () => void;
-        totalCostUsd: () => number;
-        totalTokenUsage: () => Readonly<{ input: number; output: number }>;
-      }
-    </item>
-    <item priority="high">
-      export async function* createMockQueryStream(
-        messages: unknown[]
-      ): AsyncGenerator<SDKMessage | SDKResultMessage> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createMockClaudeClient(options: MockClientOptions = {}): MockClaudeClient { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-test-utils/src/sdk-result.ts">
-    <item priority="low">
-      interface ResultInputs {
-        sessionId: string;
-        numTurns: number;
-        costUsd: number;
-        inputTokens: number;
-        outputTokens: number;
-      }
-    </item>
-    <item priority="high">
-      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-test-utils/src/session-fixtures.ts">
-    <item priority="low">
-      interface ToolCallRecord {
-        toolName: string;
-        input: Record<string, unknown>;
-        output?: string;
-      }
-    </item>
-    <item priority="low">
-      interface FixtureOptions {
-        sessionId?: string;
-        numTurns?: number;
-        costUsd?: number;
-        inputTokens?: number;
-        outputTokens?: number;
-      }
-    </item>
-    <item priority="medium">
-      function makeTimestamp(offsetMs = 0): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildStartEvent(sessionId: string): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function toolUseIdFor(call: ToolCallRecord, index: number): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildMinimalSuccessFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildFailureFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface FixturePlayer {
-        next: () => SessionEvent | undefined;
-        hasMore: () => boolean;
-        reset: () => void;
-        drainAll: () => readonly SessionEvent[];
-        position: () => number;
-      }
-    </item>
-    <item priority="high">
-      export function createFixturePlayer(events: readonly SessionEvent[]): FixturePlayer { /* ... */ }
-    </item>
-    <item priority="low">
-      interface ToolCallDiff {
-        matched: readonly ToolCallRecord[];
-        missing: readonly ToolCallRecord[];
-        unexpected: readonly ToolCallRecord[];
-        passed: boolean;
-      }
-    </item>
-    <item priority="high">
-      export function extractToolCalls(events: readonly SessionEvent[]): readonly ToolCallRecord[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function parseMappedEvent(event: SessionEvent): MappedEvent | undefined { /* ... */ }
-    </item>
-    <item priority="high">
-      export function compareToolCalls(
-        expected: readonly ToolCallRecord[],
-        actual: readonly ToolCallRecord[]
-      ): ToolCallDiff { /* ... */ }
-    </item>
-    <item priority="high">
-      export function loadFixtureFromFile(filePath: string): readonly SessionEvent[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function serializeFixture(events: readonly SessionEvent[]): string { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-test-utils/src/worktree-simulator.ts">
-    <item priority="low">
-      type RepoState = "clean" | "dirty" | "conflicted";
-    </item>
-    <item priority="low">
-      interface SimulatedFile {
-        path: string;
-        content: string;
-        status?: "modified" | "added" | "deleted" | "conflicted";
-      }
-    </item>
-    <item priority="low">
-      interface WorktreeSimulatorOptions {
-        repoPath?: string;
-        baseBranch?: string;
-        branchName?: string;
-        state?: RepoState;
-        files?: readonly SimulatedFile[];
-      }
-    </item>
-    <item priority="low">
-      interface VerificationResult {
-        passed: boolean;
-        lintOk: boolean;
-        typecheckOk: boolean;
-        testsOk: boolean;
-      }
-    </item>
-    <item priority="high">
-      export const CLEAN_REPO_FILES: readonly SimulatedFile[];
-    </item>
-    <item priority="high">
-      export const DIRTY_REPO_FILES: readonly SimulatedFile[];
-    </item>
-    <item priority="high">
-      export const CONFLICTED_REPO_FILES: readonly SimulatedFile[];
-    </item>
-    <item priority="medium">
-      function getDefaultFiles(state: RepoState): readonly SimulatedFile[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface WorktreeCallRecord {
-        operation: string;
-        args: readonly unknown[];
-        timestamp: string;
-      }
-    </item>
-    <item priority="low">
-      interface WorktreeSimulator {
-        createWorktree: (repoPath: string, taskDescription: string) => Promise<Wo...;
-        removeWorktree: (repoPath: string, worktreePath: string) => Promise<void>;
-        hasChanges: (worktreePath: string) => Promise<boolean>;
-        commitChanges: (worktreePath: string, message?: string) => Promise<string>;
-        pushBranch: (repoPath: string, branchName: string) => Promise<void>;
-      }
-    </item>
-    <item priority="high">
-      export function createWorktreeSimulator(options: WorktreeSimulatorOptions = {}): WorktreeSimulator { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createWorktreeMocks(
-        simulator: WorktreeSimulator = createWorktreeSimulator()
-      ): Record<string, (...args: unknown[]) => unknown> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function assertOperationCalled(simulator: WorktreeSimulator, operation: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function assertOperationNotCalled(simulator: WorktreeSimulator, operation: string): void { /* ... */ }
-    </item>
-  </file>
   <file path="packages/api-client/src/agent-sessions.ts">
     <item priority="low">
       interface SessionSummary {
@@ -15361,103 +15002,6 @@
         redis: Redis;
         async close(): Promise<unknown>;
       }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/command-builder.ts">
-    <item priority="medium">
-      function assertNoTraversal(value: string, label: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function psqlQuery(
-        dbUrl: string,
-        sql: string,
-        run: (cmd: string, args: string[]) => string = defaultPsqlRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function ghJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultGhRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function doctlJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultDoctlRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function pulumiJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultPulumiRun
-      ): string { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/dispatcher.ts">
-    <item priority="high">
-      type McpContent = { type: "text"; text: string };
-    </item>
-    <item priority="high">
-      type McpResult = {
-        content: McpContent[];
-        isError?: boolean;
-      };
-    </item>
-    <item priority="low">
-      type ToolDefinition = {
-        name: string;
-        description: string;
-        inputSchema: T...;
-    </item>
-    <item priority="high">
-      export function defineTool<TSchema extends z.ZodTypeAny>(
-        def: ToolDefinition<TSchema>
-      ): ToolDefinition<TSchema> { /* ... */ }
-    </item>
-    <item priority="high">
-      type JsonSchemaObject = {
-        type: "object";
-        properties?: Record<string, unknown...;
-    </item>
-    <item priority="high">
-      export function listTools(tools: ToolDefinition[]): Array<{
-        name: string;
-        description: string;
-        inputSchema: JsonSchemaObject;
-      }> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function errorEnvelope(message: string): McpResult { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function callTool(
-        tools: ToolDefinition[],
-        name: string,
-        args: unknown
-      ): Promise<McpResult> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/index.ts">
-    <item priority="low">
-      async function main() { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/shell-runner.ts">
-    <item priority="low">
-      type ShellRunner = (
-        cmd: string,
-        args: string[],
-        opts: { encoding: "u...;
-    </item>
-    <item priority="low">
-      interface ShellRunnerOptions {
-        runner?: ShellRunner;
-        timeoutMs?: number;
-        errorLabel?: string;
-      }
-    </item>
-    <item priority="high">
-      export function createShellRunner(opts: ShellRunnerOptions = {}) { /* ... */ }
     </item>
   </file>
   <file path="packages/notifications/src/booking-email-content.ts">
@@ -18291,6 +17835,114 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="testing">
+  <file path="packages/agent-core/src/testing/cost-estimator.ts">
+    <item priority="low">
+      interface ModelPricing {
+        model: string;
+        inputCostPer1MTokens: number;
+        outputCostPer1MTokens: number;
+        cacheWritePer1MTokens?: number;
+        cacheReadPer1MTokens?: number;
+      }
+    </item>
+    <item priority="high">
+      export const MODEL_PRICING: Record<string, ModelPricing>;
+    </item>
+    <item priority="low">
+      interface TokenUsageInput {
+        inputTokens: number;
+        outputTokens: number;
+        cacheWriteTokens?: number;
+        cacheReadTokens?: number;
+      }
+    </item>
+    <item priority="low">
+      interface CostBreakdown {
+        model: string;
+        inputCostUsd: number;
+        outputCostUsd: number;
+        cacheWriteCostUsd: number;
+        cacheReadCostUsd: number;
+      }
+    </item>
+    <item priority="high">
+      export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/testing/mock-query-stream.ts">
+    <item priority="high">
+      export async function* createMockQueryStream(
+        messages: unknown[]
+      ): AsyncGenerator<SDKMessage | SDKResultMessage> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/testing/sdk-result.ts">
+    <item priority="low">
+      interface ResultInputs {
+        sessionId: string;
+        numTurns: number;
+        costUsd: number;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/testing/session-fixtures.ts">
+    <item priority="low">
+      interface ToolCallRecord {
+        toolName: string;
+        input: Record<string, unknown>;
+        output?: string;
+      }
+    </item>
+    <item priority="low">
+      interface FixtureOptions {
+        sessionId?: string;
+        numTurns?: number;
+        costUsd?: number;
+        inputTokens?: number;
+        outputTokens?: number;
+      }
+    </item>
+    <item priority="medium">
+      function makeTimestamp(offsetMs = 0): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildStartEvent(sessionId: string): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toolUseIdFor(call: ToolCallRecord, index: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="timeline">
   <file path="apps/hospitality/src/components/timeline/reservationLayout.ts">
     <item priority="low">
@@ -18576,47 +18228,6 @@
     </item>
     <item priority="high">
       export const reduced: unknown;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="tools">
-  <file path="packages/mcp-server/src/tools/ci.ts">
-    <item priority="high">
-      export async function ciRunStatus(run = ghJson): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/database.ts">
-    <item priority="high">
-      export async function dbListTables(run = psqlQuery): Promise<string> { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function dbMigrationStatus(run = psqlQuery): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/deploy_status.ts">
-    <item priority="high">
-      export async function deployStatus(run: (args: string[]) => string = doctlJson): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/git.ts">
-    <item priority="medium">
-      function isErrorEnvelope(output: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function gitWorkflowStatus(run = defaultRun): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/health.ts">
-    <item priority="high">
-      export async function serviceHealthCheck(): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/pulumi.ts">
-    <item priority="high">
-      export const PULUMI_PROJECT_DIR: unknown;
-    </item>
-    <item priority="high">
-      export async function pulumiStackOutputs(run = pulumiJson): Promise<string> { /* ... */ }
     </item>
   </file>
   </section>

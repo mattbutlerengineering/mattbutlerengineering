@@ -6162,11 +6162,6 @@
         );
       });
   </file>
-  <file path="tools/cli/src/commands/mcp.ts">
-    export const mcpCommand = new Command("mcp").description(
-      "Model Context Protocol (MCP) server management"
-    );
-  </file>
   <file path="tools/cli/src/commands/pack.ts">
     function truncateType(type: string, maxLength = 60): string {
       if (type.length <= maxLength) return type;
@@ -51612,991 +51607,6 @@
       }
     }
   </file>
-  <file path="packages/agent-test-utils/src/cost-estimator.ts">
-    export interface ModelPricing {
-      readonly model: string;
-      /** Cost per 1M input tokens in USD */
-      readonly inputCostPer1MTokens: number;
-      /** Cost per 1M output tokens in USD */
-      readonly outputCostPer1MTokens: number;
-      /** Cost per 1M cache-write tokens in USD */
-      readonly cacheWritePer1MTokens?: number;
-      /** Cost per 1M cache-read tokens in USD */
-      readonly cacheReadPer1MTokens?: number;
-    }
-    export const MODEL_PRICING: Record<string, ModelPricing> = {
-      "claude-sonnet-4-6": {
-        model: "claude-sonnet-4-6",
-        inputCostPer1MTokens: 3.0,
-        outputCostPer1MTokens: 15.0,
-        cacheWritePer1MTokens: 3.75,
-        cacheReadPer1MTokens: 0.3,
-      },
-      "claude-sonnet-5": {
-        model: "claude-sonnet-5",
-        inputCostPer1MTokens: 3.0,
-        outputCostPer1MTokens: 15.0,
-        cacheWritePer1MTokens: 3.75,
-        cacheReadPer1MTokens: 0.3,
-      },
-      "claude-haiku-4-5": {
-        model: "claude-haiku-4-5",
-        inputCostPer1MTokens: 0.8,
-        outputCostPer1MTokens: 4.0,
-        cacheWritePer1MTokens: 1.0,
-        cacheReadPer1MTokens: 0.08,
-      },
-      "claude-opus-4-8": {
-        model: "claude-opus-4-8",
-        inputCostPer1MTokens: 5.0,
-        outputCostPer1MTokens: 25.0,
-        cacheWritePer1MTokens: 6.25,
-        cacheReadPer1MTokens: 0.5,
-      },
-    } as const;
-    export function estimateTokenCount(text: string): number {
-      if (text.length === 0) return 0;
-      return Math.ceil(text.length / 4);
-    }
-    export function estimatePromptTokens(taskDescription: string, systemPromptOverhead = 2000): number {
-      return estimateTokenCount(taskDescription) + systemPromptOverhead;
-    }
-    export interface TokenUsageInput {
-      readonly inputTokens: number;
-      readonly outputTokens: number;
-      readonly cacheWriteTokens?: number;
-      readonly cacheReadTokens?: number;
-    }
-    export interface CostBreakdown {
-      readonly model: string;
-      readonly inputCostUsd: number;
-      readonly outputCostUsd: number;
-      readonly cacheWriteCostUsd: number;
-      readonly cacheReadCostUsd: number;
-      readonly totalCostUsd: number;
-    }
-    export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown {
-      const pricing = MODEL_PRICING[model] ?? MODEL_PRICING[DEFAULT_MODEL];
-      if (!pricing) throw new Error(`No pricing found for model "${model}" or default model`);
-    
-      const inputCostUsd = (usage.inputTokens / 1_000_000) * pricing.inputCostPer1MTokens;
-      const outputCostUsd = (usage.outputTokens / 1_000_000) * pricing.outputCostPer1MTokens;
-      const cacheWriteCostUsd =
-        usage.cacheWriteTokens !== undefined && pricing.cacheWritePer1MTokens !== undefined
-          ? (usage.cacheWriteTokens / 1_000_000) * pricing.cacheWritePer1MTokens
-          : 0;
-      const cacheReadCostUsd =
-        usage.cacheReadTokens !== undefined && pricing.cacheReadPer1MTokens !== undefined
-          ? (usage.cacheReadTokens / 1_000_000) * pricing.cacheReadPer1MTokens
-          : 0;
-    
-      const totalCostUsd = inputCostUsd + outputCostUsd + cacheWriteCostUsd + cacheReadCostUsd;
-    
-      return {
-        model: pricing.model,
-        inputCostUsd,
-        outputCostUsd,
-        cacheWriteCostUsd,
-        cacheReadCostUsd,
-        totalCostUsd,
-      };
-    }
-    export function estimateSessionCost(
-      taskDescription: string,
-      options: {
-        readonly model?: string;
-        readonly expectedOutputTokens?: number;
-        readonly numTurns?: number;
-        readonly systemPromptOverhead?: number;
-      } = {}
-    ): CostBreakdown {
-      const {
-        model = DEFAULT_MODEL,
-        expectedOutputTokens = 500,
-        numTurns = 5,
-        systemPromptOverhead = 2000,
-      } = options;
-    
-      const inputTokens = estimatePromptTokens(taskDescription, systemPromptOverhead) * numTurns;
-      const outputTokens = expectedOutputTokens * numTurns;
-    
-      return calculateCost({ inputTokens, outputTokens }, model);
-    }
-    export interface SessionCostProfile {
-      readonly sessionId: string;
-      readonly model: string;
-      readonly usage: TokenUsageInput;
-      readonly breakdown: CostBreakdown;
-      readonly durationMs: number;
-      readonly timestamp: string;
-    }
-    export interface CostProfilerSummary {
-      readonly totalSessions: number;
-      readonly totalCostUsd: number;
-      readonly averageCostUsd: number;
-      readonly totalInputTokens: number;
-      readonly totalOutputTokens: number;
-      readonly mostExpensiveSession: SessionCostProfile | null;
-      readonly cheapestSession: SessionCostProfile | null;
-    }
-    export interface CostProfiler {
-      readonly record: (
-        sessionId: string,
-        usage: TokenUsageInput,
-        durationMs: number,
-        model?: string
-      ) => SessionCostProfile;
-      readonly summary: () => CostProfilerSummary;
-      readonly profiles: () => readonly SessionCostProfile[];
-      readonly reset: () => void;
-    }
-    export function createCostProfiler(): CostProfiler {
-      const profileLog: SessionCostProfile[] = [];
-    
-      function record(
-        sessionId: string,
-        usage: TokenUsageInput,
-        durationMs: number,
-        model = DEFAULT_MODEL
-      ): SessionCostProfile {
-        const breakdown = calculateCost(usage, model);
-        const profile: SessionCostProfile = {
-          sessionId,
-          model,
-          usage,
-          breakdown,
-          durationMs,
-          timestamp: new Date().toISOString(),
-        };
-        profileLog.push(profile);
-        return profile;
-      }
-    
-      function summary(): CostProfilerSummary {
-        if (profileLog.length === 0) {
-          return {
-            totalSessions: 0,
-            totalCostUsd: 0,
-            averageCostUsd: 0,
-            totalInputTokens: 0,
-            totalOutputTokens: 0,
-            mostExpensiveSession: null,
-            cheapestSession: null,
-          };
-        }
-    
-        const totalCostUsd = profileLog.reduce((sum, p) => sum + p.breakdown.totalCostUsd, 0);
-        const totalInputTokens = profileLog.reduce((sum, p) => sum + p.usage.inputTokens, 0);
-        const totalOutputTokens = profileLog.reduce((sum, p) => sum + p.usage.outputTokens, 0);
-    
-        const sorted = [...profileLog].sort(
-          (a, b) => b.breakdown.totalCostUsd - a.breakdown.totalCostUsd
-        );
-    
-        return {
-          totalSessions: profileLog.length,
-          totalCostUsd,
-          averageCostUsd: totalCostUsd / profileLog.length,
-          totalInputTokens,
-          totalOutputTokens,
-          mostExpensiveSession: sorted[0] ?? null,
-          cheapestSession: sorted[sorted.length - 1] ?? null,
-        };
-      }
-    
-      return {
-        record,
-        summary,
-        profiles(): readonly SessionCostProfile[] {
-          return [...profileLog];
-        },
-        reset(): void {
-          profileLog.length = 0;
-        },
-      };
-    }
-    export function wouldExceedBudget(
-      taskDescription: string,
-      maxBudgetUsd: number,
-      options: {
-        readonly model?: string;
-        readonly expectedOutputTokens?: number;
-        readonly numTurns?: number;
-      } = {}
-    ): boolean {
-      const estimate = estimateSessionCost(taskDescription, options);
-      return estimate.totalCostUsd > maxBudgetUsd;
-    }
-    export interface LatencyProfile {
-      /** Base latency in ms per API call. */
-      readonly baseMs: number;
-      /** Additional ms per 1000 input tokens. */
-      readonly msPerKInputTokens: number;
-      /** Additional ms per 100 output tokens. */
-      readonly msPerHundredOutputTokens: number;
-      /** Random jitter range in ms (±jitterMs). */
-      readonly jitterMs: number;
-    }
-    export const DEFAULT_LATENCY_PROFILE: LatencyProfile = {
-      baseMs: 500,
-      msPerKInputTokens: 100,
-      msPerHundredOutputTokens: 50,
-      jitterMs: 200,
-    };
-    export function estimateLatency(
-      usage: TokenUsageInput,
-      profile: LatencyProfile = DEFAULT_LATENCY_PROFILE
-    ): number {
-      const inputLatency = (usage.inputTokens / 1000) * profile.msPerKInputTokens;
-      const outputLatency = (usage.outputTokens / 100) * profile.msPerHundredOutputTokens;
-      return profile.baseMs + inputLatency + outputLatency;
-    }
-    export async function simulateLatency(
-      usage: TokenUsageInput,
-      profile: LatencyProfile = DEFAULT_LATENCY_PROFILE
-    ): Promise<number> {
-      const base = estimateLatency(usage, profile);
-      const jitter = (Math.random() * 2 - 1) * profile.jitterMs;
-      const total = Math.max(0, Math.round(base + jitter));
-      await new Promise<void>((resolve) => setTimeout(resolve, total));
-      return total;
-    }
-  </file>
-  <file path="packages/agent-test-utils/src/mock-claude-client.ts">
-    export type MockMode = "replay" | "deterministic";
-    export interface MockTokenUsage {
-      readonly input_tokens: number;
-      readonly output_tokens: number;
-      readonly cache_creation_input_tokens: number;
-      readonly cache_read_input_tokens: number;
-    }
-    export interface MockClientOptions {
-      /**
-       * Mode of operation.
-       * - "replay": returns messages from `fixtures` in order, cycling back if exhausted
-       * - "deterministic": generates a minimal success result for every call
-       */
-      readonly mode?: MockMode;
-    
-      /**
-       * Pre-recorded message sequences to replay. Each call to `query()` consumes
-       * the next sequence. Sequences cycle once exhausted.
-       */
-      readonly fixtures?: readonly (readonly SDKMessage[])[];
-    
-      /**
-       * When set, inject this error on the Nth call (1-based). Useful for testing
-       * retry and error-handling paths.
-       */
-      readonly errorOnCall?: number;
-    
-      /**
-       * Error to throw when `errorOnCall` is triggered.
-       */
-      readonly errorToInject?: Error;
-    
-      /**
-       * Simulated latency in milliseconds per yielded message. Default: 0.
-       */
-      readonly simulatedLatencyMs?: number;
-    
-      /**
-       * Token counts for deterministic mode. Defaults to 1000 input / 200 output.
-       */
-      readonly deterministicTokens?: Readonly<{ input: number; output: number }>;
-    
-      /**
-       * Cost per call in deterministic mode. Default: 0.01.
-       */
-      readonly deterministicCostUsd?: number;
-    }
-    export interface MockCallRecord {
-      readonly callIndex: number;
-      readonly prompt: string;
-      readonly model: string;
-      readonly timestamp: string;
-    }
-    function buildDeterministicResult(
-      callIndex: number,
-      tokens: Readonly<{ input: number; output: number }>,
-      costUsd: number
-    ): SDKResultMessage {
-      return buildSuccessResult(
-        {
-          sessionId: `mock-session-${callIndex}`,
-          numTurns: 3,
-          costUsd,
-          inputTokens: tokens.input,
-          outputTokens: tokens.output,
-          durationMs: 1000,
-        },
-        `Mock task completed successfully (call ${callIndex})`
-      );
-    }
-    export interface MockClaudeClient {
-      /**
-       * Drop-in replacement for the `query` function from `@anthropic-ai/claude-agent-sdk`.
-       * Returns an async generator that yields SDKMessages.
-       */
-      readonly query: (options: {
-        prompt: string;
-        model?: string;
-        [key: string]: unknown;
-      }) => AsyncGenerator<SDKMessage | SDKResultMessage>;
-    
-      /**
-       * History of all calls made to `query`.
-       */
-      readonly calls: readonly MockCallRecord[];
-    
-      /**
-       * Reset call history and fixture cursor.
-       */
-      readonly reset: () => void;
-    
-      /**
-       * Total simulated cost across all calls.
-       */
-      readonly totalCostUsd: () => number;
-    
-      /**
-       * Total simulated token usage across all calls.
-       */
-      readonly totalTokenUsage: () => Readonly<{ input: number; output: number }>;
-    }
-    export async function* createMockQueryStream(
-      messages: unknown[]
-    ): AsyncGenerator<SDKMessage | SDKResultMessage> {
-      for (const msg of messages) {
-        yield msg as SDKMessage | SDKResultMessage;
-      }
-    }
-    export function createMockClaudeClient(options: MockClientOptions = {}): MockClaudeClient {
-      const {
-        mode = "deterministic",
-        fixtures = [],
-        errorOnCall,
-        errorToInject = new Error("Injected mock error"),
-        simulatedLatencyMs = 0,
-        deterministicTokens = { input: 1000, output: 200 },
-        deterministicCostUsd = 0.01,
-      } = options;
-    
-      let callCount = 0;
-      let fixtureIndex = 0;
-      const callHistory: MockCallRecord[] = [];
-      const costHistory: number[] = [];
-      const tokenHistory: Array<Readonly<{ input: number; output: number }>> = [];
-    
-      async function* query(queryOptions: {
-        prompt: string;
-        model?: string;
-        [key: string]: unknown;
-      }): AsyncGenerator<SDKMessage | SDKResultMessage> {
-        callCount += 1;
-        const currentCall = callCount;
-    
-        callHistory.push({
-          callIndex: currentCall,
-          prompt: queryOptions.prompt,
-          model: queryOptions.model ?? "unknown",
-          timestamp: new Date().toISOString(),
-        });
-    
-        // Inject error if configured
-        if (errorOnCall !== undefined && currentCall === errorOnCall) {
-          throw errorToInject;
-        }
-    
-        if (simulatedLatencyMs > 0) {
-          await new Promise<void>((resolve) => setTimeout(resolve, simulatedLatencyMs));
-        }
-    
-        if (mode === "replay" && fixtures.length > 0) {
-          // Cycle through fixtures
-          const sequence = fixtures[fixtureIndex % fixtures.length];
-          if (!sequence) throw new Error("expected a fixture sequence");
-          fixtureIndex += 1;
-    
-          for (const message of sequence) {
-            if (simulatedLatencyMs > 0) {
-              await new Promise<void>((resolve) => setTimeout(resolve, simulatedLatencyMs));
-            }
-            yield message;
-          }
-    
-          // Track cost from result message if present
-          const resultMsg = sequence.find((m): m is SDKResultMessage => m.type === "result");
-          const cost = (resultMsg as SDKResultMessage | undefined)?.total_cost_usd ?? 0;
-          const inputTokens = (resultMsg as SDKResultMessage | undefined)?.usage?.input_tokens ?? 0;
-          const outputTokens = (resultMsg as SDKResultMessage | undefined)?.usage?.output_tokens ?? 0;
-          costHistory.push(cost);
-          tokenHistory.push({ input: inputTokens, output: outputTokens });
-        } else {
-          // Deterministic mode: yield a single success result
-          const result = buildDeterministicResult(
-            currentCall,
-            deterministicTokens,
-            deterministicCostUsd
-          );
-          costHistory.push(deterministicCostUsd);
-          tokenHistory.push({ input: deterministicTokens.input, output: deterministicTokens.output });
-          yield result;
-        }
-      }
-    
-      function reset(): void {
-        callCount = 0;
-        fixtureIndex = 0;
-        callHistory.length = 0;
-        costHistory.length = 0;
-        tokenHistory.length = 0;
-      }
-    
-      function totalCostUsd(): number {
-        return costHistory.reduce((sum, c) => sum + c, 0);
-      }
-    
-      function totalTokenUsage(): Readonly<{ input: number; output: number }> {
-        return tokenHistory.reduce(
-          (acc, t) => ({ input: acc.input + t.input, output: acc.output + t.output }),
-          { input: 0, output: 0 }
-        );
-      }
-    
-      return {
-        query,
-        get calls(): readonly MockCallRecord[] {
-          return [...callHistory];
-        },
-        reset,
-        totalCostUsd,
-        totalTokenUsage,
-      };
-    }
-  </file>
-  <file path="packages/agent-test-utils/src/sdk-result.ts">
-    export interface ResultInputs {
-      readonly sessionId: string;
-      readonly numTurns: number;
-      readonly costUsd: number;
-      readonly inputTokens: number;
-      readonly outputTokens: number;
-      readonly durationMs: number;
-    }
-    export function fixtureUuid(seed: string): SDKResultMessage["uuid"] {
-      const hex = Buffer.from(seed).toString("hex").padEnd(32, "0").slice(0, 32);
-      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-    }
-    export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] {
-      return {
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 0,
-        cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 0 },
-        inference_geo: "us",
-        iterations: [],
-        server_tool_use: { web_fetch_requests: 0, web_search_requests: 0 },
-        service_tier: "standard",
-        speed: "standard",
-      };
-    }
-    export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage {
-      return {
-        type: "result",
-        subtype: "success",
-        uuid: fixtureUuid(opts.sessionId),
-        session_id: opts.sessionId,
-        duration_ms: opts.durationMs,
-        duration_api_ms: Math.floor(opts.durationMs * 0.9),
-        is_error: false,
-        num_turns: opts.numTurns,
-        result,
-        stop_reason: "end_turn",
-        total_cost_usd: opts.costUsd,
-        usage: buildUsage(opts.inputTokens, opts.outputTokens),
-        modelUsage: {},
-        permission_denials: [],
-      };
-    }
-  </file>
-  <file path="packages/agent-test-utils/src/session-fixtures.ts">
-    export interface ToolCallRecord {
-      readonly toolName: string;
-      readonly input: Record<string, unknown>;
-      readonly output?: string;
-    }
-    export interface FixtureOptions {
-      readonly sessionId?: string;
-      readonly numTurns?: number;
-      readonly costUsd?: number;
-      readonly inputTokens?: number;
-      readonly outputTokens?: number;
-      readonly durationMs?: number;
-      readonly resultText?: string;
-      readonly toolCalls?: readonly ToolCallRecord[];
-    }
-    function makeTimestamp(offsetMs = 0): string {
-      return new Date(Date.now() + offsetMs).toISOString();
-    }
-    function buildStartEvent(sessionId: string): SessionEvent {
-      return {
-        type: "session:start",
-        timestamp: makeTimestamp(),
-        data: { message: `Session ${sessionId} started` },
-      };
-    }
-    function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent {
-      return {
-        type: mapped.type,
-        timestamp: makeTimestamp(offsetMs),
-        data: { message: JSON.stringify(mapped) },
-      };
-    }
-    function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent {
-      return buildMappedEvent({ type: "session:assistant", text }, offsetMs);
-    }
-    function toolUseIdFor(call: ToolCallRecord, index: number): string {
-      return `toolu_${index}_${call.toolName.toLowerCase()}`;
-    }
-    function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent {
-      return buildMappedEvent(
-        {
-          type: "session:tool_use",
-          toolName: call.toolName,
-          toolInput: call.input,
-          toolUseId: toolUseIdFor(call, index),
-        },
-        offsetMs
-      );
-    }
-    function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent {
-      return buildMappedEvent(
-        { type: "session:tool_result", toolUseId: toolUseIdFor(call, index), isError: false },
-        offsetMs
-      );
-    }
-    function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent {
-      return {
-        type: "session:result",
-        timestamp: makeTimestamp(opts.durationMs),
-        data: buildSuccessResult(opts, opts.resultText),
-      };
-    }
-    export function buildMinimalSuccessFixture(opts: FixtureOptions = {}): readonly SessionEvent[] {
-      const o = { ...DEFAULT_OPTS, ...opts };
-      return [
-        buildStartEvent(o.sessionId),
-        buildAssistantEvent("I'll help you with that task."),
-        buildResultEvent(o),
-      ];
-    }
-    export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionEvent[] {
-      const o = {
-        ...DEFAULT_OPTS,
-        numTurns: 8,
-        costUsd: 0.12,
-        inputTokens: 10000,
-        outputTokens: 2500,
-        durationMs: 8000,
-        resultText: "Fixed the bug by updating the validation logic",
-        toolCalls: [
-          {
-            toolName: "Read",
-            input: { file_path: "/repo/src/auth.ts" },
-            output: "export function validate() {...}",
-          },
-          {
-            toolName: "Grep",
-            input: { pattern: "validateToken", path: "/repo/src" },
-            output: "src/auth.ts:12: validateToken",
-          },
-          {
-            toolName: "Edit",
-            input: {
-              file_path: "/repo/src/auth.ts",
-              old_string: "if (token)",
-              new_string: "if (token && token.length > 0)",
-            },
-            output: "File updated",
-          },
-          {
-            toolName: "Bash",
-            input: { command: "cd /repo && pnpm test --filter auth" },
-            output: "All 12 tests passed",
-          },
-        ] as ToolCallRecord[],
-        ...opts,
-      };
-    
-      const events: SessionEvent[] = [buildStartEvent(o.sessionId)];
-      let offset = 500;
-    
-      for (const [index, call] of o.toolCalls.entries()) {
-        events.push(
-          buildAssistantEvent(`Let me ${call.toolName.toLowerCase()} the relevant files.`, offset)
-        );
-        offset += 200;
-        events.push(buildToolUseEvent(call, index, offset));
-        offset += 100;
-        events.push(buildToolResultEvent(call, index, offset));
-        offset += 100;
-      }
-    
-      events.push(buildAssistantEvent("All changes are complete and tests pass.", offset));
-      events.push(buildResultEvent(o));
-    
-      return events;
-    }
-    export function buildFailureFixture(opts: FixtureOptions = {}): readonly SessionEvent[] {
-      const o = {
-        ...DEFAULT_OPTS,
-        numTurns: 2,
-        costUsd: 0.02,
-        inputTokens: 2000,
-        outputTokens: 300,
-        durationMs: 1500,
-        resultText: "",
-        ...opts,
-      };
-    
-      return [
-        buildStartEvent(o.sessionId),
-        buildAssistantEvent("I'll try to complete the task."),
-        {
-          type: "session:error" as SessionEventType,
-          timestamp: makeTimestamp(1000),
-          data: { message: "Rate limit exceeded. Please try again later." },
-        },
-        {
-          type: "session:result",
-          timestamp: makeTimestamp(o.durationMs),
-          data: {
-            type: "result",
-            subtype: "error_during_execution",
-            uuid: fixtureUuid(o.sessionId),
-            session_id: o.sessionId,
-            duration_ms: o.durationMs,
-            duration_api_ms: Math.floor(o.durationMs * 0.9),
-            is_error: true,
-            num_turns: o.numTurns,
-            stop_reason: "error",
-            total_cost_usd: o.costUsd,
-            usage: buildUsage(o.inputTokens, o.outputTokens),
-            modelUsage: {},
-            permission_denials: [],
-            errors: ["Rate limit exceeded. Please try again later."],
-          },
-        },
-      ];
-    }
-    export interface FixturePlayer {
-      /** Returns the next event, or undefined if exhausted. */
-      readonly next: () => SessionEvent | undefined;
-      /** Returns true if there are more events. */
-      readonly hasMore: () => boolean;
-      /** Resets to the beginning of the fixture. */
-      readonly reset: () => void;
-      /** Returns all remaining events at once. */
-      readonly drainAll: () => readonly SessionEvent[];
-      /** Number of events already consumed. */
-      readonly position: () => number;
-    }
-    export function createFixturePlayer(events: readonly SessionEvent[]): FixturePlayer {
-      let cursor = 0;
-    
-      return {
-        next(): SessionEvent | undefined {
-          if (cursor >= events.length) return undefined;
-          const event = events[cursor];
-          cursor += 1;
-          return event;
-        },
-        hasMore(): boolean {
-          return cursor < events.length;
-        },
-        reset(): void {
-          cursor = 0;
-        },
-        drainAll(): readonly SessionEvent[] {
-          const remaining = events.slice(cursor);
-          cursor = events.length;
-          return remaining;
-        },
-        position(): number {
-          return cursor;
-        },
-      };
-    }
-    export interface ToolCallDiff {
-      readonly matched: readonly ToolCallRecord[];
-      readonly missing: readonly ToolCallRecord[];
-      readonly unexpected: readonly ToolCallRecord[];
-      readonly passed: boolean;
-    }
-    export function extractToolCalls(events: readonly SessionEvent[]): readonly ToolCallRecord[] {
-      return events
-        .filter((e) => e.type === "session:tool_use")
-        .map((e) => {
-          const mapped = parseMappedEvent(e);
-          return mapped?.type === "session:tool_use"
-            ? { toolName: mapped.toolName, input: mapped.toolInput }
-            : { toolName: "unknown", input: {} };
-        });
-    }
-    function parseMappedEvent(event: SessionEvent): MappedEvent | undefined {
-      const data = event.data;
-      if (!("message" in data) || typeof data.message !== "string") return undefined;
-      try {
-        return JSON.parse(data.message) as MappedEvent;
-      } catch {
-        return undefined;
-      }
-    }
-    export function compareToolCalls(
-      expected: readonly ToolCallRecord[],
-      actual: readonly ToolCallRecord[]
-    ): ToolCallDiff {
-      const actualNames = actual.map((c) => c.toolName);
-      const expectedNames = expected.map((c) => c.toolName);
-    
-      const matched = expected.filter((e) => actualNames.includes(e.toolName));
-      const missing = expected.filter((e) => !actualNames.includes(e.toolName));
-      const unexpected = actual.filter((a) => !expectedNames.includes(a.toolName));
-    
-      return {
-        matched,
-        missing,
-        unexpected,
-        passed: missing.length === 0 && unexpected.length === 0,
-      };
-    }
-    export function loadFixtureFromFile(filePath: string): readonly SessionEvent[] {
-      const absolutePath = resolve(filePath);
-      const raw = readFileSync(absolutePath, "utf-8");
-      const parsed = JSON.parse(raw) as unknown;
-    
-      if (!Array.isArray(parsed)) {
-        throw new TypeError(`Fixture file must contain a JSON array: ${absolutePath}`);
-      }
-    
-      return parsed as SessionEvent[];
-    }
-    export function serializeFixture(events: readonly SessionEvent[]): string {
-      return JSON.stringify(events, null, 2);
-    }
-  </file>
-  <file path="packages/agent-test-utils/src/worktree-simulator.ts">
-    export type RepoState = "clean" | "dirty" | "conflicted";
-    export interface SimulatedFile {
-      readonly path: string;
-      readonly content: string;
-      readonly status?: "modified" | "added" | "deleted" | "conflicted";
-    }
-    export interface WorktreeSimulatorOptions {
-      readonly repoPath?: string;
-      readonly baseBranch?: string;
-      readonly branchName?: string;
-      readonly state?: RepoState;
-      readonly files?: readonly SimulatedFile[];
-      /** Simulate a failure on createWorktree. */
-      readonly failOnCreate?: boolean;
-      /** Simulate a failure on pushBranch. */
-      readonly failOnPush?: boolean;
-      /** Number of times push should fail before succeeding (for retry testing). */
-      readonly pushFailCount?: number;
-    }
-    export interface VerificationResult {
-      readonly passed: boolean;
-      readonly lintOk: boolean;
-      readonly typecheckOk: boolean;
-      readonly testsOk: boolean;
-    }
-    export const CLEAN_REPO_FILES: readonly SimulatedFile[] = [
-      { path: "src/index.ts", content: 'export const version = "1.0.0";', status: "modified" },
-      { path: "src/utils.ts", content: "export function identity<T>(x: T): T { return x; }" },
-      { path: "package.json", content: '{"name": "test-repo", "version": "1.0.0"}' },
-    ];
-    export const DIRTY_REPO_FILES: readonly SimulatedFile[] = [
-      ...CLEAN_REPO_FILES,
-      { path: "src/new-feature.ts", content: "export function newFeature() {}", status: "added" },
-      { path: "src/old-code.ts", content: "", status: "deleted" },
-    ];
-    export const CONFLICTED_REPO_FILES: readonly SimulatedFile[] = [
-      {
-        path: "src/index.ts",
-        content: [
-          "<<<<<<< HEAD",
-          'export const version = "2.0.0";',
-          "=======",
-          'export const version = "1.5.0";',
-          ">>>>>>> feature-branch",
-        ].join("\n"),
-        status: "conflicted",
-      },
-      { path: "src/utils.ts", content: "export function identity<T>(x: T): T { return x; }" },
-    ];
-    function getDefaultFiles(state: RepoState): readonly SimulatedFile[] {
-      if (state === "dirty") return DIRTY_REPO_FILES;
-      if (state === "conflicted") return CONFLICTED_REPO_FILES;
-      return CLEAN_REPO_FILES;
-    }
-    export interface WorktreeCallRecord {
-      readonly operation: string;
-      readonly args: readonly unknown[];
-      readonly timestamp: string;
-    }
-    export interface WorktreeSimulator {
-      /** Simulates `createWorktree`. Returns a WorktreeInfo or throws if failOnCreate. */
-      readonly createWorktree: (repoPath: string, taskDescription: string) => Promise<WorktreeInfo>;
-      /** Simulates `removeWorktree`. */
-      readonly removeWorktree: (repoPath: string, worktreePath: string) => Promise<void>;
-      /** Simulates `hasChanges`. Returns true for dirty/conflicted repos. */
-      readonly hasChanges: (worktreePath: string) => Promise<boolean>;
-      /** Simulates `commitChanges`. Returns a deterministic commit sha. */
-      readonly commitChanges: (worktreePath: string, message?: string) => Promise<string>;
-      /** Simulates `pushBranch`. May fail based on failOnPush / pushFailCount. */
-      readonly pushBranch: (repoPath: string, branchName: string) => Promise<void>;
-      /** Simulates `runVerification`. Returns passed:true for clean/dirty repos. */
-      readonly runVerification: (worktreePath: string) => Promise<VerificationResult>;
-      /** Returns all recorded operation calls. */
-      readonly calls: () => readonly WorktreeCallRecord[];
-      /** Resets call history and push failure counter. */
-      readonly reset: () => void;
-      /** Returns the current state of simulated files. */
-      readonly files: () => readonly SimulatedFile[];
-      /** Returns the WorktreeInfo for the simulated worktree. */
-      readonly worktreeInfo: () => WorktreeInfo;
-    }
-    export function createWorktreeSimulator(options: WorktreeSimulatorOptions = {}): WorktreeSimulator {
-      const {
-        repoPath = "/mock-repo",
-        branchName = "agent/mock-task-abc123",
-        state = "clean",
-        files = getDefaultFiles(state),
-        failOnCreate = false,
-        failOnPush = false,
-        pushFailCount = 0,
-      } = options;
-    
-      const worktreePath = `${repoPath}/.agent-worktrees/${branchName.replace(/\//g, "-")}`;
-      const callLog: WorktreeCallRecord[] = [];
-      let pushAttempts = 0;
-    
-      function record(operation: string, ...args: unknown[]): void {
-        callLog.push({
-          operation,
-          args: args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))),
-          timestamp: new Date().toISOString(),
-        });
-      }
-    
-      const info: WorktreeInfo = {
-        path: worktreePath,
-        branchName,
-        mode: "full",
-      };
-    
-      return {
-        async createWorktree(rp: string, taskDesc: string): Promise<WorktreeInfo> {
-          record("createWorktree", rp, taskDesc);
-          if (failOnCreate) {
-            throw new Error("git worktree add failed: no space left on device");
-          }
-          return info;
-        },
-    
-        async removeWorktree(rp: string, wp: string): Promise<void> {
-          record("removeWorktree", rp, wp);
-        },
-    
-        async hasChanges(wp: string): Promise<boolean> {
-          record("hasChanges", wp);
-          return state !== "clean";
-        },
-    
-        async commitChanges(wp: string, message?: string): Promise<string> {
-          record("commitChanges", wp, message ?? "chore: agent changes");
-          return "abc1234def5678";
-        },
-    
-        async pushBranch(rp: string, bn: string): Promise<void> {
-          record("pushBranch", rp, bn);
-          pushAttempts += 1;
-    
-          if (failOnPush && pushAttempts <= pushFailCount) {
-            throw new Error(`push failed (attempt ${pushAttempts}/${pushFailCount}): connection reset`);
-          }
-        },
-    
-        async runVerification(wp: string): Promise<VerificationResult> {
-          record("runVerification", wp);
-          const hasConflicts = state === "conflicted";
-          return {
-            passed: !hasConflicts,
-            lintOk: !hasConflicts,
-            typecheckOk: !hasConflicts,
-            testsOk: !hasConflicts,
-          };
-        },
-    
-        calls(): readonly WorktreeCallRecord[] {
-          return [...callLog];
-        },
-    
-        reset(): void {
-          callLog.length = 0;
-          pushAttempts = 0;
-        },
-    
-        files(): readonly SimulatedFile[] {
-          return files;
-        },
-    
-        worktreeInfo(): WorktreeInfo {
-          return info;
-        },
-      };
-    }
-    export function createWorktreeMocks(
-      simulator: WorktreeSimulator = createWorktreeSimulator()
-    ): Record<string, (...args: unknown[]) => unknown> {
-      return {
-        createWorktree: (...args: unknown[]) =>
-          simulator.createWorktree(args[0] as string, args[1] as string),
-        removeWorktree: (...args: unknown[]) =>
-          simulator.removeWorktree(args[0] as string, args[1] as string),
-        hasChanges: (...args: unknown[]) => simulator.hasChanges(args[0] as string),
-        commitChanges: (...args: unknown[]) =>
-          simulator.commitChanges(args[0] as string, args[1] as string | undefined),
-        pushBranch: (...args: unknown[]) => simulator.pushBranch(args[0] as string, args[1] as string),
-        runVerification: (...args: unknown[]) => simulator.runVerification(args[0] as string),
-      };
-    }
-    export function assertOperationCalled(simulator: WorktreeSimulator, operation: string): void {
-      const found = simulator.calls().some((c) => c.operation === operation);
-      if (!found) {
-        throw new Error(
-          `Expected worktree operation "${operation}" to have been called, but it was not.\n` +
-            `Actual calls: ${
-              simulator
-                .calls()
-                .map((c) => c.operation)
-                .join(", ") || "(none)"
-            }`
-        );
-      }
-    }
-    export function assertOperationNotCalled(simulator: WorktreeSimulator, operation: string): void {
-      const found = simulator.calls().some((c) => c.operation === operation);
-      if (found) {
-        throw new Error(
-          `Expected worktree operation "${operation}" NOT to have been called, but it was.`
-        );
-      }
-    }
-  </file>
   <file path="packages/api-client/src/agent-sessions.ts">
     export interface SessionSummary {
       readonly id: string;
@@ -56766,147 +55776,6 @@
         await this.worker.close();
         await this.redis.quit();
       }
-    }
-  </file>
-  <file path="packages/mcp-server/src/command-builder.ts">
-    function assertNoTraversal(value: string, label: string): void {
-      if (TRAVERSAL_PATTERN.test(value)) {
-        throw new Error(`Invalid ${label}: must not contain a path-traversal sequence ("..")`);
-      }
-    }
-    export function psqlQuery(
-      dbUrl: string,
-      sql: string,
-      run: (cmd: string, args: string[]) => string = defaultPsqlRun
-    ): string {
-      assertNoTraversal(dbUrl, "database URL");
-      assertNoTraversal(sql, "SQL statement");
-      return run("psql", [dbUrl, "-t", "-c", sql]);
-    }
-    export function ghJson(
-      args: string[],
-      run: (cmd: string, args: string[]) => string = defaultGhRun
-    ): string {
-      return run("gh", args);
-    }
-    export function doctlJson(
-      args: string[],
-      run: (cmd: string, args: string[]) => string = defaultDoctlRun
-    ): string {
-      return run("doctl", args);
-    }
-    export function pulumiJson(
-      args: string[],
-      run: (cmd: string, args: string[]) => string = defaultPulumiRun
-    ): string {
-      return run("pulumi", args);
-    }
-  </file>
-  <file path="packages/mcp-server/src/dispatcher.ts">
-    type McpContent = { type: "text"; text: string };
-    type McpResult = {
-      content: McpContent[];
-      isError?: boolean;
-    };
-    export type ToolDefinition<TSchema extends z.ZodTypeAny = z.ZodTypeAny> = {
-      name: string;
-      description: string;
-      inputSchema: TSchema;
-      handler: (args: z.infer<TSchema>) => Promise<string>;
-    };
-    export function defineTool<TSchema extends z.ZodTypeAny>(
-      def: ToolDefinition<TSchema>
-    ): ToolDefinition<TSchema> {
-      return def;
-    }
-    type JsonSchemaObject = {
-      type: "object";
-      properties?: Record<string, unknown>;
-      required?: string[];
-      [key: string]: unknown;
-    };
-    export function listTools(tools: ToolDefinition[]): Array<{
-      name: string;
-      description: string;
-      inputSchema: JsonSchemaObject;
-    }> {
-      return tools.map((t) => {
-        const raw = z.toJSONSchema(t.inputSchema) as JsonSchemaObject;
-        // MCP spec requires type: 'object' at root; strip the $schema sentinel
-        const { $schema: _, ...rest } = raw as { $schema?: string } & JsonSchemaObject;
-        return {
-          name: t.name,
-          description: t.description,
-          inputSchema: rest as JsonSchemaObject,
-        };
-      });
-    }
-    function errorEnvelope(message: string): McpResult {
-      return {
-        content: [{ type: "text", text: `Error: ${message}` }],
-        isError: true,
-      };
-    }
-    export async function callTool(
-      tools: ToolDefinition[],
-      name: string,
-      args: unknown
-    ): Promise<McpResult> {
-      const tool = tools.find((t) => t.name === name);
-    
-      if (!tool) {
-        return errorEnvelope(`Tool not found: ${name}`);
-      }
-    
-      const parsed = tool.inputSchema.safeParse(args);
-      if (!parsed.success) {
-        return errorEnvelope(`Validation invalid: ${parsed.error.message}`);
-      }
-    
-      try {
-        const text = await tool.handler(parsed.data);
-        return { content: [{ type: "text", text }] };
-      } catch (error) {
-        return errorEnvelope(error instanceof Error ? error.message : String(error));
-      }
-    }
-  </file>
-  <file path="packages/mcp-server/src/index.ts">
-    async function main() {
-      const transport = new StdioServerTransport();
-      await server.connect(transport);
-      console.error("MBE Infra MCP Server running on stdio");
-    }
-  </file>
-  <file path="packages/mcp-server/src/shell-runner.ts">
-    export type ShellRunner = (
-      cmd: string,
-      args: string[],
-      opts: { encoding: "utf-8"; timeout: number }
-    ) => string;
-    export interface ShellRunnerOptions {
-      /** Injected runner — defaults to node's execFileSync. */
-      runner?: ShellRunner;
-      /** Timeout in milliseconds. Defaults to 15 000. */
-      timeoutMs?: number;
-      /** Label used in the error envelope's `error` field. Defaults to "Command failed". */
-      errorLabel?: string;
-    }
-    export function createShellRunner(opts: ShellRunnerOptions = {}) {
-      const runner = opts.runner ?? (execFileSync as unknown as ShellRunner);
-      const timeout = opts.timeoutMs ?? 15_000;
-      const errorLabel = opts.errorLabel ?? "Command failed";
-    
-      return function run(cmd: string, args: string[] = []): string {
-        try {
-          return (runner(cmd, args, { encoding: "utf-8", timeout }) as string).trim();
-        } catch (error) {
-          return JSON.stringify({
-            error: errorLabel,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      };
     }
   </file>
   <file path="packages/notifications/src/booking-email-content.ts">
@@ -63824,6 +62693,267 @@
     export const ADMIN_JWT_PAYLOAD = createMockJWTPayload({ permissions: ["admin"] });
   </file>
   </section>
+  <section priority="medium" role="testing">
+  <file path="packages/agent-core/src/testing/cost-estimator.ts">
+    export interface ModelPricing {
+      readonly model: string;
+      /** Cost per 1M input tokens in USD */
+      readonly inputCostPer1MTokens: number;
+      /** Cost per 1M output tokens in USD */
+      readonly outputCostPer1MTokens: number;
+      /** Cost per 1M cache-write tokens in USD */
+      readonly cacheWritePer1MTokens?: number;
+      /** Cost per 1M cache-read tokens in USD */
+      readonly cacheReadPer1MTokens?: number;
+    }
+    export const MODEL_PRICING: Record<string, ModelPricing> = {
+      "claude-sonnet-4-6": {
+        model: "claude-sonnet-4-6",
+        inputCostPer1MTokens: 3.0,
+        outputCostPer1MTokens: 15.0,
+        cacheWritePer1MTokens: 3.75,
+        cacheReadPer1MTokens: 0.3,
+      },
+      "claude-sonnet-5": {
+        model: "claude-sonnet-5",
+        inputCostPer1MTokens: 3.0,
+        outputCostPer1MTokens: 15.0,
+        cacheWritePer1MTokens: 3.75,
+        cacheReadPer1MTokens: 0.3,
+      },
+      "claude-haiku-4-5": {
+        model: "claude-haiku-4-5",
+        inputCostPer1MTokens: 0.8,
+        outputCostPer1MTokens: 4.0,
+        cacheWritePer1MTokens: 1.0,
+        cacheReadPer1MTokens: 0.08,
+      },
+      "claude-opus-4-8": {
+        model: "claude-opus-4-8",
+        inputCostPer1MTokens: 5.0,
+        outputCostPer1MTokens: 25.0,
+        cacheWritePer1MTokens: 6.25,
+        cacheReadPer1MTokens: 0.5,
+      },
+    } as const;
+    export interface TokenUsageInput {
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+      readonly cacheWriteTokens?: number;
+      readonly cacheReadTokens?: number;
+    }
+    export interface CostBreakdown {
+      readonly model: string;
+      readonly inputCostUsd: number;
+      readonly outputCostUsd: number;
+      readonly cacheWriteCostUsd: number;
+      readonly cacheReadCostUsd: number;
+      readonly totalCostUsd: number;
+    }
+    export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown {
+      const pricing = MODEL_PRICING[model] ?? MODEL_PRICING[DEFAULT_MODEL];
+      if (!pricing) throw new Error(`No pricing found for model "${model}" or default model`);
+    
+      const inputCostUsd = (usage.inputTokens / 1_000_000) * pricing.inputCostPer1MTokens;
+      const outputCostUsd = (usage.outputTokens / 1_000_000) * pricing.outputCostPer1MTokens;
+      const cacheWriteCostUsd =
+        usage.cacheWriteTokens !== undefined && pricing.cacheWritePer1MTokens !== undefined
+          ? (usage.cacheWriteTokens / 1_000_000) * pricing.cacheWritePer1MTokens
+          : 0;
+      const cacheReadCostUsd =
+        usage.cacheReadTokens !== undefined && pricing.cacheReadPer1MTokens !== undefined
+          ? (usage.cacheReadTokens / 1_000_000) * pricing.cacheReadPer1MTokens
+          : 0;
+    
+      const totalCostUsd = inputCostUsd + outputCostUsd + cacheWriteCostUsd + cacheReadCostUsd;
+    
+      return {
+        model: pricing.model,
+        inputCostUsd,
+        outputCostUsd,
+        cacheWriteCostUsd,
+        cacheReadCostUsd,
+        totalCostUsd,
+      };
+    }
+  </file>
+  <file path="packages/agent-core/src/testing/mock-query-stream.ts">
+    export async function* createMockQueryStream(
+      messages: unknown[]
+    ): AsyncGenerator<SDKMessage | SDKResultMessage> {
+      for (const msg of messages) {
+        yield msg as SDKMessage | SDKResultMessage;
+      }
+    }
+  </file>
+  <file path="packages/agent-core/src/testing/sdk-result.ts">
+    export interface ResultInputs {
+      readonly sessionId: string;
+      readonly numTurns: number;
+      readonly costUsd: number;
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+      readonly durationMs: number;
+    }
+    export function fixtureUuid(seed: string): SDKResultMessage["uuid"] {
+      const hex = Buffer.from(seed).toString("hex").padEnd(32, "0").slice(0, 32);
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+    export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] {
+      return {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 0 },
+        inference_geo: "us",
+        iterations: [],
+        server_tool_use: { web_fetch_requests: 0, web_search_requests: 0 },
+        service_tier: "standard",
+        speed: "standard",
+      };
+    }
+    export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage {
+      return {
+        type: "result",
+        subtype: "success",
+        uuid: fixtureUuid(opts.sessionId),
+        session_id: opts.sessionId,
+        duration_ms: opts.durationMs,
+        duration_api_ms: Math.floor(opts.durationMs * 0.9),
+        is_error: false,
+        num_turns: opts.numTurns,
+        result,
+        stop_reason: "end_turn",
+        total_cost_usd: opts.costUsd,
+        usage: buildUsage(opts.inputTokens, opts.outputTokens),
+        modelUsage: {},
+        permission_denials: [],
+      };
+    }
+  </file>
+  <file path="packages/agent-core/src/testing/session-fixtures.ts">
+    export interface ToolCallRecord {
+      readonly toolName: string;
+      readonly input: Record<string, unknown>;
+      readonly output?: string;
+    }
+    export interface FixtureOptions {
+      readonly sessionId?: string;
+      readonly numTurns?: number;
+      readonly costUsd?: number;
+      readonly inputTokens?: number;
+      readonly outputTokens?: number;
+      readonly durationMs?: number;
+      readonly resultText?: string;
+      readonly toolCalls?: readonly ToolCallRecord[];
+    }
+    function makeTimestamp(offsetMs = 0): string {
+      return new Date(Date.now() + offsetMs).toISOString();
+    }
+    function buildStartEvent(sessionId: string): SessionEvent {
+      return {
+        type: "session:start",
+        timestamp: makeTimestamp(),
+        data: { message: `Session ${sessionId} started` },
+      };
+    }
+    function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent {
+      return {
+        type: mapped.type,
+        timestamp: makeTimestamp(offsetMs),
+        data: { message: JSON.stringify(mapped) },
+      };
+    }
+    function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent {
+      return buildMappedEvent({ type: "session:assistant", text }, offsetMs);
+    }
+    function toolUseIdFor(call: ToolCallRecord, index: number): string {
+      return `toolu_${index}_${call.toolName.toLowerCase()}`;
+    }
+    function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent {
+      return buildMappedEvent(
+        {
+          type: "session:tool_use",
+          toolName: call.toolName,
+          toolInput: call.input,
+          toolUseId: toolUseIdFor(call, index),
+        },
+        offsetMs
+      );
+    }
+    function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent {
+      return buildMappedEvent(
+        { type: "session:tool_result", toolUseId: toolUseIdFor(call, index), isError: false },
+        offsetMs
+      );
+    }
+    function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent {
+      return {
+        type: "session:result",
+        timestamp: makeTimestamp(opts.durationMs),
+        data: buildSuccessResult(opts, opts.resultText),
+      };
+    }
+    export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionEvent[] {
+      const o = {
+        ...DEFAULT_OPTS,
+        numTurns: 8,
+        costUsd: 0.12,
+        inputTokens: 10000,
+        outputTokens: 2500,
+        durationMs: 8000,
+        resultText: "Fixed the bug by updating the validation logic",
+        toolCalls: [
+          {
+            toolName: "Read",
+            input: { file_path: "/repo/src/auth.ts" },
+            output: "export function validate() {...}",
+          },
+          {
+            toolName: "Grep",
+            input: { pattern: "validateToken", path: "/repo/src" },
+            output: "src/auth.ts:12: validateToken",
+          },
+          {
+            toolName: "Edit",
+            input: {
+              file_path: "/repo/src/auth.ts",
+              old_string: "if (token)",
+              new_string: "if (token && token.length > 0)",
+            },
+            output: "File updated",
+          },
+          {
+            toolName: "Bash",
+            input: { command: "cd /repo && pnpm test --filter auth" },
+            output: "All 12 tests passed",
+          },
+        ] as ToolCallRecord[],
+        ...opts,
+      };
+    
+      const events: SessionEvent[] = [buildStartEvent(o.sessionId)];
+      let offset = 500;
+    
+      for (const [index, call] of o.toolCalls.entries()) {
+        events.push(
+          buildAssistantEvent(`Let me ${call.toolName.toLowerCase()} the relevant files.`, offset)
+        );
+        offset += 200;
+        events.push(buildToolUseEvent(call, index, offset));
+        offset += 100;
+        events.push(buildToolResultEvent(call, index, offset));
+        offset += 100;
+      }
+    
+      events.push(buildAssistantEvent("All changes are complete and tests pass.", offset));
+      events.push(buildResultEvent(o));
+    
+      return events;
+    }
+  </file>
+  </section>
   <section priority="medium" role="timeline">
   <file path="apps/hospitality/src/components/timeline/reservationLayout.ts">
     export interface ReservationLayoutParams {
@@ -64699,201 +63829,6 @@
     export const reduced = {
       duration: 0,
     };
-  </file>
-  </section>
-  <section priority="medium" role="tools">
-  <file path="packages/mcp-server/src/tools/ci.ts">
-    export async function ciRunStatus(run = ghJson): Promise<string> {
-      const output = run([
-        "run",
-        "list",
-        "--limit",
-        "10",
-        "--json",
-        "name,status,conclusion,workflowName",
-      ]);
-      try {
-        const parsed = JSON.parse(output) as unknown;
-        if (Array.isArray(parsed)) {
-          return JSON.stringify(parsed, null, 2);
-        }
-        return output;
-      } catch {
-        return output;
-      }
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/database.ts">
-    export async function dbListTables(run = psqlQuery): Promise<string> {
-      const dbUrl = process.env.DATABASE_URL;
-      if (!dbUrl) {
-        return JSON.stringify({ error: "DATABASE_URL not set" });
-      }
-      const output = run(
-        dbUrl,
-        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
-      );
-      try {
-        const asJson = JSON.parse(output) as { error?: string };
-        if (asJson.error !== undefined) {
-          return output;
-        }
-      } catch {
-        // not JSON — treat as psql text output
-      }
-      const tables = output.trim().split("\n").filter(Boolean);
-      return JSON.stringify({ tables }, null, 2);
-    }
-    export async function dbMigrationStatus(run = psqlQuery): Promise<string> {
-      const dbUrl = process.env.DATABASE_URL;
-      if (!dbUrl) {
-        return JSON.stringify({ error: "DATABASE_URL not set" });
-      }
-      const output = run(
-        dbUrl,
-        "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"
-      );
-      try {
-        const asJson = JSON.parse(output) as { error?: string };
-        if (asJson.error !== undefined) {
-          return output;
-        }
-      } catch {
-        // not JSON — treat as psql text output
-      }
-      const migrations = output
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => line.trim());
-      return JSON.stringify({ migrations }, null, 2);
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/deploy_status.ts">
-    export async function deployStatus(run: (args: string[]) => string = doctlJson): Promise<string> {
-      const output = run([
-        "apps",
-        "list",
-        "--format",
-        "ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase",
-        "--no-header",
-      ]);
-      try {
-        const asJson = JSON.parse(output) as { error?: string };
-        if (asJson.error !== undefined) {
-          return output;
-        }
-      } catch {
-        // not JSON — treat as doctl tabular output
-      }
-      const lines = output.trim().split("\n").filter(Boolean);
-      const apps = lines.map((line) => {
-        const parts = line.trim().split(/\s{2,}/);
-        return {
-          id: parts[0],
-          name: parts[1],
-          activePhase: parts[2] ?? "unknown",
-          inProgressPhase: parts[3] ?? "none",
-        };
-      });
-      return JSON.stringify({ apps }, null, 2);
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/git.ts">
-    function isErrorEnvelope(output: string): boolean {
-      try {
-        const parsed = JSON.parse(output) as { error?: unknown };
-        return parsed.error !== undefined;
-      } catch {
-        return false;
-      }
-    }
-    export async function gitWorkflowStatus(run = defaultRun): Promise<string> {
-      const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
-      if (isErrorEnvelope(branch)) {
-        return branch;
-      }
-    
-      const status = run("git", ["status", "--porcelain"]);
-      if (isErrorEnvelope(status)) {
-        return status;
-      }
-    
-      const commits = run("git", ["log", "--oneline", "-5"]);
-      if (isErrorEnvelope(commits)) {
-        return commits;
-      }
-    
-      let ciStatus = "unknown";
-      const ciOutput = run("gh", [
-        "run",
-        "list",
-        "--branch",
-        "main",
-        "--limit",
-        "1",
-        "--json",
-        "conclusion",
-      ]);
-      if (!isErrorEnvelope(ciOutput)) {
-        try {
-          const result = JSON.parse(ciOutput) as Array<{ conclusion?: string }>;
-          ciStatus = result[0]?.conclusion ?? "unknown";
-        } catch {
-          // malformed output — ciStatus remains "unknown"
-        }
-      }
-    
-      return JSON.stringify(
-        {
-          currentBranch: branch,
-          hasUncommittedChanges: status.length > 0,
-          pendingChanges: status.split("\n").filter(Boolean),
-          recentCommits: commits.split("\n"),
-          mainBranchCI: ciStatus,
-        },
-        null,
-        2
-      );
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/health.ts">
-    export async function serviceHealthCheck(): Promise<string> {
-      const results = await Promise.allSettled(
-        SERVICES.map(async (svc) => {
-          const start = Date.now();
-          try {
-            const res = await fetch(svc.url, { method: "GET" });
-            const latency = Date.now() - start;
-            return {
-              service: svc.name,
-              status: res.ok ? "healthy" : "unhealthy",
-              statusCode: res.status,
-              latencyMs: latency,
-            };
-          } catch {
-            return {
-              service: svc.name,
-              status: "unreachable",
-              statusCode: null,
-              latencyMs: null,
-            };
-          }
-        })
-      );
-    
-      const output = results.map((r) => (r.status === "fulfilled" ? r.value : r.reason));
-      return JSON.stringify(output, null, 2);
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/pulumi.ts">
-    export const PULUMI_PROJECT_DIR = resolve(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../../../infrastructure/pulumi"
-    );
-    export async function pulumiStackOutputs(run = pulumiJson): Promise<string> {
-      return run(["-C", PULUMI_PROJECT_DIR, "stack", "output", "--json", "--stack", "prod"]);
-    }
   </file>
   </section>
   <section priority="medium" role="transitions">

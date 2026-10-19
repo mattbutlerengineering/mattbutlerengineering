@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildBugFixFixture } from "@mbe/agent-test-utils";
+import { buildBugFixFixture } from "@mbe/agent-core/testing";
 import { mapForStorage, projectEvent } from "./storage-event-mapper.js";
 import type {
   ToolUseEvent,

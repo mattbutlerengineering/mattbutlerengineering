@@ -56,7 +56,6 @@ mattbutlerengineering/
 │   └── users/                # User management API
 ├── packages/                 # Shared libraries
 │   ├── agent-core/           # Agent session runner and worktree management
-│   ├── agent-test-utils/     # Test helpers for agent sessions
 │   ├── api-client/           # Typed fetch client for frontend apps
 │   ├── auth/                 # Auth utilities (React hooks + Fastify plugin)
 │   ├── cancellation-policy/  # Pure cancellation-fee decision engine
@@ -64,7 +63,6 @@ mattbutlerengineering/
 │   ├── database/             # Prisma connection-pool wrapper
 │   ├── gh-client/            # Typed GitHub wrapper (exec timeouts, REST fallback)
 │   ├── jobs/                 # BullMQ background jobs over Redis
-│   ├── mcp-server/           # Infrastructure MCP server for Claude Code
 │   ├── notifications/        # Email/SMS notification adapters
 │   ├── observability/        # OpenTelemetry SDK wrapper
 │   ├── rialto/               # Rialto design system (component library)

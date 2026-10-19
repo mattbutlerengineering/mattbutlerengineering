@@ -5,7 +5,7 @@ tracking #6666), quoted verbatim into the conductor Worker's objective. This
 brief is not a pipeline artifact — it never counts toward orientation or
 active-run discovery.
 
-stop-after: decompose
+<!-- stop-after: decompose — lifted 2026-10-18, see § Resume 2026-10-18 -->
 
 ## Request
 
@@ -86,3 +86,63 @@ Feature run. Slug: `ci-test-matrix-split`. Artifacts at
   auto-close it.
 - Release authorization: **withheld**. Moot before ship — this run stops at
   the blueprint gate (`stop-after: decompose` above).
+
+## Resume 2026-10-18 — shipped by the Conductor; re-Verify + Review + Ship record
+
+The Owner re-invoked autorun on this run on 2026-10-18 and answered two gap
+questions live (not assumptions):
+
+1. **Shape:** "Re-Verify + Review + Ship." The `stop-after: decompose` line
+   above is lifted. The 2026-10-14 `verification.md` graded the PR branch;
+   Verify is redone against `main` as it is now.
+2. **Operate:** see `operate:` below.
+
+Facts measured at resume, not assumptions:
+
+- Shipped: **#6684** `3c0263c6e` ("ci: shard Test job into balanced matrix
+  legs with a coverage join gate"), merged 2026-10-15T11:15:13Z. Blueprint
+  #6673 `ff1bd4c70`. `breakdown.md` 5/5 checked.
+- Later `ci.yml` changes on `main`: #6720 `650f19217` (start Test after
+  Prepare by building the ^build closure in prepare), #6855 `4b68906af`
+  (cursorrules drift on docs-only PRs), #6888 `f1f6f7ecf` (knip in lint).
+- Baseline: main run 38650413196, single `Test (Node 22)` job, 14m49s.
+- Remaining stages run in `.claude/worktrees/ci-matrix-close`, branch
+  `docs/ci-test-matrix-close`, cut from `origin/main`.
+
+What each stage does:
+
+- **Verify** rewrites `verification.md` grading every success criterion
+  against `main` now, from real CI runs (read-only `gh`): the last ~10
+  completed `ci.yml` runs on `main` plus recent PR runs — each Test leg's
+  wall-clock vs the 14m49s baseline, every leg's conclusion, the coverage
+  join gate's presence in `CI Gate`'s `needs` (read `ci.yml`), and
+  coverage upload still covering every package. Cite run IDs and job
+  conclusions. Never dispatch workflows, re-run jobs, or push cache-busting
+  commits.
+- **Review** reviews #6684 as merged plus the later `ci.yml` changes that
+  touch the Test/coverage jobs. A major finding stays open for the Owner.
+- **Ship** records the release that already happened (`outcome:
+released`): evidence is the first real `ci.yml` runs on `3c0263c6e`-or-later
+  using the legs. No new release action. A critical finding is a live
+  defect, reported.
+- The orchestrator opens the docs PR and leaves it for the Owner.
+
+## Operate
+
+operate:
+minimum-signal: >-
+At least 20 main/PR ci.yml runs after #6684 merged, measuring p50/p90
+wall-clock of the slowest Test leg against the 14m49s single-job
+baseline, plus a count of red runs caused by a leg (flake, imbalance,
+coverage-join failure). users-observed counts honestly; 0 is valid.
+
+## Review decision 2026-10-18 (Owner, live — not assumptions)
+
+`review.md` (`5b6bd1b3d`): no critical, one major, three minors deferred. The
+Owner answered the major — `report-health` (`ci.yml:980`) does not need
+`test-coverage-gate`, so a coverage failure on `main` leaves
+`GET /health/system` reporting healthy — **"Fix now."** A separate fix PR,
+outside this run's Ship, adds `test-coverage-gate` to `report-health`'s
+`needs` and result loop and pins the edge in `ci-test-shards.test.mjs`, RED
+first; the Owner merges. Ship records the major as open (latent, not live)
+with that fix pending.

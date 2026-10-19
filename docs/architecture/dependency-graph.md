@@ -20,7 +20,6 @@ flowchart TD
   end
   subgraph packages["Shared Packages"]
     agent_core["agent-core"]
-    agent_test_utils["agent-test-utils"]
     api_client["api-client"]
     auth["auth"]
     cancellation_policy["cancellation-policy"]
@@ -28,7 +27,6 @@ flowchart TD
     database["database"]
     gh_client["gh-client"]
     jobs["jobs"]
-    mcp_server["mcp-server"]
     notifications["notifications"]
     observability["observability"]
     rialto["rialto"]
@@ -82,7 +80,6 @@ flowchart TD
   agent_service --> sentry
   agent_service --> service_bootstrap
   agent_service --> types
-  agent_service --> agent_test_utils
   agent_service --> config
   reservations_service --> auth
   reservations_service --> cancellation_policy
@@ -103,9 +100,7 @@ flowchart TD
   users_service --> config
   agent_core --> api_client
   agent_core --> types
-  agent_core --> agent_test_utils
   agent_core --> config
-  agent_test_utils --> config
   api_client --> types
   api_client --> config
   auth --> types
@@ -114,7 +109,6 @@ flowchart TD
   database --> config
   gh_client --> config
   jobs --> config
-  mcp_server --> config
   notifications --> api_client
   notifications --> types
   notifications --> config
@@ -163,7 +157,6 @@ flowchart TD
   class reservations_service backend
   class users_service backend
   class agent_core shared
-  class agent_test_utils shared
   class api_client shared
   class auth shared
   class cancellation_policy shared
@@ -171,7 +164,6 @@ flowchart TD
   class database shared
   class gh_client shared
   class jobs shared
-  class mcp_server entrypoint
   class notifications shared
   class observability shared
   class rialto shared

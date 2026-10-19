@@ -41,11 +41,6 @@
       "path": "packages/agent-core"
     },
     {
-      "name": "@mbe/agent-test-utils",
-      "type": "package",
-      "path": "packages/agent-test-utils"
-    },
-    {
       "name": "@mbe/api-client",
       "type": "package",
       "path": "packages/api-client"
@@ -79,12 +74,6 @@
       "name": "@mbe/jobs",
       "type": "package",
       "path": "packages/jobs"
-    },
-    {
-      "name": "@mbe/mcp-server",
-      "type": "package",
-      "path": "packages/mcp-server",
-      "entrypoint": true
     },
     {
       "name": "@mbe/notifications",
@@ -347,11 +336,6 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/agent-test-utils",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/agent-service",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -452,16 +436,6 @@
     },
     {
       "from": "@mbe/agent-core",
-      "to": "@mbe/agent-test-utils",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/agent-core",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/agent-test-utils",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -502,11 +476,6 @@
     },
     {
       "from": "@mbe/jobs",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/mcp-server",
       "to": "@mbe/config",
       "type": "devDependency"
     },
