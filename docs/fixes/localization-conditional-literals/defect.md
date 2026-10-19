@@ -272,7 +272,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
   - Add a rialto **patch** changeset in `.changeset/*.md`.
   - `pnpm check:i18n-catalogs` is green.
   - The rialto `size-limit` is green, with each `Locale <tag> (subpath)` entry at
-    or under 1.5 kB. fr-CA had about 140 B of headroom at review time. **If any
+    or under 2.2 kB (raised from 1.5 kB by the Owner, see Notes). **If any
     locale bundle exceeds its limit, stop and surface it to the Owner. Do not
     raise the limit unasked.**
   - Run the `local-ci-precheck` steps, `pnpm lint`, `pnpm typecheck`, and the
@@ -322,3 +322,13 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
   Combobox) to the locale modules, then reverted them, measured es-MX 1.9 kB
   and fr-CA 2 kB. Per the brief, Implement stopped here instead of raising the
   limit: the remaining items wait on the Owner's decision on the budget.
+
+- **Size-limit raised to 2.2 kB (Implement, 2026-10-18, Owner's live answer
+  "Raise to 2.2 kB", autorun-brief.md § Implement decision).** All three
+  `Locale <tag> (subpath)` entries in `packages/rialto/package.json` moved from
+  1.5 kB to 2.2 kB. Reason: TapeChart's default strings moved into the locale
+  dictionaries (about 0.5 kB brotli per translated locale), and each locale
+  module is a lazily loaded subpath, so the cost lands only on consumers that
+  import that locale. Re-measured right after the change (before items 6-10):
+  en-GB 116 B, es-MX 1.8 kB, fr-CA 1.91 kB, all under 2.2 kB. A further overrun
+  past 2.2 kB is a new stop-and-surface.
