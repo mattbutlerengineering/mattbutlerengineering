@@ -3,7 +3,7 @@ stage: ship
 run: feature:zone-batch-nonstrict-main
 date: 2026-10-18
 outcome: prepared
-pending-merge: PENDING_PR_URL
+pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7110
 assumptions:
   - "Two releases are in play. The feature itself (#6678 `d1047723e`, merged 2026-10-15T05:37:59Z, with ADR-027 via #6661 `14c71bc53`) already reached users, so that part is released and needs no release action here. WO-30 (`39204320e`, Review's Major) is new code on this branch and has not merged. The outcome is therefore `prepared`, not the `released` the brief's Resume section expected; it becomes `released` when this PR merges."
   - "Release authorization: the brief grants none for merge or deploy, but its Resume section says the orchestrator opens the PR and leaves it for the Owner. Push plus PR is taken as authorized; merge, auto-merge and deploy are not done."
@@ -100,8 +100,8 @@ ADR-027 then needs a status line saying it was reverted.
 
 1. Pre-flight above → all green.
 2. Commit `docs(zone-batch-nonstrict-main): ship — prepared` → this file.
-3. `git push -u origin docs/zone-batch-close` → PUSH_RESULT
-4. PR opened to `main` → PENDING_PR_URL. Not merged, auto-merge not
+3. `git push -u origin docs/zone-batch-close` → new branch, remote SHA `e191ed4e6` == local (`git ls-remote`).
+4. PR opened to `main` → https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7110. Not merged, auto-merge not
    enabled, nothing deployed.
 
 ## Post-release checks
