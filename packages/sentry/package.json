@@ -40,8 +40,8 @@
     }
   },
   "dependencies": {
-    "@sentry/node": "^11.6.0",
-    "@sentry/react": "^11.6.0",
+    "@sentry/node": "^11.8.0",
+    "@sentry/react": "^11.8.0",
     "fastify-plugin": "^6.0.1"
   },
   "devDependencies": {

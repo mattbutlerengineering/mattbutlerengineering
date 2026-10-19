@@ -28,9 +28,9 @@
     "@mbe/sentry": "workspace:*",
     "@mbe/service-bootstrap": "workspace:*",
     "@mbe/types": "workspace:*",
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
-    "@prisma/client-runtime-utils": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "@prisma/client-runtime-utils": "^7.10.1",
     "fastify": "catalog:",
     "jose": "^6.2.12",
     "pg": "^8.23.1"
@@ -43,7 +43,7 @@
     "@types/node": "catalog:",
     "@types/pg": "^8.23.1",
     "@vitest/coverage-v8": "catalog:",
-    "prisma": "^7.10.0",
+    "prisma": "^7.10.1",
     "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"

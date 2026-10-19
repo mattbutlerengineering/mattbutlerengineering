@@ -23,9 +23,9 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.72",
+    "@ai-sdk/anthropic": "^4.0.81",
     "@fastify/rate-limit": "^11.2.1",
-    "@json-render/core": "^0.21.0",
+    "@json-render/core": "^0.21.1",
     "@mbe/agent-core": "workspace:*",
     "@mbe/api-client": "workspace:^",
     "@mbe/auth": "workspace:^",
@@ -34,10 +34,10 @@
     "@mbe/sentry": "workspace:*",
     "@mbe/service-bootstrap": "workspace:*",
     "@mbe/types": "workspace:*",
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
-    "@prisma/client-runtime-utils": "^7.10.0",
-    "ai": "^7.0.137",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "@prisma/client-runtime-utils": "^7.10.1",
+    "ai": "^7.0.142",
     "fastify": "catalog:",
     "pg": "^8.23.1",
     "zod": "catalog:"
@@ -46,12 +46,12 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
-    "@json-render/react": "^0.21.0",
+    "@json-render/react": "^0.21.1",
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "^8.23.1",
     "@vitest/coverage-v8": "catalog:",
-    "prisma": "^7.10.0",
+    "prisma": "^7.10.1",
     "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
