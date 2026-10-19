@@ -93,4 +93,6 @@ export const esMX: RialtoMessages = {
     `Cubierta de seguridad de ${label} abierta. El interruptor está en ${state}.`,
   closeSafetyCover: (label) => `Cerrar la cubierta de seguridad de ${label}`,
   liftSafetyCover: (label) => `Levantar la cubierta de seguridad de ${label}`,
+  switchToLightMode: "Cambiar a modo claro",
+  switchToDarkMode: "Cambiar a modo oscuro",
 };

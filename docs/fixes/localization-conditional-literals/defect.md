@@ -210,7 +210,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
     `pnpm --dir packages/rialto lint` and `pnpm --dir apps/hospitality lint` now
     fail at exactly the 6 expressions in the re-scan table. That failure is the
     RED for the items below.
-- [ ] **ThemeToggle accessible name.** Add `RialtoMessages` keys for the
+- [x] **ThemeToggle accessible name.** Add `RialtoMessages` keys for the
       light-mode and dark-mode labels, with the en-US values inline and
       translations in `src/i18n/locales/{en-GB,es-MX,fr-CA}.ts`.
       `ThemeToggle.tsx:28` reads them through `useRialtoLocale()`.

@@ -1,4 +1,5 @@
 import React from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { IconButton } from "../IconButton/IconButton";
 
 export interface ThemeToggleProps {
@@ -19,13 +20,14 @@ export interface ThemeToggleProps {
 export const ThemeToggle = React.forwardRef<HTMLButtonElement, ThemeToggleProps>(
   function ThemeToggle({ theme, onToggle }, ref) {
     const isDark = theme === "dark";
+    const { messages } = useRialtoLocale();
 
     return (
       <IconButton
         ref={ref}
         variant="secondary"
         onClick={onToggle}
-        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        aria-label={isDark ? messages.switchToLightMode : messages.switchToDarkMode}
         icon={
           <svg
             width="16"

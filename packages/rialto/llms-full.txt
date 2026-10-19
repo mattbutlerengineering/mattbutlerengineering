@@ -3213,6 +3213,10 @@
       readonly closeSafetyCover: (label: string) => string;
       /** MasterOverride cover button name while safe. */
       readonly liftSafetyCover: (label: string) => string;
+      /** ThemeToggle name while dark (pressing it switches to light). */
+      readonly switchToLightMode: string;
+      /** ThemeToggle name while light (pressing it switches to dark). */
+      readonly switchToDarkMode: string;
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
@@ -3303,6 +3307,8 @@
       coverOpenStatus: (label, state) => `${label} safety cover open. Switch is ${state}.`,
       closeSafetyCover: (label) => `Close safety cover for ${label}`,
       liftSafetyCover: (label) => `Lift safety cover for ${label}`,
+      switchToLightMode: "Switch to light mode",
+      switchToDarkMode: "Switch to dark mode",
     };
   </file>
   </section>
@@ -3455,6 +3461,8 @@
         `Cubierta de seguridad de ${label} abierta. El interruptor está en ${state}.`,
       closeSafetyCover: (label) => `Cerrar la cubierta de seguridad de ${label}`,
       liftSafetyCover: (label) => `Levantar la cubierta de seguridad de ${label}`,
+      switchToLightMode: "Cambiar a modo claro",
+      switchToDarkMode: "Cambiar a modo oscuro",
     };
   </file>
   <file path="src/i18n/locales/fr-CA.ts">
@@ -3550,6 +3558,8 @@
         `Capot de sécurité de ${label} ouvert. L'interrupteur est sur ${state}.`,
       closeSafetyCover: (label) => `Fermer le capot de sécurité de ${label}`,
       liftSafetyCover: (label) => `Soulever le capot de sécurité de ${label}`,
+      switchToLightMode: "Passer au mode clair",
+      switchToDarkMode: "Passer au mode sombre",
     };
   </file>
   </section>

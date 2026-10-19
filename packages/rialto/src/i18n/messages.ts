@@ -184,6 +184,10 @@ export interface RialtoMessages {
   readonly closeSafetyCover: (label: string) => string;
   /** MasterOverride cover button name while safe. */
   readonly liftSafetyCover: (label: string) => string;
+  /** ThemeToggle name while dark (pressing it switches to light). */
+  readonly switchToLightMode: string;
+  /** ThemeToggle name while light (pressing it switches to dark). */
+  readonly switchToDarkMode: string;
 }
 
 export const enUS: RialtoMessages = {
@@ -275,4 +279,6 @@ export const enUS: RialtoMessages = {
   coverOpenStatus: (label, state) => `${label} safety cover open. Switch is ${state}.`,
   closeSafetyCover: (label) => `Close safety cover for ${label}`,
   liftSafetyCover: (label) => `Lift safety cover for ${label}`,
+  switchToLightMode: "Switch to light mode",
+  switchToDarkMode: "Switch to dark mode",
 };

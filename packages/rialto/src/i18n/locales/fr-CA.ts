@@ -93,4 +93,6 @@ export const frCA: RialtoMessages = {
     `Capot de sécurité de ${label} ouvert. L'interrupteur est sur ${state}.`,
   closeSafetyCover: (label) => `Fermer le capot de sécurité de ${label}`,
   liftSafetyCover: (label) => `Soulever le capot de sécurité de ${label}`,
+  switchToLightMode: "Passer au mode clair",
+  switchToDarkMode: "Passer au mode sombre",
 };
