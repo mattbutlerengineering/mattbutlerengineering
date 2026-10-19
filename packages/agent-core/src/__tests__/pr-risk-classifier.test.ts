@@ -291,7 +291,6 @@ describe("qualifiesForLowRiskFastPath", () => {
     "packages/agent-test-utils/package.json",
     "packages/config/package.json",
     "packages/jobs/package.json",
-    "packages/mcp-server/package.json",
     "packages/rialto-catalog/package.json",
     "packages/rialto-plugin/package.json",
     "packages/rialto/package.json",

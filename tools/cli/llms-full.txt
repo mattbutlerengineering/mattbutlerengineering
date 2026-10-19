@@ -1911,11 +1911,6 @@
         );
       });
   </file>
-  <file path="src/commands/mcp.ts">
-    export const mcpCommand = new Command("mcp").description(
-      "Model Context Protocol (MCP) server management"
-    );
-  </file>
   <file path="src/commands/pack.ts">
     function truncateType(type: string, maxLength = 60): string {
       if (type.length <= maxLength) return type;

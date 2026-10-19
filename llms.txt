@@ -1635,11 +1635,6 @@
       export const loopCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/mcp.ts">
-    <item priority="high">
-      export const mcpCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/pack.ts">
     <item priority="medium">
       function truncateType(type: string, maxLength = 60): string { /* ... */ }
@@ -15363,103 +15358,6 @@
       }
     </item>
   </file>
-  <file path="packages/mcp-server/src/command-builder.ts">
-    <item priority="medium">
-      function assertNoTraversal(value: string, label: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function psqlQuery(
-        dbUrl: string,
-        sql: string,
-        run: (cmd: string, args: string[]) => string = defaultPsqlRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function ghJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultGhRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function doctlJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultDoctlRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function pulumiJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultPulumiRun
-      ): string { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/dispatcher.ts">
-    <item priority="high">
-      type McpContent = { type: "text"; text: string };
-    </item>
-    <item priority="high">
-      type McpResult = {
-        content: McpContent[];
-        isError?: boolean;
-      };
-    </item>
-    <item priority="low">
-      type ToolDefinition = {
-        name: string;
-        description: string;
-        inputSchema: T...;
-    </item>
-    <item priority="high">
-      export function defineTool<TSchema extends z.ZodTypeAny>(
-        def: ToolDefinition<TSchema>
-      ): ToolDefinition<TSchema> { /* ... */ }
-    </item>
-    <item priority="high">
-      type JsonSchemaObject = {
-        type: "object";
-        properties?: Record<string, unknown...;
-    </item>
-    <item priority="high">
-      export function listTools(tools: ToolDefinition[]): Array<{
-        name: string;
-        description: string;
-        inputSchema: JsonSchemaObject;
-      }> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function errorEnvelope(message: string): McpResult { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function callTool(
-        tools: ToolDefinition[],
-        name: string,
-        args: unknown
-      ): Promise<McpResult> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/index.ts">
-    <item priority="low">
-      async function main() { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/shell-runner.ts">
-    <item priority="low">
-      type ShellRunner = (
-        cmd: string,
-        args: string[],
-        opts: { encoding: "u...;
-    </item>
-    <item priority="low">
-      interface ShellRunnerOptions {
-        runner?: ShellRunner;
-        timeoutMs?: number;
-        errorLabel?: string;
-      }
-    </item>
-    <item priority="high">
-      export function createShellRunner(opts: ShellRunnerOptions = {}) { /* ... */ }
-    </item>
-  </file>
   <file path="packages/notifications/src/booking-email-content.ts">
     <item priority="low">
       interface BookingEmailContent {
@@ -18577,47 +18475,6 @@
     </item>
     <item priority="high">
       export const reduced: unknown;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="tools">
-  <file path="packages/mcp-server/src/tools/ci.ts">
-    <item priority="high">
-      export async function ciRunStatus(run = ghJson): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/database.ts">
-    <item priority="high">
-      export async function dbListTables(run = psqlQuery): Promise<string> { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function dbMigrationStatus(run = psqlQuery): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/deploy_status.ts">
-    <item priority="high">
-      export async function deployStatus(run: (args: string[]) => string = doctlJson): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/git.ts">
-    <item priority="medium">
-      function isErrorEnvelope(output: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function gitWorkflowStatus(run = defaultRun): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/health.ts">
-    <item priority="high">
-      export async function serviceHealthCheck(): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/pulumi.ts">
-    <item priority="high">
-      export const PULUMI_PROJECT_DIR: unknown;
-    </item>
-    <item priority="high">
-      export async function pulumiStackOutputs(run = pulumiJson): Promise<string> { /* ... */ }
     </item>
   </file>
   </section>

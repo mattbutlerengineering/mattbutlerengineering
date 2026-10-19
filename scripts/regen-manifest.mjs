@@ -106,8 +106,6 @@ export const FAMILIES = [
       "packages/gh-client/llms-full.txt",
       "packages/jobs/llms.txt",
       "packages/jobs/llms-full.txt",
-      "packages/mcp-server/llms.txt",
-      "packages/mcp-server/llms-full.txt",
       "packages/notifications/llms.txt",
       "packages/notifications/llms-full.txt",
       "packages/observability/llms.txt",

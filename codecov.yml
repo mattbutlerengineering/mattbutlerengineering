@@ -72,10 +72,6 @@ flags:
     paths:
       - packages/observability/
     carryforward: true
-  mcp-server:
-    paths:
-      - packages/mcp-server/
-    carryforward: true
   cli:
     paths:
       - tools/cli/

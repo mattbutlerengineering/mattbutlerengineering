@@ -292,11 +292,6 @@
       export const loopCommand: unknown;
     </item>
   </file>
-  <file path="src/commands/mcp.ts">
-    <item priority="high">
-      export const mcpCommand: unknown;
-    </item>
-  </file>
   <file path="src/commands/pack.ts">
     <item priority="medium">
       function truncateType(type: string, maxLength = 60): string { /* ... */ }
