@@ -284,3 +284,109 @@ None.
 - **Stale-base merge risk** (ADR-027's mitigation via push CI and
   `revert-watchdog`) was not exercised. No same-zone batch from the
   selector reached the merge train.
+
+## Re-verification after WO-30
+
+Head `39204320e` (`fix(issue-zone): strip trailing sentence punctuation
+from extracted path tokens`). WO-30 changed only `scripts/issue-zone.mjs`
+(new `matchPathTokens`, used by `extractPathsFromBody`), its test file, and
+this run's `breakdown.md`/`review.md`. `git diff --stat 5ed44c0db 39204320e`
+touches no ADR, no `main-strictness.mjs`, and no `.claude/` file.
+
+**Result: WO-30's Accept line holds, and 6/6 PRD criteria still PASS at
+the new head.** Scratch scripts lived in `…/scratchpad/zone-reverify/`
+and nothing in the repo.
+
+### WO-30 Accept: review.md's E1, E2 and hotspot cases defer to `[1]`
+
+- Check: the same three cases from review.md § Major, run through the
+  **real** worktree module at HEAD. Then the same script run against a
+  `git archive 5ed44c0db` copy of the tree (the commit before the fix),
+  to show the cases really did fail before.
+- Evidence:
+  ```
+  $ node cases.mjs <worktree>/scripts/issue-zone.mjs        # HEAD 39204320e
+  E1 strictMain:false        [1]      # "Edit apps/hospitality/src/a.ts." vs "`apps/hospitality/src/a.ts`"
+  E2 strictMain:false        [1]      # "a.ts..." vs "a.ts"
+  hotspot strictMain:true    [1]      # fix(hospitality) ".claude/rules/gotchas.md." vs fix(reservations) lists it
+  hotspot strictMain:false   [1]
+
+  $ node cases.mjs old/scripts/issue-zone.mjs               # 5ed44c0db
+  E1 strictMain:false        [1,2]
+  E2 strictMain:false        [1,2]
+  hotspot strictMain:true    [1,2]
+  hotspot strictMain:false   [1,2]
+  ```
+- Real issue body: #7042 ("ci-fix: Apps Visual Regression has failed 3
+  consecutive runs"), fetched with
+  `gh api repos/mattbutlerengineering/mattbutlerengineering/issues/7042 --jq .body`.
+  `extractPathsFromBody` is not exported, so it was read from archived
+  copies of each tree with one `export` line appended. The selector line
+  for HEAD also comes from the unmodified real module.
+  ```
+  [5ed44c0db] extracted: [".github/workflows/apps-visual.yml", ".claude/rules/gotchas.md."]
+  [HEAD]      extracted: [".github/workflows/apps-visual.yml", ".claude/rules/gotchas.md"]
+
+  #7042 + a fix(reservations) issue listing `.claude/rules/gotchas.md`, strictMain:true
+  [5ed44c0db]          → [7042, 2]     (hotspot lock dodged)
+  [HEAD real module]   → [7042]
+  ```
+- Tests: `issue-zone.test.mjs` now has 87 tests (82 before WO-30). The
+  new ones are E1, E2, the hotspot case for each mode, and "real dotted
+  paths survive normalisation" (`llms-full.txt` against `llms.txt` still
+  batches).
+- Result: PASS
+
+### PRD criteria at `39204320e`
+
+| SC   | Re-checked how                                                                                                                                                                                              | Result |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| SC-1 | Re-ran the pre-#6678 suite (`git show d1047723e^:…issue-zone.test.mjs`, byte-identical to the earlier copy) unmodified against HEAD: `✓ (60 tests)`, `Tests 60 passed (60)`. Temp file removed, tree clean. | PASS   |
+| SC-2 | `"three disjoint same-zone issues batch together"` passes in the 109-test run below. The live harness (real `gh`, run from the worktree) gives `{"probe":{"strictMain":false},"batch":[1,2,3]}`.            | PASS   |
+| SC-3 | The overlap, ancestor, pathless and null-zone tests pass in the run below. WO-30 only widens what counts as overlapping (it makes more pairs defer), so this criterion can only have become stricter.       | PASS   |
+| SC-4 | WO-30 does not touch `scripts/main-strictness.mjs` (0 lines changed since 5ed44c0db). Re-ran the four `gh` shims anyway: fail, garbage, nofield and gh-absent each give `{"strictMain":true}`, batch `[1]`. | PASS   |
+| SC-5 | No `docs/adr/` file changed in WO-30. Earlier evidence stands.                                                                                                                                              | PASS   |
+| SC-6 | Re-ran the gates WO-30 can affect. Output is below.                                                                                                                                                         | PASS   |
+
+```
+$ pnpm exec vitest run --config scripts/vitest.config.mjs scripts/__tests__/issue-zone.test.mjs \
+    scripts/__tests__/zone-vocabulary.test.mjs scripts/__tests__/main-strictness.test.mjs
+ ✓ scripts/__tests__/main-strictness.test.mjs (10 tests)
+ Test Files  3 passed (3)
+      Tests  109 passed (109)          # issue-zone 87 + zone-vocabulary 12 + main-strictness 10
+
+$ pnpm --dir scripts test
+      Tests  5680 passed (5680)        # junit: tests="5680" failures="0" errors="0"; exit 0
+                                       # no stray scripts/scripts/test-results
+
+$ pnpm --dir scripts lint   → eslint .   lint-exit=0
+
+$ date -u +%FT%TZ && node scripts/main-strictness.mjs
+2026-10-19T01:16:30Z
+{"strictMain":false}
+
+fail-closed harness (cwd = worktree), real probe + real selector, three disjoint fix(rialto) issues:
+{"gh":"real","probe":{"strictMain":false},"batch":[1,2,3]}
+{"gh":"fail","probe":{"strictMain":true},"batch":[1]}
+{"gh":"garbage","probe":{"strictMain":true},"batch":[1]}
+{"gh":"nofield","probe":{"strictMain":true},"batch":[1]}
+{"gh":"gh-absent","probe":{"strictMain":true},"batch":[1]}
+```
+
+The full-repo `pnpm lint` and `pnpm typecheck` were not re-run. WO-30
+changed only `.mjs` files in `@mbe/scripts`. That package has no
+`typecheck` script, and its `lint` (above) is the one turbo lint task the
+change can affect. The earlier 52/52 runs stand for everything else.
+
+**Incidental fifth fail-closed shape:** the harness run first from a
+non-git directory, where `gh` cannot resolve `{owner}/{repo}`, also gave
+`{"strictMain":true}`, batch `[1]`, with real `gh`. That is fail-closed
+too. The probe has to run inside the checkout, which is where the compose
+hook runs it.
+
+### Still not verified
+
+The § Not verified list above is unchanged. WO-30 does not touch the
+other two extraction blind spots: generated `llms*.txt` overlap, and
+shared run docs that no issue lists. Same-zone batches composed in
+production by the new rule are still **0**, against Operate's 5.
