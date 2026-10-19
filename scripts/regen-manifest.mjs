@@ -92,8 +92,6 @@ export const FAMILIES = [
       "infrastructure/pulumi/llms-full.txt",
       "packages/agent-core/llms.txt",
       "packages/agent-core/llms-full.txt",
-      "packages/agent-test-utils/llms.txt",
-      "packages/agent-test-utils/llms-full.txt",
       "packages/api-client/llms.txt",
       "packages/api-client/llms-full.txt",
       "packages/auth/llms.txt",

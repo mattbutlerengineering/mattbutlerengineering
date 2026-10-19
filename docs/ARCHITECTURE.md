@@ -155,7 +155,6 @@ mattbutlerengineering/
 │   └── users/                  # Users API (Fastify, port 3001)
 ├── packages/
 │   ├── agent-core/             # Autonomous coding-agent runtime (worktrees, SDK sessions)
-│   ├── agent-test-utils/       # Deterministic mocks/simulators for agent-core
 │   ├── api-client/             # Typed fetch wrapper (auth, retry, problem-details)
 │   ├── auth/                   # OIDC/JWT helpers for React + Fastify
 │   ├── cancellation-policy/    # Pure cancellation-fee decision engine

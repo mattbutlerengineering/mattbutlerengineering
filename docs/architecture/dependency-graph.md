@@ -20,7 +20,6 @@ flowchart TD
   end
   subgraph packages["Shared Packages"]
     agent_core["agent-core"]
-    agent_test_utils["agent-test-utils"]
     api_client["api-client"]
     auth["auth"]
     cancellation_policy["cancellation-policy"]
@@ -82,7 +81,6 @@ flowchart TD
   agent_service --> sentry
   agent_service --> service_bootstrap
   agent_service --> types
-  agent_service --> agent_test_utils
   agent_service --> config
   reservations_service --> auth
   reservations_service --> cancellation_policy
@@ -105,9 +103,7 @@ flowchart TD
   users_service --> test_fixtures
   agent_core --> api_client
   agent_core --> types
-  agent_core --> agent_test_utils
   agent_core --> config
-  agent_test_utils --> config
   api_client --> types
   api_client --> config
   auth --> types
@@ -166,7 +162,6 @@ flowchart TD
   class reservations_service backend
   class users_service backend
   class agent_core shared
-  class agent_test_utils shared
   class api_client shared
   class auth shared
   class cancellation_policy shared

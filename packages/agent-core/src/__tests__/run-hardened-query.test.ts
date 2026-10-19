@@ -59,7 +59,7 @@ vi.mock("../observability.js", () => ({
 // ── Imports (after mocks) ───────────────────────────────────────────
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createMockQueryStream } from "@mbe/agent-test-utils";
+import { createMockQueryStream } from "@mbe/agent-core/testing";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { runHardenedQuery } from "../run-hardened-query.js";
 import type { HardenedQueryConfig } from "../run-hardened-query.js";

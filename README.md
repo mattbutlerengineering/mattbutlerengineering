@@ -56,7 +56,6 @@ mattbutlerengineering/
 │   └── users/                # User management API
 ├── packages/                 # Shared libraries
 │   ├── agent-core/           # Agent session runner and worktree management
-│   ├── agent-test-utils/     # Test helpers for agent sessions
 │   ├── api-client/           # Typed fetch client for frontend apps
 │   ├── auth/                 # Auth utilities (React hooks + Fastify plugin)
 │   ├── cancellation-policy/  # Pure cancellation-fee decision engine
