@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-// NOTE: sendThankYouEmail security tests have moved to packages/notifications/src/resend-adapter.test.ts
+// NOTE: sendThankYouEmail security tests have moved to src/notifications/resend-adapter.test.ts
 
 // ─── Module-level send mock — captured at factory time so all test groups see it ───
 
@@ -16,7 +16,7 @@ vi.mock("resend", () => {
   return { Resend: ResendMock };
 });
 
-vi.mock("@mbe/notifications", () => {
+vi.mock("./notifications/index.js", () => {
   const ResendNotificationAdapterMock = vi.fn().mockImplementation(function (
     this: Record<string, unknown>,
     config: unknown
@@ -66,7 +66,7 @@ describe("createResendAdapter", () => {
     const { createResendAdapter } = await importNotifications();
     const adapter = createResendAdapter();
 
-    const { ResendNotificationAdapter } = await import("@mbe/notifications");
+    const { ResendNotificationAdapter } = await import("./notifications/index.js");
     expect(ResendNotificationAdapter).toHaveBeenCalledWith(
       expect.objectContaining({
         fromAddress: "test@example.com",
@@ -84,7 +84,7 @@ describe("createResendAdapter", () => {
     const { createResendAdapter } = await importNotifications();
     const adapter = createResendAdapter();
 
-    const { ResendNotificationAdapter } = await import("@mbe/notifications");
+    const { ResendNotificationAdapter } = await import("./notifications/index.js");
     expect(ResendNotificationAdapter).toHaveBeenCalledWith(
       expect.objectContaining({
         resend: null,
@@ -101,7 +101,7 @@ describe("createResendAdapter", () => {
     const { createResendAdapter } = await importNotifications();
     createResendAdapter();
 
-    const { ResendNotificationAdapter } = await import("@mbe/notifications");
+    const { ResendNotificationAdapter } = await import("./notifications/index.js");
     expect(ResendNotificationAdapter).toHaveBeenCalledWith(
       expect.objectContaining({
         fromAddress: "reservations@mattbutlerengineering.com",
@@ -119,7 +119,7 @@ describe("createResendAdapter", () => {
     const { createResendAdapter } = await importNotifications();
     createResendAdapter();
 
-    const { ResendNotificationAdapter } = await import("@mbe/notifications");
+    const { ResendNotificationAdapter } = await import("./notifications/index.js");
     expect(ResendNotificationAdapter).toHaveBeenCalledWith(
       expect.objectContaining({
         manageBaseUrl: "https://web.example.com",
@@ -136,7 +136,7 @@ describe("createResendAdapter", () => {
     const { createResendAdapter } = await importNotifications();
     createResendAdapter();
 
-    const { ResendNotificationAdapter } = await import("@mbe/notifications");
+    const { ResendNotificationAdapter } = await import("./notifications/index.js");
     expect(ResendNotificationAdapter).toHaveBeenCalledWith(
       expect.objectContaining({
         publicApiBaseUrl: null,
@@ -168,7 +168,7 @@ describe("createNotificationPort", () => {
     const { createNotificationPort } = await importNotifications();
     const dispatcher = createNotificationPort();
 
-    const { NotificationDispatcher } = await import("@mbe/notifications");
+    const { NotificationDispatcher } = await import("./notifications/index.js");
     expect(NotificationDispatcher).toHaveBeenCalled();
     expect(dispatcher).toBeDefined();
   });

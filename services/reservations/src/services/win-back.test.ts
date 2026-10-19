@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Guest } from "@mbe/types";
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationDispatcher } from "../notifications/index.js";
 import { sendWinBack } from "./win-back.js";
 
 function makeGuest(overrides: Partial<Guest> = {}): Guest {

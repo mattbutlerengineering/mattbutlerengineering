@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vites
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "./public-reservations.js";
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationDispatcher } from "../notifications/index.js";
 import type { JobsPort } from "../transitions/ports.js";
 
 vi.mock("../services/reservation.js", () => ({

@@ -44,7 +44,7 @@ const TURBO_BIN = join(ROOT, "node_modules", ".bin", "turbo");
 const PLAYWRIGHT_CONFIG = join(ROOT, "apps/rialto-web/playwright.config.ts");
 const OWN_SOURCE = join(ROOT, "scripts/visual-tolerance.mjs");
 // typecheck-covers-tests.test.mjs reads every package's tsconfig*.json.
-const PACKAGE_TSCONFIG = join(ROOT, "packages/notifications/tsconfig.test.json");
+const PACKAGE_TSCONFIG = join(ROOT, "packages/cancellation-policy/tsconfig.test.json");
 
 /**
  * Paths that build/test tooling writes into while a concurrent `turbo run` is

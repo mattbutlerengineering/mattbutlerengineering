@@ -1,6 +1,6 @@
-import { buildBookingEmailContent } from "@mbe/notifications";
+import { buildBookingEmailContent } from "../../notifications/index.js";
 import { describe, it, expect, vi } from "vitest";
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationDispatcher } from "../../notifications/index.js";
 import type { Reservation, Venue } from "@mbe/types";
 import { createDispatcherMessaging } from "./dispatcher-messaging.js";
 

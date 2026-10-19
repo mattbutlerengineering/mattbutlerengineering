@@ -1,4 +1,4 @@
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationDispatcher } from "../../notifications/index.js";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
 import { resolveChannel } from "../../services/contact-policy.js";
 import type { PostVisitNotifier } from "../../services/post-visit-notifier.js";

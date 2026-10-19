@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
-import type { ThankYouEmailInput } from "@mbe/notifications";
+import type { ThankYouEmailInput } from "../notifications/index.js";
 import { canContact } from "./contact-policy.js";
 import { getUnsubscribeTokenConfig } from "../config/unsubscribe-token.js";
 
