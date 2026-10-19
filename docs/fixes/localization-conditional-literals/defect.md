@@ -195,7 +195,7 @@ line, locale dictionaries, and docs. Review and Ship scale to that.
 Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
 `local-ci-precheck` steps before the first push.
 
-- [ ] **Lint rule: RED, then GREEN**
+- [x] **Lint rule: RED, then GREEN**
   - Add RuleTester cases to `packages/config/eslint/no-literal-ui-strings.test.ts`
     and confirm they fail.
     - **Must report:** a ternary JSX child, a ternary in a guarded attribute
