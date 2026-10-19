@@ -977,7 +977,11 @@ jobs:
 
   report-health:
     name: Report CI Health
-    needs: [detect-changes, lint, typecheck, build, test, migrations]
+    # test-coverage-gate holds the coverage thresholds that used to fail `test`
+    # itself; without it a coverage failure on main reports CI healthy. A
+    # skipped gate (red leg upstream, already caught via TEST_RESULT) stays
+    # non-failing in the loop below.
+    needs: [detect-changes, lint, typecheck, build, test, test-coverage-gate, migrations]
     # has_code is load-bearing, not decoration. The loop below treats anything
     # that is not `failure`/`cancelled` as success, and `skipped` is neither —
     # so on a docs-only push (where lint/typecheck/build/test/migrations all
@@ -999,10 +1003,11 @@ jobs:
           TYPECHECK_RESULT: ${{ needs.typecheck.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          COVERAGE_GATE_RESULT: ${{ needs.test-coverage-gate.result }}
           MIGRATIONS_RESULT: ${{ needs.migrations.result }}
         run: |
           CONCLUSION="success"
-          for RESULT in "$LINT_RESULT" "$TYPECHECK_RESULT" "$BUILD_RESULT" "$TEST_RESULT" "$MIGRATIONS_RESULT"; do
+          for RESULT in "$LINT_RESULT" "$TYPECHECK_RESULT" "$BUILD_RESULT" "$TEST_RESULT" "$COVERAGE_GATE_RESULT" "$MIGRATIONS_RESULT"; do
             if [ "$RESULT" = "failure" ]; then
               CONCLUSION="failure"
               break

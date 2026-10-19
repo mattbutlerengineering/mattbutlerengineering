@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -174,5 +175,50 @@ describe("ci.yml CI Gate wiring", () => {
 
   it("keeps report-health keyed on the surviving `test` job id", () => {
     expect(getJob(workflow, "report-health").needs).toContain("test");
+  });
+});
+
+describe("ci.yml report-health sees the coverage gate", () => {
+  const health = getJob(workflow, "report-health") ?? { needs: [], steps: [] };
+  const step = getStep(health, "Write CI status to KV") ?? { env: {}, run: "" };
+
+  /** Runs only the verdict loop (everything before the KV write) under bash. */
+  function verdict(results) {
+    const loop = String(step.run).split("PAYLOAD=")[0];
+    const env = {
+      PATH: process.env.PATH,
+      LINT_RESULT: "success",
+      TYPECHECK_RESULT: "success",
+      BUILD_RESULT: "success",
+      TEST_RESULT: "success",
+      MIGRATIONS_RESULT: "success",
+      ...results,
+    };
+    const out = spawnSync("bash", ["-c", `${loop}\necho "$CONCLUSION"`], {
+      env,
+      encoding: "utf8",
+    });
+    return out.stdout.trim();
+  }
+
+  it("needs test-coverage-gate", () => {
+    expect(health.needs).toContain("test-coverage-gate");
+  });
+
+  it("passes the coverage gate's result into the verdict step", () => {
+    expect(step.env.COVERAGE_GATE_RESULT).toBe("${{ needs.test-coverage-gate.result }}");
+    expect(step.run).toContain('"$COVERAGE_GATE_RESULT"');
+  });
+
+  it("reports failure when only the coverage gate failed", () => {
+    expect(verdict({ COVERAGE_GATE_RESULT: "failure" })).toBe("failure");
+  });
+
+  it("reports cancelled when only the coverage gate was cancelled", () => {
+    expect(verdict({ COVERAGE_GATE_RESULT: "cancelled" })).toBe("cancelled");
+  });
+
+  it("keeps a skipped coverage gate non-failing, like a skipped test job", () => {
+    expect(verdict({ COVERAGE_GATE_RESULT: "skipped" })).toBe("success");
   });
 });
