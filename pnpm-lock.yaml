@@ -622,34 +622,6 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
-      '@mbe/agent-test-utils':
-        specifier: workspace:*
-        version: link:../agent-test-utils
-      '@mbe/config':
-        specifier: workspace:*
-        version: link:../config
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.5
-      '@vitest/coverage-v8':
-        specifier: 'catalog:'
-        version: 5.0.3(@vitest/browser@5.0.3)(vitest@5.0.3)
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.3(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(@vitest/browser-playwright@5.0.3)(@vitest/coverage-v8@5.0.3)(@vitest/ui@5.0.3)(jsdom@30.1.2)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
-
-  packages/agent-test-utils:
-    dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.296
-        version: 0.3.296(@anthropic-ai/sdk@0.93.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))(zod@4.6.7)
-      '@mbe/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-    devDependencies:
       '@mbe/config':
         specifier: workspace:*
         version: link:../config
@@ -1387,9 +1359,6 @@ importers:
       '@json-render/react':
         specifier: ^0.21.0
         version: 0.21.0(react@19.3.0)(zod@4.6.7)
-      '@mbe/agent-test-utils':
-        specifier: workspace:*
-        version: link:../../packages/agent-test-utils
       '@mbe/config':
         specifier: workspace:*
         version: link:../../packages/config

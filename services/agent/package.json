@@ -48,7 +48,6 @@
   },
   "devDependencies": {
     "@json-render/react": "^0.21.0",
-    "@mbe/agent-test-utils": "workspace:*",
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "^8.23.1",

@@ -41,11 +41,6 @@
       "path": "packages/agent-core"
     },
     {
-      "name": "@mbe/agent-test-utils",
-      "type": "package",
-      "path": "packages/agent-test-utils"
-    },
-    {
       "name": "@mbe/api-client",
       "type": "package",
       "path": "packages/api-client"
@@ -341,11 +336,6 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/agent-test-utils",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/agent-service",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -456,16 +446,6 @@
     },
     {
       "from": "@mbe/agent-core",
-      "to": "@mbe/agent-test-utils",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/agent-core",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/agent-test-utils",
       "to": "@mbe/config",
       "type": "devDependency"
     },
