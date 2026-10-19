@@ -1,36 +1,27 @@
-# @mbe/test-fixtures
+# @mbe/ui-quality-capture
 
-Shared mock-data factories for service tests. One canonical `create*` per
-entity so services/reservations and services/users don't each hand-roll
-slightly different fixture shapes.
+The shared half of every app's ui-quality capture spec: `capturePage(page, route, opts)`
+visits one planned route and returns its `manifest.jsonl` row (screenshots, axe result,
+console/page errors, failed requests, links, blank-render measure). Playwright, e2e only.
+
+It is a workspace package (not app code) because dependency-cruiser's `apps-not-imported`
+rule keeps capture inside each app's e2e boundary, so the shared logic cannot live in an app.
 
 ## Structure
 
 ```
 src/
-├── index.ts             # Barrel export, grouped by domain
-├── users.ts             # createMockUser, createMockPaginatedResponse
-├── reservations.ts      # createMockTable, createMockReservation, createMockPagination, ERROR_* constants
-├── jwt.ts               # createMockJWTPayload — defined once, shared across domains
-├── ui-quality-capture.ts # capturePage — the ui-quality loop's per-route capture (e2e only, `./ui-quality-capture` export)
-└── __tests__/index.test.ts
+├── ui-quality-capture.ts          # capturePage, revealLazyContent, screenshotName, ... (package entry `.`)
+└── __tests__/ui-quality-capture.test.ts
 ```
-
-## Patterns
-
-- **`create*` convention**: every factory takes an optional `Partial<T>` of overrides and spreads it over sane defaults
-- **Frozen output**: all factories return `Object.freeze()`d objects — tests can't accidentally mutate a shared fixture and leak state between cases
-- Types (`MockUser`, `MockReservation`, `MockTable`, `MockJWTPayload`, etc.) are inferred from `@mbe/types` where an entity overlaps a real domain type
 
 ## Consumers
 
-- `services/reservations` (`src/test/mocks.ts`)
-- `services/users` (`src/test/fixtures.ts`)
+Import only from e2e code: `import { capturePage } from "@mbe/ui-quality-capture";`
 
-## Gotchas
-
-- `depends on @mbe/types` — changes to shared entity shapes there (e.g. `Reservation`, `User`) are checked against it: `MockTable`/`MockUser` alias the `@mbe/types` types, `MockReservation` is `Reservation & { table }`, and the factories use `satisfies`, so shape drift fails typecheck
-- Always add overrides via the factory's `Partial<T>` param, not by mutating the returned object post-hoc — it's frozen and will throw in strict mode
+- `apps/hospitality/e2e/ui-quality.capture.ts`
+- `apps/marketing/e2e/ui-quality.capture.ts`, `apps/marketing/e2e/visual.spec.ts`
+- `apps/rialto-web/e2e/ui-quality.capture.ts`
 
 ## Commands
 
