@@ -62,7 +62,6 @@ catalogs:
       version: 4.6.7
 
 overrides:
-  '@anthropic-ai/sdk@<0.94': ^0.93.0
   tar@<8: ^7.5.22
   undici: '>=7.28.0 <8'
   flatted@<4: ^3.4.3
@@ -1590,7 +1589,7 @@ packages:
     resolution: {integrity: sha512-Y+cZ2BT8X94mQ9GJOVyIqhjC/nWGvwozUVLjdkzX7aSt+zuo5tgk7Hdv9V7tEUQ9fKnEuiL6moYNWDeHqCD4Lw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      '@anthropic-ai/sdk': ^0.93.0
+      '@anthropic-ai/sdk': '>=0.93.0'
       '@modelcontextprotocol/sdk': ^1.31.0
       zod: ^4.0.0
 
