@@ -23,7 +23,7 @@
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/swagger": "^9.9.2",
     "@fastify/swagger-ui": "^6.1.2",
-    "@langfuse/otel": "^5.13.0",
+    "@langfuse/otel": "^6.0.1",
     "@mbe/auth": "workspace:*",
     "@mbe/database": "workspace:*",
     "@mbe/sentry": "workspace:*",
