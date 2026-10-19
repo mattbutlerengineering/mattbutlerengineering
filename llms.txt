@@ -15957,202 +15957,6 @@
       export function validateStartupConfig(env: NodeJS.ProcessEnv = process.env): void { /* ... */ }
     </item>
   </file>
-  <file path="packages/test-fixtures/src/jwt.ts">
-    <item priority="low">
-      interface MockJWTPayload {
-        sub: string;
-        iss: string;
-        aud: string;
-        exp: number;
-        iat: number;
-      }
-    </item>
-    <item priority="high">
-      export function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/test-fixtures/src/reservations.ts">
-    <item priority="low">
-      type MockTable = Table;
-    </item>
-    <item priority="low">
-      type MockReservation = Reservation & { readonly table: Table };
-    </item>
-    <item priority="low">
-      interface MockPagination {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-        hasNext: boolean;
-      }
-    </item>
-    <item priority="high">
-      export function createMockTable(overrides?: Partial<MockTable>): MockTable { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createMockReservation(
-        overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
-      ): MockReservation { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination { /* ... */ }
-    </item>
-    <item priority="high">
-      export const ERROR_NOT_FOUND: unknown;
-    </item>
-    <item priority="high">
-      export const ERROR_UNAUTHORIZED: unknown;
-    </item>
-    <item priority="high">
-      export const ERROR_CONFLICT: unknown;
-    </item>
-    <item priority="high">
-      export const ERROR_FORBIDDEN: unknown;
-    </item>
-  </file>
-  <file path="packages/test-fixtures/src/ui-quality-capture.ts">
-    <item priority="low">
-      interface Viewport {
-        width: number;
-        height: number;
-      }
-    </item>
-    <item priority="low">
-      interface AxeViolation {
-        id: string;
-        impact: string | null;
-        help: string;
-        nodes: Array<{ target: unknown }>;
-      }
-    </item>
-    <item priority="low">
-      interface ManifestRow {
-        route: string;
-        path: string;
-        screenshots: Array<{ viewport: string; file: string; sha256: string }>;
-        axe: { violations: AxeViolation[] };
-        page_errors: string[];
-      }
-    </item>
-    <item priority="low">
-      type CapturePageLike = Pick<
-        Page,
-        "emulateMedia" | "setViewportSize" | "got...;
-    </item>
-    <item priority="high">
-      interface RawAxe {
-        violations: Array<{
-          id: string;
-          impact?: string | null;
-          h...;
-      }
-    </item>
-    <item priority="low">
-      interface CaptureOptions {
-        baseUrl: string;
-        path: string;
-        outDir: string;
-        viewports: readonly Viewport[];
-        analyzeAxe?: (page: CapturePageLike) => Promise<RawAxe>;
-      }
-    </item>
-    <item priority="high">
-      export const HIDDEN_SCRIPT: unknown;
-    </item>
-    <item priority="high">
-      export const REVEAL_SCRIPT: unknown;
-    </item>
-    <item priority="high">
-      export const SETTLED_SCRIPT: unknown;
-    </item>
-    <item priority="high">
-      export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> { /* ... */ }
-    </item>
-    <item priority="high">
-      interface Probe {
-        hrefs: string[];
-        text_chars: number;
-        painted_ratio: number;
-      }
-    </item>
-    <item priority="high">
-      export function sameOriginLinks(hrefs: readonly string[], baseUrl: string): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface CapturePlan {
-        entries: Array<{ route: string; path: string; viewports: Viewport[...;
-        outDir: string;
-        manifestPath: string;
-      }
-    </item>
-    <item priority="high">
-      export function loadCapturePlan(
-        app: string,
-        env: Record<string, string | undefined> = process.env
-      ): CapturePlan { /* ... */ }
-    </item>
-    <item priority="high">
-      export function resetManifest(plan: CapturePlan, workerIndex: number): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function appendManifestRow(plan: CapturePlan, row: ManifestRow): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function screenshotName(route: string, viewport: Viewport): string { /* ... */ }
-    </item>
-    <item priority="low">
-      async function defaultAnalyzeAxe(page: CapturePageLike): Promise<RawAxe> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function trimAxe(raw: RawAxe): { violations: AxeViolation[] } { /* ... */ }
-    </item>
-    <item priority="medium">
-      function listen(page: CapturePageLike, origin: string) { /* ... */ }
-    </item>
-    <item priority="low">
-      async function screenshotAll(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
-    </item>
-    <item priority="high">
-      export function foldName(route: string, viewport: Viewport): string { /* ... */ }
-    </item>
-    <item priority="low">
-      async function screenshotFold(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function capturePage(
-        page: CapturePageLike,
-        route: string,
-        opts: CaptureOptions
-      ): Promise<ManifestRow> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/test-fixtures/src/users.ts">
-    <item priority="low">
-      type MockUserPreferences = UserPreferences;
-    </item>
-    <item priority="low">
-      type MockUser = User;
-    </item>
-    <item priority="high">
-      export function createMockUser(overrides: Partial<MockUser> = {}): MockUser { /* ... */ }
-    </item>
-    <item priority="low">
-      interface MockPaginatedResponse {
-        data: T[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;...;
-      }
-    </item>
-    <item priority="high">
-      export function createMockPaginatedResponse<T>(
-        data: T[],
-        opts: { page?: number; limit?: number; total?: number } = {}
-      ): MockPaginatedResponse<T> { /* ... */ }
-    </item>
-  </file>
   <file path="packages/types/src/agent.ts">
     <item priority="low">
       type AgentSessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
@@ -16942,6 +16746,122 @@
       }
     </item>
   </file>
+  <file path="packages/ui-quality-capture/src/ui-quality-capture.ts">
+    <item priority="low">
+      interface Viewport {
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="low">
+      interface AxeViolation {
+        id: string;
+        impact: string | null;
+        help: string;
+        nodes: Array<{ target: unknown }>;
+      }
+    </item>
+    <item priority="low">
+      interface ManifestRow {
+        route: string;
+        path: string;
+        screenshots: Array<{ viewport: string; file: string; sha256: string }>;
+        axe: { violations: AxeViolation[] };
+        page_errors: string[];
+      }
+    </item>
+    <item priority="low">
+      type CapturePageLike = Pick<
+        Page,
+        "emulateMedia" | "setViewportSize" | "got...;
+    </item>
+    <item priority="high">
+      interface RawAxe {
+        violations: Array<{
+          id: string;
+          impact?: string | null;
+          h...;
+      }
+    </item>
+    <item priority="low">
+      interface CaptureOptions {
+        baseUrl: string;
+        path: string;
+        outDir: string;
+        viewports: readonly Viewport[];
+        analyzeAxe?: (page: CapturePageLike) => Promise<RawAxe>;
+      }
+    </item>
+    <item priority="high">
+      export const HIDDEN_SCRIPT: unknown;
+    </item>
+    <item priority="high">
+      export const REVEAL_SCRIPT: unknown;
+    </item>
+    <item priority="high">
+      export const SETTLED_SCRIPT: unknown;
+    </item>
+    <item priority="high">
+      export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Probe {
+        hrefs: string[];
+        text_chars: number;
+        painted_ratio: number;
+      }
+    </item>
+    <item priority="high">
+      export function sameOriginLinks(hrefs: readonly string[], baseUrl: string): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CapturePlan {
+        entries: Array<{ route: string; path: string; viewports: Viewport[...;
+        outDir: string;
+        manifestPath: string;
+      }
+    </item>
+    <item priority="high">
+      export function loadCapturePlan(
+        app: string,
+        env: Record<string, string | undefined> = process.env
+      ): CapturePlan { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resetManifest(plan: CapturePlan, workerIndex: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function appendManifestRow(plan: CapturePlan, row: ManifestRow): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function screenshotName(route: string, viewport: Viewport): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function defaultAnalyzeAxe(page: CapturePageLike): Promise<RawAxe> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function trimAxe(raw: RawAxe): { violations: AxeViolation[] } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listen(page: CapturePageLike, origin: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function screenshotAll(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function foldName(route: string, viewport: Viewport): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function screenshotFold(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function capturePage(
+        page: CapturePageLike,
+        route: string,
+        opts: CaptureOptions
+      ): Promise<ManifestRow> { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/app.ts">
     <item priority="high">
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
@@ -17715,6 +17635,55 @@
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/test/mocks.ts">
+    <item priority="high">
+      type MockTable = Table;
+    </item>
+    <item priority="high">
+      type MockReservation = Reservation & { readonly table: Table };
+    </item>
+    <item priority="high">
+      interface MockPagination {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface MockJWTPayload {
+        sub: string;
+        iss: string;
+        aud: string;
+        exp: number;
+        iat: number;
+      }
+    </item>
+    <item priority="high">
+      export function createMockTable(overrides?: Partial<MockTable>): MockTable { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockReservation(
+        overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
+      ): MockReservation { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ERROR_UNAUTHORIZED: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_CONFLICT: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_FORBIDDEN: unknown;
+    </item>
+  </file>
   <file path="services/reservations/src/test/shared-schema-compilers.ts">
     <item priority="high">
       type RouteSchemaDef = {
@@ -17740,6 +17709,36 @@
     </item>
   </file>
   <file path="services/users/src/test/fixtures.ts">
+    <item priority="high">
+      interface MockJWTPayload {
+        sub: string;
+        iss: string;
+        aud: string;
+        exp: number;
+        iat: number;
+      }
+    </item>
+    <item priority="high">
+      interface MockPaginatedResponse {
+        data: T[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;...;
+      }
+    </item>
+    <item priority="medium">
+      function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makeUser(overrides: Partial<User> = {}): User { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makePaginatedResponse<T>(
+        data: T[],
+        opts: { page?: number; limit?: number; total?: number } = {}
+      ): MockPaginatedResponse<T> { /* ... */ }
+    </item>
     <item priority="high">
       export const MOCK_JWT_PAYLOAD: unknown;
     </item>

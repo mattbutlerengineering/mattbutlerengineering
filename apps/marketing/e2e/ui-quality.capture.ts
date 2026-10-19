@@ -10,7 +10,7 @@ import {
   capturePage,
   loadCapturePlan,
   resetManifest,
-} from "@mbe/test-fixtures/ui-quality-capture";
+} from "@mbe/ui-quality-capture";
 
 const plan = loadCapturePlan("marketing");
 

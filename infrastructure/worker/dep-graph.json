@@ -112,14 +112,14 @@
       "path": "packages/service-bootstrap"
     },
     {
-      "name": "@mbe/test-fixtures",
-      "type": "package",
-      "path": "packages/test-fixtures"
-    },
-    {
       "name": "@mbe/types",
       "type": "package",
       "path": "packages/types"
+    },
+    {
+      "name": "@mbe/ui-quality-capture",
+      "type": "package",
+      "path": "packages/ui-quality-capture"
     },
     {
       "name": "@mbe/cli",
@@ -230,7 +230,7 @@
     },
     {
       "from": "@mbe/hospitality",
-      "to": "@mbe/test-fixtures",
+      "to": "@mbe/ui-quality-capture",
       "type": "devDependency"
     },
     {
@@ -250,7 +250,7 @@
     },
     {
       "from": "@mbe/marketing",
-      "to": "@mbe/test-fixtures",
+      "to": "@mbe/ui-quality-capture",
       "type": "devDependency"
     },
     {
@@ -280,7 +280,7 @@
     },
     {
       "from": "@mbe/rialto-web",
-      "to": "@mbe/test-fixtures",
+      "to": "@mbe/ui-quality-capture",
       "type": "devDependency"
     },
     {
@@ -384,11 +384,6 @@
       "type": "devDependency"
     },
     {
-      "from": "@mbe/reservations-service",
-      "to": "@mbe/test-fixtures",
-      "type": "devDependency"
-    },
-    {
       "from": "@mbe/users-service",
       "to": "@mbe/auth",
       "type": "dependency"
@@ -421,11 +416,6 @@
     {
       "from": "@mbe/users-service",
       "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/users-service",
-      "to": "@mbe/test-fixtures",
       "type": "devDependency"
     },
     {
@@ -569,17 +559,12 @@
       "type": "devDependency"
     },
     {
-      "from": "@mbe/test-fixtures",
-      "to": "@mbe/types",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/test-fixtures",
+      "from": "@mbe/types",
       "to": "@mbe/config",
       "type": "devDependency"
     },
     {
-      "from": "@mbe/types",
+      "from": "@mbe/ui-quality-capture",
       "to": "@mbe/config",
       "type": "devDependency"
     },

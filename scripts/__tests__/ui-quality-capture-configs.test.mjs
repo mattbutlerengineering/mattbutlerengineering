@@ -79,7 +79,7 @@ describe.each(APPS)("%s ui-quality capture config", (app) => {
 
   it("spec reads UI_QUALITY_PLAN through the shared helper and calls capturePage", () => {
     const spec = read(app, "e2e/ui-quality.capture.ts");
-    expect(spec).toContain('from "@mbe/test-fixtures/ui-quality-capture"');
+    expect(spec).toContain('from "@mbe/ui-quality-capture"');
     expect(spec).toMatch(new RegExp(`loadCapturePlan\\("${app}"\\)`));
     expect(spec).toContain("capturePage(");
   });
