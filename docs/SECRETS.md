@@ -218,7 +218,7 @@ Revert the Pulumi config PR afterwards to keep config in sync.
 1. Log in to [Langfuse](https://cloud.langfuse.com/) > Settings > API Keys.
 2. Create a new API key pair (public + secret).
 3. In GitHub, update `LANGFUSE_SECRET_KEY`. If `LANGFUSE_PUBLIC_KEY` is also stored, update it too.
-4. Redeploy services that use `@mbe/observability`.
+4. Redeploy services that use `@mbe/service-bootstrap`.
 5. **Verify:** Check Langfuse dashboard for new traces arriving from the deployed services.
 6. Delete the old API key in Langfuse.
 
