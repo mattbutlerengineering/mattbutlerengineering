@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-10-18T08:39:53.667Z",
+  "lastRun": "2026-10-19T09:42:56.150Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -172,7 +172,7 @@
     },
     "acmm:evidence-antipatterns": {
       "passed": true,
-      "evidence": "109 distinct issue/PR citations found in gotchas.md",
+      "evidence": "110 distinct issue/PR citations found in gotchas.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -340,7 +340,7 @@
     },
     "acmm:auto-issue-gen": {
       "passed": true,
-      "evidence": "131 automation-labeled issue(s) created in the last 30 days",
+      "evidence": "130 automation-labeled issue(s) created in the last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -550,7 +550,7 @@
     },
     "meta:threshold-tuning": {
       "passed": true,
-      "evidence": "7 threshold adjustment(s) in last 30 days",
+      "evidence": "8 threshold adjustment(s) in last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1095,6 +1095,12 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-10-19",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1287,33 +1293,33 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.011461318051575931,
+        "value": 0.010869565217391304,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 698
+        "sampleSize": 736
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9892761394101877,
+        "value": 0.9892183288409704,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 373
+        "sampleSize": 371
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 27,
+        "value": 29,
         "threshold": 1,
         "direction": "above",
         "strict": true,
@@ -1326,34 +1332,34 @@
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0.0027100271002710027,
+        "value": 0.0027247956403269754,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 373
+        "sampleSize": 371
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.02168021680216802,
+        "value": 0.021798365122615803,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 373
+        "sampleSize": 371
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.011461318051575931,
-      "sample_size": 698,
+      "rate_30d": 0.010869565217391304,
+      "sample_size": 736,
       "flaky_shas": [
         "19b39178d7f04bfb702895a86a0bf2866f70c559",
         "2b2af184d05e2f27dd83bac1504abad173bda939",
@@ -1365,144 +1371,144 @@
         "8f0ff88d87c92c613375b44fb3fa0822abfc4a39"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-18T00:48:48.000Z",
-      "measured_at": "2026-10-18T08:39:53.666Z"
+      "oldest_record_at": "2026-09-19T01:01:17.000Z",
+      "measured_at": "2026-10-19T09:42:56.149Z"
     },
     "agent_pr": {
-      "sample_size": 373,
-      "merged_count": 369,
+      "sample_size": 371,
+      "merged_count": 367,
       "closed_unmerged_count": 4,
       "open_count": 0,
-      "acceptance_rate_30d": 0.9892761394101877,
-      "revert_rate_30d": 0.0027100271002710027,
+      "acceptance_rate_30d": 0.9892183288409704,
+      "revert_rate_30d": 0.0027247956403269754,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.2816666666666667,
-      "human_touch_ratio": 0.02168021680216802,
+      "median_time_to_merge_hours": 0.2697222222222222,
+      "human_touch_ratio": 0.021798365122615803,
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-18T16:12:28.000Z",
+      "oldest_record_at": "2026-09-21T00:26:34.000Z",
       "recent_changes": [
         {
-          "number": 7026,
-          "title": "fix(queueEfficiency): skip composite delta when cost sample is sparse (mbe-feature-drain #7023)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7026",
-          "mergedAt": "2026-10-17T18:41:14Z"
+          "number": 7122,
+          "title": "refactor(service-bootstrap): fold @mbe/observability into the package",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7122",
+          "mergedAt": "2026-10-19T04:43:57Z"
         },
         {
-          "number": 7019,
-          "title": "feat(gen): generative-UI model bake-off script (#6948)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7019",
-          "mergedAt": "2026-10-17T16:38:56Z"
+          "number": 7120,
+          "title": "refactor(observability): one Auth0 JWKS resolver and probe shared by /health and /ready",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7120",
+          "mergedAt": "2026-10-19T04:16:28Z"
         },
         {
-          "number": 7022,
-          "title": "fix(metrics): explain PR-less telemetry rows with no claimed_at",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7022",
-          "mergedAt": "2026-10-17T16:33:10Z"
+          "number": 7119,
+          "title": "refactor(reservations): move @mbe/notifications into the service",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7119",
+          "mergedAt": "2026-10-19T04:02:34Z"
         },
         {
-          "number": 7018,
-          "title": "fix(ci-health): report zero-job bot-branch failures as phantom, not failed",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7018",
-          "mergedAt": "2026-10-17T16:23:43Z"
+          "number": 7116,
+          "title": "refactor(reservations): move @mbe/jobs into the service and drop unused job types",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7116",
+          "mergedAt": "2026-10-19T03:39:29Z"
         },
         {
-          "number": 7003,
-          "title": "feat(reservations): daily reservation-event counts in booking metrics (mbe-feature-drain #6940)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7003",
-          "mergedAt": "2026-10-17T14:21:17Z"
+          "number": 7115,
+          "title": "feat(rialto): ChatPanel takes an injected stream adapter; drop @mbe/api-client dependency",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7115",
+          "mergedAt": "2026-10-19T03:26:33Z"
         },
         {
-          "number": 7009,
-          "title": "feat(scripts): queue-telemetry field coverage and completeness check (mbe-feature-drain #6943)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7009",
-          "mergedAt": "2026-10-17T14:16:47Z"
+          "number": 7113,
+          "title": "refactor(packages): inline test-fixtures factories, rename to @mbe/ui-quality-capture",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7113",
+          "mergedAt": "2026-10-19T03:06:53Z"
         },
         {
-          "number": 7008,
-          "title": "chore(architecture): allowlist typecheck-only contract files in no-orphans (mbe-feature-drain #6987)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7008",
-          "mergedAt": "2026-10-17T14:10:39Z"
+          "number": 7109,
+          "title": "chore(packages): delete @mbe/supply-chain-scanner",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7109",
+          "mergedAt": "2026-10-19T02:51:33Z"
         },
         {
-          "number": 7007,
-          "title": "fix(scripts): queueEfficiency cost over known rows, honest review denominator (mbe-feature-drain #6941)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7007",
-          "mergedAt": "2026-10-17T13:59:23Z"
+          "number": 7112,
+          "title": "refactor(agent-core): fold @mbe/agent-test-utils into ./testing",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7112",
+          "mergedAt": "2026-10-19T02:27:13Z"
         },
         {
-          "number": 7006,
-          "title": "feat(ci): scheduled-workflow-health watches advisory main-push workflows (mbe-feature-drain #6955)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7006",
-          "mergedAt": "2026-10-17T13:51:32Z"
+          "number": 7111,
+          "title": "chore(packages): delete @mbe/mcp-server and the mbe mcp command",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7111",
+          "mergedAt": "2026-10-19T02:15:55Z"
         },
         {
-          "number": 7005,
-          "title": "feat(ci): reconcile queue telemetry in metrics-collectors (mbe-feature-drain #6931)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7005",
-          "mergedAt": "2026-10-17T13:45:29Z"
+          "number": 7097,
+          "title": "feat(scripts): verdict script for the stale-human-blocked batch the retro reads (mbe-feature-drain #7091)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7097",
+          "mergedAt": "2026-10-19T00:41:19Z"
         },
         {
-          "number": 7004,
-          "title": "feat(reservations): record a moved reservation_event in moveReservationToHold (mbe-feature-drain #7001)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7004",
-          "mergedAt": "2026-10-17T13:16:51Z"
+          "number": 7094,
+          "title": "docs(gotchas): record that cloud routines cannot dispatch visual-baseline-regen (mbe-feature-drain #7092)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7094",
+          "mergedAt": "2026-10-18T23:47:57Z"
         },
         {
-          "number": 7002,
-          "title": "test(reservations): guard that every reservation/deposit mutation writes an event (mbe-feature-drain #6938)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7002",
-          "mergedAt": "2026-10-17T12:58:17Z"
+          "number": 7093,
+          "title": "fix(metrics): classify sdlcSpeed PR authors from the repo-scoped pulls endpoint (mbe-feature-drain #7090)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7093",
+          "mergedAt": "2026-10-18T23:44:38Z"
         },
         {
-          "number": 7000,
-          "title": "feat(reservations): record deposit_transition events in every deposit status CAS (mbe-feature-drain #6937)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7000",
-          "mergedAt": "2026-10-17T12:50:07Z"
+          "number": 7086,
+          "title": "test(hospitality): E2E for the operator-to-guest menu loop (mbe-feature-drain #7073)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7086",
+          "mergedAt": "2026-10-18T22:36:26Z"
         },
         {
-          "number": 6999,
-          "title": "feat(reservations): append-only table_events log of Table.status transitions (mbe-feature-drain #6953)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6999",
-          "mergedAt": "2026-10-17T12:30:21Z"
+          "number": 7083,
+          "title": "feat(hospitality): public guest menu pages (mbe-feature-drain #7071)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7083",
+          "mergedAt": "2026-10-18T21:44:52Z"
         },
         {
-          "number": 6998,
-          "title": "feat(reservations): list a reservation's event history over the API (mbe-feature-drain #6939)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6998",
-          "mergedAt": "2026-10-17T12:02:40Z"
+          "number": 7085,
+          "title": "feat(hospitality): client-side QR code download for menus (mbe-feature-drain #7072)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7085",
+          "mergedAt": "2026-10-18T21:21:11Z"
         },
         {
-          "number": 6997,
-          "title": "feat(reservations): attribute guest and staff-confirm doors in the event log (mbe-feature-drain #6936)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6997",
-          "mergedAt": "2026-10-17T11:50:08Z"
+          "number": 7084,
+          "title": "feat(hospitality): Menus dashboard area with editor and sold-out toggle (mbe-feature-drain #7070)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7084",
+          "mergedAt": "2026-10-18T21:01:22Z"
         },
         {
-          "number": 6996,
-          "title": "test(gen): e2e for point-and-refine select, refine, undo and replay (mbe-feature-drain #6927)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6996",
-          "mergedAt": "2026-10-17T11:22:31Z"
+          "number": 7082,
+          "title": "feat(reservations): public read-only menu API and api-client (mbe-feature-drain #7069)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7082",
+          "mergedAt": "2026-10-18T20:28:46Z"
         },
         {
-          "number": 6995,
-          "title": "feat(scripts): reconciler revisits incomplete telemetry rows (mbe-feature-drain #6924)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6995",
-          "mergedAt": "2026-10-17T10:53:09Z"
+          "number": 7079,
+          "title": "feat(reservations): venue-scoped menus API and api-client (mbe-feature-drain #7068)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7079",
+          "mergedAt": "2026-10-18T20:02:27Z"
         },
         {
-          "number": 6993,
-          "title": "feat(gen): undo/redo node refinements and show the type delta (mbe-feature-drain #6925)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6993",
-          "mergedAt": "2026-10-17T10:45:15Z"
+          "number": 7075,
+          "title": "feat(reservations): add Menu, MenuSection and MenuItem models with RLS (mbe-feature-drain #7067)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7075",
+          "mergedAt": "2026-10-18T19:20:24Z"
         },
         {
-          "number": 6994,
-          "title": "feat(scripts): queue-telemetry cost and model-tier source (mbe-feature-drain #6919)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6994",
-          "mergedAt": "2026-10-17T10:41:36Z"
+          "number": 7044,
+          "title": "ci-fix(visual): refresh stale hospitality + marketing visual baselines (mbe-daily-issue #7042)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7044",
+          "mergedAt": "2026-10-18T14:38:58Z"
         }
       ],
-      "measured_at": "2026-10-18T08:39:53.666Z"
+      "measured_at": "2026-10-19T09:42:56.149Z"
     },
     "evals": {
       "n": 37,
@@ -1523,8 +1529,8 @@
       "measured_at": "2026-05-30T17:04:57.036Z"
     },
     "auto_qa_tuning": {
-      "history_count": 27,
-      "measured_at": "2026-10-18T08:39:53.666Z"
+      "history_count": 29,
+      "measured_at": "2026-10-19T09:42:56.149Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
