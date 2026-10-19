@@ -208,8 +208,8 @@ downloaded`, `Repo-wide coverage: 86% (32180/37187 statements, threshold:
 - **Status:** the **Owner chose "Fix now"** (2026-10-18, live). A separate fix
   PR, **outside this run**, adds `test-coverage-gate` to `report-health`'s
   `needs` and result loop and pins the edge in `ci-test-shards.test.mjs`, RED
-  first; the Owner merges it. **Fix PR: pending — number linked by the
-  orchestrator.** Ship records the defect and does not block on it.
+  first; the Owner merges it. **Fix PR: #7095** (`f1ee8f602`, open,
+  awaiting the Owner's merge). Ship records the defect and does not block on it.
 
 ## Follow-ups
 
