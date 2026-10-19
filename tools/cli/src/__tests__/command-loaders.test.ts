@@ -42,7 +42,6 @@ describe("registerCommands", () => {
         "sync-rules",
         "check-adr",
         "check-deps",
-        "mcp",
         "issue",
       ].sort()
     );

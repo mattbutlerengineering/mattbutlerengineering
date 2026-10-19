@@ -19,7 +19,6 @@ src/
 │   ├── login.ts       # login — authenticate with Auth0
 │   ├── logout.ts      # logout — clear local tokens
 │   ├── loop.ts        # loop — run command repeatedly on interval
-│   ├── mcp.ts         # mcp — MCP server management
 │   ├── pack.ts        # pack/pack-changed — generate llms.txt context files
 │   ├── sync-rules.ts  # sync-rules — sync Claude rules across packages
 │   ├── users.ts       # users — API user management

@@ -81,12 +81,6 @@
       "path": "packages/jobs"
     },
     {
-      "name": "@mbe/mcp-server",
-      "type": "package",
-      "path": "packages/mcp-server",
-      "entrypoint": true
-    },
-    {
       "name": "@mbe/notifications",
       "type": "package",
       "path": "packages/notifications"
@@ -512,11 +506,6 @@
     },
     {
       "from": "@mbe/jobs",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/mcp-server",
       "to": "@mbe/config",
       "type": "devDependency"
     },

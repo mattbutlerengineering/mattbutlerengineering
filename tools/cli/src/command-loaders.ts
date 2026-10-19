@@ -20,7 +20,6 @@ const LOADERS: ReadonlyArray<readonly [string, CommandLoader]> = [
   ["check-adr", async () => (await import("./commands/adr.js")).checkAdrCommand],
   ["check-deps", async () => (await import("./commands/check-deps.js")).checkDepsCommand],
   ["issue", async () => (await import("./commands/issue.js")).issueCommand],
-  ["mcp", async () => (await import("./commands/mcp.js")).mcpCommand],
 ];
 
 export const COMMAND_NAMES: readonly string[] = LOADERS.map(([name]) => name);
