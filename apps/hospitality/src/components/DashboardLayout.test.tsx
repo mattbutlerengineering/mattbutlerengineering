@@ -99,7 +99,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       Chat Panel Content
     </div>
   ),
-  Kbd: () => <div />,
+  Kbd: ({ children }: { children?: React.ReactNode }) => <kbd>{children}</kbd>,
   Handshake: ({ "aria-label": ariaLabel }: { "aria-label": string }) => (
     <div role="img" aria-label={ariaLabel} />
   ),
@@ -352,6 +352,25 @@ describe("DashboardLayout", () => {
     expect(screen.getByTestId("breadcrumb")).toBeDefined();
     // Breadcrumb shows "Home" on the timeline route; sidebar shows "Timeline" nav item
     expect(screen.getByTestId("breadcrumb")).toHaveTextContent("Home");
+  });
+
+  it("reads the non-Mac command-palette modifier from the catalog", () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
+      nextStep: null,
+      progress: 100,
+    });
+    const { i18n } = localeRuntime;
+    const original = i18n.t("layout.ctrlKey");
+    i18n.addResource(i18n.language, "translation", "layout.ctrlKey", "Strg");
+    try {
+      renderLayout("/timeline");
+      expect(screen.getByText("Strg").tagName).toBe("KBD");
+      expect(screen.queryByText("Ctrl")).toBeNull();
+    } finally {
+      i18n.addResource(i18n.language, "translation", "layout.ctrlKey", original);
+    }
   });
 
   it("renders the chat route with a heading inside the main landmark (#4971)", () => {

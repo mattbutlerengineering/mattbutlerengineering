@@ -255,7 +255,7 @@ Work in order, test first. Run the rialto `setState`-in-`useEffect` ban and the
       es-MX and fr-CA values.
   - Accept: a locale test renders each announcement under es-MX and fr-CA; the
     en-US text is unchanged.
-- [ ] **Hospitality "Ctrl" key hint.** `DashboardLayout.tsx:365` reads its
+- [x] **Hospitality "Ctrl" key hint.** `DashboardLayout.tsx:365` reads its
       non-Mac key name from a catalog key in `en-US.json`, `es-MX.json` and
       `fr-CA.json` (no `en-GB.json` entry, because the wording is the same).
   - Accept: `pnpm check:i18n-catalogs` is green. The hospitality lint error is
