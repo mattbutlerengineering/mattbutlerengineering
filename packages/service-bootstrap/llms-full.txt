@@ -547,9 +547,7 @@
   </file>
   <file path="src/health-routes.ts">
     export interface HealthDb {
-      readonly prisma: {
-        $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
-      };
+      readonly prisma: Pick<PrismaLike, "$queryRaw">;
       readonly getSlowQueryStats: () => SlowQueryStats;
       readonly getServiceStatus: () => ServiceStatus;
       readonly getPoolMetrics: () => PoolMetrics;
@@ -613,41 +611,33 @@
     
       return { record, checkAnomaly };
     }
-    function resolveJwksUrl(jwksUrl?: string): string | null {
-      const configured =
-        jwksUrl ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
-      if (configured) {
-        return configured;
-      }
-      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
-    }
     export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> {
       const url = resolveJwksUrl(jwksUrl);
       if (url === null) {
-        return {
-          status: "degraded",
-          latency: 0,
-          message: "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)",
-        };
+        return { status: "degraded", latency: 0, message: AUTH0_UNCONFIGURED_MESSAGE };
       }
-      const start = Date.now();
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), AUTH0_TIMEOUT_MS);
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeout);
-        const latency = Date.now() - start;
-        if (!response.ok) {
-          return { status: "degraded", latency, message: `Auth0 JWKS returned ${response.status}` };
-        }
-        return { status: "ok", latency };
-      } catch (error) {
-        const latency = Date.now() - start;
-        const message =
-          error instanceof Error && error.name === "AbortError"
-            ? "Auth0 JWKS unreachable (timeout >2s)"
-            : `Auth0 JWKS unreachable: ${error instanceof Error ? error.message : String(error)}`;
-        return { status: "degraded", latency, message };
+      const result = await probeJwks(url, { timeoutMs: AUTH0_TIMEOUT_MS });
+      switch (result.kind) {
+        case "ok":
+          return { status: "ok", latency: result.latency };
+        case "http":
+          return {
+            status: "degraded",
+            latency: result.latency,
+            message: `Auth0 JWKS returned ${result.status}`,
+          };
+        case "timeout":
+          return {
+            status: "degraded",
+            latency: result.latency,
+            message: "Auth0 JWKS unreachable (timeout >2s)",
+          };
+        case "network":
+          return {
+            status: "degraded",
+            latency: result.latency,
+            message: `Auth0 JWKS unreachable: ${result.error instanceof Error ? result.error.message : String(result.error)}`,
+          };
       }
     }
   </file>

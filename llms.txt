@@ -15332,6 +15332,29 @@
       function runRestFallback(rest: Run, cmd: string, args: string[], execErr: unknown): string { /* ... */ }
     </item>
   </file>
+  <file path="packages/observability/src/auth0-jwks.ts">
+    <item priority="high">
+      export const AUTH0_UNCONFIGURED_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveJwksUrl(explicit?: string): string | null { /* ... */ }
+    </item>
+    <item priority="low">
+      type JwksProbeResult = { readonly kind: "ok"; readonl | { readonly kind: "http"; reado | { readonly kind: "timeout"; re | { readonly kind: "network"; re;
+    </item>
+    <item priority="low">
+      interface JwksProbeOptions {
+        timeoutMs: number;
+        fetchFn?: typeof fetch;
+      }
+    </item>
+    <item priority="high">
+      export async function probeJwks(url: string, options: JwksProbeOptions): Promise<JwksProbeResult> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/observability/src/build-info.ts">
     <item priority="high">
       export const UNKNOWN_BUILD: unknown;
@@ -15488,20 +15511,9 @@
     <item priority="low">
       async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> { /* ... */ }
     </item>
-    <item priority="high">
-      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
-    </item>
-    <item priority="medium">
-      function resolveAuth0Url(explicit: string | undefined): string | null { /* ... */ }
-    </item>
-    <item priority="low">
-      interface PrismaLike {
-        $queryRaw: (strings: TemplateStringsArray) => Promise<unknown>;
-      }
-    </item>
     <item priority="low">
       interface StandardChecksOptions {
-        prisma: PrismaLike;
+        prisma: Pick<PrismaLike, "$queryRaw">;
         auth0Url?: string;
         jwksTimeoutMs?: number;
         fetchFn?: typeof fetch;
@@ -15837,8 +15849,7 @@
   <file path="packages/service-bootstrap/src/health-routes.ts">
     <item priority="low">
       interface HealthDb {
-        prisma: {
-          $queryRaw: (query: TemplateStringsArray, ...values:...;
+        prisma: Pick<PrismaLike, "$queryRaw">;
         getSlowQueryStats: () => SlowQueryStats;
         getServiceStatus: () => ServiceStatus;
         getPoolMetrics: () => PoolMetrics;
@@ -15883,9 +15894,6 @@
     </item>
     <item priority="high">
       export function createLatencyTracker(): LatencyTracker { /* ... */ }
-    </item>
-    <item priority="medium">
-      function resolveJwksUrl(jwksUrl?: string): string | null { /* ... */ }
     </item>
     <item priority="high">
       export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> { /* ... */ }

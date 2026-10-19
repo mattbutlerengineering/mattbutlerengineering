@@ -1,5 +1,52 @@
 <codebase path="packages/observability">
   <section priority="medium" role="src">
+  <file path="src/auth0-jwks.ts">
+    export const AUTH0_UNCONFIGURED_MESSAGE =
+      "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)";
+    export function buildJwksUrl(authority: string | undefined): string | undefined {
+      if (!authority) {
+        return undefined;
+      }
+      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
+    }
+    export function resolveJwksUrl(explicit?: string): string | null {
+      const configured =
+        explicit ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
+      if (configured) {
+        return configured;
+      }
+      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
+    }
+    export type JwksProbeResult =
+      | { readonly kind: "ok"; readonly latency: number }
+      | { readonly kind: "http"; readonly status: number; readonly latency: number }
+      | { readonly kind: "timeout"; readonly error: unknown; readonly latency: number }
+      | { readonly kind: "network"; readonly error: unknown; readonly latency: number };
+    export interface JwksProbeOptions {
+      readonly timeoutMs: number;
+      /** Defaults to a per-call lookup of global `fetch` so test stubs are honoured. */
+      readonly fetchFn?: typeof fetch;
+    }
+    export async function probeJwks(url: string, options: JwksProbeOptions): Promise<JwksProbeResult> {
+      const { timeoutMs, fetchFn = (...args: Parameters<typeof fetch>) => fetch(...args) } = options;
+      const start = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetchFn(url, { signal: controller.signal });
+        const latency = Date.now() - start;
+        return response.ok
+          ? { kind: "ok", latency }
+          : { kind: "http", status: response.status, latency };
+      } catch (error) {
+        const latency = Date.now() - start;
+        const aborted = error instanceof Error && error.name === "AbortError";
+        return { kind: aborted ? "timeout" : "network", error, latency };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  </file>
   <file path="src/build-info.ts">
     export const UNKNOWN_BUILD = "unknown";
     export interface BuildInfo {
@@ -324,29 +371,12 @@
         return probe();
       }
     }
-    export function buildJwksUrl(authority: string | undefined): string | undefined {
-      if (!authority) {
-        return undefined;
-      }
-      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    }
-    function resolveAuth0Url(explicit: string | undefined): string | null {
-      const configured =
-        explicit ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
-      if (configured) {
-        return configured;
-      }
-      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
-    }
-    export interface PrismaLike {
-      readonly $queryRaw: (strings: TemplateStringsArray) => Promise<unknown>;
-    }
     export interface StandardChecksOptions {
       /** Prisma (or compatible) client used to ping the database. */
-      readonly prisma: PrismaLike;
+      readonly prisma: Pick<PrismaLike, "$queryRaw">;
       /**
        * Auth0 JWKS endpoint URL. Falls back to `AUTH0_JWKS_URL`, then
-       * `AUTH_AUTHORITY` (via {@link buildJwksUrl}), then a dev-tenant default —
+       * `AUTH_AUTHORITY` (via {@link resolveJwksUrl}), then a dev-tenant default —
        * the dev-tenant default is refused when `NODE_ENV=production` and the
        * `auth` check fails instead of probing it. See {@link registerStandardChecks}.
        */
@@ -363,14 +393,9 @@
       tracker: ReadinessTracker,
       options: StandardChecksOptions
     ): void {
-      const {
-        prisma,
-        auth0Url,
-        jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS,
-        fetchFn = (...args: Parameters<typeof fetch>) => fetch(...args),
-      } = options;
+      const { prisma, auth0Url, jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS, fetchFn } = options;
     
-      const resolvedAuth0Url = resolveAuth0Url(auth0Url);
+      const resolvedAuth0Url = resolveJwksUrl(auth0Url);
     
       tracker.registerCheck("database", () =>
         withTransientRetry(async () => {
@@ -383,15 +408,12 @@
           throw new Error(AUTH0_UNCONFIGURED_MESSAGE);
         }
         await withTransientRetry(async () => {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
-          try {
-            const response = await fetchFn(resolvedAuth0Url, { signal: controller.signal });
-            if (!response.ok) {
-              throw new Error(`JWKS returned ${response.status}`);
-            }
-          } finally {
-            clearTimeout(timeout);
+          const result = await probeJwks(resolvedAuth0Url, { timeoutMs: jwksTimeoutMs, fetchFn });
+          if (result.kind === "http") {
+            throw new Error(`JWKS returned ${result.status}`);
+          }
+          if (result.kind === "timeout" || result.kind === "network") {
+            throw result.error;
           }
         });
       });

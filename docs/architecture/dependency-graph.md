@@ -104,6 +104,7 @@ flowchart TD
   database --> config
   gh_client --> config
   observability --> config
+  observability --> database
   rialto --> config
   rialto_catalog --> rialto
   rialto_catalog --> config

@@ -878,6 +878,9 @@ importers:
       '@mbe/config':
         specifier: workspace:*
         version: link:../config
+      '@mbe/database':
+        specifier: workspace:*
+        version: link:../database
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

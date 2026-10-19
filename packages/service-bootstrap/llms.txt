@@ -148,8 +148,7 @@
   <file path="src/health-routes.ts">
     <item priority="low">
       interface HealthDb {
-        prisma: {
-          $queryRaw: (query: TemplateStringsArray, ...values:...;
+        prisma: Pick<PrismaLike, "$queryRaw">;
         getSlowQueryStats: () => SlowQueryStats;
         getServiceStatus: () => ServiceStatus;
         getPoolMetrics: () => PoolMetrics;
@@ -194,9 +193,6 @@
     </item>
     <item priority="high">
       export function createLatencyTracker(): LatencyTracker { /* ... */ }
-    </item>
-    <item priority="medium">
-      function resolveJwksUrl(jwksUrl?: string): string | null { /* ... */ }
     </item>
     <item priority="high">
       export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> { /* ... */ }

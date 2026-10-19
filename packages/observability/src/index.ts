@@ -8,7 +8,13 @@ export { redactSignal, REDACTED } from "./redact.js";
 
 export { createRequestIdMiddleware, getRequestId, logWithRequestId } from "./request-id.js";
 
-export { createReadinessTracker, registerStandardChecks, buildJwksUrl } from "./readiness.js";
+export { createReadinessTracker, registerStandardChecks } from "./readiness.js";
+export {
+  buildJwksUrl,
+  resolveJwksUrl,
+  probeJwks,
+  AUTH0_UNCONFIGURED_MESSAGE,
+} from "./auth0-jwks.js";
 
 export {
   errorRatePlugin_,
@@ -25,7 +31,6 @@ export type {
   ReadinessSnapshot,
   ReadinessCheckResult,
   ReadinessCheckFn,
-  PrismaLike,
   StandardChecksOptions,
 } from "./readiness.js";
 
