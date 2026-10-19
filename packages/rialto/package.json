@@ -482,17 +482,17 @@
     {
       "name": "Locale en-GB (subpath)",
       "path": "dist/lib/i18n/locales/en-GB.js",
-      "limit": "1.5 kB"
+      "limit": "2.2 kB"
     },
     {
       "name": "Locale es-MX (subpath)",
       "path": "dist/lib/i18n/locales/es-MX.js",
-      "limit": "1.5 kB"
+      "limit": "2.2 kB"
     },
     {
       "name": "Locale fr-CA (subpath)",
       "path": "dist/lib/i18n/locales/fr-CA.js",
-      "limit": "1.5 kB"
+      "limit": "2.2 kB"
     },
     {
       "name": "Button (subpath)",

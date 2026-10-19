@@ -1,5 +1,10 @@
 import { renderHook, act } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { RialtoLocaleProvider } from "../../i18n/RialtoLocaleProvider";
+import { esMX } from "../../i18n/locales/es-MX";
+import { frCA } from "../../i18n/locales/fr-CA";
+import type { RialtoMessages } from "../../i18n/messages";
 import { useChatStream } from "./useChatStream.js";
 
 vi.mock("@mbe/api-client/streaming", () => ({
@@ -329,6 +334,28 @@ describe("useChatStream", () => {
     });
     expect(result.current.permissionDenials).toEqual([]);
   });
+
+  it.each([
+    ["en-US", undefined, "Not allowed"],
+    ["es-MX", esMX, "No permitido"],
+    ["fr-CA", frCA, "Non autorisé"],
+  ] as const)(
+    "falls back to the %s no-reason denial text",
+    async (_tag, messages: RialtoMessages | undefined, reason) => {
+      vi.mocked(streamNDJSON).mockReturnValueOnce(
+        mockStream([{ type: "permission_denied", toolName: "Bash" }])
+      );
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <RialtoLocaleProvider messages={messages}>{children}</RialtoLocaleProvider>
+      );
+      const { result } = renderHook(() => useChatStream(createMockProps()), { wrapper });
+
+      await act(async () => {
+        await result.current.send("run it");
+      });
+      expect(result.current.permissionDenials).toEqual([{ toolName: "Bash", reason }]);
+    }
+  );
 
   it("tracks the running tool from tool_status events and clears it when the tool completes", async () => {
     let release: () => void = () => {};

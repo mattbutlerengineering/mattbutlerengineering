@@ -1,3 +1,43 @@
+import type {
+  TapeChartOverlapKind,
+  TapeChartRoomStatus,
+  TapeChartStatus,
+} from "../components/TapeChart/types";
+
+/**
+ * TapeChart's built-in labels, grouped because they mirror the component's
+ * own `strings` prop field for field (a consumer's `strings` still wins).
+ */
+export interface TapeChartMessages {
+  readonly regionLabel: string;
+  readonly roomsColumnLabel: string;
+  readonly arrivalsLabel: string;
+  readonly departuresLabel: string;
+  readonly inHouseLabel: string;
+  readonly viewModeToggleLabel: string;
+  readonly viewModeGridLabel: string;
+  readonly viewModeListLabel: string;
+  readonly todayLabel: string;
+  readonly emptyTitle: string;
+  readonly emptyBody: string;
+  readonly errorTitle: string;
+  readonly loadingLabel: string;
+  readonly moveDialogTitle: string;
+  readonly moveConfirmLabel: string;
+  readonly conflictWarning: string;
+  readonly statusLabels: Readonly<Record<TapeChartStatus, string>>;
+  readonly roomStatusLabels: Readonly<Record<TapeChartRoomStatus, string>>;
+  readonly overlapLabels: Readonly<Record<TapeChartOverlapKind, string>>;
+  /** Night count with its noun, e.g. "2 nights". */
+  readonly nightsLabel: (count: number) => string;
+  /** Party size with its noun, e.g. "2 guests". */
+  readonly partySizeLabel: (count: number) => string;
+  /** Booking channel in the reservation's accessible name, e.g. "via Direct". */
+  readonly viaSource: (source: string) => string;
+  /** Block reason in the reservation's accessible name, e.g. "reason: Maintenance". */
+  readonly blockedReason: (reason: string) => string;
+}
+
 /**
  * Every user-visible string Rialto renders by itself, as one typed dictionary
  * (ADR-028). en-US is the inline default; other locales ship as their own
@@ -184,6 +224,26 @@ export interface RialtoMessages {
   readonly closeSafetyCover: (label: string) => string;
   /** MasterOverride cover button name while safe. */
   readonly liftSafetyCover: (label: string) => string;
+  /** ThemeToggle name while dark (pressing it switches to light). */
+  readonly switchToLightMode: string;
+  /** ThemeToggle name while light (pressing it switches to dark). */
+  readonly switchToDarkMode: string;
+  /** Form error-summary heading for `count` invalid fields. Each locale picks its own plural form (French singular covers 0 and 1). */
+  readonly fieldsNeedAttention: (count: number) => string;
+  /** TapeChart noun after a separately formatted reservation count, capitalized ("Reservation" / "Reservations"). */
+  readonly reservationCount: (count: number) => string;
+  /** DataTable per-row checkbox name when no `selectionLabel` is given (screen-reader only). */
+  readonly selectThisRow: string;
+  /** PinInput live-region announcement once every cell is filled. */
+  readonly codeComplete: string;
+  /** ChatPanel tool-denial reason when the server sends none. */
+  readonly notAllowed: string;
+  /** TextArea character-counter announcement; `over` adds the over-limit note. */
+  readonly characterCount: (current: number, max: number, over: boolean) => string;
+  /** Combobox live-region announcement of `count` (at least 1) visible options. */
+  readonly resultsAvailable: (count: number) => string;
+  /** TapeChart default labels; its `strings` prop overrides them. */
+  readonly tapeChart: TapeChartMessages;
 }
 
 export const enUS: RialtoMessages = {
@@ -275,4 +335,52 @@ export const enUS: RialtoMessages = {
   coverOpenStatus: (label, state) => `${label} safety cover open. Switch is ${state}.`,
   closeSafetyCover: (label) => `Close safety cover for ${label}`,
   liftSafetyCover: (label) => `Lift safety cover for ${label}`,
+  switchToLightMode: "Switch to light mode",
+  switchToDarkMode: "Switch to dark mode",
+  fieldsNeedAttention: (count) =>
+    count === 1 ? `${count} field needs attention` : `${count} fields need attention`,
+  reservationCount: (count) => (count === 1 ? "Reservation" : "Reservations"),
+  selectThisRow: "Select row",
+  codeComplete: "Code complete",
+  notAllowed: "Not allowed",
+  characterCount: (current, max, over) =>
+    `${current} of ${max} characters${over ? ", over limit" : ""}`,
+  resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
+  tapeChart: {
+    regionLabel: "Reservations tape chart",
+    roomsColumnLabel: "Rooms",
+    arrivalsLabel: "Arrivals",
+    departuresLabel: "Departures",
+    inHouseLabel: "In-house",
+    viewModeToggleLabel: "View mode",
+    viewModeGridLabel: "Grid",
+    viewModeListLabel: "List",
+    todayLabel: "Today",
+    emptyTitle: "No rooms configured",
+    emptyBody: "Add a room to start managing reservations.",
+    errorTitle: "Couldn't load reservations",
+    loadingLabel: "Loading reservations",
+    moveDialogTitle: "Move reservation",
+    moveConfirmLabel: "Move",
+    conflictWarning: "This move conflicts with another reservation.",
+    statusLabels: {
+      tentative: "Tentative",
+      confirmed: "Confirmed",
+      checkedIn: "Checked in",
+      checkedOut: "Checked out",
+      cancelled: "Cancelled",
+      noShow: "No-show",
+    },
+    roomStatusLabels: {
+      ready: "Ready",
+      dirty: "Dirty",
+      outOfOrder: "Out of order",
+      occupied: "Occupied",
+    },
+    overlapLabels: { conflict: "Double-booked", shared: "Shared occupancy" },
+    nightsLabel: (count) => (count === 1 ? `${count} night` : `${count} nights`),
+    partySizeLabel: (count) => (count === 1 ? `${count} guest` : `${count} guests`),
+    viaSource: (source) => `via ${source}`,
+    blockedReason: (reason) => `reason: ${reason}`,
+  },
 };

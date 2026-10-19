@@ -384,6 +384,7 @@
     "closeSidebar": "Close sidebar",
     "openPalette": "Open command palette",
     "search": "Search",
+    "ctrlKey": "Ctrl",
     "errorHeading": "Something went wrong",
     "errorBody": "An unexpected error occurred in this page.",
     "reload": "Reload"

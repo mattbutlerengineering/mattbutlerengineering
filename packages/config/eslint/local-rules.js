@@ -170,6 +170,16 @@ export default {
           if (node.type === "TemplateLiteral") {
             return node.quasis.some((q) => HAS_LETTER.test(q.value.cooked ?? q.value.raw));
           }
+          // A literal that reaches the output through a branch is still a
+          // literal: `a ? "Open" : "Closed"`, `a && "Saved"`, `b ?? "Untitled"`.
+          // The left operand of a logical expression is the condition (or a
+          // value that is not a literal in practice), so only the right one is
+          // inspected. Syntactic only: a literal held in a variable, object
+          // property or return value is out of this rule's sight.
+          if (node.type === "ConditionalExpression") {
+            return isTextual(node.consequent) || isTextual(node.alternate);
+          }
+          if (node.type === "LogicalExpression") return isTextual(node.right);
           return false;
         };
 

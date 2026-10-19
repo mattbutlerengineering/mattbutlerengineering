@@ -92,9 +92,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
     // (role="alert") element below so the two are never rendered as
     // duplicate DOM text.
     const counterAnnouncement =
-      !error && maxLength != null
-        ? `${currentLength} of ${maxLength} characters${isOver ? ", over limit" : ""}`
-        : "";
+      !error && maxLength != null ? messages.characterCount(currentLength, maxLength, isOver) : "";
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
