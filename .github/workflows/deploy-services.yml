@@ -10,7 +10,6 @@ on:
       - "packages/types/**"
       - "packages/auth/**"
       - "packages/agent-core/**"
-      - "packages/observability/**"
       # Both are baked into the service images and run at boot, so a change to
       # either must redeploy. #4927 fixed the Sentry blackout in packages/sentry
       # and matched no entry here: it merged green and shipped nothing until a

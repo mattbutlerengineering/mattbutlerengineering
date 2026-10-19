@@ -1,5 +1,5 @@
 import type { Guest } from "@mbe/types";
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationDispatcher } from "../notifications/index.js";
 import { canContact, resolveChannel } from "./contact-policy.js";
 
 /**

@@ -3,7 +3,7 @@ import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "./public-reservations.js";
 
-vi.mock("@mbe/notifications", () => {
+vi.mock("../notifications/index.js", () => {
   class MockResendNotificationAdapter {
     sendBookingConfirmation = vi.fn().mockResolvedValue(undefined);
     sendBookingReminder = vi.fn().mockResolvedValue(undefined);

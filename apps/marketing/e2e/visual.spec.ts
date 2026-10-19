@@ -31,7 +31,7 @@
  */
 import { readFileSync } from "node:fs";
 import { test as base, expect } from "@playwright/test";
-import { revealLazyContent } from "@mbe/test-fixtures/ui-quality-capture";
+import { revealLazyContent } from "@mbe/ui-quality-capture";
 
 const APP = "marketing";
 

@@ -13,7 +13,7 @@ vi.mock("node:util", () => ({
 }));
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createMockQueryStream } from "@mbe/agent-test-utils";
+import { createMockQueryStream } from "../testing/index.js";
 import { execFile } from "node:child_process";
 import { EMPTY_DIFF_MARKER, evaluateSuccess, getGitDiff } from "../success-evaluator.js";
 

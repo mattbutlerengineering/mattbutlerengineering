@@ -352,7 +352,8 @@
       "floorPlans": "Floor Plans",
       "bookingWidget": "Booking Widget",
       "signOut": "Sign Out",
-      "chat": "Chat"
+      "chat": "Chat",
+      "menus": "Menus"
     }
   },
   "layout": {
@@ -374,7 +375,8 @@
       "admin": "Admin",
       "dashboard": "Dashboard",
       "setup": "Setup",
-      "hours": "Operating Hours"
+      "hours": "Operating Hours",
+      "menus": "Menus"
     },
     "venuesNotLoaded": "Venues not loaded.",
     "searchPlaceholder": "Search pages and actions...",
@@ -382,6 +384,7 @@
     "closeSidebar": "Close sidebar",
     "openPalette": "Open command palette",
     "search": "Search",
+    "ctrlKey": "Ctrl",
     "errorHeading": "Something went wrong",
     "errorBody": "An unexpected error occurred in this page.",
     "reload": "Reload"
@@ -1252,6 +1255,20 @@
     "tagline": "Reserve your table online",
     "poweredBy": "Powered by Matt Butler Engineering"
   },
+  "publicMenu": {
+    "menuLabel": "Menu",
+    "menusDocumentTitle": "Menus — {{venue}}",
+    "menuDocumentTitle": "{{menu}} — {{venue}}",
+    "notFoundHeading": "Menu not found",
+    "notFoundDescription": "We couldn't find the menu you're looking for. Double-check the link, or contact the venue directly.",
+    "backToMenus": "Back to menus",
+    "emptyHeading": "No menus yet",
+    "emptyDescription": "This venue hasn't published a menu yet. Check back soon.",
+    "loading": "Loading menu...",
+    "soldOut": "Sold out",
+    "viewMenu": "View menu",
+    "menusHeading": "Menus"
+  },
   "manageReservation": {
     "documentTitle": "Your reservation — Hospitality",
     "venueDocumentTitle": "{{venue}} — Your reservation",
@@ -1599,6 +1616,93 @@
         "description": "Guests receive immediate confirmation with their reservation details.",
         "badge": "UX"
       }
+    }
+  },
+  "menus": {
+    "title": "Menus",
+    "description": "Build the menus guests read and mark dishes sold out during service.",
+    "newButton": "New menu",
+    "emptyHeading": "No menus yet",
+    "emptyDescription": "Create your first menu, add sections and dishes, then set it to Active to publish it.",
+    "loadFailed": "Menus not loaded.",
+    "saveFailed": "Change not saved.",
+    "notFound": "Menu not found",
+    "notFoundDescription": "That menu does not exist for this venue.",
+    "status": {
+      "label": "Status",
+      "DRAFT": "Draft",
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive"
+    },
+    "list": {
+      "openAria": "Edit {{name}}",
+      "open": "Edit",
+      "deleteAria": "Delete {{name}}",
+      "delete": "Delete",
+      "slugLabel": "/{{slug}}"
+    },
+    "form": {
+      "name": "Name",
+      "slug": "URL slug",
+      "slugHint": "Lowercase letters, numbers and hyphens, like dinner-menu.",
+      "slugInvalid": "Use lowercase letters, numbers and hyphens only.",
+      "slugTaken": "Another menu already uses that slug.",
+      "create": "Create menu",
+      "save": "Save changes",
+      "cancel": "Cancel"
+    },
+    "deleteConfirm": {
+      "title": "Delete {{name}}?",
+      "description": "Its sections and dishes are deleted too. This cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "deleteSectionConfirm": {
+      "title": "Delete the {{name}} section?",
+      "description": "Its dishes are deleted too. This cannot be undone."
+    },
+    "deleteItemConfirm": {
+      "title": "Delete {{name}}?",
+      "description": "This dish is removed from the menu. This cannot be undone."
+    },
+    "editor": {
+      "back": "All menus",
+      "details": "Menu details",
+      "sections": "Sections",
+      "addSection": "Add section",
+      "sectionName": "Section name",
+      "sectionsEmpty": "No sections yet. Add one to start adding dishes.",
+      "itemsEmpty": "No dishes in this section yet.",
+      "rename": "Rename",
+      "renameAria": "Rename {{name}}",
+      "deleteSectionAria": "Delete section {{name}}",
+      "addItem": "Add dish",
+      "itemName": "Dish name",
+      "itemDescription": "Description",
+      "price": "Price ({{currency}})",
+      "priceInvalid": "Enter an amount like 12.50, with at most two decimals.",
+      "edit": "Edit",
+      "editAria": "Edit {{name}}",
+      "deleteItemAria": "Delete {{name}}",
+      "saveItem": "Save dish",
+      "moveUpAria": "Move {{name}} up",
+      "moveDownAria": "Move {{name}} down",
+      "dragAria": "Drag {{name}} to reorder",
+      "soldOut": "Sold out",
+      "soldOutAria": "{{name}} sold out",
+      "announceSoldOut": "{{name}} marked sold out.",
+      "announceAvailable": "{{name}} is available again.",
+      "announceMoved": "{{name}} moved to position {{position}} of {{count}}.",
+      "announceSaved": "Changes saved.",
+      "addItemTo": "Add a dish to {{name}}"
+    },
+    "qr": {
+      "title": "QR code",
+      "draftHint": "The QR code won’t work until the menu is Active.",
+      "format": "Format",
+      "size": "Size",
+      "pixels": "{{size}} px",
+      "download": "Download QR"
     }
   }
 }

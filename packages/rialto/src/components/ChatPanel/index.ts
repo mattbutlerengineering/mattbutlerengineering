@@ -3,6 +3,8 @@ export type { ChatPanelProps, ComponentRegistry } from "./ChatPanel.js";
 export type {
   ChatMessage,
   ChatMessageElement,
+  ChatStreamFn,
+  ChatStreamRequest,
   PendingAction,
   UseChatStreamReturn,
 } from "./useChatStream.js";

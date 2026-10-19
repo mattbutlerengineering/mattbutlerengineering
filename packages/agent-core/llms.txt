@@ -2992,4 +2992,112 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="testing">
+  <file path="src/testing/cost-estimator.ts">
+    <item priority="low">
+      interface ModelPricing {
+        model: string;
+        inputCostPer1MTokens: number;
+        outputCostPer1MTokens: number;
+        cacheWritePer1MTokens?: number;
+        cacheReadPer1MTokens?: number;
+      }
+    </item>
+    <item priority="high">
+      export const MODEL_PRICING: Record<string, ModelPricing>;
+    </item>
+    <item priority="low">
+      interface TokenUsageInput {
+        inputTokens: number;
+        outputTokens: number;
+        cacheWriteTokens?: number;
+        cacheReadTokens?: number;
+      }
+    </item>
+    <item priority="low">
+      interface CostBreakdown {
+        model: string;
+        inputCostUsd: number;
+        outputCostUsd: number;
+        cacheWriteCostUsd: number;
+        cacheReadCostUsd: number;
+      }
+    </item>
+    <item priority="high">
+      export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown { /* ... */ }
+    </item>
+  </file>
+  <file path="src/testing/mock-query-stream.ts">
+    <item priority="high">
+      export async function* createMockQueryStream(
+        messages: unknown[]
+      ): AsyncGenerator<SDKMessage | SDKResultMessage> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/testing/sdk-result.ts">
+    <item priority="low">
+      interface ResultInputs {
+        sessionId: string;
+        numTurns: number;
+        costUsd: number;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }
+    </item>
+  </file>
+  <file path="src/testing/session-fixtures.ts">
+    <item priority="low">
+      interface ToolCallRecord {
+        toolName: string;
+        input: Record<string, unknown>;
+        output?: string;
+      }
+    </item>
+    <item priority="low">
+      interface FixtureOptions {
+        sessionId?: string;
+        numTurns?: number;
+        costUsd?: number;
+        inputTokens?: number;
+        outputTokens?: number;
+      }
+    </item>
+    <item priority="medium">
+      function makeTimestamp(offsetMs = 0): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildStartEvent(sessionId: string): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toolUseIdFor(call: ToolCallRecord, index: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
+    </item>
+  </file>
+  </section>
 </codebase>

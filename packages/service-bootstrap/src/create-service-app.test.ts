@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
-import type * as ObservabilityModule from "@mbe/observability";
+import type * as ObservabilityModule from "./observability/index.js";
 import {
   createServiceApp,
   validateCorsOrigins,
@@ -47,7 +47,7 @@ vi.mock("@mbe/auth/fastify", () => ({
   authPlugin: vi.fn().mockImplementation(async () => {}),
   getAuthPluginOptionsFromEnv: vi.fn().mockReturnValue({}),
 }));
-vi.mock("@mbe/observability", async (importOriginal) => {
+vi.mock("./observability/index.js", async (importOriginal) => {
   // Keep real exports (e.g. buildJwksUrl, used transitively by
   // validate-startup-config.ts — see #4200) and only override the plugin
   // factories that would otherwise require a real server/network.
@@ -141,13 +141,13 @@ describe("createServiceApp", () => {
   });
 
   it("registers request-ID middleware", async () => {
-    const obs = await import("@mbe/observability");
+    const obs = await import("./observability/index.js");
     app = await createServiceApp(createTestConfig());
     expect(obs.createRequestIdMiddleware).toHaveBeenCalled();
   });
 
   it("registers error rate plugin", async () => {
-    const obs = await import("@mbe/observability");
+    const obs = await import("./observability/index.js");
     app = await createServiceApp(createTestConfig());
     expect(obs.errorRatePlugin_).toHaveBeenCalled();
   });
@@ -430,7 +430,7 @@ describe("createServiceApp", () => {
 
   it("rate limit onExceeded logs and records hit", async () => {
     const rateLimit = await import("@fastify/rate-limit");
-    const obs = await import("@mbe/observability");
+    const obs = await import("./observability/index.js");
     app = await createServiceApp(createTestConfig());
 
     // Extract the onExceeded callback from the rate limit registration call
@@ -639,5 +639,30 @@ describe("feature flags plugin", () => {
     }));
     const res = await app.inject({ method: "GET", url: "/flag-check" });
     expect(res.json()).toEqual({ enabled: false });
+  });
+  it("request.ip resolves to the real client behind the edge worker and DO ingress hops", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    app.get("/ip", async (request) => ({ ip: request.ip }));
+    // Edge worker sets X-Forwarded-For to CF-Connecting-IP; DO ingress may append its own hop.
+    const res = await app.inject({
+      method: "GET",
+      url: "/ip",
+      remoteAddress: "10.0.0.1",
+      headers: { "x-forwarded-for": "203.0.113.7, 172.70.0.9" },
+    });
+    expect(res.json()).toEqual({ ip: "203.0.113.7" });
+  });
+
+  it("request.ip ignores a client-spoofed extra X-Forwarded-For hop", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    app.get("/ip", async (request) => ({ ip: request.ip }));
+    // Spoofed leftmost entry must not win over the hop the edge recorded.
+    const res = await app.inject({
+      method: "GET",
+      url: "/ip",
+      remoteAddress: "10.0.0.1",
+      headers: { "x-forwarded-for": "198.51.100.99, 203.0.113.7, 172.70.0.9" },
+    });
+    expect(res.json()).toEqual({ ip: "203.0.113.7" });
   });
 });

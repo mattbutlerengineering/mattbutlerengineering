@@ -1,7 +1,7 @@
-import { JobScheduler } from "@mbe/jobs";
-import type { JobType, JobPayloadMap } from "@mbe/jobs";
-import { TwilioSmsAdapter } from "@mbe/notifications";
-import type { SmsPort } from "@mbe/notifications";
+import { JobScheduler } from "../jobs/index.js";
+import type { JobType, JobPayloadMap } from "../jobs/index.js";
+import { TwilioSmsAdapter } from "../notifications/index.js";
+import type { SmsPort } from "../notifications/index.js";
 
 /**
  * The slice of the real typed JobScheduler the reservations notifiers depend

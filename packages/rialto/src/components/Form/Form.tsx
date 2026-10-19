@@ -7,6 +7,7 @@ import {
   type FormHTMLAttributes,
   type ReactNode,
 } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
 import { FormContext } from "./FormContext";
 import styles from "./Form.module.css";
@@ -39,6 +40,7 @@ export function Form({
   className,
   ...props
 }: FormProps) {
+  const { messages } = useRialtoLocale();
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const registryRef = useRef(new Map<string, (() => string | undefined) | undefined>());
@@ -83,9 +85,7 @@ export function Form({
             {errorEntries.length > 0 && (
               <>
                 <p className={styles.errorSummaryTitle}>
-                  {errorEntries.length === 1
-                    ? "1 field needs attention"
-                    : `${errorEntries.length} fields need attention`}
+                  {messages.fieldsNeedAttention(errorEntries.length)}
                 </p>
                 <ul className={styles.errorSummaryList}>
                   {errorEntries.map(([name, message]) => (

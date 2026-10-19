@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type * as Jobs from "@mbe/jobs";
+import type * as Jobs from "../jobs/index.js";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 // Replace the real JobScheduler with a fake so no Redis connection is opened.
@@ -10,7 +10,7 @@ const scheduleSpy = vi.fn().mockResolvedValue("job-1");
 const cancelSpy = vi.fn().mockResolvedValue(undefined);
 const jobSchedulerCtor = vi.fn();
 
-vi.mock("@mbe/jobs", async (importOriginal) => {
+vi.mock("../jobs/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof Jobs>();
   class FakeJobScheduler {
     schedule = scheduleSpy;
@@ -23,8 +23,8 @@ vi.mock("@mbe/jobs", async (importOriginal) => {
 });
 
 import { createNotifierRuntime } from "./notifier-runtime.js";
-import { JOB_TYPES } from "@mbe/jobs";
-import type { ReminderPayload } from "@mbe/jobs";
+import { JOB_TYPES } from "../jobs/index.js";
+import type { ReminderPayload } from "../jobs/index.js";
 
 const ORIGINAL_ENV = process.env;
 

@@ -33,6 +33,16 @@ ruleTester.run("no-literal-ui-strings", rule, {
     { code: "const x = () => <span>{count}</span>;\n" },
     // A template literal with no letters (pure interpolation) is fine.
     { code: "const x = () => <span title={`${a}/${b}`} />;\n" },
+    // Conditional branches with no letters, or that are already translated.
+    { code: 'const x = () => <span>{a ? "—" : "·"}</span>;\n' },
+    { code: 'const x = () => <span>{a && "3:00"}</span>;\n' },
+    { code: 'const x = () => <span>{a ? t("open") : t("closed")}</span>;\n' },
+    { code: "const x = () => <Input aria-label={a ? messages.open : messages.closed} />;\n" },
+    { code: "const x = () => <span>{label ?? messages.untitled}</span>;\n" },
+    // A conditional in a non-UI attribute may hold literals.
+    { code: 'const x = () => <Button variant={a ? "primary" : "ghost"} />;\n' },
+    // The left operand of && is the condition, never rendered as text.
+    { code: 'const x = () => <span>{mode === "edit" && <Editor />}</span>;\n' },
   ],
   invalid: [
     { code: "const x = () => <button>Save</button>;\n", errors: [textError] },
@@ -61,6 +71,26 @@ ruleTester.run("no-literal-ui-strings", rule, {
     {
       code: 'const x = () => <Dialog aria-description="More" />;\n',
       errors: [attrError("aria-description")],
+    },
+    // Literals inside a conditional are still hardcoded text.
+    { code: 'const x = () => <span>{a ? "Open" : "Closed"}</span>;\n', errors: [textError] },
+    { code: 'const x = () => <span>{a ? t("open") : "Closed"}</span>;\n', errors: [textError] },
+    {
+      code: 'const x = () => <Input aria-label={a ? "Light" : "Dark"} />;\n',
+      errors: [attrError("aria-label")],
+    },
+    { code: 'const x = () => <span>{a && "Saved"}</span>;\n', errors: [textError] },
+    { code: 'const x = () => <span>{label || "Untitled"}</span>;\n', errors: [textError] },
+    { code: 'const x = () => <span>{label ?? "Untitled"}</span>;\n', errors: [textError] },
+    { code: 'const x = () => <span>{a ? ("Open") : b}</span>;\n', errors: [textError] },
+    { code: 'const x = () => <span>{a ? b : c ? "Pending" : d}</span>;\n', errors: [textError] },
+    {
+      code: 'const x = () => <span>{n === 1 ? "1 item" : `${n} items`}</span>;\n',
+      errors: [textError],
+    },
+    {
+      code: "const x = () => <Tag title={a ? b : `Remove ${label}`} />;\n",
+      errors: [attrError("title")],
     },
   ],
 });

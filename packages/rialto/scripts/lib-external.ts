@@ -17,10 +17,6 @@ export const libExternal: (string | RegExp)[] = [
   "react/jsx-runtime",
   "framer-motion",
   "lucide-react",
-  // The workspace data client is a runtime peer dependency, not bundled
-  // into the design-system lib. Match the bare package and every subpath
-  // export (e.g. "@mbe/api-client/streaming") so consumers provide it.
-  /^@mbe\/api-client(\/.*)?$/,
 ];
 
 /** Mirrors Rollup's own external matching: string equality or RegExp test. */

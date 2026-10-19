@@ -1413,7 +1413,7 @@ describe("Reservation Routes", () => {
         id: "gst_1",
         venueId: "venue-123",
       } as never);
-      // The shared fixture has no `guest` key (@mbe/test-fixtures predates the
+      // The local fixture has no `guest` key (it predates the
       // relation), so spread into a fresh object rather than widening the fixture.
       const linked = {
         ...createMockReservation({

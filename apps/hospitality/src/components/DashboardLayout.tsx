@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Navigate, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { streamNDJSON } from "@mbe/api-client/streaming";
 import { useAuth, useAccessToken } from "@mbe/auth/react";
 import {
   Banner,
@@ -47,6 +48,7 @@ const ROUTE_LABEL_KEYS = {
   waitlist: "layout.routes.waitlist",
   briefing: "layout.routes.briefing",
   "floor-plans": "layout.routes.floorPlans",
+  menus: "layout.routes.menus",
   "booking-widget": "layout.routes.bookingWidget",
   onboarding: "layout.routes.onboarding",
   profile: "layout.routes.profile",
@@ -361,7 +363,7 @@ function DashboardLayoutInner() {
             onClick={() => setPaletteOpen(true)}
             aria-label={t("layout.openPalette")}
           >
-            <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</Kbd>
+            <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : t("layout.ctrlKey")}</Kbd>
             <Kbd>{SEARCH_KEY}</Kbd>
             <Text className={styles.commandHintLabel}>{t("layout.search")}</Text>
           </Button>
@@ -419,6 +421,7 @@ function DashboardLayoutInner() {
           <ChatPanel
             onClose={() => setChatOpen(false)}
             api="/api/gen/agent"
+            stream={streamNDJSON}
             domainContext={HOSPITALITY_DOMAIN_CONTEXT}
             getAccessToken={getAccessToken}
             registry={registry}

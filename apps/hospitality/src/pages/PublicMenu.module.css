@@ -1,0 +1,110 @@
+.page {
+  min-block-size: 100dvh;
+  background: var(--rialto-surface);
+  padding-block: var(--rialto-space-2xl);
+  padding-inline: var(--rialto-space-md);
+}
+
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 60vh;
+  max-inline-size: 32rem;
+  margin-inline: auto;
+}
+
+.header,
+.content {
+  max-inline-size: 36rem;
+  margin-inline: auto;
+}
+
+.header {
+  margin-block-end: var(--rialto-space-xl);
+}
+
+.menuList,
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menuList {
+  display: grid;
+  gap: var(--rialto-space-md);
+}
+
+.menuLink {
+  display: block;
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-md);
+  color: inherit;
+  text-decoration: none;
+}
+
+.menuLink:hover,
+.menuLink:focus-visible {
+  box-shadow: var(--rialto-shadow-lg);
+}
+
+.section {
+  margin-block-end: var(--rialto-space-xl);
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  padding-block: var(--rialto-space-sm);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.itemSoldOut {
+  opacity: 0.7;
+}
+
+.itemText {
+  display: grid;
+  gap: var(--rialto-space-xs);
+}
+
+.price {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.soldOut {
+  justify-self: start;
+  padding-block: 0;
+  padding-inline: var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+  font-size: 0.75rem;
+}
+
+.footer {
+  margin-block-start: var(--rialto-space-2xl);
+  padding-block-end: var(--rialto-space-md);
+}
+
+.notFoundLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--rialto-space-sm);
+  padding-inline: var(--rialto-space-lg);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+  font: inherit;
+  text-decoration: none;
+}
+
+.notFoundLink:hover,
+.notFoundLink:focus-visible {
+  text-decoration: underline;
+}

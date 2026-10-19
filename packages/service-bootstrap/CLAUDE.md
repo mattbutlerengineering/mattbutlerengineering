@@ -12,11 +12,12 @@ src/
 ├── apply-versioning.ts         # API-Version / Link / Sunset header policy (ADR-002)
 ├── classify-error.ts           # Maps a thrown error to { status, title, detail, extensions }
 ├── error-handler.ts            # Fastify error-handler plugin — wraps classify-error into RFC 7807 problem-details bodies
-├── readiness-routes.ts         # registerReadinessRoutes — /ready probe backed by @mbe/observability checks
+├── readiness-routes.ts         # registerReadinessRoutes — /ready probe backed by observability/ checks
 ├── feature-flags.ts            # Inline feature-flag evaluation (former @mbe/feature-flags)
 ├── feature-flags.test.ts
 ├── start-service-server.ts     # Telemetry + listen + graceful shutdown
 ├── start-service-server.test.ts
+├── observability/              # OTel SDK, request-id, readiness, error-rate + rate-limit monitors, Auth0 JWKS probe (folded in from the former observability package)
 ├── health.ts                   # createLatencyTracker, checkAuth0
 ├── health.test.ts
 └── health-routes.ts            # registerHealthRoutes
@@ -28,7 +29,7 @@ Registers all shared plugins in order:
 
 1. **JSON schemas** — service-specific schemas via `registerSchemas` callback
 2. **CORS** — validates against `*.mattbutlerengineering.com` + localhost in dev
-3. **Request ID** — `x-request-id` propagation (`@mbe/observability`)
+3. **Request ID** — `x-request-id` propagation (`observability/request-id.ts`)
 4. **Error rate tracking** — per-endpoint error rates
 5. **Feature flags** — `x-feature-flags` header → `request.features`
 6. **Rate limiting** — 100 req/min per IP
@@ -88,3 +89,12 @@ pnpm test:coverage  # Coverage report
 pnpm lint           # ESLint
 pnpm typecheck      # Type check
 ```
+
+## Observability (`src/observability/`)
+
+Folded in from the former observability package (#7106). Internal: `src/observability/index.ts` is a private barrel, not part of the package's public API. ADR-009 `/health` vs `/ready` contract is unchanged.
+
+- `initTelemetry({ serviceName, serviceVersion? })` (`sdk.ts`) creates a `NodeSDK` with OTLP/HTTP exporters and `http`, `fastify`, `pino` instrumentations only. It must run **before** Fastify/HTTP modules load, which is why `start-service-server.ts` loads it via a dynamic `await import(...)`. `shouldIgnoreRequest` excludes `/health`, `/docs`, `/reference` from tracing.
+- Build identity (`resolveBuildInfo`, `DEPLOY_SHA` else `"unknown"`) lives in `@mbe/sentry` (`build-info.ts`) so the browser-safe `@mbe/sentry/react` does not depend on this package. It feeds OTel `service.version`, Sentry `release` and `/health` `version`.
+- `createRequestIdMiddleware` — `x-request-id` read-or-generate onto `request.id`.
+- Env: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SDK_DISABLED`, `NODE_ENV`, `DEPLOY_SHA`, `DEPLOY_PR_NUMBER`, `DEPLOY_AUTHOR`.

@@ -4,14 +4,14 @@ import type { FastifyInstance } from "fastify";
 /**
  * Boot-level coverage for #4172: in production with REDIS_URL unset, buildApp()
  * must still resolve and the app must stay healthy — degraded (no job
- * scheduling), never a fatal crash. Mirrors notifier-runtime.test.ts's @mbe/jobs
+ * scheduling), never a fatal crash. Mirrors notifier-runtime.test.ts's jobs-module
  * mock so no real Redis connection is ever attempted, and additionally spies on
  * JobWorker construction to prove the in-process worker never starts.
  */
 const jobSchedulerCtor = vi.fn();
 const jobWorkerCtor = vi.fn();
 
-vi.mock("@mbe/jobs", async (importOriginal) => {
+vi.mock("./jobs/index.js", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   class FakeJobScheduler {
     constructor(config: { redisUrl: string }) {

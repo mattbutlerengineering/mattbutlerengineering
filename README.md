@@ -56,25 +56,19 @@ mattbutlerengineering/
 │   └── users/                # User management API
 ├── packages/                 # Shared libraries
 │   ├── agent-core/           # Agent session runner and worktree management
-│   ├── agent-test-utils/     # Test helpers for agent sessions
 │   ├── api-client/           # Typed fetch client for frontend apps
 │   ├── auth/                 # Auth utilities (React hooks + Fastify plugin)
 │   ├── cancellation-policy/  # Pure cancellation-fee decision engine
 │   ├── config/               # Shared ESLint, TypeScript, Prettier configs
 │   ├── database/             # Prisma connection-pool wrapper
 │   ├── gh-client/            # Typed GitHub wrapper (exec timeouts, REST fallback)
-│   ├── jobs/                 # BullMQ background jobs over Redis
-│   ├── mcp-server/           # Infrastructure MCP server for Claude Code
-│   ├── notifications/        # Email/SMS notification adapters
-│   ├── observability/        # OpenTelemetry SDK wrapper
 │   ├── rialto/               # Rialto design system (component library)
 │   ├── rialto-catalog/       # Component catalog generator for Rialto
 │   ├── rialto-plugin/        # Claude Code plugin for Rialto
 │   ├── sentry/               # Sentry error tracking integration
 │   ├── service-bootstrap/    # createServiceApp — configured Fastify instance
-│   ├── supply-chain-scanner/ # Static scan of third-party skills and MCP packages
-│   ├── test-fixtures/        # Shared mock-data factories
-│   └── types/                # Shared TypeScript type definitions
+│   ├── types/                # Shared TypeScript type definitions
+│   └── ui-quality-capture/   # Shared ui-quality e2e capture helper
 ├── plugins/
 │   └── acmm/                 # AI Codebase Maturity Model audit plugin
 ├── tools/

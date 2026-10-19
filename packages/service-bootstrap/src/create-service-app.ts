@@ -12,7 +12,7 @@ import {
   errorRatePlugin_,
   createRateLimitMonitor,
   type RateLimitMonitor,
-} from "@mbe/observability";
+} from "./observability/index.js";
 import { createLatencyTracker, type LatencyTracker } from "./health.js";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { errorHandlerPlugin } from "./error-handler.js";
@@ -159,6 +159,13 @@ export async function createServiceApp(
   const fastify = Fastify({
     logger: options.logger ?? true,
     disableRequestLogging: true,
+    // Production path is client -> Cloudflare edge worker -> DO ingress ->
+    // container. The worker overwrites X-Forwarded-For with CF-Connecting-IP
+    // (infrastructure/worker/origin-proxy.js); DO ingress may append one more
+    // hop. Trusting exactly 2 hops makes request.ip the real client in both
+    // cases, so per-IP rate limits key on it, while an extra client-supplied
+    // leftmost entry cannot pick the effective IP. A bare `true` would trust it.
+    trustProxy: (_address, hop) => hop < 2,
     // ajv-formats is registered explicitly (rather than relied on as an
     // implicit default of @fastify/ajv-compiler) so `format: "email"` /
     // `format: "uri"` keywords are enforced regardless of that dependency's

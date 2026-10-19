@@ -54,6 +54,9 @@ const FloorPlansPage = lazy(() =>
     default: m.FloorPlansPage,
   }))
 );
+const MenusPage = lazy(() =>
+  import("./pages/MenusPage.js").then((m) => ({ default: m.MenusPage }))
+);
 const FloorPlanEditorPage = lazy(() =>
   import("./pages/FloorPlanEditorPage.js").then((m) => ({
     default: m.FloorPlanEditorPage,
@@ -89,6 +92,16 @@ const SetupHoursPage = lazy(() =>
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage.js").then((m) => ({
     default: m.PublicBookingPage,
+  }))
+);
+const PublicMenusPage = lazy(() =>
+  import("./pages/PublicMenusPage.js").then((m) => ({
+    default: m.PublicMenusPage,
+  }))
+);
+const PublicMenuPage = lazy(() =>
+  import("./pages/PublicMenuPage.js").then((m) => ({
+    default: m.PublicMenuPage,
   }))
 );
 const ManageReservationPage = lazy(() =>
@@ -132,6 +145,23 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingPage />}>
           <PublicBookingPage />
+        </Suspense>
+      ),
+    },
+    // Public menus — no auth, same guest surface as the booking page
+    {
+      path: "menu/:venueSlug",
+      element: (
+        <Suspense fallback={<LoadingPage />}>
+          <PublicMenusPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: "menu/:venueSlug/:menuSlug",
+      element: (
+        <Suspense fallback={<LoadingPage />}>
+          <PublicMenuPage />
         </Suspense>
       ),
     },
@@ -243,6 +273,22 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <FloorPlanEditorPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "menus",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <MenusPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "menus/:menuId",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <MenusPage />
                 </Suspense>
               ),
             },

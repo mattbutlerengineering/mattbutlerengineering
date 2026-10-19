@@ -31,6 +31,18 @@ import {
   GuestRiskResultSchema,
   GuestRecognitionSchema,
 } from "./guest.js";
+import {
+  MenuVenueQuerySchema,
+  PublicMenuSchema,
+  PublicMenuDetailSchema,
+  CreateMenuRequestSchema,
+  UpdateMenuRequestSchema,
+  CreateMenuSectionRequestSchema,
+  UpdateMenuSectionRequestSchema,
+  CreateMenuItemRequestSchema,
+  UpdateMenuItemRequestSchema,
+  ReorderMenuRequestSchema,
+} from "./menu.js";
 import { WaitlistJoinResultSchema, WaitlistEstimateSchema } from "./waitlist.js";
 import { ProblemDetailsSchema } from "./api.js";
 import { PaginationSchema } from "./common.js";
@@ -356,6 +368,17 @@ export const eventsStreamQueryJsonSchema = toRequestJsonSchema(EventsStreamQuery
 export const testEventBodyJsonSchema = toRequestJsonSchema(TestEventBodySchema);
 
 export const listFloorPlansQueryJsonSchema = toRequestJsonSchema(ListFloorPlansQuerySchema);
+export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema);
+/** Response schemas: fast-json-stringify drops any field not listed, so internals cannot leak. */
+export const publicMenuResponseJsonSchema = toResponseJsonSchema(PublicMenuSchema);
+export const publicMenuDetailResponseJsonSchema = toResponseJsonSchema(PublicMenuDetailSchema);
+export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
+export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
+export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
+export const updateMenuSectionBodyJsonSchema = toRequestJsonSchema(UpdateMenuSectionRequestSchema);
+export const createMenuItemBodyJsonSchema = toRequestJsonSchema(CreateMenuItemRequestSchema);
+export const updateMenuItemBodyJsonSchema = toRequestJsonSchema(UpdateMenuItemRequestSchema);
+export const reorderMenuBodyJsonSchema = toRequestJsonSchema(ReorderMenuRequestSchema);
 export const createFloorPlanBodyJsonSchema = toRequestJsonSchema(CreateFloorPlanBodySchema);
 export const updateFloorPlanBodyJsonSchema = toRequestJsonSchema(UpdateFloorPlanBodySchema);
 export const updateTablePositionsBodyJsonSchema = toRequestJsonSchema(

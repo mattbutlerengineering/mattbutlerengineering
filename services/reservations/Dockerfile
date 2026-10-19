@@ -16,13 +16,10 @@ COPY packages/types/package.json ./packages/types/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/config/package.json ./packages/config/
 COPY packages/api-client/package.json ./packages/api-client/
-COPY packages/observability/package.json ./packages/observability/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/cancellation-policy/package.json ./packages/cancellation-policy/
 COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
-COPY packages/notifications/package.json ./packages/notifications/
-COPY packages/jobs/package.json ./packages/jobs/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install all dependencies.
@@ -37,13 +34,10 @@ COPY packages/types/tsconfig.json ./packages/types/
 COPY packages/auth/tsconfig.json ./packages/auth/
 COPY packages/config/typescript ./packages/config/typescript
 COPY packages/api-client/tsconfig.json ./packages/api-client/
-COPY packages/observability/tsconfig.json ./packages/observability/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/cancellation-policy/tsconfig.json ./packages/cancellation-policy/
 COPY packages/service-bootstrap/tsconfig.json ./packages/service-bootstrap/
-COPY packages/notifications/tsconfig.json ./packages/notifications/
-COPY packages/jobs/tsconfig.json ./packages/jobs/
 COPY services/reservations/tsconfig.json services/reservations/tsconfig.build.json ./services/reservations/
 
 # Copy Prisma schema and config (needed for db:generate)
@@ -54,26 +48,20 @@ COPY services/reservations/prisma.config.ts ./services/reservations/
 COPY packages/types/src ./packages/types/src
 COPY packages/auth/src ./packages/auth/src
 COPY packages/api-client/src ./packages/api-client/src
-COPY packages/observability/src ./packages/observability/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
 COPY packages/cancellation-policy/src ./packages/cancellation-policy/src
 COPY packages/service-bootstrap/src ./packages/service-bootstrap/src
-COPY packages/notifications/src ./packages/notifications/src
-COPY packages/jobs/src ./packages/jobs/src
 COPY services/reservations/src ./services/reservations/src
 
 # Build workspace packages and service in a single layer
 RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/auth build && \
     pnpm --filter @mbe/api-client build && \
-    pnpm --filter @mbe/observability build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
     pnpm --filter @mbe/cancellation-policy build && \
     pnpm --filter @mbe/service-bootstrap build && \
-    pnpm --filter @mbe/notifications build && \
-    pnpm --filter @mbe/jobs build && \
     pnpm --filter @mbe/reservations-service db:generate && \
     pnpm --filter @mbe/reservations-service build
 
@@ -99,13 +87,10 @@ COPY packages/types/package.json ./packages/types/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/config/package.json ./packages/config/
 COPY packages/api-client/package.json ./packages/api-client/
-COPY packages/observability/package.json ./packages/observability/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/cancellation-policy/package.json ./packages/cancellation-policy/
 COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
-COPY packages/notifications/package.json ./packages/notifications/
-COPY packages/jobs/package.json ./packages/jobs/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -116,13 +101,10 @@ RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /app/packages/api-client/dist ./packages/api-client/dist
-COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/cancellation-policy/dist ./packages/cancellation-policy/dist
 COPY --from=builder /app/packages/service-bootstrap/dist ./packages/service-bootstrap/dist
-COPY --from=builder /app/packages/notifications/dist ./packages/notifications/dist
-COPY --from=builder /app/packages/jobs/dist ./packages/jobs/dist
 
 # Copy built reservations service
 COPY --from=builder /app/services/reservations/dist ./services/reservations/dist

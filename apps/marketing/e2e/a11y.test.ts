@@ -14,7 +14,7 @@ test.describe("Accessibility", () => {
     expect(violations).toHaveLength(0);
   });
 
-  // The ui-quality loop runs axe with no tag filter (packages/test-fixtures
+  // The ui-quality loop runs axe with no tag filter (packages/ui-quality-capture
   // ui-quality-capture.ts), so these cover its rules, not just wcag2aa.
   for (const route of ["/", "/acmm", "/ai-health", "/metrics", "/shipped", "/status"]) {
     test(`${route} has no serious or critical axe violations`, async ({ page }) => {

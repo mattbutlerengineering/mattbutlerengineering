@@ -80,7 +80,11 @@ export function TapeChartMobileStack(props: TapeChartMobileStackProps) {
               <span>{formatters.dayLong(d.iso)}</span>
               <span className={styles.listRowMeta}>
                 {formatters.number(d.residents.length)}{" "}
-                {d.residents.length === 1 ? "reservation" : "reservations"}
+                {/* lean: one capitalized key serves the stat pill and this
+                    sentence-case meta. Lowercasing is right for every shipped
+                    locale; a locale that keeps nouns capitalized (de) would
+                    need its own key. */}
+                {messages.reservationCount(d.residents.length).toLocaleLowerCase(formatters.locale)}
               </span>
             </header>
             {d.residents.map((r) => {

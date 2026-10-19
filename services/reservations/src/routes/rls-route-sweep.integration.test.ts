@@ -435,6 +435,8 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
         await seedClient.query("DELETE FROM guests WHERE venue_id = $1", [venueId]);
         await seedClient.query("DELETE FROM tables WHERE venue_id = $1", [venueId]);
         await seedClient.query("DELETE FROM floor_plans WHERE venue_id = $1", [venueId]);
+        // Menus cascade to sections and items; the menu fixtures seed through the API.
+        await seedClient.query("DELETE FROM menus WHERE venue_id = $1", [venueId]);
         await seedClient.query("DELETE FROM venues WHERE id = $1", [venueId]);
       });
     }
@@ -606,7 +608,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     it("[ok] WAITLIST_EXPIRY job handler expires the entry when the payload carries venueId (item-7, fixed half)", async () => {
       const { createReservationJobHandlers } = await import("../services/job-worker.js");
       const { waitlistService } = await import("../services/waitlist.js");
-      const { JOB_TYPES } = await import("@mbe/jobs");
+      const { JOB_TYPES } = await import("../jobs/index.js");
 
       // `app.ts`'s real wiring is `handleWaitlistExpiry: (input) =>
       // waitlistNotifier.handleExpiry(input)`, and `handleExpiry`'s own first
@@ -659,7 +661,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       const { createReservationJobHandlers } = await import("../services/job-worker.js");
       const { reservationService } = await import("../services/reservation.js");
       const { venueService } = await import("../services/venue.js");
-      const { JOB_TYPES } = await import("@mbe/jobs");
+      const { JOB_TYPES } = await import("../jobs/index.js");
 
       const sendBookingReminder = vi.fn().mockResolvedValue(undefined);
       const handlers = createReservationJobHandlers({

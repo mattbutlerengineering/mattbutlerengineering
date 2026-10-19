@@ -199,8 +199,20 @@
       }
     </item>
     <item priority="low">
+      interface ChatStreamRequest {
+        url: string;
+        body: unknown;
+        headers?: Record<string, string>;
+        signal?: AbortSignal;
+      }
+    </item>
+    <item priority="low">
+      type ChatStreamFn = (request: ChatStreamRequest) => AsyncIterable<unknown>;
+    </item>
+    <item priority="low">
       interface UseChatStreamOptions {
         api: string;
+        stream: ChatStreamFn;
         domainContext: DomainContext;
         getAccessToken: () => string | null | Promise<string | null>;
       }
@@ -215,7 +227,11 @@
       }
     </item>
     <item priority="high">
-      export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
+      export function useChatStream({
+        api,
+        stream,
+        getAccessToken,
+      }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
     </item>
   </file>
   </section>
@@ -634,6 +650,9 @@
     </item>
   </file>
   <file path="packages/rialto/src/components/TapeChart/defaultStrings.ts">
+    <item priority="medium">
+      function ariaTemplateFor(messages: RialtoMessages) { /* ... */ }
+    </item>
     <item priority="low">
       type ResolvedStrings = Required<
         Omit<
@@ -641,10 +660,16 @@
           | "reservatio...;
     </item>
     <item priority="high">
+      export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
+    </item>
+    <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
     </item>
     <item priority="high">
-      export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings { /* ... */ }
+      export function mergeStrings(
+        overrides?: TapeChartStrings,
+        messages: RialtoMessages = enUS
+      ): ResolvedStrings { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/components/TapeChart/types.ts">
@@ -1635,11 +1660,6 @@
       export const loopCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/mcp.ts">
-    <item priority="high">
-      export const mcpCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/pack.ts">
     <item priority="medium">
       function truncateType(type: string, maxLength = 60): string { /* ... */ }
@@ -2580,6 +2600,15 @@
       export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
+      type StoredSection = MenuSection & { items: MenuItem[] };
+    </item>
+    <item priority="high">
+      type StoredMenu = Menu & { sections: StoredSection[] };
+    </item>
+    <item priority="low">
+      async function mockMenus(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -3511,23 +3540,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="heuristics">
-  <file path="packages/supply-chain-scanner/src/heuristics/data-exfiltration.ts">
-    <item priority="high">
-      export function detectDataExfiltration(file: SourceFile): Finding[] { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/heuristics/malicious-commands.ts">
-    <item priority="high">
-      export function detectMaliciousCommands(file: SourceFile): Finding[] { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/heuristics/prompt-injection.ts">
-    <item priority="high">
-      export function detectPromptInjection(file: SourceFile): Finding[] { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useApi.ts">
     <item priority="high">
@@ -4340,6 +4352,91 @@
       export function useIsAdmin(): boolean { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useMenus.ts">
+    <item priority="high">
+      export const MENUS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const MENU_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useMenus: unknown;
+    </item>
+    <item priority="high">
+      interface MenuParams {
+        venueId?: string | null;
+        menuId?: string | null;
+      }
+    </item>
+    <item priority="high">
+      export const useMenu: unknown;
+    </item>
+    <item priority="high">
+      export function menuQueryKey(venueId: string, menuId: string): readonly unknown[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface MenuTarget {
+        venueId: string;
+        menuId: string;
+      }
+    </item>
+    <item priority="high">
+      interface SectionTarget {
+        sectionId: string;
+      }
+    </item>
+    <item priority="high">
+      interface ItemTarget {
+        itemId: string;
+      }
+    </item>
+    <item priority="high">
+      export const useCreateMenu: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateMenu: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteMenu: unknown;
+    </item>
+    <item priority="high">
+      export const useCreateSection: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateSection: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteSection: unknown;
+    </item>
+    <item priority="high">
+      export const useReorderSections: unknown;
+    </item>
+    <item priority="high">
+      export const useCreateItem: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateItem: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteItem: unknown;
+    </item>
+    <item priority="high">
+      export const useReorderItems: unknown;
+    </item>
+    <item priority="high">
+      type SoldOutVariables = ItemTarget & { soldOut: boolean };
+    </item>
+    <item priority="medium">
+      function withItemStatus(
+        menu: MenuWithSections,
+        itemId: string,
+        status: "AVAILABLE" | "SOLD_OUT"
+      ): MenuWithSections { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useToggleItemSoldOut() { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useNow.ts">
     <item priority="high">
       export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
@@ -5067,6 +5164,15 @@
   </file>
   <file path="packages/rialto/src/i18n/messages.ts">
     <item priority="low">
+      interface TapeChartMessages {
+        regionLabel: string;
+        roomsColumnLabel: string;
+        arrivalsLabel: string;
+        departuresLabel: string;
+        inHouseLabel: string;
+      }
+    </item>
+    <item priority="low">
       interface RialtoMessages {
         dismiss: string;
         close: string;
@@ -5077,6 +5183,111 @@
     </item>
     <item priority="high">
       export const enUS: RialtoMessages;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="jobs">
+  <file path="services/reservations/src/jobs/dispatch-job.ts">
+    <item priority="high">
+      class UnknownJobTypeError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function dispatchJob(
+        handlers: JobHandlerMap,
+        job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/jobs/job-types.ts">
+    <item priority="high">
+      export const DEFAULT_QUEUE_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_JOB_OPTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const JOB_TYPES: unknown;
+    </item>
+    <item priority="low">
+      type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    </item>
+    <item priority="low">
+      interface ReminderPayload {
+        reservationId: string;
+        venueId: string;
+        deliveredChannels?: ("email" | "sms")[];
+      }
+    </item>
+    <item priority="low">
+      interface JobContext {
+        
+      }
+    </item>
+    <item priority="low">
+      interface PostVisitFollowupPayload {
+        reservationId: string;
+        guestId: string;
+        guestEmail: string | null;
+        guestPhone: string | null;
+        venueId: string;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistExpiryPayload {
+        waitlistEntryId: string;
+        guestPhone?: string | null;
+        guestEmail?: string | null;
+        venueId?: string;
+      }
+    </item>
+    <item priority="low">
+      type JobPayloadMap = {
+        [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
+        [JOB...;
+    </item>
+    <item priority="low">
+      type JobHandlerMap = Partial<{
+        [K in JobType]: (payload: JobPayloadMap[K], c...;
+    </item>
+  </file>
+  <file path="services/reservations/src/jobs/scheduler.ts">
+    <item priority="low">
+      interface JobSchedulerConfig {
+        redisUrl: string;
+        queueName?: string;
+      }
+    </item>
+    <item priority="high">
+      class JobScheduler {
+        queue: Queue;
+        redis: Redis;
+        async schedule(): Promise<unknown>;
+        async scheduleCron(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/jobs/worker.ts">
+    <item priority="low">
+      interface JobWorkerConfig {
+        redisUrl: string;
+        queueName?: string;
+        handlers: JobHandlerMap;
+        logger?: JobWorkerErrorLogger;
+      }
+    </item>
+    <item priority="low">
+      interface JobWorkerErrorLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      class JobWorker {
+        worker: Worker;
+        redis: Redis;
+        async close(): Promise<unknown>;
+      }
     </item>
   </file>
   </section>
@@ -5552,6 +5763,26 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="menus">
+  <file path="apps/hospitality/src/components/menus/price.ts">
+    <item priority="high">
+      export function parsePriceToCents(text: string): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCentsForInput(cents: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/menus/reorder.ts">
+    <item priority="high">
+      export function moveId(ids: readonly string[], id: string, toIndex: number): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/menus/useDragReorder.ts">
+    <item priority="high">
+      export function useDragReorder(ids: readonly string[], onReorder: (ids: string[]) => void) { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="middleware">
   <file path="services/reservations/src/middleware/public-rate-limit.ts">
     <item priority="high">
@@ -5605,6 +5836,535 @@
         venueId: string | null | undefined,
         options: SetVenueContextOptions = {}
       ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="notifications">
+  <file path="services/reservations/src/notifications/booking-email-content.ts">
+    <item priority="low">
+      interface BookingEmailContent {
+        subject: string;
+        html: string;
+        ical?: string;
+        icalMethod?: "REQUEST" | "CANCEL";
+      }
+    </item>
+    <item priority="medium">
+      function sequenceFor(input: BookingNotificationInput): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function icalFor(input: BookingNotificationInput, method: IcalMethod): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildBookingEmailContent(
+        input: BookingNotificationInput,
+        event: NotificationEventType,
+        manageBaseUrl: string
+      ): BookingEmailContent { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/email-content.ts">
+    <item priority="low">
+      type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
+    </item>
+    <item priority="low">
+      interface BookingEmailTemplateInput {
+        manageBaseUrl: string;
+      }
+    </item>
+    <item priority="high">
+      interface BookingEmailTemplate {
+        subject: string;
+        html: string;
+      }
+    </item>
+    <item priority="high">
+      interface EventCopy {
+        heading: string;
+        subject: string;
+        includeAddress: boolean;
+        includeManageLink: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function eventCopy(venueName: string, event: NotificationEventType): EventCopy { /* ... */ }
+    </item>
+    <item priority="medium">
+      function manageLinkHtml(manageBaseUrl: string, manageToken: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildBookingEmail(
+        input: BookingEmailTemplateInput,
+        event: NotificationEventType
+      ): BookingEmailTemplate { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/ical.ts">
+    <item priority="low">
+      interface IcalEventInput {
+        reservationId: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      type IcalMethod = "REQUEST" | "CANCEL";
+    </item>
+    <item priority="high">
+      export function escapeIcalText(value: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function assertSafeIcalToken(value: string, fieldName: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function icalDateTimeLine(
+        name: "DTSTART" | "DTEND",
+        value: string,
+        input: Pick<IcalEventInput, "date" | "venueTimezone">
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatIcalDate(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/notification-dispatcher.ts">
+    <item priority="low">
+      interface NotificationDispatcherConfig {
+        emailAdapter: NotificationPort;
+        smsAdapter: SmsPort | null;
+        smsManageBaseUrl?: string;
+      }
+    </item>
+    <item priority="low">
+      type ReminderChannel = "email" | "sms";
+    </item>
+    <item priority="low">
+      interface ReminderOptions {
+        skipChannels?: readonly ReminderChannel[];
+      }
+    </item>
+    <item priority="high">
+      class PartialDeliveryError {
+        
+      }
+    </item>
+    <item priority="high">
+      class NotificationDispatcher {
+        emailAdapter: NotificationPort;
+        smsAdapter: SmsPort | null;
+        smsManageBaseUrl: string;
+        async toSmsInput(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/port.ts">
+    <item priority="low">
+      interface BookingNotificationInput {
+        reservationId: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface WinBackNotificationInput {
+        guestName: string;
+        guestEmail: string;
+        venueName: string;
+      }
+    </item>
+    <item priority="low">
+      interface ThankYouEmailInput {
+        guestEmail: string;
+        guestFirstName: string | null;
+        venueName: string;
+        visitDate: string;
+        feedbackUrl: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface NotificationPort {
+        
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/resend-adapter.ts">
+    <item priority="high">
+      interface ResendClient {
+        emails: {
+          // The SDK resolves `{ data, error }` on API failur...;
+      }
+    </item>
+    <item priority="low">
+      interface ResendAdapterConfig {
+        resend: ResendClient | null;
+        fromAddress: string;
+        manageBaseUrl: string;
+        publicApiBaseUrl: string | null;
+      }
+    </item>
+    <item priority="high">
+      class ResendNotificationAdapter {
+        resend: ResendClient | null;
+        fromAddress: string;
+        manageBaseUrl: string;
+        publicApiBaseUrl: string | null;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/retry.ts">
+    <item priority="low">
+      interface RetryOptions {
+        maxRetries: number;
+        baseDelayMs: number;
+        jitter?: boolean;
+        isRetryable?: (error: unknown) => boolean;
+      }
+    </item>
+    <item priority="medium">
+      function sleep(ms: number): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function backoffMs(attempt: number, baseDelayMs: number, jitter: boolean): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/sanitize.ts">
+    <item priority="high">
+      export function escapeHtml(value: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sanitizeUrl(raw: string): string | null { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/sms-port.ts">
+    <item priority="low">
+      interface SmsNotificationInput {
+        reservationId: string;
+        date: string;
+        startTime: string;
+        venueTimezone: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistUpdateInput {
+        guestName: string | null;
+        guestPhone: string;
+        venueName: string;
+        date: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface WinbackMessageInput {
+        guestName: string | null;
+        guestPhone: string;
+        venueName: string;
+        manageBaseUrl: string;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistAddedInput {
+        guestPhone: string;
+        guestName: string | null;
+        position: number;
+        estimatedWaitMinutes: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistPositionUpdateInput {
+        guestPhone: string;
+        guestName: string | null;
+        position: number;
+        estimatedWaitMinutes: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistTableReadyInput {
+        guestPhone: string;
+        guestName: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface SmsPort {
+        
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/twilio-sms-adapter.ts">
+    <item priority="high">
+      interface TwilioMessages {
+        
+      }
+    </item>
+    <item priority="high">
+      interface TwilioClient {
+        messages: TwilioMessages;
+      }
+    </item>
+    <item priority="low">
+      interface TwilioSmsAdapterConfig {
+        client: TwilioClient | null;
+        fromNumber: string;
+        retryDelayMs?: number;
+      }
+    </item>
+    <item priority="medium">
+      function formatDate(dateStr: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fitReminderBody(candidates: readonly string[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      class TwilioSmsAdapter {
+        client: TwilioClient | null;
+        fromNumber: string;
+        retryDelayMs: number;
+        async sendBookingReminder(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/venue-time.ts">
+    <item priority="low">
+      interface VenueLocalTime {
+        date: string;
+        time: string;
+        display: string;
+        icalLocal: string;
+        icalUtc: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function formatDisplay(hour: number, minute: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function build(date: string, hour: number, minute: number, icalUtc: string | null): VenueLocalTime { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toVenueLocalTime(
+        value: string,
+        timezone: string,
+        fallbackDate: string
+      ): VenueLocalTime { /* ... */ }
+    </item>
+    <item priority="high">
+      export function calendarSequence(updatedAt: string): number { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="observability">
+  <file path="packages/service-bootstrap/src/observability/auth0-jwks.ts">
+    <item priority="high">
+      export const AUTH0_UNCONFIGURED_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveJwksUrl(explicit?: string): string | null { /* ... */ }
+    </item>
+    <item priority="low">
+      type JwksProbeResult = { readonly kind: "ok"; readonl | { readonly kind: "http"; reado | { readonly kind: "timeout"; re | { readonly kind: "network"; re;
+    </item>
+    <item priority="low">
+      interface JwksProbeOptions {
+        timeoutMs: number;
+        fetchFn?: typeof fetch;
+      }
+    </item>
+    <item priority="high">
+      export async function probeJwks(url: string, options: JwksProbeOptions): Promise<JwksProbeResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/observability/error-rates.ts">
+    <item priority="high">
+      interface RequestRecord {
+        timestamp: number;
+        isError: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface EndpointErrorRate {
+        endpoint: string;
+        total: number;
+        errors: number;
+        rate: number;
+      }
+    </item>
+    <item priority="low">
+      interface ErrorRateSnapshot {
+        endpoints: readonly EndpointErrorRate[];
+        degraded: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface ErrorRateHealthCheckResult {
+        status: "ok" | "degraded";
+        endpoints: readonly EndpointErrorRate[];
+        message?: string;
+      }
+    </item>
+    <item priority="medium">
+      function createErrorRateTracker() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeRoute(request: FastifyRequest): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function errorRatePlugin(fastify: FastifyInstance): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const errorRatePlugin_: unknown;
+    </item>
+    <item priority="high">
+      export function createErrorRateHealthCheck(
+        snapshot: ErrorRateSnapshot
+      ): ErrorRateHealthCheckResult { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/observability/otel-config.ts">
+    <item priority="low">
+      type TelemetryMode = "disabled" | "unconfigured" | "exporting";
+    </item>
+    <item priority="low">
+      interface TelemetryPlan {
+        mode: TelemetryMode;
+        exportTraces: boolean;
+        exportMetrics: boolean;
+        reason: string;
+      }
+    </item>
+    <item priority="medium">
+      function isSet(env: NodeJS.ProcessEnv, key: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isDisabled(env: NodeJS.ProcessEnv): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveTelemetryPlan(env: NodeJS.ProcessEnv = process.env): TelemetryPlan { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/observability/rate-limit-monitor.ts">
+    <item priority="low">
+      interface RateLimitHit {
+        ip: string;
+        endpoint: string;
+        timestamp: number;
+      }
+    </item>
+    <item priority="low">
+      interface RateLimitHealthStats {
+        hits_last_hour: number;
+        blocked_ips: number;
+      }
+    </item>
+    <item priority="low">
+      interface RateLimitSnapshot {
+        stats: RateLimitHealthStats;
+        isDegraded: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface RateLimitMonitorConfig {
+        hourWindowMs?: number;
+        degradedWindowMs?: number;
+        degradedThreshold?: number;
+      }
+    </item>
+    <item priority="low">
+      interface RateLimitMonitor {
+        recordHit: (ip: string, endpoint: string) => void;
+        getSnapshot: () => RateLimitSnapshot;
+        reset: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function createRateLimitMonitor(config: RateLimitMonitorConfig = {}): RateLimitMonitor { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/observability/readiness.ts">
+    <item priority="low">
+      interface ReadinessCheckResult {
+        name: string;
+        status: "ok" | "error";
+        message?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ReadinessSnapshot {
+        ready: boolean;
+        checks: readonly ReadinessCheckResult[];
+        timestamp: string;
+      }
+    </item>
+    <item priority="low">
+      type ReadinessCheckFn = () => Promise<void>;
+    </item>
+    <item priority="high">
+      interface RegisteredCheck {
+        name: string;
+        check: ReadinessCheckFn;
+      }
+    </item>
+    <item priority="low">
+      interface ReadinessTracker {
+        registerCheck: (name: string, check: ReadinessCheckFn) => void;
+        evaluate: () => Promise<ReadinessSnapshot>;
+      }
+    </item>
+    <item priority="high">
+      export function createReadinessTracker(): ReadinessTracker { /* ... */ }
+    </item>
+    <item priority="low">
+      async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface StandardChecksOptions {
+        prisma: Pick<PrismaLike, "$queryRaw">;
+        auth0Url?: string;
+        jwksTimeoutMs?: number;
+        fetchFn?: typeof fetch;
+      }
+    </item>
+    <item priority="high">
+      export function registerStandardChecks(
+        tracker: ReadinessTracker,
+        options: StandardChecksOptions
+      ): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/observability/request-id.ts">
+    <item priority="low">
+      interface RequestIdOptions {
+        headerName?: string;
+        generator?: () => string;
+      }
+    </item>
+    <item priority="high">
+      export function createRequestIdMiddleware(options: RequestIdOptions = {}) { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/observability/sdk.ts">
+    <item priority="low">
+      interface OtelConfig {
+        serviceName: string;
+        serviceVersion?: string;
+      }
+    </item>
+    <item priority="high">
+      export function shouldIgnoreRequest(req: IncomingMessage): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function initTelemetry(config: OtelConfig): NodeSDK { /* ... */ }
     </item>
   </file>
   </section>
@@ -6769,6 +7529,16 @@
       ): Handler<RG> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/menus.ts">
+    <item priority="high">
+      interface MenuQuery {
+        venueId: string;
+      }
+    </item>
+    <item priority="high">
+      export const menuRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/modify-reservation.ts">
     <item priority="high">
       interface ModifyBody {
@@ -6847,6 +7617,11 @@
     </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/public-menus.ts">
+    <item priority="high">
+      export const publicMenuRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/public-reservations.ts">
@@ -7131,6 +7906,21 @@
     </item>
     <item priority="medium">
       function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
+    </item>
+    <item priority="high">
+      interface MenuTreeIds {
+        menuId: string;
+        sectionId: string;
+        itemId: string;
+      }
+    </item>
+    <item priority="low">
+      async function seedMenuTree(ctx: SweepContext, venueId: string): Promise<MenuTreeIds> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okMenuRoute(
+        build: (ids: MenuTreeIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+      ): RouteFixture { /* ... */ }
     </item>
     <item priority="high">
       export const FIXTURES: Record<string, RouteFixture>;
@@ -7591,6 +8381,36 @@
       export const listFloorPlansQueryJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const menuVenueQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicMenuResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicMenuDetailResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createMenuBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateMenuBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createMenuSectionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateMenuSectionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createMenuItemBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateMenuItemBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const reorderMenuBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const createFloorPlanBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -7703,6 +8523,107 @@
     </item>
     <item priority="high">
       export const cancelReservationBodyJsonSchema: unknown;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/menu.ts">
+    <item priority="high">
+      export const MenuStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const MenuItemStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const MenuSchema: unknown;
+    </item>
+    <item priority="high">
+      export const MenuSectionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const MenuItemSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicMenuSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicMenuItemSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicMenuSectionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicMenuDetailSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateMenuRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateMenuRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateMenuSectionRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateMenuSectionRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateMenuItemRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateMenuItemRequestSchema: unknown;
+    </item>
+    <item priority="low">
+      type MenuStatus = z.infer<typeof MenuStatusSchema>;
+    </item>
+    <item priority="low">
+      type MenuItemStatus = z.infer<typeof MenuItemStatusSchema>;
+    </item>
+    <item priority="low">
+      type Menu = z.infer<typeof MenuSchema>;
+    </item>
+    <item priority="low">
+      type MenuSection = z.infer<typeof MenuSectionSchema>;
+    </item>
+    <item priority="low">
+      type MenuItem = z.infer<typeof MenuItemSchema>;
+    </item>
+    <item priority="low">
+      type PublicMenu = z.infer<typeof PublicMenuSchema>;
+    </item>
+    <item priority="low">
+      type PublicMenuItem = z.infer<typeof PublicMenuItemSchema>;
+    </item>
+    <item priority="low">
+      type PublicMenuSection = z.infer<typeof PublicMenuSectionSchema>;
+    </item>
+    <item priority="low">
+      type PublicMenuDetail = z.infer<typeof PublicMenuDetailSchema>;
+    </item>
+    <item priority="low">
+      type CreateMenuRequest = z.infer<typeof CreateMenuRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateMenuRequest = z.infer<typeof UpdateMenuRequestSchema>;
+    </item>
+    <item priority="low">
+      type CreateMenuSectionRequest = z.infer<typeof CreateMenuSectionRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateMenuSectionRequest = z.infer<typeof UpdateMenuSectionRequestSchema>;
+    </item>
+    <item priority="low">
+      type CreateMenuItemRequest = z.infer<typeof CreateMenuItemRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateMenuItemRequest = z.infer<typeof UpdateMenuItemRequestSchema>;
+    </item>
+    <item priority="high">
+      export const MenuVenueQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReorderMenuRequestSchema: unknown;
+    </item>
+    <item priority="low">
+      type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
     </item>
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
@@ -9524,6 +10445,44 @@
         userSub: string,
         client: PrismaClient = prisma
       ): Promise<string[]> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/menu.ts">
+    <item priority="low">
+      type MenuWithSections = Menu & {
+        sections: (MenuSection & { items: MenuItem[] }...;
+    </item>
+    <item priority="low">
+      type PublicMenuBody = Omit<PublicMenuDetail, "currencyCode">;
+    </item>
+    <item priority="high">
+      class MenuSlugConflictError {
+        
+      }
+    </item>
+    <item priority="high">
+      interface PrismaMenu {
+        id: string;
+        venueId: string;
+        name: string;
+        slug: string;
+        description: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function mapMenu(menu: PrismaMenu): Menu { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapSection(section: MenuSection): MenuSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapItem(item: MenuItem): MenuItem { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isUniqueViolation(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const menuService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/move-to-hold.ts">
@@ -13243,360 +14202,6 @@
       ): Promise<ReapOutcome> { /* ... */ }
     </item>
   </file>
-  <file path="packages/agent-test-utils/src/cost-estimator.ts">
-    <item priority="low">
-      interface ModelPricing {
-        model: string;
-        inputCostPer1MTokens: number;
-        outputCostPer1MTokens: number;
-        cacheWritePer1MTokens?: number;
-        cacheReadPer1MTokens?: number;
-      }
-    </item>
-    <item priority="high">
-      export const MODEL_PRICING: Record<string, ModelPricing>;
-    </item>
-    <item priority="high">
-      export function estimateTokenCount(text: string): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function estimatePromptTokens(taskDescription: string, systemPromptOverhead = 2000): number { /* ... */ }
-    </item>
-    <item priority="low">
-      interface TokenUsageInput {
-        inputTokens: number;
-        outputTokens: number;
-        cacheWriteTokens?: number;
-        cacheReadTokens?: number;
-      }
-    </item>
-    <item priority="low">
-      interface CostBreakdown {
-        model: string;
-        inputCostUsd: number;
-        outputCostUsd: number;
-        cacheWriteCostUsd: number;
-        cacheReadCostUsd: number;
-      }
-    </item>
-    <item priority="high">
-      export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown { /* ... */ }
-    </item>
-    <item priority="high">
-      export function estimateSessionCost(
-        taskDescription: string,
-        options: {
-          readonly model?: string;
-          readonly expectedOutputTokens?: number;
-          readonly numTurns?: number;
-          readonly systemPromptOverhead?: number;
-        } = {}
-      ): CostBreakdown { /* ... */ }
-    </item>
-    <item priority="low">
-      interface SessionCostProfile {
-        sessionId: string;
-        model: string;
-        usage: TokenUsageInput;
-        breakdown: CostBreakdown;
-        durationMs: number;
-      }
-    </item>
-    <item priority="low">
-      interface CostProfilerSummary {
-        totalSessions: number;
-        totalCostUsd: number;
-        averageCostUsd: number;
-        totalInputTokens: number;
-        totalOutputTokens: number;
-      }
-    </item>
-    <item priority="low">
-      interface CostProfiler {
-        record: (
-          sessionId: string,
-          usage: TokenUsageInput,
-          ...;
-        summary: () => CostProfilerSummary;
-        profiles: () => readonly SessionCostProfile[];
-        reset: () => void;
-      }
-    </item>
-    <item priority="high">
-      export function createCostProfiler(): CostProfiler { /* ... */ }
-    </item>
-    <item priority="high">
-      export function wouldExceedBudget(
-        taskDescription: string,
-        maxBudgetUsd: number,
-        options: {
-          readonly model?: string;
-          readonly expectedOutputTokens?: number;
-          readonly numTurns?: number;
-        } = {}
-      ): boolean { /* ... */ }
-    </item>
-    <item priority="low">
-      interface LatencyProfile {
-        baseMs: number;
-        msPerKInputTokens: number;
-        msPerHundredOutputTokens: number;
-        jitterMs: number;
-      }
-    </item>
-    <item priority="high">
-      export const DEFAULT_LATENCY_PROFILE: LatencyProfile;
-    </item>
-    <item priority="high">
-      export function estimateLatency(
-        usage: TokenUsageInput,
-        profile: LatencyProfile = DEFAULT_LATENCY_PROFILE
-      ): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function simulateLatency(
-        usage: TokenUsageInput,
-        profile: LatencyProfile = DEFAULT_LATENCY_PROFILE
-      ): Promise<number> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-test-utils/src/mock-claude-client.ts">
-    <item priority="low">
-      type MockMode = "replay" | "deterministic";
-    </item>
-    <item priority="low">
-      interface MockTokenUsage {
-        input_tokens: number;
-        output_tokens: number;
-        cache_creation_input_tokens: number;
-        cache_read_input_tokens: number;
-      }
-    </item>
-    <item priority="low">
-      interface MockClientOptions {
-        mode?: MockMode;
-        fixtures?: readonly (readonly SDKMessage[])[];
-        errorOnCall?: number;
-        errorToInject?: Error;
-        simulatedLatencyMs?: number;
-      }
-    </item>
-    <item priority="low">
-      interface MockCallRecord {
-        callIndex: number;
-        prompt: string;
-        model: string;
-        timestamp: string;
-      }
-    </item>
-    <item priority="medium">
-      function buildDeterministicResult(
-        callIndex: number,
-        tokens: Readonly<{ input: number; output: number }>,
-        costUsd: number
-      ): SDKResultMessage { /* ... */ }
-    </item>
-    <item priority="low">
-      interface MockClaudeClient {
-        query: (options: {
-          prompt: string;
-          model?: string;
-          [...;
-        calls: readonly MockCallRecord[];
-        reset: () => void;
-        totalCostUsd: () => number;
-        totalTokenUsage: () => Readonly<{ input: number; output: number }>;
-      }
-    </item>
-    <item priority="high">
-      export async function* createMockQueryStream(
-        messages: unknown[]
-      ): AsyncGenerator<SDKMessage | SDKResultMessage> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createMockClaudeClient(options: MockClientOptions = {}): MockClaudeClient { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-test-utils/src/sdk-result.ts">
-    <item priority="low">
-      interface ResultInputs {
-        sessionId: string;
-        numTurns: number;
-        costUsd: number;
-        inputTokens: number;
-        outputTokens: number;
-      }
-    </item>
-    <item priority="high">
-      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-test-utils/src/session-fixtures.ts">
-    <item priority="low">
-      interface ToolCallRecord {
-        toolName: string;
-        input: Record<string, unknown>;
-        output?: string;
-      }
-    </item>
-    <item priority="low">
-      interface FixtureOptions {
-        sessionId?: string;
-        numTurns?: number;
-        costUsd?: number;
-        inputTokens?: number;
-        outputTokens?: number;
-      }
-    </item>
-    <item priority="medium">
-      function makeTimestamp(offsetMs = 0): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildStartEvent(sessionId: string): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function toolUseIdFor(call: ToolCallRecord, index: number): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildMinimalSuccessFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildFailureFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface FixturePlayer {
-        next: () => SessionEvent | undefined;
-        hasMore: () => boolean;
-        reset: () => void;
-        drainAll: () => readonly SessionEvent[];
-        position: () => number;
-      }
-    </item>
-    <item priority="high">
-      export function createFixturePlayer(events: readonly SessionEvent[]): FixturePlayer { /* ... */ }
-    </item>
-    <item priority="low">
-      interface ToolCallDiff {
-        matched: readonly ToolCallRecord[];
-        missing: readonly ToolCallRecord[];
-        unexpected: readonly ToolCallRecord[];
-        passed: boolean;
-      }
-    </item>
-    <item priority="high">
-      export function extractToolCalls(events: readonly SessionEvent[]): readonly ToolCallRecord[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function parseMappedEvent(event: SessionEvent): MappedEvent | undefined { /* ... */ }
-    </item>
-    <item priority="high">
-      export function compareToolCalls(
-        expected: readonly ToolCallRecord[],
-        actual: readonly ToolCallRecord[]
-      ): ToolCallDiff { /* ... */ }
-    </item>
-    <item priority="high">
-      export function loadFixtureFromFile(filePath: string): readonly SessionEvent[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function serializeFixture(events: readonly SessionEvent[]): string { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-test-utils/src/worktree-simulator.ts">
-    <item priority="low">
-      type RepoState = "clean" | "dirty" | "conflicted";
-    </item>
-    <item priority="low">
-      interface SimulatedFile {
-        path: string;
-        content: string;
-        status?: "modified" | "added" | "deleted" | "conflicted";
-      }
-    </item>
-    <item priority="low">
-      interface WorktreeSimulatorOptions {
-        repoPath?: string;
-        baseBranch?: string;
-        branchName?: string;
-        state?: RepoState;
-        files?: readonly SimulatedFile[];
-      }
-    </item>
-    <item priority="low">
-      interface VerificationResult {
-        passed: boolean;
-        lintOk: boolean;
-        typecheckOk: boolean;
-        testsOk: boolean;
-      }
-    </item>
-    <item priority="high">
-      export const CLEAN_REPO_FILES: readonly SimulatedFile[];
-    </item>
-    <item priority="high">
-      export const DIRTY_REPO_FILES: readonly SimulatedFile[];
-    </item>
-    <item priority="high">
-      export const CONFLICTED_REPO_FILES: readonly SimulatedFile[];
-    </item>
-    <item priority="medium">
-      function getDefaultFiles(state: RepoState): readonly SimulatedFile[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface WorktreeCallRecord {
-        operation: string;
-        args: readonly unknown[];
-        timestamp: string;
-      }
-    </item>
-    <item priority="low">
-      interface WorktreeSimulator {
-        createWorktree: (repoPath: string, taskDescription: string) => Promise<Wo...;
-        removeWorktree: (repoPath: string, worktreePath: string) => Promise<void>;
-        hasChanges: (worktreePath: string) => Promise<boolean>;
-        commitChanges: (worktreePath: string, message?: string) => Promise<string>;
-        pushBranch: (repoPath: string, branchName: string) => Promise<void>;
-      }
-    </item>
-    <item priority="high">
-      export function createWorktreeSimulator(options: WorktreeSimulatorOptions = {}): WorktreeSimulator { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createWorktreeMocks(
-        simulator: WorktreeSimulator = createWorktreeSimulator()
-      ): Record<string, (...args: unknown[]) => unknown> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function assertOperationCalled(simulator: WorktreeSimulator, operation: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function assertOperationNotCalled(simulator: WorktreeSimulator, operation: string): void { /* ... */ }
-    </item>
-  </file>
   <file path="packages/api-client/src/agent-sessions.ts">
     <item priority="low">
       interface SessionSummary {
@@ -13874,6 +14479,26 @@
         maxRetries?: number;
         onError?: (error: ApiClientError) => void;
       }) { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/api-client/src/menus.ts">
+    <item priority="low">
+      type MenuWithSections = Menu & {
+        sections: (MenuSection & { items: MenuItem[] }...;
+    </item>
+    <item priority="medium">
+      function menuPath(venueId: string, menuId?: string, ...rest: string[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function publicMenuPath(venueSlug: string, menuSlug?: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      class MenusClient {
+        async list(): Promise<unknown>;
+        async getById(): Promise<unknown>;
+        async create(): Promise<unknown>;
+        async update(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="packages/api-client/src/problem-details.ts">
@@ -14914,752 +15539,6 @@
       function runRestFallback(rest: Run, cmd: string, args: string[], execErr: unknown): string { /* ... */ }
     </item>
   </file>
-  <file path="packages/jobs/src/dispatch-job.ts">
-    <item priority="high">
-      class UnknownJobTypeError {
-        
-      }
-    </item>
-    <item priority="high">
-      export async function dispatchJob(
-        handlers: JobHandlerMap,
-        job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
-      ): Promise<void> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/jobs/src/job-types.ts">
-    <item priority="high">
-      export const DEFAULT_QUEUE_NAME: unknown;
-    </item>
-    <item priority="high">
-      export const DEFAULT_JOB_OPTIONS: unknown;
-    </item>
-    <item priority="high">
-      export const JOB_TYPES: unknown;
-    </item>
-    <item priority="low">
-      type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
-    </item>
-    <item priority="low">
-      interface ReminderPayload {
-        reservationId: string;
-        venueId: string;
-        deliveredChannels?: ("email" | "sms")[];
-      }
-    </item>
-    <item priority="low">
-      interface JobContext {
-        
-      }
-    </item>
-    <item priority="low">
-      interface PostVisitFollowupPayload {
-        reservationId: string;
-        guestId: string;
-        guestEmail: string | null;
-        guestPhone: string | null;
-        venueId: string;
-      }
-    </item>
-    <item priority="low">
-      interface PreArrivalBriefingPayload {
-        reservationId: string;
-        guestEmail: string;
-        venueId: string;
-      }
-    </item>
-    <item priority="low">
-      interface LapsedGuestScanPayload {
-        venueId: string;
-        lapsedAfterDays: number;
-      }
-    </item>
-    <item priority="low">
-      interface WaitlistExpiryPayload {
-        waitlistEntryId: string;
-        guestPhone?: string | null;
-        guestEmail?: string | null;
-        venueId?: string;
-      }
-    </item>
-    <item priority="low">
-      type JobPayloadMap = {
-        [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
-        [JOB...;
-    </item>
-    <item priority="low">
-      type JobHandlerMap = Partial<{
-        [K in JobType]: (payload: JobPayloadMap[K], c...;
-    </item>
-  </file>
-  <file path="packages/jobs/src/scheduler.ts">
-    <item priority="low">
-      interface JobSchedulerConfig {
-        redisUrl: string;
-        queueName?: string;
-      }
-    </item>
-    <item priority="high">
-      class JobScheduler {
-        queue: Queue;
-        redis: Redis;
-        async schedule(): Promise<unknown>;
-        async scheduleCron(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="packages/jobs/src/worker.ts">
-    <item priority="low">
-      interface JobWorkerConfig {
-        redisUrl: string;
-        queueName?: string;
-        handlers: JobHandlerMap;
-        logger?: JobWorkerErrorLogger;
-      }
-    </item>
-    <item priority="low">
-      interface JobWorkerErrorLogger {
-        
-      }
-    </item>
-    <item priority="high">
-      class JobWorker {
-        worker: Worker;
-        redis: Redis;
-        async close(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/command-builder.ts">
-    <item priority="medium">
-      function assertNoTraversal(value: string, label: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function psqlQuery(
-        dbUrl: string,
-        sql: string,
-        run: (cmd: string, args: string[]) => string = defaultPsqlRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function ghJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultGhRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function doctlJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultDoctlRun
-      ): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function pulumiJson(
-        args: string[],
-        run: (cmd: string, args: string[]) => string = defaultPulumiRun
-      ): string { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/dispatcher.ts">
-    <item priority="high">
-      type McpContent = { type: "text"; text: string };
-    </item>
-    <item priority="high">
-      type McpResult = {
-        content: McpContent[];
-        isError?: boolean;
-      };
-    </item>
-    <item priority="low">
-      type ToolDefinition = {
-        name: string;
-        description: string;
-        inputSchema: T...;
-    </item>
-    <item priority="high">
-      export function defineTool<TSchema extends z.ZodTypeAny>(
-        def: ToolDefinition<TSchema>
-      ): ToolDefinition<TSchema> { /* ... */ }
-    </item>
-    <item priority="high">
-      type JsonSchemaObject = {
-        type: "object";
-        properties?: Record<string, unknown...;
-    </item>
-    <item priority="high">
-      export function listTools(tools: ToolDefinition[]): Array<{
-        name: string;
-        description: string;
-        inputSchema: JsonSchemaObject;
-      }> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function errorEnvelope(message: string): McpResult { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function callTool(
-        tools: ToolDefinition[],
-        name: string,
-        args: unknown
-      ): Promise<McpResult> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/index.ts">
-    <item priority="low">
-      async function main() { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/shell-runner.ts">
-    <item priority="low">
-      type ShellRunner = (
-        cmd: string,
-        args: string[],
-        opts: { encoding: "u...;
-    </item>
-    <item priority="low">
-      interface ShellRunnerOptions {
-        runner?: ShellRunner;
-        timeoutMs?: number;
-        errorLabel?: string;
-      }
-    </item>
-    <item priority="high">
-      export function createShellRunner(opts: ShellRunnerOptions = {}) { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/notifications/src/booking-email-content.ts">
-    <item priority="low">
-      interface BookingEmailContent {
-        subject: string;
-        html: string;
-        ical?: string;
-        icalMethod?: "REQUEST" | "CANCEL";
-      }
-    </item>
-    <item priority="medium">
-      function sequenceFor(input: BookingNotificationInput): number { /* ... */ }
-    </item>
-    <item priority="medium">
-      function icalFor(input: BookingNotificationInput, method: IcalMethod): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildBookingEmailContent(
-        input: BookingNotificationInput,
-        event: NotificationEventType,
-        manageBaseUrl: string
-      ): BookingEmailContent { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/notifications/src/email-content.ts">
-    <item priority="low">
-      type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
-    </item>
-    <item priority="low">
-      interface BookingEmailTemplateInput {
-        manageBaseUrl: string;
-      }
-    </item>
-    <item priority="high">
-      interface BookingEmailTemplate {
-        subject: string;
-        html: string;
-      }
-    </item>
-    <item priority="high">
-      interface EventCopy {
-        heading: string;
-        subject: string;
-        includeAddress: boolean;
-        includeManageLink: boolean;
-      }
-    </item>
-    <item priority="medium">
-      function eventCopy(venueName: string, event: NotificationEventType): EventCopy { /* ... */ }
-    </item>
-    <item priority="medium">
-      function manageLinkHtml(manageBaseUrl: string, manageToken: string): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildBookingEmail(
-        input: BookingEmailTemplateInput,
-        event: NotificationEventType
-      ): BookingEmailTemplate { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/notifications/src/ical.ts">
-    <item priority="low">
-      interface IcalEventInput {
-        reservationId: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        partySize: number;
-      }
-    </item>
-    <item priority="low">
-      type IcalMethod = "REQUEST" | "CANCEL";
-    </item>
-    <item priority="high">
-      export function escapeIcalText(value: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function assertSafeIcalToken(value: string, fieldName: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function icalDateTimeLine(
-        name: "DTSTART" | "DTEND",
-        value: string,
-        input: Pick<IcalEventInput, "date" | "venueTimezone">
-      ): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function formatIcalDate(date: Date): string { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/notifications/src/notification-dispatcher.ts">
-    <item priority="low">
-      interface NotificationDispatcherConfig {
-        emailAdapter: NotificationPort;
-        smsAdapter: SmsPort | null;
-        smsManageBaseUrl?: string;
-      }
-    </item>
-    <item priority="low">
-      type ReminderChannel = "email" | "sms";
-    </item>
-    <item priority="low">
-      interface ReminderOptions {
-        skipChannels?: readonly ReminderChannel[];
-      }
-    </item>
-    <item priority="high">
-      class PartialDeliveryError {
-        
-      }
-    </item>
-    <item priority="high">
-      class NotificationDispatcher {
-        emailAdapter: NotificationPort;
-        smsAdapter: SmsPort | null;
-        smsManageBaseUrl: string;
-        async toSmsInput(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="packages/notifications/src/port.ts">
-    <item priority="low">
-      interface BookingNotificationInput {
-        reservationId: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        partySize: number;
-      }
-    </item>
-    <item priority="low">
-      interface WinBackNotificationInput {
-        guestName: string;
-        guestEmail: string;
-        venueName: string;
-      }
-    </item>
-    <item priority="low">
-      interface ThankYouEmailInput {
-        guestEmail: string;
-        guestFirstName: string | null;
-        venueName: string;
-        visitDate: string;
-        feedbackUrl: string | null;
-      }
-    </item>
-    <item priority="low">
-      interface NotificationPort {
-        
-      }
-    </item>
-  </file>
-  <file path="packages/notifications/src/resend-adapter.ts">
-    <item priority="high">
-      interface ResendClient {
-        emails: {
-          // The SDK resolves `{ data, error }` on API failur...;
-      }
-    </item>
-    <item priority="low">
-      interface ResendAdapterConfig {
-        resend: ResendClient | null;
-        fromAddress: string;
-        manageBaseUrl: string;
-        publicApiBaseUrl: string | null;
-      }
-    </item>
-    <item priority="high">
-      class ResendNotificationAdapter {
-        resend: ResendClient | null;
-        fromAddress: string;
-        manageBaseUrl: string;
-        publicApiBaseUrl: string | null;
-      }
-    </item>
-  </file>
-  <file path="packages/notifications/src/sanitize.ts">
-    <item priority="high">
-      export function escapeHtml(value: string): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function sanitizeUrl(raw: string): string | null { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/notifications/src/sms-port.ts">
-    <item priority="low">
-      interface SmsNotificationInput {
-        reservationId: string;
-        date: string;
-        startTime: string;
-        venueTimezone: string;
-        partySize: number;
-      }
-    </item>
-    <item priority="low">
-      interface WaitlistUpdateInput {
-        guestName: string | null;
-        guestPhone: string;
-        venueName: string;
-        date: string;
-        partySize: number;
-      }
-    </item>
-    <item priority="low">
-      interface WinbackMessageInput {
-        guestName: string | null;
-        guestPhone: string;
-        venueName: string;
-        manageBaseUrl: string;
-      }
-    </item>
-    <item priority="low">
-      interface WaitlistAddedInput {
-        guestPhone: string;
-        guestName: string | null;
-        position: number;
-        estimatedWaitMinutes: number | null;
-      }
-    </item>
-    <item priority="low">
-      interface WaitlistPositionUpdateInput {
-        guestPhone: string;
-        guestName: string | null;
-        position: number;
-        estimatedWaitMinutes: number | null;
-      }
-    </item>
-    <item priority="low">
-      interface WaitlistTableReadyInput {
-        guestPhone: string;
-        guestName: string | null;
-      }
-    </item>
-    <item priority="low">
-      interface SmsPort {
-        
-      }
-    </item>
-  </file>
-  <file path="packages/notifications/src/twilio-sms-adapter.ts">
-    <item priority="high">
-      interface TwilioMessages {
-        
-      }
-    </item>
-    <item priority="high">
-      interface TwilioClient {
-        messages: TwilioMessages;
-      }
-    </item>
-    <item priority="low">
-      interface TwilioSmsAdapterConfig {
-        client: TwilioClient | null;
-        fromNumber: string;
-        retryDelayMs?: number;
-      }
-    </item>
-    <item priority="medium">
-      function formatDate(dateStr: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function fitReminderBody(candidates: readonly string[]): string { /* ... */ }
-    </item>
-    <item priority="high">
-      class TwilioSmsAdapter {
-        client: TwilioClient | null;
-        fromNumber: string;
-        retryDelayMs: number;
-        async sendBookingReminder(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="packages/notifications/src/venue-time.ts">
-    <item priority="low">
-      interface VenueLocalTime {
-        date: string;
-        time: string;
-        display: string;
-        icalLocal: string;
-        icalUtc: string | null;
-      }
-    </item>
-    <item priority="medium">
-      function formatDisplay(hour: number, minute: number): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function build(date: string, hour: number, minute: number, icalUtc: string | null): VenueLocalTime { /* ... */ }
-    </item>
-    <item priority="high">
-      export function toVenueLocalTime(
-        value: string,
-        timezone: string,
-        fallbackDate: string
-      ): VenueLocalTime { /* ... */ }
-    </item>
-    <item priority="high">
-      export function calendarSequence(updatedAt: string): number { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/observability/src/build-info.ts">
-    <item priority="high">
-      export const UNKNOWN_BUILD: unknown;
-    </item>
-    <item priority="low">
-      interface BuildInfo {
-        sha: string;
-        version: string;
-      }
-    </item>
-    <item priority="high">
-      export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/observability/src/error-rates.ts">
-    <item priority="high">
-      interface RequestRecord {
-        timestamp: number;
-        isError: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface EndpointErrorRate {
-        endpoint: string;
-        total: number;
-        errors: number;
-        rate: number;
-      }
-    </item>
-    <item priority="low">
-      interface ErrorRateSnapshot {
-        endpoints: readonly EndpointErrorRate[];
-        degraded: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface ErrorRateHealthCheckResult {
-        status: "ok" | "degraded";
-        endpoints: readonly EndpointErrorRate[];
-        message?: string;
-      }
-    </item>
-    <item priority="medium">
-      function createErrorRateTracker() { /* ... */ }
-    </item>
-    <item priority="medium">
-      function normalizeRoute(request: FastifyRequest): string { /* ... */ }
-    </item>
-    <item priority="low">
-      async function errorRatePlugin(fastify: FastifyInstance): Promise<void> { /* ... */ }
-    </item>
-    <item priority="high">
-      export const errorRatePlugin_: unknown;
-    </item>
-    <item priority="high">
-      export function createErrorRateHealthCheck(
-        snapshot: ErrorRateSnapshot
-      ): ErrorRateHealthCheckResult { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/observability/src/otel-config.ts">
-    <item priority="low">
-      type TelemetryMode = "disabled" | "unconfigured" | "exporting";
-    </item>
-    <item priority="low">
-      interface TelemetryPlan {
-        mode: TelemetryMode;
-        exportTraces: boolean;
-        exportMetrics: boolean;
-        reason: string;
-      }
-    </item>
-    <item priority="medium">
-      function isSet(env: NodeJS.ProcessEnv, key: string): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isDisabled(env: NodeJS.ProcessEnv): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function resolveTelemetryPlan(env: NodeJS.ProcessEnv = process.env): TelemetryPlan { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/observability/src/rate-limit-monitor.ts">
-    <item priority="low">
-      interface RateLimitHit {
-        ip: string;
-        endpoint: string;
-        timestamp: number;
-      }
-    </item>
-    <item priority="low">
-      interface RateLimitHealthStats {
-        hits_last_hour: number;
-        blocked_ips: number;
-      }
-    </item>
-    <item priority="low">
-      interface RateLimitSnapshot {
-        stats: RateLimitHealthStats;
-        isDegraded: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface RateLimitMonitorConfig {
-        hourWindowMs?: number;
-        degradedWindowMs?: number;
-        degradedThreshold?: number;
-      }
-    </item>
-    <item priority="low">
-      interface RateLimitMonitor {
-        recordHit: (ip: string, endpoint: string) => void;
-        getSnapshot: () => RateLimitSnapshot;
-        reset: () => void;
-      }
-    </item>
-    <item priority="high">
-      export function createRateLimitMonitor(config: RateLimitMonitorConfig = {}): RateLimitMonitor { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/observability/src/readiness.ts">
-    <item priority="low">
-      interface ReadinessCheckResult {
-        name: string;
-        status: "ok" | "error";
-        message?: string;
-      }
-    </item>
-    <item priority="low">
-      interface ReadinessSnapshot {
-        ready: boolean;
-        checks: readonly ReadinessCheckResult[];
-        timestamp: string;
-      }
-    </item>
-    <item priority="low">
-      type ReadinessCheckFn = () => Promise<void>;
-    </item>
-    <item priority="high">
-      interface RegisteredCheck {
-        name: string;
-        check: ReadinessCheckFn;
-      }
-    </item>
-    <item priority="low">
-      interface ReadinessTracker {
-        registerCheck: (name: string, check: ReadinessCheckFn) => void;
-        evaluate: () => Promise<ReadinessSnapshot>;
-      }
-    </item>
-    <item priority="high">
-      export function createReadinessTracker(): ReadinessTracker { /* ... */ }
-    </item>
-    <item priority="low">
-      async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
-    </item>
-    <item priority="medium">
-      function resolveAuth0Url(explicit: string | undefined): string | null { /* ... */ }
-    </item>
-    <item priority="low">
-      interface PrismaLike {
-        $queryRaw: (strings: TemplateStringsArray) => Promise<unknown>;
-      }
-    </item>
-    <item priority="low">
-      interface StandardChecksOptions {
-        prisma: PrismaLike;
-        auth0Url?: string;
-        jwksTimeoutMs?: number;
-        fetchFn?: typeof fetch;
-      }
-    </item>
-    <item priority="high">
-      export function registerStandardChecks(
-        tracker: ReadinessTracker,
-        options: StandardChecksOptions
-      ): void { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/observability/src/redact.ts">
-    <item priority="high">
-      export const REDACTED: unknown;
-    </item>
-    <item priority="medium">
-      function isSecretShaped(value: string): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isPlainObject(value: unknown): value is Record<string, unknown> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function redactSignal(value: unknown): unknown { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/observability/src/request-id.ts">
-    <item priority="low">
-      interface RequestIdOptions {
-        headerName?: string;
-        generator?: () => string;
-      }
-    </item>
-    <item priority="high">
-      export function createRequestIdMiddleware(options: RequestIdOptions = {}) { /* ... */ }
-    </item>
-    <item priority="high">
-      export function getRequestId(request: { id?: string }): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function logWithRequestId(
-        logger: { info: (msg: string, ctx: Record<string, unknown>) => void },
-        requestId: string,
-        message: string,
-        ctx: Record<string, unknown> = {}
-      ) { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/observability/src/sdk.ts">
-    <item priority="low">
-      interface OtelConfig {
-        serviceName: string;
-        serviceVersion?: string;
-      }
-    </item>
-    <item priority="high">
-      export function shouldIgnoreRequest(req: IncomingMessage): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function initTelemetry(config: OtelConfig): NodeSDK { /* ... */ }
-    </item>
-  </file>
   <file path="packages/rialto-catalog/src/catalog-meta.ts">
     <item priority="low">
       type CatalogCharLimits = Readonly<Record<string, number>>;
@@ -15690,6 +15569,20 @@
   <file path="packages/rialto-catalog/src/generated-schemas.ts">
     <item priority="high">
       export const generatedSchemas: unknown;
+    </item>
+  </file>
+  <file path="packages/sentry/src/build-info.ts">
+    <item priority="high">
+      export const UNKNOWN_BUILD: unknown;
+    </item>
+    <item priority="low">
+      interface BuildInfo {
+        sha: string;
+        version: string;
+      }
+    </item>
+    <item priority="high">
+      export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo { /* ... */ }
     </item>
   </file>
   <file path="packages/sentry/src/config.ts">
@@ -15783,6 +15676,20 @@
     </item>
     <item priority="high">
       export function reportApiError(error: ReportableApiError | ReportableValidationError): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/sentry/src/redact.ts">
+    <item priority="high">
+      export const REDACTED: unknown;
+    </item>
+    <item priority="medium">
+      function isSecretShaped(value: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isPlainObject(value: unknown): value is Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function redactSignal(value: unknown): unknown { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/apply-versioning.ts">
@@ -15933,8 +15840,7 @@
   <file path="packages/service-bootstrap/src/health-routes.ts">
     <item priority="low">
       interface HealthDb {
-        prisma: {
-          $queryRaw: (query: TemplateStringsArray, ...values:...;
+        prisma: Pick<PrismaLike, "$queryRaw">;
         getSlowQueryStats: () => SlowQueryStats;
         getServiceStatus: () => ServiceStatus;
         getPoolMetrics: () => PoolMetrics;
@@ -15979,9 +15885,6 @@
     </item>
     <item priority="high">
       export function createLatencyTracker(): LatencyTracker { /* ... */ }
-    </item>
-    <item priority="medium">
-      function resolveJwksUrl(jwksUrl?: string): string | null { /* ... */ }
     </item>
     <item priority="high">
       export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> { /* ... */ }
@@ -16061,307 +15964,6 @@
     </item>
     <item priority="high">
       export function validateStartupConfig(env: NodeJS.ProcessEnv = process.env): void { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/collect-files.ts">
-    <item priority="medium">
-      function extensionOf(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function hasShebang(path: string): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isScannable(name: string, full: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function collectFiles(rootDir: string): SourceFile[] { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/rule-engine.ts">
-    <item priority="low">
-      interface Rule {
-        pattern: RegExp;
-        category: Category;
-        severity: Severity;
-        excludes?: RegExp;
-        excludeLanguages?: readonly Language[];
-      }
-    </item>
-    <item priority="low">
-      type Language = "python" | "other";
-    </item>
-    <item priority="high">
-      export function detectLanguage(file: string, content: string): Language { /* ... */ }
-    </item>
-    <item priority="high">
-      interface Group {
-        text: string;
-        rest: readonly string[];
-      }
-    </item>
-    <item priority="medium">
-      function continuationGroup(
-        lines: readonly string[],
-        start: number,
-        continues: RegExp
-      ): Group | null { /* ... */ }
-    </item>
-    <item priority="high">
-      export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function isProseFile(relPath: string): boolean { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/run-cli.ts">
-    <item priority="low">
-      interface CliIo {
-        stdout: (text: string) => void;
-        stderr: (text: string) => void;
-      }
-    </item>
-    <item priority="high">
-      export function run(argv: readonly string[], io: CliIo): number { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/scan-package.ts">
-    <item priority="high">
-      export function computeVerdict(findings: readonly Finding[]): Verdict { /* ... */ }
-    </item>
-    <item priority="medium">
-      function correlateCrossFileExfiltration(findings: readonly Finding[]): Finding[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function scanPackage(dir: string): ScanResult { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/supply-chain-scanner/src/types.ts">
-    <item priority="low">
-      type Category = "prompt-injection" | "data-exfiltration" | "malicious-command";
-    </item>
-    <item priority="low">
-      type Severity = "low" | "med" | "high";
-    </item>
-    <item priority="low">
-      type Verdict = "pass" | "flag" | "block";
-    </item>
-    <item priority="low">
-      interface Finding {
-        category: Category;
-        severity: Severity;
-        file: string;
-        line: number;
-        evidence: string;
-      }
-    </item>
-    <item priority="low">
-      interface ScanResult {
-        verdict: Verdict;
-        findings: readonly Finding[];
-        correlatedFindings?: readonly Finding[];
-      }
-    </item>
-    <item priority="low">
-      interface SourceFile {
-        relPath: string;
-        content: string;
-      }
-    </item>
-  </file>
-  <file path="packages/test-fixtures/src/jwt.ts">
-    <item priority="low">
-      interface MockJWTPayload {
-        sub: string;
-        iss: string;
-        aud: string;
-        exp: number;
-        iat: number;
-      }
-    </item>
-    <item priority="high">
-      export function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/test-fixtures/src/reservations.ts">
-    <item priority="low">
-      type MockTable = Table;
-    </item>
-    <item priority="low">
-      type MockReservation = Reservation & { readonly table: Table };
-    </item>
-    <item priority="low">
-      interface MockPagination {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-        hasNext: boolean;
-      }
-    </item>
-    <item priority="high">
-      export function createMockTable(overrides?: Partial<MockTable>): MockTable { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createMockReservation(
-        overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
-      ): MockReservation { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination { /* ... */ }
-    </item>
-    <item priority="high">
-      export const ERROR_NOT_FOUND: unknown;
-    </item>
-    <item priority="high">
-      export const ERROR_UNAUTHORIZED: unknown;
-    </item>
-    <item priority="high">
-      export const ERROR_CONFLICT: unknown;
-    </item>
-    <item priority="high">
-      export const ERROR_FORBIDDEN: unknown;
-    </item>
-  </file>
-  <file path="packages/test-fixtures/src/ui-quality-capture.ts">
-    <item priority="low">
-      interface Viewport {
-        width: number;
-        height: number;
-      }
-    </item>
-    <item priority="low">
-      interface AxeViolation {
-        id: string;
-        impact: string | null;
-        help: string;
-        nodes: Array<{ target: unknown }>;
-      }
-    </item>
-    <item priority="low">
-      interface ManifestRow {
-        route: string;
-        path: string;
-        screenshots: Array<{ viewport: string; file: string; sha256: string }>;
-        axe: { violations: AxeViolation[] };
-        page_errors: string[];
-      }
-    </item>
-    <item priority="low">
-      type CapturePageLike = Pick<
-        Page,
-        "emulateMedia" | "setViewportSize" | "got...;
-    </item>
-    <item priority="high">
-      interface RawAxe {
-        violations: Array<{
-          id: string;
-          impact?: string | null;
-          h...;
-      }
-    </item>
-    <item priority="low">
-      interface CaptureOptions {
-        baseUrl: string;
-        path: string;
-        outDir: string;
-        viewports: readonly Viewport[];
-        analyzeAxe?: (page: CapturePageLike) => Promise<RawAxe>;
-      }
-    </item>
-    <item priority="high">
-      export const HIDDEN_SCRIPT: unknown;
-    </item>
-    <item priority="high">
-      export const REVEAL_SCRIPT: unknown;
-    </item>
-    <item priority="high">
-      export const SETTLED_SCRIPT: unknown;
-    </item>
-    <item priority="high">
-      export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> { /* ... */ }
-    </item>
-    <item priority="high">
-      interface Probe {
-        hrefs: string[];
-        text_chars: number;
-        painted_ratio: number;
-      }
-    </item>
-    <item priority="high">
-      export function sameOriginLinks(hrefs: readonly string[], baseUrl: string): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface CapturePlan {
-        entries: Array<{ route: string; path: string; viewports: Viewport[...;
-        outDir: string;
-        manifestPath: string;
-      }
-    </item>
-    <item priority="high">
-      export function loadCapturePlan(
-        app: string,
-        env: Record<string, string | undefined> = process.env
-      ): CapturePlan { /* ... */ }
-    </item>
-    <item priority="high">
-      export function resetManifest(plan: CapturePlan, workerIndex: number): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function appendManifestRow(plan: CapturePlan, row: ManifestRow): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function screenshotName(route: string, viewport: Viewport): string { /* ... */ }
-    </item>
-    <item priority="low">
-      async function defaultAnalyzeAxe(page: CapturePageLike): Promise<RawAxe> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function trimAxe(raw: RawAxe): { violations: AxeViolation[] } { /* ... */ }
-    </item>
-    <item priority="medium">
-      function listen(page: CapturePageLike, origin: string) { /* ... */ }
-    </item>
-    <item priority="low">
-      async function screenshotAll(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
-    </item>
-    <item priority="high">
-      export function foldName(route: string, viewport: Viewport): string { /* ... */ }
-    </item>
-    <item priority="low">
-      async function screenshotFold(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function capturePage(
-        page: CapturePageLike,
-        route: string,
-        opts: CaptureOptions
-      ): Promise<ManifestRow> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/test-fixtures/src/users.ts">
-    <item priority="low">
-      type MockUserPreferences = UserPreferences;
-    </item>
-    <item priority="low">
-      type MockUser = User;
-    </item>
-    <item priority="high">
-      export function createMockUser(overrides: Partial<MockUser> = {}): MockUser { /* ... */ }
-    </item>
-    <item priority="low">
-      interface MockPaginatedResponse {
-        data: T[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;...;
-      }
-    </item>
-    <item priority="high">
-      export function createMockPaginatedResponse<T>(
-        data: T[],
-        opts: { page?: number; limit?: number; total?: number } = {}
-      ): MockPaginatedResponse<T> { /* ... */ }
     </item>
   </file>
   <file path="packages/types/src/agent.ts">
@@ -17153,6 +16755,122 @@
       }
     </item>
   </file>
+  <file path="packages/ui-quality-capture/src/ui-quality-capture.ts">
+    <item priority="low">
+      interface Viewport {
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="low">
+      interface AxeViolation {
+        id: string;
+        impact: string | null;
+        help: string;
+        nodes: Array<{ target: unknown }>;
+      }
+    </item>
+    <item priority="low">
+      interface ManifestRow {
+        route: string;
+        path: string;
+        screenshots: Array<{ viewport: string; file: string; sha256: string }>;
+        axe: { violations: AxeViolation[] };
+        page_errors: string[];
+      }
+    </item>
+    <item priority="low">
+      type CapturePageLike = Pick<
+        Page,
+        "emulateMedia" | "setViewportSize" | "got...;
+    </item>
+    <item priority="high">
+      interface RawAxe {
+        violations: Array<{
+          id: string;
+          impact?: string | null;
+          h...;
+      }
+    </item>
+    <item priority="low">
+      interface CaptureOptions {
+        baseUrl: string;
+        path: string;
+        outDir: string;
+        viewports: readonly Viewport[];
+        analyzeAxe?: (page: CapturePageLike) => Promise<RawAxe>;
+      }
+    </item>
+    <item priority="high">
+      export const HIDDEN_SCRIPT: unknown;
+    </item>
+    <item priority="high">
+      export const REVEAL_SCRIPT: unknown;
+    </item>
+    <item priority="high">
+      export const SETTLED_SCRIPT: unknown;
+    </item>
+    <item priority="high">
+      export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Probe {
+        hrefs: string[];
+        text_chars: number;
+        painted_ratio: number;
+      }
+    </item>
+    <item priority="high">
+      export function sameOriginLinks(hrefs: readonly string[], baseUrl: string): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CapturePlan {
+        entries: Array<{ route: string; path: string; viewports: Viewport[...;
+        outDir: string;
+        manifestPath: string;
+      }
+    </item>
+    <item priority="high">
+      export function loadCapturePlan(
+        app: string,
+        env: Record<string, string | undefined> = process.env
+      ): CapturePlan { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resetManifest(plan: CapturePlan, workerIndex: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function appendManifestRow(plan: CapturePlan, row: ManifestRow): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function screenshotName(route: string, viewport: Viewport): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function defaultAnalyzeAxe(page: CapturePageLike): Promise<RawAxe> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function trimAxe(raw: RawAxe): { violations: AxeViolation[] } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listen(page: CapturePageLike, origin: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function screenshotAll(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function foldName(route: string, viewport: Viewport): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function screenshotFold(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function capturePage(
+        page: CapturePageLike,
+        route: string,
+        opts: CaptureOptions
+      ): Promise<ManifestRow> { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/app.ts">
     <item priority="high">
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
@@ -17926,6 +17644,55 @@
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/test/mocks.ts">
+    <item priority="high">
+      type MockTable = Table;
+    </item>
+    <item priority="high">
+      type MockReservation = Reservation & { readonly table: Table };
+    </item>
+    <item priority="high">
+      interface MockPagination {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface MockJWTPayload {
+        sub: string;
+        iss: string;
+        aud: string;
+        exp: number;
+        iat: number;
+      }
+    </item>
+    <item priority="high">
+      export function createMockTable(overrides?: Partial<MockTable>): MockTable { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockReservation(
+        overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
+      ): MockReservation { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ERROR_UNAUTHORIZED: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_CONFLICT: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_FORBIDDEN: unknown;
+    </item>
+  </file>
   <file path="services/reservations/src/test/shared-schema-compilers.ts">
     <item priority="high">
       type RouteSchemaDef = {
@@ -17952,10 +17719,148 @@
   </file>
   <file path="services/users/src/test/fixtures.ts">
     <item priority="high">
+      interface MockJWTPayload {
+        sub: string;
+        iss: string;
+        aud: string;
+        exp: number;
+        iat: number;
+      }
+    </item>
+    <item priority="high">
+      interface MockPaginatedResponse {
+        data: T[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;...;
+      }
+    </item>
+    <item priority="medium">
+      function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makeUser(overrides: Partial<User> = {}): User { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makePaginatedResponse<T>(
+        data: T[],
+        opts: { page?: number; limit?: number; total?: number } = {}
+      ): MockPaginatedResponse<T> { /* ... */ }
+    </item>
+    <item priority="high">
       export const MOCK_JWT_PAYLOAD: unknown;
     </item>
     <item priority="high">
       export const ADMIN_JWT_PAYLOAD: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="testing">
+  <file path="packages/agent-core/src/testing/cost-estimator.ts">
+    <item priority="low">
+      interface ModelPricing {
+        model: string;
+        inputCostPer1MTokens: number;
+        outputCostPer1MTokens: number;
+        cacheWritePer1MTokens?: number;
+        cacheReadPer1MTokens?: number;
+      }
+    </item>
+    <item priority="high">
+      export const MODEL_PRICING: Record<string, ModelPricing>;
+    </item>
+    <item priority="low">
+      interface TokenUsageInput {
+        inputTokens: number;
+        outputTokens: number;
+        cacheWriteTokens?: number;
+        cacheReadTokens?: number;
+      }
+    </item>
+    <item priority="low">
+      interface CostBreakdown {
+        model: string;
+        inputCostUsd: number;
+        outputCostUsd: number;
+        cacheWriteCostUsd: number;
+        cacheReadCostUsd: number;
+      }
+    </item>
+    <item priority="high">
+      export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/testing/mock-query-stream.ts">
+    <item priority="high">
+      export async function* createMockQueryStream(
+        messages: unknown[]
+      ): AsyncGenerator<SDKMessage | SDKResultMessage> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/testing/sdk-result.ts">
+    <item priority="low">
+      interface ResultInputs {
+        sessionId: string;
+        numTurns: number;
+        costUsd: number;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/testing/session-fixtures.ts">
+    <item priority="low">
+      interface ToolCallRecord {
+        toolName: string;
+        input: Record<string, unknown>;
+        output?: string;
+      }
+    </item>
+    <item priority="low">
+      interface FixtureOptions {
+        sessionId?: string;
+        numTurns?: number;
+        costUsd?: number;
+        inputTokens?: number;
+        outputTokens?: number;
+      }
+    </item>
+    <item priority="medium">
+      function makeTimestamp(offsetMs = 0): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildStartEvent(sessionId: string): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toolUseIdFor(call: ToolCallRecord, index: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
     </item>
   </file>
   </section>
@@ -18244,47 +18149,6 @@
     </item>
     <item priority="high">
       export const reduced: unknown;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="tools">
-  <file path="packages/mcp-server/src/tools/ci.ts">
-    <item priority="high">
-      export async function ciRunStatus(run = ghJson): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/database.ts">
-    <item priority="high">
-      export async function dbListTables(run = psqlQuery): Promise<string> { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function dbMigrationStatus(run = psqlQuery): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/deploy_status.ts">
-    <item priority="high">
-      export async function deployStatus(run: (args: string[]) => string = doctlJson): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/git.ts">
-    <item priority="medium">
-      function isErrorEnvelope(output: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function gitWorkflowStatus(run = defaultRun): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/health.ts">
-    <item priority="high">
-      export async function serviceHealthCheck(): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/mcp-server/src/tools/pulumi.ts">
-    <item priority="high">
-      export const PULUMI_PROJECT_DIR: unknown;
-    </item>
-    <item priority="high">
-      export async function pulumiStackOutputs(run = pulumiJson): Promise<string> { /* ... */ }
     </item>
   </file>
   </section>

@@ -1,3 +1,4 @@
+import { enUS, type RialtoMessages } from "../../i18n/messages";
 import type {
   TapeChartFormattedParts,
   TapeChartOverlapKind,
@@ -7,50 +8,24 @@ import type {
   TapeChartStrings,
 } from "./types";
 
-const STATUS_LABELS_EN: Record<TapeChartStatus, string> = {
-  tentative: "Tentative",
-  confirmed: "Confirmed",
-  checkedIn: "Checked in",
-  checkedOut: "Checked out",
-  cancelled: "Cancelled",
-  noShow: "No-show",
-};
-
-const ROOM_STATUS_LABELS_EN: Record<TapeChartRoomStatus, string> = {
-  ready: "Ready",
-  dirty: "Dirty",
-  outOfOrder: "Out of order",
-  occupied: "Occupied",
-};
-
-const OVERLAP_LABELS_EN: Record<TapeChartOverlapKind, string> = {
-  conflict: "Double-booked",
-  shared: "Shared occupancy",
-};
-
-const defaultNightsLabel = (count: number) => (count === 1 ? `${count} night` : `${count} nights`);
-
-const defaultPartySizeLabel = (count: number) =>
-  count === 1 ? `${count} guest` : `${count} guests`;
-
-const defaultReservationAriaTemplate = (
-  r: TapeChartReservation,
-  fmt: TapeChartFormattedParts
-): string => {
-  const pieces = [
-    r.guestName ?? "Reservation",
-    `${fmt.roomName}`,
-    `${fmt.startLong} to ${fmt.endLong}`,
-    `${defaultNightsLabel(fmt.nights)}`,
-  ];
-  if (fmt.partySize) pieces.push(fmt.partySize);
-  pieces.push(fmt.statusLabel);
-  if (fmt.overlapLabel) pieces.push(fmt.overlapLabel);
-  if (r.source) pieces.push(`via ${r.source}`);
-  if (fmt.priceTotal) pieces.push(fmt.priceTotal);
-  if (r.blockedReason) pieces.push(`reason: ${r.blockedReason}`);
-  return pieces.join(", ");
-};
+function ariaTemplateFor(messages: RialtoMessages) {
+  const t = messages.tapeChart;
+  return (r: TapeChartReservation, fmt: TapeChartFormattedParts): string => {
+    const pieces = [
+      r.guestName ?? messages.reservation,
+      `${fmt.roomName}`,
+      messages.dateSpan(fmt.startLong, fmt.endLong),
+      t.nightsLabel(fmt.nights),
+    ];
+    if (fmt.partySize) pieces.push(fmt.partySize);
+    pieces.push(fmt.statusLabel);
+    if (fmt.overlapLabel) pieces.push(fmt.overlapLabel);
+    if (r.source) pieces.push(t.viaSource(r.source));
+    if (fmt.priceTotal) pieces.push(fmt.priceTotal);
+    if (r.blockedReason) pieces.push(t.blockedReason(r.blockedReason));
+    return pieces.join(", ");
+  };
+}
 
 export type ResolvedStrings = Required<
   Omit<
@@ -71,44 +46,34 @@ export type ResolvedStrings = Required<
   overlapLabels: Record<TapeChartOverlapKind, string>;
 };
 
-export const DEFAULT_STRINGS: ResolvedStrings = {
-  regionLabel: "Reservations tape chart",
-  roomsColumnLabel: "Rooms",
-  arrivalsLabel: "Arrivals",
-  departuresLabel: "Departures",
-  inHouseLabel: "In-house",
-  viewModeToggleLabel: "View mode",
-  viewModeGridLabel: "Grid",
-  viewModeListLabel: "List",
-  todayLabel: "Today",
-  emptyTitle: "No rooms configured",
-  emptyBody: "Add a room to start managing reservations.",
-  errorTitle: "Couldn't load reservations",
-  errorRetryLabel: "Try again",
-  loadingLabel: "Loading reservations",
-  moveDialogTitle: "Move reservation",
-  moveConfirmLabel: "Move",
-  moveCancelLabel: "Cancel",
-  conflictWarning: "This move conflicts with another reservation.",
-  statusLabels: STATUS_LABELS_EN,
-  roomStatusLabels: ROOM_STATUS_LABELS_EN,
-  overlapLabels: OVERLAP_LABELS_EN,
-  reservationAriaTemplate: defaultReservationAriaTemplate,
-  nightsLabel: defaultNightsLabel,
-  partySizeLabel: defaultPartySizeLabel,
-};
-
-export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings {
-  if (!overrides) return DEFAULT_STRINGS;
+/** The built-in labels for one locale's messages (ADR-028). */
+export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
+  const { viaSource: _via, blockedReason: _reason, ...labels } = messages.tapeChart;
   return {
-    ...DEFAULT_STRINGS,
+    ...labels,
+    errorRetryLabel: messages.tryAgain,
+    moveCancelLabel: messages.cancel,
+    reservationAriaTemplate: ariaTemplateFor(messages),
+  };
+}
+
+/** en-US defaults, for callers outside a render (and as the no-provider value). */
+export const DEFAULT_STRINGS: ResolvedStrings = defaultStringsFor(enUS);
+
+export function mergeStrings(
+  overrides?: TapeChartStrings,
+  messages: RialtoMessages = enUS
+): ResolvedStrings {
+  const defaults = messages === enUS ? DEFAULT_STRINGS : defaultStringsFor(messages);
+  if (!overrides) return defaults;
+  return {
+    ...defaults,
     ...overrides,
-    statusLabels: { ...DEFAULT_STRINGS.statusLabels, ...overrides.statusLabels },
-    roomStatusLabels: { ...DEFAULT_STRINGS.roomStatusLabels, ...overrides.roomStatusLabels },
-    overlapLabels: { ...DEFAULT_STRINGS.overlapLabels, ...overrides.overlapLabels },
-    reservationAriaTemplate:
-      overrides.reservationAriaTemplate ?? DEFAULT_STRINGS.reservationAriaTemplate,
-    nightsLabel: overrides.nightsLabel ?? DEFAULT_STRINGS.nightsLabel,
-    partySizeLabel: overrides.partySizeLabel ?? DEFAULT_STRINGS.partySizeLabel,
+    statusLabels: { ...defaults.statusLabels, ...overrides.statusLabels },
+    roomStatusLabels: { ...defaults.roomStatusLabels, ...overrides.roomStatusLabels },
+    overlapLabels: { ...defaults.overlapLabels, ...overrides.overlapLabels },
+    reservationAriaTemplate: overrides.reservationAriaTemplate ?? defaults.reservationAriaTemplate,
+    nightsLabel: overrides.nightsLabel ?? defaults.nightsLabel,
+    partySizeLabel: overrides.partySizeLabel ?? defaults.partySizeLabel,
   };
 }

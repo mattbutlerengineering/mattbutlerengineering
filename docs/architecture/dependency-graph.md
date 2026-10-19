@@ -20,25 +20,19 @@ flowchart TD
   end
   subgraph packages["Shared Packages"]
     agent_core["agent-core"]
-    agent_test_utils["agent-test-utils"]
     api_client["api-client"]
     auth["auth"]
     cancellation_policy["cancellation-policy"]
     config["config"]
     database["database"]
     gh_client["gh-client"]
-    jobs["jobs"]
-    mcp_server["mcp-server"]
-    notifications["notifications"]
-    observability["observability"]
     rialto["rialto"]
     rialto_catalog["rialto-catalog"]
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
     service_bootstrap["service-bootstrap"]
-    supply_chain_scanner["supply-chain-scanner"]
-    test_fixtures["test-fixtures"]
     types["types"]
+    ui_quality_capture["ui-quality-capture"]
   end
   subgraph tools["Developer Tools"]
     cli["cli"]
@@ -63,51 +57,41 @@ flowchart TD
   hospitality --> sentry
   hospitality --> types
   hospitality --> config
-  hospitality --> test_fixtures
+  hospitality --> ui_quality_capture
   marketing --> rialto
   marketing --> sentry
   marketing --> config
-  marketing --> test_fixtures
+  marketing --> ui_quality_capture
   rialto_web --> rialto
   rialto_web --> api_client
   rialto_web --> sentry
   rialto_web --> config
-  rialto_web --> test_fixtures
+  rialto_web --> ui_quality_capture
   agent_service --> agent_core
   agent_service --> api_client
   agent_service --> auth
   agent_service --> database
-  agent_service --> observability
   agent_service --> rialto_catalog
   agent_service --> sentry
   agent_service --> service_bootstrap
   agent_service --> types
-  agent_service --> agent_test_utils
   agent_service --> config
   reservations_service --> auth
   reservations_service --> cancellation_policy
   reservations_service --> database
-  reservations_service --> jobs
-  reservations_service --> notifications
-  reservations_service --> observability
   reservations_service --> sentry
   reservations_service --> service_bootstrap
   reservations_service --> types
   reservations_service --> config
-  reservations_service --> test_fixtures
   users_service --> auth
   users_service --> database
-  users_service --> observability
   users_service --> sentry
   users_service --> service_bootstrap
   users_service --> types
   users_service --> config
-  users_service --> test_fixtures
   agent_core --> api_client
   agent_core --> types
-  agent_core --> agent_test_utils
   agent_core --> config
-  agent_test_utils --> config
   api_client --> types
   api_client --> config
   auth --> types
@@ -115,30 +99,19 @@ flowchart TD
   cancellation_policy --> config
   database --> config
   gh_client --> config
-  jobs --> config
-  mcp_server --> config
-  notifications --> api_client
-  notifications --> types
-  notifications --> config
-  observability --> config
-  rialto --> api_client
   rialto --> config
   rialto_catalog --> rialto
   rialto_catalog --> config
   rialto_plugin --> rialto
   rialto_plugin --> config
-  sentry --> observability
   sentry --> config
   service_bootstrap --> auth
   service_bootstrap --> database
-  service_bootstrap --> observability
   service_bootstrap --> sentry
   service_bootstrap --> types
   service_bootstrap --> config
-  supply_chain_scanner --> config
-  test_fixtures --> types
-  test_fixtures --> config
   types --> config
+  ui_quality_capture --> config
   cli --> agent_core
   cli --> api_client
   cli --> gh_client
@@ -166,25 +139,19 @@ flowchart TD
   class reservations_service backend
   class users_service backend
   class agent_core shared
-  class agent_test_utils shared
   class api_client shared
   class auth shared
   class cancellation_policy shared
   class config shared
   class database shared
   class gh_client shared
-  class jobs shared
-  class mcp_server entrypoint
-  class notifications shared
-  class observability shared
   class rialto shared
   class rialto_catalog shared
   class rialto_plugin entrypoint
   class sentry shared
   class service_bootstrap shared
-  class supply_chain_scanner entrypoint
-  class test_fixtures shared
   class types shared
+  class ui_quality_capture shared
   class cli tooling
   class mutation_testing tooling
   class route_contract tooling

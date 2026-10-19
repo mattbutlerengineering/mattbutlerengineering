@@ -41,11 +41,6 @@
       "path": "packages/agent-core"
     },
     {
-      "name": "@mbe/agent-test-utils",
-      "type": "package",
-      "path": "packages/agent-test-utils"
-    },
-    {
       "name": "@mbe/api-client",
       "type": "package",
       "path": "packages/api-client"
@@ -76,27 +71,6 @@
       "path": "packages/gh-client"
     },
     {
-      "name": "@mbe/jobs",
-      "type": "package",
-      "path": "packages/jobs"
-    },
-    {
-      "name": "@mbe/mcp-server",
-      "type": "package",
-      "path": "packages/mcp-server",
-      "entrypoint": true
-    },
-    {
-      "name": "@mbe/notifications",
-      "type": "package",
-      "path": "packages/notifications"
-    },
-    {
-      "name": "@mbe/observability",
-      "type": "package",
-      "path": "packages/observability"
-    },
-    {
       "name": "@mattbutlerengineering/rialto",
       "type": "package",
       "path": "packages/rialto"
@@ -123,20 +97,14 @@
       "path": "packages/service-bootstrap"
     },
     {
-      "name": "@mbe/supply-chain-scanner",
-      "type": "package",
-      "path": "packages/supply-chain-scanner",
-      "entrypoint": true
-    },
-    {
-      "name": "@mbe/test-fixtures",
-      "type": "package",
-      "path": "packages/test-fixtures"
-    },
-    {
       "name": "@mbe/types",
       "type": "package",
       "path": "packages/types"
+    },
+    {
+      "name": "@mbe/ui-quality-capture",
+      "type": "package",
+      "path": "packages/ui-quality-capture"
     },
     {
       "name": "@mbe/cli",
@@ -247,7 +215,7 @@
     },
     {
       "from": "@mbe/hospitality",
-      "to": "@mbe/test-fixtures",
+      "to": "@mbe/ui-quality-capture",
       "type": "devDependency"
     },
     {
@@ -267,7 +235,7 @@
     },
     {
       "from": "@mbe/marketing",
-      "to": "@mbe/test-fixtures",
+      "to": "@mbe/ui-quality-capture",
       "type": "devDependency"
     },
     {
@@ -297,7 +265,7 @@
     },
     {
       "from": "@mbe/rialto-web",
-      "to": "@mbe/test-fixtures",
+      "to": "@mbe/ui-quality-capture",
       "type": "devDependency"
     },
     {
@@ -322,11 +290,6 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/agent-service",
       "to": "@mbe/rialto-catalog",
       "type": "dependency"
     },
@@ -344,11 +307,6 @@
       "from": "@mbe/agent-service",
       "to": "@mbe/types",
       "type": "dependency"
-    },
-    {
-      "from": "@mbe/agent-service",
-      "to": "@mbe/agent-test-utils",
-      "type": "devDependency"
     },
     {
       "from": "@mbe/agent-service",
@@ -372,21 +330,6 @@
     },
     {
       "from": "@mbe/reservations-service",
-      "to": "@mbe/jobs",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
-      "to": "@mbe/notifications",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
       "to": "@mbe/sentry",
       "type": "dependency"
     },
@@ -403,11 +346,6 @@
     {
       "from": "@mbe/reservations-service",
       "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
-      "to": "@mbe/test-fixtures",
       "type": "devDependency"
     },
     {
@@ -422,11 +360,6 @@
     },
     {
       "from": "@mbe/users-service",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/users-service",
       "to": "@mbe/sentry",
       "type": "dependency"
     },
@@ -446,11 +379,6 @@
       "type": "devDependency"
     },
     {
-      "from": "@mbe/users-service",
-      "to": "@mbe/test-fixtures",
-      "type": "devDependency"
-    },
-    {
       "from": "@mbe/agent-core",
       "to": "@mbe/api-client",
       "type": "dependency"
@@ -462,16 +390,6 @@
     },
     {
       "from": "@mbe/agent-core",
-      "to": "@mbe/agent-test-utils",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/agent-core",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/agent-test-utils",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -511,41 +429,6 @@
       "type": "devDependency"
     },
     {
-      "from": "@mbe/jobs",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/mcp-server",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/notifications",
-      "to": "@mbe/api-client",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/notifications",
-      "to": "@mbe/types",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/notifications",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/observability",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mattbutlerengineering/rialto",
-      "to": "@mbe/api-client",
-      "type": "devDependency"
-    },
-    {
       "from": "@mattbutlerengineering/rialto",
       "to": "@mbe/config",
       "type": "devDependency"
@@ -569,11 +452,6 @@
       "from": "@mbe/rialto-plugin",
       "to": "@mbe/config",
       "type": "devDependency"
-    },
-    {
-      "from": "@mbe/sentry",
-      "to": "@mbe/observability",
-      "type": "dependency"
     },
     {
       "from": "@mbe/sentry",
@@ -592,11 +470,6 @@
     },
     {
       "from": "@mbe/service-bootstrap",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/service-bootstrap",
       "to": "@mbe/sentry",
       "type": "dependency"
     },
@@ -611,22 +484,12 @@
       "type": "devDependency"
     },
     {
-      "from": "@mbe/supply-chain-scanner",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/test-fixtures",
-      "to": "@mbe/types",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/test-fixtures",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
       "from": "@mbe/types",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/ui-quality-capture",
       "to": "@mbe/config",
       "type": "devDependency"
     },

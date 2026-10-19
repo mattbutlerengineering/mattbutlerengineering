@@ -186,7 +186,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
   // Completion is announced via the always-mounted polite status region.
   // The error message is handled separately by the errorProps (role="alert")
   // element below so the two are never rendered as duplicate DOM text.
-  const completionAnnouncement = !error && complete ? "Code complete" : "";
+  const completionAnnouncement = !error && complete ? messages.codeComplete : "";
 
   return (
     <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>

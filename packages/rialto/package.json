@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -428,7 +428,6 @@
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.4.0",
-    "@mbe/api-client": "workspace:*",
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.64.0",
     "@storybook/addon-a11y": "^10.6.1",
@@ -482,17 +481,17 @@
     {
       "name": "Locale en-GB (subpath)",
       "path": "dist/lib/i18n/locales/en-GB.js",
-      "limit": "1.5 kB"
+      "limit": "2.2 kB"
     },
     {
       "name": "Locale es-MX (subpath)",
       "path": "dist/lib/i18n/locales/es-MX.js",
-      "limit": "1.5 kB"
+      "limit": "2.2 kB"
     },
     {
       "name": "Locale fr-CA (subpath)",
       "path": "dist/lib/i18n/locales/fr-CA.js",
-      "limit": "1.5 kB"
+      "limit": "2.2 kB"
     },
     {
       "name": "Button (subpath)",

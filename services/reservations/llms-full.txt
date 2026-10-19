@@ -295,6 +295,261 @@
     }
   </file>
   </section>
+  <section priority="medium" role="jobs">
+  <file path="src/jobs/dispatch-job.ts">
+    export class UnknownJobTypeError extends UnrecoverableError {
+      constructor(name: string, reason: "unknown-type" | "no-handler" = "unknown-type") {
+        super(
+          reason === "no-handler"
+            ? `No handler registered for job type: "${name}"`
+            : `Unknown job type: "${name}"`
+        );
+        this.name = "UnknownJobTypeError";
+      }
+    }
+    export async function dispatchJob(
+      handlers: JobHandlerMap,
+      job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+    ): Promise<void> {
+      if (!JOB_TYPE_SET.has(job.name)) {
+        throw new UnknownJobTypeError(job.name);
+      }
+    
+      const jobType = job.name as JobType;
+      const handler = (
+        handlers as Partial<Record<JobType, (data: unknown, ctx: JobContext) => Promise<void>>>
+      )[jobType];
+      if (!handler) {
+        throw new UnknownJobTypeError(jobType, "no-handler");
+      }
+      const ctx: JobContext = {
+        updateData: async (patch) => {
+          await (job.updateData as ((d: object) => Promise<void>) | undefined)?.({
+            ...(job.data as object),
+            ...patch,
+          });
+        },
+      };
+      await handler(job.data, ctx);
+    }
+  </file>
+  <file path="src/jobs/job-types.ts">
+    export const DEFAULT_QUEUE_NAME = "mbe-notifications";
+    export const DEFAULT_JOB_OPTIONS = {
+      attempts: 3,
+      backoff: { type: "exponential" as const, delay: 1000 },
+    } as const;
+    export const JOB_TYPES = {
+      BOOKING_REMINDER: "booking-reminder",
+      DAY_OF_REMINDER: "day-of-reminder",
+      POST_VISIT_FOLLOWUP: "post-visit-followup",
+      WAITLIST_EXPIRY: "waitlist-expiry",
+    } as const;
+    export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    export interface ReminderPayload {
+      reservationId: string;
+      venueId: string;
+      /**
+       * Channels already delivered by an earlier attempt of this job. Written back
+       * via JobContext.updateData before a retry so a delivered channel is never
+       * re-sent.
+       */
+      deliveredChannels?: ("email" | "sms")[];
+    }
+    export interface JobContext {
+      /** Persist a patch of new job data (shallow-merged over the current payload) for the retry. */
+      updateData(patch: object): Promise<void>;
+    }
+    export interface PostVisitFollowupPayload {
+      reservationId: string;
+      guestId: string;
+      guestEmail: string | null;
+      guestPhone: string | null;
+      venueId: string;
+    }
+    export interface WaitlistExpiryPayload {
+      waitlistEntryId: string;
+      // guestPhone/guestEmail stay declared (optional) for forward-compatible
+      // payload enrichment; nothing enqueues or reads them today.
+      guestPhone?: string | null;
+      guestEmail?: string | null;
+      // Populated at enqueue time (services/reservations' waitlist-notifier.ts —
+      // notifyTableReady, this job's one enqueue site) so the handler can run
+      // inside runWithVenueContext(venueId, ...) instead of deriving the venue
+      // from an RLS-protected read with no context (ADR-026 §3.3 item 7). Stays
+      // optional rather than required: a job enqueued before this fix shipped is
+      // already sitting in Redis without it, and BullMQ never re-serializes a
+      // payload once queued. The handler (services/reservations'
+      // job-worker.ts) falls back to its pre-fix behavior, with a warning log,
+      // for any payload missing it. Safe to make required (and delete that
+      // fallback) once one WAITLIST_EXPIRY TTL (FIVE_MINUTES_MS,
+      // waitlist-notifier.ts) has elapsed post-deploy — every legacy job will
+      // have drained by then.
+      venueId?: string;
+    }
+    export type JobPayloadMap = {
+      [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
+      [JOB_TYPES.DAY_OF_REMINDER]: ReminderPayload;
+      [JOB_TYPES.POST_VISIT_FOLLOWUP]: PostVisitFollowupPayload;
+      [JOB_TYPES.WAITLIST_EXPIRY]: WaitlistExpiryPayload;
+    };
+    export type JobHandlerMap = Partial<{
+      [K in JobType]: (payload: JobPayloadMap[K], ctx: JobContext) => Promise<void>;
+    }>;
+  </file>
+  <file path="src/jobs/scheduler.ts">
+    export interface JobSchedulerConfig {
+      redisUrl: string;
+      queueName?: string;
+    }
+    export class JobScheduler {
+      private readonly queue: Queue;
+      private readonly redis: Redis;
+    
+      constructor(config: JobSchedulerConfig) {
+        this.redis = new Redis(config.redisUrl, {
+          maxRetriesPerRequest: null,
+          // Defer the connection to the first command so constructing a JobScheduler
+          // is side-effect-free. Without this, ioredis connects eagerly and (with
+          // maxRetriesPerRequest: null) retries forever, so merely building app
+          // wiring — e.g. createDefaultWaitlistNotifier() in reservations — opens a
+          // background ECONNREFUSED loop in tests/CI where no Redis is present.
+          lazyConnect: true,
+        });
+    
+        this.queue = new Queue(config.queueName ?? DEFAULT_QUEUE_NAME, {
+          connection: this.redis,
+        });
+      }
+    
+      /**
+       * Schedule a one-time delayed job.
+       * @param jobType  The type of job to run.
+       * @param payload  Typed payload for the job.
+       * @param delayMs  Milliseconds to delay before processing (0 = immediate).
+       * @returns The created job ID.
+       */
+      async schedule<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        delayMs: number,
+        jobId?: string
+      ): Promise<string> {
+        const job = await this.queue.add(jobType, payload, {
+          delay: delayMs,
+          ...DEFAULT_JOB_OPTIONS,
+          removeOnComplete: { count: 100 },
+          removeOnFail: { count: 50 },
+          ...(jobId !== undefined ? { jobId } : {}),
+        });
+        return job.id as string;
+      }
+    
+      /**
+       * Schedule a recurring cron job.
+       * @param jobType        The type of job to run.
+       * @param payload        Typed payload for the job.
+       * @param cronExpression Cron expression (e.g. "0 9 * * *").
+       */
+      async scheduleCron<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        cronExpression: string
+      ): Promise<void> {
+        const schedulerId = `${jobType}:cron`;
+        await this.queue.upsertJobScheduler(
+          schedulerId,
+          {
+            pattern: cronExpression,
+          },
+          {
+            name: jobType,
+            data: payload,
+            opts: { ...DEFAULT_JOB_OPTIONS },
+          }
+        );
+      }
+    
+      /**
+       * Cancel a scheduled job by its job ID.
+       * Never throws: resolves `true` when a job was removed, `false` when there
+       * was none (or it could not be removed, e.g. it is locked while running).
+       * @param jobId The job ID to cancel.
+       */
+      async cancel(jobId: string): Promise<boolean> {
+        try {
+          return (await this.queue.remove(jobId)) === 1;
+        } catch {
+          // Job may already be processed or not exist — nothing was removed
+          return false;
+        }
+      }
+    
+      /**
+       * Gracefully close BullMQ queue and Redis connections.
+       */
+      async close(): Promise<void> {
+        await this.queue.close();
+        await this.redis.quit();
+      }
+    }
+  </file>
+  <file path="src/jobs/worker.ts">
+    export interface JobWorkerConfig {
+      redisUrl: string;
+      queueName?: string;
+      handlers: JobHandlerMap;
+      /** Receives final job failures and worker-level errors. */
+      logger?: JobWorkerErrorLogger;
+    }
+    export interface JobWorkerErrorLogger {
+      error(details: object, msg: string): void;
+    }
+    export class JobWorker {
+      private readonly worker: Worker;
+      private readonly redis: Redis;
+    
+      constructor(config: JobWorkerConfig) {
+        this.redis = new Redis(config.redisUrl, {
+          maxRetriesPerRequest: null,
+          // Defer the connection to the first command so constructing a JobWorker
+          // is side-effect-free. Without this, ioredis connects eagerly and (with
+          // maxRetriesPerRequest: null) retries forever, so merely building app
+          // wiring opens a background ECONNREFUSED loop in tests/CI where no Redis
+          // is present.
+          lazyConnect: true,
+        });
+    
+        this.worker = new Worker(
+          config.queueName ?? DEFAULT_QUEUE_NAME,
+          (job) => dispatchJob(config.handlers, job),
+          { connection: this.redis }
+        );
+    
+        const logger = config.logger;
+        if (logger) {
+          this.worker.on("failed", (job, err) => {
+            logger.error(
+              { jobId: job?.id, jobName: job?.name, attemptsMade: job?.attemptsMade, err },
+              "job failed"
+            );
+          });
+          this.worker.on("error", (err) => {
+            logger.error({ err }, "job worker error");
+          });
+        }
+      }
+    
+      /**
+       * Gracefully close the worker and Redis connection.
+       */
+      async close(): Promise<void> {
+        await this.worker.close();
+        await this.redis.quit();
+      }
+    }
+  </file>
+  </section>
   <section priority="medium" role="middleware">
   <file path="src/middleware/public-rate-limit.ts">
     interface RateLimitEntry {
@@ -419,6 +674,950 @@
         return;
       }
       await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="notifications">
+  <file path="src/notifications/booking-email-content.ts">
+    export interface BookingEmailContent {
+      subject: string;
+      html: string;
+      ical?: string;
+      icalMethod?: "REQUEST" | "CANCEL";
+    }
+    function sequenceFor(input: BookingNotificationInput): number {
+      if (input.sequence !== undefined) return input.sequence;
+      return input.updatedAt ? calendarSequence(input.updatedAt) : 0;
+    }
+    function icalFor(input: BookingNotificationInput, method: IcalMethod): string {
+      return generateBookingIcal(
+        {
+          reservationId: input.reservationId,
+          date: input.date,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          partySize: input.partySize,
+          guestName: input.guestName,
+          guestEmail: input.guestEmail,
+          venueName: input.venueName,
+          venueTimezone: input.venueTimezone,
+          sequence: sequenceFor(input),
+        },
+        method
+      );
+    }
+    export function buildBookingEmailContent(
+      input: BookingNotificationInput,
+      event: NotificationEventType,
+      manageBaseUrl: string
+    ): BookingEmailContent {
+      const { subject, html } = buildBookingEmail({ ...input, manageBaseUrl }, event);
+    
+      switch (event) {
+        case "confirmation":
+        case "modified":
+          return { subject, html, ical: icalFor(input, "REQUEST"), icalMethod: "REQUEST" };
+        case "cancelled":
+          return { subject, html, ical: icalFor(input, "CANCEL"), icalMethod: "CANCEL" };
+        case "reminder":
+          return { subject, html };
+      }
+    }
+  </file>
+  <file path="src/notifications/email-content.ts">
+    export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
+    export interface BookingEmailTemplateInput extends BookingNotificationInput {
+      manageBaseUrl: string;
+    }
+    interface BookingEmailTemplate {
+      subject: string;
+      html: string;
+    }
+    interface EventCopy {
+      heading: string;
+      subject: string;
+      includeAddress: boolean;
+      includeManageLink: boolean;
+    }
+    function eventCopy(venueName: string, event: NotificationEventType): EventCopy {
+      switch (event) {
+        case "confirmation":
+          return {
+            heading: "Your reservation is confirmed",
+            subject: `Reservation Confirmed — ${venueName}`,
+            includeAddress: true,
+            includeManageLink: true,
+          };
+        case "reminder":
+          return {
+            heading: "Your reservation is tomorrow",
+            subject: `Reminder: Reservation at ${venueName}`,
+            includeAddress: true,
+            includeManageLink: true,
+          };
+        case "modified":
+          return {
+            heading: "Your reservation has been updated",
+            subject: `Updated: Reservation at ${venueName}`,
+            includeAddress: true,
+            includeManageLink: true,
+          };
+        case "cancelled":
+          return {
+            heading: "Your reservation has been cancelled",
+            subject: `Cancelled: Reservation at ${venueName}`,
+            includeAddress: false,
+            includeManageLink: false,
+          };
+      }
+    }
+    function manageLinkHtml(manageBaseUrl: string, manageToken: string): string {
+      const rawUrl = `${manageBaseUrl}?token=${encodeURIComponent(manageToken)}`;
+      const safeUrl = sanitizeUrl(rawUrl);
+      if (!safeUrl) return "";
+      return `<p><a href="${escapeHtml(safeUrl)}">Modify or Cancel</a></p>`;
+    }
+    export function buildBookingEmail(
+      input: BookingEmailTemplateInput,
+      event: NotificationEventType
+    ): BookingEmailTemplate {
+      const copy = eventCopy(input.venueName, event);
+      const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
+    
+      const lines = [
+        `<h1>${copy.heading}</h1>`,
+        `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
+        `<p>${when.date} at ${when.display} — Party of ${input.partySize}</p>`,
+      ];
+    
+      if (copy.includeAddress && input.venueAddress) {
+        lines.push(`<p>${escapeHtml(input.venueAddress)}</p>`);
+      }
+    
+      if (copy.includeManageLink) {
+        lines.push(manageLinkHtml(input.manageBaseUrl, input.manageToken));
+      }
+    
+      return { subject: copy.subject, html: lines.join("\n") };
+    }
+  </file>
+  <file path="src/notifications/ical.ts">
+    export interface IcalEventInput {
+      reservationId: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      guestName: string | null;
+      guestEmail: string | null;
+      venueName: string;
+      venueTimezone: string;
+      sequence?: number;
+    }
+    export type IcalMethod = "REQUEST" | "CANCEL";
+    export function escapeIcalText(value: string): string {
+      return value
+        .replace(/\\/g, "\\\\")
+        .replace(/;/g, "\\;")
+        .replace(/,/g, "\\,")
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r");
+    }
+    function assertSafeIcalToken(value: string, fieldName: string): void {
+      if (FORBIDDEN_ICAL_TOKEN_CHARS.test(value)) {
+        throw new Error(`Invalid ${fieldName}: must not contain CR, LF, or ";"`);
+      }
+    }
+    export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): string {
+      assertSafeIcalToken(input.venueTimezone, "venueTimezone");
+      if (input.guestEmail) assertSafeIcalToken(input.guestEmail, "guestEmail");
+    
+      const uid = `${input.reservationId}@mbe`;
+      const sequence = input.sequence ?? 0;
+      const now = formatIcalDate(new Date());
+    
+      // Instants go out as UTC ("Z") so no VTIMEZONE block is needed; a bare
+      // HH:MM keeps the TZID form.
+      const dtstart = icalDateTimeLine("DTSTART", input.startTime, input);
+      const dtend = icalDateTimeLine("DTEND", input.endTime, input);
+    
+      const venueName = escapeIcalText(input.venueName);
+      const summary =
+        method === "CANCEL" ? `CANCELLED: Reservation at ${venueName}` : `Reservation at ${venueName}`;
+    
+      const status = method === "CANCEL" ? "CANCELLED" : "CONFIRMED";
+    
+      const description =
+        `Party of ${input.partySize}` +
+        (input.guestName ? `\\nGuest: ${escapeIcalText(input.guestName)}` : "");
+    
+      const lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        `PRODID:-//MBE//Booking//EN`,
+        `METHOD:${method}`,
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `SEQUENCE:${sequence}`,
+        `DTSTAMP:${now}`,
+        dtstart,
+        dtend,
+        `SUMMARY:${summary}`,
+        `LOCATION:${venueName}`,
+        `DESCRIPTION:${description}`,
+        `STATUS:${status}`,
+        ...(input.guestEmail
+          ? [`ORGANIZER:mailto:noreply@mbe.dev`, `ATTENDEE:mailto:${input.guestEmail}`]
+          : []),
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ];
+    
+      return lines.join("\r\n");
+    }
+    function icalDateTimeLine(
+      name: "DTSTART" | "DTEND",
+      value: string,
+      input: Pick<IcalEventInput, "date" | "venueTimezone">
+    ): string {
+      const local = toVenueLocalTime(value, input.venueTimezone, input.date);
+      return local.icalUtc
+        ? `${name}:${local.icalUtc}`
+        : `${name};TZID=${input.venueTimezone}:${local.icalLocal}`;
+    }
+    function formatIcalDate(date: Date): string {
+      return date
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}/, "");
+    }
+  </file>
+  <file path="src/notifications/notification-dispatcher.ts">
+    export interface NotificationDispatcherConfig {
+      emailAdapter: NotificationPort;
+      smsAdapter: SmsPort | null;
+      /** Base URL for manage links in SMS messages. Required when smsAdapter is non-null. */
+      smsManageBaseUrl?: string;
+    }
+    export type ReminderChannel = "email" | "sms";
+    export interface ReminderOptions {
+      /** Channels already delivered on an earlier attempt — not re-sent on retry. */
+      skipChannels?: readonly ReminderChannel[];
+    }
+    export class PartialDeliveryError extends Error {
+      constructor(
+        readonly deliveredChannels: readonly ReminderChannel[],
+        readonly failures: readonly unknown[]
+      ) {
+        super(`Reminder partially delivered; delivered: ${deliveredChannels.join(", ")}`);
+        this.name = "PartialDeliveryError";
+      }
+    }
+    export class NotificationDispatcher {
+      private readonly emailAdapter: NotificationPort;
+      private readonly smsAdapter: SmsPort | null;
+      private readonly smsManageBaseUrl: string;
+    
+      constructor(config: NotificationDispatcherConfig) {
+        this.emailAdapter = config.emailAdapter;
+        this.smsAdapter = config.smsAdapter;
+        this.smsManageBaseUrl = config.smsManageBaseUrl ?? "";
+      }
+    
+      private toSmsInput(input: BookingNotificationInput): SmsNotificationInput {
+        return {
+          reservationId: input.reservationId,
+          date: input.date,
+          startTime: input.startTime,
+          venueTimezone: input.venueTimezone,
+          partySize: input.partySize,
+          guestName: input.guestName,
+          guestPhone: input.guestPhone ?? "",
+          venueName: input.venueName,
+          manageToken: input.manageToken,
+          manageBaseUrl: this.smsManageBaseUrl,
+        };
+      }
+    
+      private shouldSendEmail(preference: CommunicationPreference): boolean {
+        return (
+          preference === "email_only" || preference === "both" || preference === "transactional_only"
+        );
+      }
+    
+      private shouldSendSms(preference: CommunicationPreference, guestPhone?: string | null): boolean {
+        return (
+          (preference === "sms_only" || preference === "both") &&
+          this.smsAdapter !== null &&
+          Boolean(guestPhone?.trim())
+        );
+      }
+    
+      /**
+       * Returns true when an sms_only guest must receive a message via email
+       * because SMS cannot be delivered (no SMS adapter configured, or the guest
+       * has no phone number).
+       *
+       * Used for messages that CAN travel via SMS (e.g. reminders) — when the
+       * SMS channel is unavailable, we fall back to email rather than silently
+       * dropping the notification.
+       */
+      private requiresEmailFallback(
+        preference: CommunicationPreference,
+        guestPhone?: string | null
+      ): boolean {
+        return preference === "sms_only" && !this.shouldSendSms(preference, guestPhone);
+      }
+    
+      /**
+       * Booking confirmation — transactional, ALWAYS sent via email.
+       *
+       * The confirmation carries the iCal attachment — the primary value of a
+       * booking confirmation — which cannot be embedded in an SMS. There is no
+       * channel routing: no `channel`/`preference` parameter exists precisely
+       * because the delivery channel is invariant (email-only). Callers that
+       * resolve a channel for reminders MUST NOT thread it here.
+       */
+      async sendBookingConfirmation(emailInput: BookingNotificationInput): Promise<void> {
+        await this.emailAdapter.sendBookingConfirmation(emailInput);
+      }
+    
+      /**
+       * Booking reminder — transactional, sent via channel(s) matching preference.
+       *
+       * Channels are settled independently. If nothing delivered, the first error
+       * is rethrown (safe to retry everything). If some delivered and others
+       * failed, a PartialDeliveryError names the delivered channels so the retry
+       * can pass them back as `skipChannels` and never re-send them.
+       */
+      async sendBookingReminder(
+        input: BookingNotificationInput,
+        preference: CommunicationPreference,
+        options: ReminderOptions = {}
+      ): Promise<void> {
+        const skip = new Set(options.skipChannels ?? []);
+        const sends: { channel: ReminderChannel; promise: Promise<void> }[] = [];
+    
+        if (
+          !skip.has("email") &&
+          (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference, input.guestPhone))
+        ) {
+          sends.push({ channel: "email", promise: this.emailAdapter.sendBookingReminder(input) });
+        }
+    
+        if (!skip.has("sms") && this.shouldSendSms(preference, input.guestPhone)) {
+          sends.push({
+            channel: "sms",
+            promise: this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)),
+          });
+        }
+    
+        const results = await Promise.allSettled(sends.map((s) => s.promise));
+        const failures = results.flatMap((r) => (r.status === "rejected" ? [r.reason as unknown] : []));
+        if (failures.length === 0) return;
+        if (failures.length === results.length) throw failures[0];
+    
+        const delivered = sends
+          .filter((_, i) => results[i]!.status === "fulfilled")
+          .map((s) => s.channel);
+        throw new PartialDeliveryError(delivered, failures);
+      }
+    
+      /** Booking modified — transactional. */
+      async sendBookingModified(
+        emailInput: BookingNotificationInput,
+        preference: CommunicationPreference
+      ): Promise<void> {
+        if (this.shouldSendEmail(preference) || preference === "sms_only") {
+          await this.emailAdapter.sendBookingModified(emailInput);
+        }
+      }
+    
+      /** Booking cancelled — transactional. */
+      async sendBookingCancelled(
+        emailInput: BookingNotificationInput,
+        preference: CommunicationPreference
+      ): Promise<void> {
+        if (this.shouldSendEmail(preference) || preference === "sms_only") {
+          await this.emailAdapter.sendBookingCancelled(emailInput);
+        }
+      }
+    
+      /** Win-back — marketing, skipped for transactional_only guests. */
+      async sendWinBack(
+        input: WinBackNotificationInput,
+        preference: CommunicationPreference
+      ): Promise<void> {
+        if (preference === "transactional_only") return;
+        if (this.shouldSendEmail(preference)) {
+          await this.emailAdapter.sendWinBack(input);
+        }
+      }
+    
+      /** Post-visit thank-you — transactional, no preference routing needed. */
+      async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
+        await this.emailAdapter.sendThankYouEmail(input);
+      }
+    }
+  </file>
+  <file path="src/notifications/port.ts">
+    export interface BookingNotificationInput {
+      reservationId: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      guestName: string | null;
+      guestEmail: string;
+      guestPhone: string | null;
+      specialRequests: string | null;
+      venueName: string;
+      venueTimezone: string;
+      venueAddress: string | null;
+      manageToken: string;
+      /**
+       * The reservation's `updatedAt`. The iCal SEQUENCE for confirm/modify/cancel
+       * is derived from it (see `calendarSequence`) so it only ever increases.
+       */
+      updatedAt?: string;
+      /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
+      sequence?: number;
+    }
+    export interface WinBackNotificationInput {
+      guestName: string;
+      guestEmail: string;
+      venueName: string;
+    }
+    export interface ThankYouEmailInput {
+      guestEmail: string;
+      guestFirstName: string | null;
+      venueName: string;
+      visitDate: string;
+      feedbackUrl: string | null;
+      unsubscribeToken: string;
+    }
+    export interface NotificationPort {
+      sendBookingConfirmation(input: BookingNotificationInput): Promise<void>;
+      sendBookingReminder(input: BookingNotificationInput): Promise<void>;
+      sendBookingModified(input: BookingNotificationInput): Promise<void>;
+      sendBookingCancelled(input: BookingNotificationInput): Promise<void>;
+      sendWinBack(input: WinBackNotificationInput): Promise<void>;
+      sendThankYouEmail(input: ThankYouEmailInput): Promise<void>;
+    }
+  </file>
+  <file path="src/notifications/resend-adapter.ts">
+    interface ResendClient {
+      emails: {
+        // The SDK resolves `{ data, error }` on API failures rather than throwing.
+        send(
+          payload: Record<string, unknown>
+        ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
+      };
+    }
+    export interface ResendAdapterConfig {
+      resend: ResendClient | null;
+      fromAddress: string;
+      /**
+       * Web origin for the guest-facing manage / cancel / modify PAGE. Never used
+       * to build an API path — see `publicApiBaseUrl`.
+       */
+      manageBaseUrl: string;
+      /**
+       * API origin for guest-facing API links — currently only the unsubscribe
+       * endpoint (`/public/v1/guests/unsubscribe`), which is an API route that
+       * renders its own confirmation page, not a web page.
+       *
+       * Separate from `manageBaseUrl` because the two links have different
+       * destinations: one base serving both meant setting it correctly for one
+       * necessarily pointed the other at the wrong host (#4517).
+       *
+       * `null` means unconfigured, and post-visit emails are refused rather than
+       * sent with a link built from a guessed host.
+       */
+      publicApiBaseUrl: string | null;
+    }
+    export class ResendNotificationAdapter implements NotificationPort {
+      private readonly resend: ResendClient | null;
+      private readonly fromAddress: string;
+      private readonly manageBaseUrl: string;
+      private readonly publicApiBaseUrl: string | null;
+    
+      constructor(config: ResendAdapterConfig) {
+        this.resend = config.resend;
+        this.fromAddress = config.fromAddress;
+        this.manageBaseUrl = config.manageBaseUrl;
+        this.publicApiBaseUrl = config.publicApiBaseUrl;
+      }
+    
+      /**
+       * Single send path: converts the SDK's `{ error }` result into a rejection so
+       * the dispatcher, retry policy and failure log see a failed email as failed.
+       */
+      private async send(payload: Record<string, unknown>): Promise<void> {
+        if (!this.resend) return;
+        const { error } = await this.resend.emails.send(payload);
+        if (error) {
+          throw new Error(
+            `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
+          );
+        }
+      }
+    
+      async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
+        await this.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: content.subject,
+          html: content.html,
+          attachments: [
+            {
+              filename: "reservation.ics",
+              content: content.ical,
+              contentType: `text/calendar; method=${content.icalMethod}`,
+            },
+          ],
+        });
+      }
+    
+      async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
+        await this.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: content.subject,
+          html: content.html,
+        });
+      }
+    
+      async sendBookingModified(input: BookingNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
+        await this.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: content.subject,
+          html: content.html,
+          attachments: [
+            {
+              filename: "reservation.ics",
+              content: content.ical,
+              contentType: `text/calendar; method=${content.icalMethod}`,
+            },
+          ],
+        });
+      }
+    
+      async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
+        await this.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: content.subject,
+          html: content.html,
+          attachments: [
+            {
+              filename: "reservation.ics",
+              content: content.ical,
+              contentType: `text/calendar; method=${content.icalMethod}`,
+            },
+          ],
+        });
+      }
+    
+      async sendWinBack(input: WinBackNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const safeGuestName = escapeHtml(input.guestName);
+        const safeVenueName = escapeHtml(input.venueName);
+        await this.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: `We miss you, ${input.guestName}!`,
+          html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
+        });
+      }
+    
+      async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
+        if (!this.resend) return;
+    
+        // Throw rather than send: an email whose only unsubscribe link points at a
+        // host that cannot unsubscribe anyone is worse than no email, and a silent
+        // skip here would be recorded as emailStatus=SENT by the post-visit
+        // notifier. The rejection is what makes it FAILED instead.
+        if (!this.publicApiBaseUrl) {
+          throw new Error(
+            "Refusing to send post-visit email: publicApiBaseUrl is not configured " +
+              "(PUBLIC_API_BASE_URL), so the unsubscribe link cannot be built."
+          );
+        }
+    
+        const { guestEmail, guestFirstName, venueName, visitDate, feedbackUrl, unsubscribeToken } =
+          input;
+    
+        const safeName = escapeHtml(guestFirstName ?? "Guest");
+        const safeVenueName = escapeHtml(venueName);
+        const safeVisitDate = escapeHtml(visitDate);
+        const safeUnsubscribeUrl = escapeHtml(
+          `${this.publicApiBaseUrl}/public/v1/guests/unsubscribe?token=${unsubscribeToken}`
+        );
+    
+        const safeFeedbackUrl = feedbackUrl ? sanitizeUrl(feedbackUrl) : null;
+        const feedbackSection = safeFeedbackUrl
+          ? `<p><a href="${escapeHtml(safeFeedbackUrl)}">Share your feedback</a> — it helps us improve.</p>`
+          : "";
+    
+        const html = `<!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8" /><title>Thank you for visiting ${safeVenueName}</title></head>
+    <body style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+      <h2>Thank you, ${safeName}!</h2>
+      <p>We loved having you at <strong>${safeVenueName}</strong> on ${safeVisitDate}.</p>
+      <p>We hope to see you again soon.</p>
+      ${feedbackSection}
+      <hr style="margin-top:32px" />
+      <p style="font-size:0.8em;color:#888">
+        <a href="${safeUnsubscribeUrl}">Unsubscribe</a> from post-visit emails.
+      </p>
+    </body>
+    </html>`;
+    
+        await this.send({
+          from: this.fromAddress,
+          to: guestEmail,
+          subject: `Thank you for visiting ${venueName}!`,
+          html,
+        });
+      }
+    }
+  </file>
+  <file path="src/notifications/retry.ts">
+    export interface RetryOptions {
+      /** Maximum number of additional attempts after the first failure. */
+      maxRetries: number;
+      /** Base delay in ms for attempt 0; doubles each subsequent attempt. */
+      baseDelayMs: number;
+      /**
+       * Whether to apply ±20% jitter to prevent thundering herd.
+       * Defaults to true.
+       */
+      jitter?: boolean;
+      /**
+       * Predicate to decide whether an error is retryable.
+       * Defaults to always-retry (all errors are retried).
+       */
+      isRetryable?: (error: unknown) => boolean;
+    }
+    function sleep(ms: number): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    function backoffMs(attempt: number, baseDelayMs: number, jitter: boolean): number {
+      const base = baseDelayMs * Math.pow(2, attempt);
+      if (!jitter) return base;
+      const jitterAmount = base * JITTER_FACTOR * (2 * Math.random() - 1);
+      return base + jitterAmount;
+    }
+    export async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T> {
+      const { maxRetries, baseDelayMs, jitter = true, isRetryable = () => true } = options;
+    
+      let lastError: unknown;
+    
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          return await fn();
+        } catch (error) {
+          lastError = error;
+    
+          if (attempt < maxRetries && isRetryable(error)) {
+            await sleep(backoffMs(attempt, baseDelayMs, jitter));
+            continue;
+          }
+    
+          throw error;
+        }
+      }
+    
+      // Unreachable — loop always throws or returns, but TypeScript needs this.
+      throw lastError;
+    }
+  </file>
+  <file path="src/notifications/sanitize.ts">
+    export function escapeHtml(value: string): string {
+      return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+    export function sanitizeUrl(raw: string): string | null {
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+        return raw;
+      } catch {
+        return null;
+      }
+    }
+  </file>
+  <file path="src/notifications/sms-port.ts">
+    export interface SmsNotificationInput {
+      reservationId: string;
+      date: string;
+      startTime: string;
+      /** IANA timezone used to render `startTime` as venue-local time. */
+      venueTimezone: string;
+      partySize: number;
+      guestName: string | null;
+      guestPhone: string;
+      venueName: string;
+      manageToken: string;
+      manageBaseUrl: string;
+    }
+    export interface WaitlistUpdateInput {
+      guestName: string | null;
+      guestPhone: string;
+      venueName: string;
+      date: string;
+      partySize: number;
+      manageToken: string;
+      manageBaseUrl: string;
+    }
+    export interface WinbackMessageInput {
+      guestName: string | null;
+      guestPhone: string;
+      venueName: string;
+      manageBaseUrl: string;
+    }
+    export interface WaitlistAddedInput {
+      guestPhone: string;
+      guestName: string | null;
+      position: number;
+      estimatedWaitMinutes: number | null;
+    }
+    export interface WaitlistPositionUpdateInput {
+      guestPhone: string;
+      guestName: string | null;
+      position: number;
+      estimatedWaitMinutes: number | null;
+    }
+    export interface WaitlistTableReadyInput {
+      guestPhone: string;
+      guestName: string | null;
+    }
+    export interface SmsPort {
+      sendBookingReminder(input: SmsNotificationInput): Promise<void>;
+      sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void>;
+      sendWinbackMessage(input: WinbackMessageInput): Promise<void>;
+      sendWaitlistAdded(input: WaitlistAddedInput): Promise<void>;
+      sendWaitlistPositionUpdate(input: WaitlistPositionUpdateInput): Promise<void>;
+      sendWaitlistTableReady(input: WaitlistTableReadyInput): Promise<void>;
+    }
+  </file>
+  <file path="src/notifications/twilio-sms-adapter.ts">
+    interface TwilioMessages {
+      create(params: {
+        to: string;
+        from: string;
+        body: string;
+      }): Promise<{ sid: string; status: string }>;
+    }
+    interface TwilioClient {
+      messages: TwilioMessages;
+    }
+    export interface TwilioSmsAdapterConfig {
+      client: TwilioClient | null;
+      fromNumber: string;
+      /** Delay in ms between retry attempts (default: 1000). Used in tests to speed up. */
+      retryDelayMs?: number;
+    }
+    function formatDate(dateStr: string): string {
+      // dateStr is "YYYY-MM-DD" format
+      const [year, month, day] = dateStr.split("-").map(Number);
+      if (year === undefined || month === undefined || day === undefined) {
+        throw new Error(`Invalid date string: ${dateStr}`);
+      }
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    }
+    function fitReminderBody(candidates: readonly string[]): string {
+      return (
+        candidates.find((c) => c.length <= SMS_SEGMENT_LIMIT) ?? candidates[candidates.length - 1]!
+      );
+    }
+    export class TwilioSmsAdapter implements SmsPort {
+      private readonly client: TwilioClient | null;
+      private readonly fromNumber: string;
+      private readonly retryDelayMs: number;
+    
+      constructor(config: TwilioSmsAdapterConfig) {
+        this.client = config.client;
+        this.fromNumber = config.fromNumber;
+        this.retryDelayMs = config.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+      }
+    
+      async sendBookingReminder(input: SmsNotificationInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
+        const dateStr = formatDate(when.date);
+        const manageUrl = `${input.manageBaseUrl}?token=${encodeURIComponent(input.manageToken)}`;
+    
+        await this.sendWithRetry(
+          input.guestPhone,
+          fitReminderBody([
+            `${name}, reminder: ${input.venueName} ${dateStr} at ${when.display} for ${input.partySize}. Manage: ${manageUrl}`,
+            `${name}, reminder: ${input.venueName} ${dateStr} ${when.display}. Manage: ${manageUrl}`,
+            `${input.venueName} ${dateStr} ${when.display}: ${manageUrl}`,
+          ])
+        );
+      }
+    
+      async sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const dateStr = formatDate(input.date);
+        const manageUrl = `${input.manageBaseUrl}?token=${input.manageToken}`;
+    
+        const body = `${name}, you&apos;re on the waitlist at ${input.venueName} for ${dateStr}, party of ${input.partySize}. Check: ${manageUrl}`;
+        // Strip HTML entities for SMS
+        const smsBody = body.replace(/&apos;/g, "'");
+        const trimmed = smsBody.length > 160 ? smsBody.slice(0, 160) : smsBody;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWinbackMessage(input: WinbackMessageInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const url = input.manageBaseUrl;
+    
+        const body = `${name}, we miss you at ${input.venueName}! Book your next visit: ${url}`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWaitlistAdded(input: WaitlistAddedInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const wait =
+          input.estimatedWaitMinutes === null
+            ? "estimate unavailable"
+            : `est. ${input.estimatedWaitMinutes} min wait`;
+        const body = `${name}, you're #${input.position}, ${wait}. We'll text when your table is ready.`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWaitlistPositionUpdate(input: WaitlistPositionUpdateInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const wait =
+          input.estimatedWaitMinutes === null ? "" : `, est. ${input.estimatedWaitMinutes} min`;
+        const body = `${name}, update: you're now #${input.position}${wait}.`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWaitlistTableReady(input: WaitlistTableReadyInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const body = `${name}, your table is ready! Please check in within 5 minutes.`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      private sendWithRetry(to: string, body: string): Promise<void> {
+        return retry(
+          () =>
+            this.client!.messages.create({
+              to,
+              from: this.fromNumber,
+              body,
+            }).then(() => undefined),
+          {
+            maxRetries: MAX_RETRIES - 1,
+            baseDelayMs: this.retryDelayMs,
+            jitter: true,
+          }
+        );
+      }
+    }
+  </file>
+  <file path="src/notifications/venue-time.ts">
+    export interface VenueLocalTime {
+      /** Venue-local calendar date, "YYYY-MM-DD". */
+      date: string;
+      /** Venue-local 24h wall time, "HH:MM". */
+      time: string;
+      /** Guest-facing 12h time, e.g. "7:00 PM". */
+      display: string;
+      /** Floating iCal local datetime, "YYYYMMDDTHHMMSS". */
+      icalLocal: string;
+      /** UTC iCal datetime, "YYYYMMDDTHHMMSSZ"; null when input was a bare HH:MM. */
+      icalUtc: string | null;
+    }
+    function formatDisplay(hour: number, minute: number): string {
+      const suffix = hour >= 12 ? "PM" : "AM";
+      const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+      return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
+    }
+    function build(date: string, hour: number, minute: number, icalUtc: string | null): VenueLocalTime {
+      const hh = String(hour).padStart(2, "0");
+      const mm = String(minute).padStart(2, "0");
+      return {
+        date,
+        time: `${hh}:${mm}`,
+        display: formatDisplay(hour, minute),
+        icalLocal: `${date.replace(/-/g, "")}T${hh}${mm}00`,
+        icalUtc,
+      };
+    }
+    export function toVenueLocalTime(
+      value: string,
+      timezone: string,
+      fallbackDate: string
+    ): VenueLocalTime {
+      const bare = LOCAL_TIME.exec(value);
+      if (bare) return build(fallbackDate, Number(bare[1]), Number(bare[2]), null);
+    
+      const instant = new Date(value);
+      if (Number.isNaN(instant.getTime())) {
+        throw new Error(`Invalid booking time: ${value}`);
+      }
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).formatToParts(instant);
+      const part = (type: string): string => parts.find((p) => p.type === type)?.value ?? "";
+      const date = `${part("year")}-${part("month")}-${part("day")}`;
+      const utc = instant
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}/, "");
+      return build(date, Number(part("hour")), Number(part("minute")), utc);
+    }
+    export function calendarSequence(updatedAt: string): number {
+      const ms = new Date(updatedAt).getTime();
+      if (Number.isNaN(ms)) throw new Error(`Invalid updatedAt: ${updatedAt}`);
+      return Math.floor(ms / 1000);
     }
   </file>
   </section>
@@ -2715,6 +3914,339 @@
       return scopedHandler as unknown as Handler<RG>;
     }
   </file>
+  <file path="src/routes/menus.ts">
+    interface MenuQuery {
+      venueId: string;
+    }
+    export const menuRoutes: FastifyPluginAsync = async (fastify) => {
+      const { menuService } = fastify.services;
+    
+      fastify.get<{ Querystring: MenuQuery; Reply: { data: Menu[] } | ProblemDetails }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: { summary: "List a venue's menus", querystring: menuVenueQueryJsonSchema },
+        },
+        venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => ({
+          data: await menuService.list(venueId),
+        }))
+      );
+    
+      fastify.post<{
+        Querystring: MenuQuery;
+        Body: CreateMenuRequest;
+        Reply: ApiResponse<Menu> | ProblemDetails;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a menu",
+            querystring: menuVenueQueryJsonSchema,
+            body: createMenuBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          try {
+            const menu = await menuService.create(venueId, request.body);
+            return reply.code(201).send({ data: menu });
+          } catch (err) {
+            if (err instanceof MenuSlugConflictError) {
+              return reply.code(409).send(createProblemDetails(409, titleForStatus(409), err.message));
+            }
+            throw err;
+          }
+        })
+      );
+    
+      fastify.get<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Reply: ApiResponse<MenuWithSections> | ProblemDetails;
+      }>(
+        "/:menuId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get a menu with its sections and items",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const menu = await menuService.getById(venueId, request.params.menuId);
+          if (!menu) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", MENU_NOT_FOUND));
+          }
+          return { data: menu };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Body: UpdateMenuRequest;
+        Reply: ApiResponse<Menu> | ProblemDetails;
+      }>(
+        "/:menuId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update a menu",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: updateMenuBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          try {
+            const menu = await menuService.update(venueId, request.params.menuId, request.body);
+            if (!menu) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", MENU_NOT_FOUND));
+            }
+            return { data: menu };
+          } catch (err) {
+            if (err instanceof MenuSlugConflictError) {
+              return reply.code(409).send(createProblemDetails(409, titleForStatus(409), err.message));
+            }
+            throw err;
+          }
+        })
+      );
+    
+      fastify.delete<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Reply: void | ProblemDetails;
+      }>(
+        "/:menuId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a menu (cascades to its sections and items)",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          if (!(await menuService.delete(venueId, request.params.menuId))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", MENU_NOT_FOUND));
+          }
+          return reply.code(204).send();
+        })
+      );
+    
+      fastify.post<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Body: CreateMenuSectionRequest;
+        Reply: ApiResponse<MenuSection> | ProblemDetails;
+      }>(
+        "/:menuId/sections",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add a section to a menu",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: createMenuSectionBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const section = await menuService.createSection(venueId, request.params.menuId, request.body);
+          if (!section) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", MENU_NOT_FOUND));
+          }
+          return reply.code(201).send({ data: section });
+        })
+      );
+    
+      fastify.put<{
+        Params: { menuId: string };
+        Querystring: MenuQuery;
+        Body: ReorderMenuRequest;
+        Reply: { data: MenuSection[] } | ProblemDetails;
+      }>(
+        "/:menuId/sections/order",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Reorder a menu's sections",
+            description: "`ids` lists every section to place; its index becomes `displayOrder`.",
+            params: paramsSchema("menuId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: reorderMenuBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const sections = await menuService.reorderSections(
+            venueId,
+            request.params.menuId,
+            request.body.ids
+          );
+          if (!sections) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return { data: sections };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { menuId: string; sectionId: string };
+        Querystring: MenuQuery;
+        Body: UpdateMenuSectionRequest;
+        Reply: ApiResponse<MenuSection> | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update a menu section",
+            params: paramsSchema("menuId", "sectionId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: updateMenuSectionBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const section = await menuService.updateSection(
+            venueId,
+            request.params.menuId,
+            request.params.sectionId,
+            request.body
+          );
+          if (!section) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return { data: section };
+        })
+      );
+    
+      fastify.delete<{
+        Params: { menuId: string; sectionId: string };
+        Querystring: MenuQuery;
+        Reply: void | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a menu section (cascades to its items)",
+            params: paramsSchema("menuId", "sectionId"),
+            querystring: menuVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId } = request.params;
+          if (!(await menuService.deleteSection(venueId, menuId, sectionId))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return reply.code(204).send();
+        })
+      );
+    
+      fastify.post<{
+        Params: { menuId: string; sectionId: string };
+        Querystring: MenuQuery;
+        Body: CreateMenuItemRequest;
+        Reply: ApiResponse<MenuItem> | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId/items",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add an item to a menu section",
+            params: paramsSchema("menuId", "sectionId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: createMenuItemBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId } = request.params;
+          const item = await menuService.createItem(venueId, menuId, sectionId, request.body);
+          if (!item) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return reply.code(201).send({ data: item });
+        })
+      );
+    
+      fastify.put<{
+        Params: { menuId: string; sectionId: string };
+        Querystring: MenuQuery;
+        Body: ReorderMenuRequest;
+        Reply: { data: MenuItem[] } | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId/items/order",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Reorder a section's items",
+            description: "`ids` lists every item to place; its index becomes `displayOrder`.",
+            params: paramsSchema("menuId", "sectionId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: reorderMenuBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId } = request.params;
+          const items = await menuService.reorderItems(venueId, menuId, sectionId, request.body.ids);
+          if (!items) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ITEM_NOT_FOUND));
+          }
+          return { data: items };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { menuId: string; sectionId: string; itemId: string };
+        Querystring: MenuQuery;
+        Body: UpdateMenuItemRequest;
+        Reply: ApiResponse<MenuItem> | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId/items/:itemId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update a menu item",
+            params: paramsSchema("menuId", "sectionId", "itemId"),
+            querystring: menuVenueQueryJsonSchema,
+            body: updateMenuItemBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId, itemId } = request.params;
+          const item = await menuService.updateItem(venueId, menuId, sectionId, itemId, request.body);
+          if (!item) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ITEM_NOT_FOUND));
+          }
+          return { data: item };
+        })
+      );
+    
+      fastify.delete<{
+        Params: { menuId: string; sectionId: string; itemId: string };
+        Querystring: MenuQuery;
+        Reply: void | ProblemDetails;
+      }>(
+        "/:menuId/sections/:sectionId/items/:itemId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a menu item",
+            params: paramsSchema("menuId", "sectionId", "itemId"),
+            querystring: menuVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { menuId, sectionId, itemId } = request.params;
+          if (!(await menuService.deleteItem(venueId, menuId, sectionId, itemId))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ITEM_NOT_FOUND));
+          }
+          return reply.code(204).send();
+        })
+      );
+    };
+  </file>
   <file path="src/routes/modify-reservation.ts">
     interface ModifyBody {
       date?: string;
@@ -3493,6 +5025,79 @@
             return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
           }
         )
+      );
+    };
+  </file>
+  <file path="src/routes/public-menus.ts">
+    export const publicMenuRoutes: FastifyPluginAsync = async (fastify) => {
+      const { menuService, venueService } = fastify.services;
+    
+      fastify.get<{
+        Params: { slug: string };
+        Reply: { data: PublicMenu[] } | ProblemDetails;
+      }>(
+        "/:slug/menus",
+        {
+          schema: {
+            summary: "List a venue's active menus",
+            tags: ["Public"],
+            params: { type: "object", properties: { slug: { type: "string" } }, required: ["slug"] },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { type: "array", items: publicMenuResponseJsonSchema } },
+              },
+            },
+          },
+        },
+        publicVenueScoped(
+          { slug: (request) => request.params.slug },
+          async (_request, _reply, scope) => ({
+            data: await menuService.listPublic(scope.venueId),
+          })
+        )
+      );
+    
+      fastify.get<{
+        Params: { slug: string; menuSlug: string };
+        Reply: ApiResponse<PublicMenuDetail> | ProblemDetails;
+      }>(
+        "/:slug/menus/:menuSlug",
+        {
+          schema: {
+            summary: "Get one active menu with sections and items",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" }, menuSlug: { type: "string" } },
+              required: ["slug", "menuSlug"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: publicMenuDetailResponseJsonSchema },
+              },
+            },
+          },
+        },
+        publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply, scope) => {
+          const [menu, venue] = await Promise.all([
+            menuService.getPublicBySlug(scope.venueId, request.params.menuSlug),
+            venueService.getPublicConfigBySlug(scope.slug),
+          ]);
+          if (!menu || !venue) {
+            return reply
+              .code(404)
+              .send(
+                createProblemDetails(
+                  404,
+                  "Not Found",
+                  `No menu found with slug '${request.params.menuSlug}'.`
+                )
+              );
+          }
+          return { data: { ...menu, currencyCode: venue.currencyCode } };
+        })
       );
     };
   </file>
@@ -5323,12 +6928,58 @@
         );
       });
     }
+    interface MenuTreeIds {
+      menuId: string;
+      sectionId: string;
+      itemId: string;
+    }
+    async function seedMenuTree(ctx: SweepContext, venueId: string): Promise<MenuTreeIds> {
+      const q = `?venueId=${venueId}`;
+      const menuRes = await asAdmin(ctx, {
+        method: "POST",
+        url: `${MENUS_PATH}${q}`,
+        payload: { name: "Sweep menu", slug: `sweep-${randomUUID().slice(0, 8)}` },
+      });
+      expectOk(menuRes, "seed menu");
+      const menuId = menuRes.json<{ data: { id: string } }>().data.id;
+      const sectionRes = await asAdmin(ctx, {
+        method: "POST",
+        url: `${MENUS_PATH}/${menuId}/sections${q}`,
+        payload: { name: "Starters" },
+      });
+      expectOk(sectionRes, "seed menu section");
+      const sectionId = sectionRes.json<{ data: { id: string } }>().data.id;
+      const itemRes = await asAdmin(ctx, {
+        method: "POST",
+        url: `${MENUS_PATH}/${menuId}/sections/${sectionId}/items${q}`,
+        payload: { name: "Soup", priceCents: 850 },
+      });
+      expectOk(itemRes, "seed menu item");
+      const itemId = itemRes.json<{ data: { id: string } }>().data.id;
+      return { menuId, sectionId, itemId };
+    }
+    function okMenuRoute(
+      build: (ids: MenuTreeIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+    ): RouteFixture {
+      return ok(async (ctx) => {
+        const adminTree = await seedMenuTree(ctx, ctx.venueA.id);
+        expectOk(await asAdmin(ctx, build(adminTree, ctx.venueA.id)), "admin venue A");
+    
+        const memberTree = await seedMenuTree(ctx, ctx.venueA.id);
+        expectOk(await asMember(ctx, build(memberTree, ctx.venueA.id)), "member venue A");
+    
+        const tree = await seedMenuTree(ctx, ctx.venueA.id);
+        expectDenied(await asMember(ctx, build(tree, ctx.venueB.id)), "member venue B");
+        expectDenied(await asAdmin(ctx, build(tree, ctx.venueB.id)), "admin venue B, venue A's ids");
+      });
+    }
     export const FIXTURES: Record<string, RouteFixture> = {
       ...notRlsFixtures,
       ...tableFixtures,
       ...venueFixtures,
       ...availabilityFixtures,
       ...floorPlanFixtures,
+      ...menuFixtures,
       ...guestFixtures,
       ...reservationFixtures,
       ...waitlistFixtures,
@@ -9455,6 +11106,7 @@
       reservationService: typeof reservationService;
       guestService: typeof guestService;
       floorPlanService: typeof floorPlanService;
+      menuService: typeof menuService;
       holdService: typeof holdService;
       /** Built in `buildApp` over the one payments adapter — never a module singleton. */
       depositService: DepositService;
@@ -9469,6 +11121,7 @@
       reservationService,
       guestService,
       floorPlanService,
+      menuService,
       holdService,
       waitlistService,
       briefingService,
@@ -11006,7 +12659,7 @@
        * exactly like `deliverReminder` above, closing the other half of ADR-026
        * §3.3 item 7. `payload.venueId` is populated at the job's one enqueue
        * site (`waitlist-notifier.ts`'s `notifyTableReady`) — see
-       * `WaitlistExpiryPayload` (`@mbe/jobs`) for why it stays optional rather
+       * `WaitlistExpiryPayload` (`jobs/job-types.ts`) for why it stays optional rather
        * than required: a job enqueued before this fix shipped is already
        * sitting in Redis without it, and BullMQ never re-serializes a payload
        * once queued. For that legacy case, fall back to the pre-fix behavior
@@ -11290,6 +12943,314 @@
       });
       return memberships.map((membership) => membership.venueId);
     }
+  </file>
+  <file path="src/services/menu.ts">
+    export type MenuWithSections = Menu & {
+      sections: (MenuSection & { items: MenuItem[] })[];
+    };
+    export type PublicMenuBody = Omit<PublicMenuDetail, "currencyCode">;
+    export class MenuSlugConflictError extends Error {
+      constructor(slug: string) {
+        super(`A menu with slug "${slug}" already exists for this venue`);
+        this.name = "MenuSlugConflictError";
+      }
+    }
+    interface PrismaMenu {
+      id: string;
+      venueId: string;
+      name: string;
+      slug: string;
+      description: string | null;
+      status: Menu["status"];
+      displayOrder: number;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    function mapMenu(menu: PrismaMenu): Menu {
+      return {
+        id: menu.id,
+        venueId: menu.venueId,
+        name: menu.name,
+        slug: menu.slug,
+        description: menu.description,
+        status: menu.status,
+        displayOrder: menu.displayOrder,
+        createdAt: menu.createdAt.toISOString(),
+        updatedAt: menu.updatedAt.toISOString(),
+      };
+    }
+    function mapSection(section: MenuSection): MenuSection {
+      return {
+        id: section.id,
+        venueId: section.venueId,
+        menuId: section.menuId,
+        name: section.name,
+        displayOrder: section.displayOrder,
+      };
+    }
+    function mapItem(item: MenuItem): MenuItem {
+      return {
+        id: item.id,
+        venueId: item.venueId,
+        sectionId: item.sectionId,
+        name: item.name,
+        description: item.description,
+        priceCents: item.priceCents,
+        status: item.status,
+        displayOrder: item.displayOrder,
+      };
+    }
+    function isUniqueViolation(err: unknown): boolean {
+      return typeof err === "object" && err !== null && "code" in err && err.code === "P2002";
+    }
+    export const menuService = {
+      async list(venueId: string): Promise<Menu[]> {
+        const menus = await prisma.menu.findMany({ where: { venueId }, orderBy: BY_ORDER });
+        return menus.map(mapMenu);
+      },
+    
+      async getById(venueId: string, menuId: string): Promise<MenuWithSections | null> {
+        const menu = await prisma.menu.findFirst({
+          where: { id: menuId, venueId },
+          include: {
+            sections: { orderBy: BY_ORDER, include: { items: { orderBy: BY_ORDER } } },
+          },
+        });
+        if (!menu) return null;
+        return {
+          ...mapMenu(menu),
+          sections: menu.sections.map((section) => ({
+            ...mapSection(section),
+            items: section.items.map(mapItem),
+          })),
+        };
+      },
+    
+      async create(venueId: string, data: CreateMenuRequest): Promise<Menu> {
+        try {
+          // Re-parsing strips unknown keys: the route schema allows extras, and an
+          // `id`/`venueId` smuggled into the body must never reach Prisma.
+          const menu = await prisma.menu.create({
+            data: { ...CreateMenuRequestSchema.parse(data), venueId },
+          });
+          return mapMenu(menu);
+        } catch (err) {
+          if (isUniqueViolation(err)) throw new MenuSlugConflictError(data.slug);
+          throw err;
+        }
+      },
+    
+      async update(venueId: string, menuId: string, data: UpdateMenuRequest): Promise<Menu | null> {
+        try {
+          const { count } = await prisma.menu.updateMany({
+            where: { id: menuId, venueId },
+            data: UpdateMenuRequestSchema.parse(data),
+          });
+          if (count === 0) return null;
+        } catch (err) {
+          if (isUniqueViolation(err)) throw new MenuSlugConflictError(data.slug ?? "");
+          throw err;
+        }
+        const menu = await prisma.menu.findFirst({ where: { id: menuId, venueId } });
+        return menu ? mapMenu(menu) : null;
+      },
+    
+      async delete(venueId: string, menuId: string): Promise<boolean> {
+        const { count } = await prisma.menu.deleteMany({ where: { id: menuId, venueId } });
+        return count > 0;
+      },
+    
+      async createSection(
+        venueId: string,
+        menuId: string,
+        data: CreateMenuSectionRequest
+      ): Promise<MenuSection | null> {
+        const menu = await prisma.menu.findFirst({
+          where: { id: menuId, venueId },
+          select: { id: true },
+        });
+        if (!menu) return null;
+        return mapSection(
+          await prisma.menuSection.create({
+            data: { ...CreateMenuSectionRequestSchema.parse(data), venueId, menuId },
+          })
+        );
+      },
+    
+      async updateSection(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        data: UpdateMenuSectionRequest
+      ): Promise<MenuSection | null> {
+        const where = { id: sectionId, menuId, venueId };
+        // Allowlist via the schema: a body `menuId` would otherwise re-parent the
+        // section under another venue's menu (the FK is not composite on venue_id).
+        const { count } = await prisma.menuSection.updateMany({
+          where,
+          data: UpdateMenuSectionRequestSchema.parse(data),
+        });
+        if (count === 0) return null;
+        const section = await prisma.menuSection.findFirst({ where });
+        return section ? mapSection(section) : null;
+      },
+    
+      async deleteSection(venueId: string, menuId: string, sectionId: string): Promise<boolean> {
+        const { count } = await prisma.menuSection.deleteMany({
+          where: { id: sectionId, menuId, venueId },
+        });
+        return count > 0;
+      },
+    
+      async createItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        data: CreateMenuItemRequest
+      ): Promise<MenuItem | null> {
+        const section = await prisma.menuSection.findFirst({
+          where: { id: sectionId, menuId, venueId },
+          select: { id: true },
+        });
+        if (!section) return null;
+        return mapItem(
+          await prisma.menuItem.create({
+            data: { ...CreateMenuItemRequestSchema.parse(data), venueId, sectionId },
+          })
+        );
+      },
+    
+      async updateItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        itemId: string,
+        data: UpdateMenuItemRequest
+      ): Promise<MenuItem | null> {
+        const where = { id: itemId, sectionId, venueId, section: { menuId } };
+        // Same allowlist: a body `sectionId` must not move the item to another venue's section.
+        const { count } = await prisma.menuItem.updateMany({
+          where,
+          data: UpdateMenuItemRequestSchema.parse(data),
+        });
+        if (count === 0) return null;
+        const item = await prisma.menuItem.findFirst({ where });
+        return item ? mapItem(item) : null;
+      },
+    
+      async deleteItem(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        itemId: string
+      ): Promise<boolean> {
+        const { count } = await prisma.menuItem.deleteMany({
+          where: { id: itemId, sectionId, venueId, section: { menuId } },
+        });
+        return count > 0;
+      },
+    
+      /**
+       * Persists `displayOrder = index` for the given section ids. Returns `null`
+       * (nothing written) unless every id is a distinct section of this menu in
+       * this venue — a foreign or duplicated id fails the whole reorder.
+       */
+      async reorderSections(
+        venueId: string,
+        menuId: string,
+        ids: string[]
+      ): Promise<MenuSection[] | null> {
+        if (new Set(ids).size !== ids.length) return null;
+        // Explicit transaction: bypasses the per-call auto-wrap, so set the venue ourselves.
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const owned = await tx.menuSection.count({ where: { id: { in: ids }, menuId, venueId } });
+          if (owned !== ids.length) return null;
+          for (const [displayOrder, id] of ids.entries()) {
+            await tx.menuSection.updateMany({ where: { id, menuId, venueId }, data: { displayOrder } });
+          }
+          const sections = await tx.menuSection.findMany({
+            where: { menuId, venueId },
+            orderBy: BY_ORDER,
+          });
+          return sections.map(mapSection);
+        });
+      },
+    
+      /** Same contract as {@link reorderSections}, for the items of one section. */
+      async reorderItems(
+        venueId: string,
+        menuId: string,
+        sectionId: string,
+        ids: string[]
+      ): Promise<MenuItem[] | null> {
+        if (new Set(ids).size !== ids.length) return null;
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const section = await tx.menuSection.count({ where: { id: sectionId, menuId, venueId } });
+          if (section === 0) return null;
+          const owned = await tx.menuItem.count({ where: { id: { in: ids }, sectionId, venueId } });
+          if (owned !== ids.length) return null;
+          for (const [displayOrder, id] of ids.entries()) {
+            await tx.menuItem.updateMany({ where: { id, sectionId, venueId }, data: { displayOrder } });
+          }
+          const items = await tx.menuItem.findMany({
+            where: { sectionId, venueId },
+            orderBy: BY_ORDER,
+          });
+          return items.map(mapItem);
+        });
+      },
+    
+      /** ACTIVE menus only, guest-facing fields, in display order. */
+      async listPublic(venueId: string): Promise<PublicMenu[]> {
+        const menus = await prisma.menu.findMany({
+          where: { venueId, status: "ACTIVE" },
+          orderBy: BY_ORDER,
+        });
+        return menus.map(({ id, name, slug, description, displayOrder }) => ({
+          id,
+          name,
+          slug,
+          description,
+          displayOrder,
+        }));
+      },
+    
+      /** One ACTIVE menu by slug; HIDDEN items are excluded in the query, SOLD_OUT stay. */
+      async getPublicBySlug(venueId: string, menuSlug: string): Promise<PublicMenuBody | null> {
+        const menu = await prisma.menu.findFirst({
+          where: { venueId, slug: menuSlug, status: "ACTIVE" },
+          include: {
+            sections: {
+              orderBy: BY_ORDER,
+              include: { items: { where: { status: { not: "HIDDEN" } }, orderBy: BY_ORDER } },
+            },
+          },
+        });
+        if (!menu) return null;
+        return {
+          id: menu.id,
+          name: menu.name,
+          slug: menu.slug,
+          description: menu.description,
+          displayOrder: menu.displayOrder,
+          sections: menu.sections.map((section) => ({
+            id: section.id,
+            name: section.name,
+            displayOrder: section.displayOrder,
+            items: section.items.map((item) => ({
+              id: item.id,
+              name: item.name,
+              description: item.description,
+              priceCents: item.priceCents,
+              status: item.status === "SOLD_OUT" ? "SOLD_OUT" : "AVAILABLE",
+              displayOrder: item.displayOrder,
+            })),
+          })),
+        };
+      },
+    };
   </file>
   <file path="src/services/move-to-hold.ts">
     type MoveToHoldErrorCode =
@@ -14880,6 +16841,9 @@
       "waitlistEntry",
       "reservationEvent",
       "tableEvent",
+      "menu",
+      "menuSection",
+      "menuItem",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -16353,6 +18317,7 @@
       await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
       await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
       await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+      await fastify.register(menuRoutes, { prefix: "/api/v1/menus" });
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
       await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
       await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
@@ -16360,6 +18325,7 @@
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
+      await fastify.register(publicMenuRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(publicAvailabilityRoutes, {
         prefix: "/public/v1/venues",
       });
@@ -16658,6 +18624,110 @@
         },
       };
     }
+  </file>
+  <file path="src/test/mocks.ts">
+    type MockTable = Table;
+    type MockReservation = Reservation & { readonly table: Table };
+    interface MockPagination {
+      readonly page: number;
+      readonly limit: number;
+      readonly total: number;
+      readonly totalPages: number;
+      readonly hasNext: boolean;
+      readonly hasPrev: boolean;
+    }
+    interface MockJWTPayload {
+      readonly sub: string;
+      readonly iss: string;
+      readonly aud: string;
+      readonly exp: number;
+      readonly iat: number;
+      readonly email: string;
+      readonly email_verified: boolean;
+      readonly name: string;
+      readonly picture: string;
+      readonly permissions: readonly string[];
+    }
+    export function createMockTable(overrides?: Partial<MockTable>): MockTable {
+      return Object.freeze({
+        id: "table-123",
+        name: "Table 1",
+        tableNumber: "1",
+        capacity: 4,
+        minCovers: 1,
+        maxCovers: null,
+        location: "Main Floor",
+        isActive: true,
+        priority: 0,
+        status: "AVAILABLE" as const,
+        venueId: null,
+        floorPlanId: null,
+        shapeMetadata: null,
+        createdAt: "2026-01-25T00:00:00.000Z",
+        updatedAt: "2026-01-25T00:00:00.000Z",
+        ...overrides,
+      } satisfies Table);
+    }
+    export function createMockReservation(
+      overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
+    ): MockReservation {
+      const { table: tableOverrides, ...restOverrides } = overrides ?? {};
+      const table = createMockTable(tableOverrides);
+      return Object.freeze({
+        id: "res-123",
+        date: "2026-02-15",
+        startTime: "2026-02-15T18:00:00.000Z",
+        endTime: "2026-02-15T20:00:00.000Z",
+        partySize: 4,
+        status: "PENDING" as const,
+        notes: null,
+        cancellationReason: null,
+        cancellationNote: null,
+        occasion: null,
+        seatingPreference: null,
+        guestName: "John Doe",
+        guestEmail: "john@example.com",
+        guestPhone: null,
+        guestId: null,
+        userId: null,
+        tableId: table.id,
+        table,
+        venueId: null,
+        createdAt: "2026-01-25T00:00:00.000Z",
+        updatedAt: "2026-01-25T00:00:00.000Z",
+        ...restOverrides,
+      } satisfies MockReservation);
+    }
+    export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination {
+      return Object.freeze({
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false,
+        ...overrides,
+      });
+    }
+    export function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload {
+      return Object.freeze({
+        sub: "auth0|user-123",
+        iss: "https://test.auth0.com/",
+        aud: "https://api.example.com",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+        email: "test@example.com",
+        email_verified: true,
+        name: "Test User",
+        picture: "https://example.com/pic.jpg",
+        // Least privilege: tests that need admin must ask for it explicitly.
+        permissions: [],
+        ...overrides,
+      });
+    }
+    export const ERROR_UNAUTHORIZED = "Unauthorized";
+    export const ERROR_CONFLICT = "Conflict";
+    export const ERROR_FORBIDDEN = "Forbidden";
   </file>
   <file path="src/test/shared-schema-compilers.ts">
     type RouteSchemaDef = {

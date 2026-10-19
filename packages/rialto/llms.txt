@@ -199,8 +199,20 @@
       }
     </item>
     <item priority="low">
+      interface ChatStreamRequest {
+        url: string;
+        body: unknown;
+        headers?: Record<string, string>;
+        signal?: AbortSignal;
+      }
+    </item>
+    <item priority="low">
+      type ChatStreamFn = (request: ChatStreamRequest) => AsyncIterable<unknown>;
+    </item>
+    <item priority="low">
       interface UseChatStreamOptions {
         api: string;
+        stream: ChatStreamFn;
         domainContext: DomainContext;
         getAccessToken: () => string | null | Promise<string | null>;
       }
@@ -215,7 +227,11 @@
       }
     </item>
     <item priority="high">
-      export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
+      export function useChatStream({
+        api,
+        stream,
+        getAccessToken,
+      }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
     </item>
   </file>
   </section>
@@ -598,6 +614,9 @@
     </item>
   </file>
   <file path="src/components/TapeChart/defaultStrings.ts">
+    <item priority="medium">
+      function ariaTemplateFor(messages: RialtoMessages) { /* ... */ }
+    </item>
     <item priority="low">
       type ResolvedStrings = Required<
         Omit<
@@ -605,10 +624,16 @@
           | "reservatio...;
     </item>
     <item priority="high">
+      export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
+    </item>
+    <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
     </item>
     <item priority="high">
-      export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings { /* ... */ }
+      export function mergeStrings(
+        overrides?: TapeChartStrings,
+        messages: RialtoMessages = enUS
+      ): ResolvedStrings { /* ... */ }
     </item>
   </file>
   <file path="src/components/TapeChart/types.ts">
@@ -1175,6 +1200,15 @@
   </section>
   <section priority="medium" role="i18n">
   <file path="src/i18n/messages.ts">
+    <item priority="low">
+      interface TapeChartMessages {
+        regionLabel: string;
+        roomsColumnLabel: string;
+        arrivalsLabel: string;
+        departuresLabel: string;
+        inHouseLabel: string;
+      }
+    </item>
     <item priority="low">
       interface RialtoMessages {
         dismiss: string;

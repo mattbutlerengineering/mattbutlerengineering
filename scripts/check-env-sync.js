@@ -20,7 +20,7 @@ const PLATFORM_VARS = new Set([
   // Signal-specific endpoint overrides, which OTel prefers over the generic
   // key above. Pre-registered rather than currently required: the scanner
   // only matches a literal `process.env.NAME` (see processRe below), and
-  // packages/observability reads these through resolveTelemetryPlan(env),
+  // packages/service-bootstrap/src/observability reads these through resolveTelemetryPlan(env),
   // which indexes a parameter with named constants — invisible to that
   // regex. These entries take effect the moment any module reads them
   // directly, and they are platform-injected either way, never hand-set.
@@ -130,8 +130,8 @@ export function resolveWorkspacePackages(root) {
  * workspace package directories it transitively depends on (resolved via
  * `workspacePackages`, so only in-repo packages match — external npm deps
  * are never in that map). A service depending on `@mbe/service-bootstrap`
- * (which itself depends on `@mbe/observability`) gets observability's
- * directory in its closure: env vars observability reads at runtime are
+ * (which itself depends on `@mbe/sentry`) gets that package's
+ * directory in its closure: env vars that package reads at runtime are
  * reads the service process performs too, just one hop removed.
  */
 export function resolveDependencyClosure(packageDir, workspacePackages) {

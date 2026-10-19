@@ -1,16 +1,16 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import type { HealthResponse } from "@mbe/types";
-import { createErrorRateHealthCheck, resolveBuildInfo } from "@mbe/observability";
+import { createErrorRateHealthCheck } from "./observability/index.js";
+import { resolveBuildInfo } from "@mbe/sentry";
 import type { SlowQueryStats, PoolMetrics, ServiceStatus } from "@mbe/database";
 import { checkAuth0 as defaultCheckAuth0 } from "./health.js";
+import type { PrismaLike } from "@mbe/database";
 import type { Auth0CheckResult } from "./health.js";
 
 /** Minimal database interface health routes need — satisfied by DatabaseInstance<T>. */
 export interface HealthDb {
-  readonly prisma: {
-    $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
-  };
+  readonly prisma: Pick<PrismaLike, "$queryRaw">;
   readonly getSlowQueryStats: () => SlowQueryStats;
   readonly getServiceStatus: () => ServiceStatus;
   readonly getPoolMetrics: () => PoolMetrics;

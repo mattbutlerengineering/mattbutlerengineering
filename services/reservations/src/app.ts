@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createServiceApp, type AppOptions } from "@mbe/service-bootstrap";
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationDispatcher } from "./notifications/index.js";
 import { registerSchemas } from "./schemas/index.js";
 import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
@@ -9,8 +9,10 @@ import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
 import { floorPlanRoutes } from "./routes/floor-plans.js";
+import { menuRoutes } from "./routes/menus.js";
 import { guestRoutes } from "./routes/guests.js";
 import { publicVenueRoutes } from "./routes/public-venues.js";
+import { publicMenuRoutes } from "./routes/public-menus.js";
 import { publicAvailabilityRoutes } from "./routes/public-availability.js";
 import { publicHoldRoutes } from "./routes/public-holds.js";
 import { publicReservationRoutes } from "./routes/public-reservations.js";
@@ -267,6 +269,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
   await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
   await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+  await fastify.register(menuRoutes, { prefix: "/api/v1/menus" });
   await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
   await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
   await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
@@ -274,6 +277,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 
   // Public routes (no auth required)
   await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
+  await fastify.register(publicMenuRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(publicAvailabilityRoutes, {
     prefix: "/public/v1/venues",
   });

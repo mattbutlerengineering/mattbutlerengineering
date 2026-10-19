@@ -52,11 +52,20 @@ scripts/__tests__/issue-zone.test.mjs
 scripts/__tests__/zone-vocabulary.test.mjs
 scripts/__tests__/main-strictness.test.mjs`); docs name
       `main-strictness.mjs` and ADR-027 consistently.
+- [x] **WO-30: normalise path tokens (Review re-entry, Major)** — In
+      `scripts/issue-zone.mjs`, strip trailing `.`/`,` from every
+      extracted path token at extraction (`matchPathTokens`), so
+      `pathsOverlap` and `hotspotLocks` both see `a.ts`, not `a.ts.` or
+      `a.ts...`. Real dotted paths (`a.ts`, `.claude/…`,
+      `llms-full.txt`) are unchanged. Acceptance: review.md's E1, E2 and
+      hotspot cases defer to `[1]` (hotspot in both modes) in
+      `scripts/__tests__/issue-zone.test.mjs`, and the three zone test
+      files stay green.
 
 ## Notes
 
 - Blueprint gate: this run stops here (`stop-after: decompose`).
   Implement is dispatched by the Conductor only after Matt approves the
   policy change (issue filed without `ready` on purpose).
-- Reserved ids spent: ADR-027, WO-26..29. Unspent: ADR 96-97, WO 30-35,
+- Reserved ids spent: ADR-027, WO-26..30 (WO-30 at the Review re-entry). Unspent: ADR 96-97, WO 31-35,
   returned to the block.

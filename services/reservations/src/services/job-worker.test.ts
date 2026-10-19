@@ -6,7 +6,7 @@
  * dequeued and routed through the reservations JobHandlerMap to the real
  * dispatcher / waitlist re-notify path.
  *
- * @mbe/jobs is partially mocked at the import boundary: JOB_TYPES and the real
+ * The jobs module is partially mocked at the import boundary: JOB_TYPES and the real
  * dispatchJob routing are kept, while JobScheduler / JobWorker become fakes so
  * no Redis is needed. The FakeWorker captures the processor (dispatchJob bound
  * to the handler map) exactly as the real worker wires it, so firing a captured
@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation, Venue } from "@mbe/types";
-import { PartialDeliveryError } from "@mbe/notifications";
+import { PartialDeliveryError } from "../notifications/index.js";
 
 interface JobsModuleShape {
   dispatchJob(handlers: unknown, job: { name: string; data: unknown }): Promise<void>;
@@ -35,7 +35,7 @@ const bus = vi.hoisted(() => ({
   workerClosed: false,
 }));
 
-vi.mock("@mbe/jobs", async (importOriginal) => {
+vi.mock("../jobs/index.js", async (importOriginal) => {
   const actual = (await importOriginal()) as JobsModuleShape & Record<string, unknown>;
 
   class FakeScheduler {
@@ -66,8 +66,14 @@ vi.mock("@mbe/jobs", async (importOriginal) => {
   return { ...actual, JobScheduler: FakeScheduler, JobWorker: FakeWorker };
 });
 
-import { JobScheduler, JobWorker, JOB_TYPES, dispatchJob, UnknownJobTypeError } from "@mbe/jobs";
-import type { ReminderPayload, WaitlistExpiryPayload } from "@mbe/jobs";
+import {
+  JobScheduler,
+  JobWorker,
+  JOB_TYPES,
+  dispatchJob,
+  UnknownJobTypeError,
+} from "../jobs/index.js";
+import type { ReminderPayload, WaitlistExpiryPayload } from "../jobs/index.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./job-worker.js";
 import { getCurrentVenueId } from "./venue-context-store.js";
 

@@ -1103,6 +1103,145 @@ const floorPlanFixtures: Record<string, RouteFixture> = {
   ),
 };
 
+const MENUS_PATH = "/api/v1/menus";
+
+interface MenuTreeIds {
+  menuId: string;
+  sectionId: string;
+  itemId: string;
+}
+
+/**
+ * Seeds a menu with one section and one item in `venueId` through the API
+ * itself (as the bypass admin), so the fixtures below need no direct DB access
+ * and exercise the same venue-scoped write path operators use.
+ */
+async function seedMenuTree(ctx: SweepContext, venueId: string): Promise<MenuTreeIds> {
+  const q = `?venueId=${venueId}`;
+  const menuRes = await asAdmin(ctx, {
+    method: "POST",
+    url: `${MENUS_PATH}${q}`,
+    payload: { name: "Sweep menu", slug: `sweep-${randomUUID().slice(0, 8)}` },
+  });
+  expectOk(menuRes, "seed menu");
+  const menuId = menuRes.json<{ data: { id: string } }>().data.id;
+  const sectionRes = await asAdmin(ctx, {
+    method: "POST",
+    url: `${MENUS_PATH}/${menuId}/sections${q}`,
+    payload: { name: "Starters" },
+  });
+  expectOk(sectionRes, "seed menu section");
+  const sectionId = sectionRes.json<{ data: { id: string } }>().data.id;
+  const itemRes = await asAdmin(ctx, {
+    method: "POST",
+    url: `${MENUS_PATH}/${menuId}/sections/${sectionId}/items${q}`,
+    payload: { name: "Soup", priceCents: 850 },
+  });
+  expectOk(itemRes, "seed menu item");
+  const itemId = itemRes.json<{ data: { id: string } }>().data.id;
+  return { menuId, sectionId, itemId };
+}
+
+/**
+ * Menu routes name their venue in the query and address menu/section/item ids
+ * inside it. Proves: admin and member act on venue A's own tree; a member is
+ * denied venue B outright; and venue A's ids are not reachable through venue B
+ * even for the platform admin (the id is invisible there, not just forbidden).
+ */
+function okMenuRoute(
+  build: (ids: MenuTreeIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+): RouteFixture {
+  return ok(async (ctx) => {
+    const adminTree = await seedMenuTree(ctx, ctx.venueA.id);
+    expectOk(await asAdmin(ctx, build(adminTree, ctx.venueA.id)), "admin venue A");
+
+    const memberTree = await seedMenuTree(ctx, ctx.venueA.id);
+    expectOk(await asMember(ctx, build(memberTree, ctx.venueA.id)), "member venue A");
+
+    const tree = await seedMenuTree(ctx, ctx.venueA.id);
+    expectDenied(await asMember(ctx, build(tree, ctx.venueB.id)), "member venue B");
+    expectDenied(await asAdmin(ctx, build(tree, ctx.venueB.id)), "admin venue B, venue A's ids");
+  });
+}
+
+const menuFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/menus": okScopedByQuery(MENUS_PATH),
+  "POST /api/v1/menus": ok(async (ctx) => {
+    const create = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${MENUS_PATH}?venueId=${venueId}`,
+      payload: { name: "Sweep menu", slug: `sweep-${randomUUID().slice(0, 8)}` },
+    });
+    expectOk(await asAdmin(ctx, create(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, create(ctx.venueB.id)), "admin venue B");
+    expectOk(await asMember(ctx, create(ctx.venueA.id)), "member venue A");
+    expectDenied(await asMember(ctx, create(ctx.venueB.id)), "member venue B");
+  }),
+  "GET /api/v1/menus/:menuId": okMenuRoute(({ menuId }, venueId) => ({
+    method: "GET",
+    url: `${MENUS_PATH}/${menuId}?venueId=${venueId}`,
+  })),
+  "PATCH /api/v1/menus/:menuId": okMenuRoute(({ menuId }, venueId) => ({
+    method: "PATCH",
+    url: `${MENUS_PATH}/${menuId}?venueId=${venueId}`,
+    payload: { name: "renamed" },
+  })),
+  "DELETE /api/v1/menus/:menuId": okMenuRoute(({ menuId }, venueId) => ({
+    method: "DELETE",
+    url: `${MENUS_PATH}/${menuId}?venueId=${venueId}`,
+  })),
+  "POST /api/v1/menus/:menuId/sections": okMenuRoute(({ menuId }, venueId) => ({
+    method: "POST",
+    url: `${MENUS_PATH}/${menuId}/sections?venueId=${venueId}`,
+    payload: { name: "Mains" },
+  })),
+  "PUT /api/v1/menus/:menuId/sections/order": okMenuRoute(({ menuId, sectionId }, venueId) => ({
+    method: "PUT",
+    url: `${MENUS_PATH}/${menuId}/sections/order?venueId=${venueId}`,
+    payload: { ids: [sectionId] },
+  })),
+  "PATCH /api/v1/menus/:menuId/sections/:sectionId": okMenuRoute(
+    ({ menuId, sectionId }, venueId) => ({
+      method: "PATCH",
+      url: `${MENUS_PATH}/${menuId}/sections/${sectionId}?venueId=${venueId}`,
+      payload: { name: "renamed" },
+    })
+  ),
+  "DELETE /api/v1/menus/:menuId/sections/:sectionId": okMenuRoute(
+    ({ menuId, sectionId }, venueId) => ({
+      method: "DELETE",
+      url: `${MENUS_PATH}/${menuId}/sections/${sectionId}?venueId=${venueId}`,
+    })
+  ),
+  "POST /api/v1/menus/:menuId/sections/:sectionId/items": okMenuRoute(
+    ({ menuId, sectionId }, venueId) => ({
+      method: "POST",
+      url: `${MENUS_PATH}/${menuId}/sections/${sectionId}/items?venueId=${venueId}`,
+      payload: { name: "Stew", priceCents: 1200 },
+    })
+  ),
+  "PUT /api/v1/menus/:menuId/sections/:sectionId/items/order": okMenuRoute(
+    ({ menuId, sectionId, itemId }, venueId) => ({
+      method: "PUT",
+      url: `${MENUS_PATH}/${menuId}/sections/${sectionId}/items/order?venueId=${venueId}`,
+      payload: { ids: [itemId] },
+    })
+  ),
+  "PATCH /api/v1/menus/:menuId/sections/:sectionId/items/:itemId": okMenuRoute(
+    ({ menuId, sectionId, itemId }, venueId) => ({
+      method: "PATCH",
+      url: `${MENUS_PATH}/${menuId}/sections/${sectionId}/items/${itemId}?venueId=${venueId}`,
+      payload: { status: "SOLD_OUT" },
+    })
+  ),
+  "DELETE /api/v1/menus/:menuId/sections/:sectionId/items/:itemId": okMenuRoute(
+    ({ menuId, sectionId, itemId }, venueId) => ({
+      method: "DELETE",
+      url: `${MENUS_PATH}/${menuId}/sections/${sectionId}/items/${itemId}?venueId=${venueId}`,
+    })
+  ),
+};
+
 /** Guests: list/create scope by `?venueId=`/`body.venueId`; every entity-addressed `:id` route was item 2, fixed by #5369 PR 5. */
 const guestFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/guests": okScopedByQuery("/api/v1/guests"),
@@ -1536,6 +1675,7 @@ export const FIXTURES: Record<string, RouteFixture> = {
   ...venueFixtures,
   ...availabilityFixtures,
   ...floorPlanFixtures,
+  ...menuFixtures,
   ...guestFixtures,
   ...reservationFixtures,
   ...waitlistFixtures,
