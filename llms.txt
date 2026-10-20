@@ -18056,6 +18056,14 @@
   </file>
   </section>
   <section priority="medium" role="timeline">
+  <file path="apps/hospitality/src/components/timeline/readOnly.fixtures.ts">
+    <item priority="high">
+      export function makeTable(overrides: Partial<Table> = {}): Table { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makeReservation(overrides: Partial<Reservation> = {}): Reservation { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/timeline/reservationLayout.ts">
     <item priority="low">
       interface ReservationLayoutParams {

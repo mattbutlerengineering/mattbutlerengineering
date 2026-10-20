@@ -38,6 +38,13 @@ export interface TimelineGridProps {
   emptyNight?: TimelineEmptyNightProps | null;
   /** The table whose status change is in flight — its trigger is disabled and gold. */
   pendingTableId?: string | null;
+  /**
+   * Draws the grid without any way to act on it: blocks are labelled non-buttons, the table status
+   * menu is absent, and no reservation or status handler is ever called.
+   */
+  readOnly?: boolean;
+  /** Replaces the real clock for the now-line, and counts as today, so a simulated night can play. */
+  now?: Date;
 }
 
 /**
@@ -81,17 +88,20 @@ export function TimelineGrid({
   date,
   startHour = 11,
   endHour = 23,
-  onReservationClick,
+  onReservationClick: onReservationClickProp,
   selectedReservationId,
   onTableStatusChange,
   seatedIds,
   bottomInset,
   emptyNight,
   pendingTableId,
+  readOnly = false,
+  now,
 }: TimelineGridProps) {
   const fmt = useVenueFormat();
   const { t } = useTranslation();
   const timeZone = fmt.timeZone;
+  const onReservationClick = readOnly ? undefined : onReservationClickProp;
   const isMobile = useIsMobile();
   const capacityLabel = (table: (typeof tables)[number]) =>
     t("timeline.grid.capacity", { min: table.minCovers, max: table.maxCovers ?? table.capacity });
@@ -172,8 +182,9 @@ export function TimelineGrid({
     return map;
   }, [reservations, startHour, hourWidth, isMobile, timeZone]);
 
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-  const lastMinuteRef = useRef(currentTime.getMinutes());
+  const [clockTime, setCurrentTime] = useState(() => new Date());
+  const currentTime = now ?? clockTime;
+  const lastMinuteRef = useRef(clockTime.getMinutes());
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -188,7 +199,7 @@ export function TimelineGrid({
 
   // The grid is the venue's night: today and the now-line are read on the venue clock, the same
   // clock the blocks and labels use. (The UTC-keyed toDateString emptied the grid at 17:00 Pacific.)
-  const isToday = date === venueDate(currentTime, timeZone);
+  const isToday = now !== undefined || date === venueDate(currentTime, timeZone);
   const currentTimeOffset = useMemo(() => {
     if (!isToday) return null;
     const minutes = minutesOfDayIn(currentTime, timeZone);
@@ -268,13 +279,15 @@ export function TimelineGrid({
                       </div>
                     )}
                   </div>
-                  <TableStatusMenu
-                    tableId={table.id}
-                    tableName={table.name}
-                    status={table.status}
-                    pending={pendingTableId === table.id}
-                    onChange={(next) => onTableStatusChange?.(table.id, next)}
-                  />
+                  {readOnly ? null : (
+                    <TableStatusMenu
+                      tableId={table.id}
+                      tableName={table.name}
+                      status={table.status}
+                      pending={pendingTableId === table.id}
+                      onChange={(next) => onTableStatusChange?.(table.id, next)}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -311,6 +324,7 @@ export function TimelineGrid({
                       isFocused={isFocused}
                       isSeated={seatedIds?.has(reservation.id) ?? false}
                       onClick={onReservationClick}
+                      readOnly={readOnly}
                     />
                   );
                 })}

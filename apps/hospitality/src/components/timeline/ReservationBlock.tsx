@@ -15,6 +15,11 @@ export interface ReservationBlockProps {
   /** The party is on its table now (derived by the page, ux.md Decision (a)). */
   isSeated?: boolean;
   onClick?: (reservation: Reservation) => void;
+  /**
+   * Draws the block without any interaction: a labelled `div` with the same look, no click, no
+   * focus stop. For views that show simulated or otherwise non-actionable bookings.
+   */
+  readOnly?: boolean;
 }
 
 const STATUS_CLASS: Record<ReservationStatus, string> = {
@@ -32,6 +37,7 @@ function ReservationBlockComponent({
   isFocused = false,
   isSeated = false,
   onClick,
+  readOnly = false,
 }: ReservationBlockProps) {
   const fmt = useVenueFormat();
   const { t } = useTranslation();
@@ -64,36 +70,55 @@ function ReservationBlockComponent({
     .join(", ");
   const handleClick = () => onClick?.(reservation);
 
+  const className = [
+    styles.block,
+    statusClass,
+    isSelected ? styles.blockSelected : "",
+    isFocused ? styles.blockFocused : "",
+  ].join(" ");
+  const testId = `reservation-block-${reservation.id}`;
+  const blockStyle = { left: style.left, width: style.width };
+  const content = (
+    <div className={styles.content}>
+      <div className={styles.guestName} data-truncate>
+        {isSeated && <StatusLED variant="success" size="xs" className={styles.seatedLed} />}
+        <span>{guestName}</span>
+      </div>
+      <div className={styles.details} data-truncate>
+        {reservation.partySize} · {startTime}
+        {visitText !== null && ` · ${visitText}`}
+      </div>
+    </div>
+  );
+
+  if (readOnly) {
+    return (
+      <div
+        role="group"
+        data-testid={testId}
+        className={className}
+        style={blockStyle}
+        title={title}
+        aria-label={spokenLabel}
+      >
+        {content}
+      </div>
+    );
+  }
+
   return (
     /* eslint-disable mbe-local/prefer-rialto-components -- timeline block uses custom CSS module classes that require a native button element */
     <button
       type="button"
-      data-testid={`reservation-block-${reservation.id}`}
+      data-testid={testId}
       onClick={handleClick}
-      className={[
-        styles.block,
-        statusClass,
-        isSelected ? styles.blockSelected : "",
-        isFocused ? styles.blockFocused : "",
-      ].join(" ")}
-      style={{
-        left: style.left,
-        width: style.width,
-      }}
+      className={className}
+      style={blockStyle}
       title={title}
       aria-label={spokenLabel}
       aria-pressed={isSelected}
     >
-      <div className={styles.content}>
-        <div className={styles.guestName} data-truncate>
-          {isSeated && <StatusLED variant="success" size="xs" className={styles.seatedLed} />}
-          <span>{guestName}</span>
-        </div>
-        <div className={styles.details} data-truncate>
-          {reservation.partySize} · {startTime}
-          {visitText !== null && ` · ${visitText}`}
-        </div>
-      </div>
+      {content}
     </button>
     /* eslint-enable mbe-local/prefer-rialto-components */
   );
@@ -107,7 +132,8 @@ function arePropsEqual(prev: ReservationBlockProps, next: ReservationBlockProps)
     prev.isSelected === next.isSelected &&
     prev.isFocused === next.isFocused &&
     prev.isSeated === next.isSeated &&
-    prev.onClick === next.onClick
+    prev.onClick === next.onClick &&
+    prev.readOnly === next.readOnly
   );
 }
 
