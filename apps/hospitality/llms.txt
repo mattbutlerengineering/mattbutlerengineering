@@ -2040,6 +2040,22 @@
       ): RehearsalMetrics { /* ... */ }
     </item>
   </file>
+  <file path="src/components/rehearsal/should-announce.ts">
+    <item priority="low">
+      type PlaybackSpeed = 15 | 60 | 240;
+    </item>
+    <item priority="high">
+      export const ANNOUNCE_INTERVAL_MS: unknown;
+    </item>
+    <item priority="high">
+      export function shouldAnnounce(
+        lastAt: number | null,
+        nowMs: number,
+        speed: PlaybackSpeed,
+        reduced: boolean
+      ): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/rehearsal/simulate-service.ts">
     <item priority="low">
       interface RehearsalTable {
@@ -2090,6 +2106,30 @@
     </item>
     <item priority="high">
       export function simulateService(input: SimulateServiceInput): readonly RehearsalEvent[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/use-rehearsal-playback.ts">
+    <item priority="low">
+      interface RehearsalPlaybackOptions {
+        openMinute: number;
+        closeMinute: number;
+        reducedMotion: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalPlayback {
+        minute: number;
+        eventIndex: number;
+        playing: boolean;
+        speed: PlaybackSpeed;
+        atEnd: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useRehearsalPlayback(
+        events: readonly RehearsalEvent[],
+        { openMinute, closeMinute, reducedMotion }: RehearsalPlaybackOptions
+      ): RehearsalPlayback { /* ... */ }
     </item>
   </file>
   </section>
