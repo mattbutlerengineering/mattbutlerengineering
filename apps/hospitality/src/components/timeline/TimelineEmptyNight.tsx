@@ -8,6 +8,11 @@ export interface TimelineEmptyNightProps {
   dateLabel: string;
   onWalkIn: () => void;
   onToday: () => void;
+  /**
+   * Starts a simulated Friday night (dress rehearsal). Shown, as a secondary action, only for
+   * tonight and only when given: the caller withholds it for a venue with no tables.
+   */
+  onRehearse?: () => void;
 }
 
 /**
@@ -19,6 +24,7 @@ export function TimelineEmptyNight({
   dateLabel,
   onWalkIn,
   onToday,
+  onRehearse,
 }: TimelineEmptyNightProps) {
   const { t } = useTranslation();
   const today = variant === "today";
@@ -41,9 +47,16 @@ export function TimelineEmptyNight({
         }
         action={
           today ? (
-            <Button variant="primary" onClick={onWalkIn}>
-              {t("timeline.emptyNight.walkIn")}
-            </Button>
+            <div className={styles.actions}>
+              <Button variant="primary" onClick={onWalkIn}>
+                {t("timeline.emptyNight.walkIn")}
+              </Button>
+              {onRehearse ? (
+                <Button variant="secondary" onClick={onRehearse}>
+                  {t("timeline.emptyNight.rehearse")}
+                </Button>
+              ) : null}
+            </div>
           ) : (
             <Button variant="secondary" onClick={onToday}>
               {t("timeline.emptyNight.backToToday")}

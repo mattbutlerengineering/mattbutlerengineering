@@ -666,7 +666,8 @@
       "otherHeading": "No hay nada en la agenda para el {{date}}.",
       "otherDescription": "Las reservaciones de esa noche aparecerán aquí.",
       "walkIn": "Sin reservación",
-      "backToToday": "Volver a hoy"
+      "backToToday": "Volver a hoy",
+      "rehearse": "Probar un viernes por la noche"
     },
     "skeleton": {
       "loading": "Cargando la cuadrícula de esta noche…"

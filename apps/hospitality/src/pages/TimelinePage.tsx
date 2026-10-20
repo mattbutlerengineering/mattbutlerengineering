@@ -2,7 +2,7 @@ import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import { Button, Card, Drawer, EmptyState, IconButton, Text } from "@mattbutlerengineering/rialto";
@@ -22,6 +22,7 @@ import { tableStatusInline } from "../components/timeline/table-status-menu.js";
 // By path, not the barrel: TimelinePage.test.tsx mocks the barrel wholesale.
 import { SHEET_BLOCK_SIZE, reservationSheetSize } from "../components/timeline/sheet-size.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
+import { rehearsalNavigation } from "../components/rehearsal/rehearsal-route.js";
 import { KpiStat } from "../components/KpiStat.js";
 import { LiveStatus } from "../components/LiveStatus.js";
 import { OfflineBanner } from "../components/OfflineBanner.js";
@@ -146,6 +147,7 @@ function CloseIcon() {
  */
 export function TimelinePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { selectedVenueId, selectedVenue } = useVenue();
   const fmt = useVenueFormat();
   const { isConnected } = useSSEStatus();
@@ -457,6 +459,10 @@ export function TimelinePage() {
                 dateLabel: formatServiceDate(selectedDate, fmt.locale),
                 onWalkIn: openWalkInDialog,
                 onToday: handleToday,
+                onRehearse:
+                  tables.length > 0
+                    ? () => navigate(...rehearsalNavigation({ profile: "friday" }))
+                    : undefined,
               }
             : null
         }

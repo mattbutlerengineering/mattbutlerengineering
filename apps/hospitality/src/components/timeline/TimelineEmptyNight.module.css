@@ -23,6 +23,13 @@
   pointer-events: auto;
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--rialto-space-sm);
+}
+
 /* NF INCLUSIVE: 44 px targets on tablets and any coarse pointer (ux.md Screen 7). */
 @media (pointer: coarse), (max-width: 1024px) {
   .card button {

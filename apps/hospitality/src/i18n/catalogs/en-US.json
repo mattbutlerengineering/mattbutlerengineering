@@ -655,7 +655,8 @@
       "otherHeading": "Nothing on the book for {{date}}.",
       "otherDescription": "Bookings for that night will show here.",
       "walkIn": "Walk-in",
-      "backToToday": "Back to today"
+      "backToToday": "Back to today",
+      "rehearse": "Run a Friday night"
     },
     "skeleton": {
       "loading": "Loading tonight's grid…"

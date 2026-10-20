@@ -78,6 +78,7 @@ vi.mock("../components/timeline", () => ({
       dateLabel: string;
       onWalkIn: () => void;
       onToday: () => void;
+      onRehearse?: () => void;
     } | null;
     pendingTableId?: string | null;
   }) => (
@@ -93,6 +94,9 @@ vi.mock("../components/timeline", () => ({
           {emptyNight.dateLabel}
           <button onClick={emptyNight.onWalkIn}>Walk-in (quiet night)</button>
           <button onClick={emptyNight.onToday}>Back to today</button>
+          {emptyNight.onRehearse && (
+            <button onClick={emptyNight.onRehearse}>Run a Friday night (quiet night)</button>
+          )}
         </div>
       )}
       {reservations?.map((r) => (
@@ -571,8 +575,14 @@ describe("TimelinePage", () => {
 
   // Renders the router's current search string so a stripped intent can be asserted.
   function LocationProbe() {
-    const { search } = useLocation();
-    return <span data-testid="location-search">{search}</span>;
+    const { search, pathname, state } = useLocation();
+    return (
+      <>
+        <span data-testid="location-search">{search}</span>
+        <span data-testid="location-path">{pathname}</span>
+        <span data-testid="location-state">{JSON.stringify(state)}</span>
+      </>
+    );
   }
 
   const renderPage = (initialEntries: string[] = ["/timeline"]) =>
@@ -1528,6 +1538,31 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(screen.getByTestId("walkin-dialog")).toBeDefined();
       });
+    });
+
+    it("tonight with tables: Run a Friday night navigates to /rehearsal with a friday profile and an integer seed", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations: [] }));
+      renderPage();
+      const quiet = await waitFor(() => screen.getByTestId("timeline-empty-night"));
+      fireEvent.click(
+        within(quiet).getByRole("button", { name: "Run a Friday night (quiet night)" })
+      );
+      expect(screen.getByTestId("location-path")).toHaveTextContent("/rehearsal");
+      const state = JSON.parse(screen.getByTestId("location-state").textContent ?? "{}") as {
+        profile: string;
+        seed: number;
+      };
+      expect(state.profile).toBe("friday");
+      expect(Number.isInteger(state.seed)).toBe(true);
+    });
+
+    it("tonight with no tables: no quiet-night grid, so no rehearsal button anywhere", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [], tables: [] })
+      );
+      renderPage();
+      await waitFor(() => screen.getByText("No tables yet."));
+      expect(screen.queryByRole("button", { name: /Run a Friday night/ })).toBeNull();
     });
 
     it("another date with zero reservations: the other-date variant, and Back to today returns to today", async () => {
