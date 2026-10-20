@@ -467,11 +467,7 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
       { type: "heartbeat", state: "noop", observedAt: "2026-09-20T09:45:00Z" }, // cron 37 9 * * *
     ],
     "mbe-daily-issue": [
-      {
-        type: "pr",
-        title: "fix(hospitality): guard the empty floor-plan render (mbe-daily-issue #5321)",
-        observedAt: "2026-09-20T15:40:00Z", // cron 21 14 * * *, merged same session
-      },
+      { type: "heartbeat", state: "ok", observedAt: "2026-09-20T15:40:00Z" }, // cron 21 14 * * *
     ],
     "mbe-morning": [
       { type: "heartbeat", state: "ok", observedAt: "2026-09-20T16:03:00Z" }, // cron 3 16 * * *
@@ -861,25 +857,25 @@ describe("runRoutineLivenessCheck — observation blackout (#5606)", () => {
 
 // #5748: the live mbe-daily-issue trigger was confirmed on 2026-09-25 by PR
 // #5763, titled "docs(routines): fix nonexistent /schedule skill references
-// (mbe-daily-issue #5759)". Its manifest entry now carries the real signature.
-// This routine CLOSES an existing issue rather than filing one, so an
-// `issue-label` signature would key off the issue's createdAt, not the run;
-// the PR is its only artifact of its own, and the marker is a title suffix.
+// (mbe-daily-issue #5759)" — its manifest entry carried a `pr-title` signature
+// from that point on. #7043: that signature could not see a healthy no-op day
+// (step 1 explicitly allows "open nothing, comment nothing, end the run" when
+// the `ready` queue is empty), so a string of empty-queue days read as `dark`
+// indistinguishably from the routine not running at all — the exact "known
+// limitation" this manifest's own header comment flagged as unresolved for
+// mbe-daily-issue/mbe-night/mbe-midday. Switched to the same heartbeat
+// convention already proven for mbe-auditor/mbe-morning (#6190/#6157); the
+// merged-PR title suffix (step 5) is untouched and still required, it just
+// isn't the liveness signal anymore.
 describe("PR-title signatures confirmed against a live routine run", () => {
-  it("mbe-daily-issue matches the suffix its live trigger emits", () => {
+  it("mbe-daily-issue is now a heartbeat signature, replacing the pr-title that couldn't see empty-queue no-op days (#7043)", () => {
     const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-daily-issue");
-    expect(entry.unverifiable).toBeUndefined();
-    expect(entry.signature).toMatchObject({ type: "pr-title", searchTerm: "mbe-daily-issue" });
-    const pattern = new RegExp(entry.signature.pattern);
-    expect(
-      pattern.test(
-        "docs(routines): fix nonexistent /schedule skill references (mbe-daily-issue #5759)"
-      )
-    ).toBe(true);
-    expect(pattern.test("fix(reservations): an ordinary implement-queue PR (#5759)")).toBe(false);
+    expect(entry.unverifiable).toBeFalsy();
+    expect(entry.signature).toEqual({ type: "heartbeat" });
+    expect(entry.activatedAt).toBe("2026-10-19");
   });
 
-  it("mbe-daily-issue's prompt still documents that suffix", () => {
+  it("mbe-daily-issue's prompt still documents the PR title suffix", () => {
     const prompt = readFileSync(resolve(ROOT, "docs", "routines", "mbe-daily-issue.md"), "utf-8");
     expect(prompt).toContain("(mbe-daily-issue #<ISSUE>)");
   });
@@ -1583,10 +1579,10 @@ describe("heartbeat classification (#6190)", () => {
   });
 });
 
-describe("heartbeat manifest entries and checker (#6190, #6157)", () => {
-  const HEARTBEAT_ROUTINES = ["mbe-auditor", "mbe-morning", "mbe-ui-quality"];
+describe("heartbeat manifest entries and checker (#6190, #6157, #7043)", () => {
+  const HEARTBEAT_ROUTINES = ["mbe-auditor", "mbe-morning", "mbe-ui-quality", "mbe-daily-issue"];
 
-  it("switches mbe-auditor, mbe-morning and mbe-ui-quality to heartbeat", () => {
+  it("switches mbe-auditor, mbe-morning, mbe-ui-quality and mbe-daily-issue to heartbeat", () => {
     for (const name of HEARTBEAT_ROUTINES) {
       const entry = ROUTINE_MANIFEST.find((e) => e.name === name);
       expect(entry.signature).toEqual({ type: "heartbeat" });
@@ -1651,8 +1647,8 @@ describe("fetchObservedArtifactsViaGhClient — heartbeat", () => {
   });
 });
 
-describe("heartbeat routines' prompts document the final-step comment (#6190, #6157)", () => {
-  for (const name of ["mbe-auditor", "mbe-morning", "mbe-ui-quality"]) {
+describe("heartbeat routines' prompts document the final-step comment (#6190, #6157, #7043)", () => {
+  for (const name of ["mbe-auditor", "mbe-morning", "mbe-ui-quality", "mbe-daily-issue"]) {
     it(`docs/routines/${name}.md tells the routine to post its heartbeat line on #${HEARTBEAT_ISSUE_NUMBER}`, () => {
       const prompt = readFileSync(resolve(ROOT, "docs", "routines", `${name}.md`), "utf-8");
       expect(prompt).toContain(`heartbeat: ${name} <YYYY-MM-DD> <ok|noop|throttled|error> [note]`);
