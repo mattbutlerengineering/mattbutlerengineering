@@ -100,6 +100,38 @@ async function serveLargeRoom(page: Page): Promise<void> {
   );
 }
 
+/** Every request that could change server state: each non-GET to the app's own API. */
+function trackWrites(page: Page): string[] {
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    const { pathname } = new URL(request.url());
+    const isApi = pathname.startsWith("/api/") || pathname.startsWith("/public/");
+    if (isApi && request.method() !== "GET") writes.push(`${request.method()} ${pathname}`);
+  });
+  return writes;
+}
+
+/** Simulated minutes from midnight, scrubbed to through the slider's own input. */
+const FRIDAY_SAMPLE_MINUTES = [1110, 1140, 1170, 1200, 1230, 1260, 1290];
+
+const scrubber = (page: Page) =>
+  page.getByRole("slider", { name: "Scrub through the night", exact: true });
+
+async function scrubTo(page: Page, minute: number): Promise<void> {
+  await scrubber(page).fill(String(minute), { force: true });
+}
+
+/** Finds a minute of the night with at least one table occupied; the seed is random per run. */
+async function scrubToABusyMinute(page: Page): Promise<void> {
+  const rightNow = page.getByTestId("rehearsal-right-now");
+  for (const minute of FRIDAY_SAMPLE_MINUTES) {
+    await scrubTo(page, minute);
+    const text = (await rightNow.textContent()) ?? "";
+    if (/\b[1-9]\d* tables? occupied/.test(text)) return;
+  }
+  throw new Error("no sampled minute of the simulated night had an occupied table");
+}
+
 const MEASURE_MS = 10_000;
 const MEDIAN_FRAME_BUDGET_MS = 50;
 const LONG_TASK_BUDGET_MS = 200;
@@ -177,5 +209,96 @@ test.describe("Dress rehearsal render budget (SC-12, advisory)", () => {
     }
     // The page must still be a working rehearsal after the measurement, whatever the numbers said.
     await expect(mockedPage.getByTestId("rehearsal-workspace")).toBeVisible();
+  });
+});
+
+test.describe("Dress rehearsal flow (SC-6)", () => {
+  test("a fresh venue runs a Friday night to the curtain call without a single API write", async ({
+    mockedPage,
+  }) => {
+    await emptyTheBook(mockedPage);
+    const writes = trackWrites(mockedPage);
+    await startFridayRehearsal(mockedPage);
+
+    // Freeze the clock so the assertions below read one moment of the night.
+    await mockedPage.getByRole("button", { name: "Pause", exact: true }).click();
+    await scrubToABusyMinute(mockedPage);
+
+    // Reservations on the timeline, drawn from the owner's own tables.
+    await expect(mockedPage.getByTestId(/^reservation-block-rehearsal-/).first()).toBeVisible();
+    await expect(mockedPage.getByTestId("table-row-tbl_e2e_001")).toBeVisible();
+
+    // Occupied tables on the floor plan.
+    await mockedPage.getByRole("radio", { name: "Floor plan", exact: true }).click();
+    await expect(
+      mockedPage.getByRole("img", { name: /^[1-9]\d* tables? occupied\./ })
+    ).toBeVisible();
+
+    // The end of the night opens the curtain call.
+    await scrubber(mockedPage).focus();
+    await scrubber(mockedPage).press("End");
+    const curtain = mockedPage.getByRole("dialog", { name: "Your Friday night", exact: true });
+    await expect(curtain).toBeVisible();
+    await expect(curtain.getByText("Covers served", { exact: true })).toBeVisible();
+    await expect(curtain.getByText("This was a rehearsal. Nothing was saved.")).toBeVisible();
+
+    // Run it again starts a new night at opening time.
+    await curtain.getByRole("button", { name: "Run it again", exact: true }).click();
+    await expect(curtain).toHaveCount(0);
+    await expect(mockedPage).toHaveURL(/\/rehearsal$/);
+    await expect(mockedPage.getByRole("heading", { name: /^Friday night · / })).toBeVisible();
+
+    expect(writes, "the rehearsal must not write").toEqual([]);
+  });
+
+  test("both views wear the rehearsal banner, and a simulated booking cannot be acted on", async ({
+    mockedPage,
+  }) => {
+    await emptyTheBook(mockedPage);
+    const writes = trackWrites(mockedPage);
+    await startFridayRehearsal(mockedPage);
+    await mockedPage.getByRole("button", { name: "Pause", exact: true }).click();
+
+    const banner = mockedPage.getByRole("note", { name: "Rehearsal notice", exact: true });
+    await expect(banner).toContainText("Rehearsal, not real bookings. Nothing here is saved.");
+    await scrubToABusyMinute(mockedPage);
+
+    const block = mockedPage.getByTestId(/^reservation-block-rehearsal-/).first();
+    await block.click({ force: true });
+    await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
+    await expect(mockedPage).toHaveURL(/\/rehearsal$/);
+
+    await mockedPage.getByRole("radio", { name: "Floor plan", exact: true }).click();
+    await expect(banner).toBeVisible();
+    await mockedPage.getByRole("radio", { name: "Timeline", exact: true }).click();
+    await expect(banner).toBeVisible();
+
+    expect(writes, "the rehearsal must not write").toEqual([]);
+  });
+});
+
+test.describe("Dress rehearsal with reduced motion (SC-11)", () => {
+  test("starts paused at opening time and steps through the night event by event", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.emulateMedia({ reducedMotion: "reduce" });
+    await emptyTheBook(mockedPage);
+    await startFridayRehearsal(mockedPage);
+
+    await expect(
+      mockedPage.getByText("Motion is reduced. Step through the night with Next event.", {
+        exact: true,
+      })
+    ).toBeVisible();
+    await expect(mockedPage.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+    await expect(mockedPage.getByRole("button", { name: "Pause", exact: true })).toHaveCount(0);
+    await expect(mockedPage.getByRole("radiogroup", { name: "Playback speed" })).toHaveCount(0);
+
+    const live = mockedPage.getByTestId("rehearsal-live-region");
+    await mockedPage.getByRole("button", { name: "Next event", exact: true }).click();
+    await expect(live).toContainText(/Party of \d/);
+    // Stepping back lands on an earlier event; the live region always says what is there.
+    await mockedPage.getByRole("button", { name: "Previous event", exact: true }).click();
+    await expect(live).not.toBeEmpty();
   });
 });

@@ -66,12 +66,21 @@ Demonstrable when done: all three entry points, the curtain-call summary with re
 - [ ] **E2E spec and workflow coverage** — `apps/hospitality/e2e/dress-rehearsal.spec.ts` and its listing in the hospitality E2E workflow so `workflow-coverage.test.ts` passes (surfaced item 4). Follow the e2e-selector-drift rules: stateful mocks must return the tables, no ambiguous `getByText`.
   - Accept: on a fresh mocked venue with tables and no reservations: click "Run a Friday night", advance the clock, tables show occupied on the floor plan and reservations on the timeline, the curtain call appears, and a route spy records zero non-GET API requests during the whole flow (SC-6). The spec also asserts the banner on both views, that a reservation click does nothing, and that with `prefers-reduced-motion: reduce` playback starts paused and steps. `workflow-coverage.test.ts` fails if the spec is removed from the workflow and passes with it listed. The `e2e-selector-drift-reviewer` finds no strict-mode collision.
   - Blocked by: Curtain call summary; Settings entry; Onboarding entry
-- [ ] **Localization completeness and reduced-motion check** — final pass over `rehearsal.*` and `settings.rehearsal.*` keys.
+- [x] **Localization completeness and reduced-motion check** — final pass over `rehearsal.*` and `settings.rehearsal.*` keys.
   - Accept: the repo's localization completeness check and `mbe-local/no-literal-ui-strings` pass with every new key present in en-US and fr-CA, French in whole sentences with `_one`/`_other` plurals, no machine-concatenated fragments (SC-10). A checklist entry for the manual reduced-motion check on a preview deploy with a real onboarded floor plan is written into the Verify hand-off (SC-11, manual part).
   - Blocked by: Curtain call summary; Onboarding entry; Settings entry
 - [ ] **Changeset and generated artifacts** — surfaced items 6 and 7. Determine whether any `packages/rialto` published source changed (expected none, since all changes are in `apps/hospitality`); if any did, add a changeset. Run the regen path for llms/dependency artifacts.
   - Accept: `git diff --name-only origin/main...HEAD -- packages/rialto/src` is empty, or a `.changeset/*.md` covering the changed package exists. After `pnpm build --filter @mbe/cli... && pnpm regen`, `pnpm regen --check` reports clean and any regenerated llms files are committed by explicit path. `pnpm lint`, `pnpm typecheck` and `pnpm test` pass at the repo level (SC-13).
   - Blocked by: E2E spec and workflow coverage; Localization completeness and reduced-motion check
+
+## Verify hand-off
+
+Manual checks the automated gates cannot make; carry these into `verification.md`.
+
+- [ ] **Reduced motion on a preview deploy (SC-11, manual part).** On a preview deploy with a real onboarded floor plan, turn on the OS reduced-motion setting, open Settings, Dress Rehearsal, Run a Friday night. Expect: the workspace opens paused at opening time with the "Motion is reduced" hint; no speed control; Previous event / Next event / Play only; each Next event updates the table or block instantly with no transition and no pulse, and the live region reads the change; Play advances in 15-minute jumps once a second; the curtain call is identical. Also check the floor plan canvas shows a 2 px outline-free instant status swap (no cross-fade) and that nothing animates when switching views.
+- [ ] **Credentialed Playwright run.** `e2e/dress-rehearsal.spec.ts` (flow, banner/read-only, reduced motion, 240x render budget) was written and statically checked but never executed here (no `E2E_AUTH0_*`). Run `pnpm --dir apps/hospitality test:e2e e2e/dress-rehearsal.spec.ts` with credentials, read the `render-budget` annotation, and confirm the zero-write assertions pass.
+- [ ] **UX Screen 2 amendment.** Confirm owners are comfortable with no distinct "ready" table status on the floor plan (it shows as available; see the 2026-10-19 note under Notes).
+- [ ] **French and Spanish copy.** fr-CA and es-MX strings were written by the implementing agent and have not had a native-speaker review.
 
 ## Design gaps found
 

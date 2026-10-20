@@ -274,7 +274,7 @@ export function RehearsalWorkspace({
           </Text>
         ))}
 
-        <Text as="p" className={styles.rightNow}>
+        <Text as="p" className={styles.rightNow} data-testid="rehearsal-right-now">
           <strong>{t("rehearsal.rightNow.label")}</strong>
           {": "}
           {rightNow}
@@ -314,7 +314,13 @@ export function RehearsalWorkspace({
         />
       ) : null}
 
-      <div className={styles.srOnly} role="status" aria-live="polite" aria-atomic="true">
+      <div
+        className={styles.srOnly}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="rehearsal-live-region"
+      >
         {liveText}
       </div>
     </div>
