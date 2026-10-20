@@ -3974,3 +3974,17 @@ Phase 0 pre-flight: main green (0 failure-concluded runs in the last 5 via `gh r
 ### Skipped Issues
 
 None — 0 `agent-skip`.
+
+## 2026-10-20 — mbe-evening (optimize-implement-queue)
+
+**queueEfficiency:** composite 0.539 (baseline n/a — still no persisted baseline) — healthy, `regressions: []` for this sensor. Sub-metrics: 189 issues merged, first-pass-success 84.7%, median TTM 0.2h, median rework 0, cost/issue $13.196 (coverage 9/189, same sparse `cost_usd` population flagged in tonight's progress-tracker entry), review coverage 50% (8 of 16 PRs sampled by the sensor — a different, smaller denominator than queue-telemetry's own 177-row weekly window; not comparable 1:1).
+
+**Difficulty distribution:** size:xs:38, size:m:56, size:xl:28, size:s:35, size:l:32.
+
+**Issues filed:** 0 — no queueEfficiency regression to triage (Step 4 not entered).
+
+**Noted, not acted on (out of this skill's scope):** the sensor-report's top-level `regressions[]` carried one entry outside `queueEfficiency` — `ciHealth.pass_rate_pct` 100% → 94% (delta -6, severity high). Per this skill's own scope (`Sensor Label Map`: `queueEfficiency` → `meta-improvement` only), a non-`queueEfficiency` regression isn't this routine's to triage or file — that's `/learning-loop`'s sensor. Recording it here so the next `mbe-learning-loop` run has a same-day pointer rather than rediscovering it cold; per the gotchas.md caution on `ciHealth`-style rate sensors, a `pass_rate_pct` delta should be checked against the raw `failed` count before treating it as a real regression (a 94% read this high isn't the zero-failures false-positive shape documented there, but worth confirming).
+
+**Step 5 (async eval):** not triggered — no queueEfficiency regression.
+
+**Step 0 (reconcile):** 0 rows reconciled this run (0 GitHub lookups needed) — fill rates already high from the daily `metrics-collectors.yml` workflow having already caught up.
