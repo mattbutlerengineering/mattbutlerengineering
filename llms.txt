@@ -7102,6 +7102,43 @@
       ): RehearsalMetrics { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/rehearsal/rehearsal-view-model.ts">
+    <item priority="low">
+      interface RehearsalView {
+        reservations: readonly Reservation[];
+        tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
+        seatedIds: ReadonlySet<string>;
+        waiting: readonly WaitingParty[];
+      }
+    </item>
+    <item priority="low">
+      interface BuildRehearsalViewInput {
+        state: RehearsalState;
+        seed: number;
+        tableIds: readonly string[];
+        now: Date;
+        timeZone: string;
+      }
+    </item>
+    <item priority="high">
+      export function venueMidnightMs(now: Date, timeZone: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function minuteToIso(midnightMs: number, minute: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toReservation(
+        partyId: string,
+        party: PartyState,
+        input: BuildRehearsalViewInput,
+        midnight: number,
+        date: string
+      ): Reservation { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildRehearsalView(input: BuildRehearsalViewInput): RehearsalView { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/rehearsal/should-announce.ts">
     <item priority="low">
       type PlaybackSpeed = 15 | 60 | 240;
