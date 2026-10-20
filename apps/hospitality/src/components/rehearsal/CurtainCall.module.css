@@ -1,0 +1,82 @@
+/* Dims the workspace behind it; the banner (z-index 40) stays above, so "not real" is never hidden. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-md);
+  background: color-mix(in srgb, var(--rialto-surface-recessed) 70%, transparent);
+}
+
+.panel {
+  position: relative;
+  inline-size: min(100%, 30rem);
+  max-block-size: 100%;
+  overflow-y: auto;
+  padding: var(--rialto-space-lg);
+  border: 2px dashed var(--rialto-accent);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  color: var(--rialto-text-primary);
+  box-shadow: var(--rialto-shadow-lg);
+}
+
+.panel button,
+.panel a {
+  min-block-size: 44px;
+}
+
+.close {
+  position: absolute;
+  inset-block-start: var(--rialto-space-sm);
+  inset-inline-end: var(--rialto-space-sm);
+}
+
+.title {
+  margin: 0 0 var(--rialto-space-md);
+}
+
+.title:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.metrics {
+  display: grid;
+  gap: var(--rialto-space-sm);
+  margin: 0 0 var(--rialto-space-md);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  padding-block-end: var(--rialto-space-xs);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.label {
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+}
+
+.value {
+  margin: 0;
+  font-weight: var(--rialto-weight-medium);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.disclaimer {
+  margin: 0 0 var(--rialto-space-md);
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+}

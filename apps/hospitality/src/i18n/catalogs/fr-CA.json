@@ -1797,7 +1797,8 @@
       "departed": "{{party}} a quitté {{table}}.",
       "tableDirty": "{{table}} doit être desservie.",
       "tableReady": "{{table}} est prête.",
-      "tableAvailable": "{{table}} est disponible."
+      "tableAvailable": "{{table}} est disponible.",
+      "end": "La soirée est terminée. Couverts servis : {{covers}}."
     },
     "legend": {
       "label": "État des tables",
@@ -1823,6 +1824,28 @@
     "onboardingAlert": {
       "title": "Votre salle est prête.",
       "body": "Regardez un vendredi soir s'y dérouler avant votre premier client."
+    },
+    "curtain": {
+      "titleFriday": "Votre vendredi soir",
+      "titleWeeknight": "Votre soirée en semaine",
+      "covers": "Couverts servis",
+      "avgTurn": "Durée moyenne d'occupation",
+      "peak": "Heure de pointe",
+      "neverSat": "Tables jamais occupées",
+      "longestWait": "Plus longue attente sans réservation",
+      "allSat": "Toutes les tables ont été occupées ce soir.",
+      "nobodyWaited": "Personne n'a attendu.",
+      "noCovers": "Pas assez de tables pour installer qui que ce soit. Ajoutez des tables à votre plan de salle.",
+      "disclaimer": "Ceci était une répétition. Rien n'a été enregistré.",
+      "again": "Recommencer",
+      "tryWeeknight": "Essayer une soirée en semaine",
+      "tryFriday": "Essayer un vendredi soir",
+      "close": "Fermer le résumé",
+      "show": "Afficher le bilan",
+      "peakRange": "{{from}} à {{to}}",
+      "durationMinutes": "{{minutes}} min",
+      "durationHours": "{{hours}} h",
+      "durationHoursMinutes": "{{hours}} h {{minutes}} min"
     }
   }
 }

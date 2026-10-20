@@ -7,10 +7,12 @@ import { TimelineGrid } from "../timeline/TimelineGrid";
 import { FloorPlanCanvas } from "../floor-plan/FloorPlanCanvas";
 import { useVenueFormat } from "../../hooks/useVenueFormat";
 import { venueDate } from "../../utils/service-day";
+import { CurtainCall } from "./CurtainCall";
 import { RehearsalBanner } from "./RehearsalBanner";
 import { TransportBar } from "./TransportBar";
 import { describeEvent, partyLabel, rightNowSentence } from "./rehearsal-copy";
-import { eventIndexAt, foldEvents } from "./rehearsal-state";
+import { eventIndexAt, foldEvents, rehearsalMetrics } from "./rehearsal-state";
+import type { RehearsalNavProfile } from "./rehearsal-route";
 import { buildRehearsalView, minuteToIso, venueMidnightMs } from "./rehearsal-view-model";
 import type { RehearsalProfileId } from "./profiles";
 import type { RehearsalEvent } from "./simulate-service";
@@ -31,6 +33,9 @@ export interface RehearsalWorkspaceProps {
   /** Fixes which calendar day the simulated night is drawn on; stable for the whole run. */
   anchor: Date;
   onLeave: () => void;
+  /** Same profile, fresh seed. */
+  onRunAgain: () => void;
+  onTryOther: (profile: RehearsalNavProfile) => void;
 }
 
 const noop = () => undefined;
@@ -49,11 +54,14 @@ export function RehearsalWorkspace({
   closeMinute,
   anchor,
   onLeave,
+  onRunAgain,
+  onTryOther,
 }: RehearsalWorkspaceProps) {
   const { t } = useTranslation();
   const fmt = useVenueFormat();
   const { reduced } = useMotionPreset();
   const [viewId, setViewId] = useState<RehearsalViewId>("timeline");
+  const [curtainClosed, setCurtainClosed] = useState(false);
 
   // Normal motion: the live region says the state at `announcedMinute`, set by the throttle.
   const [announcedMinute, setAnnouncedMinute] = useState<number | null>(null);
@@ -114,8 +122,20 @@ export function RehearsalWorkspace({
       announcedMinute === null ? null : foldEvents(events, eventIndexAt(events, announcedMinute)),
     [events, announcedMinute]
   );
+  const metrics = useMemo(
+    () =>
+      rehearsalMetrics(
+        events,
+        tables.map((table) => table.id)
+      ),
+    [events, tables]
+  );
+  const curtainOpen = playback.atEnd && !curtainClosed;
+
   let liveText = "";
-  if (reduced) {
+  if (playback.atEnd) {
+    liveText = t("rehearsal.live.end", { covers: metrics.coversServed });
+  } else if (reduced) {
     liveText = t("rehearsal.live.step", {
       time: formatMinute(minute),
       what: state.lastEvent
@@ -132,6 +152,14 @@ export function RehearsalWorkspace({
   const handlePause = () => {
     playback.pause();
     setAnnouncedMinute(minute);
+  };
+  const handleScrub = (target: number) => {
+    setCurtainClosed(false);
+    playback.scrubTo(target);
+  };
+  const handleReplay = () => {
+    setCurtainClosed(false);
+    playback.restart();
   };
   const handleScrubRelease = () => {
     playback.releaseScrub();
@@ -265,11 +293,26 @@ export function RehearsalWorkspace({
         onPlay={playback.play}
         onPause={handlePause}
         onSpeed={playback.setSpeed}
-        onScrub={playback.scrubTo}
+        onScrub={handleScrub}
         onScrubRelease={handleScrubRelease}
         onStep={playback.stepEvent}
-        onReplay={playback.restart}
+        onReplay={handleReplay}
+        onShowCurtain={curtainClosed ? () => setCurtainClosed(false) : undefined}
       />
+
+      {curtainOpen ? (
+        <CurtainCall
+          profile={profile}
+          metrics={metrics}
+          tableName={tableName}
+          formatMinute={formatMinute}
+          locale={fmt.locale}
+          onRunAgain={onRunAgain}
+          onTryOther={onTryOther}
+          onLeave={onLeave}
+          onClose={() => setCurtainClosed(true)}
+        />
+      ) : null}
 
       <div className={styles.srOnly} role="status" aria-live="polite" aria-atomic="true">
         {liveText}

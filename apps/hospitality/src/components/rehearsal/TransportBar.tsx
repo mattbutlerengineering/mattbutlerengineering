@@ -23,6 +23,8 @@ export interface TransportBarProps {
   onScrubRelease: () => void;
   onStep: (direction: 1 | -1) => void;
   onReplay: () => void;
+  /** Present only when the curtain call was closed at the end of the night. */
+  onShowCurtain?: () => void;
 }
 
 export function TransportBar({
@@ -41,6 +43,7 @@ export function TransportBar({
   onScrubRelease,
   onStep,
   onReplay,
+  onShowCurtain,
 }: TransportBarProps) {
   const { t } = useTranslation();
 
@@ -83,6 +86,11 @@ export function TransportBar({
         </Button>
       ) : null}
       {playPause}
+      {atEnd && onShowCurtain ? (
+        <Button variant="secondary" onClick={onShowCurtain}>
+          {t("rehearsal.curtain.show")}
+        </Button>
+      ) : null}
       {reducedMotion ? (
         <Button variant="secondary" onClick={() => onStep(1)}>
           {t("rehearsal.transport.next")}

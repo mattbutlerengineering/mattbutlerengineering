@@ -19,12 +19,24 @@ vi.mock("../contexts/VenueContext", () => ({
 }));
 vi.mock("@mbe/sentry/react", () => ({ handleErrorBoundary: mocks.report }));
 vi.mock("../components/rehearsal/RehearsalWorkspace", () => ({
-  RehearsalWorkspace: (props: { floorPlan: { id: string }; seed: number; onLeave: () => void }) => {
+  RehearsalWorkspace: (props: {
+    floorPlan: { id: string };
+    seed: number;
+    onLeave: () => void;
+    onRunAgain: () => void;
+    onTryOther: (profile: "friday" | "weeknight") => void;
+  }) => {
     mocks.workspace(props);
     return (
       <div data-testid="workspace" data-plan={props.floorPlan.id} data-seed={props.seed}>
         <button type="button" onClick={props.onLeave}>
           leave
+        </button>
+        <button type="button" onClick={props.onRunAgain}>
+          again
+        </button>
+        <button type="button" onClick={() => props.onTryOther("weeknight")}>
+          other
         </button>
       </div>
     );
@@ -221,6 +233,42 @@ describe("RehearsalPage workspace", () => {
     const props = mocks.workspace.mock.calls[0]?.[0] as { openMinute: number; closeMinute: number };
     expect(props.openMinute).toBe(17 * 60);
     expect(props.closeMinute).toBe(22 * 60);
+  });
+});
+
+describe("RehearsalPage curtain call actions", () => {
+  const probeState = () =>
+    JSON.parse(screen.getByTestId("probe").textContent ?? "{}") as {
+      seed: number;
+      profile: string;
+      floorPlanId?: string;
+    };
+
+  it("Run it again keeps the profile and plan with a fresh seed, replacing the entry", async () => {
+    renderAt({ profile: "friday", seed: 3, floorPlanId: "fp-1" });
+    await userEvent.click(screen.getByRole("button", { name: "again" }));
+    expect(probeState()).toMatchObject({ profile: "friday", floorPlanId: "fp-1" });
+    expect(probeState().seed).not.toBe(3);
+  });
+
+  it("Try a weeknight switches the profile with a fresh seed and runs on the weeknight hours", async () => {
+    renderAt({ profile: "friday", seed: 3 });
+    await userEvent.click(screen.getByRole("button", { name: "other" }));
+    expect(probeState().profile).toBe("weeknight");
+    expect(probeState().seed).not.toBe(3);
+    const last = mocks.workspace.mock.calls.at(-1)?.[0] as { closeMinute: number; seed: number };
+    expect(last.closeMinute).toBe(22 * 60);
+    expect(last.seed).toBe(probeState().seed);
+  });
+
+  it("replaces history, so Leave still returns to where the rehearsal was entered from", async () => {
+    renderAt(undefined, [
+      "/timeline",
+      { pathname: "/rehearsal", state: { profile: "friday", seed: 1 } },
+    ]);
+    await userEvent.click(screen.getByRole("button", { name: "again" }));
+    await userEvent.click(screen.getByRole("button", { name: "leave" }));
+    expect(screen.getByText("Timeline marker")).toBeInTheDocument();
   });
 });
 

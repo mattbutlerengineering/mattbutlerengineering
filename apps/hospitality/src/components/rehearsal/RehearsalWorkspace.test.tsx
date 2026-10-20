@@ -45,6 +45,7 @@ Object.defineProperty(window, "matchMedia", {
 
 import { RehearsalWorkspace } from "./RehearsalWorkspace";
 import { simulateService } from "./simulate-service";
+import { rehearsalMetrics } from "./rehearsal-state";
 
 const FLOOR_PLAN: FloorPlan = {
   id: "fp-1",
@@ -104,6 +105,8 @@ const props = () => ({
   closeMinute: CLOSE,
   anchor: ANCHOR,
   onLeave: vi.fn(),
+  onRunAgain: vi.fn(),
+  onTryOther: vi.fn(),
 });
 
 beforeEach(() => {
@@ -291,5 +294,73 @@ describe("RehearsalWorkspace reduced motion (SC-11)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Next event" }));
     const region = document.querySelector("[aria-live]") as HTMLElement;
     expect(region.textContent).toMatch(/Party of \d/);
+  });
+});
+
+describe("RehearsalWorkspace curtain call (SC-7)", () => {
+  const finishNight = () => {
+    scrubTo(CLOSE);
+    fireEvent.pointerUp(screen.getByRole("slider", { name: "Scrub through the night" }));
+  };
+
+  it("does not appear mid-night", () => {
+    render(<RehearsalWorkspace {...props()} />);
+    scrubTo(19 * 60);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("opens at close with the metrics of the same events", () => {
+    render(<RehearsalWorkspace {...props()} />);
+    finishNight();
+    const dialog = screen.getByRole("dialog", { name: "Your Friday night" });
+    const metrics = rehearsalMetrics(
+      EVENTS,
+      TABLES.map((table) => table.id)
+    );
+    const row = (label: string) => within(dialog).getByText(label).closest("div") as HTMLElement;
+    expect(row("Covers served")).toHaveTextContent(String(metrics.coversServed));
+    expect(metrics.coversServed).toBeGreaterThan(0);
+    expect(within(dialog).getByRole("heading", { name: "Your Friday night" })).toHaveFocus();
+    expect(screen.getByRole("note", { name: "Rehearsal notice" })).toBeInTheDocument();
+  });
+
+  it("announces the end of service once", () => {
+    render(<RehearsalWorkspace {...props()} />);
+    finishNight();
+    const region = document.querySelector("[aria-live]") as HTMLElement;
+    expect(region.textContent).toMatch(/^Service is over\. Covers served: \d+\.$/);
+  });
+
+  it("ignores Escape, closes to a paused workspace, and can be shown again", async () => {
+    render(<RehearsalWorkspace {...props()} />);
+    finishNight();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Close summary" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Replay from start" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Show curtain call" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("hands Run it again, Try a weeknight and Leave to the page", async () => {
+    const p = props();
+    render(<RehearsalWorkspace {...p} />);
+    finishNight();
+    await userEvent.click(screen.getByRole("button", { name: "Run it again" }));
+    expect(p.onRunAgain).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "Try a weeknight" }));
+    expect(p.onTryOther).toHaveBeenCalledWith("weeknight");
+  });
+
+  it("closes the card and restarts at open on Replay from start", async () => {
+    render(<RehearsalWorkspace {...props()} />);
+    finishNight();
+    await userEvent.click(screen.getByRole("button", { name: "Close summary" }));
+    await userEvent.click(screen.getByRole("button", { name: "Replay from start" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("heading", { name: /Friday night · 5:00 PM/ })).toBeInTheDocument();
   });
 });

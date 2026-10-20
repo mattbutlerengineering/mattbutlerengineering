@@ -1797,7 +1797,8 @@
       "departed": "{{party}} dejó {{table}}.",
       "tableDirty": "{{table}} necesita limpieza.",
       "tableReady": "{{table}} está lista.",
-      "tableAvailable": "{{table}} está disponible."
+      "tableAvailable": "{{table}} está disponible.",
+      "end": "El servicio terminó. Cubiertos servidos: {{covers}}."
     },
     "legend": {
       "label": "Estado de las mesas",
@@ -1823,6 +1824,28 @@
     "onboardingAlert": {
       "title": "Tu sala está lista.",
       "body": "Mira cómo se desarrolla un viernes por la noche antes de tu primer cliente."
+    },
+    "curtain": {
+      "titleFriday": "Tu viernes por la noche",
+      "titleWeeknight": "Tu noche entre semana",
+      "covers": "Cubiertos servidos",
+      "avgTurn": "Tiempo promedio por mesa",
+      "peak": "Hora pico",
+      "neverSat": "Mesas que nunca se ocuparon",
+      "longestWait": "Espera más larga sin reservación",
+      "allSat": "Todas las mesas se ocuparon esta noche.",
+      "nobodyWaited": "Nadie esperó.",
+      "noCovers": "No hay suficientes mesas para sentar a nadie. Agrega mesas a tu plano de sala.",
+      "disclaimer": "Esto fue un ensayo. No se guardó nada.",
+      "again": "Repetir",
+      "tryWeeknight": "Probar una noche entre semana",
+      "tryFriday": "Probar un viernes por la noche",
+      "close": "Cerrar resumen",
+      "show": "Mostrar resumen",
+      "peakRange": "{{from}} a {{to}}",
+      "durationMinutes": "{{minutes}} min",
+      "durationHours": "{{hours}} h",
+      "durationHoursMinutes": "{{hours}} h {{minutes}} min"
     }
   }
 }

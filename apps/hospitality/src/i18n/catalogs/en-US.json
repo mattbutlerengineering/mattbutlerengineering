@@ -1770,7 +1770,8 @@
       "departed": "{{party}} left {{table}}.",
       "tableDirty": "{{table}} needs bussing.",
       "tableReady": "{{table}} is ready.",
-      "tableAvailable": "{{table}} is available."
+      "tableAvailable": "{{table}} is available.",
+      "end": "Service is over. Covers served: {{covers}}."
     },
     "legend": {
       "label": "Table status",
@@ -1796,6 +1797,28 @@
     "onboardingAlert": {
       "title": "Your room is ready.",
       "body": "Watch a Friday night run on it before your first guest."
+    },
+    "curtain": {
+      "titleFriday": "Your Friday night",
+      "titleWeeknight": "Your weeknight",
+      "covers": "Covers served",
+      "avgTurn": "Average turn time",
+      "peak": "Peak hour",
+      "neverSat": "Tables that never sat",
+      "longestWait": "Longest walk-in wait",
+      "allSat": "Every table sat tonight.",
+      "nobodyWaited": "Nobody waited.",
+      "noCovers": "Not enough tables to seat anyone. Add tables to your floor plan.",
+      "disclaimer": "This was a rehearsal. Nothing was saved.",
+      "again": "Run it again",
+      "tryWeeknight": "Try a weeknight",
+      "tryFriday": "Try a Friday night",
+      "close": "Close summary",
+      "show": "Show curtain call",
+      "peakRange": "{{from}} to {{to}}",
+      "durationMinutes": "{{minutes}} min",
+      "durationHours": "{{hours}} h",
+      "durationHoursMinutes": "{{hours}} h {{minutes}} min"
     }
   }
 }

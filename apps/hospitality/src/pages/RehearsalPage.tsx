@@ -9,7 +9,11 @@ import { RehearsalBanner } from "../components/rehearsal/RehearsalBanner";
 import { RehearsalWorkspace } from "../components/rehearsal/RehearsalWorkspace";
 import { pickFloorPlan } from "../components/rehearsal/pick-floor-plan";
 import { REHEARSAL_PROFILES } from "../components/rehearsal/profiles";
-import { parseRehearsalState, rehearsalNavigation } from "../components/rehearsal/rehearsal-route";
+import {
+  parseRehearsalState,
+  rehearsalNavigation,
+  type RehearsalNavProfile,
+} from "../components/rehearsal/rehearsal-route";
 import { simulateService } from "../components/rehearsal/simulate-service";
 import { useVenue } from "../contexts/VenueContext";
 import { useFloorPlans } from "../hooks/useFloorPlans";
@@ -80,14 +84,10 @@ export function RehearsalPage() {
     if (location.key === "default") navigate(FALLBACK_PATH, { replace: true });
     else navigate(-1);
   };
-  const tryAgain = () =>
-    navigate(
-      ...rehearsalNavigation({
-        profile: nav.profile,
-        floorPlanId: nav.floorPlanId,
-        replace: true,
-      })
-    );
+  // Same route, new state: `replace` keeps Back pointing at where the rehearsal was entered from.
+  const restart = (profile: RehearsalNavProfile) =>
+    navigate(...rehearsalNavigation({ profile, floorPlanId: nav.floorPlanId, replace: true }));
+  const tryAgain = () => restart(nav.profile);
 
   let body;
   if (loading) {
@@ -148,6 +148,8 @@ export function RehearsalPage() {
         closeMinute={run.closeMinute}
         anchor={anchor}
         onLeave={leave}
+        onRunAgain={tryAgain}
+        onTryOther={restart}
       />
     );
   }

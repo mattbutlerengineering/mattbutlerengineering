@@ -29,6 +29,7 @@ const PACKAGE_ALLOWLIST: readonly string[] = [
   "zod",
   "@mattbutlerengineering/rialto",
   "@mattbutlerengineering/rialto/providers",
+  "@mattbutlerengineering/rialto/hooks",
   "@mbe/types",
   "@mbe/sentry/react",
 ];
