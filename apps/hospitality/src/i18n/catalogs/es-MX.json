@@ -383,7 +383,8 @@
       "dashboard": "Panel",
       "setup": "Configuración inicial",
       "hours": "Horario de operación",
-      "menus": "Menús"
+      "menus": "Menús",
+      "rehearsal": "Ensayo"
     },
     "venuesNotLoaded": "No se cargaron los locales.",
     "searchPlaceholder": "Buscar páginas y acciones...",
@@ -1796,6 +1797,18 @@
       "available": "Disponible",
       "occupied": "Ocupada",
       "dirty": "Por limpiar"
+    },
+    "error": {
+      "title": "No se pudo preparar el ensayo.",
+      "body": "Algo salió mal al armar la noche. No se guardó nada.",
+      "retry": "Reintentar",
+      "leave": "Salir"
+    },
+    "loadError": "No se pudieron cargar tus mesas.",
+    "notEnough": {
+      "heading": "No hay suficientes mesas",
+      "body": "Agrega mesas a tu plano de sala para hacer un ensayo.",
+      "floorPlans": "Planos de sala"
     }
   }
 }

@@ -28,3 +28,18 @@ describe("hospitality catch-all route", () => {
     expect(mainTsxSource).toMatch(/import\("\.\/pages\/NotFoundPage\.js"\)/);
   });
 });
+
+describe("hospitality rehearsal route", () => {
+  it("lazily imports RehearsalPage", () => {
+    expect(mainTsxSource).toMatch(/import\("\.\/pages\/RehearsalPage\.js"\)/);
+  });
+
+  it("registers /rehearsal inside DashboardLayout, before the catch-all", () => {
+    const layoutAt = mainTsxSource.indexOf("<DashboardLayout />");
+    const routeAt = mainTsxSource.search(/path:\s*"rehearsal"/);
+    const catchAllAt = mainTsxSource.search(/path:\s*"\*"/);
+    expect(layoutAt).toBeGreaterThan(-1);
+    expect(routeAt).toBeGreaterThan(layoutAt);
+    expect(routeAt).toBeLessThan(catchAllAt);
+  });
+});

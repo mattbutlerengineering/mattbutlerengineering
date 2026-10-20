@@ -1943,6 +1943,15 @@
   </file>
   </section>
   <section priority="medium" role="rehearsal">
+  <file path="src/components/rehearsal/pick-floor-plan.ts">
+    <item priority="high">
+      export function pickFloorPlan(
+        plans: readonly FloorPlan[],
+        tables: readonly Table[],
+        requestedId: string | undefined
+      ): FloorPlan | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/rehearsal/prng.ts">
     <item priority="high">
       export function mulberry32(seed: number): () => number { /* ... */ }
@@ -1991,6 +2000,37 @@
         tableName: (tableId: string) => string,
         partySize: (partyId: string) => number
       ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/rehearsal-route.ts">
+    <item priority="high">
+      export const REHEARSAL_PATH: unknown;
+    </item>
+    <item priority="low">
+      type RehearsalNavState = z.infer<typeof rehearsalStateSchema>;
+    </item>
+    <item priority="low">
+      type RehearsalNavProfile = RehearsalNavState["profile"];
+    </item>
+    <item priority="high">
+      export function parseRehearsalState(value: unknown): RehearsalNavState | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function freshSeed(): number { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RehearsalNavigationInput {
+        profile: RehearsalNavProfile;
+        floorPlanId?: string;
+        replace?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function rehearsalNavigation({
+        profile,
+        floorPlanId,
+        replace,
+      }: RehearsalNavigationInput): readonly [string, { state: RehearsalNavState; replace?: boolean }] { /* ... */ }
     </item>
   </file>
   <file path="src/components/rehearsal/rehearsal-state.ts">

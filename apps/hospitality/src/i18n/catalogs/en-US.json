@@ -376,7 +376,8 @@
       "dashboard": "Dashboard",
       "setup": "Setup",
       "hours": "Operating Hours",
-      "menus": "Menus"
+      "menus": "Menus",
+      "rehearsal": "Rehearsal"
     },
     "venuesNotLoaded": "Venues not loaded.",
     "searchPlaceholder": "Search pages and actions...",
@@ -1769,6 +1770,18 @@
       "available": "Available",
       "occupied": "Occupied",
       "dirty": "Needs bussing"
+    },
+    "error": {
+      "title": "Couldn't set up the rehearsal.",
+      "body": "Something went wrong building the night. Nothing was saved.",
+      "retry": "Try again",
+      "leave": "Leave"
+    },
+    "loadError": "Your tables couldn't be loaded.",
+    "notEnough": {
+      "heading": "Not enough tables",
+      "body": "Add tables to your floor plan to run a rehearsal.",
+      "floorPlans": "Floor plans"
     }
   }
 }

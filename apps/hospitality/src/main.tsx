@@ -37,6 +37,9 @@ const OnboardingLayout = lazy(() =>
 const TimelinePage = lazy(() =>
   import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
 );
+const RehearsalPage = lazy(() =>
+  import("./pages/RehearsalPage.js").then((m) => ({ default: m.RehearsalPage }))
+);
 const HomePage = lazy(() => import("./pages/HomePage.js").then((m) => ({ default: m.HomePage })));
 const ReservationsPage = lazy(() =>
   import("./pages/ReservationsPage.js").then((m) => ({
@@ -217,6 +220,14 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <TimelinePage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "rehearsal",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <RehearsalPage />
                 </Suspense>
               ),
             },

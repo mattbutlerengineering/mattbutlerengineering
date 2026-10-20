@@ -22000,6 +22000,31 @@
   </file>
   </section>
   <section priority="medium" role="rehearsal">
+  <file path="apps/hospitality/src/components/rehearsal/pick-floor-plan.ts">
+    export function pickFloorPlan(
+      plans: readonly FloorPlan[],
+      tables: readonly Table[],
+      requestedId: string | undefined
+    ): FloorPlan | null {
+      const requested = plans.find((plan) => plan.id === requestedId);
+      if (requested) return requested;
+    
+      const activeTableCount = (plan: FloorPlan) =>
+        tables.filter((table) => table.isActive && table.floorPlanId === plan.id).length;
+      const pool = plans.some((plan) => plan.isActive) ? plans.filter((plan) => plan.isActive) : plans;
+    
+      let best: FloorPlan | null = null;
+      let bestCount = -1;
+      for (const plan of pool) {
+        const count = activeTableCount(plan);
+        if (count > bestCount) {
+          best = plan;
+          bestCount = count;
+        }
+      }
+      return best;
+    }
+  </file>
   <file path="apps/hospitality/src/components/rehearsal/prng.ts">
     export function mulberry32(seed: number): () => number {
       let state = seed >>> 0;
@@ -22122,6 +22147,35 @@
           return t("rehearsal.live.tableAvailable", { table });
         }
       }
+    }
+  </file>
+  <file path="apps/hospitality/src/components/rehearsal/rehearsal-route.ts">
+    export const REHEARSAL_PATH = "/rehearsal";
+    export type RehearsalNavState = z.infer<typeof rehearsalStateSchema>;
+    export type RehearsalNavProfile = RehearsalNavState["profile"];
+    export function parseRehearsalState(value: unknown): RehearsalNavState | null {
+      const parsed = rehearsalStateSchema.safeParse(value);
+      return parsed.success ? parsed.data : null;
+    }
+    export function freshSeed(): number {
+      return Date.now() >>> 0;
+    }
+    export interface RehearsalNavigationInput {
+      readonly profile: RehearsalNavProfile;
+      readonly floorPlanId?: string;
+      readonly replace?: boolean;
+    }
+    export function rehearsalNavigation({
+      profile,
+      floorPlanId,
+      replace,
+    }: RehearsalNavigationInput): readonly [string, { state: RehearsalNavState; replace?: boolean }] {
+      const state: RehearsalNavState = {
+        profile,
+        seed: freshSeed(),
+        ...(floorPlanId === undefined ? {} : { floorPlanId }),
+      };
+      return [REHEARSAL_PATH, replace ? { state, replace } : { state }];
     }
   </file>
   <file path="apps/hospitality/src/components/rehearsal/rehearsal-state.ts">

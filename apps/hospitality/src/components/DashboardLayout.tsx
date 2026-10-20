@@ -57,6 +57,7 @@ const ROUTE_LABEL_KEYS = {
   dashboard: "layout.routes.dashboard",
   setup: "layout.routes.setup",
   hours: "layout.routes.hours",
+  rehearsal: "layout.routes.rehearsal",
 } as const;
 
 function routeLabel(t: TFunction, segment: string): string {

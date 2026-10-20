@@ -383,7 +383,8 @@
       "dashboard": "Tableau de bord",
       "setup": "Configuration",
       "hours": "Heures d'ouverture",
-      "menus": "Menus"
+      "menus": "Menus",
+      "rehearsal": "Répétition"
     },
     "venuesNotLoaded": "Les établissements n'ont pas été chargés.",
     "searchPlaceholder": "Rechercher des pages et des actions...",
@@ -1796,6 +1797,18 @@
       "available": "Disponible",
       "occupied": "Occupée",
       "dirty": "À desservir"
+    },
+    "error": {
+      "title": "Impossible de préparer la répétition.",
+      "body": "Un problème est survenu pendant la préparation de la soirée. Rien n'a été enregistré.",
+      "retry": "Réessayer",
+      "leave": "Quitter"
+    },
+    "loadError": "Vos tables n'ont pas pu être chargées.",
+    "notEnough": {
+      "heading": "Pas assez de tables",
+      "body": "Ajoutez des tables à votre plan de salle pour lancer une répétition.",
+      "floorPlans": "Plans de salle"
     }
   }
 }
