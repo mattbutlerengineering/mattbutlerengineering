@@ -40,7 +40,11 @@ const WORKFLOW_PATHS = [
  * see that PR's body for the full tradeoff.
  */
 describe("hospitality e2e workflow coverage", () => {
-  const AUTO_DISCOVERED_SPECS = ["offline-shell.spec.ts", "locale-sweep.spec.ts"];
+  const AUTO_DISCOVERED_SPECS = [
+    "offline-shell.spec.ts",
+    "locale-sweep.spec.ts",
+    "dress-rehearsal.spec.ts",
+  ];
 
   it.each(AUTO_DISCOVERED_SPECS)("%s exists in e2e/", (spec) => {
     const specs = readdirSync(__dirname).filter((f) => f.endsWith(".spec.ts"));
