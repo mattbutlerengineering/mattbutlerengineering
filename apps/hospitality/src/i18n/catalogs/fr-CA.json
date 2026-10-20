@@ -1550,6 +1550,12 @@
       "title": "Compte",
       "signedInAs": "Connecté en tant que",
       "signOut": "Se déconnecter"
+    },
+    "rehearsal": {
+      "title": "Répétition générale",
+      "body": "Regardez un vendredi soir simulé se dérouler sur votre propre plan de salle. Rien n'est enregistré.",
+      "noTables": "Ajoutez d'abord des tables à votre plan de salle.",
+      "floorPlans": "Plans de salle"
     }
   },
   "admin": {

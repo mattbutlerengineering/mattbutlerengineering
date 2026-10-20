@@ -1550,6 +1550,12 @@
       "title": "Cuenta",
       "signedInAs": "Sesión iniciada como",
       "signOut": "Cerrar sesión"
+    },
+    "rehearsal": {
+      "title": "Ensayo general",
+      "body": "Mira una noche de viernes simulada en tu propio plano de sala. No se guarda nada.",
+      "noTables": "Primero agrega mesas a tu plano de sala.",
+      "floorPlans": "Planos de sala"
     }
   },
   "admin": {

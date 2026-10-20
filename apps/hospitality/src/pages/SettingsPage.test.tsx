@@ -50,6 +50,11 @@ vi.mock("../components/LanguageRegionCard.js", () => ({
   LanguageRegionCard: () => <div data-testid="language-region-card" />,
 }));
 
+// The card reads tables and routes through react-router's Link; it has its own tests.
+vi.mock("../components/rehearsal/RehearsalSettingsCard", () => ({
+  RehearsalSettingsCard: () => <div data-testid="rehearsal-settings-card" />,
+}));
+
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="page-header">
@@ -275,6 +280,15 @@ describe("SettingsPage", () => {
 
     fireEvent.click(screen.getByText("Operating Hours"));
     expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
+  });
+
+  it("places the Dress Rehearsal card directly above the Venue card", async () => {
+    renderPage();
+    const rehearsal = await screen.findByTestId("rehearsal-settings-card");
+    const venueHeading = screen.getByText("Venue");
+    expect(
+      rehearsal.compareDocumentPosition(venueHeading) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it("renders venue defaults card after loading", async () => {

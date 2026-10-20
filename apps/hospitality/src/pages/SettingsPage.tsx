@@ -21,6 +21,7 @@ import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { LanguageRegionCard } from "../components/LanguageRegionCard.js";
+import { RehearsalSettingsCard } from "../components/rehearsal/RehearsalSettingsCard";
 import { describeApiError } from "../lib/describe-api-error.js";
 import styles from "./SettingsPage.module.css";
 
@@ -361,6 +362,8 @@ export function SettingsPage() {
         {/* ── Sidebar column ──────────────────── */}
         <div className={styles.sidebar}>
           <Stack gap="lg">
+            <RehearsalSettingsCard />
+
             <Card title={t("settings.venue.title")}>
               <Stack gap="md">
                 <Text variant="caption" color="secondary">

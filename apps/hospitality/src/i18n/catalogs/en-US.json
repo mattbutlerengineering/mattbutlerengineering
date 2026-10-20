@@ -1527,6 +1527,12 @@
       "title": "Account",
       "signedInAs": "Signed in as",
       "signOut": "Sign Out"
+    },
+    "rehearsal": {
+      "title": "Dress Rehearsal",
+      "body": "Watch a simulated Friday night on your own floor plan. Nothing is saved.",
+      "noTables": "Add tables to your floor plan first.",
+      "floorPlans": "Floor plans"
     }
   },
   "admin": {
