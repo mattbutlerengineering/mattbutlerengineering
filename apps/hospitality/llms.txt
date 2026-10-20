@@ -1942,6 +1942,157 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="rehearsal">
+  <file path="src/components/rehearsal/prng.ts">
+    <item priority="high">
+      export function mulberry32(seed: number): () => number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/profiles.ts">
+    <item priority="low">
+      type RehearsalProfileId = "friday" | "weeknight" | "brunch";
+    </item>
+    <item priority="low">
+      interface PartySizeWeight {
+        size: number;
+        weight: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalProfile {
+        id: RehearsalProfileId;
+        openMinute: number;
+        closeMinute: number;
+        curve: readonly number[];
+        bookingsPerTableHour: number;
+      }
+    </item>
+    <item priority="high">
+      export const REHEARSAL_PROFILES: Readonly<Record<RehearsalProfileId, RehearsalProfile>>;
+    </item>
+    <item priority="high">
+      export function demandAt(profile: RehearsalProfile, minute: number): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/rehearsal-state.ts">
+    <item priority="low">
+      type PartyPhase = "booked" | "seated" | "finished" | "no-show";
+    </item>
+    <item priority="low">
+      interface PartyState {
+        size: number;
+        tableId: string;
+        phase: PartyPhase;
+        startAt: number;
+        endAt: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitingParty {
+        partyId: string;
+        size: number;
+        sinceAt: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalCounts {
+        booked: number;
+        seated: number;
+        covers: number;
+        waiting: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalState {
+        parties: ReadonlyMap<string, PartyState>;
+        tableCycle: ReadonlyMap<string, TableCycleStatus>;
+        waiting: readonly WaitingParty[];
+        counts: RehearsalCounts;
+        lastEvent: RehearsalEvent | null;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalMetrics {
+        coversServed: number;
+        avgTurnMinutes: number | null;
+        peakHour: number | null;
+        tablesNeverSat: readonly string[];
+        longestWalkInWaitMinutes: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function eventIndexAt(events: readonly RehearsalEvent[], minute: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function foldEvents(events: readonly RehearsalEvent[], count: number): RehearsalState { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rehearsalStateAt(
+        events: readonly RehearsalEvent[],
+        minute: number,
+        closeMinute: number = Number.POSITIVE_INFINITY
+      ): RehearsalState { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rehearsalMetrics(
+        events: readonly RehearsalEvent[],
+        tableIds: readonly string[]
+      ): RehearsalMetrics { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/simulate-service.ts">
+    <item priority="low">
+      interface RehearsalTable {
+        id: string;
+        name: string;
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+      }
+    </item>
+    <item priority="low">
+      type TableCycleStatus = "available" | "occupied" | "dirty" | "ready";
+    </item>
+    <item priority="low">
+      type RehearsalEvent = { readonly at: number } & (
+        | {
+            readonly kind: "b...;
+    </item>
+    <item priority="low">
+      interface SimulateServiceInput {
+        tables: readonly RehearsalTable[];
+        openMinute: number;
+        closeMinute: number;
+        profile: RehearsalProfileId;
+        seed: number;
+      }
+    </item>
+    <item priority="high">
+      interface Arrival {
+        start: number;
+        size: number;
+        duration: number;
+        readyAfter: number;
+        noShow: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function tableLimit(table: RehearsalTable): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fits(table: RehearsalTable, size: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function stayMinutes(size: number, jitter: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function compareEvents(a: RehearsalEvent, b: RehearsalEvent): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function simulateService(input: SimulateServiceInput): readonly RehearsalEvent[] { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/nav-actions.ts">
     <item priority="low">
