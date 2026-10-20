@@ -143,7 +143,11 @@ export function VenueOnboardingPage() {
   useEffect(() => {
     if (!celebrationDone || launch.floorPlanId === null) return;
     if (selectedVenueId !== launch.venueId) return;
-    navigate(`/floor-plans/${launch.floorPlanId}`, { replace: true });
+    // `fromOnboarding` lets the editor offer the dress rehearsal exactly once, right after Launch.
+    navigate(`/floor-plans/${launch.floorPlanId}`, {
+      replace: true,
+      state: { fromOnboarding: true },
+    });
   }, [celebrationDone, launch.floorPlanId, launch.venueId, selectedVenueId, navigate]);
 
   // The floor plan canvas wants more room than the 40rem review card — widen

@@ -1783,6 +1783,13 @@
       "heading": "Not enough tables",
       "body": "Add tables to your floor plan to run a rehearsal.",
       "floorPlans": "Floor plans"
+    },
+    "cta": {
+      "run": "Run a Friday night"
+    },
+    "onboardingAlert": {
+      "title": "Your room is ready.",
+      "body": "Watch a Friday night run on it before your first guest."
     }
   }
 }

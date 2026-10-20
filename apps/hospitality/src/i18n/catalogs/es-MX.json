@@ -1810,6 +1810,13 @@
       "heading": "No hay suficientes mesas",
       "body": "Agrega mesas a tu plano de sala para hacer un ensayo.",
       "floorPlans": "Planos de sala"
+    },
+    "cta": {
+      "run": "Probar un viernes por la noche"
+    },
+    "onboardingAlert": {
+      "title": "Tu sala está lista.",
+      "body": "Mira cómo se desarrolla un viernes por la noche antes de tu primer cliente."
     }
   }
 }

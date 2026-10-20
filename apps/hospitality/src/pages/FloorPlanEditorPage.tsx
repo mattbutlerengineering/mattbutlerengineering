@@ -5,6 +5,7 @@ import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/ria
 import type { CreateTableRequest } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { OnboardingRehearsalAlert } from "../components/rehearsal/OnboardingRehearsalAlert";
 import {
   useFloorPlan,
   useActivateFloorPlan,
@@ -230,6 +231,12 @@ export function FloorPlanEditorPage() {
 
       {/* Inline save/mutation error — shown without replacing the editor */}
       {saveError && <ErrorRetryBanner error={saveError} onRetry={handleSave} />}
+
+      <OnboardingRehearsalAlert
+        venueId={floorPlan.venueId}
+        floorPlanId={floorPlan.id}
+        hasTables={tables.length > 0}
+      />
 
       {/* Add Table dialog */}
       {showAddDialog && (

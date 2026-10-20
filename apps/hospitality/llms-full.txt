@@ -6176,6 +6176,30 @@
       return events.sort(compareEvents);
     }
   </file>
+  <file path="src/components/rehearsal/use-onboarding-alert-dismissal.ts">
+    export const onboardingAlertKey = (venueId: string): string =>
+      `rehearsal.onboardingAlert.dismissed.${venueId}`;
+    function readDismissed(venueId: string): boolean {
+      try {
+        return localStorage.getItem(onboardingAlertKey(venueId)) === "1";
+      } catch {
+        // Storage blocked (private window, cleared site data): the alert simply shows again.
+        return false;
+      }
+    }
+    export function useOnboardingAlertDismissal(venueId: string): readonly [boolean, () => void] {
+      const [dismissed, setDismissed] = useState(() => readDismissed(venueId));
+      const dismiss = () => {
+        setDismissed(true);
+        try {
+          localStorage.setItem(onboardingAlertKey(venueId), "1");
+        } catch {
+          // See readDismissed: nothing depends on the write landing.
+        }
+      };
+      return [dismissed, dismiss];
+    }
+  </file>
   <file path="src/components/rehearsal/use-rehearsal-playback.ts">
     export interface RehearsalPlaybackOptions {
       readonly openMinute: number;

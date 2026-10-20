@@ -888,7 +888,10 @@ describe("VenueOnboardingPage", () => {
 
     await waitFor(() => {
       // The plan id from the sequence, not the venue id.
-      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-1", { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-1", {
+        replace: true,
+        state: { fromOnboarding: true },
+      });
     });
   });
 
@@ -916,7 +919,10 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Retry"));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-1", { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-1", {
+        replace: true,
+        state: { fromOnboarding: true },
+      });
     });
   });
 
@@ -935,7 +941,10 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Finish celebration"));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-new", { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-new", {
+        replace: true,
+        state: { fromOnboarding: true },
+      });
     });
 
     expect(mockSetVenueId).toHaveBeenCalledWith("venue-new");

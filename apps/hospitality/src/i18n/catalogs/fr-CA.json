@@ -1810,6 +1810,13 @@
       "heading": "Pas assez de tables",
       "body": "Ajoutez des tables à votre plan de salle pour lancer une répétition.",
       "floorPlans": "Plans de salle"
+    },
+    "cta": {
+      "run": "Lancer un vendredi soir"
+    },
+    "onboardingAlert": {
+      "title": "Votre salle est prête.",
+      "body": "Regardez un vendredi soir s'y dérouler avant votre premier client."
     }
   }
 }

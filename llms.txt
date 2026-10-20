@@ -7266,6 +7266,17 @@
       export function simulateService(input: SimulateServiceInput): readonly RehearsalEvent[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/rehearsal/use-onboarding-alert-dismissal.ts">
+    <item priority="high">
+      export const onboardingAlertKey: unknown;
+    </item>
+    <item priority="medium">
+      function readDismissed(venueId: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useOnboardingAlertDismissal(venueId: string): readonly [boolean, () => void] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/rehearsal/use-rehearsal-playback.ts">
     <item priority="low">
       interface RehearsalPlaybackOptions {

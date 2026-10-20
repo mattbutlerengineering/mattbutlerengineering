@@ -141,6 +141,27 @@ vi.mock("../components/floor-plan/index.js", () => ({
   ),
 }));
 
+/* ── Mock the rehearsal offer (its own tests cover the state flag and dismissal) ─ */
+
+vi.mock("../components/rehearsal/OnboardingRehearsalAlert", () => ({
+  OnboardingRehearsalAlert: ({
+    venueId,
+    floorPlanId,
+    hasTables,
+  }: {
+    venueId: string;
+    floorPlanId: string;
+    hasTables: boolean;
+  }) => (
+    <div
+      data-testid="rehearsal-offer"
+      data-venue={venueId}
+      data-plan={floorPlanId}
+      data-has-tables={String(hasTables)}
+    />
+  ),
+}));
+
 /* ── Mock Rialto components ───────────────────────────────────── */
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -313,6 +334,24 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => {
         expect(screen.getByText("Main Dining")).toBeDefined();
       });
+    });
+
+    it("hands the rehearsal offer the venue, the plan and whether it has tables", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+      const offer = await screen.findByTestId("rehearsal-offer");
+      expect(offer).toHaveAttribute("data-venue", FLOOR_PLAN.venueId);
+      expect(offer).toHaveAttribute("data-plan", "fp-1");
+      expect(offer).toHaveAttribute("data-has-tables", "true");
+    });
+
+    it("tells the rehearsal offer when the plan has no tables", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
+      expect(await screen.findByTestId("rehearsal-offer")).toHaveAttribute(
+        "data-has-tables",
+        "false"
+      );
     });
 
     it("renders all tables in the sidebar list", async () => {
