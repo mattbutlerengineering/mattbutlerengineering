@@ -1,0 +1,25 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-block-start: 1px solid var(--rialto-border);
+}
+
+.bar button {
+  min-block-size: 44px;
+  min-inline-size: 44px;
+}
+
+.scrub {
+  flex: 1 1 14rem;
+  min-inline-size: 10rem;
+}
+
+.time {
+  min-inline-size: 5rem;
+  font-size: var(--rialto-text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--rialto-text-secondary);
+}

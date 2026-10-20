@@ -175,6 +175,28 @@ describe("useRehearsalPlayback clock (SC-4)", () => {
   });
 });
 
+describe("useRehearsalPlayback onTick", () => {
+  it("reports the exact minute and frame timestamp on each frame, and at close", () => {
+    const onTick = vi.fn();
+    const { result } = renderHook(() =>
+      useRehearsalPlayback(EVENTS, {
+        openMinute: OPEN,
+        closeMinute: CLOSE,
+        reducedMotion: false,
+        onTick,
+      })
+    );
+    frame(0);
+    frame(250);
+    expect(onTick).toHaveBeenLastCalledWith(OPEN + 0.25, 250);
+    act(() => result.current.scrubTo(CLOSE - 0.1));
+    act(() => result.current.releaseScrub());
+    frame(300);
+    frame(550);
+    expect(onTick).toHaveBeenLastCalledWith(CLOSE, 550);
+  });
+});
+
 describe("useRehearsalPlayback commit throttle", () => {
   it("halves the commit rate after a slow commit and never skips ahead of the clock", () => {
     let t = 0;

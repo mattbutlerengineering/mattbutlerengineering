@@ -1974,6 +1974,25 @@
       export function demandAt(profile: RehearsalProfile, minute: number): number { /* ... */ }
     </item>
   </file>
+  <file path="src/components/rehearsal/rehearsal-copy.ts">
+    <item priority="high">
+      type T = TFunction;
+    </item>
+    <item priority="high">
+      export function partyLabel(t: T, size: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rightNowSentence(t: T, state: RehearsalState): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeEvent(
+        t: T,
+        event: RehearsalEvent,
+        tableName: (tableId: string) => string,
+        partySize: (partyId: string) => number
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/rehearsal/rehearsal-state.ts">
     <item priority="low">
       type PartyPhase = "booked" | "seated" | "finished" | "no-show";
@@ -2043,7 +2062,7 @@
   <file path="src/components/rehearsal/rehearsal-view-model.ts">
     <item priority="low">
       interface RehearsalView {
-        reservations: readonly Reservation[];
+        reservations: Reservation[];
         tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
         seatedIds: ReadonlySet<string>;
         waiting: readonly WaitingParty[];
@@ -2151,6 +2170,7 @@
         openMinute: number;
         closeMinute: number;
         reducedMotion: boolean;
+        onTick?: (minute: number, ts: number) => void;
       }
     </item>
     <item priority="low">
@@ -2165,7 +2185,7 @@
     <item priority="high">
       export function useRehearsalPlayback(
         events: readonly RehearsalEvent[],
-        { openMinute, closeMinute, reducedMotion }: RehearsalPlaybackOptions
+        { openMinute, closeMinute, reducedMotion, onTick }: RehearsalPlaybackOptions
       ): RehearsalPlayback { /* ... */ }
     </item>
   </file>

@@ -9,7 +9,7 @@ const reservationId = (seed: number, partyId: string): string =>
   `rehearsal-${seed}-${partyId.replace(/^p/, "")}`;
 
 export interface RehearsalView {
-  readonly reservations: readonly Reservation[];
+  readonly reservations: Reservation[];
   readonly tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
   readonly seatedIds: ReadonlySet<string>;
   readonly waiting: readonly WaitingParty[];

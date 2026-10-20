@@ -22071,6 +22071,59 @@
       return profile.curve[Math.floor(fraction * profile.curve.length)] ?? 0;
     }
   </file>
+  <file path="apps/hospitality/src/components/rehearsal/rehearsal-copy.ts">
+    type T = TFunction;
+    export function partyLabel(t: T, size: number): string {
+      return t("rehearsal.party", { count: size });
+    }
+    export function rightNowSentence(t: T, state: RehearsalState): string {
+      let occupied = 0;
+      for (const status of state.tableCycle.values()) {
+        if (status === "occupied") occupied += 1;
+      }
+      return [
+        t("rehearsal.rightNow.occupied", { count: occupied }),
+        t("rehearsal.rightNow.waiting", { count: state.counts.waiting }),
+      ].join(" ");
+    }
+    export function describeEvent(
+      t: T,
+      event: RehearsalEvent,
+      tableName: (tableId: string) => string,
+      partySize: (partyId: string) => number
+    ): string {
+      switch (event.kind) {
+        case "booked":
+          return t("rehearsal.live.booked", {
+            party: partyLabel(t, event.size),
+            table: tableName(event.tableId),
+          });
+        case "seated":
+          return t("rehearsal.live.seated", {
+            party: partyLabel(t, event.size),
+            table: tableName(event.tableId),
+          });
+        case "walk-in-waiting":
+          return t("rehearsal.live.walkInWaiting", { party: partyLabel(t, event.size) });
+        case "no-show":
+          return t("rehearsal.live.noShow", {
+            party: partyLabel(t, partySize(event.partyId)),
+            table: tableName(event.tableId),
+          });
+        case "departed":
+          return t("rehearsal.live.departed", {
+            party: partyLabel(t, partySize(event.partyId)),
+            table: tableName(event.tableId),
+          });
+        case "status-change": {
+          const table = tableName(event.tableId);
+          if (event.to === "dirty") return t("rehearsal.live.tableDirty", { table });
+          if (event.to === "ready") return t("rehearsal.live.tableReady", { table });
+          return t("rehearsal.live.tableAvailable", { table });
+        }
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/components/rehearsal/rehearsal-state.ts">
     export type PartyPhase = "booked" | "seated" | "finished" | "no-show";
     export interface PartyState {
@@ -22250,7 +22303,7 @@
   </file>
   <file path="apps/hospitality/src/components/rehearsal/rehearsal-view-model.ts">
     export interface RehearsalView {
-      readonly reservations: readonly Reservation[];
+      readonly reservations: Reservation[];
       readonly tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
       readonly seatedIds: ReadonlySet<string>;
       readonly waiting: readonly WaitingParty[];
@@ -22547,6 +22600,11 @@
       readonly openMinute: number;
       readonly closeMinute: number;
       readonly reducedMotion: boolean;
+      /**
+       * Called on every animation frame while playing with the exact simulated minute and the frame
+       * timestamp, for the live-region throttle. Not called under reduced motion (no frames).
+       */
+      readonly onTick?: (minute: number, ts: number) => void;
     }
     export interface RehearsalPlayback {
       /** Committed simulated minute, quantized to a quarter minute. */
@@ -22566,7 +22624,7 @@
     }
     export function useRehearsalPlayback(
       events: readonly RehearsalEvent[],
-      { openMinute, closeMinute, reducedMotion }: RehearsalPlaybackOptions
+      { openMinute, closeMinute, reducedMotion, onTick }: RehearsalPlaybackOptions
     ): RehearsalPlayback {
       const [minute, setMinute] = useState(openMinute);
       const [playing, setPlaying] = useState(!reducedMotion);
@@ -22579,6 +22637,10 @@
       const commitStartRef = useRef<number | null>(null);
       const scrubbingRef = useRef(false);
       const wasPlayingRef = useRef(false);
+      const onTickRef = useRef(onTick);
+      useEffect(() => {
+        onTickRef.current = onTick;
+      });
     
       const commit = useCallback((exact: number, force: boolean, ts: number) => {
         const next = quantize(exact);
@@ -22627,9 +22689,11 @@
           if (exactRef.current >= closeMinute) {
             commit(closeMinute, true, ts);
             setPlaying(false);
+            onTickRef.current?.(closeMinute, ts);
             return;
           }
           commit(exactRef.current, false, ts);
+          onTickRef.current?.(exactRef.current, ts);
           frameId = requestAnimationFrame(tick);
         };
         frameId = requestAnimationFrame(tick);

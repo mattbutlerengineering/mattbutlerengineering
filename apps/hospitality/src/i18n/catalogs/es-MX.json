@@ -1728,5 +1728,74 @@
       "pixels": "{{size}} px",
       "download": "Descargar QR"
     }
+  },
+  "rehearsal": {
+    "banner": {
+      "tag": "Ensayo",
+      "text": "Ensayo, no son reservaciones reales. Nada de esto se guarda.",
+      "leave": "Salir del ensayo",
+      "label": "Aviso de ensayo"
+    },
+    "view": {
+      "label": "Vista del ensayo",
+      "timeline": "Cronología",
+      "floorPlan": "Plano de sala"
+    },
+    "title": {
+      "friday": "Viernes por la noche · {{time}}",
+      "weeknight": "Noche entre semana · {{time}}"
+    },
+    "stats": {
+      "booked": "Reservadas",
+      "seated": "Sentadas",
+      "covers": "Cubiertos",
+      "waiting": "En espera"
+    },
+    "party_one": "Grupo de {{count}}",
+    "party_many": "Grupo de {{count}}",
+    "party_other": "Grupo de {{count}}",
+    "waitingParty": "En espera: grupo de {{size}} · {{minutes}} min",
+    "startOfNight": "La noche está por comenzar.",
+    "reducedMotionHint": "El movimiento está reducido. Recorre la noche con «Siguiente evento».",
+    "transport": {
+      "label": "Controles de reproducción",
+      "play": "Reproducir",
+      "pause": "Pausar",
+      "replay": "Reiniciar desde el principio",
+      "next": "Siguiente evento",
+      "previous": "Evento anterior",
+      "speedLabel": "Velocidad de reproducción",
+      "speed15": "15x",
+      "speed60": "60x",
+      "speed240": "240x",
+      "scrub": "Recorrer la noche"
+    },
+    "rightNow": {
+      "label": "Ahora mismo",
+      "occupied_one": "{{count}} mesa ocupada.",
+      "occupied_many": "{{count}} mesas ocupadas.",
+      "occupied_other": "{{count}} mesas ocupadas.",
+      "waiting_one": "{{count}} grupo en espera.",
+      "waiting_many": "{{count}} grupos en espera.",
+      "waiting_other": "{{count}} grupos en espera."
+    },
+    "live": {
+      "moment": "{{time}}. {{summary}}",
+      "step": "{{time}}. {{what}}",
+      "booked": "{{party}} reservó {{table}}.",
+      "seated": "{{party}} sentado en {{table}}.",
+      "walkInWaiting": "{{party}} espera una mesa.",
+      "noShow": "{{party}} no llegó a {{table}}.",
+      "departed": "{{party}} dejó {{table}}.",
+      "tableDirty": "{{table}} necesita limpieza.",
+      "tableReady": "{{table}} está lista.",
+      "tableAvailable": "{{table}} está disponible."
+    },
+    "legend": {
+      "label": "Estado de las mesas",
+      "available": "Disponible",
+      "occupied": "Ocupada",
+      "dirty": "Por limpiar"
+    }
   }
 }

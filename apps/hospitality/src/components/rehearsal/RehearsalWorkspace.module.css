@@ -1,0 +1,117 @@
+.workspace {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100%;
+  border: 2px dashed var(--rialto-accent);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-md);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+}
+
+.title {
+  margin: 0;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-lg);
+}
+
+/* A cropped screenshot of the grid still reads as not real (ux.md Screen 1). */
+.frame {
+  position: relative;
+  border: 1px dashed var(--rialto-accent);
+  border-radius: var(--rialto-radius-default);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 10px,
+    var(--rialto-accent-muted) 10px,
+    var(--rialto-accent-muted) 11px
+  );
+  overflow: hidden;
+}
+
+.note {
+  margin: 0;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.waiting {
+  margin: 0;
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.rightNow {
+  margin: 0;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-md);
+  margin: 0;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  list-style: none;
+  font-size: var(--rialto-text-sm);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+/* Fill pattern as well as colour, so status never rides on colour alone. */
+.swatch {
+  inline-size: 14px;
+  block-size: 14px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.swatchAvailable {
+  color: var(--rialto-success);
+}
+
+.swatchOccupied {
+  color: var(--rialto-error);
+  background: currentColor;
+}
+
+.swatchDirty {
+  color: var(--rialto-warning);
+  background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+}
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

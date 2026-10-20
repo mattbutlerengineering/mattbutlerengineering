@@ -1,0 +1,35 @@
+/*
+ * The "this is not real" marking (ux.md Screen 1, non-real treatment): a sticky dashed accent rule
+ * over a faint diagonal hatch. Tokens only; text keeps the primary text colour for contrast.
+ */
+.banner {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-block-end: 2px dashed var(--rialto-accent);
+  background-color: var(--rialto-surface-elevated);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 8px,
+    var(--rialto-accent-muted) 8px,
+    var(--rialto-accent-muted) 9px
+  );
+  color: var(--rialto-text-primary);
+}
+
+.text {
+  flex: 1 1 16rem;
+  margin: 0;
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+}
+
+.banner button {
+  min-block-size: 44px;
+}

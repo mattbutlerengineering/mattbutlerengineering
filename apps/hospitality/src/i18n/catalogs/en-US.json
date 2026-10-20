@@ -1704,5 +1704,71 @@
       "pixels": "{{size}} px",
       "download": "Download QR"
     }
+  },
+  "rehearsal": {
+    "banner": {
+      "tag": "Rehearsal",
+      "text": "Rehearsal, not real bookings. Nothing here is saved.",
+      "leave": "Leave rehearsal",
+      "label": "Rehearsal notice"
+    },
+    "view": {
+      "label": "Rehearsal view",
+      "timeline": "Timeline",
+      "floorPlan": "Floor plan"
+    },
+    "title": {
+      "friday": "Friday night · {{time}}",
+      "weeknight": "Weeknight · {{time}}"
+    },
+    "stats": {
+      "booked": "Booked",
+      "seated": "Seated",
+      "covers": "Covers",
+      "waiting": "Waiting"
+    },
+    "party_one": "Party of {{count}}",
+    "party_other": "Party of {{count}}",
+    "waitingParty": "Waiting: Party of {{size}} · {{minutes}} min",
+    "startOfNight": "The night is about to start.",
+    "reducedMotionHint": "Motion is reduced. Step through the night with Next event.",
+    "transport": {
+      "label": "Playback controls",
+      "play": "Play",
+      "pause": "Pause",
+      "replay": "Replay from start",
+      "next": "Next event",
+      "previous": "Previous event",
+      "speedLabel": "Playback speed",
+      "speed15": "15x",
+      "speed60": "60x",
+      "speed240": "240x",
+      "scrub": "Scrub through the night"
+    },
+    "rightNow": {
+      "label": "Right now",
+      "occupied_one": "{{count}} table occupied.",
+      "occupied_other": "{{count}} tables occupied.",
+      "waiting_one": "{{count}} party waiting.",
+      "waiting_other": "{{count}} parties waiting."
+    },
+    "live": {
+      "moment": "{{time}}. {{summary}}",
+      "step": "{{time}}. {{what}}",
+      "booked": "{{party}} booked for {{table}}.",
+      "seated": "{{party}} seated at {{table}}.",
+      "walkInWaiting": "{{party}} is waiting for a table.",
+      "noShow": "{{party}} did not arrive for {{table}}.",
+      "departed": "{{party}} left {{table}}.",
+      "tableDirty": "{{table}} needs bussing.",
+      "tableReady": "{{table}} is ready.",
+      "tableAvailable": "{{table}} is available."
+    },
+    "legend": {
+      "label": "Table status",
+      "available": "Available",
+      "occupied": "Occupied",
+      "dirty": "Needs bussing"
+    }
   }
 }

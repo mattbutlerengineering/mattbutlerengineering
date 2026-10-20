@@ -7,6 +7,11 @@ export interface RehearsalPlaybackOptions {
   readonly openMinute: number;
   readonly closeMinute: number;
   readonly reducedMotion: boolean;
+  /**
+   * Called on every animation frame while playing with the exact simulated minute and the frame
+   * timestamp, for the live-region throttle. Not called under reduced motion (no frames).
+   */
+  readonly onTick?: (minute: number, ts: number) => void;
 }
 
 export interface RehearsalPlayback {
@@ -49,7 +54,7 @@ const quantize = (minute: number): number => Math.floor(minute / QUANTUM_MINUTES
  */
 export function useRehearsalPlayback(
   events: readonly RehearsalEvent[],
-  { openMinute, closeMinute, reducedMotion }: RehearsalPlaybackOptions
+  { openMinute, closeMinute, reducedMotion, onTick }: RehearsalPlaybackOptions
 ): RehearsalPlayback {
   const [minute, setMinute] = useState(openMinute);
   const [playing, setPlaying] = useState(!reducedMotion);
@@ -62,6 +67,10 @@ export function useRehearsalPlayback(
   const commitStartRef = useRef<number | null>(null);
   const scrubbingRef = useRef(false);
   const wasPlayingRef = useRef(false);
+  const onTickRef = useRef(onTick);
+  useEffect(() => {
+    onTickRef.current = onTick;
+  });
 
   const commit = useCallback((exact: number, force: boolean, ts: number) => {
     const next = quantize(exact);
@@ -110,9 +119,11 @@ export function useRehearsalPlayback(
       if (exactRef.current >= closeMinute) {
         commit(closeMinute, true, ts);
         setPlaying(false);
+        onTickRef.current?.(closeMinute, ts);
         return;
       }
       commit(exactRef.current, false, ts);
+      onTickRef.current?.(exactRef.current, ts);
       frameId = requestAnimationFrame(tick);
     };
     frameId = requestAnimationFrame(tick);
