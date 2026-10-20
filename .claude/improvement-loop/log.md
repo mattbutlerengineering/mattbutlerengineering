@@ -3935,3 +3935,42 @@ No blockers: Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194
 **Skill proposals:** 0 (Monday — session-log analysis is Friday-only this run).
 **Threshold notes:** auto-tuner (run inside verify-fixes.mjs) applied 1 adjustment: `acmm` headroom 1.198 → 1.202. 30d fix-effectiveness rate 82.4% (14 verified / 3 failed, 75 skipped excluded from the denominator; one of the 3 failures is today's #7098 false-reopen, tracked by #7145) — above the 50% floor. 30d false-positive rate (issues closed `not_planned` among per-label closed sensor-labeled issues, ci-fix/audit/acmm/sentry/bug, REST per-label — cross-repo search API is blocked in this session type) ~7.1% (22/309, labels overlap so this double-counts multi-labeled issues same as prior runs) — well under the 30% loosening trigger.
 **Environment note:** fresh cloud checkout had stale local `main` (fetch reported `forced update`, 50/50 diverged commits) — reset to `origin/main` before anything else. No `node_modules` or built workspace `dist/` outputs either; ran `pnpm install --frozen-lockfile` + `pnpm build --filter @mbe/gh-client...` before `sensor-report.mjs` could resolve `@mbe/gh-client`. Usual GraphQL-blocked `gh issue/pr list`/`gh issue create` 403s (per #5958) surfaced throughout — worked around with `gh api` REST calls (and `-X GET` explicitly, since `gh api` defaults to POST once `-f` params are present).
+
+## 2026-10-20 — mbe-evening (progress-tracker)
+
+### This iteration's own implement-queue run (mbe-evening Step 1, same session)
+
+Phase 0 pre-flight: main green (0 failure-concluded runs in the last 5 via `gh run list`, which is REST-backed and works directly). Open PRs: 3 (#7139 automation shipped-features snapshot, `tier:standard`/`auto-merge` — owned by `auto-merge.yml`, not this queue; #7138 a deliberate `/chaos-agent` synthetic-bug test fixture, labeled `ready`/`audit`/`chaos-audit` — exists to be _found_ by site-audit, not merged by implement-queue; #7078 a human-authored `tier:critical` PR by the Owner, mid-review) — none correspond to an issue this queue claimed, so none were touched. Phase 1: `list_issues` (GitHub MCP, REST-backed) labeled `ready` returned **0** candidates — nothing to claim, so Phases 2-3 had no PRs to gate, review, or merge; no merge-train lock was acquired so none needed releasing; no worktrees to reap. No telemetry row appended and `git status` on `metrics/queue-telemetry.jsonl` was clean, so no metrics PR was needed from Step 1.
+
+**Anomaly noticed, not acted on:** issue #7042 (`ci-fix: Apps Visual Regression has failed 3 consecutive runs`) carries `has-pr` but has no open PR — its own linked PR #7044 merged 2026-10-18 and the issue was subsequently reopened (`state_reason: reopened`, `updated_at` 2026-10-19T15:24Z) by whatever workflow detected a renewed failure streak, without anyone clearing the stale `has-pr` label or adding `ready` back. Per gotchas.md's visual-baseline section this is the same class #7044 itself already worked around (no `actions:write` in a cloud session to dispatch `visual-baseline-regen.yml`) — not claimable from here either way, and not labeled `ready` so Phase 1 correctly left it alone. Worth a human or local-session look if it keeps recurring.
+
+### Metrics (7d window, since 2026-10-13)
+
+| Metric        | Value                                                                                                                                                                                                                   | Status            |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Created       | 30 (audit + ci-fix, combined REST `issues?labels=` query, PRs excluded)                                                                                                                                                 | -                 |
+| Closed        | 33 (includes issues created before the window but closed inside it)                                                                                                                                                     | -                 |
+| Closure Rate  | 110% (33/30) — expected to exceed 100% when the backlog drains faster than new intake                                                                                                                                   | Green             |
+| Time-to-Close | mean 14.1h across the 33 closed this week                                                                                                                                                                               | Green             |
+| Agent Success | N/A — the one open `has-pr` issue (#7042) is the stale/reopened anomaly above, not a live worker PR; 0 `agent-failed` open                                                                                              | -                 |
+| CI Pass       | 13/13 non-skipped runs in the last 20 on main = 100%                                                                                                                                                                    | Green             |
+| Queue         | 0 `ready` — not a 3-day-zero trend (last 4 recorded counts: 10, 0, 1, 0), so no Queue Adjust action                                                                                                                     | Green             |
+| Stale         | 0 (no `ready` issues to be stale)                                                                                                                                                                                       | Green             |
+| Blocked       | 0 `agent-failed` open                                                                                                                                                                                                   | Green             |
+| Skipped       | 0 `agent-skip` open                                                                                                                                                                                                     | Green             |
+| Daily Spend   | $0 attributed (`recordSpend`) in the last 24h; queue-worker cost is a 7d rollup only, so today's true share is unknown, not $0                                                                                          | N/A               |
+| 7d Spend      | $3.96 (`.claude/agent-spend/sessions.jsonl`, 5 rows) + $118.77 (`metrics/queue-telemetry.jsonl`, 9 of 177 rows with `cost_usd` populated) ≈ **$122.72**                                                                 | Red               |
+| Cost/Issue    | ≈ $3.72 (= $122.72 / 33 audit+ci-fix closed) — same caveat as prior entries: most of the queue's weekly spend is likely non-audit/ci-fix issues, so this understates the true per-category cost and overstates this one | Yellow (caveated) |
+
+### Patterns
+
+- 7d spend crossing into Red ($122.72) is consistent with the last several entries' running observation that `cost_usd` coverage on `metrics/queue-telemetry.jsonl` is still sparse (9/177 rows this week) — the queueEfficiency sensor already tracks this gap (n=9/216-217 in the last two `mbe-learning-loop` entries) and it is not a new finding; not re-filing.
+- Reviewer-verdict coverage on this week's 177 queue-telemetry rows is almost entirely `null` (only a handful record `pass`) rather than `pass`/`flag`/`skipped`/`error` — same shape as the sparse `cost_usd` coverage above and likely the same root cause (rows written by the daily GitHub-reconciliation collector, #5921, which cannot recover reviewer verdicts from merged-PR history). Not filing new — this is backfill-shaped, not a live gate failure, and the review gate itself ran for real PRs this session would have opened had there been any.
+
+### Recommendations
+
+- None urgent this iteration — zero `ready` issues meant Phase 1-3 had nothing to do. Worth a human glance at #7042's stale `has-pr` label if the visual-regression ci-fix issue keeps reopening.
+
+### Skipped Issues
+
+None — 0 `agent-skip`.
