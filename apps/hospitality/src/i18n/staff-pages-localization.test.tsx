@@ -43,6 +43,10 @@ vi.mock("../hooks/useUsers.js", () => ({
 }));
 vi.mock("../hooks/use-theme", () => ({ useTheme: () => ({ theme: "system", setTheme: vi.fn() }) }));
 vi.mock("../components/LanguageRegionCard.js", () => ({ LanguageRegionCard: () => null }));
+// Reads tables through react-query; its strings are covered by rehearsal-localization.test.tsx.
+vi.mock("../components/rehearsal/RehearsalSettingsCard.js", () => ({
+  RehearsalSettingsCard: () => null,
+}));
 vi.mock("../hooks/useVenues.js", () => ({
   useVenues: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useUpdateVenue: () => ({ mutateAsync: vi.fn() }),

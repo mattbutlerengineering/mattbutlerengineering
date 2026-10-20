@@ -118,7 +118,13 @@ const scrubber = (page: Page) =>
   page.getByRole("slider", { name: "Scrub through the night", exact: true });
 
 async function scrubTo(page: Page, minute: number): Promise<void> {
-  await scrubber(page).fill(String(minute), { force: true });
+  // Not `fill()`: it assigns through the instance `value` setter React's input tracker installs,
+  // so React sees no change and never calls onChange. The prototype setter plus an input event does.
+  await scrubber(page).evaluate((el, value) => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    set?.call(el, value);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, String(minute));
 }
 
 /** Finds a minute of the night with at least one table occupied; the seed is random per run. */
