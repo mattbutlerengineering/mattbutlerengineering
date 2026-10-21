@@ -166,6 +166,85 @@ export function queryClosedIssuesForFeedback(listIssues) {
   }
 }
 
+const TIMELINE_PAGE_SIZE = 100;
+const TIMELINE_MAX_PAGES = 5;
+const DEFAULT_LINKED_PR_CONCURRENCY = 5;
+
+/**
+ * Merged PRs that closed an issue, from its REST timeline events. A merged
+ * cross-reference only counts when the PR body carries a closing keyword for
+ * this issue (a bare mention is not acceptance) — see
+ * docs/fixes/ai-issue-feedback-accepted/design.md.
+ *
+ * @param {number} issueNumber
+ * @param {object[]} events  `GET /repos/{o}/{r}/issues/{n}/timeline` events
+ * @returns {{ number: number, state: "MERGED" }[]}
+ */
+export function extractLinkedPrs(issueNumber, events) {
+  const closes = new RegExp(
+    `\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s+#${issueNumber}\\b`,
+    "i"
+  );
+  const prs = [];
+  for (const event of events) {
+    if (event.event !== "cross-referenced" || event.source?.type !== "issue") continue;
+    const source = event.source.issue;
+    if (!source?.pull_request?.merged_at) continue;
+    if (!closes.test(source.body ?? "")) continue;
+    prs.push({ number: source.number, state: "MERGED" });
+  }
+  return prs;
+}
+
+/**
+ * Fetch linked merged PRs for many issues. Never throws: a failed lookup
+ * yields `[]` for that issue and is counted, and a rate-limit error stops
+ * all further API calls (remaining issues get `[]`, counted as failures).
+ *
+ * @param {number[]} issueNumbers
+ * @param {(issueNumber: number, page: number) => Promise<object[]>} getTimeline
+ * @param {{ concurrency?: number }} [opts]
+ * @returns {Promise<{ linkedPrsByIssue: Map<number, object[]>, failures: number }>}
+ */
+export async function fetchLinkedPrsByIssue(issueNumbers, getTimeline, opts = {}) {
+  const concurrency = Math.max(1, opts.concurrency ?? DEFAULT_LINKED_PR_CONCURRENCY);
+  const linkedPrsByIssue = new Map();
+  let failures = 0;
+  let throttled = false;
+  let next = 0;
+
+  const lookup = async (issueNumber) => {
+    const prs = [];
+    for (let page = 1; page <= TIMELINE_MAX_PAGES; page++) {
+      const events = await getTimeline(issueNumber, page);
+      prs.push(...extractLinkedPrs(issueNumber, events));
+      if (prs.length > 0 || events.length < TIMELINE_PAGE_SIZE) break;
+    }
+    return prs;
+  };
+
+  const worker = async () => {
+    while (next < issueNumbers.length) {
+      const issueNumber = issueNumbers[next++];
+      if (throttled) {
+        linkedPrsByIssue.set(issueNumber, []);
+        failures++;
+        continue;
+      }
+      try {
+        linkedPrsByIssue.set(issueNumber, await lookup(issueNumber));
+      } catch (err) {
+        if (/rate limit|abuse detection/i.test(describeGhError(err))) throttled = true;
+        linkedPrsByIssue.set(issueNumber, []);
+        failures++;
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return { linkedPrsByIssue, failures };
+}
+
 /**
  * Read the persisted feedback file.
  *
