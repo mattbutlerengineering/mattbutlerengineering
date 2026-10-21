@@ -15,8 +15,13 @@ test.describe("Accessibility", () => {
   });
 
   test("shared spec error page has no critical violations", async ({ page }) => {
-    await page.goto("/s/invalid-id-for-a11y");
-    await expect(page.getByText("Spec not found")).toBeVisible({ timeout: 10_000 });
+    await page.route("**/api/gen/specs/*", (route) =>
+      route.fulfill({ status: 404, contentType: "application/json", body: '{"error":"not found"}' })
+    );
+    await page.goto("s/invalid-id-for-a11y");
+    await expect(page.getByRole("heading", { name: "Spec not found" })).toBeVisible({
+      timeout: 10_000,
+    });
 
     const accessibilityScanResults = await new AxeBuilder({ page }).withTags(["wcag2aa"]).analyze();
 
