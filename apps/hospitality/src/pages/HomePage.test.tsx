@@ -438,6 +438,31 @@ describe("HomePage", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  it("replaces the lapsing-guests error banner with the widget once a retry succeeds", () => {
+    vi.mocked(useLapsingGuests).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("boom"),
+      refetch: vi.fn(),
+    });
+    const { rerender } = renderPage();
+    expect(screen.getByTestId("error-banner")).toBeDefined();
+
+    vi.mocked(useLapsingGuests).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    rerender(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId("error-banner")).toBeNull();
+    expect(screen.getByTestId("lapsing-guests-widget")).toBeDefined();
+  });
+
   it("sends a win-back message via useSendWinBack when the widget button is clicked", () => {
     const guest: LapsingGuest = {
       guestId: "g-1",
