@@ -103,6 +103,12 @@ describe("NewReservationDialog", () => {
     fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: "18:30" } });
   }
 
+  it("labels the dialog with a semantic heading", () => {
+    render(<NewReservationDialog {...defaultProps} />);
+    const titleId = screen.getByRole("dialog").getAttribute("aria-labelledby");
+    const title = document.getElementById(titleId ?? "");
+    expect(title?.tagName).toMatch(/^H[1-6]$/);
+  });
   it("should render the dialog with title", () => {
     render(<NewReservationDialog {...defaultProps} />);
     expect(screen.getByText("New Reservation")).toBeDefined();

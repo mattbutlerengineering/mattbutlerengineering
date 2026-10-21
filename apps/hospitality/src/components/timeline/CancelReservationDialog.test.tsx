@@ -38,6 +38,12 @@ describe("CancelReservationDialog", () => {
     vi.clearAllMocks();
   });
 
+  it("labels the dialog with a semantic heading", () => {
+    render(<CancelReservationDialog {...defaultProps} />);
+    const titleId = screen.getByRole("dialog").getAttribute("aria-labelledby");
+    const title = document.getElementById(titleId ?? "");
+    expect(title?.tagName).toMatch(/^H[1-6]$/);
+  });
   it("should render the dialog with guest name", () => {
     render(<CancelReservationDialog {...defaultProps} />);
     expect(screen.getAllByText("Cancel Reservation")[0]).toBeDefined();

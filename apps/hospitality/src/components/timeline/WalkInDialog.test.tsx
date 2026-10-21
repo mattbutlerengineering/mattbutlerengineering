@@ -151,6 +151,12 @@ describe("WalkInDialog", () => {
     mockUseGuestLookup.mockReturnValue(idleLookup);
   });
 
+  it("labels the dialog with a semantic heading", () => {
+    render(<WalkInDialog {...defaultProps} />);
+    const titleId = screen.getByRole("dialog").getAttribute("aria-labelledby");
+    const title = document.getElementById(titleId ?? "");
+    expect(title?.tagName).toMatch(/^H[1-6]$/);
+  });
   it("should render the dialog with title", () => {
     render(<WalkInDialog {...defaultProps} />);
     expect(screen.getByText("Seat walk-in")).toBeDefined();

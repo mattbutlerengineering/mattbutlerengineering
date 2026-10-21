@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TimeSlot } from "@mbe/types";
 import type { ManagedReservation, ManagedReservationVenue } from "@mbe/api-client";
-import { Alert, Button, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Alert, Button, Stack, Heading } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import { DatePartySelector, TimeSlotPicker } from "../booking-widget/index.js";
 import { useChangeBooking } from "../../hooks/useChangeBooking.js";
@@ -123,9 +123,7 @@ export function ChangeBookingDialog({
         aria-labelledby="change-booking-title"
       >
         <Stack gap="lg">
-          <Text variant="display" id="change-booking-title">
-            {t("manageReservation.change.title")}
-          </Text>
+          <Heading id="change-booking-title">{t("manageReservation.change.title")}</Heading>
 
           {step === "pick" ? (
             <DatePartySelector

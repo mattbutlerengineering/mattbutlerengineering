@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { useFocusAfter } from "../../hooks/useFocusAfter.js";
@@ -80,9 +80,7 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
       >
         <Stack gap="lg">
           <div className={styles.header}>
-            <Text variant="display" id="mark-no-show-dialog-title">
-              {t("timeline.noShowDialog.title")}
-            </Text>
+            <Heading id="mark-no-show-dialog-title">{t("timeline.noShowDialog.title")}</Heading>
             <Text variant="body" color="secondary">
               <Trans
                 i18nKey="timeline.noShowDialog.body"
