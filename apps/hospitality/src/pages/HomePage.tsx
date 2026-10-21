@@ -43,7 +43,12 @@ export function HomePage() {
   const feedEvents = useSSEEventFeed({ maxItems: 5 });
   const { selectedVenue, selectedVenueId } = useVenue();
   const fmt = useVenueFormat();
-  const { data: lapsingGuests = [] } = useLapsingGuests(selectedVenueId);
+  const {
+    data: lapsingGuests = [],
+    error: lapsingError,
+    refetch: refetchLapsing,
+  } = useLapsingGuests(selectedVenueId);
+  const lapsingFailure = lapsingError ? describeApiError(lapsingError) : null;
   const sendWinBack = useSendWinBack();
   const now = useNow();
   // Render-time derivation on the venue's own clock; `null` means "no sign".
@@ -114,7 +119,16 @@ export function HomePage() {
         </div>
 
         <div className={styles.dashboardWidgets}>
-          <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
+          {lapsingFailure ? (
+            <ErrorRetryBanner
+              title={t("home.lapsingLoadFailed")}
+              error={lapsingFailure.detail}
+              details={lapsingFailure.raw}
+              onRetry={refetchLapsing}
+            />
+          ) : (
+            <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
+          )}
           {!isLoading && (
             <DepositExposureWidget
               depositAtRiskCount={stats.depositAtRiskCount}

@@ -421,6 +421,23 @@ describe("HomePage", () => {
     expect(screen.getByText("Jane Doe")).toBeDefined();
   });
 
+  it("shows an actionable error with retry when the lapsing-guests query fails", () => {
+    const refetch = vi.fn();
+    vi.mocked(useLapsingGuests).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("boom"),
+      refetch,
+    });
+
+    renderPage();
+    const banner = screen.getByTestId("error-banner");
+    expect(banner.textContent).toContain("Couldn't load lapsing guests.");
+    expect(screen.queryByTestId("lapsing-guests-widget")).toBeNull();
+    fireEvent.click(screen.getByText("Retry"));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
   it("sends a win-back message via useSendWinBack when the widget button is clicked", () => {
     const guest: LapsingGuest = {
       guestId: "g-1",

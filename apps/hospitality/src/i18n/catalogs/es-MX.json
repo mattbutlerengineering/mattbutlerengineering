@@ -518,6 +518,7 @@
     "welcome": "Bienvenido de nuevo",
     "welcomeNamed": "Bienvenido de nuevo, {{name}}",
     "loadFailed": "No se pudo cargar el panel.",
+    "lapsingLoadFailed": "No se pudieron cargar los huéspedes inactivos.",
     "actions": {
       "walkIn": "Sin reservación",
       "floorPlan": "Ver plano de sala",

@@ -510,6 +510,7 @@
     "welcome": "Welcome back",
     "welcomeNamed": "Welcome back, {{name}}",
     "loadFailed": "Couldn't load the dashboard.",
+    "lapsingLoadFailed": "Couldn't load lapsing guests.",
     "actions": {
       "walkIn": "Walk-in",
       "floorPlan": "View Floor Plan",
