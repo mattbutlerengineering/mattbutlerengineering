@@ -299,6 +299,24 @@ Notes:
 - **Deferred to a human:** `label-content-name-mismatch` on the TapeChart bars (visual-test, reservation-timeline) and the kanban card ghost button. The accessible name is set by the component and differs from the visible text, so the fix is a component naming contract, not page composition.
 - The `region` x123 count on visual-test is the harness page rendering content outside landmarks by design; #7188 should decide between a `main` wrapper and a documented exemption.
 
+### Iteration 7 results (#7190)
+
+`apps/rialto-web/e2e/a11y-pages.spec.ts` now audits nine pages in light and dark with the full axe rule set and fails on any violation of any impact (18 tests, all passing).
+
+| Page                         | Light | Dark  | Fixed by                 |
+| ---------------------------- | ----- | ----- | ------------------------ |
+| examples/checkout            | Clean | Clean | #7188 (heading order)    |
+| examples/form                | Clean | Clean | #7187 (caption contrast) |
+| examples/notification-center | Clean | Clean | Already clean            |
+| examples/onboarding          | Clean | Clean | Already clean            |
+| examples/pricing-table       | Clean | Clean | #7188 (heading order)    |
+| examples/reservations        | Clean | Clean | Already clean            |
+| examples/settings            | Clean | Clean | Already clean            |
+| demos/signup                 | Clean | Clean | Already clean            |
+| privacy                      | Clean | Clean | #7188 (main landmark)    |
+
+Not covered, still open and deferred to a human above: `examples/reservation-kanban` (card ghost button name mismatch), `examples/reservation-timeline` and `visual-test` (TapeChart bar names, Tag `_selected` contrast). Iteration 7 is done for everything fixable at page level.
+
 ---
 
 ## Queue for next iterations
@@ -308,4 +326,4 @@ Notes:
 - ~~**Iteration 4**: Non-overlay interactive — Slider, Tabs, Accordion, SegmentedControl~~ **Done** (see Iteration 4 above)
 - ~~**Iteration 5**: Navigation — Navbar, Sidebar, Breadcrumb, Pagination~~ **Done** (see Iteration 5 above)
 - ~~**Iteration 6**: Verify fixes with axe-core against showcase pages~~ **Done for the 10 component pages** (see Iteration 6 above)
-- **Iteration 7** (in progress, #7061): the 14 remaining seed findings on `examples/*`, `demos/*` and standalone pages (`visual-test`, `privacy`), composition-level rather than per-component
+- ~~**Iteration 7** (#7061): the 14 remaining seed findings on `examples/*`, `demos/*` and standalone pages (`visual-test`, `privacy`), composition-level rather than per-component~~ **Done for the nine fixable pages** (see Iteration 7 above)
