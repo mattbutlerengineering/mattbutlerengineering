@@ -28,8 +28,8 @@ export function FeedbackOverlaySections() {
       {/* ── Progress ───────────────────────── */}
       <Section id="progress-states" title="Progress — States">
         <div className={styles.cardColumn}>
-          <Progress value={65} />
-          <Progress />
+          <Progress value={65} aria-label="Upload progress" />
+          <Progress aria-label="Loading" />
         </div>
       </Section>
 

@@ -225,7 +225,7 @@ function PlanCard({ plan, period }: { plan: PricingPlan; period: BillingPeriod }
             <Badge variant="accent">Most popular</Badge>
           </div>
         )}
-        <Text variant="label" as="h3" id={nameId} className={styles.planName}>
+        <Text variant="label" as="h2" id={nameId} className={styles.planName}>
           {plan.name}
         </Text>
         <Text variant="caption" color="secondary" className={styles.planTagline}>

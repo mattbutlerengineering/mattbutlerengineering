@@ -32,12 +32,23 @@ vi.mock("@mattbutlerengineering/rialto", () => {
   };
   const Stack = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   const Divider = () => <hr />;
-  const Card = ({ title, children }: { title?: string; children?: ReactNode }) => (
-    <section>
-      {title && <h3>{title}</h3>}
-      {children}
-    </section>
-  );
+  const Card = ({
+    title,
+    headingLevel = 3,
+    children,
+  }: {
+    title?: string;
+    headingLevel?: number;
+    children?: ReactNode;
+  }) => {
+    const Heading = `h${headingLevel}` as "h3";
+    return (
+      <section>
+        {title && <Heading>{title}</Heading>}
+        {children}
+      </section>
+    );
+  };
   const Badge = ({ children, variant = "neutral" }: { children?: ReactNode; variant?: string }) => (
     <span data-testid="badge" data-variant={variant}>
       {children}
@@ -195,6 +206,12 @@ describe("CheckoutExamplePage — rendering", () => {
   it("renders the showcase header with page name and description", () => {
     render(<CheckoutExamplePage />);
     expect(screen.getByRole("heading", { level: 1, name: "Checkout" })).toBeInTheDocument();
+  });
+
+  it("card titles are h2, directly under the page h1 (axe heading-order, #7188)", () => {
+    render(<CheckoutExamplePage />);
+    expect(screen.getByRole("heading", { level: 2, name: "Order summary" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Payment details" })).toBeInTheDocument();
   });
 
   it("renders the order summary with every line item, subtotal, tax, and total", () => {

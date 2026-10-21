@@ -128,7 +128,7 @@ export const routeTree: RouteObject[] = [
     ],
   },
   // Standalone visual-test
-  { path: "visual-test", element: suspended(VisualTest) },
+  { path: "visual-test", element: <main>{suspended(VisualTest)}</main> },
   // Privacy policy
   { path: "privacy", element: <PrivacyPage /> },
   // Catch-all
