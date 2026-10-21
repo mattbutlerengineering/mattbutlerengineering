@@ -1,9 +1,12 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { createGhClient, GhAuthError } from "@mbe/gh-client";
 import {
   classifyIssue,
   extractLinkedPrs,
   fetchLinkedPrsByIssue,
+  attachLinkedPrs,
+  createTimelineFetcher,
   computeCategoryRates,
   computeIssueBudget,
   queryClosedIssuesForFeedback,
@@ -445,5 +448,63 @@ describe("fetchLinkedPrsByIssue", () => {
     };
     await fetchLinkedPrsByIssue([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], getTimeline, { concurrency: 3 });
     expect(peak).toBeLessThanOrEqual(3);
+  });
+});
+
+describe("linked-PR wiring (#7199)", () => {
+  const closedIssue = (number) => ({
+    number,
+    state: "CLOSED",
+    stateReason: "COMPLETED",
+    labels: [{ name: "feature" }],
+  });
+  const mergedXref = (prNumber, issueNumber) => ({
+    event: "cross-referenced",
+    source: {
+      type: "issue",
+      issue: {
+        number: prNumber,
+        body: `Closes #${issueNumber}`,
+        pull_request: { merged_at: "2026-10-02T00:00:00Z" },
+      },
+    },
+  });
+
+  it("reports accepted > 0 when stubbed merged PRs closed issues", async () => {
+    const getTimeline = async (n) => (n === 1 ? [mergedXref(10, 1)] : []);
+    const { issues, failures } = await attachLinkedPrs(
+      [closedIssue(1), closedIssue(2)],
+      getTimeline
+    );
+    expect(failures).toBe(0);
+    expect(computeCategoryRates(issues).feature).toMatchObject({
+      total: 2,
+      accepted: 1,
+      wontfix: 1,
+    });
+  });
+
+  it("degrades to wontfix, counting failures, when lookups fail", async () => {
+    const getTimeline = async () => {
+      throw new Error("boom");
+    };
+    const { issues, failures } = await attachLinkedPrs([closedIssue(1)], getTimeline);
+    expect(failures).toBe(1);
+    expect(computeCategoryRates(issues).feature.accepted).toBe(0);
+  });
+
+  it("fetches the timeline through gh api REST", async () => {
+    const calls = [];
+    const exec = async (file, args) => {
+      calls.push([file, ...args]);
+      return { stdout: "[]" };
+    };
+    await createTimelineFetcher("o/r", exec)(7, 2);
+    expect(calls).toEqual([["gh", "api", "repos/o/r/issues/7/timeline?per_page=100&page=2"]]);
+  });
+
+  it("no longer hardcodes linkedPrs: []", () => {
+    const src = readFileSync(new URL("../collect-ai-issue-feedback.mjs", import.meta.url), "utf8");
+    expect(src).not.toMatch(/linkedPrs:\s*\[\]/);
   });
 });
