@@ -4086,3 +4086,13 @@ P1 SLA: **skipped** per the routine's control flow (an exit 2 from `plan` ends f
 `ledger.mjs record` exited 0 and appended `{"due":2,"audited":0,"unreachable":{"auth":20,"build":2},"unjudged":0,"dropped_tells":0}` — byte-identical to yesterday's row. It warned that `judge-status.json` is missing, so every captured row counts `unjudged:missing`; vacuous here, since zero rows were captured.
 
 No blocker, no pipeline bug, no stopped filing beyond the plan's own input requirement. The run history makes the shape explicit — `due`/`audited` ran 40/40 through 2026-10-15 and has been 2/0 for the last two fires — and it is cadence, not breakage: `AUDIT_TTL_DAYS` is 28 against a `first_run_at` of 2026-10-01, so the bulk of the 133 covered rows do not fall due until roughly **2026-10-29**. Two things will still be true then unless a human acts, and both are carried over rather than newly discovered: the two hospitality menu routes need a route fixture or they will be due-and-uncapturable in every fire forever (they can never earn a fresh capture timestamp), and the calibration set needs labelling before any judged finding can be filed at all.
+
+## 2026-10-21 — mbe-learning-loop
+
+**Sensors:** 14/17 available (lighthouse, mutationScore, e2eStability not available) — status: Healthy
+**Regressions:** 0 detected, 0 issues created (acmm L5 73/84, ciHealth 100% pass rate 21/21, codeChurn 0%, flakyTests 0/6110, queueEfficiency composite 0.555)
+**Sentry triage:** skipped — Sentry MCP not authenticated/connecting in this session
+**Verifications:** 4 checked (issues #7184, #7171, #7167, #7155), 0 verified, 0 failed, 4 skipped (no completed CI run or Lighthouse inventory to check against) — 0 reopened
+**AI issue feedback:** collected; rejection rates all <40% (feature 2%, meta-improvement 0%, audit 18%, ci-fix 6%, acmm 0%) — no category budget reduced
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm headroom 1.231 → 1.261). 30d verification stats: 91 recent entries, 14 verified / 3 failed / 74 skipped → fix-effectiveness 82% (>50%, healthy); feedback-derived false-positive rates all well under 30% — no loosening needed.
