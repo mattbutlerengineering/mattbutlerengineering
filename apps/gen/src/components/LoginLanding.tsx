@@ -80,7 +80,7 @@ export function LoginLanding() {
               ))}
             </ol>
             <figcaption className={styles.previewCaption}>
-              <Text variant="caption" color="tertiary" align="center">
+              <Text variant="caption" color="secondary" align="center">
                 A glimpse of the Gen pipeline — sign in to build your own.
               </Text>
             </figcaption>
