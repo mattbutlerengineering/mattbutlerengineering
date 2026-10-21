@@ -32,6 +32,12 @@ describe("MarkNoShowDialog", () => {
     vi.clearAllMocks();
   });
 
+  it("labels the dialog with a semantic heading", () => {
+    render(<MarkNoShowDialog {...defaultProps} />);
+    const titleId = screen.getByRole("dialog").getAttribute("aria-labelledby");
+    const title = document.getElementById(titleId ?? "");
+    expect(title?.tagName).toMatch(/^H[1-6]$/);
+  });
   it("renders the guest name and the no-show fee warning", () => {
     render(<MarkNoShowDialog {...defaultProps} />);
     expect(screen.getByText(/jane doe/i)).toBeDefined();

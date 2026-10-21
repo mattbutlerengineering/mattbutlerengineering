@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Button, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, Select, TextArea, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CancellationQuote } from "../../hooks/useCancellationQuote.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -88,9 +88,7 @@ export function CancelReservationDialog({
       >
         <Stack gap="lg">
           <div className={styles.header}>
-            <Text variant="display" id="cancel-dialog-title">
-              {t("timeline.cancel.title")}
-            </Text>
+            <Heading id="cancel-dialog-title">{t("timeline.cancel.title")}</Heading>
             <Text variant="body" color="secondary">
               <Trans
                 i18nKey="timeline.cancel.intro"

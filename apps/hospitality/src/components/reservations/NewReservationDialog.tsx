@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, Input, Select, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type {
   CreateReservationRequest,
@@ -217,9 +217,7 @@ export function NewReservationDialog({
         <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
           <Stack gap="lg">
             <div className={styles.header}>
-              <Text variant="display" id="new-reservation-dialog-title">
-                {t("newReservation.title")}
-              </Text>
+              <Heading id="new-reservation-dialog-title">{t("newReservation.title")}</Heading>
             </div>
 
             {validationError && (
