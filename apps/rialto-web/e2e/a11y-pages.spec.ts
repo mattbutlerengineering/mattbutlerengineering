@@ -106,3 +106,37 @@ for (const scheme of ["light", "dark"] as const) {
     });
   }
 }
+
+// Iteration 7 (#7190): example and standalone pages whose seed findings are
+// fixed (or no longer reproduce). Full rule set, both themes, any impact fails.
+// Not listed: reservation-kanban, reservation-timeline and visual-test, which
+// still carry the human-deferred TapeChart/ghost-button/Tag findings.
+const ITERATION_7_PAGES = [
+  "examples/checkout",
+  "examples/form",
+  "examples/notification-center",
+  "examples/onboarding",
+  "examples/pricing-table",
+  "examples/reservations",
+  "examples/settings",
+  "demos/signup",
+  "privacy",
+];
+
+for (const scheme of ["light", "dark"] as const) {
+  for (const path of ITERATION_7_PAGES) {
+    test(`a11y: ${path} page has zero axe violations (${scheme})`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: "reduce", colorScheme: scheme });
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+
+      const { violations } = await new AxeBuilder({ page }).analyze();
+
+      expect(
+        violations,
+        `${path} (${scheme}) has ${violations.length} axe violations:\n${violations.map((v) => `  - ${v.id} [${v.impact}] (${v.nodes.length} instances)`).join("\n")}`
+      ).toHaveLength(0);
+    });
+  }
+}
