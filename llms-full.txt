@@ -22829,7 +22829,7 @@
     };
   </file>
   <file path="services/agent/src/routes/gen-stream.ts">
-    export const GEN_MODEL_ID = "claude-haiku-4.5";
+    export const GEN_MODEL_ID = "claude-haiku-5-5";
     export const GEN_MAX_OUTPUT_TOKENS = 2048;
     type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
     export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
