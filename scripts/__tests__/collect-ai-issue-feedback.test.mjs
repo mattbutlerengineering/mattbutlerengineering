@@ -63,6 +63,31 @@ describe("classifyIssue", () => {
     expect(classifyIssue(issue)).toBe("wontfix");
   });
 
+  it("classifies as accepted when one of several linked PRs merged", () => {
+    const issue = makeIssue({
+      linkedPrs: [
+        { number: 10, state: "CLOSED" },
+        { number: 11, state: "MERGED" },
+      ],
+      stateReason: "COMPLETED",
+    });
+    expect(classifyIssue(issue)).toBe("accepted");
+  });
+
+  it("a merged linked PR wins over a NOT_PLANNED stateReason", () => {
+    const issue = makeIssue({
+      linkedPrs: [{ number: 10, state: "MERGED" }],
+      stateReason: "NOT_PLANNED",
+    });
+    expect(classifyIssue(issue)).toBe("accepted");
+  });
+
+  it("falls back to the stateReason when linkedPrs is absent", () => {
+    const issue = makeIssue({ stateReason: "NOT_PLANNED" });
+    delete issue.linkedPrs;
+    expect(classifyIssue(issue)).toBe("rejected");
+  });
+
   it("returns null for open issues", () => {
     const issue = makeIssue({ state: "OPEN", closedAt: null });
     expect(classifyIssue(issue)).toBeNull();
