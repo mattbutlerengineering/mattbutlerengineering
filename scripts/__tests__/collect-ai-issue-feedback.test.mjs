@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { createGhClient, GhAuthError } from "@mbe/gh-client";
 import {
   classifyIssue,
+  extractLinkedPrs,
+  fetchLinkedPrsByIssue,
   computeCategoryRates,
   computeIssueBudget,
   queryClosedIssuesForFeedback,
@@ -344,5 +346,104 @@ describe("constants", () => {
         `"${field}" is not a valid gh issue list field`
       ).toBe(true);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// linked-PR adapter (#7198)
+// ---------------------------------------------------------------------------
+
+const xref = (number, { merged = true, body = "Closes #5" } = {}) => ({
+  event: "cross-referenced",
+  source: {
+    type: "issue",
+    issue: { number, body, pull_request: { merged_at: merged ? "2026-10-01T00:00:00Z" : null } },
+  },
+});
+
+describe("extractLinkedPrs", () => {
+  it("returns merged PRs whose body closes the issue", () => {
+    expect(extractLinkedPrs(5, [xref(10)])).toEqual([{ number: 10, state: "MERGED" }]);
+  });
+
+  it("ignores unmerged PRs, plain mentions, non-PR sources and other events", () => {
+    const events = [
+      xref(11, { merged: false }),
+      xref(12, { body: "see #5 for context" }),
+      xref(13, { body: "Closes #55" }),
+      {
+        event: "cross-referenced",
+        source: { type: "issue", issue: { number: 14, body: "Fixes #5" } },
+      },
+      { event: "labeled" },
+    ];
+    expect(extractLinkedPrs(5, events)).toEqual([]);
+  });
+
+  it("accepts fix/resolve keyword variants case-insensitively", () => {
+    const events = [xref(20, { body: "fixed #5" }), xref(21, { body: "RESOLVES #5" })];
+    expect(extractLinkedPrs(5, events).map((p) => p.number)).toEqual([20, 21]);
+  });
+});
+
+describe("fetchLinkedPrsByIssue", () => {
+  it("maps each issue number to its linked PRs", async () => {
+    const getTimeline = async (n) => (n === 5 ? [xref(10)] : []);
+    const { linkedPrsByIssue, failures } = await fetchLinkedPrsByIssue([5, 6], getTimeline);
+    expect(linkedPrsByIssue.get(5)).toEqual([{ number: 10, state: "MERGED" }]);
+    expect(linkedPrsByIssue.get(6)).toEqual([]);
+    expect(failures).toBe(0);
+  });
+
+  it("follows pages until a short page", async () => {
+    const full = Array.from({ length: 100 }, () => ({ event: "labeled" }));
+    const calls = [];
+    const getTimeline = async (n, page) => {
+      calls.push(page);
+      return page === 1 ? full : [xref(10)];
+    };
+    const { linkedPrsByIssue } = await fetchLinkedPrsByIssue([5], getTimeline);
+    expect(calls).toEqual([1, 2]);
+    expect(linkedPrsByIssue.get(5)).toEqual([{ number: 10, state: "MERGED" }]);
+  });
+
+  it("degrades to [] and counts a failure instead of throwing", async () => {
+    const getTimeline = async () => {
+      throw new Error("boom");
+    };
+    const { linkedPrsByIssue, failures } = await fetchLinkedPrsByIssue([5, 6], getTimeline);
+    expect(linkedPrsByIssue.get(5)).toEqual([]);
+    expect(linkedPrsByIssue.get(6)).toEqual([]);
+    expect(failures).toBe(2);
+  });
+
+  it("stops calling the API after a rate-limit error", async () => {
+    let calls = 0;
+    const getTimeline = async () => {
+      calls += 1;
+      throw new Error("API rate limit exceeded (403)");
+    };
+    const { linkedPrsByIssue, failures } = await fetchLinkedPrsByIssue(
+      [1, 2, 3, 4, 5, 6, 7, 8],
+      getTimeline,
+      { concurrency: 1 }
+    );
+    expect(calls).toBe(1);
+    expect(failures).toBe(8);
+    expect(linkedPrsByIssue.get(8)).toEqual([]);
+  });
+
+  it("never exceeds the concurrency cap", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const getTimeline = async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await Promise.resolve();
+      inFlight -= 1;
+      return [];
+    };
+    await fetchLinkedPrsByIssue([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], getTimeline, { concurrency: 3 });
+    expect(peak).toBeLessThanOrEqual(3);
   });
 });
