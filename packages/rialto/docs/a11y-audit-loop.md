@@ -294,6 +294,7 @@ Notes:
 
 - Contrast (feeds #7187): reservation-kanban column header (4.07:1 light), visual-test `_selected` control (3.4:1 light, 2.32:1 dark), form state-panel caption (3.31:1 light, 4.22:1 dark).
 - Landmark and structure (feeds #7188): `heading-order` on pricing-table and checkout, `landmark-one-main` and `region` on privacy, `landmark-unique` and `region` on visual-test, `aria-progressbar-name` on visual-test.
+- **Contrast fixes (#7187):** the reservation-kanban column header label and the `StatePanel` caption (every example's state panel, `examples/form`) now use primary text on their recessed/matte strip; both re-checked clean with axe in light and dark. **Deferred to a human:** the visual-test `_selected` accent `Tag` (3.4:1 light, 2.32:1 dark) fails inside the component, so it needs a Tag token decision, not a page change.
 - **Deferred to a human:** `label-content-name-mismatch` on the TapeChart bars (visual-test, reservation-timeline) and the kanban card ghost button. The accessible name is set by the component and differs from the visible text, so the fix is a component naming contract, not page composition.
 - The `region` x123 count on visual-test is the harness page rendering content outside landmarks by design; #7188 should decide between a `main` wrapper and a documented exemption.
 

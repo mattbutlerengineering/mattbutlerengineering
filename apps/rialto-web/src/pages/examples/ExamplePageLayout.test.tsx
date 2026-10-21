@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { CompositionNote } from "./ExamplePageLayout.js";
+import { CompositionNote, StatePanel } from "./ExamplePageLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Text: ({ children, color }: { children: React.ReactNode; color?: string }) => (
+    <span data-color={color}>{children}</span>
+  ),
 }));
 
 describe("CompositionNote", () => {
@@ -17,5 +19,12 @@ describe("CompositionNote", () => {
     );
     expect(screen.queryAllByRole("complementary")).toHaveLength(0);
     expect(screen.getAllByRole("note")).toHaveLength(3);
+  });
+});
+
+describe("StatePanel", () => {
+  it("labels the panel in primary text, not tertiary or secondary (axe color-contrast on the matte strip, #7187)", () => {
+    render(<StatePanel label="Default">content</StatePanel>);
+    expect(screen.getByText("Default").getAttribute("data-color")).toBe("primary");
   });
 });
