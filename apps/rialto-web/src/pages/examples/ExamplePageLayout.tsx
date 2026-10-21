@@ -73,7 +73,7 @@ export function StatePanel({ label, children }: StatePanelProps) {
   return (
     <div className={styles.statePanel}>
       <div className={styles.statePanelLabel}>
-        <Text variant="caption" color="tertiary">
+        <Text variant="caption" color="primary">
           {label}
         </Text>
       </div>

@@ -20,9 +20,17 @@ import {
 // ---------------------------------------------------------------------------
 
 vi.mock("@mattbutlerengineering/rialto", () => {
-  const Text = ({ as, children }: { as?: ElementType; children?: ReactNode }) => {
+  const Text = ({
+    as,
+    children,
+    color,
+  }: {
+    as?: ElementType;
+    children?: ReactNode;
+    color?: string;
+  }) => {
     const Tag = as ?? "span";
-    return <Tag>{children}</Tag>;
+    return <Tag data-color={color}>{children}</Tag>;
   };
   const Button = ({
     children,
@@ -106,6 +114,12 @@ describe("ReservationKanbanExamplePage — composition", () => {
         expect(within(column).getByText(card.guest)).toBeInTheDocument();
       }
     }
+  });
+
+  it("column header labels use primary text on the recessed column (axe color-contrast, #7187)", () => {
+    render(<ReservationKanbanExamplePage />);
+    const label = within(screen.getByLabelText("Pre-Arrival")).getByText("Pre-Arrival");
+    expect(label.getAttribute("data-color")).toBe("primary");
   });
 
   it("moving a card between columns via the click action removes it from the old column and adds it to the next", () => {
