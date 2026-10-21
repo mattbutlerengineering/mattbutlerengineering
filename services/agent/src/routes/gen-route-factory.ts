@@ -1,11 +1,16 @@
 /// <reference types="@fastify/rate-limit" />
-import type { FastifyRequest, FastifyPluginAsync } from "fastify";
+import type { FastifyRequest, FastifyPluginAsync, preHandlerAsyncHookHandler } from "fastify";
 import { requireAuth } from "@mbe/auth/fastify";
 import { createProblemDetails } from "@mbe/types";
 // Import directly from catalog (not index) to avoid pulling in registry.tsx (browser-only)
 import { catalog } from "@mbe/rialto-catalog/catalog";
 import type { z } from "zod";
-import { GEN_MODEL_ID, logGenCost, applyStreamHeaders } from "./gen-stream.js";
+import {
+  GEN_MODEL_ID,
+  GEN_MAX_OUTPUT_TOKENS,
+  logGenCost,
+  applyStreamHeaders,
+} from "./gen-stream.js";
 import { createSanitizedStream } from "@mbe/agent-core";
 import { createGenRunner } from "./gen-runner.js";
 import type { GenToolMap, GenStreamEvent, GenRunnerConfig } from "./gen-runner.js";
@@ -82,17 +87,37 @@ export function createGenRoute<TSchema extends z.ZodType>(
     streamFormat === "text" ? "text/plain; charset=utf-8" : "application/x-ndjson; charset=utf-8";
 
   return async (fastify) => {
+    // Per-identity cap enforced by hand after requireAuth: a route-level
+    // `config.rateLimit` runs at onRequest, before request.user exists, so its
+    // keyGenerator always fell back to the IP. createRateLimit bypasses the
+    // plugin's one-limiter-per-request flag, so the service-wide limiter keeps
+    // covering the anonymous surface.
+    const identityLimiter = fastify.createRateLimit({
+      max: rateLimit.max,
+      timeWindow: rateLimit.timeWindow,
+      keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+    });
+
+    const enforceIdentityLimit: preHandlerAsyncHookHandler = async (request, reply) => {
+      const limit = await identityLimiter(request);
+      if (limit.isAllowed || !limit.isExceeded) return;
+
+      reply.header("Retry-After", limit.ttlInSeconds);
+      return reply
+        .code(429)
+        .send(
+          createProblemDetails(
+            429,
+            "Too Many Requests",
+            `Rate limit exceeded. Retry after ${limit.ttlInSeconds} seconds.`
+          )
+        );
+    };
+
     fastify.post(
       path,
       {
-        preHandler: [requireAuth],
-        config: {
-          rateLimit: {
-            max: rateLimit.max,
-            timeWindow: rateLimit.timeWindow,
-            keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
-          },
-        },
+        preHandler: [requireAuth, enforceIdentityLimit],
       },
       async (request, reply) => {
         const parseResult = schema.safeParse(request.body);
@@ -117,6 +142,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
         const runner = createGenRunner({
           systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
           modelId: GEN_MODEL_ID,
+          maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
           maxSteps,
           toolChoice: config.toolChoice,
           failOnToolError: config.failOnToolError,
@@ -147,6 +173,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
               } catch (err) {
                 // Error the stream — closing here would turn an upstream
                 // failure (e.g. 529/401) into an empty-looking 200.
+                request.log.error({ err }, "gen stream failed");
                 controller.error(toError(err));
               }
             },
@@ -169,6 +196,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
               if (!emitted) throw emptyOutputError();
               controller.close();
             } catch (err) {
+              request.log.error({ err }, "gen stream failed");
               controller.error(toError(err));
             }
           },

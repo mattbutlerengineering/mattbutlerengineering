@@ -4010,3 +4010,59 @@ P1 SLA: **0 open `ui-quality:p1` issues**, so 0 breaches and 0 escalations; `p1-
 One thing checked and found **not** to be a defect, recorded so the next fire does not re-chase it: all 60 ledger keys read `state: "open"` across 29 distinct issues, even though the four P1 issues above are closed on GitHub. That `state` is the _finding's_ ledger state (defaulted on `record`, consumed by `migrate` to pick which keys to re-key), not a mirror of the GitHub issue state — so it is not evidence of ledger drift.
 
 A genuine no-op fire, and the expected shape of one: `AUDIT_TTL_DAYS` is 28 and the ledger's `first_run_at` is 2026-10-01, so the bulk of the 133 covered rows do not come due until roughly **2026-10-29**. Until then the only due rows are the two hospitality menu routes that cannot be captured without a fixture, which means fires between now and then will keep landing here unless that fixture arrives. No blocker, no stopped filing, no pipeline bug.
+
+## 2026-10-20 — mbe-learning-loop
+
+**Sensors:** 14/17 available (lighthouse, mutationScore, e2eStability not available — no egress/not configured). acmm L5 (73/84), ciHealth 100% pass rate (24/24), queueEfficiency composite 0.54 (fps 0.851, ttm 0.2h, $13.196/issue, n=9/181, no baseline yet), metricsFreshness 0 unhealthy (review-burden/queue-telemetry/queueEfficiency/sdlcSpeed/ai-issue-feedback all fresh), reviewBurden (no formal review stage, 100 PRs/0 submissions), prCategoryMetrics 94/97 merged by category, agentCost $3.96 (7d)/$0 (today), codeChurn 1% (7983 deleted/806614 added, 7d), flakyTests 0 flaky (6014 runs, 1 SHA), issues 200 created/200 closed/0 ready.
+**Sentry triage:** skipped — `mcp__sentry__find_organizations` returned HTTP 429 (rate limited), distinct from the prior days' OAuth-rejection failure; no retriage possible this run.
+**Regressions:** 0 detected (sensor-report regressions array empty) — status: Healthy.
+**Verifications:** 5 checked (issues closed in last 48h: #7155, #7154, #7145, #7130, #7129), 0 verified, 0 failed, 5 skipped (no Lighthouse inventory to verify audit-labeled closures against, and #7145 — the verifySecurity-stub fix itself — had no matching CI runs yet). Nothing reopened.
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` picked up a fresh acmm data point (33% rejected, n=3, up from the stale 50%/n=2 the sensor report's own earlier read showed), landing back under the 40% halving threshold — budgets back to the default 3 across all categories: audit (25%, n=20), ci-fix (14%, n=28), feature (3%, n=127), meta-improvement (0%, n=22), acmm (33%, n=3).
+**Skill proposals:** 0 (Tuesday — session-log analysis is Friday-only this run).
+**Threshold notes:** auto-tuner (run inside verify-fixes.mjs) applied 1 adjustment: `acmm` headroom 1.202 → 1.231. 30d fix-effectiveness rate 82.4% (14 verified / 3 failed, 75 skipped excluded from the denominator) — above the 50% floor, unchanged from 2026-10-19 (the 30-day window rolled forward and dropped as many old rows as today added skips). 30d false-positive rate (issues closed `not_planned` among per-label closed sensor-labeled issues — ci-fix/audit/acmm/sentry/bug, REST per-label via `gh api`, since the cross-repo search API and `gh --paginate`'s numeric-ID Link-header URLs are both blocked in this session type) ~7.1% (30/423, labels overlap so this double-counts multi-labeled issues same as prior runs) — well under the 30% loosening trigger.
+**Environment note:** fresh cloud checkout had no `node_modules` or built workspace `dist/` outputs; ran `pnpm install --frozen-lockfile` + `pnpm build --filter @mbe/gh-client...` before `sensor-report.mjs` could resolve `@mbe/gh-client`. The usual GraphQL-blocked `gh issue/pr list`/`gh repo view` 403s (per #5958) surfaced throughout — `sensor-report.mjs`'s queue-efficiency sensor hit it on `gh repo view --json nameWithOwner` and fell back to per-PR `gh pr view`, slowing that sensor; worked around elsewhere with `gh api` REST calls.
+
+## 2026-10-21
+
+**queueEfficiency:** composite 0.550 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:47, size:s:33, size:xs:34, size:xl:23, size:l:24
+**Issues filed:** 0
+
+## 2026-10-21 — mbe-evening (progress-tracker)
+
+### This iteration's own implement-queue run (mbe-evening Step 1, same session)
+
+Phase 0 pre-flight: main green (0 failure-concluded runs in the last 5 via `gh api` REST, and the "Push on main" workflow — this repo's `ci.yml`/CI Gate equivalent — reports 2/2 success in the last 30 main-branch runs). Open PRs: 3 (#7139 automation `shipped-features` snapshot, `tier:standard`/`auto-merge` — owned by `auto-merge.yml`, not this queue; #7138 a deliberate `/chaos-agent` synthetic-bug test fixture, labeled `ready`/`audit`/`chaos-audit` — exists to be _found_ by site-audit, not merged by implement-queue; #7078 a human-authored `tier:critical` CI-policy PR, still open from a prior day) — none correspond to an issue this queue claimed, so none were touched. Phase 1: REST `issues?labels=ready&state=open` returned **0** non-PR candidates (the one `ready`-labeled item is PR #7138 itself) — nothing to claim, so Phases 2-3 had no PRs to gate, review, or merge; no merge-train lock was acquired so none needed releasing; no worktrees existed to reap (`.claude/worktrees/` absent, `git worktree list` shows only the main checkout). No telemetry row appended and `git status` on `metrics/queue-telemetry.jsonl` was clean, so no metrics PR was needed from Step 1.
+
+**Anomaly from yesterday's entry resolved:** #7042 (the stale `has-pr`-without-open-PR visual-regression issue) is now closed (`state_reason: completed`), carrying only `ci-fix`. No open anomaly found this iteration.
+
+### Metrics (7d window, since 2026-10-14)
+
+| Metric        | Value                                                                                                                                                                                                                                                                    | Status            |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| Created       | 25 (audit + ci-fix, combined REST `issues?labels=` query, PRs excluded)                                                                                                                                                                                                  | -                 |
+| Closed        | 35 (includes issues created before the window but closed inside it)                                                                                                                                                                                                      | -                 |
+| Closure Rate  | 140% (35/25) — backlog draining faster than new intake, consistent with yesterday's 110%                                                                                                                                                                                 | Green             |
+| Time-to-Close | mean 23.5h across the 35 closed this week                                                                                                                                                                                                                                | Green             |
+| Agent Success | N/A — 0 `has-pr` and 0 `agent-failed` currently open; nothing live to rate this iteration                                                                                                                                                                                | -                 |
+| CI Pass       | 2/2 "Push on main" runs in the last 30 main-branch runs = 100%                                                                                                                                                                                                           | Green             |
+| Queue         | 0 `ready` (non-PR) — fourth consecutive evening at 0-or-near-0 (10, 0, 1, 0, 0); no Queue Adjust trigger (needs >10, or 0 for 3 straight days with a different cause than "nothing to decompose yet")                                                                    | Green             |
+| Stale         | 0 (no `ready` issues to be stale)                                                                                                                                                                                                                                        | Green             |
+| Blocked       | 0 `agent-failed` open                                                                                                                                                                                                                                                    | Green             |
+| Skipped       | 0 `agent-skip` open                                                                                                                                                                                                                                                      | Green             |
+| Daily Spend   | $0 attributed (`recordSpend`) today; queue-worker cost is a 7d rollup only, so today's true share is unknown, not $0                                                                                                                                                     | N/A               |
+| 7d Spend      | $3.96 (`.claude/agent-spend/sessions.jsonl`, 5 rows) + $118.77 (`metrics/queue-telemetry.jsonl`, 17 queue-worker sessions, 1.34M tokens, 141 rows without usage) ≈ **$122.73** — essentially flat vs. yesterday's $122.72                                                | Red               |
+| Cost/Issue    | ≈ $3.51 (= $122.73 / 35 audit+ci-fix closed) — same understatement caveat as prior entries: most of the queue's weekly spend is almost certainly not audit/ci-fix work, so this both overstates this category's true cost and understates the real queue-wide cost/issue | Yellow (caveated) |
+
+### Patterns
+
+- 7d spend has now sat in Red (~$122.7) for at least two consecutive evening checks with the number essentially unchanged — this reads as a 7-day rolling window that hasn't yet rolled off the spend that pushed it over $100, not a new spike. No new issue filed: the sparse `cost_usd` coverage driving the inflated per-row estimate (141 of 158 queue-worker rows this week lack usage) is the same gap `queueEfficiency` and the last several log entries already track.
+- No `ready` issues for the fourth evening running (10 → 0 → 1 → 0 → 0). The `/ideate` and `/decompose` cycle, not this routine, is the lever for queue depth — not escalating from here since nothing here indicates discovery itself is broken (audit/ci-fix issues are still being created and closed at a healthy rate, 25 created / 35 closed this week).
+
+### Recommendations
+
+- None urgent this iteration — zero `ready` issues meant Phase 1-3 had nothing to do, and no stale-label anomaly carried over from yesterday.
+
+### Skipped Issues
+
+None — 0 `agent-skip`.

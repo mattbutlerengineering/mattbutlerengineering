@@ -225,4 +225,4 @@ After applying a recovery step, confirm the fix by:
 - **CI Job:** `.github/workflows/e2e.yml` — the "Hospitality E2E" job
 - **Test Artifacts:** `apps/hospitality/e2e/test-results/` and `apps/hospitality/playwright-report/` (uploaded on CI failure)
 - **Source Code:** `apps/hospitality/e2e/` — test files and fixtures
-- **Backend Health Checks:** `services/users/src/routes/health.ts` and `services/reservations/src/routes/health.ts`
+- **Backend Health Checks:** `packages/service-bootstrap/src/health-routes.ts` (shared by the users and reservations services)

@@ -79,6 +79,8 @@ vi.mock("@mbe/agent-core", () => ({
 
 import { streamText } from "ai";
 import Fastify from "fastify";
+import rateLimit from "@fastify/rate-limit";
+import { requireAuth } from "@mbe/auth/fastify";
 import { createGenRoute } from "./gen-route-factory.js";
 import { logGenCost } from "./gen-stream.js";
 
@@ -92,6 +94,8 @@ const ChatSchema = z.object({
 
 function buildTestApp() {
   const app = Fastify({ logger: false });
+  // The factory builds its per-identity limiter from the service's rate-limit plugin.
+  void app.register(rateLimit, { global: false });
   return app;
 }
 
@@ -595,5 +599,66 @@ describe("createGenRoute factory", () => {
       const [, parsed] = getTools.mock.calls[0] as [unknown, { venueId?: string }];
       expect(parsed.venueId).toBe("venue-123");
     });
+  });
+});
+
+describe("createGenRoute per-identity rate limit", () => {
+  let app: FastifyInstance;
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+  });
+
+  async function buildLimitedApp(max: number) {
+    // Mirrors createServiceApp: a service-wide onRequest limiter, where
+    // request.user does not exist yet.
+    app = Fastify({ logger: false });
+    await app.register(rateLimit, { global: true, max: 1000, timeWindow: "1 hour" });
+    vi.mocked(requireAuth).mockImplementation((async (req: {
+      user?: { id: string };
+      headers: Record<string, string | undefined>;
+    }) => {
+      req.user = { id: req.headers["x-user"] ?? "test-user" };
+    }) as never);
+    vi.mocked(streamText).mockImplementation(
+      () =>
+        ({
+          fullStream: mockStream([]),
+          usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+          providerMetadata: Promise.resolve({}),
+        }) as never
+    );
+    await app.register(
+      createGenRoute({
+        path: TEST_PATH.chat,
+        costLogLabel: "limit test",
+        rateLimit: { max, timeWindow: "1 hour" },
+        schema: ChatSchema,
+        streamFormat: "text",
+        maxSteps: 1,
+        getTools: async () => ({}),
+      })
+    );
+    await app.ready();
+  }
+
+  const post = (user: string) =>
+    app.inject({
+      method: "POST",
+      url: TEST_PATH.chat,
+      headers: { "x-user": user },
+      remoteAddress: "10.0.0.1",
+      payload: { messages: [] },
+    });
+
+  it("gives different authenticated subjects behind one IP their own bucket", async () => {
+    await buildLimitedApp(2);
+
+    expect((await post("alice")).statusCode).not.toBe(429);
+    expect((await post("alice")).statusCode).not.toBe(429);
+    expect((await post("alice")).statusCode).toBe(429);
+    // Same IP, different subject: untouched by alice's exhausted bucket.
+    expect((await post("bob")).statusCode).not.toBe(429);
   });
 });

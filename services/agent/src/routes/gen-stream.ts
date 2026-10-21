@@ -8,8 +8,23 @@ import type { FastifyBaseLogger, FastifyReply } from "fastify";
  * duplicated across both; they live here so a change touches one place.
  */
 
-/** Conversational + agent gen routes both run on haiku. One upgrade, one edit. */
-export const GEN_MODEL_ID = "claude-haiku-4.5";
+/**
+ * Conversational + agent gen routes both run on haiku. One upgrade, one edit.
+ *
+ * Haiku 5.5, not 4.5: same tier, but $0.10/$0.50 per MTok against 4.5's
+ * $1.00/$5.00 — a tenth of the price for the newer model. Forced `toolChoice`
+ * (which gen-ui relies on to get a structured `render_component` call) is still
+ * supported here; it is the Opus/Sonnet 5.5 tier that rejects it. Note 5.5 runs
+ * adaptive thinking on by default and those tokens bill as output, so they
+ * count against GEN_MAX_OUTPUT_TOKENS below.
+ */
+export const GEN_MODEL_ID = "claude-haiku-5-5";
+
+/**
+ * Per-request output-token ceiling. App-level limits are the only exact spend
+ * cap (#6948). Thinking tokens bill as output and count against it.
+ */
+export const GEN_MAX_OUTPUT_TOKENS = 2048;
 
 type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
 
