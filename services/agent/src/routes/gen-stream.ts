@@ -11,6 +11,12 @@ import type { FastifyBaseLogger, FastifyReply } from "fastify";
 /** Conversational + agent gen routes both run on haiku. One upgrade, one edit. */
 export const GEN_MODEL_ID = "claude-haiku-4.5";
 
+/**
+ * Per-request output-token ceiling. App-level limits are the only exact spend
+ * cap (#6948). Thinking tokens bill as output and count against it.
+ */
+export const GEN_MAX_OUTPUT_TOKENS = 2048;
+
 type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
 
 /**

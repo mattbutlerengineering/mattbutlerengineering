@@ -7084,9 +7084,9 @@
       interface GenRunnerConfig {
         systemPrompt: string;
         modelId: string;
+        maxOutputTokens: number;
         maxSteps: number;
         onFinish?: (payload: GenFinishPayload) => Promise<void>;
-        toolChoice?: { readonly type: "tool"; readonly toolName: string };
       }
     </item>
     <item priority="high">
@@ -7130,6 +7130,9 @@
   <file path="services/agent/src/routes/gen-stream.ts">
     <item priority="high">
       export const GEN_MODEL_ID: unknown;
+    </item>
+    <item priority="high">
+      export const GEN_MAX_OUTPUT_TOKENS: unknown;
     </item>
     <item priority="high">
       type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: ...;
