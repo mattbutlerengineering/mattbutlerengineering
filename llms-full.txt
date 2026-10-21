@@ -22407,17 +22407,37 @@
         streamFormat === "text" ? "text/plain; charset=utf-8" : "application/x-ndjson; charset=utf-8";
     
       return async (fastify) => {
+        // Per-identity cap enforced by hand after requireAuth: a route-level
+        // `config.rateLimit` runs at onRequest, before request.user exists, so its
+        // keyGenerator always fell back to the IP. createRateLimit bypasses the
+        // plugin's one-limiter-per-request flag, so the service-wide limiter keeps
+        // covering the anonymous surface.
+        const identityLimiter = fastify.createRateLimit({
+          max: rateLimit.max,
+          timeWindow: rateLimit.timeWindow,
+          keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+        });
+    
+        const enforceIdentityLimit: preHandlerAsyncHookHandler = async (request, reply) => {
+          const limit = await identityLimiter(request);
+          if (limit.isAllowed || !limit.isExceeded) return;
+    
+          reply.header("Retry-After", limit.ttlInSeconds);
+          return reply
+            .code(429)
+            .send(
+              createProblemDetails(
+                429,
+                "Too Many Requests",
+                `Rate limit exceeded. Retry after ${limit.ttlInSeconds} seconds.`
+              )
+            );
+        };
+    
         fastify.post(
           path,
           {
-            preHandler: [requireAuth],
-            config: {
-              rateLimit: {
-                max: rateLimit.max,
-                timeWindow: rateLimit.timeWindow,
-                keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
-              },
-            },
+            preHandler: [requireAuth, enforceIdentityLimit],
           },
           async (request, reply) => {
             const parseResult = schema.safeParse(request.body);
