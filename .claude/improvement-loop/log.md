@@ -4021,3 +4021,9 @@ A genuine no-op fire, and the expected shape of one: `AUDIT_TTL_DAYS` is 28 and 
 **Skill proposals:** 0 (Tuesday — session-log analysis is Friday-only this run).
 **Threshold notes:** auto-tuner (run inside verify-fixes.mjs) applied 1 adjustment: `acmm` headroom 1.202 → 1.231. 30d fix-effectiveness rate 82.4% (14 verified / 3 failed, 75 skipped excluded from the denominator) — above the 50% floor, unchanged from 2026-10-19 (the 30-day window rolled forward and dropped as many old rows as today added skips). 30d false-positive rate (issues closed `not_planned` among per-label closed sensor-labeled issues — ci-fix/audit/acmm/sentry/bug, REST per-label via `gh api`, since the cross-repo search API and `gh --paginate`'s numeric-ID Link-header URLs are both blocked in this session type) ~7.1% (30/423, labels overlap so this double-counts multi-labeled issues same as prior runs) — well under the 30% loosening trigger.
 **Environment note:** fresh cloud checkout had no `node_modules` or built workspace `dist/` outputs; ran `pnpm install --frozen-lockfile` + `pnpm build --filter @mbe/gh-client...` before `sensor-report.mjs` could resolve `@mbe/gh-client`. The usual GraphQL-blocked `gh issue/pr list`/`gh repo view` 403s (per #5958) surfaced throughout — `sensor-report.mjs`'s queue-efficiency sensor hit it on `gh repo view --json nameWithOwner` and fell back to per-PR `gh pr view`, slowing that sensor; worked around elsewhere with `gh api` REST calls.
+
+## 2026-10-21
+
+**queueEfficiency:** composite 0.550 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:47, size:s:33, size:xs:34, size:xl:23, size:l:24
+**Issues filed:** 0
