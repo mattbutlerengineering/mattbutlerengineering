@@ -292,6 +292,32 @@ export async function attachLinkedPrs(issues, getTimeline) {
 }
 
 /**
+ * Warn when every category reports `accepted: 0` although merged closing PRs
+ * were found, or when every linked-PR lookup failed — the shape the old
+ * hardcoded-empty stub produced, which reads as a quiet period.
+ *
+ * @param {object[]} issues  issues after `attachLinkedPrs`
+ * @param {Record<string, { accepted: number }>} rates
+ * @param {number} failures  failed linked-PR lookups
+ * @returns {string | null}
+ */
+export function acceptedGuardWarning(issues, rates, failures) {
+  if (issues.length === 0) return null;
+  if (Object.values(rates).some((r) => r.accepted > 0)) return null;
+  if (failures >= issues.length) {
+    return `all ${issues.length} linked-PR lookups failed; accepted is 0 everywhere because detection did not run`;
+  }
+  const merged = issues.reduce(
+    (n, i) => n + (i.linkedPrs ?? []).filter((pr) => pr.state === "MERGED").length,
+    0
+  );
+  if (merged > 0) {
+    return `accepted is 0 in every category although ${merged} merged closing PR(s) were found`;
+  }
+  return null;
+}
+
+/**
  * Read the persisted feedback file.
  *
  * @returns {object | null}
@@ -345,6 +371,10 @@ export async function run() {
   }
 
   const rates = computeCategoryRates(issues);
+  const guardWarning = acceptedGuardWarning(issues, rates, failures);
+  if (guardWarning) {
+    console.error(`[collect-ai-issue-feedback] WARNING: ${guardWarning}`);
+  }
 
   const now = new Date();
   const feedback = {

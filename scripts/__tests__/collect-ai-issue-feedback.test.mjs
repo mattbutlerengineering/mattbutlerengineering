@@ -6,6 +6,7 @@ import {
   extractLinkedPrs,
   fetchLinkedPrsByIssue,
   attachLinkedPrs,
+  acceptedGuardWarning,
   createTimelineFetcher,
   computeCategoryRates,
   computeIssueBudget,
@@ -506,5 +507,53 @@ describe("linked-PR wiring (#7199)", () => {
   it("no longer hardcodes linkedPrs: []", () => {
     const src = readFileSync(new URL("../collect-ai-issue-feedback.mjs", import.meta.url), "utf8");
     expect(src).not.toMatch(/linkedPrs:\s*\[\]/);
+  });
+});
+
+describe("accepted guard (#7201)", () => {
+  const closed = (number) => ({
+    number,
+    state: "CLOSED",
+    stateReason: "COMPLETED",
+    labels: [{ name: "feature" }],
+  });
+  const xref = (pr, n) => ({
+    event: "cross-referenced",
+    source: {
+      type: "issue",
+      issue: {
+        number: pr,
+        body: `Closes #${n}`,
+        pull_request: { merged_at: "2026-10-02T00:00:00Z" },
+      },
+    },
+  });
+
+  it("is silent when real detection reports accepted > 0", async () => {
+    const { issues, failures } = await attachLinkedPrs([closed(1)], async () => [xref(9, 1)]);
+    const rates = computeCategoryRates(issues);
+    expect(acceptedGuardWarning(issues, rates, failures)).toBeNull();
+  });
+
+  it("flags zero accepted everywhere while merged PRs exist (old stub behaviour)", () => {
+    const stubbed = [{ ...closed(1), linkedPrs: [{ number: 9, state: "OPEN" }] }];
+    const rates = computeCategoryRates([{ ...closed(1), linkedPrs: [] }]);
+    const withMerged = [{ ...closed(1), linkedPrs: [{ number: 9, state: "MERGED" }] }];
+    expect(rates.feature.accepted).toBe(0);
+    expect(acceptedGuardWarning(withMerged, rates, 0)).toMatch(/merged closing PR/);
+    expect(acceptedGuardWarning(stubbed, rates, 0)).toBeNull();
+  });
+
+  it("flags a wholesale lookup failure", async () => {
+    const { issues, failures } = await attachLinkedPrs([closed(1), closed(2)], async () => {
+      throw new Error("boom");
+    });
+    const warning = acceptedGuardWarning(issues, computeCategoryRates(issues), failures);
+    expect(warning).toMatch(/lookups failed/);
+  });
+
+  it("stays quiet for a genuine zero (lookups ran, nothing merged)", async () => {
+    const { issues, failures } = await attachLinkedPrs([closed(1)], async () => []);
+    expect(acceptedGuardWarning(issues, computeCategoryRates(issues), failures)).toBeNull();
   });
 });
