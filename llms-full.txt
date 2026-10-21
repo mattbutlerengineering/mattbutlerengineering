@@ -22442,6 +22442,7 @@
             const runner = createGenRunner({
               systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
               modelId: GEN_MODEL_ID,
+              maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
               maxSteps,
               toolChoice: config.toolChoice,
               failOnToolError: config.failOnToolError,
@@ -22472,6 +22473,7 @@
                   } catch (err) {
                     // Error the stream — closing here would turn an upstream
                     // failure (e.g. 529/401) into an empty-looking 200.
+                    request.log.error({ err }, "gen stream failed");
                     controller.error(toError(err));
                   }
                 },
@@ -22494,6 +22496,7 @@
                   if (!emitted) throw emptyOutputError();
                   controller.close();
                 } catch (err) {
+                  request.log.error({ err }, "gen stream failed");
                   controller.error(toError(err));
                 }
               },
@@ -22531,6 +22534,8 @@
     export interface GenRunnerConfig {
       readonly systemPrompt: string;
       readonly modelId: string;
+      /** Output-token ceiling per model call; hitting it fails the run (never a partial result). */
+      readonly maxOutputTokens: number;
       readonly maxSteps: number;
       readonly onFinish?: (payload: GenFinishPayload) => Promise<void>;
       /**
@@ -22585,6 +22590,7 @@
             tools: tools as Parameters<typeof streamText>[0]["tools"],
             toolChoice: config.toolChoice,
             stopWhen: stepCountIs(config.maxSteps),
+            maxOutputTokens: config.maxOutputTokens,
             onFinish: config.onFinish
               ? async ({ usage, providerMetadata }) => {
                   await config.onFinish!({ usage, providerMetadata });
@@ -22603,6 +22609,16 @@
                 tool: event.toolName,
                 status: "complete",
               });
+            } else if (
+              (event.type === "finish-step" || event.type === "finish") &&
+              event.finishReason === "length"
+            ) {
+              // The output-token cap truncated the response (thinking tokens
+              // count against it). Fail rather than hand the client a partial
+              // element list; the route factory's error path logs this message.
+              throw new Error(
+                `gen output truncated: hit maxOutputTokens (${config.maxOutputTokens}) cap`
+              );
             } else if (event.type === "error") {
               // ai@7 does not throw on a failed model call (e.g. 529/401) — it
               // yields this part and completes the stream normally. Without this,
@@ -22814,6 +22830,7 @@
   </file>
   <file path="services/agent/src/routes/gen-stream.ts">
     export const GEN_MODEL_ID = "claude-haiku-4.5";
+    export const GEN_MAX_OUTPUT_TOKENS = 2048;
     type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
     export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
       return [

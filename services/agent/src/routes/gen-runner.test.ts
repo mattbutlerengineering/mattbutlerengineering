@@ -25,6 +25,7 @@ const baseConfig: GenRunnerConfig = {
   systemPrompt: "You are a helpful assistant.",
   modelId: "claude-haiku-4.5",
   maxSteps: 5,
+  maxOutputTokens: 2048,
 };
 
 describe("createGenRunner", () => {
@@ -225,6 +226,52 @@ describe("createGenRunner", () => {
         { type: "text", content: "Hello " },
         { type: "text", content: "world" },
       ]);
+    });
+  });
+
+  describe("output-token cap", () => {
+    it("passes maxOutputTokens from config to streamText", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      await runner.run([{ role: "user", content: "test" }], {}, async () => {});
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.maxOutputTokens).toBe(2048);
+    });
+
+    it("fails the run when the model stops with finishReason length (cap hit)", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "start" },
+          { type: "finish-step", finishReason: "length" },
+          { type: "finish", finishReason: "length" },
+        ]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 2048 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      await expect(
+        runner.run([{ role: "user", content: "hi" }], {}, async () => {})
+      ).rejects.toThrow(/maxOutputTokens \(2048\)/);
+    });
+
+    it("does not fail on a normal finishReason", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "finish-step", finishReason: "stop" },
+          { type: "finish", finishReason: "stop" },
+        ]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 10 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      await expect(
+        runner.run([{ role: "user", content: "hi" }], {}, async () => {})
+      ).resolves.toBeUndefined();
     });
   });
 

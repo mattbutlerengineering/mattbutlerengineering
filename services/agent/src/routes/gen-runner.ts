@@ -33,6 +33,8 @@ export interface GenFinishPayload {
 export interface GenRunnerConfig {
   readonly systemPrompt: string;
   readonly modelId: string;
+  /** Output-token ceiling per model call; hitting it fails the run (never a partial result). */
+  readonly maxOutputTokens: number;
   readonly maxSteps: number;
   readonly onFinish?: (payload: GenFinishPayload) => Promise<void>;
   /**
@@ -102,6 +104,7 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
         tools: tools as Parameters<typeof streamText>[0]["tools"],
         toolChoice: config.toolChoice,
         stopWhen: stepCountIs(config.maxSteps),
+        maxOutputTokens: config.maxOutputTokens,
         onFinish: config.onFinish
           ? async ({ usage, providerMetadata }) => {
               await config.onFinish!({ usage, providerMetadata });
@@ -120,6 +123,16 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
             tool: event.toolName,
             status: "complete",
           });
+        } else if (
+          (event.type === "finish-step" || event.type === "finish") &&
+          event.finishReason === "length"
+        ) {
+          // The output-token cap truncated the response (thinking tokens
+          // count against it). Fail rather than hand the client a partial
+          // element list; the route factory's error path logs this message.
+          throw new Error(
+            `gen output truncated: hit maxOutputTokens (${config.maxOutputTokens}) cap`
+          );
         } else if (event.type === "error") {
           // ai@7 does not throw on a failed model call (e.g. 529/401) — it
           // yields this part and completes the stream normally. Without this,
