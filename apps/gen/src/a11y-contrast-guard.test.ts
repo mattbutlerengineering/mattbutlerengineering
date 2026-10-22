@@ -33,4 +33,16 @@ describe("playground a11y contrast (#7245)", () => {
     const rule = read("src/components/JsonInspector.module.css").match(/\.empty\s*\{([^}]*)\}/);
     expect(rule![1]).toMatch(/color:\s*var\(--rialto-text-secondary\)/);
   });
+
+  it("prompt char count uses the secondary text token", () => {
+    const rule = read("src/components/PromptBar.module.css").match(/\.charCount\s*\{([^}]*)\}/);
+    expect(rule![1]).toMatch(/color:\s*var\(--rialto-text-secondary\)/);
+  });
+
+  it("waits for the framer-motion header to settle before running axe", () => {
+    const spec = read("e2e/playground.spec.ts");
+    const settle = spec.indexOf('toHaveCSS("opacity", "1")');
+    expect(settle).toBeGreaterThan(-1);
+    expect(settle).toBeLessThan(spec.indexOf("new AxeBuilder"));
+  });
 });
