@@ -416,7 +416,10 @@
       export const GEN_WRITE_FAILURE_LIMIT: unknown;
     </item>
     <item priority="high">
-      export function isSpendTrackingDegraded(): boolean { /* ... */ }
+      export const GEN_DEGRADED_PROBE_MS: unknown;
+    </item>
+    <item priority="high">
+      export function isSpendTrackingDegraded(now: number = Date.now()): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function resetSpendTrackingForTests(): void { /* ... */ }

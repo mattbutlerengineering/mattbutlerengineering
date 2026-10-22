@@ -35261,11 +35261,17 @@
       return Math.round(GEN_MAX_OUTPUT_TOKENS * GEN_PRICING.output);
     }
     export const GEN_WRITE_FAILURE_LIMIT = 3;
-    export function isSpendTrackingDegraded(): boolean {
-      return consecutiveWriteFailures >= GEN_WRITE_FAILURE_LIMIT;
+    export const GEN_DEGRADED_PROBE_MS = 30_000;
+    export function isSpendTrackingDegraded(now: number = Date.now()): boolean {
+      if (consecutiveWriteFailures < GEN_WRITE_FAILURE_LIMIT) return false;
+      if (lastProbeAt === 0) lastProbeAt = now;
+      if (now - lastProbeAt < GEN_DEGRADED_PROBE_MS) return true;
+      lastProbeAt = now;
+      return false;
     }
     export function resetSpendTrackingForTests(): void {
       consecutiveWriteFailures = 0;
+      lastProbeAt = 0;
     }
     export async function trackGenSpend(
       costMicroUsd: number,
@@ -35274,6 +35280,7 @@
       try {
         await recordGenSpend(costMicroUsd);
         consecutiveWriteFailures = 0;
+        lastProbeAt = 0;
       } catch (err) {
         consecutiveWriteFailures++;
         log.error({ err, consecutiveWriteFailures }, "gen spend ceiling: failed to record usage");

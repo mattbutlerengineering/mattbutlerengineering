@@ -18,6 +18,7 @@ import {
   resetSpendTrackingForTests,
   failedGenCostMicroUsd,
   GEN_WRITE_FAILURE_LIMIT,
+  GEN_DEGRADED_PROBE_MS,
 } from "./gen-spend-ceiling.js";
 import { GEN_MAX_OUTPUT_TOKENS } from "../routes/gen-stream.js";
 
@@ -108,6 +109,23 @@ describe("write-failure tracking (the guard must not silently stop guarding)", (
     prismaMock.$executeRaw.mockResolvedValue(1);
     await trackGenSpend(100, log as never);
     expect(isSpendTrackingDegraded()).toBe(false);
+  });
+});
+
+describe("degraded recovery (half-open probe)", () => {
+  it("lets one probe request through after the cooldown, and heals on a good write", async () => {
+    prismaMock.$executeRaw.mockRejectedValue(new Error("blip"));
+    const log = { error: vi.fn() };
+    for (let i = 0; i < GEN_WRITE_FAILURE_LIMIT; i++) await trackGenSpend(1, log as never);
+    const t0 = Date.now();
+
+    expect(isSpendTrackingDegraded(t0)).toBe(true);
+    expect(isSpendTrackingDegraded(t0 + GEN_DEGRADED_PROBE_MS)).toBe(false); // the probe
+    expect(isSpendTrackingDegraded(t0 + GEN_DEGRADED_PROBE_MS + 1)).toBe(true); // others still refused
+
+    prismaMock.$executeRaw.mockResolvedValue(1);
+    await trackGenSpend(1, log as never);
+    expect(isSpendTrackingDegraded(t0 + GEN_DEGRADED_PROBE_MS + 2)).toBe(false);
   });
 });
 

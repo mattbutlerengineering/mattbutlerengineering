@@ -101,12 +101,21 @@ export function failedGenCostMicroUsd(): number {
 export const GEN_WRITE_FAILURE_LIMIT = 3;
 let consecutiveWriteFailures = 0;
 
-export function isSpendTrackingDegraded(): boolean {
-  return consecutiveWriteFailures >= GEN_WRITE_FAILURE_LIMIT;
+/** While degraded, one request per this interval is let through as a probe; its write heals or re-latches. */
+export const GEN_DEGRADED_PROBE_MS = 30_000;
+let lastProbeAt = 0;
+
+export function isSpendTrackingDegraded(now: number = Date.now()): boolean {
+  if (consecutiveWriteFailures < GEN_WRITE_FAILURE_LIMIT) return false;
+  if (lastProbeAt === 0) lastProbeAt = now;
+  if (now - lastProbeAt < GEN_DEGRADED_PROBE_MS) return true;
+  lastProbeAt = now;
+  return false;
 }
 
 export function resetSpendTrackingForTests(): void {
   consecutiveWriteFailures = 0;
+  lastProbeAt = 0;
 }
 
 /**
@@ -121,6 +130,7 @@ export async function trackGenSpend(
   try {
     await recordGenSpend(costMicroUsd);
     consecutiveWriteFailures = 0;
+    lastProbeAt = 0;
   } catch (err) {
     consecutiveWriteFailures++;
     log.error({ err, consecutiveWriteFailures }, "gen spend ceiling: failed to record usage");
