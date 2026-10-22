@@ -523,6 +523,17 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
+      # Fails with one clear "E2E auth preflight failed: <reason>" line when the
+      # Auth0 grant/user/client is wrong, instead of every spec failing at the fixture.
+      - name: Auth0 seed-user preflight
+        run: node scripts/e2e-auth-preflight.mjs
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+
       - name: Run E2E tests
         run: pnpm --dir apps/gen test:e2e
         env:

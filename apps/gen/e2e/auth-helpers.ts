@@ -4,7 +4,7 @@ import type { Page } from "@playwright/test";
  * Auth0 Resource Owner Password Grant configuration.
  * All values come from environment variables — never hardcoded.
  */
-interface Auth0Config {
+export interface Auth0Config {
   domain: string;
   clientId: string;
   audience: string;
@@ -48,8 +48,13 @@ interface TokenResponse {
  * Fetches tokens from Auth0 using the Resource Owner Password Grant.
  * This bypasses the browser login flow entirely — fast, reliable, CI-friendly.
  */
-async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
-  const response = await fetch(`https://${config.domain}/oauth/token`, {
+type FetchFn = typeof fetch;
+
+export async function fetchAuth0Tokens(
+  config: Auth0Config,
+  fetchFn: FetchFn = fetch
+): Promise<TokenResponse> {
+  const response = await fetchFn(`https://${config.domain}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
