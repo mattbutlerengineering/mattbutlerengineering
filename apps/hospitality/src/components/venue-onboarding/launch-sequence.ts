@@ -35,6 +35,7 @@ import type {
   FloorPlan,
   FloorPlanSection,
   Table,
+  PaginatedResponse,
   CreateFloorPlanSectionRequest,
   CreateTableRequest,
   CreateFloorPlanRequest,
@@ -67,6 +68,13 @@ export interface LaunchProgress {
   sectionsDone: boolean;
   /** Names, not ids — the name is the server's unique key and therefore the resume key. */
   createdTableNames: readonly string[];
+  /**
+   * True once every table that a template placed in a zone has been assigned
+   * to its section. Tables and membership are two writes inside one stage, so
+   * `createdTableNames` alone cannot say whether the stage finished. Absent
+   * means not yet; it only matters for a draft with tables in zones.
+   */
+  membershipDone?: boolean;
   activated: boolean;
   inFlightStage: LaunchStageId | null;
   failedStage: LaunchStageId | null;
@@ -117,10 +125,20 @@ function isStageDone(
     case "floorPlan":
       return progress.floorPlanId !== null && progress.sectionsDone;
     case "tables":
-      return draft.tables.every((table) => progress.createdTableNames.includes(table.name));
+      return (
+        draft.tables.every((table) => progress.createdTableNames.includes(table.name)) &&
+        (!needsMembership(draft) || progress.membershipDone === true)
+      );
     case "activate":
       return progress.activated;
   }
+}
+
+/** True when a template put at least one table inside a named zone. */
+function needsMembership(draft: FloorPlanDraft): boolean {
+  return (
+    draft.sections.length > 0 && draft.tables.some((table) => (table.sectionId ?? null) !== null)
+  );
 }
 
 /** First incomplete stage, or null when the sequence is complete. Total; no failure modes. */
@@ -185,8 +203,16 @@ export interface LaunchApi {
   floorPlanSections: {
     list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]>;
     create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
+    assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]>;
   };
-  tables: { create(data: CreateTableRequest): Promise<Table> };
+  tables: {
+    create(data: CreateTableRequest): Promise<Table>;
+    list(params: {
+      venueId: string;
+      page?: number;
+      limit?: number;
+    }): Promise<PaginatedResponse<Table>>;
+  };
 }
 
 /** Preserves the original Error (its message is the server's RFC 7807 detail) or falls back. */
@@ -320,6 +346,46 @@ class LaunchStageError extends Error {
   }
 }
 
+/** The server's cap on `limit` (`parsePaginationQuery` in `@mbe/database`). */
+const MAX_PAGE_SIZE = 100;
+
+/**
+ * Puts each template table into the section the template placed it in.
+ *
+ * Progress keeps table *names*, not ids, so the ids are recovered by listing
+ * the venue's tables — the venue was created by this Launch, so every table it
+ * holds is one of ours. `PUT /floor-plan-sections/:id/tables` sets exact
+ * membership, which makes a retry that re-runs this a no-op rather than a
+ * duplicate.
+ */
+async function assignTablesToSections(
+  api: LaunchApi,
+  venueId: string,
+  floorPlanId: string,
+  draft: FloorPlanDraft
+): Promise<void> {
+  const idByTableName = new Map<string, string>();
+  for (let page = 1; ; page += 1) {
+    const { data, pagination } = await api.tables.list({ venueId, page, limit: MAX_PAGE_SIZE });
+    for (const table of data) idByTableName.set(table.name, table.id);
+    if (data.length === 0 || page >= pagination.totalPages) break;
+  }
+
+  const rows = await api.floorPlanSections.list(venueId, floorPlanId);
+  const rowByName = new Map(rows.map((row) => [row.name, row]));
+
+  for (const zone of draft.sections) {
+    const row = rowByName.get(zone.name);
+    if (!row) continue;
+    const tableIds = draft.tables.flatMap((table) => {
+      const id = idByTableName.get(table.name);
+      return table.sectionId === zone.id && id !== undefined ? [id] : [];
+    });
+    if (tableIds.length === 0) continue;
+    await api.floorPlanSections.assignTables(venueId, row.id, tableIds);
+  }
+}
+
 async function runTablesStage(
   api: LaunchApi,
   draft: FloorPlanDraft,
@@ -359,6 +425,16 @@ async function runTablesStage(
 
     current = { ...current, createdTableNames: [...current.createdTableNames, table.name] };
     onProgress(current);
+  }
+
+  if (needsMembership(draft)) {
+    try {
+      await assignTablesToSections(api, venueId, floorPlanId, draft);
+    } catch (err) {
+      const fallback = localeRuntime.i18n.t("onboarding.errors.generic");
+      throw new LaunchStageError(withFallback(err, fallback).message, current);
+    }
+    current = { ...current, membershipDone: true };
   }
 
   current = { ...current, inFlightStage: null };

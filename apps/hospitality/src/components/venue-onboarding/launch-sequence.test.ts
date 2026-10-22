@@ -158,6 +158,8 @@ function makeSection(name: string, venueId = "venue-1", floorPlanId = "floor-pla
 
 /** Tracks cross-mock call order via a single shared log. */
 function makeFakeApi(callLog: string[] = []): LaunchApi & { callLog: string[] } {
+  const created: Table[] = [];
+  const sections: FloorPlanSection[] = [];
   return {
     callLog,
     venues: {
@@ -183,17 +185,38 @@ function makeFakeApi(callLog: string[] = []): LaunchApi & { callLog: string[] } 
     floorPlanSections: {
       list: vi.fn(async () => {
         callLog.push("floorPlanSections.list");
-        return [] as FloorPlanSection[];
+        return [...sections];
       }),
       create: vi.fn(async (venueId: string, data: { floorPlanId: string; name: string }) => {
         callLog.push(`floorPlanSections.create:${data.name}`);
-        return makeSection(data.name, venueId, data.floorPlanId);
+        const row = makeSection(data.name, venueId, data.floorPlanId);
+        sections.push(row);
+        return row;
+      }),
+      assignTables: vi.fn(async (_venueId: string, sectionId: string, tableIds: string[]) => {
+        callLog.push(`floorPlanSections.assignTables:${sectionId}`);
+        return tableIds.map((id) => makeTable(id.replace("table-", "")));
       }),
     },
     tables: {
       create: vi.fn(async (data: { name: string }) => {
         callLog.push(`tables.create:${data.name}`);
+        created.push(makeTable(data.name));
         return makeTable(data.name);
+      }),
+      list: vi.fn(async () => {
+        callLog.push("tables.list");
+        return {
+          data: [...created],
+          pagination: {
+            page: 1,
+            limit: 100,
+            total: created.length,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
+        };
       }),
     },
   };
@@ -833,6 +856,99 @@ describe("launch-sequence", () => {
       expect(api.floorPlanSections.create).toHaveBeenCalledWith(
         "venue-1",
         expect.objectContaining({ name: "Private" })
+      );
+    });
+  });
+
+  describe("section membership", () => {
+    function makeMemberDraft(): FloorPlanDraft {
+      return makeRoomDraft({
+        tables: [
+          makeDraftTable({ localId: "T1", name: "T1", sectionId: "fine-dining-main-dining" }),
+          makeDraftTable({ localId: "T2", name: "T2", sectionId: "fine-dining-private" }),
+          makeDraftTable({ localId: "T3", name: "T3", sectionId: "fine-dining-main-dining" }),
+          makeDraftTable({ localId: "T4", name: "T4", sectionId: null }),
+        ],
+      });
+    }
+
+    it("assigns each template table to the section the template put it in", async () => {
+      const api = makeFakeApi();
+
+      const progress = await runLaunchSequence(
+        api,
+        makeMemberDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+
+      expect(api.floorPlanSections.assignTables).toHaveBeenCalledTimes(2);
+      expect(api.floorPlanSections.assignTables).toHaveBeenCalledWith(
+        "venue-1",
+        "section-Main Dining",
+        ["table-T1", "table-T3"]
+      );
+      expect(api.floorPlanSections.assignTables).toHaveBeenCalledWith(
+        "venue-1",
+        "section-Private",
+        ["table-T2"]
+      );
+      expect(progress.failedStage).toBeNull();
+      expect(progress.activated).toBe(true);
+    });
+
+    it("makes no membership calls when no table sits in a zone", async () => {
+      const api = makeFakeApi();
+
+      await runLaunchSequence(
+        api,
+        makeRoomDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+
+      expect(api.tables.list).not.toHaveBeenCalled();
+      expect(api.floorPlanSections.assignTables).not.toHaveBeenCalled();
+    });
+
+    it("retries membership without recreating plans, sections or tables", async () => {
+      const api = makeFakeApi();
+      let failed = false;
+      api.floorPlanSections.assignTables = vi.fn(
+        async (_v: string, sectionId: string, ids: string[]) => {
+          if (!failed) {
+            failed = true;
+            throw new Error("assign rejected");
+          }
+          api.callLog.push(`floorPlanSections.assignTables:${sectionId}`);
+          return ids.map((id) => makeTable(id.replace("table-", "")));
+        }
+      );
+      const draft = makeMemberDraft();
+
+      const first = await runLaunchSequence(
+        api,
+        draft,
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+      expect(first.failedStage).toBe("tables");
+      expect(nextStage(first, draft)).toBe("tables");
+
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+
+      expect(second.failedStage).toBeNull();
+      expect(second.activated).toBe(true);
+      expect(api.floorPlans.create).toHaveBeenCalledTimes(1);
+      expect(api.tables.create).toHaveBeenCalledTimes(4);
+      expect(api.floorPlanSections.create).toHaveBeenCalledTimes(2);
+      expect(api.floorPlanSections.assignTables).toHaveBeenCalledWith(
+        "venue-1",
+        "section-Private",
+        ["table-T2"]
       );
     });
   });
