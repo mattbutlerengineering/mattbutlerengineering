@@ -197,7 +197,12 @@ export function AppShell({
           actions={
             <div className={styles.actions}>
               {onTemplatesOpen && (
-                <Button variant="ghost" size="sm" onClick={onTemplatesOpen}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={styles.headerGhost}
+                  onClick={onTemplatesOpen}
+                >
                   Templates
                 </Button>
               )}
@@ -214,7 +219,12 @@ export function AppShell({
               {user && (
                 <Avatar src={user.picture} name={user.name ?? user.email ?? "User"} size="sm" />
               )}
-              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={styles.headerGhost}
+                onClick={handleSignOut}
+              >
                 Sign out
               </Button>
             </div>
