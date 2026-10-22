@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { useState, useRef, useEffect, useCallback, useId, useMemo } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Stage, Layer } from "react-konva";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,8 @@ import type { Table, FloorPlan, WallLayout } from "@mbe/types";
 import { TableShape } from "./TableShape";
 import { WallShape } from "./WallShape.js";
 import { SectionZone, type SectionZoneData } from "./SectionZone.js";
+import { useSectionLabelTheme } from "./section-label-theme.js";
+import { useFloorTextures } from "../../hooks/useFloorTextures.js";
 import { TableSelectionOverlay } from "./TableSelectionOverlay.js";
 import {
   CANVAS_WIDTH,
@@ -111,6 +113,15 @@ export function FloorPlanCanvas({
   const [dimensions, setDimensions] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
   const [draggingTableId, setDraggingTableId] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
+
+  // Floor textures are loaded once for the whole canvas, not per zone, so two
+  // sections sharing a material share one image and one request.
+  const sectionMaterials = useMemo(
+    () => sections.flatMap((zone) => (zone.floorMaterial ? [zone.floorMaterial] : [])),
+    [sections]
+  );
+  const floorTextures = useFloorTextures(sectionMaterials);
+  const sectionLabelTheme = useSectionLabelTheme();
 
   // Resize canvas to fit container
   useEffect(() => {
@@ -266,7 +277,12 @@ export function FloorPlanCanvas({
       >
         <Layer>
           {sections.map((zone) => (
-            <SectionZone key={zone.id} zone={zone} />
+            <SectionZone
+              key={zone.id}
+              zone={zone}
+              texture={zone.floorMaterial ? floorTextures.get(zone.floorMaterial) : undefined}
+              labelTheme={sectionLabelTheme}
+            />
           ))}
           {walls.map((wall) => (
             <WallShape

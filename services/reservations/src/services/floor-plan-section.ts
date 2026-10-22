@@ -1,4 +1,5 @@
 import type {
+  FloorMaterial,
   FloorPlanSection,
   CreateFloorPlanSectionRequest,
   UpdateFloorPlanSectionRequest,
@@ -19,6 +20,7 @@ interface PrismaFloorPlanSection {
   name: string;
   color: string;
   displayOrder: number;
+  floorMaterial: FloorMaterial | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +33,9 @@ function mapSection(section: PrismaFloorPlanSection): FloorPlanSection {
     name: section.name,
     color: section.color,
     displayOrder: section.displayOrder,
+    // `?? null` so a row read before the column existed still serialises as an
+    // explicit "no floor finish" rather than dropping the key off the wire.
+    floorMaterial: section.floorMaterial ?? null,
     createdAt: section.createdAt.toISOString(),
     updatedAt: section.updatedAt.toISOString(),
   };

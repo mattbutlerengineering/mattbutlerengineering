@@ -8,6 +8,8 @@ import {
 import {
   AssignSectionTablesRequestSchema,
   CreateFloorPlanSectionRequestSchema,
+  FLOOR_MATERIALS,
+  FloorMaterialSchema,
   FloorPlanSectionSchema,
   UpdateFloorPlanSectionRequestSchema,
 } from "./floor-plan-section.js";
@@ -120,5 +122,54 @@ describe("floor-plan section schemas", () => {
     expect(AssignSectionTablesRequestSchema.safeParse({ tableIds: [] }).success).toBe(true);
     expect(AssignSectionTablesRequestSchema.safeParse({ tableIds: ["t1"] }).success).toBe(true);
     expect(AssignSectionTablesRequestSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("floor materials", () => {
+  const row = {
+    id: "s1",
+    venueId: "v1",
+    floorPlanId: "f1",
+    name: "Patio",
+    color: "#3366cc",
+    displayOrder: 0,
+    createdAt: ts,
+    updatedAt: ts,
+  };
+
+  it("covers exactly the five materials the textures ship for", () => {
+    expect([...FLOOR_MATERIALS]).toEqual(["hardwood", "concrete", "carpet", "tile", "marble"]);
+  });
+
+  it("carries a material on a section row, or null for an unspecified floor", () => {
+    expect(FloorPlanSectionSchema.parse({ ...row, floorMaterial: "hardwood" }).floorMaterial).toBe(
+      "hardwood"
+    );
+    expect(FloorPlanSectionSchema.parse({ ...row, floorMaterial: null }).floorMaterial).toBeNull();
+  });
+
+  it("rejects a material outside the five", () => {
+    expect(FloorPlanSectionSchema.safeParse({ ...row, floorMaterial: "lava" }).success).toBe(false);
+    expect(FloorMaterialSchema.safeParse("linoleum").success).toBe(false);
+  });
+
+  it("still parses a row from a server that predates the column", () => {
+    expect(FloorPlanSectionSchema.parse(row).floorMaterial ?? null).toBeNull();
+  });
+
+  it("sets a material on create and clears one on update", () => {
+    expect(
+      CreateFloorPlanSectionRequestSchema.parse({
+        floorPlanId: "f1",
+        name: "Patio",
+        floorMaterial: "tile",
+      }).floorMaterial
+    ).toBe("tile");
+    expect(
+      UpdateFloorPlanSectionRequestSchema.parse({ floorMaterial: null }).floorMaterial
+    ).toBeNull();
+    expect(UpdateFloorPlanSectionRequestSchema.safeParse({ floorMaterial: "shag" }).success).toBe(
+      false
+    );
   });
 });

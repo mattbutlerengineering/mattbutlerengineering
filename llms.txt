@@ -3585,6 +3585,23 @@
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/floor-textures.ts">
+    <item priority="high">
+      export const FLOOR_TEXTURE_DIR: unknown;
+    </item>
+    <item priority="high">
+      export const TEXTURE_SOURCE_PX: unknown;
+    </item>
+    <item priority="high">
+      export const TEXTURE_TILE_PX: unknown;
+    </item>
+    <item priority="high">
+      export const TEXTURE_PATTERN_SCALE: unknown;
+    </item>
+    <item priority="high">
+      export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/furniture-tokens.ts">
     <item priority="high">
       export const TABLE_SURFACE_NAME: unknown;
@@ -3600,6 +3617,26 @@
     </item>
     <item priority="high">
       export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number>;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/section-label-theme.ts">
+    <item priority="low">
+      interface SectionLabelTheme {
+        plate: string;
+        text: string;
+      }
+    </item>
+    <item priority="high">
+      export const SECTION_LABEL_TOKENS: unknown;
+    </item>
+    <item priority="high">
+      export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme>;
+    </item>
+    <item priority="high">
+      export function resolveSectionLabelTheme(): SectionLabelTheme { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useSectionLabelTheme(): SectionLabelTheme { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
@@ -4293,6 +4330,17 @@
     </item>
     <item priority="high">
       export const useFloorPlanSections: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateFloorPlanSection: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useFloorTextures.ts">
+    <item priority="low">
+      type FloorTextureMap = ReadonlyMap<FloorMaterial, HTMLImageElement>;
+    </item>
+    <item priority="high">
+      export function useFloorTextures(materials: readonly FloorMaterial[]): FloorTextureMap { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
@@ -8453,6 +8501,12 @@
   </file>
   <file path="packages/types/src/schemas/floor-plan-section.ts">
     <item priority="high">
+      export const FLOOR_MATERIALS: unknown;
+    </item>
+    <item priority="high">
+      export const FloorMaterialSchema: unknown;
+    </item>
+    <item priority="high">
       export const FloorPlanSectionSchema: unknown;
     </item>
     <item priority="high">
@@ -8472,6 +8526,9 @@
     </item>
     <item priority="high">
       export const FloorPlanSectionVenueQuerySchema: unknown;
+    </item>
+    <item priority="low">
+      type FloorMaterial = z.infer<typeof FloorMaterialSchema>;
     </item>
     <item priority="low">
       type FloorPlanSection = z.infer<typeof FloorPlanSectionSchema>;
@@ -18088,6 +18145,32 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/png-luminance.ts">
+    <item priority="low">
+      interface DecodedPng {
+        width: number;
+        height: number;
+        data: Uint8Array;
+      }
+    </item>
+    <item priority="medium">
+      function unfilterRow(
+        filterType: number,
+        row: Uint8Array,
+        previous: Uint8Array,
+        out: Uint8Array
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decodePng(bytes: Buffer): DecodedPng { /* ... */ }
+    </item>
+    <item priority="high">
+      export function relativeLuminance(r: number, g: number, b: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function contrastRatio(a: number, b: number): number { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/test/special-requests-fixtures.ts">
     <item priority="high">
       export const TWO_LINE_NOTE: unknown;

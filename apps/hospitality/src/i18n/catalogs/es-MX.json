@@ -522,7 +522,17 @@
       "title": "Secciones",
       "tableCount_one": "{{count}} mesa",
       "tableCount_many": "{{count}} de mesas",
-      "tableCount_other": "{{count}} mesas"
+      "tableCount_other": "{{count}} mesas",
+      "material": "Piso",
+      "materialFor": "Material del piso de {{name}}",
+      "materialNone": "Ninguno"
+    },
+    "materials": {
+      "hardwood": "Madera",
+      "concrete": "Concreto",
+      "carpet": "Alfombra",
+      "tile": "Azulejo",
+      "marble": "Mármol"
     }
   },
   "localePicker": {

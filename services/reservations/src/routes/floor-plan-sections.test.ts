@@ -167,6 +167,38 @@ describe("Floor plan section routes", () => {
     expect(missing.statusCode).toBe(404);
   });
 
+  it("passes a floor material through the body schema, and rejects one outside the enum", async () => {
+    // The body JSON schema is what decides this: a property it does not declare
+    // is silently stripped by Fastify, which would make the material unsavable.
+    svc.update.mockResolvedValueOnce({ ...section, floorMaterial: "hardwood" });
+    const set = await app.inject({
+      method: "PATCH",
+      url: `${URL_}/sec-1${Q}`,
+      headers: ADMIN,
+      payload: { floorMaterial: "hardwood" },
+    });
+    expect(set.statusCode).toBe(200);
+    expect(svc.update).toHaveBeenCalledWith("venue-1", "sec-1", { floorMaterial: "hardwood" });
+
+    svc.update.mockResolvedValueOnce({ ...section, floorMaterial: null });
+    const cleared = await app.inject({
+      method: "PATCH",
+      url: `${URL_}/sec-1${Q}`,
+      headers: ADMIN,
+      payload: { floorMaterial: null },
+    });
+    expect(cleared.statusCode).toBe(200);
+    expect(svc.update).toHaveBeenLastCalledWith("venue-1", "sec-1", { floorMaterial: null });
+
+    const rejected = await app.inject({
+      method: "PATCH",
+      url: `${URL_}/sec-1${Q}`,
+      headers: ADMIN,
+      payload: { floorMaterial: "lava" },
+    });
+    expect(rejected.statusCode).toBe(400);
+  });
+
   it("deletes a section (204) and 404s an unknown one", async () => {
     svc.delete.mockResolvedValueOnce(true);
     expect(

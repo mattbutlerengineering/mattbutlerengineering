@@ -47,6 +47,16 @@ enum TableStatus {
   READY
 }
 
+/// The floor finish a section is painted with. Each value has a committed
+/// tiling texture in apps/hospitality/public/floor-plan/textures.
+enum FloorMaterial {
+  hardwood
+  concrete
+  carpet
+  tile
+  marble
+}
+
 enum DepositStatus {
   pending
   held
@@ -214,6 +224,8 @@ model FloorPlanSection {
   name         String
   color        String    @default("#8a8a8a")
   displayOrder Int       @default(0) @map("display_order")
+  /// Null means no floor finish: the zone renders as it did before materials existed.
+  floorMaterial FloorMaterial? @map("floor_material")
   tables       Table[]
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
