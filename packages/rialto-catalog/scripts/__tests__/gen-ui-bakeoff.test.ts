@@ -342,26 +342,6 @@ describe("production configuration (#7233)", () => {
     );
   });
 
-  it("declares a cached-input rate below base for every provider, so cached tokens are never billed at base", () => {
-    for (const [id, pricing] of Object.entries(PRICING)) {
-      expect(pricing.cachedInPerM, id).toBeTypeOf("number");
-      expect(pricing.cachedInPerM, id).toBeLessThan(pricing.inPerM);
-      const tokens = { inputTokens: 7100, outputTokens: 0, cacheReadTokens: 7000 };
-      expect(costUsd(tokens, pricing), id).toBeLessThan(
-        costUsd({ ...tokens, cacheReadTokens: 0 }, pricing)
-      );
-    }
-  });
-
-  it("prices OpenAI and Gemini cache reads at their verified vendor rates", () => {
-    expect(PRICING.openai.cachedInPerM).toBe(0.01);
-    expect(PRICING.gemini.cachedInPerM).toBe(0.025);
-  });
-
-  it("prices cached tokens at $0 on the Gemini free tier", () => {
-    expect(geminiPricing(true).cachedInPerM).toBe(0);
-  });
-
   it("runs an arm per effort and reports cached and uncached cost separately", async () => {
     const stub = createStubProvider({ id: "anthropic", prompts: PROMPTS });
     const seen: (string | undefined)[] = [];

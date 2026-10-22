@@ -32764,12 +32764,8 @@
     export interface Pricing {
       readonly inPerM: number;
       readonly outPerM: number;
-      /**
-       * Cache-read input rate. Required, not optional: an absent rate used to fall
-       * back to the base rate, which silently overpriced cached tokens (#7236). A
-       * vendor with no discount must say so by declaring the base rate explicitly.
-       */
-      readonly cachedInPerM: number;
+      /** Cache-read input rate; absent means no discount is assumed. */
+      readonly cachedInPerM?: number;
       /** Cache-write input rate; absent means base input rate. */
       readonly cacheWritePerM?: number;
       /** Names the pricing tier a row reflects; shown in the report. */
@@ -32809,17 +32805,11 @@
     export const PRICING: Readonly<Record<ProviderId, Pricing>> = {
       // Claude Haiku 5.5: cache read is a tenth of base input, a 5-minute write is 1.25x.
       anthropic: { inPerM: 0.1, outPerM: 0.5, cachedInPerM: 0.01, cacheWritePerM: 0.125 },
-      // GPT-6 Luna (developers.openai.com/api/docs/pricing, 2026-10-22, short context <=272K):
-      // cached input $0.01; a cache write is $0.125 (30 min) / $0.25 (12 h). The harness only
-      // reads implicit-cache hits, so the write rate is recorded but never applied.
-      openai: { inPerM: 0.1, outPerM: 0.5, cachedInPerM: 0.01, cacheWritePerM: 0.125 },
-      // Gemini 3.1 Flash-Lite (ai.google.dev/gemini-api/docs/pricing, 2026-10-22, paid, text):
-      // cached input $0.025. No per-write charge is published; explicit caches also bill storage
-      // ($1.00/MTok-hour), which the harness does not use (implicit caching only).
-      gemini: { inPerM: 0.25, outPerM: 1.5, cachedInPerM: 0.025, tier: "paid rates" },
+      openai: { inPerM: 0.1, outPerM: 0.5 }, // GPT-6 Luna
+      gemini: { inPerM: 0.25, outPerM: 1.5, tier: "paid rates" }, // Gemini 3.1 Flash-Lite
     };
     export function geminiPricing(freeTier: boolean): Pricing {
-      return freeTier ? { inPerM: 0, outPerM: 0, cachedInPerM: 0, tier: "free tier" } : PRICING.gemini;
+      return freeTier ? { inPerM: 0, outPerM: 0, tier: "free tier" } : PRICING.gemini;
     }
     interface Tokens {
       inputTokens: number;
@@ -32833,7 +32823,7 @@
       const plain = tokens.inputTokens - read - write;
       return (
         (plain * pricing.inPerM +
-          read * pricing.cachedInPerM +
+          read * (pricing.cachedInPerM ?? pricing.inPerM) +
           write * (pricing.cacheWritePerM ?? pricing.inPerM) +
           tokens.outputTokens * pricing.outPerM) /
         1_000_000
