@@ -13,6 +13,8 @@
  *   node scripts/collect-ai-issue-feedback.mjs --json       # output raw JSON to stdout
  */
 
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { createGhClient, describeGhError } from "@mbe/gh-client";
 import { read, write, resolvePath } from "./metrics-store.mjs";
 
@@ -166,6 +168,155 @@ export function queryClosedIssuesForFeedback(listIssues) {
   }
 }
 
+const TIMELINE_PAGE_SIZE = 100;
+const TIMELINE_MAX_PAGES = 5;
+const DEFAULT_LINKED_PR_CONCURRENCY = 5;
+
+/**
+ * Merged PRs that closed an issue, from its REST timeline events. A merged
+ * cross-reference only counts when the PR body carries a closing keyword for
+ * this issue (a bare mention is not acceptance) — see
+ * docs/fixes/ai-issue-feedback-accepted/design.md.
+ *
+ * @param {number} issueNumber
+ * @param {object[]} events  `GET /repos/{o}/{r}/issues/{n}/timeline` events
+ * @returns {{ number: number, state: "MERGED" }[]}
+ */
+export function extractLinkedPrs(issueNumber, events) {
+  const closes = new RegExp(
+    `\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s+#${issueNumber}\\b`,
+    "i"
+  );
+  const prs = [];
+  for (const event of events) {
+    if (event.event !== "cross-referenced" || event.source?.type !== "issue") continue;
+    const source = event.source.issue;
+    if (!source?.pull_request?.merged_at) continue;
+    if (!closes.test(source.body ?? "")) continue;
+    prs.push({ number: source.number, state: "MERGED" });
+  }
+  return prs;
+}
+
+/**
+ * Fetch linked merged PRs for many issues. Never throws: a failed lookup
+ * yields `[]` for that issue and is counted, and a rate-limit error stops
+ * all further API calls (remaining issues get `[]`, counted as failures).
+ *
+ * @param {number[]} issueNumbers
+ * @param {(issueNumber: number, page: number) => Promise<object[]>} getTimeline
+ * @param {{ concurrency?: number }} [opts]
+ * @returns {Promise<{ linkedPrsByIssue: Map<number, object[]>, failures: number }>}
+ */
+export async function fetchLinkedPrsByIssue(issueNumbers, getTimeline, opts = {}) {
+  const concurrency = Math.max(1, opts.concurrency ?? DEFAULT_LINKED_PR_CONCURRENCY);
+  const linkedPrsByIssue = new Map();
+  let failures = 0;
+  let throttled = false;
+  let next = 0;
+
+  const lookup = async (issueNumber) => {
+    const prs = [];
+    for (let page = 1; page <= TIMELINE_MAX_PAGES; page++) {
+      const events = await getTimeline(issueNumber, page);
+      prs.push(...extractLinkedPrs(issueNumber, events));
+      if (prs.length > 0 || events.length < TIMELINE_PAGE_SIZE) break;
+    }
+    return prs;
+  };
+
+  const worker = async () => {
+    while (next < issueNumbers.length) {
+      const issueNumber = issueNumbers[next++];
+      if (throttled) {
+        linkedPrsByIssue.set(issueNumber, []);
+        failures++;
+        continue;
+      }
+      try {
+        linkedPrsByIssue.set(issueNumber, await lookup(issueNumber));
+      } catch (err) {
+        if (/rate limit|abuse detection/i.test(describeGhError(err))) throttled = true;
+        linkedPrsByIssue.set(issueNumber, []);
+        failures++;
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return { linkedPrsByIssue, failures };
+}
+
+const execFileAsync = promisify(execFile);
+const DEFAULT_REPO = "mattbutlerengineering/mattbutlerengineering";
+
+/**
+ * Timeline fetcher over `gh api` (plain REST, so it works where GraphQL answers
+ * 403). The exec seam is injectable for tests.
+ *
+ * @param {string} repo  `owner/name`
+ * @param {(file: string, args: string[]) => Promise<{ stdout: string }>} [exec]
+ * @returns {(issueNumber: number, page: number) => Promise<object[]>}
+ */
+export function createTimelineFetcher(repo = DEFAULT_REPO, exec = execFileAsync) {
+  return async (issueNumber, page) => {
+    const { stdout } = await exec("gh", [
+      "api",
+      `repos/${repo}/issues/${issueNumber}/timeline?per_page=${TIMELINE_PAGE_SIZE}&page=${page}`,
+    ]);
+    return JSON.parse(stdout);
+  };
+}
+
+/**
+ * Attach merged closing PRs to each issue so `classifyIssue` can report
+ * `accepted`. A failed lookup leaves that issue with an empty linked-PR list and is
+ * counted, never thrown.
+ *
+ * @param {object[]} issues
+ * @param {(issueNumber: number, page: number) => Promise<object[]>} getTimeline
+ * @returns {Promise<{ issues: object[], failures: number }>}
+ */
+export async function attachLinkedPrs(issues, getTimeline) {
+  const { linkedPrsByIssue, failures } = await fetchLinkedPrsByIssue(
+    issues.map((issue) => issue.number),
+    getTimeline
+  );
+  return {
+    issues: issues.map((issue) => ({
+      ...issue,
+      linkedPrs: linkedPrsByIssue.get(issue.number) ?? [],
+    })),
+    failures,
+  };
+}
+
+/**
+ * Warn when every category reports `accepted: 0` although merged closing PRs
+ * were found, or when every linked-PR lookup failed — the shape the old
+ * hardcoded-empty stub produced, which reads as a quiet period.
+ *
+ * @param {object[]} issues  issues after `attachLinkedPrs`
+ * @param {Record<string, { accepted: number }>} rates
+ * @param {number} failures  failed linked-PR lookups
+ * @returns {string | null}
+ */
+export function acceptedGuardWarning(issues, rates, failures) {
+  if (issues.length === 0) return null;
+  if (Object.values(rates).some((r) => r.accepted > 0)) return null;
+  if (failures >= issues.length) {
+    return `all ${issues.length} linked-PR lookups failed; accepted is 0 everywhere because detection did not run`;
+  }
+  const merged = issues.reduce(
+    (n, i) => n + (i.linkedPrs ?? []).filter((pr) => pr.state === "MERGED").length,
+    0
+  );
+  if (merged > 0) {
+    return `accepted is 0 in every category although ${merged} merged closing PR(s) were found`;
+  }
+  return null;
+}
+
 /**
  * Read the persisted feedback file.
  *
@@ -209,12 +360,21 @@ export async function run() {
     process.exit(1);
   }
 
-  // gh issue list --json does not expose linked PRs; classify by stateReason only.
-  // COMPLETED → wontfix (or accepted if we could detect merged PRs),
-  // NOT_PLANNED → rejected.
-  const issues = result.issues.map((issue) => ({ ...issue, linkedPrs: [] }));
+  // `gh issue list --json` exposes no linked PRs; look up the merged closing PR
+  // per issue through the REST timeline.
+  const { issues, failures } = await attachLinkedPrs(
+    result.issues,
+    createTimelineFetcher(process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO)
+  );
+  if (failures > 0) {
+    console.error(`[collect-ai-issue-feedback] ${failures} linked-PR lookup(s) failed`);
+  }
 
   const rates = computeCategoryRates(issues);
+  const guardWarning = acceptedGuardWarning(issues, rates, failures);
+  if (guardWarning) {
+    console.error(`[collect-ai-issue-feedback] WARNING: ${guardWarning}`);
+  }
 
   const now = new Date();
   const feedback = {

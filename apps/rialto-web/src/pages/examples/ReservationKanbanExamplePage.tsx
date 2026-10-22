@@ -219,7 +219,9 @@ export function ReservationKanbanExamplePage() {
           return (
             <div key={stage.id} className={styles.column} aria-label={stage.label}>
               <div className={styles.columnHeader}>
-                <Text variant="label">{stage.label}</Text>
+                <Text variant="label" color="primary">
+                  {stage.label}
+                </Text>
                 <Badge variant={stage.badgeVariant} size="sm">
                   {columnCards.length}
                 </Badge>

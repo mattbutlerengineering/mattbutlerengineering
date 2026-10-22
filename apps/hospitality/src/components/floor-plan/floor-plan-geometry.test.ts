@@ -5,7 +5,10 @@ import {
   GRID_SIZE,
   CANVAS_CENTER,
   SHAPE_DEFAULTS,
+  SEAT_GAP,
+  MAX_RENDERED_SEATS,
   snapToGrid,
+  seatPlacements,
 } from "./floor-plan-geometry.js";
 
 describe("floor-plan-geometry", () => {
@@ -77,6 +80,123 @@ describe("floor-plan-geometry", () => {
     it("accepts a custom grid size", () => {
       expect(snapToGrid(37, 10)).toBe(40);
       expect(snapToGrid(34, 10)).toBe(30);
+    });
+  });
+
+  describe("seatPlacements", () => {
+    describe("seat count", () => {
+      it.each([1, 2, 3, 4, 6, 8, 11])("places exactly %i seats for that capacity", (capacity) => {
+        expect(seatPlacements({ shape: "rectangle", capacity })).toHaveLength(capacity);
+        expect(seatPlacements({ shape: "circle", capacity })).toHaveLength(capacity);
+      });
+
+      it("places no seats for a capacity of zero", () => {
+        expect(seatPlacements({ shape: "rectangle", capacity: 0 })).toEqual([]);
+      });
+
+      it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+        "places no seats for the unusable capacity %p",
+        (capacity) => {
+          expect(seatPlacements({ shape: "circle", capacity })).toEqual([]);
+        }
+      );
+
+      it("floors a fractional capacity rather than rendering a partial seat", () => {
+        expect(seatPlacements({ shape: "circle", capacity: 4.9 })).toHaveLength(4);
+      });
+
+      it("caps an implausible capacity at MAX_RENDERED_SEATS", () => {
+        expect(seatPlacements({ shape: "circle", capacity: 500 })).toHaveLength(MAX_RENDERED_SEATS);
+      });
+    });
+
+    describe("circle tables", () => {
+      it("spaces every seat evenly on a ring clear of the table edge", () => {
+        const placements = seatPlacements({ shape: "circle", capacity: 6 });
+        const expectedRadius = SHAPE_DEFAULTS.circle.width / 2 + SEAT_GAP;
+        for (const seat of placements) {
+          expect(Math.hypot(seat.x, seat.y)).toBeCloseTo(expectedRadius, 1);
+        }
+      });
+
+      it("starts at the top of the table and runs clockwise", () => {
+        const [first, second] = seatPlacements({ shape: "circle", capacity: 4 });
+        const radius = SHAPE_DEFAULTS.circle.width / 2 + SEAT_GAP;
+        expect(first).toEqual({ x: 0, y: -radius, rotation: 180 });
+        expect(second).toEqual({ x: radius, y: 0, rotation: 270 });
+      });
+
+      it("honours a custom gap", () => {
+        const [seat] = seatPlacements({ shape: "circle", capacity: 1, gap: 20 });
+        expect(seat?.y).toBeCloseTo(-(SHAPE_DEFAULTS.circle.width / 2 + 20), 5);
+      });
+    });
+
+    describe("rectangular tables", () => {
+      it("seats a four-top one to a side", () => {
+        const placements = seatPlacements({ shape: "rectangle", capacity: 4 });
+        const { width, height } = SHAPE_DEFAULTS.rectangle;
+        expect(placements).toEqual([
+          { x: 0, y: -(height / 2 + SEAT_GAP), rotation: 180 },
+          { x: 0, y: height / 2 + SEAT_GAP, rotation: 0 },
+          { x: -(width / 2 + SEAT_GAP), y: 0, rotation: 90 },
+          { x: width / 2 + SEAT_GAP, y: 0, rotation: 270 },
+        ]);
+      });
+
+      it("seats a two-top across the long sides, leaving the heads empty", () => {
+        const placements = seatPlacements({ shape: "rectangle", capacity: 2 });
+        expect(placements.map((seat) => seat.rotation)).toEqual([180, 0]);
+        expect(placements.every((seat) => seat.x === 0)).toBe(true);
+      });
+
+      it("fills the long sides before returning to the heads for a six-top", () => {
+        const placements = seatPlacements({ shape: "square", capacity: 6 });
+        const { height } = SHAPE_DEFAULTS.square;
+        const top = placements.filter((seat) => seat.y === -(height / 2 + SEAT_GAP));
+        const bottom = placements.filter((seat) => seat.y === height / 2 + SEAT_GAP);
+        expect(top).toHaveLength(2);
+        expect(bottom).toHaveLength(2);
+        expect(placements.filter((seat) => seat.rotation === 90)).toHaveLength(1);
+        expect(placements.filter((seat) => seat.rotation === 270)).toHaveLength(1);
+      });
+
+      it("spaces seats sharing a side symmetrically about the table centre", () => {
+        const { width } = SHAPE_DEFAULTS.square;
+        // A lone seat on a side sits at the midpoint; a pair sits at the 1/3
+        // and 2/3 marks, i.e. ±width/6.
+        const lone = seatPlacements({ shape: "square", capacity: 1 });
+        expect(lone[0]?.x).toBe(0);
+        const pair = seatPlacements({ shape: "square", capacity: 6 }).filter(
+          (seat) => seat.rotation === 180
+        );
+        expect(pair.map((seat) => seat.x)).toEqual([-width / 6, width / 6]);
+      });
+
+      it("keeps every seat outside the table footprint", () => {
+        const { width, height } = SHAPE_DEFAULTS.rectangle;
+        for (const seat of seatPlacements({ shape: "rectangle", capacity: 8 })) {
+          const clearsVertically = Math.abs(seat.y) >= height / 2 + SEAT_GAP;
+          const clearsHorizontally = Math.abs(seat.x) >= width / 2 + SEAT_GAP;
+          expect(clearsVertically || clearsHorizontally).toBe(true);
+        }
+      });
+    });
+
+    describe("purity", () => {
+      it("returns a fresh array on every call", () => {
+        const first = seatPlacements({ shape: "circle", capacity: 4 });
+        const second = seatPlacements({ shape: "circle", capacity: 4 });
+        expect(first).not.toBe(second);
+        expect(first).toEqual(second);
+      });
+
+      it("does not mutate its input", () => {
+        const input = { shape: "circle", capacity: 4 } as const;
+        const snapshot = { ...input };
+        seatPlacements(input);
+        expect(input).toEqual(snapshot);
+      });
     });
   });
 });

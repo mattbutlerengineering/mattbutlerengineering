@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  // Vitest-only unit tests (see vitest.config.ts); a11y.test.ts stays collected.
+  testIgnore: ["**/fixtures/*.test.ts"],
   outputDir: "./e2e/test-results",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

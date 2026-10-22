@@ -267,6 +267,58 @@ Notes:
 
 ---
 
+## Iteration 7: axe-core against example, demo and standalone pages (#7186)
+
+Re-ran axe (full rule set, `@axe-core/playwright` 4.14, Chromium, reduced motion) in light and dark against every non-component `"carrier": "seed"` finding in `metrics/ui-quality-findings.json` for rialto-web: nine `examples/*`, `privacy` and `visual-test` pages (the 14 finding rows the issue names), plus `demos/signup`, `examples/checkout` and `examples/form`, which the loop also lists. The JSON carries only the impact level, so the rule ids below come from this re-run. Investigation only: no component or page code changed.
+
+| Page                          | Finding  | axe rule (theme)                                                                                                                                         | Reproduces?                          |
+| ----------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| examples/notification-center  | moderate | none                                                                                                                                                     | Already fixed (clean light and dark) |
+| examples/notification-center  | serious  | none                                                                                                                                                     | Already fixed (clean light and dark) |
+| examples/onboarding           | moderate | none                                                                                                                                                     | Already fixed (clean light and dark) |
+| examples/pricing-table        | moderate | `heading-order` (light, dark), `#starter-name`                                                                                                           | Reproduces                           |
+| examples/pricing-table        | serious  | none                                                                                                                                                     | Already fixed                        |
+| examples/reservation-kanban   | moderate | none                                                                                                                                                     | Already fixed                        |
+| examples/reservation-kanban   | serious  | `color-contrast` 4.07:1 (light), column-header label; `label-content-name-mismatch` x2 (light, dark), card ghost button                                  | Reproduces                           |
+| examples/reservation-timeline | serious  | `label-content-name-mismatch` x5 (light, dark), timeline bars                                                                                            | Reproduces                           |
+| examples/reservations         | moderate | none                                                                                                                                                     | Already fixed                        |
+| examples/settings             | moderate | none                                                                                                                                                     | Already fixed                        |
+| privacy                       | moderate | `landmark-one-main` and `region` (light, dark)                                                                                                           | Reproduces                           |
+| visual-test                   | moderate | `landmark-unique` x1 (tape chart region), `region` x123 (light, dark)                                                                                    | Reproduces                           |
+| visual-test                   | serious  | `aria-progressbar-name` x2, `label-content-name-mismatch` x64 (tape chart bars) (light, dark); `color-contrast` 3.4:1 light / 2.32:1 dark on `_selected` | Reproduces                           |
+| demos/signup                  | serious  | none                                                                                                                                                     | Already fixed                        |
+| examples/checkout             | moderate | `heading-order` (light, dark), card `h3`                                                                                                                 | Reproduces                           |
+| examples/form                 | serious  | `color-contrast` 3.31:1 light / 4.22:1 dark, tertiary caption on the state-panel label                                                                   | Reproduces                           |
+
+Notes:
+
+- Contrast (feeds #7187): reservation-kanban column header (4.07:1 light), visual-test `_selected` control (3.4:1 light, 2.32:1 dark), form state-panel caption (3.31:1 light, 4.22:1 dark).
+- Landmark and structure (feeds #7188): `heading-order` on pricing-table and checkout, `landmark-one-main` and `region` on privacy, `landmark-unique` and `region` on visual-test, `aria-progressbar-name` on visual-test.
+- **Contrast fixes (#7187):** the reservation-kanban column header label and the `StatePanel` caption (every example's state panel, `examples/form`) now use primary text on their recessed/matte strip; both re-checked clean with axe in light and dark. **Deferred to a human:** the visual-test `_selected` accent `Tag` (3.4:1 light, 2.32:1 dark) fails inside the component, so it needs a Tag token decision, not a page change.
+- **Landmark and structure fixes (#7188):** privacy is now a `main`; the standalone `visual-test` route is wrapped in a `main` (the `demos/visual-test` route already gets one from `DemoLayout`); pricing-table plan names and checkout card titles are `h2` under the page `h1`; the visual-test progress bars have `aria-label`s. Re-checked with axe in light and dark: privacy, pricing-table and checkout are clean, and on visual-test only the `_selected` Tag contrast and the TapeChart `label-content-name-mismatch` remain (both deferred above).
+- **Deferred to a human:** `label-content-name-mismatch` on the TapeChart bars (visual-test, reservation-timeline) and the kanban card ghost button. The accessible name is set by the component and differs from the visible text, so the fix is a component naming contract, not page composition.
+- The `region` x123 count on visual-test is the harness page rendering content outside landmarks by design; #7188 should decide between a `main` wrapper and a documented exemption.
+
+### Iteration 7 results (#7190)
+
+`apps/rialto-web/e2e/a11y-pages.spec.ts` now audits nine pages in light and dark with the full axe rule set and fails on any violation of any impact (18 tests, all passing).
+
+| Page                         | Light | Dark  | Fixed by                 |
+| ---------------------------- | ----- | ----- | ------------------------ |
+| examples/checkout            | Clean | Clean | #7188 (heading order)    |
+| examples/form                | Clean | Clean | #7187 (caption contrast) |
+| examples/notification-center | Clean | Clean | Already clean            |
+| examples/onboarding          | Clean | Clean | Already clean            |
+| examples/pricing-table       | Clean | Clean | #7188 (heading order)    |
+| examples/reservations        | Clean | Clean | Already clean            |
+| examples/settings            | Clean | Clean | Already clean            |
+| demos/signup                 | Clean | Clean | Already clean            |
+| privacy                      | Clean | Clean | #7188 (main landmark)    |
+
+Not covered, still open and deferred to a human above: `examples/reservation-kanban` (card ghost button name mismatch), `examples/reservation-timeline` and `visual-test` (TapeChart bar names, Tag `_selected` contrast). Iteration 7 is done for everything fixable at page level.
+
+---
+
 ## Queue for next iterations
 
 - ~~**Iteration 2**: Form components — Input, TextArea, Checkbox, Select, NumberInput, PinInput, Autocomplete~~ **Done** (see Iteration 2 above)
@@ -274,4 +326,4 @@ Notes:
 - ~~**Iteration 4**: Non-overlay interactive — Slider, Tabs, Accordion, SegmentedControl~~ **Done** (see Iteration 4 above)
 - ~~**Iteration 5**: Navigation — Navbar, Sidebar, Breadcrumb, Pagination~~ **Done** (see Iteration 5 above)
 - ~~**Iteration 6**: Verify fixes with axe-core against showcase pages~~ **Done for the 10 component pages** (see Iteration 6 above)
-- **Iteration 7**: the 14 remaining seed findings on `examples/*`, `demos/*` and standalone pages (`visual-test`, `privacy`), composition-level rather than per-component
+- ~~**Iteration 7** (#7061): the 14 remaining seed findings on `examples/*`, `demos/*` and standalone pages (`visual-test`, `privacy`), composition-level rather than per-component~~ **Done for the nine fixable pages** (see Iteration 7 above)

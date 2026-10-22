@@ -20,6 +20,18 @@ vi.mock("@ai-sdk/anthropic", () => ({
   anthropic: vi.fn(() => mockAnthropicModel),
 }));
 
+// Spend ceiling storage is Postgres-backed; these route tests don't exercise it.
+vi.mock("../services/gen-spend-ceiling.js", async (importActual) => {
+  const actual = await importActual<Record<string, unknown>>();
+  return {
+    ...actual,
+    getGenSpendToday: vi.fn(async () => ({ generations: 0, costMicroUsd: 0 })),
+    recordGenSpend: vi.fn(async () => {}),
+    trackGenSpend: vi.fn(async () => {}),
+    isSpendTrackingDegraded: vi.fn(() => false),
+  };
+});
+
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
   catalog: {
     prompt: vi.fn(() => "mock system prompt"),

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Contact shadow -->
+  <rect x="4" y="6" width="56" height="56" rx="3" fill="rgba(0,0,0,0.12)"/>
+  <!-- Main wood rect -->
+  <rect x="4" y="4" width="56" height="56" rx="3" fill="#8B7355"/>
+  <!-- Horizontal grain lines -->
+  <line x1="6" y1="14" x2="58" y2="14" stroke="#806A4E" stroke-width="1" opacity="0.30"/>
+  <line x1="6" y1="24" x2="58" y2="24" stroke="#806A4E" stroke-width="1" opacity="0.25"/>
+  <line x1="6" y1="34" x2="58" y2="34" stroke="#806A4E" stroke-width="1" opacity="0.30"/>
+  <line x1="6" y1="44" x2="58" y2="44" stroke="#806A4E" stroke-width="1" opacity="0.25"/>
+  <line x1="6" y1="54" x2="58" y2="54" stroke="#806A4E" stroke-width="1" opacity="0.30"/>
+  <!-- Top edge highlight -->
+  <line x1="6" y1="5" x2="58" y2="5" stroke="#9C8468" stroke-width="1.5" opacity="0.5" stroke-linecap="round"/>
+  <!-- Left edge highlight -->
+  <line x1="5" y1="6" x2="5" y2="58" stroke="#9C8468" stroke-width="1.5" opacity="0.3" stroke-linecap="round"/>
+  <!-- Stroke -->
+  <rect x="4" y="4" width="56" height="56" rx="3" fill="none" stroke="#6B5740" stroke-width="1"/>
+</svg>

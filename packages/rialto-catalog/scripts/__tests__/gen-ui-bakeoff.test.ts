@@ -9,6 +9,7 @@ import {
   runBakeoff,
   summarize,
   validateModelOutput,
+  geminiPricing,
   type Provider,
   type PromptResult,
 } from "../gen-ui-bakeoff-lib.ts";
@@ -212,7 +213,7 @@ describe("summarize + formatTable", () => {
 
   it("renders a markdown table", () => {
     const table = formatTable(summarize(results));
-    expect(table).toContain("| Provider | Valid 1st try | Valid after repair |");
+    expect(table).toContain("| Provider | Effort | Valid 1st try | Valid after repair |");
     expect(table).toContain("| anthropic ");
     expect(table).toContain("50%");
   });
@@ -233,7 +234,7 @@ describe("providers (fake fetch)", () => {
       })
     );
     const p = createProvider("anthropic", "sk-secret", fetchImpl as unknown as typeof fetch);
-    expect(await p.call(req)).toEqual({ text: "out", inputTokens: 7, outputTokens: 3 });
+    expect(await p.call(req)).toMatchObject({ text: "out", inputTokens: 7, outputTokens: 3 });
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toContain("anthropic.com");
     expect(String(init.body)).not.toContain("sk-secret");
@@ -247,7 +248,7 @@ describe("providers (fake fetch)", () => {
       })
     );
     const p = createProvider("openai", "k", fetchImpl as unknown as typeof fetch);
-    expect(await p.call(req)).toEqual({ text: "out", inputTokens: 9, outputTokens: 4 });
+    expect(await p.call(req)).toMatchObject({ text: "out", inputTokens: 9, outputTokens: 4 });
   });
 
   it("parses a Gemini response", async () => {
@@ -258,7 +259,7 @@ describe("providers (fake fetch)", () => {
       })
     );
     const p = createProvider("gemini", "k", fetchImpl as unknown as typeof fetch);
-    expect(await p.call(req)).toEqual({ text: "out", inputTokens: 11, outputTokens: 5 });
+    expect(await p.call(req)).toMatchObject({ text: "out", inputTokens: 11, outputTokens: 5 });
   });
 
   it("counts Gemini thinking tokens as output tokens", async () => {
@@ -277,5 +278,158 @@ describe("providers (fake fetch)", () => {
     const p = createProvider("openai", "sk-secret", fetchImpl as unknown as typeof fetch);
     await expect(p.call(req)).rejects.toThrow(/HTTP 401/);
     await expect(p.call(req)).rejects.not.toThrow(/sk-secret/);
+  });
+});
+
+describe("production configuration (#7233)", () => {
+  const req = {
+    system: "sys",
+    messages: [{ role: "user" as const, content: "hi" }],
+    maxOutputTokens: 100,
+  };
+  const bodyOf = (fetchImpl: ReturnType<typeof vi.fn>) =>
+    JSON.parse(String((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+
+  it("sends cache_control on the Anthropic system prompt", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ content: [], usage: {} }));
+    await createProvider("anthropic", "k", fetchImpl as unknown as typeof fetch).call(req);
+    expect(bodyOf(fetchImpl).system).toEqual([
+      { type: "text", text: "sys", cache_control: { type: "ephemeral" } },
+    ]);
+  });
+
+  it("sends the effort only when an arm asks for it", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ content: [], usage: {} }));
+    const p = createProvider("anthropic", "k", fetchImpl as unknown as typeof fetch);
+    await p.call(req);
+    await p.call({ ...req, effort: "low" });
+    const bodies = fetchImpl.mock.calls.map(
+      (c) => JSON.parse(String((c as unknown as [string, RequestInit])[1].body)) as object
+    );
+    expect(bodies[0]).not.toHaveProperty("output_config");
+    expect(bodies[1]).toMatchObject({ output_config: { effort: "low" } });
+  });
+
+  it("reads Anthropic cache usage and counts it inside total input", async () => {
+    const fetchImpl = vi.fn(async () =>
+      Response.json({
+        content: [],
+        usage: {
+          input_tokens: 100,
+          cache_read_input_tokens: 7000,
+          cache_creation_input_tokens: 50,
+          output_tokens: 3,
+        },
+      })
+    );
+    const res = await createProvider("anthropic", "k", fetchImpl as unknown as typeof fetch).call(
+      req
+    );
+    expect(res).toMatchObject({
+      inputTokens: 7150,
+      cacheReadTokens: 7000,
+      cacheWriteTokens: 50,
+      outputTokens: 3,
+    });
+  });
+
+  it("prices cache reads at the cache-read rate, uncached at base", () => {
+    const tokens = { inputTokens: 7100, outputTokens: 0, cacheReadTokens: 7000 };
+    const cached = costUsd(tokens, PRICING.anthropic);
+    expect(cached).toBeCloseTo((100 * 0.1 + 7000 * 0.01) / 1_000_000);
+    expect(costUsd({ ...tokens, cacheReadTokens: 0 }, PRICING.anthropic)).toBeCloseTo(
+      (7100 * 0.1) / 1_000_000
+    );
+  });
+
+  it("declares a cached-input rate below base for every provider, so cached tokens are never billed at base", () => {
+    for (const [id, pricing] of Object.entries(PRICING)) {
+      expect(pricing.cachedInPerM, id).toBeTypeOf("number");
+      expect(pricing.cachedInPerM, id).toBeLessThan(pricing.inPerM);
+      const tokens = { inputTokens: 7100, outputTokens: 0, cacheReadTokens: 7000 };
+      expect(costUsd(tokens, pricing), id).toBeLessThan(
+        costUsd({ ...tokens, cacheReadTokens: 0 }, pricing)
+      );
+    }
+  });
+
+  it("prices OpenAI and Gemini cache reads at their verified vendor rates", () => {
+    expect(PRICING.openai.cachedInPerM).toBe(0.01);
+    expect(PRICING.gemini.cachedInPerM).toBe(0.025);
+  });
+
+  it("prices cached tokens at $0 on the Gemini free tier", () => {
+    expect(geminiPricing(true).cachedInPerM).toBe(0);
+  });
+
+  it("runs an arm per effort and reports cached and uncached cost separately", async () => {
+    const stub = createStubProvider({ id: "anthropic", prompts: PROMPTS });
+    const seen: (string | undefined)[] = [];
+    const call = vi.fn(async (r: Parameters<Provider["call"]>[0]) => {
+      seen.push(r.effort);
+      return stub.call(r);
+    });
+    const report = await runBakeoff({
+      providers: [{ ...stub, call }],
+      prompts: ["p0"],
+      maxUsd: 1,
+      efforts: ["default", "low"],
+    });
+    expect(seen).toEqual([undefined, "low"]);
+    expect(report.results.map((r) => r.arm)).toEqual(["default", "low"]);
+    const [def, low] = summarize(report.results);
+    expect(def?.arm).toBe("default");
+    expect(low?.arm).toBe("low");
+    expect(def!.uncachedUsd).toBeGreaterThan(def!.totalUsd);
+    const table = formatTable(summarize(report.results));
+    expect(table).toContain("Cached $");
+    expect(table).toContain("Uncached $");
+  });
+
+  it("skips effort arms for a provider that cannot take one", async () => {
+    const stub = createStubProvider({ id: "anthropic", prompts: PROMPTS });
+    const report = await runBakeoff({
+      providers: [{ ...stub, supportsEffort: false }],
+      prompts: ["p0"],
+      maxUsd: 1,
+      efforts: ["default", "low"],
+    });
+    expect(report.results).toHaveLength(1);
+  });
+
+  it("guards every arm: the cap aborts before the arm that would exceed it", async () => {
+    const stub = createStubProvider({ id: "anthropic", prompts: PROMPTS });
+    const call = vi.fn(stub.call);
+    const oneCall = 0.0008;
+    const report = await runBakeoff({
+      providers: [{ ...stub, call }],
+      prompts: ["p0", "p0"],
+      maxUsd: oneCall * 2,
+      efforts: ["default", "low"],
+    });
+    expect(report.aborted).toBe(true);
+    expect(call.mock.calls.length).toBeLessThan(4);
+  });
+
+  it("reports a free-tier Gemini run as $0 and names the tier", async () => {
+    const free = geminiPricing(true);
+    expect(free.tier).toBe("free tier");
+    const stub = createStubProvider({ id: "gemini", prompts: PROMPTS });
+    const report = await runBakeoff({
+      providers: [{ ...stub, pricing: free }],
+      prompts: ["p0"],
+      maxUsd: 0,
+    });
+    expect(report.aborted).toBe(false);
+    expect(report.spentUsd).toBe(0);
+    const table = formatTable(summarize(report.results));
+    expect(table).toContain("gemini (free tier)");
+    expect(table).toContain("$0 (free tier)");
+  });
+
+  it("labels default Gemini pricing as paid rates", async () => {
+    const stub = createStubProvider({ id: "gemini", prompts: PROMPTS });
+    const report = await runBakeoff({ providers: [stub], prompts: ["p0"], maxUsd: 1 });
+    expect(formatTable(summarize(report.results))).toContain("gemini (paid rates)");
   });
 });

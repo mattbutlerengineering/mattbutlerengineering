@@ -1,0 +1,10 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  padding-top: var(--rialto-space-lg);
+}
+
+.title {
+  font-size: var(--rialto-text-lg);
+}

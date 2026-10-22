@@ -4,7 +4,7 @@ import type { Page } from "@playwright/test";
  * Auth0 Resource Owner Password Grant configuration.
  * All values come from environment variables — never hardcoded.
  */
-interface Auth0Config {
+export interface Auth0Config {
   domain: string;
   clientId: string;
   audience: string;
@@ -48,17 +48,28 @@ interface TokenResponse {
  * Fetches tokens from Auth0 using the Resource Owner Password Grant.
  * This bypasses the browser login flow entirely — fast, reliable, CI-friendly.
  */
-async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
-  const response = await fetch(`https://${config.domain}/oauth/token`, {
+type FetchFn = typeof fetch;
+
+export async function fetchAuth0Tokens(
+  config: Auth0Config,
+  fetchFn: FetchFn = fetch
+): Promise<TokenResponse> {
+  const response = await fetchFn(`https://${config.domain}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      grant_type: "password",
+      // password-realm, not plain "password": plain ROPC resolves the connection
+      // via the tenant's Default Directory, which this tenant has not set, so it
+      // answers 500 "Authorization server not configured with default connection".
+      // Naming the realm explicitly avoids depending on that tenant setting, and
+      // matches apps/hospitality/e2e/auth-helpers.ts and scripts/e2e-auth-preflight.mjs.
+      grant_type: "http://auth0.com/oauth/grant-type/password-realm",
       username: config.email,
       password: config.password,
       audience: config.audience,
       client_id: config.clientId,
       scope: "openid profile email",
+      realm: "Username-Password-Authentication",
     }),
   });
 

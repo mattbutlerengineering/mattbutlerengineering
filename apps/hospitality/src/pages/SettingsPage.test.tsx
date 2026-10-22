@@ -50,6 +50,13 @@ vi.mock("../components/LanguageRegionCard.js", () => ({
   LanguageRegionCard: () => <div data-testid="language-region-card" />,
 }));
 
+// The profile editor reads VenueContext and has its own suite (including axe)
+// at components/venue-profile/VenueProfileCard.test.tsx; this page only has to
+// place it.
+vi.mock("../components/venue-profile/VenueProfileCard.js", () => ({
+  VenueProfileCard: () => <div data-testid="venue-profile-card" />,
+}));
+
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="page-header">
@@ -281,6 +288,13 @@ describe("SettingsPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Venue Defaults")).toBeDefined();
+    });
+  });
+
+  it("renders the venue profile editor after loading (#7250)", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("venue-profile-card")).toBeDefined();
     });
   });
 

@@ -13,6 +13,15 @@ import {
 } from "./gen-stream.js";
 import { createSanitizedStream } from "@mbe/agent-core";
 import { createGenRunner } from "./gen-runner.js";
+import {
+  genCostMicroUsd,
+  getGenDailyCeilingUsd,
+  getGenSpendToday,
+  failedGenCostMicroUsd,
+  isSpendTrackingDegraded,
+  secondsUntilNextWindow,
+  trackGenSpend,
+} from "../services/gen-spend-ceiling.js";
 import type { GenToolMap, GenStreamEvent, GenRunnerConfig } from "./gen-runner.js";
 
 // Memoize catalog prompt at module load — avoid re-generating per request
@@ -114,10 +123,62 @@ export function createGenRoute<TSchema extends z.ZodType>(
         );
     };
 
+    // Aggregate ceiling across ALL identities, ordered after requireAuth and the
+    // identity limiter so anonymous and per-user refusals keep their own answers.
+    // Distinct problem type: a service-wide stop is not a per-user rate limit.
+    const enforceSpendCeiling: preHandlerAsyncHookHandler = async (request, reply) => {
+      const ceilingUsd = getGenDailyCeilingUsd();
+      const ceilingMicroUsd = Math.round(ceilingUsd * 1_000_000);
+      const retryAfter = secondsUntilNextWindow();
+
+      let spend;
+      try {
+        if (isSpendTrackingDegraded()) throw new Error("usage writes are failing");
+        spend = await getGenSpendToday();
+      } catch (err) {
+        // Unknown spend must not read as zero spend: fail closed.
+        request.log.error({ err }, "gen spend ceiling: counter unreadable, refusing");
+        reply.header("Retry-After", retryAfter);
+        return reply
+          .code(503)
+          .send(
+            createProblemDetails(
+              503,
+              "Service Unavailable",
+              "Generation is temporarily unavailable.",
+              "urn:mbe:problem:gen-spend-ceiling-unavailable"
+            )
+          );
+      }
+
+      if (spend.costMicroUsd < ceilingMicroUsd) return;
+
+      request.log.warn(
+        {
+          window: new Date().toISOString().slice(0, 10),
+          ceilingUsd,
+          accumulatedUsd: spend.costMicroUsd / 1_000_000,
+          generations: spend.generations,
+        },
+        "gen spend ceiling reached, refusing generation"
+      );
+      reply.header("Retry-After", retryAfter);
+      return reply
+        .code(503)
+        .send(
+          createProblemDetails(
+            503,
+            "Service Spend Ceiling Reached",
+            `The service's daily generation ceiling has been reached. Retry after ${retryAfter} seconds.`,
+            "urn:mbe:problem:gen-spend-ceiling-reached"
+          )
+        );
+    };
+
     fastify.post(
       path,
       {
-        preHandler: [requireAuth, enforceIdentityLimit],
+        preHandler: [requireAuth, enforceIdentityLimit, enforceSpendCeiling],
       },
       async (request, reply) => {
         const parseResult = schema.safeParse(request.body);
@@ -139,6 +200,11 @@ export function createGenRoute<TSchema extends z.ZodType>(
           : (parsed as { messages: GenMessages }).messages;
 
         const tools = await getTools(request, parsed);
+        // A run that errors before onFinish still consumed tokens: charge the worst case.
+        let usageReported = false;
+        const chargeIfUnreported = async () => {
+          if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+        };
         const runner = createGenRunner({
           systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
           modelId: GEN_MODEL_ID,
@@ -146,13 +212,16 @@ export function createGenRoute<TSchema extends z.ZodType>(
           maxSteps,
           toolChoice: config.toolChoice,
           failOnToolError: config.failOnToolError,
-          onFinish: async ({ usage, providerMetadata }) =>
+          onFinish: async ({ usage, providerMetadata }) => {
             logGenCost(request.log, {
               userId: request.user?.id,
               usage,
               providerMetadata,
               label: costLogLabel,
-            }),
+            });
+            usageReported = true;
+            await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
+          },
         });
 
         applyStreamHeaders(reply, contentType);
@@ -174,6 +243,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
                 // Error the stream — closing here would turn an upstream
                 // failure (e.g. 529/401) into an empty-looking 200.
                 request.log.error({ err }, "gen stream failed");
+                await chargeIfUnreported();
                 controller.error(toError(err));
               }
             },
@@ -197,6 +267,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
               controller.close();
             } catch (err) {
               request.log.error({ err }, "gen stream failed");
+              await chargeIfUnreported();
               controller.error(toError(err));
             }
           },

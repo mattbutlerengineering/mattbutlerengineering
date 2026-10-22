@@ -15,21 +15,41 @@ export interface ChatMessage {
   readonly content: string;
 }
 
+/** Thinking-effort arm; `default` sends nothing so the provider's own default runs. */
+export type Effort = "default" | "low";
+
 export interface ProviderRequest {
   readonly system: string;
   readonly messages: readonly ChatMessage[];
   readonly maxOutputTokens: number;
+  /** Set only for a non-default arm. */
+  readonly effort?: Exclude<Effort, "default">;
 }
 
 export interface ProviderResponse {
   readonly text: string;
+  /** Total input including cached tokens. */
   readonly inputTokens: number;
   readonly outputTokens: number;
+  /** Subset of `inputTokens` served from the prompt cache. */
+  readonly cacheReadTokens?: number;
+  /** Subset of `inputTokens` written to the prompt cache. */
+  readonly cacheWriteTokens?: number;
 }
 
 export interface Pricing {
   readonly inPerM: number;
   readonly outPerM: number;
+  /**
+   * Cache-read input rate. Required, not optional: an absent rate used to fall
+   * back to the base rate, which silently overpriced cached tokens (#7236). A
+   * vendor with no discount must say so by declaring the base rate explicitly.
+   */
+  readonly cachedInPerM: number;
+  /** Cache-write input rate; absent means base input rate. */
+  readonly cacheWritePerM?: number;
+  /** Names the pricing tier a row reflects; shown in the report. */
+  readonly tier?: string;
 }
 
 export interface Provider {
@@ -37,17 +57,24 @@ export interface Provider {
   readonly label: string;
   readonly model: string;
   readonly pricing: Pricing;
+  /** Whether the wire format can take an effort arm. Absent means yes. */
+  readonly supportsEffort?: boolean;
   readonly call: (req: ProviderRequest) => Promise<ProviderResponse>;
 }
 
 export interface PromptResult {
   readonly provider: ProviderId;
+  readonly arm?: Effort;
+  readonly tier?: string;
   readonly prompt: string;
   readonly validFirstTry: boolean;
   readonly validAfterRepair: boolean;
   readonly inputTokens: number;
   readonly outputTokens: number;
+  /** Cost as billed, cache reads at the cache-read rate. */
   readonly usd: number;
+  /** Cold-start cost: all input at the base rate. */
+  readonly uncachedUsd?: number;
   readonly error?: string;
 }
 
@@ -62,16 +89,46 @@ export interface BakeoffReport {
 /* ── Pricing (USD per million tokens, vendor pages 2026-10-16, see #6948) ── */
 
 export const PRICING: Readonly<Record<ProviderId, Pricing>> = {
-  anthropic: { inPerM: 0.1, outPerM: 0.5 }, // Claude Haiku 5.5
-  openai: { inPerM: 0.1, outPerM: 0.5 }, // GPT-6 Luna
-  gemini: { inPerM: 0.25, outPerM: 1.5 }, // Gemini 3.1 Flash-Lite
+  // Claude Haiku 5.5: cache read is a tenth of base input, a 5-minute write is 1.25x.
+  anthropic: { inPerM: 0.1, outPerM: 0.5, cachedInPerM: 0.01, cacheWritePerM: 0.125 },
+  // GPT-6 Luna (developers.openai.com/api/docs/pricing, 2026-10-22, short context <=272K):
+  // cached input $0.01; a cache write is $0.125 (30 min) / $0.25 (12 h). The harness only
+  // reads implicit-cache hits, so the write rate is recorded but never applied.
+  openai: { inPerM: 0.1, outPerM: 0.5, cachedInPerM: 0.01, cacheWritePerM: 0.125 },
+  // Gemini 3.1 Flash-Lite (ai.google.dev/gemini-api/docs/pricing, 2026-10-22, paid, text):
+  // cached input $0.025. No per-write charge is published; explicit caches also bill storage
+  // ($1.00/MTok-hour), which the harness does not use (implicit caching only).
+  gemini: { inPerM: 0.25, outPerM: 1.5, cachedInPerM: 0.025, tier: "paid rates" },
 };
 
-export function costUsd(
-  tokens: { inputTokens: number; outputTokens: number },
-  pricing: Pricing
-): number {
-  return (tokens.inputTokens * pricing.inPerM + tokens.outputTokens * pricing.outPerM) / 1_000_000;
+/** The free tier (no billing account linked) cannot be charged: every rate is $0. */
+export function geminiPricing(freeTier: boolean): Pricing {
+  return freeTier ? { inPerM: 0, outPerM: 0, cachedInPerM: 0, tier: "free tier" } : PRICING.gemini;
+}
+
+interface Tokens {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+}
+
+export function costUsd(tokens: Tokens, pricing: Pricing): number {
+  const read = tokens.cacheReadTokens ?? 0;
+  const write = tokens.cacheWriteTokens ?? 0;
+  const plain = tokens.inputTokens - read - write;
+  return (
+    (plain * pricing.inPerM +
+      read * pricing.cachedInPerM +
+      write * (pricing.cacheWritePerM ?? pricing.inPerM) +
+      tokens.outputTokens * pricing.outPerM) /
+    1_000_000
+  );
+}
+
+/** Cold-start cost: the same tokens with nothing served from cache. */
+export function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number {
+  return costUsd({ inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens }, pricing);
 }
 
 /* ── System prompt: same catalog.prompt() the POST /api/gen/ui route uses ── */
@@ -177,9 +234,12 @@ const CHARS_PER_TOKEN_ESTIMATE = 3;
 
 function worstCaseUsd(provider: Provider, req: ProviderRequest): number {
   const chars = req.system.length + req.messages.reduce((n, m) => n + m.content.length, 0);
-  return costUsd(
-    { inputTokens: Math.ceil(chars / CHARS_PER_TOKEN_ESTIMATE), outputTokens: req.maxOutputTokens },
-    provider.pricing
+  // Worst case prices every input token at the dearest input rate (a cache write).
+  const inRate = Math.max(provider.pricing.inPerM, provider.pricing.cacheWritePerM ?? 0);
+  return (
+    (Math.ceil(chars / CHARS_PER_TOKEN_ESTIMATE) * inRate +
+      req.maxOutputTokens * provider.pricing.outPerM) /
+    1_000_000
   );
 }
 
@@ -188,7 +248,7 @@ async function guardedCall(provider: Provider, req: ProviderRequest, guard: Spen
   const res = await provider.call(req);
   const usd = costUsd(res, provider.pricing);
   guard.record(usd);
-  return { res, usd };
+  return { res, usd, uncachedUsd: uncachedCostUsd(res, provider.pricing) };
 }
 
 function repairPrompt(error: string): string {
@@ -198,15 +258,18 @@ function repairPrompt(error: string): string {
 async function runPrompt(
   provider: Provider,
   prompt: string,
-  guard: SpendGuard
+  guard: SpendGuard,
+  arm: Effort
 ): Promise<PromptResult> {
-  const base = { provider: provider.id, prompt };
+  const base = { provider: provider.id, arm, tier: provider.pricing.tier, prompt };
+  const effort = arm === "default" ? {} : { effort: arm };
   const first = await guardedCall(
     provider,
     {
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: prompt }],
       maxOutputTokens: MAX_OUTPUT_TOKENS,
+      ...effort,
     },
     guard
   );
@@ -215,6 +278,7 @@ async function runPrompt(
     inputTokens: first.res.inputTokens,
     outputTokens: first.res.outputTokens,
     usd: first.usd,
+    uncachedUsd: first.uncachedUsd,
   };
   if (v1.ok) return { ...base, validFirstTry: true, validAfterRepair: true, ...tally };
 
@@ -230,13 +294,14 @@ async function runPrompt(
           { role: "user", content: repairPrompt(v1.error) },
         ],
         maxOutputTokens: MAX_OUTPUT_TOKENS,
+        ...effort,
       },
       guard
     );
   } catch (err) {
     if (err instanceof SpendLimitError) throw err;
     // The first call was paid for; keep its cost in the row.
-    return { ...errorResult(provider, prompt, err), ...tally };
+    return { ...errorResult(provider, prompt, err, arm), ...tally };
   }
   return {
     ...base,
@@ -245,18 +310,27 @@ async function runPrompt(
     inputTokens: tally.inputTokens + repair.res.inputTokens,
     outputTokens: tally.outputTokens + repair.res.outputTokens,
     usd: tally.usd + repair.usd,
+    uncachedUsd: tally.uncachedUsd + repair.uncachedUsd,
   };
 }
 
-function errorResult(provider: Provider, prompt: string, err: unknown): PromptResult {
+function errorResult(
+  provider: Provider,
+  prompt: string,
+  err: unknown,
+  arm: Effort = "default"
+): PromptResult {
   return {
     provider: provider.id,
+    arm,
+    tier: provider.pricing.tier,
     prompt,
     validFirstTry: false,
     validAfterRepair: false,
     inputTokens: 0,
     outputTokens: 0,
     usd: 0,
+    uncachedUsd: 0,
     error: err instanceof Error ? err.message : String(err),
   };
 }
@@ -265,27 +339,34 @@ export async function runBakeoff(opts: {
   providers: readonly Provider[];
   prompts: readonly string[];
   maxUsd: number;
+  /** One arm per effort, per provider that supports one. Defaults to the provider default only. */
+  efforts?: readonly Effort[];
 }): Promise<BakeoffReport> {
   const guard = createSpendGuard(opts.maxUsd);
   const results: PromptResult[] = [];
   let abortReason: string | undefined;
 
   for (const provider of opts.providers) {
-    let consecutiveErrors = 0;
-    for (const prompt of opts.prompts) {
-      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break;
-      try {
-        const result = await runPrompt(provider, prompt, guard);
-        results.push(result);
-        consecutiveErrors = 0;
-      } catch (err) {
-        if (err instanceof SpendLimitError) {
-          abortReason = err.message;
-          break;
+    const arms = (opts.efforts ?? ["default"]).filter(
+      (e) => e === "default" || provider.supportsEffort !== false
+    );
+    for (const arm of arms) {
+      let consecutiveErrors = 0;
+      for (const prompt of opts.prompts) {
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break;
+        try {
+          results.push(await runPrompt(provider, prompt, guard, arm));
+          consecutiveErrors = 0;
+        } catch (err) {
+          if (err instanceof SpendLimitError) {
+            abortReason = err.message;
+            break;
+          }
+          results.push(errorResult(provider, prompt, err, arm));
+          consecutiveErrors += 1;
         }
-        results.push(errorResult(provider, prompt, err));
-        consecutiveErrors += 1;
       }
+      if (abortReason) break;
     }
     if (abortReason) break;
   }
@@ -331,7 +412,13 @@ export function createStubProvider(opts: {
       const kind = index % 3;
       const text = kind === 0 || (kind === 1 && isRepair) ? STUB_VALID : STUB_INVALID;
       const chars = req.system.length + req.messages.reduce((n, m) => n + m.content.length, 0);
-      return { text, inputTokens: Math.ceil(chars / 4), outputTokens: Math.ceil(text.length / 4) };
+      return {
+        text,
+        inputTokens: Math.ceil(chars / 4),
+        outputTokens: Math.ceil(text.length / 4),
+        // The shared catalog prompt is what a warm cache serves.
+        cacheReadTokens: Math.min(Math.ceil(req.system.length / 4), Math.ceil(chars / 4)),
+      };
     },
   };
 }
@@ -340,6 +427,8 @@ export function createStubProvider(opts: {
 
 export interface ProviderSummary {
   readonly provider: ProviderId;
+  readonly arm: Effort;
+  readonly tier?: string;
   readonly n: number;
   readonly errors: number;
   readonly validFirstTryPct: number;
@@ -347,19 +436,25 @@ export interface ProviderSummary {
   readonly meanInputTokens: number;
   readonly meanOutputTokens: number;
   readonly totalUsd: number;
+  readonly uncachedUsd: number;
   readonly projectedUsdPer1k: number;
+  readonly uncachedProjectedUsdPer1k: number;
 }
 
 export function summarize(results: readonly PromptResult[]): ProviderSummary[] {
-  const ids = [...new Set(results.map((r) => r.provider))];
-  return ids.map((provider) => {
-    const rows = results.filter((r) => r.provider === provider);
+  const keys = [...new Set(results.map((r) => `${r.provider}|${r.arm ?? "default"}`))];
+  return keys.map((key) => {
+    const [provider, arm] = key.split("|") as [ProviderId, Effort];
+    const rows = results.filter((r) => r.provider === provider && (r.arm ?? "default") === arm);
     const n = rows.length;
     const pct = (count: number) => (count / n) * 100;
     const mean = (pick: (r: PromptResult) => number) => rows.reduce((s, r) => s + pick(r), 0) / n;
     const totalUsd = rows.reduce((s, r) => s + r.usd, 0);
+    const uncachedUsd = rows.reduce((s, r) => s + (r.uncachedUsd ?? r.usd), 0);
     return {
       provider,
+      arm,
+      ...(rows[0]?.tier ? { tier: rows[0].tier } : {}),
       n,
       errors: rows.filter((r) => r.error !== undefined).length,
       validFirstTryPct: pct(rows.filter((r) => r.validFirstTry).length),
@@ -367,18 +462,22 @@ export function summarize(results: readonly PromptResult[]): ProviderSummary[] {
       meanInputTokens: mean((r) => r.inputTokens),
       meanOutputTokens: mean((r) => r.outputTokens),
       totalUsd,
+      uncachedUsd,
       projectedUsdPer1k: (totalUsd / n) * 1000,
+      uncachedProjectedUsdPer1k: (uncachedUsd / n) * 1000,
     };
   });
 }
 
 export function formatTable(summaries: readonly ProviderSummary[]): string {
   const header =
-    "| Provider | Valid 1st try | Valid after repair | Mean in tok | Mean out tok | Total $ | Projected $/1k gens | Errors |";
-  const sep = "|---|---:|---:|---:|---:|---:|---:|---:|";
-  const rows = summaries.map(
-    (s) =>
-      `| ${s.provider} | ${s.validFirstTryPct.toFixed(0)}% | ${s.validAfterRepairPct.toFixed(0)}% | ${s.meanInputTokens.toFixed(0)} | ${s.meanOutputTokens.toFixed(0)} | $${s.totalUsd.toFixed(4)} | $${s.projectedUsdPer1k.toFixed(2)} | ${s.errors}/${s.n} |`
-  );
+    "| Provider | Effort | Valid 1st try | Valid after repair | Mean in tok | Mean out tok | Cached $ | Uncached $ | Cached $/1k gens | Uncached $/1k gens | Errors |";
+  const sep = "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|";
+  const rows = summaries.map((s) => {
+    const free = s.tier === "free tier";
+    const usd = (v: number, digits: number) => (free ? "$0 (free tier)" : `$${v.toFixed(digits)}`);
+    const name = s.tier ? `${s.provider} (${s.tier})` : s.provider;
+    return `| ${name} | ${s.arm} | ${s.validFirstTryPct.toFixed(0)}% | ${s.validAfterRepairPct.toFixed(0)}% | ${s.meanInputTokens.toFixed(0)} | ${s.meanOutputTokens.toFixed(0)} | ${usd(s.totalUsd, 4)} | ${usd(s.uncachedUsd, 4)} | ${usd(s.projectedUsdPer1k, 2)} | ${usd(s.uncachedProjectedUsdPer1k, 2)} | ${s.errors}/${s.n} |`;
+  });
   return [header, sep, ...rows].join("\n");
 }

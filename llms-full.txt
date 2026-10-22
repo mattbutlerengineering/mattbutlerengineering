@@ -8089,7 +8089,7 @@
   </section>
   <section priority="medium" role="e2e">
   <file path="apps/gen/e2e/auth-helpers.ts">
-    interface Auth0Config {
+    export interface Auth0Config {
       domain: string;
       clientId: string;
       audience: string;
@@ -8123,17 +8123,27 @@
       token_type: string;
       expires_in: number;
     }
-    async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
-      const response = await fetch(`https://${config.domain}/oauth/token`, {
+    type FetchFn = typeof fetch;
+    export async function fetchAuth0Tokens(
+      config: Auth0Config,
+      fetchFn: FetchFn = fetch
+    ): Promise<TokenResponse> {
+      const response = await fetchFn(`https://${config.domain}/oauth/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          grant_type: "password",
+          // password-realm, not plain "password": plain ROPC resolves the connection
+          // via the tenant's Default Directory, which this tenant has not set, so it
+          // answers 500 "Authorization server not configured with default connection".
+          // Naming the realm explicitly avoids depending on that tenant setting, and
+          // matches apps/hospitality/e2e/auth-helpers.ts and scripts/e2e-auth-preflight.mjs.
+          grant_type: "http://auth0.com/oauth/grant-type/password-realm",
           username: config.email,
           password: config.password,
           audience: config.audience,
           client_id: config.clientId,
           scope: "openid profile email",
+          realm: "Username-Password-Authentication",
         }),
       });
     
@@ -8349,6 +8359,10 @@
       const venues = JSON.parse(loadFixture("venues-list"));
       return PublicVenueConfigSchema.parse({
         ...venues.data[0],
+        // `profile` lives inside the internal venue's `settings` blob; the public
+        // config carries it as a top-level, allow-listed field (#7250), exactly
+        // as `venueService.getPublicConfigBySlug` projects it.
+        profile: toPublicVenueProfile(venues.data[0].settings?.profile),
         deposit: {
           enabled: false,
           depositType: null,
@@ -8363,6 +8377,7 @@
       const venues = JSON.parse(loadFixture("venues-list"));
       return PublicVenueConfigSchema.parse({
         ...venues.data[0],
+        profile: toPublicVenueProfile(venues.data[0].settings?.profile),
         deposit: {
           enabled: true,
           depositType: "flat",
@@ -11526,6 +11541,162 @@
     export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number {
       return Math.round(value / gridSize) * gridSize;
     }
+    export const ENDPOINT_HIT_RADIUS = 12;
+    export const MIN_WALL_THICKNESS = 2;
+    export const MAX_WALL_THICKNESS = 40;
+    export const DEFAULT_WALL_THICKNESS = 8;
+    export interface Point {
+      readonly x: number;
+      readonly y: number;
+    }
+    export type WallEnd = 1 | 2;
+    export function snapPoint(p: Point, gridSize: number = GRID_SIZE): Point {
+      return { x: snapToGrid(p.x, gridSize), y: snapToGrid(p.y, gridSize) };
+    }
+    export function hitTestEndpoint(
+      walls: readonly WallLayout[],
+      p: Point
+    ): { wallId: string; end: WallEnd } | null {
+      let best: { wallId: string; end: WallEnd; d: number } | null = null;
+      for (const w of walls) {
+        const ends: [WallEnd, number, number][] = [
+          [1, w.x1, w.y1],
+          [2, w.x2, w.y2],
+        ];
+        for (const [end, x, y] of ends) {
+          const d = Math.hypot(p.x - x, p.y - y);
+          if (d <= ENDPOINT_HIT_RADIUS && (!best || d < best.d)) best = { wallId: w.id, end, d };
+        }
+      }
+      return best && { wallId: best.wallId, end: best.end };
+    }
+    export function moveWallEndpoint(
+      wall: WallLayout,
+      end: WallEnd,
+      p: Point,
+      gridSize: number = GRID_SIZE
+    ): WallLayout {
+      const snapped = snapPoint(p, gridSize);
+      const x = clampTo(snapped.x, 0, CANVAS_WIDTH);
+      const y = clampTo(snapped.y, 0, CANVAS_HEIGHT);
+      return end === 1 ? { ...wall, x1: x, y1: y } : { ...wall, x2: x, y2: y };
+    }
+    export function clampThickness(value: number): number {
+      return clampTo(value, MIN_WALL_THICKNESS, MAX_WALL_THICKNESS);
+    }
+    export function createWall(kind: "wall" | "window", existing: readonly WallLayout[]): WallLayout {
+      const ids = new Set(existing.map((w) => w.id));
+      let n = existing.length + 1;
+      while (ids.has(`${kind}-${n}`)) n += 1;
+      const y = snapToGrid(CANVAS_CENTER.y);
+      return {
+        id: `${kind}-${n}`,
+        x1: snapToGrid(CANVAS_CENTER.x - 100),
+        y1: y,
+        x2: snapToGrid(CANVAS_CENTER.x + 100),
+        y2: y,
+        thickness: DEFAULT_WALL_THICKNESS,
+        wallType: kind,
+      };
+    }
+    export type TableShapeName = keyof typeof SHAPE_DEFAULTS;
+    export const SEAT_GAP = 7;
+    export const MAX_RENDERED_SEATS = 20;
+    export interface SeatPlacement {
+      readonly x: number;
+      readonly y: number;
+      readonly rotation: number;
+    }
+    export interface SeatPlacementInput {
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      /** Clearance from the table edge; defaults to the canonical SEAT_GAP. */
+      readonly gap?: number;
+    }
+    type RectangleSide = (typeof RECTANGLE_SIDES)[number];
+    function usableSeatCount(capacity: number): number {
+      if (!Number.isFinite(capacity) || capacity < 1) return 0;
+      return Math.min(MAX_RENDERED_SEATS, Math.floor(capacity));
+    }
+    function roundCoord(value: number): number {
+      return Math.round(value * 1000) / 1000;
+    }
+    function evenOffsets(count: number, length: number): readonly number[] {
+      return Array.from({ length: count }, (_, i) =>
+        roundCoord((length * (i + 1)) / (count + 1) - length / 2)
+      );
+    }
+    function circleSeats(count: number, radius: number): readonly SeatPlacement[] {
+      return Array.from({ length: count }, (_, i) => {
+        const degrees = -90 + (360 * i) / count;
+        const radians = (degrees * Math.PI) / 180;
+        return {
+          x: roundCoord(radius * Math.cos(radians)),
+          y: roundCoord(radius * Math.sin(radians)),
+          rotation: (degrees + 270) % 360,
+        };
+      });
+    }
+    function rectangleSeats(
+      count: number,
+      width: number,
+      height: number,
+      gap: number
+    ): readonly SeatPlacement[] {
+      // Round-robin across the four sides so a 2-top faces across the table, a
+      // 4-top takes one per side, and larger parties double up evenly.
+      const perSide = RECTANGLE_SIDES.map(
+        (_, sideIndex) => Math.floor(count / 4) + (count % 4 > sideIndex ? 1 : 0)
+      );
+    
+      return RECTANGLE_SIDES.flatMap((side, sideIndex) => {
+        const sideCount = perSide[sideIndex] ?? 0;
+        const horizontal = side === "top" || side === "bottom";
+        const offsets = evenOffsets(sideCount, horizontal ? width : height);
+        const distance = (horizontal ? height : width) / 2 + gap;
+        const sign = side === "top" || side === "left" ? -1 : 1;
+    
+        return offsets.map((offset) => ({
+          x: horizontal ? offset : sign * distance,
+          y: horizontal ? sign * distance : offset,
+          rotation: SIDE_ROTATION[side],
+        }));
+      });
+    }
+    export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] {
+      const gap = input.gap ?? SEAT_GAP;
+      const count = usableSeatCount(input.capacity);
+      if (count === 0) return [];
+    
+      const { width, height } = SHAPE_DEFAULTS[input.shape];
+      return input.shape === "circle"
+        ? circleSeats(count, width / 2 + gap)
+        : rectangleSeats(count, width, height, gap);
+    }
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/furniture-tokens.ts">
+    export const TABLE_SURFACE_NAME = "table-surface";
+    export const TABLE_SHADOW_NAME = "table-shadow";
+    export const SEAT_NAME = "seat";
+    export const FURNITURE_PALETTE = {
+      /**
+       * The wood tone the art was drawn in. The table surface is filled with the
+       * live status colour instead, so nothing renders in this tone — it is kept
+       * as the documented design intent and checked by the asset drift guard.
+       */
+      wood: "#8B7355",
+      grain: "#806A4E",
+      highlight: "#9C8468",
+      edge: "#6B5740",
+      shadow: "rgba(0,0,0,0.12)",
+      seatFrame: "#4a3f32",
+      seatEdge: "#3d3228",
+      seatCushion: "#5c4f40",
+    } as const;
+    export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number> = {
+      rectangle: 6,
+      square: 3,
+    };
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
@@ -13376,6 +13547,17 @@
       // Invalidate all floor plan detail queries since we don't know which plan
       invalidateKeys: FLOOR_PLAN_QUERY_KEY,
       mutationFn: (api, tableId) => api.tables.delete(tableId),
+    });
+    export const useUpdateFloorPlanLayout = createMutationHook<
+      { floorPlanId: string; layoutJson: FloorPlanLayout },
+      FloorPlan
+    >({
+      invalidateKeys: [],
+      mutationFn: (api, { floorPlanId, layoutJson }) =>
+        api.floorPlans.update(floorPlanId, { layoutJson }),
+      onSuccess: (queryClient, _data, variables) => {
+        queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
+      },
     });
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
@@ -17459,6 +17641,62 @@
         }
         return url.toString();
       }
+    }
+  </file>
+  <file path="apps/hospitality/src/lib/venue-theme.ts">
+    function expandHex(hex: string): string {
+      const h = hex.slice(1);
+      return h.length === 3 ? [...h].map((c) => c + c).join("") : h;
+    }
+    function luminance(hex: string): number {
+      const h = expandHex(hex);
+      const [r, g, b] = [0, 2, 4].map((i) => {
+        const c = parseInt(h.slice(i, i + 2), 16) / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      }) as [number, number, number];
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+    export function contrastRatio(a: string, b: string): number {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+      return (hi + 0.05) / (lo + 0.05);
+    }
+    export function onAccentColor(accent: string): string {
+      return contrastRatio(accent, LIGHT_ON_ACCENT) >= contrastRatio(accent, DARK_ON_ACCENT)
+        ? LIGHT_ON_ACCENT
+        : DARK_ON_ACCENT;
+    }
+    export type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
+    export interface ThemeContrastResult {
+      ok: boolean;
+      failures: ThemeContrastFailure[];
+    }
+    export function checkThemeContrast(theme: VenueTheme): ThemeContrastResult {
+      const failures: ThemeContrastFailure[] = [];
+      const surface = theme.surface ?? STOCK_SURFACE;
+      if (contrastRatio(theme.accent, onAccentColor(theme.accent)) < 4.5) failures.push("accent-text");
+      if (contrastRatio(theme.accent, surface) < 3) failures.push("accent-surface");
+      const text = theme.textPrimary ?? STOCK_TEXT;
+      const surfaces = [surface, theme.surfaceElevated].filter((s): s is string => !!s);
+      if (surfaces.some((s) => contrastRatio(text, s) < 4.5)) failures.push("text-surface");
+      return { ok: failures.length === 0, failures };
+    }
+    export function parseVenueTheme(settings: object | null | undefined): VenueTheme | null {
+      const parsed = VenueThemeSchema.safeParse(
+        (settings as { theme?: unknown } | null | undefined)?.theme
+      );
+      if (!parsed.success || !checkThemeContrast(parsed.data).ok) return null;
+      return parsed.data;
+    }
+    export function themeToCssVars(theme: VenueTheme): Record<string, string> {
+      const vars: Record<string, string> = {
+        "--rialto-accent": theme.accent,
+        "--rialto-accent-hover": theme.accentHover,
+        "--rialto-text-on-accent": onAccentColor(theme.accent),
+      };
+      if (theme.surface) vars["--rialto-surface"] = theme.surface;
+      if (theme.surfaceElevated) vars["--rialto-surface-elevated"] = theme.surfaceElevated;
+      if (theme.textPrimary) vars["--rialto-text-primary"] = theme.textPrimary;
+      return vars;
     }
   </file>
   <file path="packages/rialto/scripts/lib/color-tokens.ts">
@@ -22434,10 +22672,62 @@
             );
         };
     
+        // Aggregate ceiling across ALL identities, ordered after requireAuth and the
+        // identity limiter so anonymous and per-user refusals keep their own answers.
+        // Distinct problem type: a service-wide stop is not a per-user rate limit.
+        const enforceSpendCeiling: preHandlerAsyncHookHandler = async (request, reply) => {
+          const ceilingUsd = getGenDailyCeilingUsd();
+          const ceilingMicroUsd = Math.round(ceilingUsd * 1_000_000);
+          const retryAfter = secondsUntilNextWindow();
+    
+          let spend;
+          try {
+            if (isSpendTrackingDegraded()) throw new Error("usage writes are failing");
+            spend = await getGenSpendToday();
+          } catch (err) {
+            // Unknown spend must not read as zero spend: fail closed.
+            request.log.error({ err }, "gen spend ceiling: counter unreadable, refusing");
+            reply.header("Retry-After", retryAfter);
+            return reply
+              .code(503)
+              .send(
+                createProblemDetails(
+                  503,
+                  "Service Unavailable",
+                  "Generation is temporarily unavailable.",
+                  "urn:mbe:problem:gen-spend-ceiling-unavailable"
+                )
+              );
+          }
+    
+          if (spend.costMicroUsd < ceilingMicroUsd) return;
+    
+          request.log.warn(
+            {
+              window: new Date().toISOString().slice(0, 10),
+              ceilingUsd,
+              accumulatedUsd: spend.costMicroUsd / 1_000_000,
+              generations: spend.generations,
+            },
+            "gen spend ceiling reached, refusing generation"
+          );
+          reply.header("Retry-After", retryAfter);
+          return reply
+            .code(503)
+            .send(
+              createProblemDetails(
+                503,
+                "Service Spend Ceiling Reached",
+                `The service's daily generation ceiling has been reached. Retry after ${retryAfter} seconds.`,
+                "urn:mbe:problem:gen-spend-ceiling-reached"
+              )
+            );
+        };
+    
         fastify.post(
           path,
           {
-            preHandler: [requireAuth, enforceIdentityLimit],
+            preHandler: [requireAuth, enforceIdentityLimit, enforceSpendCeiling],
           },
           async (request, reply) => {
             const parseResult = schema.safeParse(request.body);
@@ -22459,6 +22749,11 @@
               : (parsed as { messages: GenMessages }).messages;
     
             const tools = await getTools(request, parsed);
+            // A run that errors before onFinish still consumed tokens: charge the worst case.
+            let usageReported = false;
+            const chargeIfUnreported = async () => {
+              if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+            };
             const runner = createGenRunner({
               systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
               modelId: GEN_MODEL_ID,
@@ -22466,13 +22761,16 @@
               maxSteps,
               toolChoice: config.toolChoice,
               failOnToolError: config.failOnToolError,
-              onFinish: async ({ usage, providerMetadata }) =>
+              onFinish: async ({ usage, providerMetadata }) => {
                 logGenCost(request.log, {
                   userId: request.user?.id,
                   usage,
                   providerMetadata,
                   label: costLogLabel,
-                }),
+                });
+                usageReported = true;
+                await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
+              },
             });
     
             applyStreamHeaders(reply, contentType);
@@ -22494,6 +22792,7 @@
                     // Error the stream — closing here would turn an upstream
                     // failure (e.g. 529/401) into an empty-looking 200.
                     request.log.error({ err }, "gen stream failed");
+                    await chargeIfUnreported();
                     controller.error(toError(err));
                   }
                 },
@@ -22517,6 +22816,7 @@
                   controller.close();
                 } catch (err) {
                   request.log.error({ err }, "gen stream failed");
+                  await chargeIfUnreported();
                   controller.error(toError(err));
                 }
               },
@@ -22850,6 +23150,13 @@
   </file>
   <file path="services/agent/src/routes/gen-stream.ts">
     export const GEN_MODEL_ID = "claude-haiku-5-5";
+    export const GEN_PRICING = (() => {
+      const rates = (
+        GEN_MODEL_PRICING as Record<string, (typeof GEN_MODEL_PRICING)[keyof typeof GEN_MODEL_PRICING]>
+      )[GEN_MODEL_ID];
+      if (!rates) throw new Error(`No pricing declared for GEN_MODEL_ID "${GEN_MODEL_ID}"`);
+      return rates;
+    })();
     export const GEN_MAX_OUTPUT_TOKENS = 2048;
     type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
     export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
@@ -31517,12 +31824,22 @@
       shape: z.enum(["rectangle", "circle", "square"]),
       color: z.string().optional(),
     });
+    export const WallLayoutSchema = z.object({
+      id: z.string(),
+      x1: z.number(),
+      y1: z.number(),
+      x2: z.number(),
+      y2: z.number(),
+      thickness: z.number().positive(),
+      wallType: z.enum(["wall", "window"]).optional(),
+    });
     export const FloorPlanLayoutSchema = z.object({
       width: z.number(),
       height: z.number(),
       backgroundImage: z.string().optional(),
       gridSize: z.number().optional(),
       showGrid: z.boolean().optional(),
+      walls: z.array(WallLayoutSchema).optional(),
     });
     export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
     export const TableSchema = z.object({
@@ -32267,7 +32584,7 @@
           .default("USD")
           .describe("ISO 4217 currency code"),
         operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
-        settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
+        settings: VenueSettingsBodySchema.describe("Venue-specific settings").optional(),
       })
       .describe("Venue creation payload");
     export const UpdateVenueBodySchema = z
@@ -32281,7 +32598,7 @@
           .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
           .optional(),
         operatingHours: JsonObjectSchema.nullable().optional(),
-        settings: JsonObjectSchema.nullable().optional(),
+        settings: VenueSettingsBodySchema.nullable().optional(),
       })
       .describe("Fields to update");
     export const CreateWaitlistBodySchema = z.object({
@@ -32495,6 +32812,38 @@
       close: z.string(),
       closed: z.boolean().optional(),
     });
+    export const VENUE_TYPES = ["fine_dining", "casual", "bar", "cafe"] as const;
+    export const VenueTypeSchema = z.enum(VENUE_TYPES);
+    export const VENUE_DESCRIPTION_MAX_LENGTH = 280;
+    export const VenueAddressSchema = z.object({
+      line1: z.string().min(1).max(200),
+      line2: z.string().max(200).optional(),
+      city: z.string().min(1).max(100),
+      region: z.string().min(1).max(100),
+      postalCode: z.string().min(1).max(20),
+      country: z.string().regex(/^[A-Za-z]{2}$/, "Must be an ISO 3166-1 alpha-2 country code"),
+    });
+    export const VenueProfileSchema = z.object({
+      type: VenueTypeSchema.optional(),
+      cuisines: z.array(z.string().min(1).max(50)).max(20).optional(),
+      address: VenueAddressSchema.optional(),
+      website: z.string().max(200).regex(HTTP_URL_PATTERN, "Must be an http(s) URL").optional(),
+      description: z.string().max(VENUE_DESCRIPTION_MAX_LENGTH).optional(),
+    });
+    export type VenueProfile = z.infer<typeof VenueProfileSchema>;
+    export function toPublicVenueProfile(stored: unknown): VenueProfile {
+      const parsed = VenueProfileSchema.safeParse(stored ?? {});
+      return parsed.success ? parsed.data : {};
+    }
+    export const VenueThemeSchema = z.object({
+      accent: HexColorSchema,
+      accentHover: HexColorSchema,
+      surface: HexColorSchema.optional(),
+      surfaceElevated: HexColorSchema.optional(),
+      textPrimary: HexColorSchema.optional(),
+      source: z.enum(["extracted", "manual"]),
+    });
+    export type VenueTheme = z.infer<typeof VenueThemeSchema>;
     export const VenueGroupSchema = z.object({
       id: z.string(),
       name: z.string(),
@@ -32555,6 +32904,12 @@
         slotIntervalMinutes: z.number().optional(),
       }),
       deposit: PublicVenueDepositSchema,
+      /**
+       * Venue identity from `settings.profile`, through the allow-list (#7250).
+       * Optional so a client on this contract still parses a response from a
+       * service that predates it — the service always sends it, possibly `{}`.
+       */
+      profile: VenueProfileSchema.optional(),
     });
     export const DepositPaymentIntentSchema = z.object({
       clientSecret: z.string(),
@@ -32674,35 +33029,60 @@
       readonly role: "user" | "assistant";
       readonly content: string;
     }
+    export type Effort = "default" | "low";
     export interface ProviderRequest {
       readonly system: string;
       readonly messages: readonly ChatMessage[];
       readonly maxOutputTokens: number;
+      /** Set only for a non-default arm. */
+      readonly effort?: Exclude<Effort, "default">;
     }
     export interface ProviderResponse {
       readonly text: string;
+      /** Total input including cached tokens. */
       readonly inputTokens: number;
       readonly outputTokens: number;
+      /** Subset of `inputTokens` served from the prompt cache. */
+      readonly cacheReadTokens?: number;
+      /** Subset of `inputTokens` written to the prompt cache. */
+      readonly cacheWriteTokens?: number;
     }
     export interface Pricing {
       readonly inPerM: number;
       readonly outPerM: number;
+      /**
+       * Cache-read input rate. Required, not optional: an absent rate used to fall
+       * back to the base rate, which silently overpriced cached tokens (#7236). A
+       * vendor with no discount must say so by declaring the base rate explicitly.
+       */
+      readonly cachedInPerM: number;
+      /** Cache-write input rate; absent means base input rate. */
+      readonly cacheWritePerM?: number;
+      /** Names the pricing tier a row reflects; shown in the report. */
+      readonly tier?: string;
     }
     export interface Provider {
       readonly id: ProviderId;
       readonly label: string;
       readonly model: string;
       readonly pricing: Pricing;
+      /** Whether the wire format can take an effort arm. Absent means yes. */
+      readonly supportsEffort?: boolean;
       readonly call: (req: ProviderRequest) => Promise<ProviderResponse>;
     }
     export interface PromptResult {
       readonly provider: ProviderId;
+      readonly arm?: Effort;
+      readonly tier?: string;
       readonly prompt: string;
       readonly validFirstTry: boolean;
       readonly validAfterRepair: boolean;
       readonly inputTokens: number;
       readonly outputTokens: number;
+      /** Cost as billed, cache reads at the cache-read rate. */
       readonly usd: number;
+      /** Cold-start cost: all input at the base rate. */
+      readonly uncachedUsd?: number;
       readonly error?: string;
     }
     export interface BakeoffReport {
@@ -32713,15 +33093,40 @@
       readonly abortReason?: string;
     }
     export const PRICING: Readonly<Record<ProviderId, Pricing>> = {
-      anthropic: { inPerM: 0.1, outPerM: 0.5 }, // Claude Haiku 5.5
-      openai: { inPerM: 0.1, outPerM: 0.5 }, // GPT-6 Luna
-      gemini: { inPerM: 0.25, outPerM: 1.5 }, // Gemini 3.1 Flash-Lite
+      // Claude Haiku 5.5: cache read is a tenth of base input, a 5-minute write is 1.25x.
+      anthropic: { inPerM: 0.1, outPerM: 0.5, cachedInPerM: 0.01, cacheWritePerM: 0.125 },
+      // GPT-6 Luna (developers.openai.com/api/docs/pricing, 2026-10-22, short context <=272K):
+      // cached input $0.01; a cache write is $0.125 (30 min) / $0.25 (12 h). The harness only
+      // reads implicit-cache hits, so the write rate is recorded but never applied.
+      openai: { inPerM: 0.1, outPerM: 0.5, cachedInPerM: 0.01, cacheWritePerM: 0.125 },
+      // Gemini 3.1 Flash-Lite (ai.google.dev/gemini-api/docs/pricing, 2026-10-22, paid, text):
+      // cached input $0.025. No per-write charge is published; explicit caches also bill storage
+      // ($1.00/MTok-hour), which the harness does not use (implicit caching only).
+      gemini: { inPerM: 0.25, outPerM: 1.5, cachedInPerM: 0.025, tier: "paid rates" },
     };
-    export function costUsd(
-      tokens: { inputTokens: number; outputTokens: number },
-      pricing: Pricing
-    ): number {
-      return (tokens.inputTokens * pricing.inPerM + tokens.outputTokens * pricing.outPerM) / 1_000_000;
+    export function geminiPricing(freeTier: boolean): Pricing {
+      return freeTier ? { inPerM: 0, outPerM: 0, cachedInPerM: 0, tier: "free tier" } : PRICING.gemini;
+    }
+    interface Tokens {
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens?: number;
+      cacheWriteTokens?: number;
+    }
+    export function costUsd(tokens: Tokens, pricing: Pricing): number {
+      const read = tokens.cacheReadTokens ?? 0;
+      const write = tokens.cacheWriteTokens ?? 0;
+      const plain = tokens.inputTokens - read - write;
+      return (
+        (plain * pricing.inPerM +
+          read * pricing.cachedInPerM +
+          write * (pricing.cacheWritePerM ?? pricing.inPerM) +
+          tokens.outputTokens * pricing.outPerM) /
+        1_000_000
+      );
+    }
+    export function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number {
+      return costUsd({ inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens }, pricing);
     }
     export const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${JSON_OUTPUT_INSTRUCTIONS}`;
     export type Validation = { ok: true } | { ok: false; error: string };
@@ -32792,9 +33197,12 @@
     type SpendGuard = ReturnType<typeof createSpendGuard>;
     function worstCaseUsd(provider: Provider, req: ProviderRequest): number {
       const chars = req.system.length + req.messages.reduce((n, m) => n + m.content.length, 0);
-      return costUsd(
-        { inputTokens: Math.ceil(chars / CHARS_PER_TOKEN_ESTIMATE), outputTokens: req.maxOutputTokens },
-        provider.pricing
+      // Worst case prices every input token at the dearest input rate (a cache write).
+      const inRate = Math.max(provider.pricing.inPerM, provider.pricing.cacheWritePerM ?? 0);
+      return (
+        (Math.ceil(chars / CHARS_PER_TOKEN_ESTIMATE) * inRate +
+          req.maxOutputTokens * provider.pricing.outPerM) /
+        1_000_000
       );
     }
     async function guardedCall(provider: Provider, req: ProviderRequest, guard: SpendGuard) {
@@ -32802,7 +33210,7 @@
       const res = await provider.call(req);
       const usd = costUsd(res, provider.pricing);
       guard.record(usd);
-      return { res, usd };
+      return { res, usd, uncachedUsd: uncachedCostUsd(res, provider.pricing) };
     }
     function repairPrompt(error: string): string {
       return `The JSON failed validation:\n${error}\n\nReturn the corrected complete JSON object only.`;
@@ -32810,15 +33218,18 @@
     async function runPrompt(
       provider: Provider,
       prompt: string,
-      guard: SpendGuard
+      guard: SpendGuard,
+      arm: Effort
     ): Promise<PromptResult> {
-      const base = { provider: provider.id, prompt };
+      const base = { provider: provider.id, arm, tier: provider.pricing.tier, prompt };
+      const effort = arm === "default" ? {} : { effort: arm };
       const first = await guardedCall(
         provider,
         {
           system: SYSTEM_PROMPT,
           messages: [{ role: "user", content: prompt }],
           maxOutputTokens: MAX_OUTPUT_TOKENS,
+          ...effort,
         },
         guard
       );
@@ -32827,6 +33238,7 @@
         inputTokens: first.res.inputTokens,
         outputTokens: first.res.outputTokens,
         usd: first.usd,
+        uncachedUsd: first.uncachedUsd,
       };
       if (v1.ok) return { ...base, validFirstTry: true, validAfterRepair: true, ...tally };
     
@@ -32842,13 +33254,14 @@
               { role: "user", content: repairPrompt(v1.error) },
             ],
             maxOutputTokens: MAX_OUTPUT_TOKENS,
+            ...effort,
           },
           guard
         );
       } catch (err) {
         if (err instanceof SpendLimitError) throw err;
         // The first call was paid for; keep its cost in the row.
-        return { ...errorResult(provider, prompt, err), ...tally };
+        return { ...errorResult(provider, prompt, err, arm), ...tally };
       }
       return {
         ...base,
@@ -32857,17 +33270,26 @@
         inputTokens: tally.inputTokens + repair.res.inputTokens,
         outputTokens: tally.outputTokens + repair.res.outputTokens,
         usd: tally.usd + repair.usd,
+        uncachedUsd: tally.uncachedUsd + repair.uncachedUsd,
       };
     }
-    function errorResult(provider: Provider, prompt: string, err: unknown): PromptResult {
+    function errorResult(
+      provider: Provider,
+      prompt: string,
+      err: unknown,
+      arm: Effort = "default"
+    ): PromptResult {
       return {
         provider: provider.id,
+        arm,
+        tier: provider.pricing.tier,
         prompt,
         validFirstTry: false,
         validAfterRepair: false,
         inputTokens: 0,
         outputTokens: 0,
         usd: 0,
+        uncachedUsd: 0,
         error: err instanceof Error ? err.message : String(err),
       };
     }
@@ -32875,27 +33297,34 @@
       providers: readonly Provider[];
       prompts: readonly string[];
       maxUsd: number;
+      /** One arm per effort, per provider that supports one. Defaults to the provider default only. */
+      efforts?: readonly Effort[];
     }): Promise<BakeoffReport> {
       const guard = createSpendGuard(opts.maxUsd);
       const results: PromptResult[] = [];
       let abortReason: string | undefined;
     
       for (const provider of opts.providers) {
-        let consecutiveErrors = 0;
-        for (const prompt of opts.prompts) {
-          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break;
-          try {
-            const result = await runPrompt(provider, prompt, guard);
-            results.push(result);
-            consecutiveErrors = 0;
-          } catch (err) {
-            if (err instanceof SpendLimitError) {
-              abortReason = err.message;
-              break;
+        const arms = (opts.efforts ?? ["default"]).filter(
+          (e) => e === "default" || provider.supportsEffort !== false
+        );
+        for (const arm of arms) {
+          let consecutiveErrors = 0;
+          for (const prompt of opts.prompts) {
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break;
+            try {
+              results.push(await runPrompt(provider, prompt, guard, arm));
+              consecutiveErrors = 0;
+            } catch (err) {
+              if (err instanceof SpendLimitError) {
+                abortReason = err.message;
+                break;
+              }
+              results.push(errorResult(provider, prompt, err, arm));
+              consecutiveErrors += 1;
             }
-            results.push(errorResult(provider, prompt, err));
-            consecutiveErrors += 1;
           }
+          if (abortReason) break;
         }
         if (abortReason) break;
       }
@@ -32924,12 +33353,20 @@
           const kind = index % 3;
           const text = kind === 0 || (kind === 1 && isRepair) ? STUB_VALID : STUB_INVALID;
           const chars = req.system.length + req.messages.reduce((n, m) => n + m.content.length, 0);
-          return { text, inputTokens: Math.ceil(chars / 4), outputTokens: Math.ceil(text.length / 4) };
+          return {
+            text,
+            inputTokens: Math.ceil(chars / 4),
+            outputTokens: Math.ceil(text.length / 4),
+            // The shared catalog prompt is what a warm cache serves.
+            cacheReadTokens: Math.min(Math.ceil(req.system.length / 4), Math.ceil(chars / 4)),
+          };
         },
       };
     }
     export interface ProviderSummary {
       readonly provider: ProviderId;
+      readonly arm: Effort;
+      readonly tier?: string;
       readonly n: number;
       readonly errors: number;
       readonly validFirstTryPct: number;
@@ -32937,18 +33374,24 @@
       readonly meanInputTokens: number;
       readonly meanOutputTokens: number;
       readonly totalUsd: number;
+      readonly uncachedUsd: number;
       readonly projectedUsdPer1k: number;
+      readonly uncachedProjectedUsdPer1k: number;
     }
     export function summarize(results: readonly PromptResult[]): ProviderSummary[] {
-      const ids = [...new Set(results.map((r) => r.provider))];
-      return ids.map((provider) => {
-        const rows = results.filter((r) => r.provider === provider);
+      const keys = [...new Set(results.map((r) => `${r.provider}|${r.arm ?? "default"}`))];
+      return keys.map((key) => {
+        const [provider, arm] = key.split("|") as [ProviderId, Effort];
+        const rows = results.filter((r) => r.provider === provider && (r.arm ?? "default") === arm);
         const n = rows.length;
         const pct = (count: number) => (count / n) * 100;
         const mean = (pick: (r: PromptResult) => number) => rows.reduce((s, r) => s + pick(r), 0) / n;
         const totalUsd = rows.reduce((s, r) => s + r.usd, 0);
+        const uncachedUsd = rows.reduce((s, r) => s + (r.uncachedUsd ?? r.usd), 0);
         return {
           provider,
+          arm,
+          ...(rows[0]?.tier ? { tier: rows[0].tier } : {}),
           n,
           errors: rows.filter((r) => r.error !== undefined).length,
           validFirstTryPct: pct(rows.filter((r) => r.validFirstTry).length),
@@ -32956,18 +33399,22 @@
           meanInputTokens: mean((r) => r.inputTokens),
           meanOutputTokens: mean((r) => r.outputTokens),
           totalUsd,
+          uncachedUsd,
           projectedUsdPer1k: (totalUsd / n) * 1000,
+          uncachedProjectedUsdPer1k: (uncachedUsd / n) * 1000,
         };
       });
     }
     export function formatTable(summaries: readonly ProviderSummary[]): string {
       const header =
-        "| Provider | Valid 1st try | Valid after repair | Mean in tok | Mean out tok | Total $ | Projected $/1k gens | Errors |";
-      const sep = "|---|---:|---:|---:|---:|---:|---:|---:|";
-      const rows = summaries.map(
-        (s) =>
-          `| ${s.provider} | ${s.validFirstTryPct.toFixed(0)}% | ${s.validAfterRepairPct.toFixed(0)}% | ${s.meanInputTokens.toFixed(0)} | ${s.meanOutputTokens.toFixed(0)} | $${s.totalUsd.toFixed(4)} | $${s.projectedUsdPer1k.toFixed(2)} | ${s.errors}/${s.n} |`
-      );
+        "| Provider | Effort | Valid 1st try | Valid after repair | Mean in tok | Mean out tok | Cached $ | Uncached $ | Cached $/1k gens | Uncached $/1k gens | Errors |";
+      const sep = "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|";
+      const rows = summaries.map((s) => {
+        const free = s.tier === "free tier";
+        const usd = (v: number, digits: number) => (free ? "$0 (free tier)" : `$${v.toFixed(digits)}`);
+        const name = s.tier ? `${s.provider} (${s.tier})` : s.provider;
+        return `| ${name} | ${s.arm} | ${s.validFirstTryPct.toFixed(0)}% | ${s.validAfterRepairPct.toFixed(0)}% | ${s.meanInputTokens.toFixed(0)} | ${s.meanOutputTokens.toFixed(0)} | ${usd(s.totalUsd, 4)} | ${usd(s.uncachedUsd, 4)} | ${usd(s.projectedUsdPer1k, 2)} | ${usd(s.uncachedProjectedUsdPer1k, 2)} | ${s.errors}/${s.n} |`;
+      });
       return [header, sep, ...rows].join("\n");
     }
   </file>
@@ -32992,7 +33439,14 @@
       return {
         url: "https://api.anthropic.com/v1/messages",
         headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
-        body: { model, max_tokens: req.maxOutputTokens, system: req.system, messages: req.messages },
+        body: {
+          model,
+          max_tokens: req.maxOutputTokens,
+          // Same ephemeral cache breakpoint gen-runner.ts sets on the system message.
+          system: [{ type: "text", text: req.system, cache_control: { type: "ephemeral" } }],
+          messages: req.messages,
+          ...(req.effort ? { output_config: { effort: req.effort } } : {}),
+        },
       };
     }
     function openaiWire(key: string, model: string, req: ProviderRequest): Wire {
@@ -33003,6 +33457,7 @@
           model,
           max_completion_tokens: req.maxOutputTokens,
           response_format: { type: "json_object" },
+          ...(req.effort ? { reasoning_effort: req.effort } : {}),
           messages: [{ role: "system", content: req.system }, ...req.messages],
         },
       };
@@ -33020,24 +33475,35 @@
           generationConfig: {
             maxOutputTokens: req.maxOutputTokens,
             responseMimeType: "application/json",
+            ...(req.effort ? { thinkingConfig: { thinkingLevel: req.effort } } : {}),
           },
         },
       };
     }
-    type Parsed = { text: string; inputTokens: number; outputTokens: number };
+    type Parsed = ProviderResponse;
     interface AnthropicJson {
       content?: { type?: string; text?: string }[];
-      usage?: { input_tokens?: number; output_tokens?: number };
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_read_input_tokens?: number;
+        cache_creation_input_tokens?: number;
+      };
     }
     interface OpenAiJson {
       choices?: { message?: { content?: string } }[];
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        prompt_tokens_details?: { cached_tokens?: number };
+      };
     }
     interface GeminiJson {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
       usageMetadata?: {
         promptTokenCount?: number;
         candidatesTokenCount?: number;
+        cachedContentTokenCount?: number;
         thoughtsTokenCount?: number;
       };
     }
@@ -33045,14 +33511,15 @@
       id: ProviderId,
       apiKey: string,
       fetchImpl: FetchLike = fetch,
-      model: string = DEFAULT_MODELS[id]
+      model: string = DEFAULT_MODELS[id],
+      pricing: Pricing = PRICING[id]
     ): Provider {
       const redact = (s: string) => s.split(apiKey).join("[redacted]");
       return {
         id,
         label: LABELS[id],
         model,
-        pricing: PRICING[id],
+        pricing,
         call: async (req) => {
           const wire = WIRES[id](apiKey, model, req);
           const res = await fetchImpl(wire.url, {
@@ -33079,9 +33546,14 @@
     function resolveProviders(
       ids: readonly ProviderId[],
       dryRun: boolean,
-      prompts: string[]
+      prompts: string[],
+      geminiFree: boolean
     ): Provider[] {
-      if (dryRun) return ids.map((id) => createStubProvider({ id, prompts }));
+      if (dryRun)
+        return ids.map((id) => ({
+          ...createStubProvider({ id, prompts }),
+          ...(id === "gemini" ? { pricing: geminiPricing(geminiFree) } : {}),
+        }));
       const providers: Provider[] = [];
       for (const id of ids) {
         const key = process.env[ENV_KEYS[id]];
@@ -33089,7 +33561,11 @@
           console.error(`skip ${id}: ${ENV_KEYS[id]} is not set`);
           continue;
         }
-        providers.push(createProvider(id, key));
+        providers.push(
+          id === "gemini"
+            ? createProvider(id, key, fetch, undefined, geminiPricing(geminiFree))
+            : createProvider(id, key)
+        );
       }
       return providers;
     }
@@ -33103,6 +33579,8 @@
           out: { type: "string" },
           providers: { type: "string" },
           limit: { type: "string" },
+          efforts: { type: "string", default: "default,low" },
+          "gemini-free-tier": { type: "boolean", default: false },
         },
         allowPositionals: true,
       });
@@ -33114,18 +33592,25 @@
       const ids = values.providers
         ? values.providers.split(",").filter((p): p is ProviderId => IDS.includes(p as ProviderId))
         : IDS;
+      const efforts = values.efforts
+        .split(",")
+        .filter((e): e is Effort => e === "default" || e === "low");
+      if (efforts.length === 0) {
+        console.error("--efforts must include default and/or low");
+        return 2;
+      }
       const prompts = loadPrompts(values.limit ? Number(values.limit) : undefined);
       const anyKey = IDS.some((id) => process.env[ENV_KEYS[id]]);
       const dryRun = values["dry-run"] || !anyKey;
       if (dryRun && !values["dry-run"])
         console.error("no provider keys found — running --dry-run with stubs");
     
-      const providers = resolveProviders(ids, dryRun, prompts);
+      const providers = resolveProviders(ids, dryRun, prompts, values["gemini-free-tier"]);
       if (providers.length === 0) {
         console.error("no providers to run");
         return 2;
       }
-      const report = await runBakeoff({ providers, prompts, maxUsd });
+      const report = await runBakeoff({ providers, prompts, maxUsd, efforts });
       const summaries = summarize(report.results);
       process.stdout.write(
         `${dryRun ? "DRY RUN (stub providers, canned outputs)\n\n" : ""}${formatTable(summaries)}\n`
@@ -35010,6 +35495,93 @@
   <file path="services/agent/src/services/database.ts">
     export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
+  </file>
+  <file path="services/agent/src/services/gen-spend-ceiling.ts">
+    export const GEN_DAILY_CEILING_DEFAULT_USD = 0.5;
+    export function resolveGenDailyCeilingUsd(raw: string | undefined): number {
+      if (raw === undefined || raw.trim() === "") return GEN_DAILY_CEILING_DEFAULT_USD;
+      const value = Number(raw);
+      return Number.isFinite(value) && value >= 0 ? value : GEN_DAILY_CEILING_DEFAULT_USD;
+    }
+    export function getGenDailyCeilingUsd(): number {
+      return resolveGenDailyCeilingUsd(process.env.GEN_DAILY_CEILING_USD);
+    }
+    export function genCostMicroUsd(
+      usage: { readonly inputTokens?: number; readonly outputTokens?: number },
+      providerMetadata: unknown
+    ): number {
+      const meta = (
+        providerMetadata as
+          | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
+          | undefined
+      )?.anthropic;
+      const read = meta?.cacheReadInputTokens ?? 0;
+      const write = meta?.cacheCreationInputTokens ?? 0;
+      const fresh = Math.max(0, (usage.inputTokens ?? 0) - read - write);
+      const usd =
+        (fresh * GEN_PRICING.input +
+          read * GEN_PRICING.cacheRead +
+          write * GEN_PRICING.cacheWrite +
+          (usage.outputTokens ?? 0) * GEN_PRICING.output) /
+        1_000_000;
+      return Math.round(usd * 1_000_000);
+    }
+    function windowDate(now: Date): string {
+      return now.toISOString().slice(0, 10);
+    }
+    export function secondsUntilNextWindow(now: Date = new Date()): number {
+      const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      return Math.max(1, Math.ceil((next - now.getTime()) / 1000));
+    }
+    export interface GenSpend {
+      readonly generations: number;
+      readonly costMicroUsd: number;
+    }
+    export async function getGenSpendToday(now: Date = new Date()): Promise<GenSpend> {
+      const rows = await prisma.$queryRaw<
+        Array<{ generations: number; cost_micro_usd: bigint | number }>
+      >`SELECT generations, cost_micro_usd FROM gen_spend_windows WHERE window_date = ${windowDate(now)}::date`;
+      const row = rows[0];
+      if (!row) return { generations: 0, costMicroUsd: 0 };
+      return { generations: Number(row.generations), costMicroUsd: Number(row.cost_micro_usd) };
+    }
+    export async function recordGenSpend(costMicroUsd: number, now: Date = new Date()): Promise<void> {
+      await prisma.$executeRaw`
+        INSERT INTO gen_spend_windows (window_date, generations, cost_micro_usd)
+        VALUES (${windowDate(now)}::date, 1, ${costMicroUsd})
+        ON CONFLICT (window_date) DO UPDATE
+        SET generations = gen_spend_windows.generations + 1,
+            cost_micro_usd = gen_spend_windows.cost_micro_usd + EXCLUDED.cost_micro_usd`;
+    }
+    export function failedGenCostMicroUsd(): number {
+      return Math.round(GEN_MAX_OUTPUT_TOKENS * GEN_PRICING.output);
+    }
+    export const GEN_WRITE_FAILURE_LIMIT = 3;
+    export const GEN_DEGRADED_PROBE_MS = 300_000;
+    export function isSpendTrackingDegraded(now: number = Date.now()): boolean {
+      if (consecutiveWriteFailures < GEN_WRITE_FAILURE_LIMIT) return false;
+      if (lastProbeAt === 0) lastProbeAt = now;
+      if (now - lastProbeAt < GEN_DEGRADED_PROBE_MS) return true;
+      lastProbeAt = now;
+      return false;
+    }
+    export function resetSpendTrackingForTests(): void {
+      consecutiveWriteFailures = 0;
+      lastProbeAt = 0;
+    }
+    export async function trackGenSpend(
+      costMicroUsd: number,
+      log: Pick<FastifyBaseLogger, "error">
+    ): Promise<void> {
+      try {
+        await recordGenSpend(costMicroUsd);
+        consecutiveWriteFailures = 0;
+        lastProbeAt = 0;
+      } catch (err) {
+        consecutiveWriteFailures++;
+        log.error({ err, consecutiveWriteFailures }, "gen spend ceiling: failed to record usage");
+      }
+    }
   </file>
   <file path="services/agent/src/services/liveness-monitor.ts">
     export interface LivenessMonitorConfig {
@@ -44340,6 +44912,11 @@
             lateCancellationFeePercent: venue.lateCancellationFeePercent,
             noShowFeePercent: venue.noShowFeePercent,
           },
+          // `settings` is free-form JSON shared with operational keys, so the
+          // profile goes through the explicit `VenueProfileSchema` allow-list
+          // (#7250) — never a spread. `toPublicVenueProfile` fails closed on an
+          // absent, non-object or no-longer-valid stored value.
+          profile: toPublicVenueProfile(settings?.profile),
         };
       },
     
@@ -59348,12 +59925,22 @@
       createdAt: string;
       updatedAt: string;
     }
+    export interface WallLayout {
+      id: string;
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      thickness: number;
+      wallType?: "wall" | "window";
+    }
     export interface FloorPlanLayout {
       width: number;
       height: number;
       backgroundImage?: string;
       gridSize?: number;
       showGrid?: boolean;
+      walls?: WallLayout[];
     }
     export interface CreateFloorPlanRequest {
       venueId: string;
@@ -59966,6 +60553,16 @@
       guestModificationCutoffHours?: number;
       /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
       guestMaxPartySizeChange?: number;
+      /**
+       * Public restaurant identity — venue type, cuisines, postal address,
+       * website, description (#7250). Lives inside `settings` because `settings`
+       * is already `Json?` on the `Venue` row, so this needed no migration. It is
+       * the one key in this blob with a published public contract: see
+       * `VenueProfileSchema` and `PublicVenueConfig.profile`.
+       */
+      profile?: VenueProfile;
+      /** Per-venue palette; validate with `VenueThemeSchema` before use. */
+      theme?: VenueTheme;
     }
     export type DepositType = "flat" | "per_person";
     export interface DepositConfig {
@@ -60027,6 +60624,13 @@
       operatingHours: OperatingHours | null;
       settings: PublicVenueSettings;
       deposit: PublicVenueDeposit;
+      /**
+       * Allow-listed projection of `settings.profile` (#7250). `settings` is
+       * free-form JSON, so this is built field by field through
+       * `toPublicVenueProfile` — never spread — and the route's response
+       * serializer drops anything the contract does not declare.
+       */
+      profile?: VenueProfile;
     }
     export interface CreateDepositPaymentIntentRequest {
       reservationId: string;
@@ -66562,6 +67166,107 @@
       }
     
       return payload;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="venue-profile">
+  <file path="apps/hospitality/src/components/venue-profile/venue-profile-form.ts">
+    export interface VenueProfileForm {
+      readonly type: string;
+      readonly cuisines: string;
+      readonly line1: string;
+      readonly line2: string;
+      readonly city: string;
+      readonly region: string;
+      readonly postalCode: string;
+      readonly country: string;
+      readonly website: string;
+      readonly description: string;
+    }
+    export const EMPTY_VENUE_PROFILE_FORM: VenueProfileForm = {
+      type: "",
+      cuisines: "",
+      line1: "",
+      line2: "",
+      city: "",
+      region: "",
+      postalCode: "",
+      country: "",
+      website: "",
+      description: "",
+    };
+    export type VenueProfileFieldError = "required" | "invalid" | "tooLong";
+    export type VenueProfileFormErrors = Partial<
+      Record<keyof VenueProfileForm, VenueProfileFieldError>
+    >;
+    export type VenueProfileFormResult =
+      | { readonly ok: true; readonly profile: VenueProfile }
+      | { readonly ok: false; readonly errors: VenueProfileFormErrors };
+    export function toVenueProfileForm(profile: VenueProfile | undefined): VenueProfileForm {
+      return {
+        type: profile?.type ?? "",
+        cuisines: (profile?.cuisines ?? []).join(", "),
+        line1: profile?.address?.line1 ?? "",
+        line2: profile?.address?.line2 ?? "",
+        city: profile?.address?.city ?? "",
+        region: profile?.address?.region ?? "",
+        postalCode: profile?.address?.postalCode ?? "",
+        country: profile?.address?.country ?? "",
+        website: profile?.website ?? "",
+        description: profile?.description ?? "",
+      };
+    }
+    function splitCuisines(raw: string): string[] {
+      return raw
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+    }
+    function addressFrom(form: VenueProfileForm): Record<string, string> | undefined {
+      const touched = ADDRESS_FIELDS.some((field) => form[field].trim().length > 0);
+      if (!touched) return undefined;
+    
+      const line2 = form.line2.trim();
+      return {
+        line1: form.line1.trim(),
+        ...(line2 ? { line2 } : {}),
+        city: form.city.trim(),
+        region: form.region.trim(),
+        postalCode: form.postalCode.trim(),
+        country: form.country.trim(),
+      };
+    }
+    function candidateFrom(form: VenueProfileForm): Record<string, unknown> {
+      const cuisines = splitCuisines(form.cuisines);
+      const website = form.website.trim();
+      const description = form.description.trim();
+      const address = addressFrom(form);
+    
+      return {
+        ...(form.type ? { type: form.type } : {}),
+        ...(cuisines.length > 0 ? { cuisines } : {}),
+        ...(address ? { address } : {}),
+        ...(website ? { website } : {}),
+        ...(description ? { description } : {}),
+      };
+    }
+    function errorCodeFor(code: string, value: string): VenueProfileFieldError {
+      if (code === "too_big") return "tooLong";
+      if (value.trim().length === 0) return "required";
+      return "invalid";
+    }
+    export function parseVenueProfileForm(form: VenueProfileForm): VenueProfileFormResult {
+      const parsed = VenueProfileSchema.safeParse(candidateFrom(form));
+      if (parsed.success) return { ok: true, profile: parsed.data };
+    
+      const errors: VenueProfileFormErrors = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path.at(-1);
+        if (typeof field !== "string" || !(field in EMPTY_VENUE_PROFILE_FORM)) continue;
+        const key = field as keyof VenueProfileForm;
+        errors[key] = errorCodeFor(issue.code, form[key]);
+      }
+      return { ok: false, errors };
     }
   </file>
   </section>

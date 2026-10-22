@@ -1012,6 +1012,10 @@
       const venues = JSON.parse(loadFixture("venues-list"));
       return PublicVenueConfigSchema.parse({
         ...venues.data[0],
+        // `profile` lives inside the internal venue's `settings` blob; the public
+        // config carries it as a top-level, allow-listed field (#7250), exactly
+        // as `venueService.getPublicConfigBySlug` projects it.
+        profile: toPublicVenueProfile(venues.data[0].settings?.profile),
         deposit: {
           enabled: false,
           depositType: null,
@@ -1026,6 +1030,7 @@
       const venues = JSON.parse(loadFixture("venues-list"));
       return PublicVenueConfigSchema.parse({
         ...venues.data[0],
+        profile: toPublicVenueProfile(venues.data[0].settings?.profile),
         deposit: {
           enabled: true,
           depositType: "flat",
@@ -2192,6 +2197,162 @@
     export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number {
       return Math.round(value / gridSize) * gridSize;
     }
+    export const ENDPOINT_HIT_RADIUS = 12;
+    export const MIN_WALL_THICKNESS = 2;
+    export const MAX_WALL_THICKNESS = 40;
+    export const DEFAULT_WALL_THICKNESS = 8;
+    export interface Point {
+      readonly x: number;
+      readonly y: number;
+    }
+    export type WallEnd = 1 | 2;
+    export function snapPoint(p: Point, gridSize: number = GRID_SIZE): Point {
+      return { x: snapToGrid(p.x, gridSize), y: snapToGrid(p.y, gridSize) };
+    }
+    export function hitTestEndpoint(
+      walls: readonly WallLayout[],
+      p: Point
+    ): { wallId: string; end: WallEnd } | null {
+      let best: { wallId: string; end: WallEnd; d: number } | null = null;
+      for (const w of walls) {
+        const ends: [WallEnd, number, number][] = [
+          [1, w.x1, w.y1],
+          [2, w.x2, w.y2],
+        ];
+        for (const [end, x, y] of ends) {
+          const d = Math.hypot(p.x - x, p.y - y);
+          if (d <= ENDPOINT_HIT_RADIUS && (!best || d < best.d)) best = { wallId: w.id, end, d };
+        }
+      }
+      return best && { wallId: best.wallId, end: best.end };
+    }
+    export function moveWallEndpoint(
+      wall: WallLayout,
+      end: WallEnd,
+      p: Point,
+      gridSize: number = GRID_SIZE
+    ): WallLayout {
+      const snapped = snapPoint(p, gridSize);
+      const x = clampTo(snapped.x, 0, CANVAS_WIDTH);
+      const y = clampTo(snapped.y, 0, CANVAS_HEIGHT);
+      return end === 1 ? { ...wall, x1: x, y1: y } : { ...wall, x2: x, y2: y };
+    }
+    export function clampThickness(value: number): number {
+      return clampTo(value, MIN_WALL_THICKNESS, MAX_WALL_THICKNESS);
+    }
+    export function createWall(kind: "wall" | "window", existing: readonly WallLayout[]): WallLayout {
+      const ids = new Set(existing.map((w) => w.id));
+      let n = existing.length + 1;
+      while (ids.has(`${kind}-${n}`)) n += 1;
+      const y = snapToGrid(CANVAS_CENTER.y);
+      return {
+        id: `${kind}-${n}`,
+        x1: snapToGrid(CANVAS_CENTER.x - 100),
+        y1: y,
+        x2: snapToGrid(CANVAS_CENTER.x + 100),
+        y2: y,
+        thickness: DEFAULT_WALL_THICKNESS,
+        wallType: kind,
+      };
+    }
+    export type TableShapeName = keyof typeof SHAPE_DEFAULTS;
+    export const SEAT_GAP = 7;
+    export const MAX_RENDERED_SEATS = 20;
+    export interface SeatPlacement {
+      readonly x: number;
+      readonly y: number;
+      readonly rotation: number;
+    }
+    export interface SeatPlacementInput {
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      /** Clearance from the table edge; defaults to the canonical SEAT_GAP. */
+      readonly gap?: number;
+    }
+    type RectangleSide = (typeof RECTANGLE_SIDES)[number];
+    function usableSeatCount(capacity: number): number {
+      if (!Number.isFinite(capacity) || capacity < 1) return 0;
+      return Math.min(MAX_RENDERED_SEATS, Math.floor(capacity));
+    }
+    function roundCoord(value: number): number {
+      return Math.round(value * 1000) / 1000;
+    }
+    function evenOffsets(count: number, length: number): readonly number[] {
+      return Array.from({ length: count }, (_, i) =>
+        roundCoord((length * (i + 1)) / (count + 1) - length / 2)
+      );
+    }
+    function circleSeats(count: number, radius: number): readonly SeatPlacement[] {
+      return Array.from({ length: count }, (_, i) => {
+        const degrees = -90 + (360 * i) / count;
+        const radians = (degrees * Math.PI) / 180;
+        return {
+          x: roundCoord(radius * Math.cos(radians)),
+          y: roundCoord(radius * Math.sin(radians)),
+          rotation: (degrees + 270) % 360,
+        };
+      });
+    }
+    function rectangleSeats(
+      count: number,
+      width: number,
+      height: number,
+      gap: number
+    ): readonly SeatPlacement[] {
+      // Round-robin across the four sides so a 2-top faces across the table, a
+      // 4-top takes one per side, and larger parties double up evenly.
+      const perSide = RECTANGLE_SIDES.map(
+        (_, sideIndex) => Math.floor(count / 4) + (count % 4 > sideIndex ? 1 : 0)
+      );
+    
+      return RECTANGLE_SIDES.flatMap((side, sideIndex) => {
+        const sideCount = perSide[sideIndex] ?? 0;
+        const horizontal = side === "top" || side === "bottom";
+        const offsets = evenOffsets(sideCount, horizontal ? width : height);
+        const distance = (horizontal ? height : width) / 2 + gap;
+        const sign = side === "top" || side === "left" ? -1 : 1;
+    
+        return offsets.map((offset) => ({
+          x: horizontal ? offset : sign * distance,
+          y: horizontal ? sign * distance : offset,
+          rotation: SIDE_ROTATION[side],
+        }));
+      });
+    }
+    export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] {
+      const gap = input.gap ?? SEAT_GAP;
+      const count = usableSeatCount(input.capacity);
+      if (count === 0) return [];
+    
+      const { width, height } = SHAPE_DEFAULTS[input.shape];
+      return input.shape === "circle"
+        ? circleSeats(count, width / 2 + gap)
+        : rectangleSeats(count, width, height, gap);
+    }
+  </file>
+  <file path="src/components/floor-plan/furniture-tokens.ts">
+    export const TABLE_SURFACE_NAME = "table-surface";
+    export const TABLE_SHADOW_NAME = "table-shadow";
+    export const SEAT_NAME = "seat";
+    export const FURNITURE_PALETTE = {
+      /**
+       * The wood tone the art was drawn in. The table surface is filled with the
+       * live status colour instead, so nothing renders in this tone — it is kept
+       * as the documented design intent and checked by the asset drift guard.
+       */
+      wood: "#8B7355",
+      grain: "#806A4E",
+      highlight: "#9C8468",
+      edge: "#6B5740",
+      shadow: "rgba(0,0,0,0.12)",
+      seatFrame: "#4a3f32",
+      seatEdge: "#3d3228",
+      seatCushion: "#5c4f40",
+    } as const;
+    export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number> = {
+      rectangle: 6,
+      square: 3,
+    };
   </file>
   <file path="src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
@@ -3224,6 +3385,17 @@
       // Invalidate all floor plan detail queries since we don't know which plan
       invalidateKeys: FLOOR_PLAN_QUERY_KEY,
       mutationFn: (api, tableId) => api.tables.delete(tableId),
+    });
+    export const useUpdateFloorPlanLayout = createMutationHook<
+      { floorPlanId: string; layoutJson: FloorPlanLayout },
+      FloorPlan
+    >({
+      invalidateKeys: [],
+      mutationFn: (api, { floorPlanId, layoutJson }) =>
+        api.floorPlans.update(floorPlanId, { layoutJson }),
+      onSuccess: (queryClient, _data, variables) => {
+        queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
+      },
     });
   </file>
   <file path="src/hooks/useFocusAfter.ts">
@@ -5477,6 +5649,62 @@
       }
     }
   </file>
+  <file path="src/lib/venue-theme.ts">
+    function expandHex(hex: string): string {
+      const h = hex.slice(1);
+      return h.length === 3 ? [...h].map((c) => c + c).join("") : h;
+    }
+    function luminance(hex: string): number {
+      const h = expandHex(hex);
+      const [r, g, b] = [0, 2, 4].map((i) => {
+        const c = parseInt(h.slice(i, i + 2), 16) / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      }) as [number, number, number];
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+    export function contrastRatio(a: string, b: string): number {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+      return (hi + 0.05) / (lo + 0.05);
+    }
+    export function onAccentColor(accent: string): string {
+      return contrastRatio(accent, LIGHT_ON_ACCENT) >= contrastRatio(accent, DARK_ON_ACCENT)
+        ? LIGHT_ON_ACCENT
+        : DARK_ON_ACCENT;
+    }
+    export type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
+    export interface ThemeContrastResult {
+      ok: boolean;
+      failures: ThemeContrastFailure[];
+    }
+    export function checkThemeContrast(theme: VenueTheme): ThemeContrastResult {
+      const failures: ThemeContrastFailure[] = [];
+      const surface = theme.surface ?? STOCK_SURFACE;
+      if (contrastRatio(theme.accent, onAccentColor(theme.accent)) < 4.5) failures.push("accent-text");
+      if (contrastRatio(theme.accent, surface) < 3) failures.push("accent-surface");
+      const text = theme.textPrimary ?? STOCK_TEXT;
+      const surfaces = [surface, theme.surfaceElevated].filter((s): s is string => !!s);
+      if (surfaces.some((s) => contrastRatio(text, s) < 4.5)) failures.push("text-surface");
+      return { ok: failures.length === 0, failures };
+    }
+    export function parseVenueTheme(settings: object | null | undefined): VenueTheme | null {
+      const parsed = VenueThemeSchema.safeParse(
+        (settings as { theme?: unknown } | null | undefined)?.theme
+      );
+      if (!parsed.success || !checkThemeContrast(parsed.data).ok) return null;
+      return parsed.data;
+    }
+    export function themeToCssVars(theme: VenueTheme): Record<string, string> {
+      const vars: Record<string, string> = {
+        "--rialto-accent": theme.accent,
+        "--rialto-accent-hover": theme.accentHover,
+        "--rialto-text-on-accent": onAccentColor(theme.accent),
+      };
+      if (theme.surface) vars["--rialto-surface"] = theme.surface;
+      if (theme.surfaceElevated) vars["--rialto-surface-elevated"] = theme.surfaceElevated;
+      if (theme.textPrimary) vars["--rialto-text-primary"] = theme.textPrimary;
+      return vars;
+    }
+  </file>
   </section>
   <section priority="medium" role="menus">
   <file path="src/components/menus/price.ts">
@@ -7706,6 +7934,107 @@
       }
     
       return payload;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="venue-profile">
+  <file path="src/components/venue-profile/venue-profile-form.ts">
+    export interface VenueProfileForm {
+      readonly type: string;
+      readonly cuisines: string;
+      readonly line1: string;
+      readonly line2: string;
+      readonly city: string;
+      readonly region: string;
+      readonly postalCode: string;
+      readonly country: string;
+      readonly website: string;
+      readonly description: string;
+    }
+    export const EMPTY_VENUE_PROFILE_FORM: VenueProfileForm = {
+      type: "",
+      cuisines: "",
+      line1: "",
+      line2: "",
+      city: "",
+      region: "",
+      postalCode: "",
+      country: "",
+      website: "",
+      description: "",
+    };
+    export type VenueProfileFieldError = "required" | "invalid" | "tooLong";
+    export type VenueProfileFormErrors = Partial<
+      Record<keyof VenueProfileForm, VenueProfileFieldError>
+    >;
+    export type VenueProfileFormResult =
+      | { readonly ok: true; readonly profile: VenueProfile }
+      | { readonly ok: false; readonly errors: VenueProfileFormErrors };
+    export function toVenueProfileForm(profile: VenueProfile | undefined): VenueProfileForm {
+      return {
+        type: profile?.type ?? "",
+        cuisines: (profile?.cuisines ?? []).join(", "),
+        line1: profile?.address?.line1 ?? "",
+        line2: profile?.address?.line2 ?? "",
+        city: profile?.address?.city ?? "",
+        region: profile?.address?.region ?? "",
+        postalCode: profile?.address?.postalCode ?? "",
+        country: profile?.address?.country ?? "",
+        website: profile?.website ?? "",
+        description: profile?.description ?? "",
+      };
+    }
+    function splitCuisines(raw: string): string[] {
+      return raw
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+    }
+    function addressFrom(form: VenueProfileForm): Record<string, string> | undefined {
+      const touched = ADDRESS_FIELDS.some((field) => form[field].trim().length > 0);
+      if (!touched) return undefined;
+    
+      const line2 = form.line2.trim();
+      return {
+        line1: form.line1.trim(),
+        ...(line2 ? { line2 } : {}),
+        city: form.city.trim(),
+        region: form.region.trim(),
+        postalCode: form.postalCode.trim(),
+        country: form.country.trim(),
+      };
+    }
+    function candidateFrom(form: VenueProfileForm): Record<string, unknown> {
+      const cuisines = splitCuisines(form.cuisines);
+      const website = form.website.trim();
+      const description = form.description.trim();
+      const address = addressFrom(form);
+    
+      return {
+        ...(form.type ? { type: form.type } : {}),
+        ...(cuisines.length > 0 ? { cuisines } : {}),
+        ...(address ? { address } : {}),
+        ...(website ? { website } : {}),
+        ...(description ? { description } : {}),
+      };
+    }
+    function errorCodeFor(code: string, value: string): VenueProfileFieldError {
+      if (code === "too_big") return "tooLong";
+      if (value.trim().length === 0) return "required";
+      return "invalid";
+    }
+    export function parseVenueProfileForm(form: VenueProfileForm): VenueProfileFormResult {
+      const parsed = VenueProfileSchema.safeParse(candidateFrom(form));
+      if (parsed.success) return { ok: true, profile: parsed.data };
+    
+      const errors: VenueProfileFormErrors = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path.at(-1);
+        if (typeof field !== "string" || !(field in EMPTY_VENUE_PROFILE_FORM)) continue;
+        const key = field as keyof VenueProfileForm;
+        errors[key] = errorCodeFor(issue.code, form[key]);
+      }
+      return { ok: false, errors };
     }
   </file>
   </section>

@@ -20,6 +20,24 @@ import type { FastifyBaseLogger, FastifyReply } from "fastify";
  */
 export const GEN_MODEL_ID = "claude-haiku-5-5";
 
+/** USD per MTok, keyed by model id. */
+const GEN_MODEL_PRICING = {
+  "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
+} as const;
+
+/**
+ * Rates for GEN_MODEL_ID, used by the aggregate spend ceiling. Keyed by model id
+ * so changing GEN_MODEL_ID without adding its rates fails at module load instead
+ * of silently mispricing every generation.
+ */
+export const GEN_PRICING = (() => {
+  const rates = (
+    GEN_MODEL_PRICING as Record<string, (typeof GEN_MODEL_PRICING)[keyof typeof GEN_MODEL_PRICING]>
+  )[GEN_MODEL_ID];
+  if (!rates) throw new Error(`No pricing declared for GEN_MODEL_ID "${GEN_MODEL_ID}"`);
+  return rates;
+})();
+
 /**
  * Per-request output-token ceiling. App-level limits are the only exact spend
  * cap (#6948). Thinking tokens bill as output and count against it.

@@ -11,10 +11,14 @@
       }
     </item>
     <item priority="low">
+      type Effort = "default" | "low";
+    </item>
+    <item priority="low">
       interface ProviderRequest {
         system: string;
         messages: readonly ChatMessage[];
         maxOutputTokens: number;
+        effort?: Exclude<Effort, "default">;
       }
     </item>
     <item priority="low">
@@ -22,12 +26,17 @@
         text: string;
         inputTokens: number;
         outputTokens: number;
+        cacheReadTokens?: number;
+        cacheWriteTokens?: number;
       }
     </item>
     <item priority="low">
       interface Pricing {
         inPerM: number;
         outPerM: number;
+        cachedInPerM: number;
+        cacheWritePerM?: number;
+        tier?: string;
       }
     </item>
     <item priority="low">
@@ -36,16 +45,16 @@
         label: string;
         model: string;
         pricing: Pricing;
-        call: (req: ProviderRequest) => Promise<ProviderResponse>;
+        supportsEffort?: boolean;
       }
     </item>
     <item priority="low">
       interface PromptResult {
         provider: ProviderId;
+        arm?: Effort;
+        tier?: string;
         prompt: string;
         validFirstTry: boolean;
-        validAfterRepair: boolean;
-        inputTokens: number;
       }
     </item>
     <item priority="low">
@@ -61,10 +70,21 @@
       export const PRICING: Readonly<Record<ProviderId, Pricing>>;
     </item>
     <item priority="high">
-      export function costUsd(
-        tokens: { inputTokens: number; outputTokens: number },
-        pricing: Pricing
-      ): number { /* ... */ }
+      export function geminiPricing(freeTier: boolean): Pricing { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Tokens {
+        inputTokens: number;
+        outputTokens: number;
+        cacheReadTokens?: number;
+        cacheWriteTokens?: number;
+      }
+    </item>
+    <item priority="high">
+      export function costUsd(tokens: Tokens, pricing: Pricing): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number { /* ... */ }
     </item>
     <item priority="high">
       export const SYSTEM_PROMPT: unknown;
@@ -107,17 +127,25 @@
       async function runPrompt(
         provider: Provider,
         prompt: string,
-        guard: SpendGuard
+        guard: SpendGuard,
+        arm: Effort
       ): Promise<PromptResult> { /* ... */ }
     </item>
     <item priority="medium">
-      function errorResult(provider: Provider, prompt: string, err: unknown): PromptResult { /* ... */ }
+      function errorResult(
+        provider: Provider,
+        prompt: string,
+        err: unknown,
+        arm: Effort = "default"
+      ): PromptResult { /* ... */ }
     </item>
     <item priority="high">
       export async function runBakeoff(opts: {
         providers: readonly Provider[];
         prompts: readonly string[];
         maxUsd: number;
+        /** One arm per effort, per provider that supports one. Defaults to the provider default only. */
+        efforts?: readonly Effort[];
       }): Promise<BakeoffReport> { /* ... */ }
     </item>
     <item priority="high">
@@ -131,10 +159,10 @@
     <item priority="low">
       interface ProviderSummary {
         provider: ProviderId;
+        arm: Effort;
+        tier?: string;
         n: number;
         errors: number;
-        validFirstTryPct: number;
-        validAfterRepairPct: number;
       }
     </item>
     <item priority="high">
@@ -171,18 +199,23 @@
       function geminiWire(key: string, model: string, req: ProviderRequest): Wire { /* ... */ }
     </item>
     <item priority="high">
-      type Parsed = { text: string; inputTokens: number; outputTokens: number };
+      type Parsed = ProviderResponse;
     </item>
     <item priority="high">
       interface AnthropicJson {
         content?: { type?: string; text?: string }[];
-        usage?: { input_tokens?: number; output_tokens?: number };
+        usage?: {
+          input_tokens?: number;
+          output_tokens?: number;
+      ...;
       }
     </item>
     <item priority="high">
       interface OpenAiJson {
         choices?: { message?: { content?: string } }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: num...;
       }
     </item>
     <item priority="high">
@@ -198,7 +231,8 @@
         id: ProviderId,
         apiKey: string,
         fetchImpl: FetchLike = fetch,
-        model: string = DEFAULT_MODELS[id]
+        model: string = DEFAULT_MODELS[id],
+        pricing: Pricing = PRICING[id]
       ): Provider { /* ... */ }
     </item>
   </file>
@@ -210,7 +244,8 @@
       function resolveProviders(
         ids: readonly ProviderId[],
         dryRun: boolean,
-        prompts: string[]
+        prompts: string[],
+        geminiFree: boolean
       ): Provider[] { /* ... */ }
     </item>
     <item priority="low">

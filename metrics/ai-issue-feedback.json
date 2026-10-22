@@ -1,41 +1,41 @@
 {
-  "collected_at": "2026-10-20T18:18:59.390Z",
+  "collected_at": "2026-10-21T18:19:29.340Z",
   "period_days": 90,
   "categories": {
-    "audit": {
-      "total": 20,
-      "accepted": 0,
-      "rejected": 5,
-      "wontfix": 15,
-      "rejection_rate": 0.25
-    },
-    "ci-fix": {
-      "total": 28,
-      "accepted": 0,
-      "rejected": 4,
-      "wontfix": 24,
-      "rejection_rate": 0.14285714285714285
-    },
     "feature": {
-      "total": 127,
-      "accepted": 0,
-      "rejected": 4,
-      "wontfix": 123,
-      "rejection_rate": 0.031496062992125984
+      "total": 144,
+      "accepted": 123,
+      "rejected": 3,
+      "wontfix": 18,
+      "rejection_rate": 0.020833333333333332
     },
     "meta-improvement": {
       "total": 22,
-      "accepted": 0,
+      "accepted": 20,
       "rejected": 0,
-      "wontfix": 22,
+      "wontfix": 2,
       "rejection_rate": 0
     },
-    "acmm": {
-      "total": 3,
-      "accepted": 0,
+    "audit": {
+      "total": 17,
+      "accepted": 14,
+      "rejected": 3,
+      "wontfix": 0,
+      "rejection_rate": 0.17647058823529413
+    },
+    "ci-fix": {
+      "total": 16,
+      "accepted": 9,
       "rejected": 1,
-      "wontfix": 2,
-      "rejection_rate": 0.3333333333333333
+      "wontfix": 6,
+      "rejection_rate": 0.0625
+    },
+    "acmm": {
+      "total": 1,
+      "accepted": 0,
+      "rejected": 0,
+      "wontfix": 1,
+      "rejection_rate": 0
     }
   },
   "budgets": {

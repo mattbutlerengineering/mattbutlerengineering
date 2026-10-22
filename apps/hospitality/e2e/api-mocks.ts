@@ -13,6 +13,7 @@ import {
   PublicVenueSchema,
   PublicVenueConfigSchema,
   GuestRiskResultSchema,
+  toPublicVenueProfile,
 } from "@mbe/types/schemas";
 import { atLocal, localDay } from "./local-day.js";
 import { createProblemDetails } from "@mbe/types";
@@ -128,6 +129,10 @@ export function buildPublicVenueConfigFixture(): PublicVenueConfig {
   const venues = JSON.parse(loadFixture("venues-list"));
   return PublicVenueConfigSchema.parse({
     ...venues.data[0],
+    // `profile` lives inside the internal venue's `settings` blob; the public
+    // config carries it as a top-level, allow-listed field (#7250), exactly
+    // as `venueService.getPublicConfigBySlug` projects it.
+    profile: toPublicVenueProfile(venues.data[0].settings?.profile),
     deposit: {
       enabled: false,
       depositType: null,
@@ -153,6 +158,7 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
   const venues = JSON.parse(loadFixture("venues-list"));
   return PublicVenueConfigSchema.parse({
     ...venues.data[0],
+    profile: toPublicVenueProfile(venues.data[0].settings?.profile),
     deposit: {
       enabled: true,
       depositType: "flat",

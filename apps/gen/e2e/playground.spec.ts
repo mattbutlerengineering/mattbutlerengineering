@@ -24,6 +24,11 @@ test.describe("Playground", () => {
     await authPage.goto("/");
     // Wait for the playground to fully render
     await expect(authPage.getByPlaceholder("Describe the UI you want to build...")).toBeVisible();
+    // Audit the settled rendering: the suggestion cards fade in over 350ms and axe
+    // would otherwise sample their text mid-animation at a fraction of its opacity.
+    await authPage.emulateMedia({ reducedMotion: "reduce" });
+    // The AppBar fades in via inline framer-motion styles the CSS media query can't reach.
+    await expect(authPage.getByRole("banner")).toHaveCSS("opacity", "1");
     const results = await new AxeBuilder({ page: authPage }).withTags(["wcag2aa"]).analyze();
     const violations = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious"

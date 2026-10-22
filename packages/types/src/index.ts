@@ -63,6 +63,7 @@ export type {
   CreateVenueRequest,
   UpdateVenueRequest,
 } from "./venue.js";
+export type { VenueProfile } from "./schemas/venue.js";
 
 // Availability types
 export type {
@@ -133,6 +134,7 @@ export {
 export type {
   FloorPlan,
   FloorPlanLayout,
+  WallLayout,
   TableShapeMetadata,
   CreateFloorPlanRequest,
   UpdateFloorPlanRequest,

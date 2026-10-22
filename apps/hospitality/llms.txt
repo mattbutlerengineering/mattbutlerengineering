@@ -438,6 +438,116 @@
     <item priority="high">
       export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number { /* ... */ }
     </item>
+    <item priority="high">
+      export const ENDPOINT_HIT_RADIUS: unknown;
+    </item>
+    <item priority="high">
+      export const MIN_WALL_THICKNESS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_WALL_THICKNESS: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_WALL_THICKNESS: unknown;
+    </item>
+    <item priority="low">
+      interface Point {
+        x: number;
+        y: number;
+      }
+    </item>
+    <item priority="low">
+      type WallEnd = 1 | 2;
+    </item>
+    <item priority="high">
+      export function snapPoint(p: Point, gridSize: number = GRID_SIZE): Point { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hitTestEndpoint(
+        walls: readonly WallLayout[],
+        p: Point
+      ): { wallId: string; end: WallEnd } | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function moveWallEndpoint(
+        wall: WallLayout,
+        end: WallEnd,
+        p: Point,
+        gridSize: number = GRID_SIZE
+      ): WallLayout { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clampThickness(value: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createWall(kind: "wall" | "window", existing: readonly WallLayout[]): WallLayout { /* ... */ }
+    </item>
+    <item priority="low">
+      type TableShapeName = keyof typeof SHAPE_DEFAULTS;
+    </item>
+    <item priority="high">
+      export const SEAT_GAP: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_RENDERED_SEATS: unknown;
+    </item>
+    <item priority="low">
+      interface SeatPlacement {
+        x: number;
+        y: number;
+        rotation: number;
+      }
+    </item>
+    <item priority="low">
+      interface SeatPlacementInput {
+        shape: TableShapeName;
+        capacity: number;
+        gap?: number;
+      }
+    </item>
+    <item priority="high">
+      type RectangleSide = (typeof RECTANGLE_SIDES)[number];
+    </item>
+    <item priority="medium">
+      function usableSeatCount(capacity: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function roundCoord(value: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function evenOffsets(count: number, length: number): readonly number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function circleSeats(count: number, radius: number): readonly SeatPlacement[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rectangleSeats(
+        count: number,
+        width: number,
+        height: number,
+        gap: number
+      ): readonly SeatPlacement[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/furniture-tokens.ts">
+    <item priority="high">
+      export const TABLE_SURFACE_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const TABLE_SHADOW_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const SEAT_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const FURNITURE_PALETTE: unknown;
+    </item>
+    <item priority="high">
+      export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number>;
+    </item>
   </file>
   <file path="src/components/floor-plan/table-status.ts">
     <item priority="high">
@@ -921,6 +1031,9 @@
     </item>
     <item priority="high">
       export const useDeleteTable: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateFloorPlanLayout: unknown;
     </item>
   </file>
   <file path="src/hooks/useFocusAfter.ts">
@@ -1921,6 +2034,38 @@
       }
     </item>
   </file>
+  <file path="src/lib/venue-theme.ts">
+    <item priority="medium">
+      function expandHex(hex: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function luminance(hex: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function contrastRatio(a: string, b: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function onAccentColor(accent: string): string { /* ... */ }
+    </item>
+    <item priority="low">
+      type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
+    </item>
+    <item priority="low">
+      interface ThemeContrastResult {
+        ok: boolean;
+        failures: ThemeContrastFailure[];
+      }
+    </item>
+    <item priority="high">
+      export function checkThemeContrast(theme: VenueTheme): ThemeContrastResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseVenueTheme(settings: object | null | undefined): VenueTheme | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function themeToCssVars(theme: VenueTheme): Record<string, string> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="menus">
   <file path="src/components/menus/price.ts">
@@ -2855,6 +3000,50 @@
     </item>
     <item priority="high">
       export function buildOnboardingPayload(data: OnboardingWizardData): CreateVenueRequest { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="venue-profile">
+  <file path="src/components/venue-profile/venue-profile-form.ts">
+    <item priority="low">
+      interface VenueProfileForm {
+        type: string;
+        cuisines: string;
+        line1: string;
+        line2: string;
+        city: string;
+      }
+    </item>
+    <item priority="high">
+      export const EMPTY_VENUE_PROFILE_FORM: VenueProfileForm;
+    </item>
+    <item priority="low">
+      type VenueProfileFieldError = "required" | "invalid" | "tooLong";
+    </item>
+    <item priority="low">
+      type VenueProfileFormErrors = Partial<
+        Record<keyof VenueProfileForm, VenueProfileFie...;
+    </item>
+    <item priority="low">
+      type VenueProfileFormResult = { readonly ok: true; readonly  | { readonly ok: false; readonly;
+    </item>
+    <item priority="high">
+      export function toVenueProfileForm(profile: VenueProfile | undefined): VenueProfileForm { /* ... */ }
+    </item>
+    <item priority="medium">
+      function splitCuisines(raw: string): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addressFrom(form: VenueProfileForm): Record<string, string> | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function candidateFrom(form: VenueProfileForm): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function errorCodeFor(code: string, value: string): VenueProfileFieldError { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseVenueProfileForm(form: VenueProfileForm): VenueProfileFormResult { /* ... */ }
     </item>
   </file>
   </section>

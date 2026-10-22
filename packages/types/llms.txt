@@ -160,6 +160,9 @@
       export const TableShapeMetadataSchema: unknown;
     </item>
     <item priority="high">
+      export const WallLayoutSchema: unknown;
+    </item>
+    <item priority="high">
       export const FloorPlanLayoutSchema: unknown;
     </item>
     <item priority="high">
@@ -825,6 +828,33 @@
       export const DayScheduleSchema: unknown;
     </item>
     <item priority="high">
+      export const VENUE_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const VenueTypeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VENUE_DESCRIPTION_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const VenueAddressSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueProfileSchema: unknown;
+    </item>
+    <item priority="low">
+      type VenueProfile = z.infer<typeof VenueProfileSchema>;
+    </item>
+    <item priority="high">
+      export function toPublicVenueProfile(stored: unknown): VenueProfile { /* ... */ }
+    </item>
+    <item priority="high">
+      export const VenueThemeSchema: unknown;
+    </item>
+    <item priority="low">
+      type VenueTheme = z.infer<typeof VenueThemeSchema>;
+    </item>
+    <item priority="high">
       export const VenueGroupSchema: unknown;
     </item>
     <item priority="high">
@@ -1070,6 +1100,15 @@
         name: string;
         isActive: boolean;
         layoutJson: FloorPlanLayout;
+      }
+    </item>
+    <item priority="low">
+      interface WallLayout {
+        id: string;
+        x1: number;
+        y1: number;
+        x2: number;
+        y2: number;
       }
     </item>
     <item priority="low">

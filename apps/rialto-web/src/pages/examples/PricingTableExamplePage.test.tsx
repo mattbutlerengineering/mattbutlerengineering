@@ -167,6 +167,13 @@ describe("PricingTableExamplePage — rendering", () => {
     }
   });
 
+  it("plan names are h2, directly under the page h1 (axe heading-order, #7188)", () => {
+    render(<PricingTableExamplePage />);
+    for (const plan of PRICING_PLANS) {
+      expect(screen.getByRole("heading", { level: 2, name: plan.name })).toBeInTheDocument();
+    }
+  });
+
   it("renders a keyboard-operable CTA button per plan", () => {
     render(<PricingTableExamplePage />);
     for (const plan of PRICING_PLANS) {

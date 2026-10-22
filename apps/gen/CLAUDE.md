@@ -49,6 +49,11 @@ pnpm lint         # ESLint
 pnpm typecheck    # TypeScript check
 pnpm test         # Vitest unit tests
 pnpm test:a11y    # a11y tests (Playwright + axe-core)
+pnpm test:e2e     # Playwright e2e specs (apps/gen/e2e)
 pnpm size         # Bundle size check
 pnpm size:check   # Bundle size check
 ```
+
+## E2E in CI
+
+The `gen-e2e` job in `.github/workflows/e2e.yml` runs `pnpm --dir apps/gen test:e2e` on PRs that touch the app. `src/e2e-coverage.test.ts` is the coverage guard: it fails if any `e2e/*.spec.ts` file is not reachable by that run, so a new spec cannot silently go unexecuted.

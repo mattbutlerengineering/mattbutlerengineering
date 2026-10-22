@@ -144,7 +144,7 @@ function OrderSummary() {
   const total = totalCents(ORDER_LINE_ITEMS);
 
   return (
-    <Card title="Order summary">
+    <Card title="Order summary" headingLevel={2}>
       <Stack gap="md">
         <DataList
           orientation="horizontal"
@@ -313,7 +313,7 @@ export function CheckoutExamplePage() {
     >
       <div className={styles.layout}>
         <OrderSummary />
-        <Card title="Payment details">
+        <Card title="Payment details" headingLevel={2}>
           {status === "success" ? (
             <SuccessPanel amount={formatMoney(total)} onReset={handleReset} />
           ) : (

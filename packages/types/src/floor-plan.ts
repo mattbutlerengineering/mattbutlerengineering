@@ -14,12 +14,23 @@ export interface FloorPlan {
   updatedAt: string;
 }
 
+export interface WallLayout {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  thickness: number;
+  wallType?: "wall" | "window";
+}
+
 export interface FloorPlanLayout {
   width: number;
   height: number;
   backgroundImage?: string;
   gridSize?: number;
   showGrid?: boolean;
+  walls?: WallLayout[];
 }
 
 export interface CreateFloorPlanRequest {

@@ -1,6 +1,6 @@
 export function PrivacyPage() {
   return (
-    <div
+    <main
       style={{
         maxWidth: "680px",
         margin: "0 auto",
@@ -124,7 +124,7 @@ export function PrivacyPage() {
           .
         </p>
       </section>
-    </div>
+    </main>
   );
 }
 

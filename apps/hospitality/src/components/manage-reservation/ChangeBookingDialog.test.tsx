@@ -81,6 +81,12 @@ describe("ChangeBookingDialog", () => {
     mockModifyManaged.mockResolvedValue({ ...reservation, partySize: 4 });
   });
 
+  it("labels the dialog with a semantic heading", () => {
+    setup();
+    const titleId = screen.getByRole("dialog").getAttribute("aria-labelledby");
+    const title = document.getElementById(titleId ?? "");
+    expect(title?.tagName).toMatch(/^H[1-6]$/);
+  });
   it("opens prefilled with the current date and party size", () => {
     setup();
     expect(screen.getByRole("dialog")).toBeDefined();

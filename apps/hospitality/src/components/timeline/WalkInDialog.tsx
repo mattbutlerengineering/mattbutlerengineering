@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Button, Select, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, Select, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { Guest, Occasion, SeatingPreference, Table, WalkInRequest } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -158,9 +158,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
         <form noValidate onSubmit={(e) => handleSubmit(onFormSubmit)(e)}>
           <Stack gap="lg">
             <div className={styles.header}>
-              <Text variant="display" id="walkin-dialog-title">
-                {t("timeline.walkInDialog.title")}
-              </Text>
+              <Heading id="walkin-dialog-title">{t("timeline.walkInDialog.title")}</Heading>
             </div>
 
             <Stack gap="md">

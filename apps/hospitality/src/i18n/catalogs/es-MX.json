@@ -503,6 +503,20 @@
       "occupied": "Ocupada",
       "dirty": "Sucia",
       "ready": "Lista"
+    },
+    "walls": {
+      "title": "Paredes y ventanas",
+      "addWall": "Agregar pared",
+      "addWindow": "Agregar ventana",
+      "empty": "Aún no hay paredes",
+      "wallN": "Pared {{n}}",
+      "windowN": "Ventana {{n}}",
+      "startX": "X inicial",
+      "startY": "Y inicial",
+      "endX": "X final",
+      "endY": "Y final",
+      "thickness": "Grosor",
+      "delete": "Eliminar pared"
     }
   },
   "localePicker": {
@@ -518,6 +532,7 @@
     "welcome": "Bienvenido de nuevo",
     "welcomeNamed": "Bienvenido de nuevo, {{name}}",
     "loadFailed": "No se pudo cargar el panel.",
+    "lapsingLoadFailed": "No se pudieron cargar los huéspedes inactivos.",
     "actions": {
       "walkIn": "Sin reservación",
       "floorPlan": "Ver plano de sala",
@@ -1544,6 +1559,39 @@
       "description": "Administra los días y horarios en que tu local acepta reservas.",
       "operatingHours": "Horario de atención"
     },
+    "profile": {
+      "title": "Perfil del local",
+      "description": "Quién eres, tal como lo ven tus comensales en tu página pública de reservas.",
+      "noVenue": "Elige un local para editar su perfil.",
+      "typeLabel": "Tipo de local",
+      "typeUnset": "Sin definir",
+      "typeFineDining": "Alta cocina",
+      "typeCasual": "Informal",
+      "typeBar": "Bar",
+      "typeCafe": "Cafetería",
+      "cuisines": "Cocinas",
+      "cuisinesHint": "Sepáralas con comas, p. ej. Italiana, Mariscos",
+      "website": "Sitio web",
+      "websiteHint": "Debe comenzar con http:// o https://",
+      "descriptionLabel": "Descripción",
+      "descriptionHint": "Hasta {{max}} caracteres",
+      "addressHeading": "Dirección",
+      "addressHint": "Completa todas las líneas o deja la dirección en blanco.",
+      "line1": "Calle y número",
+      "line2": "Interior, unidad o piso",
+      "city": "Ciudad",
+      "region": "Estado o provincia",
+      "postalCode": "Código postal",
+      "country": "País",
+      "countryHint": "Código de país de dos letras, p. ej. MX",
+      "save": "Guardar perfil",
+      "saving": "Guardando…",
+      "saved": "Perfil del local guardado",
+      "fixErrors": "Revisa los campos marcados e inténtalo de nuevo.",
+      "errorRequired": "Obligatorio",
+      "errorInvalid": "Valor no válido",
+      "errorTooLong": "Demasiado largo"
+    },
     "account": {
       "title": "Cuenta",
       "signedInAs": "Sesión iniciada como",
@@ -1728,5 +1776,15 @@
       "pixels": "{{size}} px",
       "download": "Descargar QR"
     }
+  },
+  "venueTheme": {
+    "title": "Tema del local",
+    "description": "El color de tu marca para botones, enlaces y resaltados. No se pueden guardar paletas que dificulten la lectura.",
+    "accent": "Color de acento",
+    "accentHover": "Color de acento al pasar el cursor",
+    "previewTitle": "Vista previa",
+    "previewButton": "Reservar",
+    "contrastFailed": "Estos colores no tienen suficiente contraste para leer el texto. Elige un acento más oscuro o más claro.",
+    "save": "Guardar tema"
   }
 }

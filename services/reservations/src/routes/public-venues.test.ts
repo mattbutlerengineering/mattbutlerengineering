@@ -163,4 +163,98 @@ describe("GET /public/v1/venues/:slug", () => {
     const result = PublicVenueConfigSchema.safeParse(body.data);
     expect(result.success).toBe(true);
   });
+
+  // #7250. `Venue.settings` is free-form JSON, so the danger is a careless
+  // spread putting an operational setting on an unauthenticated response.
+  // These drive the route with a service that returns exactly that and assert
+  // the route's own response serializer (derived from PublicVenueConfigSchema,
+  // so the schema IS the allow-list) drops every unlisted key.
+  describe("public payload allow-list", () => {
+    const PROFILE = {
+      type: "fine_dining" as const,
+      cuisines: ["Italian", "Seafood"],
+      address: {
+        line1: "1 Market St",
+        line2: "Suite 400",
+        city: "Seattle",
+        region: "WA",
+        postalCode: "98101",
+        country: "US",
+      },
+      website: "https://theoaktable.example.com",
+      description: "A small room with a long bar.",
+    };
+
+    async function fetchWith(config: Record<string, unknown>) {
+      vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(
+        config as unknown as PublicVenueConfig
+      );
+      const response = await app.inject({
+        method: "GET",
+        url: "/public/v1/venues/the-oak-table",
+      });
+      return response.json().data as Record<string, unknown>;
+    }
+
+    it("serves every allow-listed profile field", async () => {
+      const data = await fetchWith({ ...mockPublicConfig, profile: PROFILE });
+
+      expect(data.profile).toEqual(PROFILE);
+    });
+
+    it("declares exactly the keys PublicVenueConfigSchema does, and no others", async () => {
+      const data = await fetchWith({
+        ...mockPublicConfig,
+        profile: PROFILE,
+        // Everything below is an unlisted key a leak would surface.
+        depositEnabled: true,
+        id: "venue-1",
+        venueGroupId: "group-1",
+        manageTokenSecret: "nope",
+      });
+
+      expect(Object.keys(data).sort()).toEqual(Object.keys(PublicVenueConfigSchema.shape).sort());
+    });
+
+    it("drops operational settings smuggled inside the profile object", async () => {
+      const data = await fetchWith({
+        ...mockPublicConfig,
+        profile: {
+          ...PROFILE,
+          autoDepositAfterNoShows: 2,
+          guestModificationCutoffHours: 24,
+          stripeSecretKey: "sk_live_nope",
+        },
+      });
+
+      expect(data.profile).toEqual(PROFILE);
+    });
+
+    it("drops operational settings smuggled into the settings object", async () => {
+      const data = await fetchWith({
+        ...mockPublicConfig,
+        profile: {},
+        settings: {
+          ...mockPublicConfig.settings,
+          autoDepositAfterNoShows: 2,
+          guestModificationCutoffHours: 24,
+        },
+      });
+
+      expect(Object.keys(data.settings as Record<string, unknown>).sort()).toEqual([
+        "defaultReservationDuration",
+        "maxAdvanceBooking",
+        "maxPartySize",
+      ]);
+    });
+
+    it("drops undeclared keys nested inside the profile address", async () => {
+      const data = await fetchWith({
+        ...mockPublicConfig,
+        profile: { address: { ...PROFILE.address, ownerSsn: "000-00-0000" } },
+      });
+
+      expect(data.profile).toEqual({ address: PROFILE.address });
+    });
+  });
 });

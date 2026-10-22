@@ -88,6 +88,13 @@ function leafFor(appPath: string): string | undefined {
   return matches?.at(-1)?.route.path;
 }
 
+describe("standalone routes", () => {
+  it("visual-test is wrapped in a main landmark (it has no layout supplying one; axe region, #7188)", () => {
+    const route = routeTree.find((r) => r.path === "visual-test");
+    expect((route?.element as { type: unknown }).type).toBe("main");
+  });
+});
+
 describe("demo route table resolution", () => {
   it("resolves every DEMO_ROUTES target to a concrete demo route (never the catch-all)", () => {
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.drivers}`)).toBe("drivers");

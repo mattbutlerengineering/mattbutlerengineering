@@ -6,7 +6,11 @@ on:
     paths:
       - "apps/hospitality/**"
       - "apps/marketing/**"
+      - "apps/gen/**"
       - "packages/rialto/**"
+      - "packages/rialto-catalog/**"
+      - "packages/api-client/**"
+      - "packages/auth/**"
       - "services/reservations/**"
       - "services/users/**"
       - "packages/database/**"
@@ -40,6 +44,7 @@ jobs:
     outputs:
       hospitality: ${{ steps.result.outputs.hospitality }}
       marketing: ${{ steps.result.outputs.marketing }}
+      gen: ${{ steps.result.outputs.gen }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -65,6 +70,13 @@ jobs:
               - 'apps/marketing/**'
               - 'packages/rialto/**'
               - '.github/workflows/e2e.yml'
+            gen:
+              - 'apps/gen/**'
+              - 'packages/rialto/**'
+              - 'packages/rialto-catalog/**'
+              - 'packages/api-client/**'
+              - 'packages/auth/**'
+              - '.github/workflows/e2e.yml'
 
       - name: Set outputs
         id: result
@@ -72,9 +84,11 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "hospitality=true" >> "$GITHUB_OUTPUT"
             echo "marketing=true" >> "$GITHUB_OUTPUT"
+            echo "gen=true" >> "$GITHUB_OUTPUT"
           else
             echo "hospitality=${{ steps.filter.outputs.hospitality }}" >> "$GITHUB_OUTPUT"
             echo "marketing=${{ steps.filter.outputs.marketing }}" >> "$GITHUB_OUTPUT"
+            echo "gen=${{ steps.filter.outputs.gen }}" >> "$GITHUB_OUTPUT"
           fi
 
   hospitality-e2e:
@@ -470,4 +484,75 @@ jobs:
           path: |
             apps/marketing/e2e/test-results/
             apps/marketing/playwright-report/
+          retention-days: 7
+
+  # apps/gen mocks its generation/history APIs with Playwright route
+  # interception (e2e/gen-api-mocks.ts), so no backend, Postgres or Redis is
+  # needed. Only the authPage-based specs (playground, point-and-refine) reach
+  # out, to Auth0 for a ROPC token, hence the E2E_AUTH* secrets. Advisory, not
+  # required — same first-run settling period as Marketing/Hospitality (#3886).
+  gen-e2e:
+    name: Gen E2E
+    needs: changes
+    # Dependabot PRs get the empty Dependabot secret scope, so the Auth0 specs
+    # could never authenticate there (#5623). Skip rather than fail.
+    if: needs.changes.outputs.gen == 'true' && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build rialto (styles export requires dist/)
+        run: pnpm build --filter @mattbutlerengineering/rialto
+
+      - name: Build gen workspace dependencies
+        run: pnpm build --filter @mbe/api-client...
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      # Fails with one clear "E2E auth preflight failed: <reason>" line when the
+      # Auth0 grant/user/client is wrong, instead of every spec failing at the fixture.
+      - name: Auth0 seed-user preflight
+        run: node scripts/e2e-auth-preflight.mjs
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+
+      - name: Run E2E tests
+        run: pnpm --dir apps/gen test:e2e
+        env:
+          VITE_AUTH_AUTHORITY: https://${{ secrets.E2E_AUTH0_DOMAIN }}
+          VITE_AUTH_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          VITE_AUTH_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          VITE_AUTH_REDIRECT_URI: http://localhost:3005/gen/callback
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gen-e2e-test-results
+          path: |
+            apps/gen/e2e/test-results/
+            apps/gen/playwright-report/
           retention-days: 7
