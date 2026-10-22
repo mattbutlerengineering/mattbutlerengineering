@@ -262,7 +262,6 @@ const apiApp = new digitalocean.App(
           dockerfile: "services/agent/Dockerfile",
           extraEnvs: [
             ...(aiGatewayApiKey ? [secretEnv("AI_GATEWAY_API_KEY", aiGatewayApiKey)] : []),
-            extraEnv("DEFAULT_MODEL", "anthropic/claude-haiku-4.5"),
             ...(remediationWebhookSecret
               ? [secretEnv("REMEDIATION_WEBHOOK_SECRET", remediationWebhookSecret)]
               : []),
