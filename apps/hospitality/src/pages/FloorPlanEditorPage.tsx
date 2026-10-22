@@ -5,7 +5,11 @@ import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/ria
 import type { CreateTableRequest, WallLayout } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import { WallsPanel } from "../components/floor-plan/WallsPanel.js";
-import { moveWallEndpoint } from "../components/floor-plan/floor-plan-geometry.js";
+import {
+  moveWallEndpoint,
+  type Point,
+  type WallEnd,
+} from "../components/floor-plan/floor-plan-geometry.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import {
   useFloorPlan,
@@ -107,6 +111,15 @@ export function FloorPlanEditorPage() {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       hasChanges && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // Stable identity (functional update over the draft-or-server walls) so WallShape's memo holds.
+  const handleWallEndpointMove = useCallback(
+    (wallId: string, end: WallEnd, p: Point) =>
+      setWallsDraft((prev) =>
+        (prev ?? serverWalls ?? []).map((w) => (w.id === wallId ? moveWallEndpoint(w, end, p) : w))
+      ),
+    [serverWalls]
   );
 
   const requestDeleteTable = useCallback((tableId: string) => {
@@ -279,9 +292,7 @@ export function FloorPlanEditorPage() {
             walls={walls}
             selectedWallId={selectedWallId}
             onWallSelect={setSelectedWallId}
-            onWallEndpointMove={(wallId, end, p) =>
-              setWallsDraft(walls.map((w) => (w.id === wallId ? moveWallEndpoint(w, end, p) : w)))
-            }
+            onWallEndpointMove={handleWallEndpointMove}
             tableStatuses={tableStatuses}
             isStale={isStale}
           />
