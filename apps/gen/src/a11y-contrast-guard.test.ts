@@ -23,7 +23,7 @@ describe("playground a11y contrast (#7245)", () => {
 
   it("header ghost buttons use the secondary text token (>= 4.5:1)", () => {
     const rule = read("src/components/AppShell.module.css").match(
-      /\.actions \.headerGhost\s*\{([^}]*)\}/
+      /\.actions \.headerGhost:not\(:hover\)\s*\{([^}]*)\}/
     );
     expect(rule).not.toBeNull();
     expect(rule![1]).toMatch(/color:\s*var\(--rialto-text-secondary\)/);

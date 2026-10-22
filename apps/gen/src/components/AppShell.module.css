@@ -110,7 +110,7 @@
 }
 
 /* Header ghost buttons: the default ghost foreground misses 4.5:1 on the header surface (#7245). */
-.actions .headerGhost {
+.actions .headerGhost:not(:hover) {
   color: var(--rialto-text-secondary);
 }
 
