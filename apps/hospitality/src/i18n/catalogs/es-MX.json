@@ -1729,5 +1729,15 @@
       "pixels": "{{size}} px",
       "download": "Descargar QR"
     }
+  },
+  "venueTheme": {
+    "title": "Tema del local",
+    "description": "El color de tu marca para botones, enlaces y resaltados. No se pueden guardar paletas que dificulten la lectura.",
+    "accent": "Color de acento",
+    "accentHover": "Color de acento al pasar el cursor",
+    "previewTitle": "Vista previa",
+    "previewButton": "Reservar",
+    "contrastFailed": "Estos colores no tienen suficiente contraste para leer el texto. Elige un acento más oscuro o más claro.",
+    "save": "Guardar tema"
   }
 }

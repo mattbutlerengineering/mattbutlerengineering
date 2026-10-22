@@ -1298,6 +1298,15 @@
       close: z.string(),
       closed: z.boolean().optional(),
     });
+    export const VenueThemeSchema = z.object({
+      accent: HexColorSchema,
+      accentHover: HexColorSchema,
+      surface: HexColorSchema.optional(),
+      surfaceElevated: HexColorSchema.optional(),
+      textPrimary: HexColorSchema.optional(),
+      source: z.enum(["extracted", "manual"]),
+    });
+    export type VenueTheme = z.infer<typeof VenueThemeSchema>;
     export const VenueGroupSchema = z.object({
       id: z.string(),
       name: z.string(),
@@ -2239,6 +2248,8 @@
       guestModificationCutoffHours?: number;
       /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
       guestMaxPartySizeChange?: number;
+      /** Per-venue palette; validate with `VenueThemeSchema` before use. */
+      theme?: VenueTheme;
     }
     export type DepositType = "flat" | "per_person";
     export interface DepositConfig {
