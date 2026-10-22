@@ -19,6 +19,9 @@
   border-radius: var(--rialto-radius-soft);
   background: var(--rialto-surface-recessed);
   padding: var(--rialto-space-md);
+  /* Tertiary text is under 4.5:1 on the dark recessed surface (axe
+     color-contrast on the status labels, #7268). */
+  --rialto-text-tertiary: var(--rialto-text-secondary);
 }
 
 .statusStrip {

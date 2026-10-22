@@ -18,6 +18,7 @@ export default defineVitestConfig({
     "e2e/build-script.test.ts",
     "e2e/theme-color-meta.test.ts",
     "e2e/auth-footer-link-contrast.test.ts",
+    "e2e/telemetry-label-contrast.test.ts",
   ],
   coverage: {
     include: ["src/**/*.ts", "src/**/*.tsx"],
