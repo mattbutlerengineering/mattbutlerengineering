@@ -521,6 +521,7 @@
     "sections": {
       "title": "Sections",
       "tableCount_one": "{{count}} table",
+      "tableCount_many": "{{count}} de tables",
       "tableCount_other": "{{count}} tables"
     }
   },
