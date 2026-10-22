@@ -20,6 +20,15 @@ export const WallLayoutSchema = z.object({
   wallType: z.enum(["wall", "window"]).optional(),
 });
 
+/** A section's painted zone on the canvas; `id` is the `FloorPlanSection` row it draws. */
+export const SectionLayoutSchema = z.object({
+  id: z.string(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+});
+
 export const FloorPlanLayoutSchema = z.object({
   width: z.number(),
   height: z.number(),
@@ -27,6 +36,7 @@ export const FloorPlanLayoutSchema = z.object({
   gridSize: z.number().optional(),
   showGrid: z.boolean().optional(),
   walls: z.array(WallLayoutSchema).optional(),
+  sections: z.array(SectionLayoutSchema).optional(),
 });
 
 export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
@@ -44,6 +54,7 @@ export const TableSchema = z.object({
   status: TableStatusSchema,
   venueId: z.string().nullable(),
   floorPlanId: z.string().nullable(),
+  sectionId: z.string().nullable().optional(),
   shapeMetadata: TableShapeMetadataSchema.nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

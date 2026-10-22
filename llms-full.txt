@@ -13559,6 +13559,15 @@
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
+    export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
+    export const useFloorPlanSections = createQueryHook<
+      FloorPlanSection[],
+      { venueId?: string | null; floorPlanId?: string | null }
+    >({
+      key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
+      getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
+    });
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
     export type FocusTarget =
@@ -25243,6 +25252,162 @@
       );
     }
   </file>
+  <file path="services/reservations/src/routes/floor-plan-sections.ts">
+    interface VenueQuery {
+      venueId: string;
+    }
+    export const floorPlanSectionRoutes: FastifyPluginAsync = async (fastify) => {
+      const { floorPlanSectionService } = fastify.services;
+    
+      fastify.get<{
+        Querystring: VenueQuery & { floorPlanId?: string };
+        Reply: { data: FloorPlanSection[] } | ProblemDetails;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List a venue's floor-plan sections",
+            querystring: floorPlanSectionListQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, _reply, { venueId }) => ({
+          data: await floorPlanSectionService.list(venueId, request.query.floorPlanId),
+        }))
+      );
+    
+      fastify.post<{
+        Querystring: VenueQuery;
+        Body: CreateFloorPlanSectionRequest;
+        Reply: ApiResponse<FloorPlanSection> | ProblemDetails;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a floor-plan section",
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+            body: createFloorPlanSectionBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const section = await floorPlanSectionService.create(venueId, request.body);
+          if (!section) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
+          }
+          return reply.code(201).send({ data: section });
+        })
+      );
+    
+      fastify.put<{
+        Querystring: VenueQuery;
+        Body: ReorderFloorPlanSectionsRequest;
+        Reply: { data: FloorPlanSection[] } | ProblemDetails;
+      }>(
+        "/order",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Reorder a floor plan's sections",
+            description: "`ids` lists every section to place; its index becomes `displayOrder`.",
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+            body: reorderFloorPlanSectionsBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { floorPlanId, ids } = request.body;
+          const sections = await floorPlanSectionService.reorder(venueId, floorPlanId, ids);
+          if (!sections) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return { data: sections };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { sectionId: string };
+        Querystring: VenueQuery;
+        Body: UpdateFloorPlanSectionRequest;
+        Reply: ApiResponse<FloorPlanSection> | ProblemDetails;
+      }>(
+        "/:sectionId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Rename or recolour a floor-plan section",
+            params: sectionIdParams,
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+            body: updateFloorPlanSectionBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const section = await floorPlanSectionService.update(
+            venueId,
+            request.params.sectionId,
+            request.body
+          );
+          if (!section) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return { data: section };
+        })
+      );
+    
+      fastify.delete<{
+        Params: { sectionId: string };
+        Querystring: VenueQuery;
+        Reply: void | ProblemDetails;
+      }>(
+        "/:sectionId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a floor-plan section (its tables are kept, unassigned)",
+            params: sectionIdParams,
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          if (!(await floorPlanSectionService.delete(venueId, request.params.sectionId))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return reply.code(204).send();
+        })
+      );
+    
+      fastify.put<{
+        Params: { sectionId: string };
+        Querystring: VenueQuery;
+        Body: AssignSectionTablesRequest;
+        Reply: { data: Table[] } | ProblemDetails;
+      }>(
+        "/:sectionId/tables",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Set the tables that belong to a section",
+            description:
+              "`tableIds` becomes the section's exact membership; other tables leave it. " +
+              "Every table must belong to the section's floor plan.",
+            params: sectionIdParams,
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+            body: assignSectionTablesBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const tables = await floorPlanSectionService.assignTables(
+            venueId,
+            request.params.sectionId,
+            request.body.tableIds
+          );
+          if (!tables) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", TABLES_NOT_FOUND));
+          }
+          return { data: tables };
+        })
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/floor-plans.ts">
     export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       // Domain services come from the buildApp seam (issue #3357); tests inject fakes
@@ -29343,6 +29508,47 @@
         );
       });
     }
+    interface SectionIds {
+      sectionId: string;
+      floorPlanId: string;
+      tableId: string;
+    }
+    async function seedSection(ctx: SweepContext, venueId: string): Promise<SectionIds> {
+      const floorPlanId = await createDisposableFloorPlan(ctx, venueId);
+      const tableId = await createDisposableTable(ctx, venueId);
+      expectOk(
+        await asAdmin(ctx, {
+          method: "POST",
+          url: `/api/v1/floor-plans/tables/${tableId}/assign`,
+          payload: { floorPlanId },
+        }),
+        "seed table onto floor plan"
+      );
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: `${SECTIONS_PATH}?venueId=${venueId}`,
+        payload: { floorPlanId, name: "Sweep section" },
+      });
+      expectOk(res, "seed floor plan section");
+      return { sectionId: res.json<{ data: { id: string } }>().data.id, floorPlanId, tableId };
+    }
+    function okSectionRoute(
+      build: (ids: SectionIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+    ): RouteFixture {
+      return ok(async (ctx) => {
+        expectOk(
+          await asAdmin(ctx, build(await seedSection(ctx, ctx.venueA.id), ctx.venueA.id)),
+          "admin venue A"
+        );
+        expectOk(
+          await asMember(ctx, build(await seedSection(ctx, ctx.venueA.id), ctx.venueA.id)),
+          "member venue A"
+        );
+        const ids = await seedSection(ctx, ctx.venueA.id);
+        expectDenied(await asMember(ctx, build(ids, ctx.venueB.id)), "member venue B");
+        expectDenied(await asAdmin(ctx, build(ids, ctx.venueB.id)), "admin venue B, venue A's ids");
+      });
+    }
     interface MenuTreeIds {
       menuId: string;
       sectionId: string;
@@ -29394,6 +29600,7 @@
       ...venueFixtures,
       ...availabilityFixtures,
       ...floorPlanFixtures,
+      ...floorPlanSectionFixtures,
       ...menuFixtures,
       ...guestFixtures,
       ...reservationFixtures,
@@ -31814,6 +32021,42 @@
       });
     }
   </file>
+  <file path="packages/types/src/schemas/floor-plan-section.ts">
+    export const FloorPlanSectionSchema = z.object({
+      id: z.string(),
+      venueId: z.string(),
+      floorPlanId: z.string(),
+      name: z.string(),
+      color: z.string(),
+      displayOrder: z.number().int(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
+    export const CreateFloorPlanSectionRequestSchema = z.object({
+      floorPlanId: z.string().min(1),
+      name: z.string().min(1),
+      color: HexColorSchema.optional(),
+      displayOrder: z.number().int().optional(),
+    });
+    export const UpdateFloorPlanSectionRequestSchema = CreateFloorPlanSectionRequestSchema.omit({
+      floorPlanId: true,
+    }).partial();
+    export const ReorderFloorPlanSectionsRequestSchema = z.object({
+      floorPlanId: z.string().min(1),
+      ids: z.array(z.string().min(1)).min(1),
+    });
+    export const AssignSectionTablesRequestSchema = z.object({ tableIds: z.array(z.string().min(1)) });
+    export const FloorPlanSectionListQuerySchema = z.object({
+      venueId: z.string().min(1),
+      floorPlanId: z.string().min(1).optional(),
+    });
+    export const FloorPlanSectionVenueQuerySchema = z.object({ venueId: z.string().min(1) });
+    export type FloorPlanSection = z.infer<typeof FloorPlanSectionSchema>;
+    export type CreateFloorPlanSectionRequest = z.infer<typeof CreateFloorPlanSectionRequestSchema>;
+    export type UpdateFloorPlanSectionRequest = z.infer<typeof UpdateFloorPlanSectionRequestSchema>;
+    export type ReorderFloorPlanSectionsRequest = z.infer<typeof ReorderFloorPlanSectionsRequestSchema>;
+    export type AssignSectionTablesRequest = z.infer<typeof AssignSectionTablesRequestSchema>;
+  </file>
   <file path="packages/types/src/schemas/floor-plan.ts">
     export const TableShapeMetadataSchema = z.object({
       x: z.number(),
@@ -31833,6 +32076,13 @@
       thickness: z.number().positive(),
       wallType: z.enum(["wall", "window"]).optional(),
     });
+    export const SectionLayoutSchema = z.object({
+      id: z.string(),
+      x: z.number(),
+      y: z.number(),
+      width: z.number().positive(),
+      height: z.number().positive(),
+    });
     export const FloorPlanLayoutSchema = z.object({
       width: z.number(),
       height: z.number(),
@@ -31840,6 +32090,7 @@
       gridSize: z.number().optional(),
       showGrid: z.boolean().optional(),
       walls: z.array(WallLayoutSchema).optional(),
+      sections: z.array(SectionLayoutSchema).optional(),
     });
     export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
     export const TableSchema = z.object({
@@ -31855,6 +32106,7 @@
       status: TableStatusSchema,
       venueId: z.string().nullable(),
       floorPlanId: z.string().nullable(),
+      sectionId: z.string().nullable().optional(),
       shapeMetadata: TableShapeMetadataSchema.nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -32150,6 +32402,24 @@
     export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema);
     export const publicMenuResponseJsonSchema = toResponseJsonSchema(PublicMenuSchema);
     export const publicMenuDetailResponseJsonSchema = toResponseJsonSchema(PublicMenuDetailSchema);
+    export const floorPlanSectionListQueryJsonSchema = toRequestJsonSchema(
+      FloorPlanSectionListQuerySchema
+    );
+    export const floorPlanSectionVenueQueryJsonSchema = toRequestJsonSchema(
+      FloorPlanSectionVenueQuerySchema
+    );
+    export const createFloorPlanSectionBodyJsonSchema = toRequestJsonSchema(
+      CreateFloorPlanSectionRequestSchema
+    );
+    export const updateFloorPlanSectionBodyJsonSchema = toRequestJsonSchema(
+      UpdateFloorPlanSectionRequestSchema
+    );
+    export const reorderFloorPlanSectionsBodyJsonSchema = toRequestJsonSchema(
+      ReorderFloorPlanSectionsRequestSchema
+    );
+    export const assignSectionTablesBodyJsonSchema = toRequestJsonSchema(
+      AssignSectionTablesRequestSchema
+    );
     export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
     export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
     export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
@@ -38667,6 +38937,7 @@
       guestService: typeof guestService;
       floorPlanService: typeof floorPlanService;
       menuService: typeof menuService;
+      floorPlanSectionService: typeof floorPlanSectionService;
       holdService: typeof holdService;
       /** Built in `buildApp` over the one payments adapter — never a module singleton. */
       depositService: DepositService;
@@ -38682,6 +38953,7 @@
       guestService,
       floorPlanService,
       menuService,
+      floorPlanSectionService,
       holdService,
       waitlistService,
       briefingService,
@@ -38820,6 +39092,141 @@
         });
       }
     }
+  </file>
+  <file path="services/reservations/src/services/floor-plan-section.ts">
+    interface PrismaFloorPlanSection {
+      id: string;
+      venueId: string;
+      floorPlanId: string;
+      name: string;
+      color: string;
+      displayOrder: number;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    function mapSection(section: PrismaFloorPlanSection): FloorPlanSection {
+      return {
+        id: section.id,
+        venueId: section.venueId,
+        floorPlanId: section.floorPlanId,
+        name: section.name,
+        color: section.color,
+        displayOrder: section.displayOrder,
+        createdAt: section.createdAt.toISOString(),
+        updatedAt: section.updatedAt.toISOString(),
+      };
+    }
+    export const floorPlanSectionService = {
+      async list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]> {
+        const sections = await prisma.floorPlanSection.findMany({
+          where: { venueId, ...(floorPlanId ? { floorPlanId } : {}) },
+          orderBy: BY_ORDER,
+        });
+        return sections.map(mapSection);
+      },
+    
+      /** `null` when the floor plan is not this venue's. */
+      async create(
+        venueId: string,
+        data: CreateFloorPlanSectionRequest
+      ): Promise<FloorPlanSection | null> {
+        // Re-parsing strips unknown keys: an `id`/`venueId` smuggled into the body must never reach Prisma.
+        const body = CreateFloorPlanSectionRequestSchema.parse(data);
+        const floorPlan = await prisma.floorPlan.findFirst({
+          where: { id: body.floorPlanId, venueId },
+          select: { id: true },
+        });
+        if (!floorPlan) return null;
+        return mapSection(await prisma.floorPlanSection.create({ data: { ...body, venueId } }));
+      },
+    
+      async update(
+        venueId: string,
+        sectionId: string,
+        data: UpdateFloorPlanSectionRequest
+      ): Promise<FloorPlanSection | null> {
+        const where = { id: sectionId, venueId };
+        // Allowlist via the schema: a body `floorPlanId` would otherwise re-parent the section.
+        const { count } = await prisma.floorPlanSection.updateMany({
+          where,
+          data: UpdateFloorPlanSectionRequestSchema.parse(data),
+        });
+        if (count === 0) return null;
+        const section = await prisma.floorPlanSection.findFirst({ where });
+        return section ? mapSection(section) : null;
+      },
+    
+      /** Its tables are kept and become unassigned (`ON DELETE SET NULL`). */
+      async delete(venueId: string, sectionId: string): Promise<boolean> {
+        const { count } = await prisma.floorPlanSection.deleteMany({
+          where: { id: sectionId, venueId },
+        });
+        return count > 0;
+      },
+    
+      /**
+       * Persists `displayOrder = index` for the given section ids. Returns `null`
+       * (nothing written) unless every id is a distinct section of this floor plan
+       * in this venue — a foreign or duplicated id fails the whole reorder.
+       */
+      async reorder(
+        venueId: string,
+        floorPlanId: string,
+        ids: string[]
+      ): Promise<FloorPlanSection[] | null> {
+        if (new Set(ids).size !== ids.length) return null;
+        // Explicit transaction: bypasses the per-call auto-wrap, so set the venue ourselves.
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const owned = await tx.floorPlanSection.count({
+            where: { id: { in: ids }, floorPlanId, venueId },
+          });
+          if (owned !== ids.length) return null;
+          for (const [displayOrder, id] of ids.entries()) {
+            await tx.floorPlanSection.updateMany({
+              where: { id, floorPlanId, venueId },
+              data: { displayOrder },
+            });
+          }
+          const sections = await tx.floorPlanSection.findMany({
+            where: { floorPlanId, venueId },
+            orderBy: BY_ORDER,
+          });
+          return sections.map(mapSection);
+        });
+      },
+    
+      /**
+       * Makes `tableIds` the section's exact membership: they join it, and every
+       * other table leaves it. Returns `null` (nothing written) unless the section
+       * is this venue's and every table is a distinct table of the section's own
+       * floor plan in this venue — a table cannot be pulled across plans or venues.
+       */
+      async assignTables(
+        venueId: string,
+        sectionId: string,
+        tableIds: string[]
+      ): Promise<Table[] | null> {
+        const section = await prisma.floorPlanSection.findFirst({
+          where: { id: sectionId, venueId },
+          select: { floorPlanId: true },
+        });
+        if (!section) return null;
+        const ids = [...new Set(tableIds)];
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const where = { id: { in: ids }, venueId, floorPlanId: section.floorPlanId };
+          if ((await tx.table.count({ where })) !== ids.length) return null;
+          await tx.table.updateMany({
+            where: { venueId, sectionId, id: { notIn: ids } },
+            data: { sectionId: null },
+          });
+          await tx.table.updateMany({ where, data: { sectionId } });
+          const tables = await tx.table.findMany({ where: { venueId, sectionId } });
+          return tables.map(toTable);
+        });
+      },
+    };
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
     type PrismaFloorPlan = {
@@ -39147,6 +39554,7 @@
               t.priority,
               t.venue_id AS "venueId",
               t.floor_plan_id AS "floorPlanId",
+              t.section_id AS "sectionId",
               t.shape_metadata AS "shapeMetadata",
               t.created_at AS "createdAt",
               t.updated_at AS "updatedAt"
@@ -39208,6 +39616,7 @@
             where: { id: tableId },
             data: {
               floorPlanId: null,
+              sectionId: null,
               shapeMetadata: Prisma.DbNull,
             },
           });
@@ -43184,6 +43593,7 @@
       status: string;
       venueId: string | null;
       floorPlanId: string | null;
+      sectionId?: string | null;
       shapeMetadata: unknown;
       createdAt: Date;
       updatedAt: Date;
@@ -43230,6 +43640,7 @@
         status: row.status as TableStatus,
         venueId: row.venueId,
         floorPlanId: row.floorPlanId,
+        sectionId: row.sectionId ?? null,
         shapeMetadata: row.shapeMetadata as TableShapeMetadata | null,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
@@ -44404,6 +44815,7 @@
       "menu",
       "menuSection",
       "menuItem",
+      "floorPlanSection",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -54978,6 +55390,67 @@
       }
     }
   </file>
+  <file path="packages/api-client/src/floor-plan-sections.ts">
+    function sectionPath(venueId: string, segments: string[] = [], extraQuery = ""): string {
+      const path = ["/api/v1/floor-plan-sections", ...segments.map(encodeURIComponent)].join("/");
+      return `${path}?venueId=${encodeURIComponent(venueId)}${extraQuery}`;
+    }
+    export class FloorPlanSectionsClient {
+      constructor(private client: ApiClient) {}
+    
+      async list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]> {
+        const extra = floorPlanId ? `&floorPlanId=${encodeURIComponent(floorPlanId)}` : "";
+        const response = await this.client.get<{ data: FloorPlanSection[] }>(
+          sectionPath(venueId, [], extra),
+          undefined,
+          sectionListResponseSchema
+        );
+        return response.data;
+      }
+    
+      async create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection> {
+        return this.client.postOne<FloorPlanSection>(
+          sectionPath(venueId),
+          data,
+          FloorPlanSectionSchema
+        );
+      }
+    
+      async update(
+        venueId: string,
+        sectionId: string,
+        data: UpdateFloorPlanSectionRequest
+      ): Promise<FloorPlanSection> {
+        return this.client.patchOne<FloorPlanSection>(
+          sectionPath(venueId, [sectionId]),
+          data,
+          FloorPlanSectionSchema
+        );
+      }
+    
+      async delete(venueId: string, sectionId: string): Promise<void> {
+        return this.client.delete(sectionPath(venueId, [sectionId]));
+      }
+    
+      /** Persists `displayOrder` as each id's index (`PUT /order`). */
+      async reorder(venueId: string, floorPlanId: string, ids: string[]): Promise<FloorPlanSection[]> {
+        return this.client.putOne<FloorPlanSection[]>(
+          sectionPath(venueId, ["order"]),
+          { floorPlanId, ids },
+          sectionListSchema
+        );
+      }
+    
+      /** Makes `tableIds` the section's exact membership (`PUT /:sectionId/tables`). */
+      async assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]> {
+        return this.client.putOne<Table[]>(
+          sectionPath(venueId, [sectionId, "tables"]),
+          { tableIds },
+          tableListSchema
+        );
+      }
+    }
+  </file>
   <file path="packages/api-client/src/floor-plans.ts">
     export class FloorPlansClient {
       constructor(private client: ApiClient) {}
@@ -55191,6 +55664,7 @@
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
+        floorPlanSections: new FloorPlanSectionsClient(client),
         menus: new MenusClient(client),
         publicVenue: new PublicVenueClient(client),
         waitlist: new WaitlistClient(client),
@@ -59934,6 +60408,13 @@
       thickness: number;
       wallType?: "wall" | "window";
     }
+    export interface SectionLayout {
+      id: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
     export interface FloorPlanLayout {
       width: number;
       height: number;
@@ -59941,6 +60422,7 @@
       gridSize?: number;
       showGrid?: boolean;
       walls?: WallLayout[];
+      sections?: SectionLayout[];
     }
     export interface CreateFloorPlanRequest {
       venueId: string;
@@ -60432,6 +60914,7 @@
       status: TableStatus;
       venueId: string | null;
       floorPlanId: string | null;
+      sectionId?: string | null;
       shapeMetadata: TableShapeMetadata | null;
       createdAt: string;
       updatedAt: string;
@@ -61193,6 +61676,7 @@
       await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
       await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
       await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+      await fastify.register(floorPlanSectionRoutes, { prefix: "/api/v1/floor-plan-sections" });
       await fastify.register(menuRoutes, { prefix: "/api/v1/menus" });
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
       await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
@@ -61807,6 +62291,7 @@
         { name: "tables", instance: api.tables },
         { name: "guests", instance: api.guests },
         { name: "floorPlans", instance: api.floorPlans },
+        { name: "floorPlanSections", instance: api.floorPlanSections },
         { name: "menus", instance: api.menus },
         { name: "publicVenue", instance: api.publicVenue },
         { name: "waitlist", instance: api.waitlist },

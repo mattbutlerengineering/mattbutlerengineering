@@ -54,6 +54,38 @@ exports[`Reservation service schemas > FloorPlanLayoutSchema matches snapshot 1`
     "height": {
       "type": "number",
     },
+    "sections": {
+      "items": {
+        "properties": {
+          "height": {
+            "exclusiveMinimum": 0,
+            "type": "number",
+          },
+          "id": {
+            "type": "string",
+          },
+          "width": {
+            "exclusiveMinimum": 0,
+            "type": "number",
+          },
+          "x": {
+            "type": "number",
+          },
+          "y": {
+            "type": "number",
+          },
+        },
+        "required": [
+          "id",
+          "x",
+          "y",
+          "width",
+          "height",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
     "showGrid": {
       "type": "boolean",
     },
@@ -134,6 +166,38 @@ exports[`Reservation service schemas > FloorPlanSchema matches snapshot 1`] = `
         },
         "height": {
           "type": "number",
+        },
+        "sections": {
+          "items": {
+            "properties": {
+              "height": {
+                "exclusiveMinimum": 0,
+                "type": "number",
+              },
+              "id": {
+                "type": "string",
+              },
+              "width": {
+                "exclusiveMinimum": 0,
+                "type": "number",
+              },
+              "x": {
+                "type": "number",
+              },
+              "y": {
+                "type": "number",
+              },
+            },
+            "required": [
+              "id",
+              "x",
+              "y",
+              "width",
+              "height",
+            ],
+            "type": "object",
+          },
+          "type": "array",
         },
         "showGrid": {
           "type": "boolean",
@@ -234,6 +298,12 @@ exports[`Reservation service schemas > FloorPlanSchema matches snapshot 1`] = `
           },
           "priority": {
             "type": "number",
+          },
+          "sectionId": {
+            "type": [
+              "string",
+              "null",
+            ],
           },
           "shapeMetadata": {
             "anyOf": [
@@ -736,6 +806,12 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
         "priority": {
           "type": "number",
         },
+        "sectionId": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
         "shapeMetadata": {
           "anyOf": [
             {
@@ -912,6 +988,12 @@ exports[`Reservation service schemas > TableSchema matches snapshot 1`] = `
     },
     "priority": {
       "type": "number",
+    },
+    "sectionId": {
+      "type": [
+        "string",
+        "null",
+      ],
     },
     "shapeMetadata": {
       "anyOf": [

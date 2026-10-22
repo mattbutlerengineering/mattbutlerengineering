@@ -5,6 +5,7 @@ import { reservationService } from "./reservation.js";
 import { guestService } from "./guest.js";
 import { floorPlanService } from "./floor-plan.js";
 import { menuService } from "./menu.js";
+import { floorPlanSectionService } from "./floor-plan-section.js";
 import { holdService } from "./hold.js";
 import type { DepositService } from "./deposit.js";
 import { waitlistService } from "./waitlist.js";
@@ -39,6 +40,7 @@ export interface DomainServices {
   guestService: typeof guestService;
   floorPlanService: typeof floorPlanService;
   menuService: typeof menuService;
+  floorPlanSectionService: typeof floorPlanSectionService;
   holdService: typeof holdService;
   /** Built in `buildApp` over the one payments adapter — never a module singleton. */
   depositService: DepositService;
@@ -60,6 +62,7 @@ export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
   guestService,
   floorPlanService,
   menuService,
+  floorPlanSectionService,
   holdService,
   waitlistService,
   briefingService,

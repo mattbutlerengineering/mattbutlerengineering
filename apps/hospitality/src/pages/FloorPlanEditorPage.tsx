@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
@@ -18,6 +18,7 @@ import {
   useAddTable,
   useDeleteTable,
   useUpdateFloorPlanLayout,
+  useFloorPlanSections,
 } from "../hooks/useFloorPlans.js";
 import { useFloorPlanDraft, type PositionUpdate } from "../hooks/useFloorPlanDraft.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
@@ -50,6 +51,19 @@ export function FloorPlanEditorPage() {
   const walls = wallsDraft ?? serverWalls ?? [];
   const wallsDirty =
     wallsDraft !== null && JSON.stringify(wallsDraft) !== JSON.stringify(serverWalls ?? []);
+
+  // Section rows carry the name/colour; the layout carries each zone's rectangle.
+  const { data: sectionRows } = useFloorPlanSections({
+    venueId: floorPlan?.venueId,
+    floorPlanId: floorPlan?.id,
+  });
+  const sectionZones = useMemo(() => {
+    const rows = new Map((sectionRows ?? []).map((row) => [row.id, row]));
+    return (floorPlan?.layoutJson.sections ?? []).flatMap((rect) => {
+      const row = rows.get(rect.id);
+      return row ? [{ ...rect, name: row.name, color: row.color }] : [];
+    });
+  }, [floorPlan?.layoutJson.sections, sectionRows]);
 
   const floorPlanId = floorPlan?.id;
   const persist = useCallback(
@@ -289,6 +303,7 @@ export function FloorPlanEditorPage() {
             onTableSelect={setSelectedTableId}
             selectedTableId={selectedTableId}
             onDeleteRequest={requestDeleteTable}
+            sections={sectionZones}
             walls={walls}
             selectedWallId={selectedWallId}
             onWallSelect={setSelectedWallId}
@@ -357,6 +372,26 @@ export function FloorPlanEditorPage() {
             </div>
           ) : (
             <div className={styles.noSelection}>{t("floorPlan.editor.noSelection")}</div>
+          )}
+
+          {sectionRows && sectionRows.length > 0 && (
+            <section aria-labelledby="floor-plan-sections-title">
+              <Heading id="floor-plan-sections-title" className={styles.sidebarTitle}>
+                {t("floorPlan.sections.title")}
+              </Heading>
+              <ul>
+                {sectionRows.map((row) => (
+                  <li key={row.id}>
+                    <Text className={styles.detailLabel}>{row.name}</Text>{" "}
+                    <Text className={styles.detailValue}>
+                      {t("floorPlan.sections.tableCount", {
+                        count: tables.filter((table) => table.sectionId === row.id).length,
+                      })}
+                    </Text>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           <WallsPanel

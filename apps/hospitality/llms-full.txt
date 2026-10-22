@@ -3397,6 +3397,15 @@
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
+    export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
+    export const useFloorPlanSections = createQueryHook<
+      FloorPlanSection[],
+      { venueId?: string | null; floorPlanId?: string | null }
+    >({
+      key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
+      getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
+    });
   </file>
   <file path="src/hooks/useFocusAfter.ts">
     export type FocusTarget =

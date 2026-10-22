@@ -1,6 +1,6 @@
 # Section Painter — feasibility check + build plan
 
-> **Status: future plan — unblocked, not yet filed.** Needs no venue history, no LLM key, and no external accounts. Nothing here is filed as an issue; run `/decompose` on this file to start it. File references verified against `main` at `482ed0bc6`, 2026-10-18.
+> **Status: re-scoped (2026-10-22, #7253).** The section _entity_ half of this plan — `Section` rows, a table→section link, the zone drawn on the floor-plan canvas — shipped as floor-plan sections (eat-sheet port F, #7253): `FloorPlanSection` + `Table.sectionId`, the `/api/v1/floor-plan-sections` routes, `layoutJson.sections` and `SectionZone`. Do **not** rebuild it from §1's `Section { tableIds String[] }` — build on `FloorPlanSection` instead. What remains future work, and is still unfiled: `Server`, `ShiftAssignment`, the paint/lasso tool, `coversBySection` / `nextInRotation` / `sectionBalance`, the covers strip and the shift-setup panel. In `/decompose` item (1), drop the `Section` model; in (4), tint tables from `Table.sectionId`.
 
 ## Context
 

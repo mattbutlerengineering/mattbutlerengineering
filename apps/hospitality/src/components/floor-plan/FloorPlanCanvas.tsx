@@ -7,6 +7,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan, WallLayout } from "@mbe/types";
 import { TableShape } from "./TableShape";
 import { WallShape } from "./WallShape.js";
+import { SectionZone, type SectionZoneData } from "./SectionZone.js";
 import { TableSelectionOverlay } from "./TableSelectionOverlay.js";
 import {
   CANVAS_WIDTH,
@@ -77,6 +78,8 @@ export interface FloorPlanCanvasProps {
   onDeleteRequest?: (tableId: string) => void;
   /** Screen-reader message after a keyboard nudge ("Table 1 moved to 120, 100"). */
   onAnnounce?: (message: string) => void;
+  /** Section zones to draw beneath the tables; omitted = none (plans saved before sections existed). */
+  sections?: readonly SectionZoneData[];
   /** Walls and windows to draw; omitted = none (plans saved before walls existed). */
   walls?: readonly WallLayout[];
   selectedWallId?: string | null;
@@ -96,6 +99,7 @@ export function FloorPlanCanvas({
   isStale = false,
   onDeleteRequest,
   onAnnounce,
+  sections = [],
   walls = [],
   selectedWallId = null,
   onWallSelect,
@@ -261,6 +265,9 @@ export function FloorPlanCanvas({
         onTap={handleStageClick}
       >
         <Layer>
+          {sections.map((zone) => (
+            <SectionZone key={zone.id} zone={zone} />
+          ))}
           {walls.map((wall) => (
             <WallShape
               key={wall.id}

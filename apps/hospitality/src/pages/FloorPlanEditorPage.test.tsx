@@ -24,6 +24,7 @@ const mockGetById = vi.fn();
 const mockBulkUpdatePositions = vi.fn();
 const mockSetActive = vi.fn();
 const mockUpdate = vi.fn();
+const mockSectionsList = vi.fn();
 const mockTablesCreate = vi.fn();
 const mockTablesDelete = vi.fn();
 
@@ -35,6 +36,7 @@ vi.mock("../hooks/useApiClient.js", () => ({
       setActive: mockSetActive,
       update: mockUpdate,
     },
+    floorPlanSections: { list: mockSectionsList },
     tables: {
       create: mockTablesCreate,
       delete: mockTablesDelete,
@@ -90,7 +92,9 @@ vi.mock("../components/floor-plan/index.js", () => ({
     tableStatuses,
     isStale,
     onDeleteRequest,
+    sections,
   }: {
+    sections?: { id: string; name: string; color: string }[];
     onDeleteRequest?: (id: string) => void;
     tables: Table[];
     onTableMove: (id: string, x: number, y: number) => void;
@@ -101,7 +105,12 @@ vi.mock("../components/floor-plan/index.js", () => ({
     tableStatuses?: ReadonlyMap<string, string>;
     isStale?: boolean;
   }) => (
-    <div data-testid="floor-plan-canvas" data-selected={selectedTableId} data-stale={isStale}>
+    <div
+      data-testid="floor-plan-canvas"
+      data-selected={selectedTableId}
+      data-stale={isStale}
+      data-sections={sections?.map((z) => `${z.name}:${z.color}`).join(",")}
+    >
       {/* Stands in for the real canvas's focus-scoped Delete/Backspace handling. */}
       <button
         data-testid="canvas-delete-key"
@@ -314,6 +323,7 @@ let FloorPlanEditorPage: (...args: any[]) => React.ReactNode;
 beforeEach(async () => {
   vi.clearAllMocks();
   mockUseTableStatuses.mockReturnValue({ statuses: new Map(), isStale: false });
+  mockSectionsList.mockResolvedValue([]);
   const mod = await import("./FloorPlanEditorPage.js");
   FloorPlanEditorPage = mod.FloorPlanEditorPage;
 });
@@ -502,6 +512,32 @@ describe("FloorPlanEditorPage", () => {
           walls: [existing, expect.objectContaining({ id: "wall-9" })],
         },
       });
+    });
+
+    it("draws saved section zones with their row's name and colour, and lists each with its table count", async () => {
+      mockGetById.mockResolvedValue({
+        ...FLOOR_PLAN,
+        layoutJson: {
+          width: 800,
+          height: 600,
+          sections: [
+            { id: "sec-1", x: 0, y: 0, width: 100, height: 100 },
+            { id: "gone", x: 0, y: 0, width: 50, height: 50 },
+          ],
+        },
+        tables: [{ ...FLOOR_PLAN.tables![0]!, sectionId: "sec-1" }],
+      });
+      mockSectionsList.mockResolvedValue([
+        { id: "sec-1", venueId: "venue-1", floorPlanId: "fp-1", name: "Patio", color: "#3366cc" },
+      ]);
+      renderPage();
+
+      await waitFor(() =>
+        expect(screen.getByTestId("floor-plan-canvas").dataset.sections).toBe("Patio:#3366cc")
+      );
+      expect(mockSectionsList).toHaveBeenCalledWith("venue-1", "fp-1");
+      expect(screen.getByText("Patio")).toBeDefined();
+      expect(screen.getByText("1 table")).toBeDefined();
     });
 
     it("opens add table dialog when + Add Table is clicked", async () => {

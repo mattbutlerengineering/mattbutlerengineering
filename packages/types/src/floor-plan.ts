@@ -24,6 +24,14 @@ export interface WallLayout {
   wallType?: "wall" | "window";
 }
 
+export interface SectionLayout {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface FloorPlanLayout {
   width: number;
   height: number;
@@ -31,6 +39,7 @@ export interface FloorPlanLayout {
   gridSize?: number;
   showGrid?: boolean;
   walls?: WallLayout[];
+  sections?: SectionLayout[];
 }
 
 export interface CreateFloorPlanRequest {

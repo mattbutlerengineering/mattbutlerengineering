@@ -24,6 +24,7 @@ export interface PrismaTableRow {
   status: string;
   venueId: string | null;
   floorPlanId: string | null;
+  sectionId?: string | null;
   shapeMetadata: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -77,6 +78,7 @@ export function toTable(row: PrismaTableRow): Table {
     status: row.status as TableStatus,
     venueId: row.venueId,
     floorPlanId: row.floorPlanId,
+    sectionId: row.sectionId ?? null,
     shapeMetadata: row.shapeMetadata as TableShapeMetadata | null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

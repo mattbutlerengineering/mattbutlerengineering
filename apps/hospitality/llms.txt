@@ -1035,6 +1035,12 @@
     <item priority="high">
       export const useUpdateFloorPlanLayout: unknown;
     </item>
+    <item priority="high">
+      export const FLOOR_PLAN_SECTIONS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useFloorPlanSections: unknown;
+    </item>
   </file>
   <file path="src/hooks/useFocusAfter.ts">
     <item priority="low">
