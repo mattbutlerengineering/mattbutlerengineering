@@ -6,9 +6,11 @@
  */
 import {
   PRICING,
+  type Pricing,
   type Provider,
   type ProviderId,
   type ProviderRequest,
+  type ProviderResponse,
 } from "./gen-ui-bakeoff-lib.ts";
 
 type FetchLike = typeof fetch;
@@ -41,7 +43,14 @@ function anthropicWire(key: string, model: string, req: ProviderRequest): Wire {
   return {
     url: "https://api.anthropic.com/v1/messages",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
-    body: { model, max_tokens: req.maxOutputTokens, system: req.system, messages: req.messages },
+    body: {
+      model,
+      max_tokens: req.maxOutputTokens,
+      // Same ephemeral cache breakpoint gen-runner.ts sets on the system message.
+      system: [{ type: "text", text: req.system, cache_control: { type: "ephemeral" } }],
+      messages: req.messages,
+      ...(req.effort ? { output_config: { effort: req.effort } } : {}),
+    },
   };
 }
 
@@ -53,6 +62,7 @@ function openaiWire(key: string, model: string, req: ProviderRequest): Wire {
       model,
       max_completion_tokens: req.maxOutputTokens,
       response_format: { type: "json_object" },
+      ...(req.effort ? { reasoning_effort: req.effort } : {}),
       messages: [{ role: "system", content: req.system }, ...req.messages],
     },
   };
@@ -71,26 +81,37 @@ function geminiWire(key: string, model: string, req: ProviderRequest): Wire {
       generationConfig: {
         maxOutputTokens: req.maxOutputTokens,
         responseMimeType: "application/json",
+        ...(req.effort ? { thinkingConfig: { thinkingLevel: req.effort } } : {}),
       },
     },
   };
 }
 
-type Parsed = { text: string; inputTokens: number; outputTokens: number };
+type Parsed = ProviderResponse;
 // Vendor responses are untrusted JSON: describe only the fields we read, all optional.
 interface AnthropicJson {
   content?: { type?: string; text?: string }[];
-  usage?: { input_tokens?: number; output_tokens?: number };
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
 }
 interface OpenAiJson {
   choices?: { message?: { content?: string } }[];
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  };
 }
 interface GeminiJson {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
   usageMetadata?: {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
+    cachedContentTokenCount?: number;
     thoughtsTokenCount?: number;
   };
 }
@@ -98,10 +119,15 @@ interface GeminiJson {
 const PARSERS: { readonly [K in ProviderId]: (json: unknown) => Parsed } = {
   anthropic: (raw) => {
     const j = raw as AnthropicJson;
+    // Anthropic reports `input_tokens` as the uncached remainder only.
+    const read = j.usage?.cache_read_input_tokens ?? 0;
+    const write = j.usage?.cache_creation_input_tokens ?? 0;
     return {
       text: (j.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : "")).join(""),
-      inputTokens: j.usage?.input_tokens ?? 0,
+      inputTokens: (j.usage?.input_tokens ?? 0) + read + write,
       outputTokens: j.usage?.output_tokens ?? 0,
+      cacheReadTokens: read,
+      cacheWriteTokens: write,
     };
   },
   openai: (raw) => {
@@ -110,6 +136,7 @@ const PARSERS: { readonly [K in ProviderId]: (json: unknown) => Parsed } = {
       text: j.choices?.[0]?.message?.content ?? "",
       inputTokens: j.usage?.prompt_tokens ?? 0,
       outputTokens: j.usage?.completion_tokens ?? 0,
+      cacheReadTokens: j.usage?.prompt_tokens_details?.cached_tokens ?? 0,
     };
   },
   gemini: (raw) => {
@@ -117,6 +144,7 @@ const PARSERS: { readonly [K in ProviderId]: (json: unknown) => Parsed } = {
     return {
       text: (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join(""),
       inputTokens: j.usageMetadata?.promptTokenCount ?? 0,
+      cacheReadTokens: j.usageMetadata?.cachedContentTokenCount ?? 0,
       // Thinking tokens are reported separately but billed at the output rate.
       outputTokens:
         (j.usageMetadata?.candidatesTokenCount ?? 0) + (j.usageMetadata?.thoughtsTokenCount ?? 0),
@@ -130,14 +158,15 @@ export function createProvider(
   id: ProviderId,
   apiKey: string,
   fetchImpl: FetchLike = fetch,
-  model: string = DEFAULT_MODELS[id]
+  model: string = DEFAULT_MODELS[id],
+  pricing: Pricing = PRICING[id]
 ): Provider {
   const redact = (s: string) => s.split(apiKey).join("[redacted]");
   return {
     id,
     label: LABELS[id],
     model,
-    pricing: PRICING[id],
+    pricing,
     call: async (req) => {
       const wire = WIRES[id](apiKey, model, req);
       const res = await fetchImpl(wire.url, {
