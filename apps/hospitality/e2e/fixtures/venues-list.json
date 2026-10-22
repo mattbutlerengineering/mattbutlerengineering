@@ -31,7 +31,21 @@
         "maxAdvanceBooking": 30,
         "requireEmail": true,
         "slotIntervalMinutes": 15,
-        "holdDurationMinutes": 10
+        "holdDurationMinutes": 10,
+        "profile": {
+          "type": "casual",
+          "cuisines": ["American", "Seafood"],
+          "address": {
+            "line1": "120 Dock Street",
+            "line2": "Suite 2",
+            "city": "Brooklyn",
+            "region": "NY",
+            "postalCode": "11201",
+            "country": "US"
+          },
+          "website": "https://e2e-test-bistro.example.com",
+          "description": "A harbourside room with a long bar and a short menu."
+        }
       },
       "createdAt": "2026-01-01T00:00:00.000Z",
       "updatedAt": "2026-01-01T00:00:00.000Z"

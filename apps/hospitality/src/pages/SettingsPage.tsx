@@ -21,6 +21,7 @@ import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { LanguageRegionCard } from "../components/LanguageRegionCard.js";
+import { VenueProfileCard } from "../components/venue-profile/VenueProfileCard.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import styles from "./SettingsPage.module.css";
 
@@ -274,6 +275,9 @@ export function SettingsPage() {
             </Card>
 
             <LanguageRegionCard />
+
+            {/* Venue Profile — what guests see on the public booking page */}
+            <VenueProfileCard />
 
             {/* Venue Defaults */}
             <Card title={t("settings.defaults.title")}>

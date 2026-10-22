@@ -719,6 +719,9 @@ describe("venueService", () => {
           lateCancellationFeePercent: 50,
           noShowFeePercent: 100,
         },
+        // This venue's settings carry no `profile`, so the allow-listed
+        // projection is empty rather than absent (#7250).
+        profile: {},
       });
     });
 
@@ -729,6 +732,77 @@ describe("venueService", () => {
 
       expect(result).not.toHaveProperty("id");
       expect(result).not.toHaveProperty("venueGroupId");
+    });
+
+    // #7250: `settings` is free-form JSON, so the profile must be projected
+    // through the allow-list rather than spread. These pin the projection
+    // itself; `routes/public-venues.test.ts` pins the route's serializer.
+    describe("settings.profile allow-list", () => {
+      const PROFILE = {
+        type: "fine_dining",
+        cuisines: ["Italian"],
+        address: {
+          line1: "1 Market St",
+          city: "Seattle",
+          region: "WA",
+          postalCode: "98101",
+          country: "US",
+        },
+        website: "https://example.com",
+        description: "A small room with a long bar.",
+      };
+
+      function mockVenueWithSettings(settings: Record<string, unknown>): void {
+        vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(
+          makePrismaVenue({ settings }) as never
+        );
+      }
+
+      it("exposes every allow-listed profile field", async () => {
+        mockVenueWithSettings({ slotIntervalMinutes: 15, profile: PROFILE });
+
+        const result = await venueService.getPublicConfigBySlug("test-venue");
+
+        expect(result?.profile).toEqual(PROFILE);
+      });
+
+      it("drops operational settings that share the blob", async () => {
+        mockVenueWithSettings({
+          autoDepositAfterNoShows: 2,
+          guestModificationCutoffHours: 24,
+          profile: { type: "cafe" },
+        });
+
+        const result = await venueService.getPublicConfigBySlug("test-venue");
+
+        expect(result?.profile).toEqual({ type: "cafe" });
+      });
+
+      it("drops keys smuggled inside profile itself", async () => {
+        mockVenueWithSettings({
+          profile: { type: "bar", stripeSecretKey: "sk_live_nope", internalNote: "staff only" },
+        });
+
+        const result = await venueService.getPublicConfigBySlug("test-venue");
+
+        expect(result?.profile).toEqual({ type: "bar" });
+      });
+
+      it("returns an empty profile when the venue has none", async () => {
+        mockVenueWithSettings({ slotIntervalMinutes: 15 });
+
+        const result = await venueService.getPublicConfigBySlug("test-venue");
+
+        expect(result?.profile).toEqual({});
+      });
+
+      it("fails closed on a stored profile that no longer validates", async () => {
+        mockVenueWithSettings({ profile: { type: "cafe", website: "javascript:alert(1)" } });
+
+        const result = await venueService.getPublicConfigBySlug("test-venue");
+
+        expect(result?.profile).toEqual({});
+      });
     });
 
     it("returns null when the venue is not found", async () => {

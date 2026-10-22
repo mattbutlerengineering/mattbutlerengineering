@@ -1070,7 +1070,7 @@
           .default("USD")
           .describe("ISO 4217 currency code"),
         operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
-        settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
+        settings: VenueSettingsBodySchema.describe("Venue-specific settings").optional(),
       })
       .describe("Venue creation payload");
     export const UpdateVenueBodySchema = z
@@ -1084,7 +1084,7 @@
           .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
           .optional(),
         operatingHours: JsonObjectSchema.nullable().optional(),
-        settings: JsonObjectSchema.nullable().optional(),
+        settings: VenueSettingsBodySchema.nullable().optional(),
       })
       .describe("Fields to update");
     export const CreateWaitlistBodySchema = z.object({
@@ -1298,6 +1298,29 @@
       close: z.string(),
       closed: z.boolean().optional(),
     });
+    export const VENUE_TYPES = ["fine_dining", "casual", "bar", "cafe"] as const;
+    export const VenueTypeSchema = z.enum(VENUE_TYPES);
+    export const VENUE_DESCRIPTION_MAX_LENGTH = 280;
+    export const VenueAddressSchema = z.object({
+      line1: z.string().min(1).max(200),
+      line2: z.string().max(200).optional(),
+      city: z.string().min(1).max(100),
+      region: z.string().min(1).max(100),
+      postalCode: z.string().min(1).max(20),
+      country: z.string().regex(/^[A-Za-z]{2}$/, "Must be an ISO 3166-1 alpha-2 country code"),
+    });
+    export const VenueProfileSchema = z.object({
+      type: VenueTypeSchema.optional(),
+      cuisines: z.array(z.string().min(1).max(50)).max(20).optional(),
+      address: VenueAddressSchema.optional(),
+      website: z.string().max(200).regex(HTTP_URL_PATTERN, "Must be an http(s) URL").optional(),
+      description: z.string().max(VENUE_DESCRIPTION_MAX_LENGTH).optional(),
+    });
+    export type VenueProfile = z.infer<typeof VenueProfileSchema>;
+    export function toPublicVenueProfile(stored: unknown): VenueProfile {
+      const parsed = VenueProfileSchema.safeParse(stored ?? {});
+      return parsed.success ? parsed.data : {};
+    }
     export const VenueGroupSchema = z.object({
       id: z.string(),
       name: z.string(),
@@ -1358,6 +1381,12 @@
         slotIntervalMinutes: z.number().optional(),
       }),
       deposit: PublicVenueDepositSchema,
+      /**
+       * Venue identity from `settings.profile`, through the allow-list (#7250).
+       * Optional so a client on this contract still parses a response from a
+       * service that predates it — the service always sends it, possibly `{}`.
+       */
+      profile: VenueProfileSchema.optional(),
     });
     export const DepositPaymentIntentSchema = z.object({
       clientSecret: z.string(),
@@ -2239,6 +2268,14 @@
       guestModificationCutoffHours?: number;
       /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
       guestMaxPartySizeChange?: number;
+      /**
+       * Public restaurant identity — venue type, cuisines, postal address,
+       * website, description (#7250). Lives inside `settings` because `settings`
+       * is already `Json?` on the `Venue` row, so this needed no migration. It is
+       * the one key in this blob with a published public contract: see
+       * `VenueProfileSchema` and `PublicVenueConfig.profile`.
+       */
+      profile?: VenueProfile;
     }
     export type DepositType = "flat" | "per_person";
     export interface DepositConfig {
@@ -2300,6 +2337,13 @@
       operatingHours: OperatingHours | null;
       settings: PublicVenueSettings;
       deposit: PublicVenueDeposit;
+      /**
+       * Allow-listed projection of `settings.profile` (#7250). `settings` is
+       * free-form JSON, so this is built field by field through
+       * `toPublicVenueProfile` — never spread — and the route's response
+       * serializer drops anything the contract does not declare.
+       */
+      profile?: VenueProfile;
     }
     export interface CreateDepositPaymentIntentRequest {
       reservationId: string;

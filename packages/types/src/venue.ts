@@ -1,3 +1,5 @@
+import type { VenueProfile } from "./schemas/venue.js";
+
 export interface VenueGroup {
   id: string;
   name: string;
@@ -101,6 +103,14 @@ export interface VenueSettings {
   guestModificationCutoffHours?: number;
   /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
   guestMaxPartySizeChange?: number;
+  /**
+   * Public restaurant identity — venue type, cuisines, postal address,
+   * website, description (#7250). Lives inside `settings` because `settings`
+   * is already `Json?` on the `Venue` row, so this needed no migration. It is
+   * the one key in this blob with a published public contract: see
+   * `VenueProfileSchema` and `PublicVenueConfig.profile`.
+   */
+  profile?: VenueProfile;
 }
 
 export type DepositType = "flat" | "per_person";
@@ -178,6 +188,13 @@ export interface PublicVenueConfig {
   operatingHours: OperatingHours | null;
   settings: PublicVenueSettings;
   deposit: PublicVenueDeposit;
+  /**
+   * Allow-listed projection of `settings.profile` (#7250). `settings` is
+   * free-form JSON, so this is built field by field through
+   * `toPublicVenueProfile` — never spread — and the route's response
+   * serializer drops anything the contract does not declare.
+   */
+  profile?: VenueProfile;
 }
 
 /** Request body for `POST /public/v1/venues/:slug/deposits/payment-intent`. */

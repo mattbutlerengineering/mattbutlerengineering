@@ -12,6 +12,7 @@ import type {
   UpdateVenueGroupRequest,
   PaginatedResponse,
 } from "@mbe/types";
+import { toPublicVenueProfile } from "@mbe/types";
 import {
   paginate,
   toPaginationMeta,
@@ -519,6 +520,11 @@ export const venueService = {
         lateCancellationFeePercent: venue.lateCancellationFeePercent,
         noShowFeePercent: venue.noShowFeePercent,
       },
+      // `settings` is free-form JSON shared with operational keys, so the
+      // profile goes through the explicit `VenueProfileSchema` allow-list
+      // (#7250) — never a spread. `toPublicVenueProfile` fails closed on an
+      // absent, non-object or no-longer-valid stored value.
+      profile: toPublicVenueProfile(settings?.profile),
     };
   },
 
