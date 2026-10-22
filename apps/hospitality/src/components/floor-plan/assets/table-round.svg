@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Contact shadow -->
+  <ellipse cx="32" cy="34" rx="29" ry="27" fill="rgba(0,0,0,0.12)"/>
+  <!-- Main wood circle -->
+  <circle cx="32" cy="32" r="28" fill="#8B7355"/>
+  <!-- Wood grain ring 1 -->
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#806A4E" stroke-width="1.5" opacity="0.25"/>
+  <!-- Wood grain ring 2 -->
+  <circle cx="32" cy="32" r="15" fill="none" stroke="#806A4E" stroke-width="1.5" opacity="0.20"/>
+  <!-- Wood grain ring 3 -->
+  <circle cx="32" cy="32" r="8" fill="none" stroke="#806A4E" stroke-width="1.5" opacity="0.15"/>
+  <!-- Highlight arc top-left -->
+  <path d="M 14 24 A 20 20 0 0 1 28 13" fill="none" stroke="#9C8468" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+  <!-- Stroke -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="#6B5740" stroke-width="1"/>
+  <!-- Center dot -->
+  <circle cx="32" cy="32" r="2" fill="#6B5740" opacity="0.4"/>
+</svg>

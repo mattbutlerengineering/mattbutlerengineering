@@ -495,6 +495,20 @@
       "occupied": "Occupied",
       "dirty": "Dirty",
       "ready": "Ready"
+    },
+    "walls": {
+      "title": "Walls and windows",
+      "addWall": "Add wall",
+      "addWindow": "Add window",
+      "empty": "No walls yet",
+      "wallN": "Wall {{n}}",
+      "windowN": "Window {{n}}",
+      "startX": "Start X",
+      "startY": "Start Y",
+      "endX": "End X",
+      "endY": "End Y",
+      "thickness": "Thickness",
+      "delete": "Delete wall"
     }
   },
   "localePicker": {
@@ -1738,5 +1752,15 @@
       "pixels": "{{size}} px",
       "download": "Download QR"
     }
+  },
+  "venueTheme": {
+    "title": "Venue theme",
+    "description": "Your brand colour for buttons, links and highlights. Palettes that would make text hard to read can't be saved.",
+    "accent": "Accent colour",
+    "accentHover": "Accent hover colour",
+    "previewTitle": "Preview",
+    "previewButton": "Reserve",
+    "contrastFailed": "These colours don't have enough contrast for readable text. Choose a darker or lighter accent.",
+    "save": "Save theme"
   }
 }

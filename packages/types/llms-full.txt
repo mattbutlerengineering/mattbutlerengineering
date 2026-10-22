@@ -320,12 +320,22 @@
       shape: z.enum(["rectangle", "circle", "square"]),
       color: z.string().optional(),
     });
+    export const WallLayoutSchema = z.object({
+      id: z.string(),
+      x1: z.number(),
+      y1: z.number(),
+      x2: z.number(),
+      y2: z.number(),
+      thickness: z.number().positive(),
+      wallType: z.enum(["wall", "window"]).optional(),
+    });
     export const FloorPlanLayoutSchema = z.object({
       width: z.number(),
       height: z.number(),
       backgroundImage: z.string().optional(),
       gridSize: z.number().optional(),
       showGrid: z.boolean().optional(),
+      walls: z.array(WallLayoutSchema).optional(),
     });
     export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
     export const TableSchema = z.object({
@@ -1321,6 +1331,15 @@
       const parsed = VenueProfileSchema.safeParse(stored ?? {});
       return parsed.success ? parsed.data : {};
     }
+    export const VenueThemeSchema = z.object({
+      accent: HexColorSchema,
+      accentHover: HexColorSchema,
+      surface: HexColorSchema.optional(),
+      surfaceElevated: HexColorSchema.optional(),
+      textPrimary: HexColorSchema.optional(),
+      source: z.enum(["extracted", "manual"]),
+    });
+    export type VenueTheme = z.infer<typeof VenueThemeSchema>;
     export const VenueGroupSchema = z.object({
       id: z.string(),
       name: z.string(),
@@ -1650,12 +1669,22 @@
       createdAt: string;
       updatedAt: string;
     }
+    export interface WallLayout {
+      id: string;
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      thickness: number;
+      wallType?: "wall" | "window";
+    }
     export interface FloorPlanLayout {
       width: number;
       height: number;
       backgroundImage?: string;
       gridSize?: number;
       showGrid?: boolean;
+      walls?: WallLayout[];
     }
     export interface CreateFloorPlanRequest {
       venueId: string;
@@ -2276,6 +2305,8 @@
        * `VenueProfileSchema` and `PublicVenueConfig.profile`.
        */
       profile?: VenueProfile;
+      /** Per-venue palette; validate with `VenueThemeSchema` before use. */
+      theme?: VenueTheme;
     }
     export type DepositType = "flat" | "per_person";
     export interface DepositConfig {

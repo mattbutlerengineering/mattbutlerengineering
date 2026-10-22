@@ -1,4 +1,5 @@
 import type { VenueProfile } from "./schemas/venue.js";
+import type { VenueTheme } from "./schemas/venue.js";
 
 export interface VenueGroup {
   id: string;
@@ -111,6 +112,8 @@ export interface VenueSettings {
    * `VenueProfileSchema` and `PublicVenueConfig.profile`.
    */
   profile?: VenueProfile;
+  /** Per-venue palette; validate with `VenueThemeSchema` before use. */
+  theme?: VenueTheme;
 }
 
 export type DepositType = "flat" | "per_person";

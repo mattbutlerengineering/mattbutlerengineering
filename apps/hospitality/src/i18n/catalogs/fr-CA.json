@@ -503,6 +503,20 @@
       "occupied": "Occupée",
       "dirty": "À nettoyer",
       "ready": "Prête"
+    },
+    "walls": {
+      "title": "Murs et fenêtres",
+      "addWall": "Ajouter un mur",
+      "addWindow": "Ajouter une fenêtre",
+      "empty": "Aucun mur pour l'instant",
+      "wallN": "Mur {{n}}",
+      "windowN": "Fenêtre {{n}}",
+      "startX": "X de départ",
+      "startY": "Y de départ",
+      "endX": "X d'arrivée",
+      "endY": "Y d'arrivée",
+      "thickness": "Épaisseur",
+      "delete": "Supprimer le mur"
     }
   },
   "localePicker": {
@@ -1762,5 +1776,15 @@
       "pixels": "{{size}} px",
       "download": "Télécharger le code QR"
     }
+  },
+  "venueTheme": {
+    "title": "Thème du lieu",
+    "description": "La couleur de votre marque pour les boutons, liens et accents. Les palettes qui nuisent à la lisibilité ne peuvent pas être enregistrées.",
+    "accent": "Couleur d'accent",
+    "accentHover": "Couleur d'accent au survol",
+    "previewTitle": "Aperçu",
+    "previewButton": "Réserver",
+    "contrastFailed": "Ces couleurs n'offrent pas assez de contraste pour un texte lisible. Choisissez un accent plus foncé ou plus clair.",
+    "save": "Enregistrer le thème"
   }
 }

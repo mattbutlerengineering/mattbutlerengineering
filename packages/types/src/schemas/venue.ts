@@ -62,6 +62,19 @@ export function toPublicVenueProfile(stored: unknown): VenueProfile {
   const parsed = VenueProfileSchema.safeParse(stored ?? {});
   return parsed.success ? parsed.data : {};
 }
+const HexColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+
+/** Per-venue palette stored at `Venue.settings.theme` — applied over rialto's colour tokens. */
+export const VenueThemeSchema = z.object({
+  accent: HexColorSchema,
+  accentHover: HexColorSchema,
+  surface: HexColorSchema.optional(),
+  surfaceElevated: HexColorSchema.optional(),
+  textPrimary: HexColorSchema.optional(),
+  source: z.enum(["extracted", "manual"]),
+});
+
+export type VenueTheme = z.infer<typeof VenueThemeSchema>;
 
 export const VenueGroupSchema = z.object({
   id: z.string(),

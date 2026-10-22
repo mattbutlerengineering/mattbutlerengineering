@@ -22,6 +22,7 @@ import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { LanguageRegionCard } from "../components/LanguageRegionCard.js";
 import { VenueProfileCard } from "../components/venue-profile/VenueProfileCard.js";
+import { VenueThemeCard } from "../components/venue-theme/VenueThemeCard.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import styles from "./SettingsPage.module.css";
 
@@ -375,6 +376,8 @@ export function SettingsPage() {
                 </Button>
               </Stack>
             </Card>
+
+            <VenueThemeCard />
 
             <Card title={t("settings.account.title")}>
               <Stack gap="md">

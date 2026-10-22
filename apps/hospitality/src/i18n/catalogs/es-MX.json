@@ -503,6 +503,20 @@
       "occupied": "Ocupada",
       "dirty": "Sucia",
       "ready": "Lista"
+    },
+    "walls": {
+      "title": "Paredes y ventanas",
+      "addWall": "Agregar pared",
+      "addWindow": "Agregar ventana",
+      "empty": "Aún no hay paredes",
+      "wallN": "Pared {{n}}",
+      "windowN": "Ventana {{n}}",
+      "startX": "X inicial",
+      "startY": "Y inicial",
+      "endX": "X final",
+      "endY": "Y final",
+      "thickness": "Grosor",
+      "delete": "Eliminar pared"
     }
   },
   "localePicker": {
@@ -1762,5 +1776,15 @@
       "pixels": "{{size}} px",
       "download": "Descargar QR"
     }
+  },
+  "venueTheme": {
+    "title": "Tema del local",
+    "description": "El color de tu marca para botones, enlaces y resaltados. No se pueden guardar paletas que dificulten la lectura.",
+    "accent": "Color de acento",
+    "accentHover": "Color de acento al pasar el cursor",
+    "previewTitle": "Vista previa",
+    "previewButton": "Reservar",
+    "contrastFailed": "Estos colores no tienen suficiente contraste para leer el texto. Elige un acento más oscuro o más claro.",
+    "save": "Guardar tema"
   }
 }
