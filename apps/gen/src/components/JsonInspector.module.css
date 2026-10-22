@@ -81,7 +81,7 @@
 
 .empty {
   font-size: var(--rialto-text-xs);
-  color: var(--rialto-text-tertiary);
+  color: var(--rialto-text-secondary);
   font-family: var(--rialto-font-sans);
   padding: var(--rialto-space-sm);
 }
