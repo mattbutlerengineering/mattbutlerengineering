@@ -79,10 +79,14 @@ jobs:
             node scripts/visual-baseline-regen.mjs plan --app "$APP" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build rialto (styles + dist export required by every app)
+      - name: Build the app's workspace dependencies (dist exports)
         # The rialto target runs Storybook from source: no build needed.
+        # rialto alone is not enough: `@mbe/types` and `@mbe/api-client` resolve
+        # their runtime export condition to `dist/`, so an app importing either
+        # cannot be built from source. `^...` is turbo's "dependencies of,
+        # excluding itself"; every app package is `@mbe/<app>`.
         if: inputs.app != 'rialto'
-        run: pnpm build --filter @mattbutlerengineering/rialto
+        run: pnpm build --filter "@mbe/${{ inputs.app }}^..."
       - name: Build marketing (its visual config serves dist via vite preview)
         if: inputs.app == 'marketing'
         run: pnpm --dir apps/marketing exec vite build
