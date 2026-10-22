@@ -101,8 +101,13 @@ export function failedGenCostMicroUsd(): number {
 export const GEN_WRITE_FAILURE_LIMIT = 3;
 let consecutiveWriteFailures = 0;
 
-/** While degraded, one request per this interval is let through as a probe; its write heals or re-latches. */
-export const GEN_DEGRADED_PROBE_MS = 30_000;
+/**
+ * While degraded, one request per this interval is let through as a probe; its
+ * write heals or re-latches. 5 min keeps even a permanent write outage under
+ * the default daily ceiling (288 probes x worst-case ~$0.001 = ~$0.30/day).
+ * Known limit: probe state is per instance, so N instances multiply this by N.
+ */
+export const GEN_DEGRADED_PROBE_MS = 300_000;
 let lastProbeAt = 0;
 
 export function isSpendTrackingDegraded(now: number = Date.now()): boolean {
