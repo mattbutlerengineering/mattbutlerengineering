@@ -106,7 +106,9 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build marketing's workspace dependencies (dist exports)
+      # Named so it cannot be confused with the "Build marketing" step below:
+      # the sibling tests in scripts/__tests__ locate steps by a `^name` regex.
+      - name: Build the workspace dependencies marketing imports (dist exports)
         run: pnpm build --filter '@mbe/marketing^...'
       - name: Build marketing (the visual config serves dist via vite preview)
         run: pnpm --dir apps/marketing exec vite build
