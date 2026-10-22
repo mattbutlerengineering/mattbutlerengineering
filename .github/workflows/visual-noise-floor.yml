@@ -96,8 +96,12 @@ jobs:
         run: |
           set -o pipefail
           node scripts/visual-noise-floor.mjs paths --app "$APP" --leg "${{ matrix.leg }}" >> "$GITHUB_OUTPUT"
-      - name: Build rialto (styles + dist export required by every app)
-        run: pnpm build --filter @mattbutlerengineering/rialto
+      # rialto alone is not enough: `@mbe/types` and `@mbe/api-client` resolve
+      # their runtime export condition to `dist/`, so an app importing either
+      # cannot be built from source. `^...` is turbo's "dependencies of,
+      # excluding itself"; every app package is `@mbe/<app>`.
+      - name: Build the app's workspace dependencies (dist exports)
+        run: pnpm build --filter "@mbe/$APP^..."
       - name: Build marketing (its visual config serves dist via vite preview)
         if: env.APP == 'marketing'
         run: pnpm --dir apps/marketing exec vite build

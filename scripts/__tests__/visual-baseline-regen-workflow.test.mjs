@@ -18,9 +18,19 @@ describe("visual-baseline-regen workflow", () => {
     expect(wf.on.workflow_dispatch.inputs.app.options).toEqual(Object.keys(TARGETS));
   });
 
-  it("skips the rialto and marketing builds for the rialto target", () => {
-    const rialtoBuild = steps.find((s) => /^Build rialto/.test(s.name ?? ""));
-    expect(rialtoBuild.if).toMatch(/inputs\.app != 'rialto'/);
+  it("skips the dependency and marketing builds for the rialto target", () => {
+    // The dependency build used to be rialto-only; it now builds the target
+    // app's whole closure, because `@mbe/types`/`@mbe/api-client` resolve their
+    // runtime export condition to `dist/` and rialto alone left those unbuilt
+    // (#7042). Located by its `run` rather than its name so a future rename
+    // cannot silently make this `undefined` and throw instead of asserting.
+    const depBuild = steps.find((s) => /pnpm build --filter "@mbe\//.test(s.run ?? ""));
+    expect(depBuild, "the app's dependency-closure build step is missing").toBeDefined();
+    // The closure itself, not merely that some @mbe/ package is built. Without
+    // this the step could be narrowed back to a single package — the exact
+    // shape of #7042 — with the suite still green.
+    expect(depBuild.run).toMatch(/pnpm build --filter "@mbe\/\$APP\^\.\.\."/);
+    expect(depBuild.if).toMatch(/inputs\.app != 'rialto'/);
     const marketingBuild = steps.find((s) => /^Build marketing/.test(s.name ?? ""));
     expect(marketingBuild.if).toBe("inputs.app == 'marketing'");
   });

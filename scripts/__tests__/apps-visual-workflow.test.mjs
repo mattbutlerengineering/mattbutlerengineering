@@ -39,8 +39,14 @@ describe.each(APPS)("apps-visual.yml — %s", (app) => {
     expect(block).toContain(`apps/${app}/e2e/visual.spec.ts`);
   });
 
-  it("builds rialto before the suite", () => {
-    expect(job(`${app}-visual`)).toContain("pnpm build --filter @mattbutlerengineering/rialto");
+  // Building rialto alone is what broke this workflow's hospitality job for
+  // days: `@mbe/types` and `@mbe/api-client` resolve their runtime export
+  // condition to `dist/`, so the webServer's `vite build` failed with
+  // `Rolldown failed to resolve import "@mbe/types"` and the job's own
+  // conclusion was the only place it showed (#7042). The whole dependency
+  // closure is the property worth pinning, not one package in it.
+  it("builds the app's whole workspace dependency closure before the suite", () => {
+    expect(job(`${app}-visual`)).toContain(`pnpm build --filter '@mbe/${app}^...'`);
   });
 
   it("uploads <app>-visual-diffs and <app>-visual-report", () => {
