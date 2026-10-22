@@ -513,7 +513,17 @@
     "sections": {
       "title": "Sections",
       "tableCount_one": "{{count}} table",
-      "tableCount_other": "{{count}} tables"
+      "tableCount_other": "{{count}} tables",
+      "material": "Floor",
+      "materialFor": "Floor material for {{name}}",
+      "materialNone": "None"
+    },
+    "materials": {
+      "hardwood": "Hardwood",
+      "concrete": "Concrete",
+      "carpet": "Carpet",
+      "tile": "Tile",
+      "marble": "Marble"
     }
   },
   "localePicker": {

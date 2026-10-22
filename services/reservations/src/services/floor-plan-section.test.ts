@@ -183,4 +183,37 @@ describe("floorPlanSectionService", () => {
       });
     });
   });
+
+  describe("floor material", () => {
+    it("returns the stored material, and null for a section with no floor finish", async () => {
+      db.floorPlanSection.findMany.mockResolvedValue([
+        { ...row, floorMaterial: "hardwood" },
+        { ...row, id: "s2", floorMaterial: null },
+      ]);
+      const [withMaterial, without] = await floorPlanSectionService.list("v1");
+      expect(withMaterial?.floorMaterial).toBe("hardwood");
+      expect(without?.floorMaterial).toBeNull();
+    });
+
+    it("writes a material on create and clears one on update", async () => {
+      db.floorPlan.findFirst.mockResolvedValue({ id: "f1" });
+      db.floorPlanSection.create.mockResolvedValue({ ...row, floorMaterial: "tile" });
+      await floorPlanSectionService.create("v1", {
+        floorPlanId: "f1",
+        name: "Patio",
+        floorMaterial: "tile",
+      });
+      expect(db.floorPlanSection.create.mock.calls[0]?.[0]).toEqual({
+        data: { floorPlanId: "f1", name: "Patio", floorMaterial: "tile", venueId: "v1" },
+      });
+
+      db.floorPlanSection.updateMany.mockResolvedValue({ count: 1 });
+      db.floorPlanSection.findFirst.mockResolvedValue({ ...row, floorMaterial: null });
+      await floorPlanSectionService.update("v1", "s1", { floorMaterial: null });
+      expect(db.floorPlanSection.updateMany.mock.calls[0]?.[0]).toEqual({
+        where: { id: "s1", venueId: "v1" },
+        data: { floorMaterial: null },
+      });
+    });
+  });
 });

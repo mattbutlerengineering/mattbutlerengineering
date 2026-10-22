@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { FloorPlan, Table, TableDisplayStatus } from "@mbe/types";
 
@@ -85,8 +85,22 @@ vi.mock("./TableShape.js", () => ({
 }));
 
 vi.mock("./SectionZone.js", () => ({
-  SectionZone: ({ zone }: { zone: { id: string; name: string } }) => (
-    <div data-testid={`section-zone-${zone.id}`}>{zone.name}</div>
+  SectionZone: ({
+    zone,
+    texture,
+    labelTheme,
+  }: {
+    zone: { id: string; name: string };
+    texture?: HTMLImageElement;
+    labelTheme?: { plate: string; text: string };
+  }) => (
+    <div
+      data-testid={`section-zone-${zone.id}`}
+      data-textured={String(Boolean(texture))}
+      data-label-plate={labelTheme?.plate}
+    >
+      {zone.name}
+    </div>
   ),
 }));
 
@@ -154,6 +168,39 @@ describe("FloorPlanCanvas sections", () => {
     render(<FloorPlanCanvas {...defaultProps} />);
     expect(screen.queryByTestId(/section-zone-/)).toBeNull();
     expect(screen.getByTestId("table-shape-t1")).toBeTruthy();
+  });
+
+  it("hands each zone the texture for its own material, and none to a bare zone", async () => {
+    const loaded: Record<string, () => void> = {};
+    class StubImage {
+      onload: (() => void) | null = null;
+      set src(value: string) {
+        const material = value.split("/").pop()!.replace(".png", "");
+        loaded[material] = () => this.onload?.();
+      }
+    }
+    vi.stubGlobal("Image", StubImage);
+
+    render(
+      <FloorPlanCanvas
+        {...defaultProps}
+        sections={[
+          { ...zone, floorMaterial: "hardwood" },
+          { ...zone, id: "s2", name: "Bar", floorMaterial: null },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("section-zone-s1").dataset.textured).toBe("false");
+
+    await act(async () => loaded.hardwood?.());
+    expect(screen.getByTestId("section-zone-s1").dataset.textured).toBe("true");
+    expect(screen.getByTestId("section-zone-s2").dataset.textured).toBe("false");
+    vi.unstubAllGlobals();
+  });
+
+  it("resolves one label theme for the whole canvas", () => {
+    render(<FloorPlanCanvas {...defaultProps} sections={[zone]} />);
+    expect(screen.getByTestId("section-zone-s1").dataset.labelPlate).toBeTruthy();
   });
 });
 

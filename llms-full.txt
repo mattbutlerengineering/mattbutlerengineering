@@ -11674,6 +11674,19 @@
         : rectangleSeats(count, width, height, gap);
     }
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/floor-textures.ts">
+    export const FLOOR_TEXTURE_DIR = "floor-plan/textures";
+    export const TEXTURE_SOURCE_PX = 64;
+    export const TEXTURE_TILE_PX = GRID_SIZE * 4;
+    export const TEXTURE_PATTERN_SCALE = {
+      x: TEXTURE_TILE_PX / TEXTURE_SOURCE_PX,
+      y: TEXTURE_TILE_PX / TEXTURE_SOURCE_PX,
+    } as const;
+    export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string {
+      const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+      return `${base}${FLOOR_TEXTURE_DIR}/${material}.png`;
+    }
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/furniture-tokens.ts">
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
@@ -11697,6 +11710,46 @@
       rectangle: 6,
       square: 3,
     };
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/section-label-theme.ts">
+    export interface SectionLabelTheme {
+      /** Opaque plate behind the name. */
+      plate: string;
+      /** The name itself. */
+      text: string;
+    }
+    export const SECTION_LABEL_TOKENS = {
+      plate: "--rialto-surface",
+      text: "--rialto-text-primary",
+    } as const;
+    export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme> = {
+      light: { plate: "#f8f6f3", text: "#1a1918" },
+      dark: { plate: "#1e1c1a", text: "rgb(253 252 250 / 0.92)" },
+    };
+    export function resolveSectionLabelTheme(): SectionLabelTheme {
+      const theme: "light" | "dark" =
+        document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      const fallback = SECTION_LABEL_FALLBACKS[theme];
+      const computed = getComputedStyle(document.documentElement);
+      return {
+        plate: computed.getPropertyValue(SECTION_LABEL_TOKENS.plate).trim() || fallback.plate,
+        text: computed.getPropertyValue(SECTION_LABEL_TOKENS.text).trim() || fallback.text,
+      };
+    }
+    export function useSectionLabelTheme(): SectionLabelTheme {
+      const [theme, setTheme] = useState(resolveSectionLabelTheme);
+    
+      useEffect(() => {
+        const observer = new MutationObserver(() => setTheme(resolveSectionLabelTheme()));
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+        return () => observer.disconnect();
+      }, []);
+    
+      return theme;
+    }
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
@@ -13568,6 +13621,45 @@
       fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
       getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
     });
+    export const useUpdateFloorPlanSection = createMutationHook<
+      { venueId: string; sectionId: string; data: UpdateFloorPlanSectionRequest },
+      FloorPlanSection
+    >({
+      invalidateKeys: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      mutationFn: (api, { venueId, sectionId, data }) =>
+        api.floorPlanSections.update(venueId, sectionId, data),
+    });
+  </file>
+  <file path="apps/hospitality/src/hooks/useFloorTextures.ts">
+    export type FloorTextureMap = ReadonlyMap<FloorMaterial, HTMLImageElement>;
+    export function useFloorTextures(materials: readonly FloorMaterial[]): FloorTextureMap {
+      // A content key, not the array identity: callers rebuild the list on every
+      // render, and the effect must only re-run when the set of materials differs.
+      const key = [...new Set(materials)].sort().join(",");
+      const [textures, setTextures] = useState<FloorTextureMap>(EMPTY);
+      const requestedRef = useRef<Set<FloorMaterial>>(new Set());
+    
+      useEffect(() => {
+        if (!key) return;
+        let cancelled = false;
+        for (const material of key.split(",") as FloorMaterial[]) {
+          if (requestedRef.current.has(material)) continue;
+          requestedRef.current.add(material);
+          const image = new Image();
+          image.onload = () => {
+            if (cancelled) return;
+            // A fresh Map per load: the map already handed to the renderer is never mutated.
+            setTextures((previous) => new Map(previous).set(material, image));
+          };
+          image.src = floorTextureUrl(material, import.meta.env.BASE_URL);
+        }
+        return () => {
+          cancelled = true;
+        };
+      }, [key]);
+    
+      return textures;
+    }
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
     export type FocusTarget =
@@ -32066,6 +32158,8 @@
     }
   </file>
   <file path="packages/types/src/schemas/floor-plan-section.ts">
+    export const FLOOR_MATERIALS = ["hardwood", "concrete", "carpet", "tile", "marble"] as const;
+    export const FloorMaterialSchema = z.enum(FLOOR_MATERIALS);
     export const FloorPlanSectionSchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -32073,6 +32167,12 @@
       name: z.string(),
       color: z.string(),
       displayOrder: z.number().int(),
+      /**
+       * `null` means no floor finish: the zone renders exactly as it did before
+       * materials existed. Absent is tolerated too, so a client deployed ahead of
+       * the service still parses a response from before the column existed.
+       */
+      floorMaterial: FloorMaterialSchema.nullish(),
       createdAt: z.string(),
       updatedAt: z.string(),
     });
@@ -32081,6 +32181,8 @@
       name: z.string().min(1),
       color: HexColorSchema.optional(),
       displayOrder: z.number().int().optional(),
+      /** Explicit `null` clears the floor finish; omitted leaves it untouched. */
+      floorMaterial: FloorMaterialSchema.nullable().optional(),
     });
     export const UpdateFloorPlanSectionRequestSchema = CreateFloorPlanSectionRequestSchema.omit({
       floorPlanId: true,
@@ -32095,6 +32197,7 @@
       floorPlanId: z.string().min(1).optional(),
     });
     export const FloorPlanSectionVenueQuerySchema = z.object({ venueId: z.string().min(1) });
+    export type FloorMaterial = z.infer<typeof FloorMaterialSchema>;
     export type FloorPlanSection = z.infer<typeof FloorPlanSectionSchema>;
     export type CreateFloorPlanSectionRequest = z.infer<typeof CreateFloorPlanSectionRequestSchema>;
     export type UpdateFloorPlanSectionRequest = z.infer<typeof UpdateFloorPlanSectionRequestSchema>;
@@ -39145,6 +39248,7 @@
       name: string;
       color: string;
       displayOrder: number;
+      floorMaterial: FloorMaterial | null;
       createdAt: Date;
       updatedAt: Date;
     }
@@ -39156,6 +39260,9 @@
         name: section.name,
         color: section.color,
         displayOrder: section.displayOrder,
+        // `?? null` so a row read before the column existed still serialises as an
+        // explicit "no floor finish" rather than dropping the key off the wire.
+        floorMaterial: section.floorMaterial ?? null,
         createdAt: section.createdAt.toISOString(),
         updatedAt: section.updatedAt.toISOString(),
       };
@@ -63716,6 +63823,101 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/png-luminance.ts">
+    export interface DecodedPng {
+      readonly width: number;
+      readonly height: number;
+      /** Row-major RGBA bytes, `width * height * 4` long. */
+      readonly data: Uint8Array;
+    }
+    function unfilterRow(
+      filterType: number,
+      row: Uint8Array,
+      previous: Uint8Array,
+      out: Uint8Array
+    ): void {
+      for (let i = 0; i < row.length; i++) {
+        const left = i >= RGBA_CHANNELS ? out[i - RGBA_CHANNELS]! : 0;
+        const up = previous[i]!;
+        const upLeft = i >= RGBA_CHANNELS ? previous[i - RGBA_CHANNELS]! : 0;
+        let value: number;
+        switch (filterType) {
+          case 0:
+            value = row[i]!;
+            break;
+          case 1:
+            value = row[i]! + left;
+            break;
+          case 2:
+            value = row[i]! + up;
+            break;
+          case 3:
+            value = row[i]! + ((left + up) >> 1);
+            break;
+          case 4: {
+            const predictor = left + up - upLeft;
+            const dLeft = Math.abs(predictor - left);
+            const dUp = Math.abs(predictor - up);
+            const dUpLeft = Math.abs(predictor - upLeft);
+            const paeth = dLeft <= dUp && dLeft <= dUpLeft ? left : dUp <= dUpLeft ? up : upLeft;
+            value = row[i]! + paeth;
+            break;
+          }
+          default:
+            throw new Error(`Unsupported PNG filter type ${filterType}`);
+        }
+        out[i] = value & 0xff;
+      }
+    }
+    export function decodePng(bytes: Buffer): DecodedPng {
+      if (!bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+        throw new Error("Not a PNG");
+      }
+      const width = bytes.readUInt32BE(16);
+      const height = bytes.readUInt32BE(20);
+      const bitDepth = bytes[24];
+      const colorType = bytes[25];
+      const interlace = bytes[28];
+      if (bitDepth !== EIGHT_BIT || colorType !== COLOR_TYPE_RGBA || interlace !== 0) {
+        throw new Error(
+          `Unsupported PNG: bitDepth=${bitDepth} colorType=${colorType} interlace=${interlace}`
+        );
+      }
+    
+      const idat: Buffer[] = [];
+      let offset = PNG_SIGNATURE.length;
+      while (offset + 8 <= bytes.length) {
+        const length = bytes.readUInt32BE(offset);
+        if (bytes.toString("ascii", offset + 4, offset + 8) === "IDAT") {
+          idat.push(bytes.subarray(offset + 8, offset + 8 + length));
+        }
+        offset += 12 + length;
+      }
+    
+      const raw = inflateSync(Buffer.concat(idat));
+      const stride = width * RGBA_CHANNELS;
+      const data = new Uint8Array(height * stride);
+      let previous = new Uint8Array(stride);
+      for (let y = 0; y < height; y++) {
+        const start = y * (stride + 1);
+        const out = new Uint8Array(stride);
+        unfilterRow(raw[start]!, raw.subarray(start + 1, start + 1 + stride), previous, out);
+        data.set(out, y * stride);
+        previous = out;
+      }
+      return { width, height, data };
+    }
+    export function relativeLuminance(r: number, g: number, b: number): number {
+      const channel = (value: number): number => {
+        const s = value / 255;
+        return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    }
+    export function contrastRatio(a: number, b: number): number {
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    }
+  </file>
   <file path="apps/hospitality/src/test/special-requests-fixtures.ts">
     export const TWO_LINE_NOTE =
       "  Our anniversary.\nWindow seat if you can, and she can't have tree nuts.  \n";

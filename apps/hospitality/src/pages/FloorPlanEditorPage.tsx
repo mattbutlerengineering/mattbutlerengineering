@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
-import type { CreateTableRequest, WallLayout } from "@mbe/types";
+import type { CreateTableRequest, FloorMaterial, WallLayout } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import { WallsPanel } from "../components/floor-plan/WallsPanel.js";
+import { SectionMaterialPicker } from "../components/floor-plan/SectionMaterialPicker.js";
 import {
   moveWallEndpoint,
   type Point,
@@ -19,6 +20,7 @@ import {
   useDeleteTable,
   useUpdateFloorPlanLayout,
   useFloorPlanSections,
+  useUpdateFloorPlanSection,
 } from "../hooks/useFloorPlans.js";
 import { useFloorPlanDraft, type PositionUpdate } from "../hooks/useFloorPlanDraft.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
@@ -61,9 +63,27 @@ export function FloorPlanEditorPage() {
     const rows = new Map((sectionRows ?? []).map((row) => [row.id, row]));
     return (floorPlan?.layoutJson.sections ?? []).flatMap((rect) => {
       const row = rows.get(rect.id);
-      return row ? [{ ...rect, name: row.name, color: row.color }] : [];
+      if (!row) return [];
+      return [
+        { ...rect, name: row.name, color: row.color, floorMaterial: row.floorMaterial ?? null },
+      ];
     });
   }, [floorPlan?.layoutJson.sections, sectionRows]);
+
+  const sectionMutation = useUpdateFloorPlanSection();
+  const venueId = floorPlan?.venueId;
+  const handleMaterialChange = useCallback(
+    async (sectionId: string, floorMaterial: FloorMaterial | null) => {
+      if (!venueId) return;
+      setActionError(null);
+      try {
+        await sectionMutation.mutateAsync({ venueId, sectionId, data: { floorMaterial } });
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : t("floorPlan.editor.saveFailed"));
+      }
+    },
+    [venueId, sectionMutation, t]
+  );
 
   const floorPlanId = floorPlan?.id;
   const persist = useCallback(
@@ -388,6 +408,11 @@ export function FloorPlanEditorPage() {
                         count: tables.filter((table) => table.sectionId === row.id).length,
                       })}
                     </Text>
+                    <SectionMaterialPicker
+                      section={row}
+                      disabled={sectionMutation.isPending}
+                      onChange={(material) => handleMaterialChange(row.id, material)}
+                    />
                   </li>
                 ))}
               </ul>

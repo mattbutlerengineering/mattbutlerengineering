@@ -2,6 +2,7 @@ import type {
   FloorPlan,
   FloorPlanLayout,
   FloorPlanSection,
+  UpdateFloorPlanSectionRequest,
   CreateTableRequest,
   Table,
 } from "@mbe/types";
@@ -135,4 +136,16 @@ export const useFloorPlanSections = createQueryHook<
   key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
   fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
   getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
+});
+
+/* ── useUpdateFloorPlanSection mutation ──────────────── */
+
+/** Patches one section (name, colour, floor material). Re-reads the section list on success. */
+export const useUpdateFloorPlanSection = createMutationHook<
+  { venueId: string; sectionId: string; data: UpdateFloorPlanSectionRequest },
+  FloorPlanSection
+>({
+  invalidateKeys: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+  mutationFn: (api, { venueId, sectionId, data }) =>
+    api.floorPlanSections.update(venueId, sectionId, data),
 });

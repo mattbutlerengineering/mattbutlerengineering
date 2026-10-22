@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import type { FloorPlan, Table } from "@mbe/types";
+import type { FloorPlan, FloorPlanSection, Table } from "@mbe/types";
 import { localeRuntime } from "./runtime.js";
 import esMX from "./catalogs/es-MX.json";
 import frCA from "./catalogs/fr-CA.json";
@@ -10,6 +11,7 @@ import { NewFloorPlanDialog } from "../components/floor-plan/NewFloorPlanDialog.
 import { AddTableDialog } from "../components/floor-plan/AddTableDialog.js";
 import { FloorPlanCanvas } from "../components/floor-plan/FloorPlanCanvas.js";
 import { TableSelectionOverlay } from "../components/floor-plan/TableSelectionOverlay.js";
+import { SectionMaterialPicker } from "../components/floor-plan/SectionMaterialPicker.js";
 import { FloorPlansPage } from "../pages/FloorPlansPage.js";
 import { FloorPlanEditorPage } from "../pages/FloorPlanEditorPage.js";
 
@@ -17,6 +19,9 @@ vi.mock("react-konva", () => ({
   Stage: () => <div data-testid="konva-stage" />,
   Layer: () => null,
 }));
+
+// jsdom has no scrollIntoView; rialto's open listbox scrolls to its active option.
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 const FLOOR_PLAN = {
   id: "fp1",
@@ -40,6 +45,16 @@ const TABLE = {
   shapeMetadata: { shape: "square", x: 20, y: 40, width: 50, height: 50 },
 } as unknown as Table;
 
+const SECTION = {
+  id: "sec1",
+  venueId: "v1",
+  floorPlanId: "fp1",
+  name: "Patio",
+  color: "#3366cc",
+  displayOrder: 0,
+  floorMaterial: null,
+} as unknown as FloorPlanSection;
+
 vi.mock("../contexts/VenueContext.js", () => ({
   useVenue: () => ({ selectedVenueId: "v1" }),
 }));
@@ -54,6 +69,7 @@ vi.mock("../hooks/useFloorPlans.js", () => ({
   useDeleteTable: () => ({ mutateAsync: vi.fn() }),
   useUpdateFloorPlanLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useFloorPlanSections: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useUpdateFloorPlanSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../hooks/useFloorPlanDraft.js", () => ({
   useFloorPlanDraft: () => ({
@@ -154,6 +170,17 @@ describe("floor plans in es-MX", () => {
     expect(screen.getByText("Selecciona una mesa para ver sus detalles")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Guardado" })).toBeInTheDocument();
   });
+
+  it("translates the section floor-material picker", async () => {
+    render(<SectionMaterialPicker section={SECTION} onChange={vi.fn()} />);
+    expect(
+      screen.getByRole("combobox", { name: "Material del piso de Patio" })
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("combobox"));
+    expect(screen.getByRole("option", { name: "Madera" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Mármol" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Ninguno" })).toBeInTheDocument();
+  });
 });
 
 describe("floor plans in fr-CA", () => {
@@ -166,5 +193,16 @@ describe("floor plans in fr-CA", () => {
       <NewFloorPlanDialog venueId="v1" onCreated={vi.fn()} onClose={vi.fn()} onCreate={vi.fn()} />
     );
     expect(screen.getByRole("heading", { name: "Nouveau plan de salle" })).toBeInTheDocument();
+  });
+
+  it("translates the section floor-material picker", async () => {
+    render(<SectionMaterialPicker section={SECTION} onChange={vi.fn()} />);
+    expect(
+      screen.getByRole("combobox", { name: "Matériau du plancher de Patio" })
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("combobox"));
+    expect(screen.getByRole("option", { name: "Bois franc" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Béton" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Aucun" })).toBeInTheDocument();
   });
 });

@@ -157,6 +157,12 @@
   </file>
   <file path="src/schemas/floor-plan-section.ts">
     <item priority="high">
+      export const FLOOR_MATERIALS: unknown;
+    </item>
+    <item priority="high">
+      export const FloorMaterialSchema: unknown;
+    </item>
+    <item priority="high">
       export const FloorPlanSectionSchema: unknown;
     </item>
     <item priority="high">
@@ -176,6 +182,9 @@
     </item>
     <item priority="high">
       export const FloorPlanSectionVenueQuerySchema: unknown;
+    </item>
+    <item priority="low">
+      type FloorMaterial = z.infer<typeof FloorMaterialSchema>;
     </item>
     <item priority="low">
       type FloorPlanSection = z.infer<typeof FloorPlanSectionSchema>;

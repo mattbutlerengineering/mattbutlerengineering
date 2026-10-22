@@ -522,7 +522,17 @@
       "title": "Sections",
       "tableCount_one": "{{count}} table",
       "tableCount_many": "{{count}} de tables",
-      "tableCount_other": "{{count}} tables"
+      "tableCount_other": "{{count}} tables",
+      "material": "Plancher",
+      "materialFor": "Matériau du plancher de {{name}}",
+      "materialNone": "Aucun"
+    },
+    "materials": {
+      "hardwood": "Bois franc",
+      "concrete": "Béton",
+      "carpet": "Tapis",
+      "tile": "Tuile",
+      "marble": "Marbre"
     }
   },
   "localePicker": {
