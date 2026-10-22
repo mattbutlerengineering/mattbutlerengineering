@@ -3488,6 +3488,21 @@
     <item priority="high">
       export const SHAPE_DEFAULTS: unknown;
     </item>
+    <item priority="low">
+      interface PlacedRect {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export function placeNewTable(
+        canvas: { width: number; height: number },
+        size: { width: number; height: number },
+        existing: readonly PlacedRect[]
+      ): { x: number; y: number } { /* ... */ }
+    </item>
     <item priority="high">
       export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number { /* ... */ }
     </item>

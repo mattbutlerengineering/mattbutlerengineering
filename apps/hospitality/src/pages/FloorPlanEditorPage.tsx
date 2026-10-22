@@ -7,6 +7,8 @@ import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import { WallsPanel } from "../components/floor-plan/WallsPanel.js";
 import { SectionMaterialPicker } from "../components/floor-plan/SectionMaterialPicker.js";
 import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
   moveWallEndpoint,
   type Point,
   type WallEnd,
@@ -307,6 +309,14 @@ export function FloorPlanEditorPage() {
         <AddTableDialog
           venueId={floorPlan.venueId}
           floorPlanId={floorPlan.id}
+          canvas={{
+            width: floorPlan.layoutJson.width || CANVAS_WIDTH,
+            height: floorPlan.layoutJson.height || CANVAS_HEIGHT,
+          }}
+          existingTables={tables.flatMap((t) => {
+            const m = t.shapeMetadata;
+            return m ? [{ x: m.x, y: m.y, width: m.width, height: m.height }] : [];
+          })}
           onSubmit={handleAddTable}
           onClose={() => setShowAddDialog(false)}
         />
