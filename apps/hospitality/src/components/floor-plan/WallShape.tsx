@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Group, Line, Circle } from "react-konva";
 import type { WallLayout } from "@mbe/types";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -19,7 +20,7 @@ export interface WallShapeProps {
 }
 
 /** A wall is a solid bar; a window is a lighter, dashed bar so the two never read the same. */
-export function WallShape({ wall, isSelected, onSelect, onEndpointDrag }: WallShapeProps) {
+function WallShapeComponent({ wall, isSelected, onSelect, onEndpointDrag }: WallShapeProps) {
   const isWindow = wall.wallType === "window";
   const accent = token("--rialto-accent", "#b0841e");
   const ink = token("--rialto-text-secondary", "#4a4744");
@@ -58,3 +59,5 @@ export function WallShape({ wall, isSelected, onSelect, onEndpointDrag }: WallSh
     </Group>
   );
 }
+
+export const WallShape = memo(WallShapeComponent);

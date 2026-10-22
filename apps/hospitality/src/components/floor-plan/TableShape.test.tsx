@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, waitFor } from "@testing-library/react";
+import { render, waitFor, fireEvent } from "@testing-library/react";
 import React from "react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -643,5 +643,51 @@ describe("TableShape", () => {
       tableGroup().dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       expect(onDragStart).toHaveBeenCalledWith("table-xyz");
     });
+  });
+});
+
+describe("TableShape memoization", () => {
+  it("does not re-render when props are unchanged, and re-renders when status changes", () => {
+    let renderCount = 0;
+    const table = makeTable();
+    Object.defineProperty(table, "isActive", {
+      get() {
+        renderCount++;
+        return true;
+      },
+    });
+    const noop = () => {};
+
+    function Harness({ status }: { status?: "seated" }) {
+      const [tick, setTick] = React.useState(0);
+      return (
+        <>
+          <button
+            data-testid="force-rerender"
+            data-tick={tick}
+            onClick={() => setTick((n) => n + 1)}
+          />
+          <TableShape
+            table={table}
+            isSelected={false}
+            isDragging={false}
+            onSelect={noop}
+            onDragStart={noop}
+            onDragEnd={noop}
+            status={status}
+          />
+        </>
+      );
+    }
+
+    const { rerender, getByTestId } = render(<Harness />);
+    const countAfterMount = renderCount;
+    expect(countAfterMount).toBeGreaterThan(0);
+
+    fireEvent.click(getByTestId("force-rerender"));
+    expect(renderCount).toBe(countAfterMount);
+
+    rerender(<Harness status="seated" />);
+    expect(renderCount).toBeGreaterThan(countAfterMount);
   });
 });

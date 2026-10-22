@@ -153,6 +153,9 @@ export function FloorPlanCanvas({
     [selectedTableId, onTableSelect]
   );
 
+  // Stable identity so WallShape's memo holds across canvas re-renders.
+  const handleWallSelect = useCallback((id: string) => onWallSelect?.(id), [onWallSelect]);
+
   const handleStageClick = useCallback(
     (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
       // Deselect when clicking empty area
@@ -263,7 +266,7 @@ export function FloorPlanCanvas({
               key={wall.id}
               wall={wall}
               isSelected={wall.id === selectedWallId}
-              onSelect={(id) => onWallSelect?.(id)}
+              onSelect={handleWallSelect}
               onEndpointDrag={readOnly ? undefined : onWallEndpointMove}
             />
           ))}
