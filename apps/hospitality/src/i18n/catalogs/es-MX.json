@@ -1786,6 +1786,12 @@
   "venueTheme": {
     "title": "Tema del local",
     "description": "El color de tu marca para botones, enlaces y resaltados. No se pueden guardar paletas que dificulten la lectura.",
+    "logoLabel": "Toma los colores de un logotipo",
+    "logoHint": "PNG, JPEG o WebP. La imagen permanece en este dispositivo: solo se guardan los colores.",
+    "logoNoColours": "Ese logotipo no tiene colores utilizables: parece todo blanco, todo negro o completamente transparente.",
+    "logoUnsupportedType": "Ese archivo no es una imagen PNG, JPEG o WebP.",
+    "logoTooLarge": "Esa imagen es demasiado grande. Elige una de menos de 8 MB.",
+    "logoDecodeFailed": "No se pudo leer esa imagen. Prueba con otro archivo.",
     "accent": "Color de acento",
     "accentHover": "Color de acento al pasar el cursor",
     "previewTitle": "Vista previa",

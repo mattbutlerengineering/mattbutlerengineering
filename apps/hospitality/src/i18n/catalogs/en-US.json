@@ -1761,6 +1761,12 @@
   "venueTheme": {
     "title": "Venue theme",
     "description": "Your brand colour for buttons, links and highlights. Palettes that would make text hard to read can't be saved.",
+    "logoLabel": "Take the colours from a logo",
+    "logoHint": "PNG, JPEG or WebP. The image stays on this device — only the colours are saved.",
+    "logoNoColours": "That logo has no usable colours — it looks all white, all black or fully transparent.",
+    "logoUnsupportedType": "That file isn't a PNG, JPEG or WebP image.",
+    "logoTooLarge": "That image is too large. Choose one under 8 MB.",
+    "logoDecodeFailed": "That image couldn't be read. Try a different file.",
     "accent": "Accent colour",
     "accentHover": "Accent hover colour",
     "previewTitle": "Preview",

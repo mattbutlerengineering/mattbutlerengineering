@@ -5724,6 +5724,92 @@
       ): AuthErrorDescription { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/lib/logo-palette-canvas.ts">
+    <item priority="high">
+      export const ACCEPTED_LOGO_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_LOGO_BYTES: unknown;
+    </item>
+    <item priority="low">
+      type LogoPaletteFailure = "unsupported-type" | "too-large" | "decode-failed";
+    </item>
+    <item priority="low">
+      type LogoPaletteResult = { readonly ok: true; readonly  | { readonly ok: false; readonly;
+    </item>
+    <item priority="high">
+      export function classifyLogoFile(file: Pick<File, "type" | "size">): LogoPaletteFailure | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function readLogoPalette(
+        file: File,
+        maxColors = DEFAULT_MAX_COLORS
+      ): Promise<LogoPaletteResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/lib/logo-palette.ts">
+    <item priority="low">
+      interface RgbPixel {
+        r: number;
+        g: number;
+        b: number;
+      }
+    </item>
+    <item priority="high">
+      interface Centroid {
+        count: number;
+      }
+    </item>
+    <item priority="low">
+      type RgbaBytes = Uint8Array | Uint8ClampedArray;
+    </item>
+    <item priority="high">
+      export const DEFAULT_MAX_COLORS: unknown;
+    </item>
+    <item priority="high">
+      export const PIXEL_STRIDE: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_SAMPLE_EDGE: unknown;
+    </item>
+    <item priority="high">
+      export function fitWithin(
+        width: number,
+        height: number,
+        maxEdge = MAX_SAMPLE_EDGE
+      ): { readonly width: number; readonly height: number } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function samplePixels(rgba: RgbaBytes): readonly RgbPixel[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function distance(a: RgbPixel, b: RgbPixel): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function initCentroids(pixels: readonly RgbPixel[], k: number): readonly RgbPixel[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nearestCentroid(pixel: RgbPixel, centroids: readonly RgbPixel[]): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function meanOf(cluster: readonly RgbPixel[]): RgbPixel { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runKMeans(pixels: readonly RgbPixel[], k: number): readonly Centroid[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toHex(n: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function centroidToHex(c: RgbPixel): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractDominantColors(
+        rgba: RgbaBytes,
+        maxColors = DEFAULT_MAX_COLORS
+      ): readonly string[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
     <item priority="low">
       type FloorPlanSnapshot = TableStatusDelta[];
@@ -5849,6 +5935,18 @@
     </item>
     <item priority="high">
       export function onAccentColor(accent: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function channel(hex: string, index: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toHexByte(value: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deriveAccentHover(accent: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function paletteToTheme(palette: readonly string[]): VenueTheme | null { /* ... */ }
     </item>
     <item priority="low">
       type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
