@@ -221,6 +221,19 @@
       }
     </item>
   </file>
+  <file path="src/floor-plan-sections.ts">
+    <item priority="medium">
+      function sectionPath(venueId: string, segments: string[] = [], extraQuery = ""): string { /* ... */ }
+    </item>
+    <item priority="high">
+      class FloorPlanSectionsClient {
+        async list(): Promise<unknown>;
+        async create(): Promise<unknown>;
+        async update(): Promise<unknown>;
+        async delete(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="src/floor-plans.ts">
     <item priority="high">
       class FloorPlansClient {

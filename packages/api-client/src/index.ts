@@ -15,6 +15,7 @@ export {
   type FindOrCreateGuestRequest,
 } from "./guests.js";
 export { FloorPlansClient } from "./floor-plans.js";
+export { FloorPlanSectionsClient } from "./floor-plan-sections.js";
 export { MenusClient } from "./menus.js";
 export type { MenuWithSections } from "./menus.js";
 export { DepositsClient, type CreateDepositRequest, type DepositTransition } from "./deposits.js";
@@ -58,6 +59,7 @@ import { VenuesClient, VenueGroupsClient } from "./venues.js";
 import { TablesClient } from "./tables.js";
 import { GuestsClient } from "./guests.js";
 import { FloorPlansClient } from "./floor-plans.js";
+import { FloorPlanSectionsClient } from "./floor-plan-sections.js";
 import { MenusClient } from "./menus.js";
 import { PublicVenueClient } from "./public-venue.js";
 import { WaitlistClient } from "./waitlist.js";
@@ -92,6 +94,7 @@ export function createApiClient(config: {
     tables: new TablesClient(client),
     guests: new GuestsClient(client),
     floorPlans: new FloorPlansClient(client),
+    floorPlanSections: new FloorPlanSectionsClient(client),
     menus: new MenusClient(client),
     publicVenue: new PublicVenueClient(client),
     waitlist: new WaitlistClient(client),

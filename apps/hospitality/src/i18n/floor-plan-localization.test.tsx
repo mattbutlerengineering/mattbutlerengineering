@@ -53,6 +53,7 @@ vi.mock("../hooks/useFloorPlans.js", () => ({
   useAddTable: () => ({ mutateAsync: vi.fn() }),
   useDeleteTable: () => ({ mutateAsync: vi.fn() }),
   useUpdateFloorPlanLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useFloorPlanSections: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
 }));
 vi.mock("../hooks/useFloorPlanDraft.js", () => ({
   useFloorPlanDraft: () => ({

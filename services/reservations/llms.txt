@@ -667,6 +667,16 @@
       export async function eventRoutes(fastify: FastifyInstance): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/floor-plan-sections.ts">
+    <item priority="high">
+      interface VenueQuery {
+        venueId: string;
+      }
+    </item>
+    <item priority="high">
+      export const floorPlanSectionRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/floor-plans.ts">
     <item priority="high">
       export const floorPlanRoutes: FastifyPluginAsync;
@@ -1159,6 +1169,21 @@
     </item>
     <item priority="medium">
       function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
+    </item>
+    <item priority="high">
+      interface SectionIds {
+        sectionId: string;
+        floorPlanId: string;
+        tableId: string;
+      }
+    </item>
+    <item priority="low">
+      async function seedSection(ctx: SweepContext, venueId: string): Promise<SectionIds> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okSectionRoute(
+        build: (ids: SectionIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+      ): RouteFixture { /* ... */ }
     </item>
     <item priority="high">
       interface MenuTreeIds {
@@ -1754,6 +1779,23 @@
         async emitChange(): Promise<unknown>;
         async onChange(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="src/services/floor-plan-section.ts">
+    <item priority="high">
+      interface PrismaFloorPlanSection {
+        id: string;
+        venueId: string;
+        floorPlanId: string;
+        name: string;
+        color: string;
+      }
+    </item>
+    <item priority="medium">
+      function mapSection(section: PrismaFloorPlanSection): FloorPlanSection { /* ... */ }
+    </item>
+    <item priority="high">
+      export const floorPlanSectionService: unknown;
     </item>
   </file>
   <file path="src/services/floor-plan.ts">

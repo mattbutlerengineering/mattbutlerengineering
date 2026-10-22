@@ -15,6 +15,14 @@ import {
   FloorPlanSchema,
 } from "./floor-plan.js";
 import {
+  CreateFloorPlanSectionRequestSchema,
+  UpdateFloorPlanSectionRequestSchema,
+  ReorderFloorPlanSectionsRequestSchema,
+  AssignSectionTablesRequestSchema,
+  FloorPlanSectionListQuerySchema,
+  FloorPlanSectionVenueQuerySchema,
+} from "./floor-plan-section.js";
+import {
   AgentSessionSchema,
   AgentSessionEventSchema,
   CreateAgentSessionRequestSchema,
@@ -372,6 +380,24 @@ export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema
 /** Response schemas: fast-json-stringify drops any field not listed, so internals cannot leak. */
 export const publicMenuResponseJsonSchema = toResponseJsonSchema(PublicMenuSchema);
 export const publicMenuDetailResponseJsonSchema = toResponseJsonSchema(PublicMenuDetailSchema);
+export const floorPlanSectionListQueryJsonSchema = toRequestJsonSchema(
+  FloorPlanSectionListQuerySchema
+);
+export const floorPlanSectionVenueQueryJsonSchema = toRequestJsonSchema(
+  FloorPlanSectionVenueQuerySchema
+);
+export const createFloorPlanSectionBodyJsonSchema = toRequestJsonSchema(
+  CreateFloorPlanSectionRequestSchema
+);
+export const updateFloorPlanSectionBodyJsonSchema = toRequestJsonSchema(
+  UpdateFloorPlanSectionRequestSchema
+);
+export const reorderFloorPlanSectionsBodyJsonSchema = toRequestJsonSchema(
+  ReorderFloorPlanSectionsRequestSchema
+);
+export const assignSectionTablesBodyJsonSchema = toRequestJsonSchema(
+  AssignSectionTablesRequestSchema
+);
 export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
 export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
 export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);

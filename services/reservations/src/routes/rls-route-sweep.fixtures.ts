@@ -1103,6 +1103,105 @@ const floorPlanFixtures: Record<string, RouteFixture> = {
   ),
 };
 
+const SECTIONS_PATH = "/api/v1/floor-plan-sections";
+
+interface SectionIds {
+  sectionId: string;
+  floorPlanId: string;
+  tableId: string;
+}
+
+/**
+ * Seeds a floor plan with one section and one table assigned to that plan in
+ * `venueId`, through the API itself (as the bypass admin), so the fixtures
+ * below need no direct DB access and use the same venue-scoped write path
+ * operators use.
+ */
+async function seedSection(ctx: SweepContext, venueId: string): Promise<SectionIds> {
+  const floorPlanId = await createDisposableFloorPlan(ctx, venueId);
+  const tableId = await createDisposableTable(ctx, venueId);
+  expectOk(
+    await asAdmin(ctx, {
+      method: "POST",
+      url: `/api/v1/floor-plans/tables/${tableId}/assign`,
+      payload: { floorPlanId },
+    }),
+    "seed table onto floor plan"
+  );
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: `${SECTIONS_PATH}?venueId=${venueId}`,
+    payload: { floorPlanId, name: "Sweep section" },
+  });
+  expectOk(res, "seed floor plan section");
+  return { sectionId: res.json<{ data: { id: string } }>().data.id, floorPlanId, tableId };
+}
+
+/**
+ * Section routes name their venue in the query and address section ids inside
+ * it. Proves: admin and member act on venue A's own section; a member is denied
+ * venue B outright; and venue A's ids are not reachable through venue B even
+ * for the platform admin (the id is invisible there, not just forbidden).
+ */
+function okSectionRoute(
+  build: (ids: SectionIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+): RouteFixture {
+  return ok(async (ctx) => {
+    expectOk(
+      await asAdmin(ctx, build(await seedSection(ctx, ctx.venueA.id), ctx.venueA.id)),
+      "admin venue A"
+    );
+    expectOk(
+      await asMember(ctx, build(await seedSection(ctx, ctx.venueA.id), ctx.venueA.id)),
+      "member venue A"
+    );
+    const ids = await seedSection(ctx, ctx.venueA.id);
+    expectDenied(await asMember(ctx, build(ids, ctx.venueB.id)), "member venue B");
+    expectDenied(await asAdmin(ctx, build(ids, ctx.venueB.id)), "admin venue B, venue A's ids");
+  });
+}
+
+const floorPlanSectionFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/floor-plan-sections": okScopedByQuery(SECTIONS_PATH),
+  "POST /api/v1/floor-plan-sections": ok(async (ctx) => {
+    const create = async (venueId: string) => ({
+      method: "POST" as const,
+      url: `${SECTIONS_PATH}?venueId=${venueId}`,
+      payload: {
+        floorPlanId: await createDisposableFloorPlan(ctx, venueId),
+        name: "Sweep section",
+      },
+    });
+    expectOk(await asAdmin(ctx, await create(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, await create(ctx.venueB.id)), "admin venue B");
+    expectOk(await asMember(ctx, await create(ctx.venueA.id)), "member venue A");
+    expectDenied(await asMember(ctx, await create(ctx.venueB.id)), "member venue B");
+  }),
+  "PUT /api/v1/floor-plan-sections/order": okSectionRoute(
+    ({ sectionId, floorPlanId }, venueId) => ({
+      method: "PUT",
+      url: `${SECTIONS_PATH}/order?venueId=${venueId}`,
+      payload: { floorPlanId, ids: [sectionId] },
+    })
+  ),
+  "PATCH /api/v1/floor-plan-sections/:sectionId": okSectionRoute(({ sectionId }, venueId) => ({
+    method: "PATCH",
+    url: `${SECTIONS_PATH}/${sectionId}?venueId=${venueId}`,
+    payload: { name: "Renamed", color: "#112233" },
+  })),
+  "DELETE /api/v1/floor-plan-sections/:sectionId": okSectionRoute(({ sectionId }, venueId) => ({
+    method: "DELETE",
+    url: `${SECTIONS_PATH}/${sectionId}?venueId=${venueId}`,
+  })),
+  "PUT /api/v1/floor-plan-sections/:sectionId/tables": okSectionRoute(
+    ({ sectionId, tableId }, venueId) => ({
+      method: "PUT",
+      url: `${SECTIONS_PATH}/${sectionId}/tables?venueId=${venueId}`,
+      payload: { tableIds: [tableId] },
+    })
+  ),
+};
+
 const MENUS_PATH = "/api/v1/menus";
 
 interface MenuTreeIds {
@@ -1675,6 +1774,7 @@ export const FIXTURES: Record<string, RouteFixture> = {
   ...venueFixtures,
   ...availabilityFixtures,
   ...floorPlanFixtures,
+  ...floorPlanSectionFixtures,
   ...menuFixtures,
   ...guestFixtures,
   ...reservationFixtures,

@@ -105,9 +105,10 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
 
   const declarations = parseRlsDeclarations(sqlFiles);
 
-  it("enables RLS on exactly the venue-scoped tables ADR-026 §1 lists plus reservation_events, table_events and the menus tables", () => {
+  it("enables RLS on exactly the venue-scoped tables ADR-026 §1 lists plus reservation_events, table_events, the menus tables and floor_plan_sections", () => {
     expect([...declarations.enabled].sort()).toEqual([
       "deposits",
+      "floor_plan_sections",
       "floor_plans",
       "guests",
       "menu_items",

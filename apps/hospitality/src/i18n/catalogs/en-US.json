@@ -509,6 +509,11 @@
       "endY": "End Y",
       "thickness": "Thickness",
       "delete": "Delete wall"
+    },
+    "sections": {
+      "title": "Sections",
+      "tableCount_one": "{{count}} table",
+      "tableCount_other": "{{count}} tables"
     }
   },
   "localePicker": {

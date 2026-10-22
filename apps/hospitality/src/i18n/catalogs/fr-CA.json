@@ -517,6 +517,11 @@
       "endY": "Y d'arrivée",
       "thickness": "Épaisseur",
       "delete": "Supprimer le mur"
+    },
+    "sections": {
+      "title": "Sections",
+      "tableCount_one": "{{count}} table",
+      "tableCount_other": "{{count}} tables"
     }
   },
   "localePicker": {

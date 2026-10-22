@@ -10,6 +10,7 @@ import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
 import { floorPlanRoutes } from "./routes/floor-plans.js";
 import { menuRoutes } from "./routes/menus.js";
+import { floorPlanSectionRoutes } from "./routes/floor-plan-sections.js";
 import { guestRoutes } from "./routes/guests.js";
 import { publicVenueRoutes } from "./routes/public-venues.js";
 import { publicMenuRoutes } from "./routes/public-menus.js";
@@ -269,6 +270,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
   await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
   await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+  await fastify.register(floorPlanSectionRoutes, { prefix: "/api/v1/floor-plan-sections" });
   await fastify.register(menuRoutes, { prefix: "/api/v1/menus" });
   await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
   await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });

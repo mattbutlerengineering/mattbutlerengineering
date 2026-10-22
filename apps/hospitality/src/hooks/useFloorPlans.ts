@@ -1,4 +1,10 @@
-import type { FloorPlan, FloorPlanLayout, CreateTableRequest, Table } from "@mbe/types";
+import type {
+  FloorPlan,
+  FloorPlanLayout,
+  FloorPlanSection,
+  CreateTableRequest,
+  Table,
+} from "@mbe/types";
 import type { useApiClient } from "./useApiClient.js";
 import { buildQueryKey, createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
@@ -116,4 +122,17 @@ export const useUpdateFloorPlanLayout = createMutationHook<
   onSuccess: (queryClient, _data, variables) => {
     queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
   },
+});
+
+/* ── useFloorPlanSections ────────────────────────────── */
+
+export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
+
+export const useFloorPlanSections = createQueryHook<
+  FloorPlanSection[],
+  { venueId?: string | null; floorPlanId?: string | null }
+>({
+  key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+  fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
+  getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
 });

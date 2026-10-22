@@ -115,6 +115,7 @@ model Venue {
   guests                    Guest[]
   floorPlans                FloorPlan[]
   menus                     Menu[]
+  floorPlanSections         FloorPlanSection[]
   holds                     ReservationHold[]
   reservationEvents         ReservationEvent[]
   tableEvents               TableEvent[]
@@ -195,12 +196,31 @@ model FloorPlan {
   isActive   Boolean  @default(false) @map("is_active")
   layoutJson Json     @map("layout_json")
   tables     Table[]
+  sections   FloorPlanSection[]
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@index([venueId])
   @@index([venueId, isActive])
   @@map("floor_plans")
+}
+
+model FloorPlanSection {
+  id           String    @id @default(cuid())
+  venueId      String    @map("venue_id")
+  venue        Venue     @relation(fields: [venueId], references: [id])
+  floorPlanId  String    @map("floor_plan_id")
+  floorPlan    FloorPlan @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+  name         String
+  color        String    @default("#8a8a8a")
+  displayOrder Int       @default(0) @map("display_order")
+  tables       Table[]
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([venueId])
+  @@index([floorPlanId, displayOrder])
+  @@map("floor_plan_sections")
 }
 
 model Table {
@@ -218,6 +238,8 @@ model Table {
   venue         Venue?            @relation(fields: [venueId], references: [id])
   floorPlanId   String?           @map("floor_plan_id")
   floorPlan     FloorPlan?        @relation(fields: [floorPlanId], references: [id])
+  sectionId     String?           @map("section_id")
+  section       FloorPlanSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   shapeMetadata Json?             @map("shape_metadata")
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
@@ -228,6 +250,7 @@ model Table {
   @@unique([venueId, name])
   @@index([venueId])
   @@index([floorPlanId])
+  @@index([sectionId])
   @@map("tables")
 }
 

@@ -4288,6 +4288,12 @@
     <item priority="high">
       export const useUpdateFloorPlanLayout: unknown;
     </item>
+    <item priority="high">
+      export const FLOOR_PLAN_SECTIONS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useFloorPlanSections: unknown;
+    </item>
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
     <item priority="low">
@@ -7571,6 +7577,16 @@
       export async function eventRoutes(fastify: FastifyInstance): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/floor-plan-sections.ts">
+    <item priority="high">
+      interface VenueQuery {
+        venueId: string;
+      }
+    </item>
+    <item priority="high">
+      export const floorPlanSectionRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/floor-plans.ts">
     <item priority="high">
       export const floorPlanRoutes: FastifyPluginAsync;
@@ -8065,6 +8081,21 @@
       function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
     </item>
     <item priority="high">
+      interface SectionIds {
+        sectionId: string;
+        floorPlanId: string;
+        tableId: string;
+      }
+    </item>
+    <item priority="low">
+      async function seedSection(ctx: SweepContext, venueId: string): Promise<SectionIds> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okSectionRoute(
+        build: (ids: SectionIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+      ): RouteFixture { /* ... */ }
+    </item>
+    <item priority="high">
       interface MenuTreeIds {
         menuId: string;
         sectionId: string;
@@ -8306,12 +8337,53 @@
       export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) { /* ... */ }
     </item>
   </file>
+  <file path="packages/types/src/schemas/floor-plan-section.ts">
+    <item priority="high">
+      export const FloorPlanSectionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateFloorPlanSectionRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateFloorPlanSectionRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReorderFloorPlanSectionsRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AssignSectionTablesRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanSectionListQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanSectionVenueQuerySchema: unknown;
+    </item>
+    <item priority="low">
+      type FloorPlanSection = z.infer<typeof FloorPlanSectionSchema>;
+    </item>
+    <item priority="low">
+      type CreateFloorPlanSectionRequest = z.infer<typeof CreateFloorPlanSectionRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateFloorPlanSectionRequest = z.infer<typeof UpdateFloorPlanSectionRequestSchema>;
+    </item>
+    <item priority="low">
+      type ReorderFloorPlanSectionsRequest = z.infer<typeof ReorderFloorPlanSectionsRequestSchema>;
+    </item>
+    <item priority="low">
+      type AssignSectionTablesRequest = z.infer<typeof AssignSectionTablesRequestSchema>;
+    </item>
+  </file>
   <file path="packages/types/src/schemas/floor-plan.ts">
     <item priority="high">
       export const TableShapeMetadataSchema: unknown;
     </item>
     <item priority="high">
       export const WallLayoutSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SectionLayoutSchema: unknown;
     </item>
     <item priority="high">
       export const FloorPlanLayoutSchema: unknown;
@@ -8548,6 +8620,24 @@
     </item>
     <item priority="high">
       export const publicMenuDetailResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const floorPlanSectionListQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const floorPlanSectionVenueQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createFloorPlanSectionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateFloorPlanSectionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const reorderFloorPlanSectionsBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const assignSectionTablesBodyJsonSchema: unknown;
     </item>
     <item priority="high">
       export const createMenuBodyJsonSchema: unknown;
@@ -10417,6 +10507,23 @@
         async emitChange(): Promise<unknown>;
         async onChange(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/floor-plan-section.ts">
+    <item priority="high">
+      interface PrismaFloorPlanSection {
+        id: string;
+        venueId: string;
+        floorPlanId: string;
+        name: string;
+        color: string;
+      }
+    </item>
+    <item priority="medium">
+      function mapSection(section: PrismaFloorPlanSection): FloorPlanSection { /* ... */ }
+    </item>
+    <item priority="high">
+      export const floorPlanSectionService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
@@ -14701,6 +14808,19 @@
       }
     </item>
   </file>
+  <file path="packages/api-client/src/floor-plan-sections.ts">
+    <item priority="medium">
+      function sectionPath(venueId: string, segments: string[] = [], extraQuery = ""): string { /* ... */ }
+    </item>
+    <item priority="high">
+      class FloorPlanSectionsClient {
+        async list(): Promise<unknown>;
+        async create(): Promise<unknown>;
+        async update(): Promise<unknown>;
+        async delete(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="packages/api-client/src/floor-plans.ts">
     <item priority="high">
       class FloorPlansClient {
@@ -16461,6 +16581,15 @@
         y1: number;
         x2: number;
         y2: number;
+      }
+    </item>
+    <item priority="low">
+      interface SectionLayout {
+        id: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
       }
     </item>
     <item priority="low">

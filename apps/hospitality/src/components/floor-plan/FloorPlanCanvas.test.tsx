@@ -84,6 +84,12 @@ vi.mock("./TableShape.js", () => ({
   ),
 }));
 
+vi.mock("./SectionZone.js", () => ({
+  SectionZone: ({ zone }: { zone: { id: string; name: string } }) => (
+    <div data-testid={`section-zone-${zone.id}`}>{zone.name}</div>
+  ),
+}));
+
 import { FloorPlanCanvas } from "./FloorPlanCanvas.js";
 
 /* ── Fixtures ─────────────────────────────────────────────────── */
@@ -133,6 +139,23 @@ const defaultProps = {
 };
 
 /* ── Tests ────────────────────────────────────────────────────── */
+
+describe("FloorPlanCanvas sections", () => {
+  const zone = { id: "s1", name: "Patio", color: "#3366cc", x: 0, y: 0, width: 100, height: 100 };
+
+  it("renders section zones beneath the tables", () => {
+    render(<FloorPlanCanvas {...defaultProps} sections={[zone]} />);
+    const zoneEl = screen.getByTestId("section-zone-s1");
+    const tableEl = screen.getByTestId("table-shape-t1");
+    expect(zoneEl.compareDocumentPosition(tableEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("renders as before when a plan has no sections", () => {
+    render(<FloorPlanCanvas {...defaultProps} />);
+    expect(screen.queryByTestId(/section-zone-/)).toBeNull();
+    expect(screen.getByTestId("table-shape-t1")).toBeTruthy();
+  });
+});
 
 describe("FloorPlanCanvas", () => {
   beforeEach(() => {

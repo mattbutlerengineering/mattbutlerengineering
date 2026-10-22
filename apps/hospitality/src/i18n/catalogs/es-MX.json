@@ -517,6 +517,11 @@
       "endY": "Y final",
       "thickness": "Grosor",
       "delete": "Eliminar pared"
+    },
+    "sections": {
+      "title": "Secciones",
+      "tableCount_one": "{{count}} mesa",
+      "tableCount_other": "{{count}} mesas"
     }
   },
   "localePicker": {
