@@ -28,6 +28,12 @@ vi.mock("../services/gen-spend-ceiling.js", async (importActual) => {
     ...actual,
     getGenSpendToday: vi.fn(async () => ({ generations: 0, costMicroUsd: 0 })),
     recordGenSpend: vi.fn(async () => {}),
+    // Real trackGenSpend would call the module-internal recordGenSpend, not the mock.
+    trackGenSpend: vi.fn(async (cost: number) => {
+      const mod = await import("../services/gen-spend-ceiling.js");
+      await mod.recordGenSpend(cost);
+    }),
+    isSpendTrackingDegraded: vi.fn(() => false),
     getGenDailyCeilingUsd: vi.fn(() => 2),
   };
 });
@@ -94,7 +100,12 @@ import rateLimit from "@fastify/rate-limit";
 import { requireAuth } from "@mbe/auth/fastify";
 import { createGenRoute } from "./gen-route-factory.js";
 import { logGenCost } from "./gen-stream.js";
-import { getGenSpendToday, recordGenSpend } from "../services/gen-spend-ceiling.js";
+import {
+  getGenSpendToday,
+  recordGenSpend,
+  isSpendTrackingDegraded,
+  failedGenCostMicroUsd,
+} from "../services/gen-spend-ceiling.js";
 
 async function* mockStream<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) yield item;
@@ -758,5 +769,24 @@ describe("aggregate spend ceiling", () => {
     });
 
     expect(vi.mocked(recordGenSpend)).toHaveBeenCalledWith(10_000);
+  });
+
+  it("fails closed with a 503 once usage writes have been failing", async () => {
+    vi.mocked(isSpendTrackingDegraded).mockReturnValueOnce(true);
+
+    const response = await post();
+
+    expect(response.statusCode).toBe(503);
+    expect(vi.mocked(streamText)).not.toHaveBeenCalled();
+  });
+
+  it("charges the worst-case estimate when a generation fails before onFinish", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockStream([{ type: "error", error: new Error("boom") }]),
+    } as never);
+
+    await post();
+
+    expect(vi.mocked(recordGenSpend)).toHaveBeenCalledWith(failedGenCostMicroUsd());
   });
 });

@@ -634,6 +634,7 @@
     
           let spend;
           try {
+            if (isSpendTrackingDegraded()) throw new Error("usage writes are failing");
             spend = await getGenSpendToday();
           } catch (err) {
             // Unknown spend must not read as zero spend: fail closed.
@@ -700,6 +701,11 @@
               : (parsed as { messages: GenMessages }).messages;
     
             const tools = await getTools(request, parsed);
+            // A run that errors before onFinish still consumed tokens: charge the worst case.
+            let usageReported = false;
+            const chargeIfUnreported = async () => {
+              if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+            };
             const runner = createGenRunner({
               systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
               modelId: GEN_MODEL_ID,
@@ -714,11 +720,8 @@
                   providerMetadata,
                   label: costLogLabel,
                 });
-                try {
-                  await recordGenSpend(genCostMicroUsd(usage, providerMetadata));
-                } catch (err) {
-                  request.log.error({ err }, "gen spend ceiling: failed to record usage");
-                }
+                usageReported = true;
+                await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
               },
             });
     
@@ -741,6 +744,7 @@
                     // Error the stream — closing here would turn an upstream
                     // failure (e.g. 529/401) into an empty-looking 200.
                     request.log.error({ err }, "gen stream failed");
+                    await chargeIfUnreported();
                     controller.error(toError(err));
                   }
                 },
@@ -764,6 +768,7 @@
                   controller.close();
                 } catch (err) {
                   request.log.error({ err }, "gen stream failed");
+                  await chargeIfUnreported();
                   controller.error(toError(err));
                 }
               },
@@ -1097,6 +1102,13 @@
   </file>
   <file path="src/routes/gen-stream.ts">
     export const GEN_MODEL_ID = "claude-haiku-5-5";
+    export const GEN_PRICING = (() => {
+      const rates = (
+        GEN_MODEL_PRICING as Record<string, (typeof GEN_MODEL_PRICING)[keyof typeof GEN_MODEL_PRICING]>
+      )[GEN_MODEL_ID];
+      if (!rates) throw new Error(`No pricing declared for GEN_MODEL_ID "${GEN_MODEL_ID}"`);
+      return rates;
+    })();
     export const GEN_MAX_OUTPUT_TOKENS = 2048;
     type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
     export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
@@ -2365,7 +2377,7 @@
     export const prisma = db.prisma as unknown as PrismaClient;
   </file>
   <file path="src/services/gen-spend-ceiling.ts">
-    export const GEN_DAILY_CEILING_DEFAULT_USD = 2;
+    export const GEN_DAILY_CEILING_DEFAULT_USD = 0.5;
     export function resolveGenDailyCeilingUsd(raw: string | undefined): number {
       if (raw === undefined || raw.trim() === "") return GEN_DAILY_CEILING_DEFAULT_USD;
       const value = Number(raw);
@@ -2387,10 +2399,10 @@
       const write = meta?.cacheCreationInputTokens ?? 0;
       const fresh = Math.max(0, (usage.inputTokens ?? 0) - read - write);
       const usd =
-        (fresh * INPUT_PER_MTOK +
-          read * CACHE_READ_PER_MTOK +
-          write * CACHE_WRITE_PER_MTOK +
-          (usage.outputTokens ?? 0) * OUTPUT_PER_MTOK) /
+        (fresh * GEN_PRICING.input +
+          read * GEN_PRICING.cacheRead +
+          write * GEN_PRICING.cacheWrite +
+          (usage.outputTokens ?? 0) * GEN_PRICING.output) /
         1_000_000;
       return Math.round(usd * 1_000_000);
     }
@@ -2420,6 +2432,28 @@
         ON CONFLICT (window_date) DO UPDATE
         SET generations = gen_spend_windows.generations + 1,
             cost_micro_usd = gen_spend_windows.cost_micro_usd + EXCLUDED.cost_micro_usd`;
+    }
+    export function failedGenCostMicroUsd(): number {
+      return Math.round(GEN_MAX_OUTPUT_TOKENS * GEN_PRICING.output);
+    }
+    export const GEN_WRITE_FAILURE_LIMIT = 3;
+    export function isSpendTrackingDegraded(): boolean {
+      return consecutiveWriteFailures >= GEN_WRITE_FAILURE_LIMIT;
+    }
+    export function resetSpendTrackingForTests(): void {
+      consecutiveWriteFailures = 0;
+    }
+    export async function trackGenSpend(
+      costMicroUsd: number,
+      log: Pick<FastifyBaseLogger, "error">
+    ): Promise<void> {
+      try {
+        await recordGenSpend(costMicroUsd);
+        consecutiveWriteFailures = 0;
+      } catch (err) {
+        consecutiveWriteFailures++;
+        log.error({ err, consecutiveWriteFailures }, "gen spend ceiling: failed to record usage");
+      }
     }
   </file>
   <file path="src/services/liveness-monitor.ts">

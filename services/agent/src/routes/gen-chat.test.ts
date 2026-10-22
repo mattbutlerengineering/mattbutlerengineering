@@ -26,6 +26,8 @@ vi.mock("../services/gen-spend-ceiling.js", async (importActual) => {
     ...actual,
     getGenSpendToday: vi.fn(async () => ({ generations: 0, costMicroUsd: 0 })),
     recordGenSpend: vi.fn(async () => {}),
+    trackGenSpend: vi.fn(async () => {}),
+    isSpendTrackingDegraded: vi.fn(() => false),
   };
 });
 

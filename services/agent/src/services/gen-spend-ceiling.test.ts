@@ -13,9 +13,18 @@ import {
   secondsUntilNextWindow,
   getGenSpendToday,
   recordGenSpend,
+  trackGenSpend,
+  isSpendTrackingDegraded,
+  resetSpendTrackingForTests,
+  failedGenCostMicroUsd,
+  GEN_WRITE_FAILURE_LIMIT,
 } from "./gen-spend-ceiling.js";
+import { GEN_MAX_OUTPUT_TOKENS } from "../routes/gen-stream.js";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  resetSpendTrackingForTests();
+});
 
 describe("resolveGenDailyCeilingUsd", () => {
   it("uses the conservative default when unset", () => {
@@ -83,5 +92,27 @@ describe("storage", () => {
     expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1);
     const [strings] = prismaMock.$executeRaw.mock.calls[0] as [TemplateStringsArray];
     expect(strings.join("?")).toMatch(/ON CONFLICT/i);
+  });
+});
+
+describe("write-failure tracking (the guard must not silently stop guarding)", () => {
+  it("degrades after consecutive write failures and recovers on a success", async () => {
+    prismaMock.$executeRaw.mockRejectedValue(new Error("read-only replica"));
+    const log = { error: vi.fn() };
+    for (let i = 0; i < GEN_WRITE_FAILURE_LIMIT; i++) {
+      expect(isSpendTrackingDegraded()).toBe(false);
+      await trackGenSpend(100, log as never);
+    }
+    expect(isSpendTrackingDegraded()).toBe(true);
+
+    prismaMock.$executeRaw.mockResolvedValue(1);
+    await trackGenSpend(100, log as never);
+    expect(isSpendTrackingDegraded()).toBe(false);
+  });
+});
+
+describe("failedGenCostMicroUsd", () => {
+  it("charges the worst-case output cap for a generation that never reached onFinish", () => {
+    expect(failedGenCostMicroUsd()).toBe(Math.round(GEN_MAX_OUTPUT_TOKENS * 0.5));
   });
 });

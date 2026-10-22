@@ -17,8 +17,10 @@ import {
   genCostMicroUsd,
   getGenDailyCeilingUsd,
   getGenSpendToday,
-  recordGenSpend,
+  failedGenCostMicroUsd,
+  isSpendTrackingDegraded,
   secondsUntilNextWindow,
+  trackGenSpend,
 } from "../services/gen-spend-ceiling.js";
 import type { GenToolMap, GenStreamEvent, GenRunnerConfig } from "./gen-runner.js";
 
@@ -131,6 +133,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
 
       let spend;
       try {
+        if (isSpendTrackingDegraded()) throw new Error("usage writes are failing");
         spend = await getGenSpendToday();
       } catch (err) {
         // Unknown spend must not read as zero spend: fail closed.
@@ -197,6 +200,11 @@ export function createGenRoute<TSchema extends z.ZodType>(
           : (parsed as { messages: GenMessages }).messages;
 
         const tools = await getTools(request, parsed);
+        // A run that errors before onFinish still consumed tokens: charge the worst case.
+        let usageReported = false;
+        const chargeIfUnreported = async () => {
+          if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+        };
         const runner = createGenRunner({
           systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
           modelId: GEN_MODEL_ID,
@@ -211,11 +219,8 @@ export function createGenRoute<TSchema extends z.ZodType>(
               providerMetadata,
               label: costLogLabel,
             });
-            try {
-              await recordGenSpend(genCostMicroUsd(usage, providerMetadata));
-            } catch (err) {
-              request.log.error({ err }, "gen spend ceiling: failed to record usage");
-            }
+            usageReported = true;
+            await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
           },
         });
 
@@ -238,6 +243,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
                 // Error the stream — closing here would turn an upstream
                 // failure (e.g. 529/401) into an empty-looking 200.
                 request.log.error({ err }, "gen stream failed");
+                await chargeIfUnreported();
                 controller.error(toError(err));
               }
             },
@@ -261,6 +267,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
               controller.close();
             } catch (err) {
               request.log.error({ err }, "gen stream failed");
+              await chargeIfUnreported();
               controller.error(toError(err));
             }
           },

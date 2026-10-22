@@ -7132,6 +7132,9 @@
       export const GEN_MODEL_ID: unknown;
     </item>
     <item priority="high">
+      export const GEN_PRICING: unknown;
+    </item>
+    <item priority="high">
       export const GEN_MAX_OUTPUT_TOKENS: unknown;
     </item>
     <item priority="high">
@@ -9618,6 +9621,24 @@
     </item>
     <item priority="high">
       export async function recordGenSpend(costMicroUsd: number, now: Date = new Date()): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function failedGenCostMicroUsd(): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const GEN_WRITE_FAILURE_LIMIT: unknown;
+    </item>
+    <item priority="high">
+      export function isSpendTrackingDegraded(): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resetSpendTrackingForTests(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function trackGenSpend(
+        costMicroUsd: number,
+        log: Pick<FastifyBaseLogger, "error">
+      ): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/services/liveness-monitor.ts">

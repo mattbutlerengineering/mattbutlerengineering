@@ -386,27 +386,27 @@ pnpm db:migrate:status # Show migration status
 
 ## Environment Variables
 
-| Variable                     | Required   | Description                                                   |
-| ---------------------------- | ---------- | ------------------------------------------------------------- |
-| `PORT`                       | No         | Service port (default: 3003)                                  |
-| `LOG_LEVEL`                  | No         | Logging level (default: info)                                 |
-| `CORS_ORIGINS`               | No         | Comma-separated allowed origins                               |
-| `DATABASE_URL`               | Yes        | Postgres connection                                           |
-| `ANTHROPIC_API_KEY`          | Yes        | Claude API key                                                |
-| `DEFAULT_MODEL`              | No         | Default model (default: claude-sonnet-5)                      |
-| `DEFAULT_MAX_TURNS`          | No         | Default max turns per session (default: 50)                   |
-| `DEFAULT_MAX_BUDGET_USD`     | No         | Default budget cap per session (default: 1.00)                |
-| `MAX_CONCURRENT_SESSIONS`    | No         | Max parallel sessions (default: 5)                            |
-| `GEN_DAILY_CEILING_USD`      | No         | Aggregate `/api/gen/*` spend ceiling per UTC day (default: 2) |
-| `GITHUB_TOKEN`               | Yes        | GitHub PAT for PR creation                                    |
-| `GITHUB_WEBHOOK_SECRET`      | No         | HMAC secret for GitHub webhooks                               |
-| `REMEDIATION_WEBHOOK_SECRET` | No         | HMAC secret for remediation webhooks                          |
-| `REPO_PATH`                  | No         | Repo URL for agent context                                    |
-| `AGENT_API_URL`              | No         | Public API URL (default: http://localhost:3003)               |
-| `API_BASE_URL`               | No         | Base URL for the platform (default: localhost)                |
-| `SENTRY_DSN`                 | No         | Sentry DSN for error tracking                                 |
-| `AUTH_AUTHORITY`             | Yes (prod) | Auth0 domain URL                                              |
-| `AUTH_AUDIENCE`              | Yes (prod) | Auth0 API identifier                                          |
+| Variable                     | Required   | Description                                                     |
+| ---------------------------- | ---------- | --------------------------------------------------------------- |
+| `PORT`                       | No         | Service port (default: 3003)                                    |
+| `LOG_LEVEL`                  | No         | Logging level (default: info)                                   |
+| `CORS_ORIGINS`               | No         | Comma-separated allowed origins                                 |
+| `DATABASE_URL`               | Yes        | Postgres connection                                             |
+| `ANTHROPIC_API_KEY`          | Yes        | Claude API key                                                  |
+| `DEFAULT_MODEL`              | No         | Default model (default: claude-sonnet-5)                        |
+| `DEFAULT_MAX_TURNS`          | No         | Default max turns per session (default: 50)                     |
+| `DEFAULT_MAX_BUDGET_USD`     | No         | Default budget cap per session (default: 1.00)                  |
+| `MAX_CONCURRENT_SESSIONS`    | No         | Max parallel sessions (default: 5)                              |
+| `GEN_DAILY_CEILING_USD`      | No         | Aggregate `/api/gen/*` spend ceiling per UTC day (default: 0.5) |
+| `GITHUB_TOKEN`               | Yes        | GitHub PAT for PR creation                                      |
+| `GITHUB_WEBHOOK_SECRET`      | No         | HMAC secret for GitHub webhooks                                 |
+| `REMEDIATION_WEBHOOK_SECRET` | No         | HMAC secret for remediation webhooks                            |
+| `REPO_PATH`                  | No         | Repo URL for agent context                                      |
+| `AGENT_API_URL`              | No         | Public API URL (default: http://localhost:3003)                 |
+| `API_BASE_URL`               | No         | Base URL for the platform (default: localhost)                  |
+| `SENTRY_DSN`                 | No         | Sentry DSN for error tracking                                   |
+| `AUTH_AUTHORITY`             | Yes (prod) | Auth0 domain URL                                                |
+| `AUTH_AUDIENCE`              | Yes (prod) | Auth0 API identifier                                            |
 
 ## Dockerfile gotchas
 

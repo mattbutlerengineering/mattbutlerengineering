@@ -1,4 +1,6 @@
+import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "./database.js";
+import { GEN_MAX_OUTPUT_TOKENS, GEN_PRICING } from "../routes/gen-stream.js";
 
 /**
  * Aggregate daily spend ceiling for the `/api/gen/*` routes (#7234, part of #6948).
@@ -11,16 +13,10 @@ import { prisma } from "./database.js";
 
 /**
  * Used when `GEN_DAILY_CEILING_USD` is unset or unparseable, so a deployment
- * that forgets the variable is more restrictive, never less. ~2 saturated
- * users at the 2048-output-token cap; adjust via the env var, not this constant.
+ * that forgets the variable is more restrictive, never less. $0.50/day is
+ * about $15/month, the budget #6948 suggests; adjust via the env var, not this constant.
  */
-export const GEN_DAILY_CEILING_DEFAULT_USD = 2;
-
-/** Haiku 5.5 rates, USD per MTok (see GEN_MODEL_ID in gen-stream.ts). */
-const INPUT_PER_MTOK = 0.1;
-const OUTPUT_PER_MTOK = 0.5;
-const CACHE_READ_PER_MTOK = 0.01;
-const CACHE_WRITE_PER_MTOK = 0.125;
+export const GEN_DAILY_CEILING_DEFAULT_USD = 0.5;
 
 /** Parses the env value; anything but a finite number >= 0 yields the default. */
 export function resolveGenDailyCeilingUsd(raw: string | undefined): number {
@@ -51,10 +47,10 @@ export function genCostMicroUsd(
   const write = meta?.cacheCreationInputTokens ?? 0;
   const fresh = Math.max(0, (usage.inputTokens ?? 0) - read - write);
   const usd =
-    (fresh * INPUT_PER_MTOK +
-      read * CACHE_READ_PER_MTOK +
-      write * CACHE_WRITE_PER_MTOK +
-      (usage.outputTokens ?? 0) * OUTPUT_PER_MTOK) /
+    (fresh * GEN_PRICING.input +
+      read * GEN_PRICING.cacheRead +
+      write * GEN_PRICING.cacheWrite +
+      (usage.outputTokens ?? 0) * GEN_PRICING.output) /
     1_000_000;
   return Math.round(usd * 1_000_000);
 }
@@ -90,4 +86,43 @@ export async function recordGenSpend(costMicroUsd: number, now: Date = new Date(
     ON CONFLICT (window_date) DO UPDATE
     SET generations = gen_spend_windows.generations + 1,
         cost_micro_usd = gen_spend_windows.cost_micro_usd + EXCLUDED.cost_micro_usd`;
+}
+
+/**
+ * Worst-case charge for a generation that failed before `onFinish` reported
+ * usage: the full output cap. Failed runs (including the by-design `length`
+ * truncation) still consume tokens, and would otherwise be invisible.
+ */
+export function failedGenCostMicroUsd(): number {
+  return Math.round(GEN_MAX_OUTPUT_TOKENS * GEN_PRICING.output);
+}
+
+/** Consecutive usage-write failures after which the guard refuses instead of going blind. */
+export const GEN_WRITE_FAILURE_LIMIT = 3;
+let consecutiveWriteFailures = 0;
+
+export function isSpendTrackingDegraded(): boolean {
+  return consecutiveWriteFailures >= GEN_WRITE_FAILURE_LIMIT;
+}
+
+export function resetSpendTrackingForTests(): void {
+  consecutiveWriteFailures = 0;
+}
+
+/**
+ * Records usage and tracks write health. A persistent write failure would stop
+ * the counter rising and silently disable the ceiling, so past the limit the
+ * route refuses (reads already fail closed; writes must too).
+ */
+export async function trackGenSpend(
+  costMicroUsd: number,
+  log: Pick<FastifyBaseLogger, "error">
+): Promise<void> {
+  try {
+    await recordGenSpend(costMicroUsd);
+    consecutiveWriteFailures = 0;
+  } catch (err) {
+    consecutiveWriteFailures++;
+    log.error({ err, consecutiveWriteFailures }, "gen spend ceiling: failed to record usage");
+  }
 }
