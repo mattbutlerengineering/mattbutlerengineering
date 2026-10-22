@@ -4954,6 +4954,22 @@
       export function useScrollToTop(containerRef?: RefObject<HTMLElement | null>): void { /* ... */ }
     </item>
   </file>
+  <file path="docs/reference/eat-sheet/src/client/features/floor-plan/hooks/useTextures.ts">
+    <item priority="low">
+      interface TextureMap {
+        
+      }
+    </item>
+    <item priority="low">
+      interface UseTexturesResult {
+        loaded: boolean;
+        textures: TextureMap;
+      }
+    </item>
+    <item priority="high">
+      export function useTextures(): UseTexturesResult { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
     <item priority="high">
       export function useBoop(): {
@@ -17806,6 +17822,44 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="templates">
+  <file path="docs/reference/eat-sheet/src/shared/templates/floor-plan.ts">
+    <item priority="low">
+      interface FloorPlanTemplate {
+        name: string;
+        description: string;
+        icon: string;
+        build: (w: number, h: number) => SaveFloorPlanPayload;
+      }
+    </item>
+    <item priority="low">
+      interface TemplateSize {
+        label: string;
+        sub: string;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export const TEMPLATE_SIZES: readonly TemplateSize[];
+    </item>
+    <item priority="high">
+      export function templateIdFromName(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function perimeterWalls(w: number, h: number, t: number = 6): SaveWallPayload[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function perimeterWithDoor(
+        w: number, h: number,
+        side: "bottom" | "left", pos: number, gap: number, t: number = 6,
+      ): SaveWallPayload[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const TEMPLATES: readonly FloorPlanTemplate[];
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="test">
   <file path="apps/hospitality/src/test/special-requests-fixtures.ts">
     <item priority="high">
@@ -18703,6 +18757,124 @@
   </file>
   </section>
   <section priority="medium" role="types">
+  <file path="docs/reference/eat-sheet/src/shared/types/floor-plan.ts">
+    <item priority="low">
+      type TableShape = "circle" | "square" | "rectangle";
+    </item>
+    <item priority="high">
+      export const TABLE_SHAPES: readonly TableShape[];
+    </item>
+    <item priority="high">
+      export const TABLE_SHAPE_LABELS: Record<TableShape, string>;
+    </item>
+    <item priority="low">
+      interface TableLayout {
+        id: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="low">
+      interface SectionLayout {
+        id: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="low">
+      type WallType = "wall" | "window";
+    </item>
+    <item priority="low">
+      interface WallLayout {
+        id: string;
+        x1: number;
+        y1: number;
+        x2: number;
+        y2: number;
+      }
+    </item>
+    <item priority="low">
+      interface LayoutData {
+        tables: readonly TableLayout[];
+        sections: readonly SectionLayout[];
+        walls: readonly WallLayout[];
+      }
+    </item>
+    <item priority="low">
+      interface FloorPlanTable {
+        id: string;
+        floorPlanId: string;
+        sectionId: string | null;
+        label: string;
+        shape: TableShape;
+      }
+    </item>
+    <item priority="low">
+      interface FloorPlanSection {
+        id: string;
+        floorPlanId: string;
+        name: string;
+        color: string;
+        floorMaterial?: "hardwood" | "concrete" | "carpet" | "tile" | "marble" | ...;
+      }
+    </item>
+    <item priority="low">
+      interface FloorPlan {
+        id: string;
+        tenantId: string;
+        name: string;
+        sortOrder: number;
+        canvasWidth: number;
+      }
+    </item>
+    <item priority="low">
+      interface FloorPlanFull {
+        layoutData: LayoutData;
+        tables: readonly FloorPlanTable[];
+        sections: readonly FloorPlanSection[];
+      }
+    </item>
+    <item priority="low">
+      interface SaveTablePayload {
+        id: string;
+        label: string;
+        shape: TableShape;
+        minCapacity: number;
+        maxCapacity: number;
+      }
+    </item>
+    <item priority="low">
+      interface SaveSectionPayload {
+        id: string;
+        name: string;
+        color: string;
+        floorMaterial?: "hardwood" | "concrete" | "carpet" | "tile" | "marble" | ...;
+        x: number;
+      }
+    </item>
+    <item priority="low">
+      interface SaveWallPayload {
+        id: string;
+        x1: number;
+        y1: number;
+        x2: number;
+        y2: number;
+      }
+    </item>
+    <item priority="low">
+      interface SaveFloorPlanPayload {
+        canvasWidth: number;
+        canvasHeight: number;
+        tables: readonly SaveTablePayload[];
+        sections: readonly SaveSectionPayload[];
+        walls: readonly SaveWallPayload[];
+      }
+    </item>
+  </file>
   <file path="packages/auth/src/types/index.ts">
     <item priority="low">
       interface OIDCConfig {
@@ -19549,6 +19721,53 @@
     </item>
     <item priority="high">
       export function parseVenueProfileForm(form: VenueProfileForm): VenueProfileFormResult { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="venues">
+  <file path="docs/reference/eat-sheet/src/server/features/venues/color-extraction.ts">
+    <item priority="high">
+      interface RgbPixel {
+        r: number;
+        g: number;
+        b: number;
+      }
+    </item>
+    <item priority="high">
+      interface Centroid {
+        count: number;
+      }
+    </item>
+    <item priority="medium">
+      function decodePng(bytes: Uint8Array): readonly RgbPixel[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function decodeJpeg(bytes: Uint8Array): readonly RgbPixel[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractPixels(rgba: Uint8Array): readonly RgbPixel[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function distance(a: RgbPixel, b: RgbPixel): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function initCentroids(pixels: readonly RgbPixel[], k: number): readonly RgbPixel[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runKMeans(pixels: readonly RgbPixel[], k: number): readonly Centroid[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toHex(n: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function centroidToHex(c: RgbPixel): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function extractDominantColors(
+        bytes: Uint8Array,
+        mimeType: string,
+        maxColors = DEFAULT_MAX_COLORS,
+      ): Promise<readonly string[]> { /* ... */ }
     </item>
   </file>
   </section>
