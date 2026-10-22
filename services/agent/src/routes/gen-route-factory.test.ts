@@ -21,6 +21,17 @@ vi.mock("./gen-stream.js", async (importActual) => {
   return { ...actual, logGenCost: vi.fn() };
 });
 
+// Spend ceiling storage is Postgres-backed; stub it so tests drive the ceiling directly.
+vi.mock("../services/gen-spend-ceiling.js", async (importActual) => {
+  const actual = await importActual<Record<string, unknown>>();
+  return {
+    ...actual,
+    getGenSpendToday: vi.fn(async () => ({ generations: 0, costMicroUsd: 0 })),
+    recordGenSpend: vi.fn(async () => {}),
+    getGenDailyCeilingUsd: vi.fn(() => 2),
+  };
+});
+
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
   catalog: { prompt: vi.fn(() => "mock system prompt") },
 }));
@@ -83,6 +94,7 @@ import rateLimit from "@fastify/rate-limit";
 import { requireAuth } from "@mbe/auth/fastify";
 import { createGenRoute } from "./gen-route-factory.js";
 import { logGenCost } from "./gen-stream.js";
+import { getGenSpendToday, recordGenSpend } from "../services/gen-spend-ceiling.js";
 
 async function* mockStream<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) yield item;
@@ -660,5 +672,91 @@ describe("createGenRoute per-identity rate limit", () => {
     expect((await post("alice")).statusCode).toBe(429);
     // Same IP, different subject: untouched by alice's exhausted bucket.
     expect((await post("bob")).statusCode).not.toBe(429);
+  });
+});
+
+describe("aggregate spend ceiling", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = buildTestApp();
+    await app.register(
+      createGenRoute({
+        path: TEST_PATH.chat,
+        costLogLabel: "ceiling test",
+        rateLimit: { max: 50, timeWindow: "1 hour" },
+        schema: ChatSchema,
+        streamFormat: "text",
+        maxSteps: 1,
+        getTools: async () => ({}),
+      })
+    );
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  const post = () =>
+    app.inject({
+      method: "POST",
+      url: TEST_PATH.chat,
+      payload: { messages: [{ role: "user", content: "hi" }] },
+    });
+
+  it("refuses with a 503 problem+json distinct from a per-user rate limit once the ceiling is spent", async () => {
+    vi.mocked(getGenSpendToday).mockResolvedValueOnce({
+      generations: 99,
+      costMicroUsd: 2_000_000,
+    });
+
+    const response = await post();
+
+    expect(response.statusCode).toBe(503);
+    expect(response.headers["retry-after"]).toBeDefined();
+    const body = JSON.parse(response.body) as { type: string; title: string; detail: string };
+    expect(body.type).toBe("urn:mbe:problem:gen-spend-ceiling-reached");
+    expect(body.title).toMatch(/spend ceiling/i);
+    expect(vi.mocked(streamText)).not.toHaveBeenCalled();
+  });
+
+  it("allows generations while accumulated spend is under the ceiling", async () => {
+    vi.mocked(getGenSpendToday).mockResolvedValueOnce({
+      generations: 1,
+      costMicroUsd: 1_999_999,
+    });
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockStream([{ type: "text-delta", text: "x" }]),
+    } as never);
+
+    expect((await post()).statusCode).toBe(200);
+  });
+
+  it("fails closed with a 503 when the counter cannot be read", async () => {
+    vi.mocked(getGenSpendToday).mockRejectedValueOnce(new Error("db down"));
+
+    const response = await post();
+
+    expect(response.statusCode).toBe(503);
+    expect(vi.mocked(streamText)).not.toHaveBeenCalled();
+  });
+
+  it("records actual usage, cache reads priced at the cache rate, when the run finishes", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockStream([{ type: "text-delta", text: "x" }]),
+    } as never);
+    await post();
+
+    const call = vi.mocked(streamText).mock.calls[0]![0] as unknown as {
+      onFinish: (a: { usage: unknown; providerMetadata: unknown }) => Promise<void>;
+    };
+    await call.onFinish({
+      usage: { inputTokens: 1_000_000, outputTokens: 0 },
+      providerMetadata: { anthropic: { cacheReadInputTokens: 1_000_000 } },
+    });
+
+    expect(vi.mocked(recordGenSpend)).toHaveBeenCalledWith(10_000);
   });
 });

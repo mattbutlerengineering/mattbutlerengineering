@@ -107,3 +107,11 @@ model StoredSpec {
   @@index([userId, isFavorite])
   @@map("stored_specs")
 }
+
+model GenSpendWindow {
+  windowDate   DateTime @id @map("window_date") @db.Date
+  generations  Int      @default(0)
+  costMicroUsd BigInt   @default(0) @map("cost_micro_usd")
+
+  @@map("gen_spend_windows")
+}

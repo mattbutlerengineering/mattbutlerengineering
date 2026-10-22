@@ -22434,10 +22434,61 @@
             );
         };
     
+        // Aggregate ceiling across ALL identities, ordered after requireAuth and the
+        // identity limiter so anonymous and per-user refusals keep their own answers.
+        // Distinct problem type: a service-wide stop is not a per-user rate limit.
+        const enforceSpendCeiling: preHandlerAsyncHookHandler = async (request, reply) => {
+          const ceilingUsd = getGenDailyCeilingUsd();
+          const ceilingMicroUsd = Math.round(ceilingUsd * 1_000_000);
+          const retryAfter = secondsUntilNextWindow();
+    
+          let spend;
+          try {
+            spend = await getGenSpendToday();
+          } catch (err) {
+            // Unknown spend must not read as zero spend: fail closed.
+            request.log.error({ err }, "gen spend ceiling: counter unreadable, refusing");
+            reply.header("Retry-After", retryAfter);
+            return reply
+              .code(503)
+              .send(
+                createProblemDetails(
+                  503,
+                  "Service Unavailable",
+                  "Generation is temporarily unavailable.",
+                  "urn:mbe:problem:gen-spend-ceiling-unavailable"
+                )
+              );
+          }
+    
+          if (spend.costMicroUsd < ceilingMicroUsd) return;
+    
+          request.log.warn(
+            {
+              window: new Date().toISOString().slice(0, 10),
+              ceilingUsd,
+              accumulatedUsd: spend.costMicroUsd / 1_000_000,
+              generations: spend.generations,
+            },
+            "gen spend ceiling reached, refusing generation"
+          );
+          reply.header("Retry-After", retryAfter);
+          return reply
+            .code(503)
+            .send(
+              createProblemDetails(
+                503,
+                "Service Spend Ceiling Reached",
+                `The service's daily generation ceiling has been reached. Retry after ${retryAfter} seconds.`,
+                "urn:mbe:problem:gen-spend-ceiling-reached"
+              )
+            );
+        };
+    
         fastify.post(
           path,
           {
-            preHandler: [requireAuth, enforceIdentityLimit],
+            preHandler: [requireAuth, enforceIdentityLimit, enforceSpendCeiling],
           },
           async (request, reply) => {
             const parseResult = schema.safeParse(request.body);
@@ -22466,13 +22517,19 @@
               maxSteps,
               toolChoice: config.toolChoice,
               failOnToolError: config.failOnToolError,
-              onFinish: async ({ usage, providerMetadata }) =>
+              onFinish: async ({ usage, providerMetadata }) => {
                 logGenCost(request.log, {
                   userId: request.user?.id,
                   usage,
                   providerMetadata,
                   label: costLogLabel,
-                }),
+                });
+                try {
+                  await recordGenSpend(genCostMicroUsd(usage, providerMetadata));
+                } catch (err) {
+                  request.log.error({ err }, "gen spend ceiling: failed to record usage");
+                }
+              },
             });
     
             applyStreamHeaders(reply, contentType);
@@ -35130,6 +35187,64 @@
   <file path="services/agent/src/services/database.ts">
     export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
+  </file>
+  <file path="services/agent/src/services/gen-spend-ceiling.ts">
+    export const GEN_DAILY_CEILING_DEFAULT_USD = 2;
+    export function resolveGenDailyCeilingUsd(raw: string | undefined): number {
+      if (raw === undefined || raw.trim() === "") return GEN_DAILY_CEILING_DEFAULT_USD;
+      const value = Number(raw);
+      return Number.isFinite(value) && value >= 0 ? value : GEN_DAILY_CEILING_DEFAULT_USD;
+    }
+    export function getGenDailyCeilingUsd(): number {
+      return resolveGenDailyCeilingUsd(process.env.GEN_DAILY_CEILING_USD);
+    }
+    export function genCostMicroUsd(
+      usage: { readonly inputTokens?: number; readonly outputTokens?: number },
+      providerMetadata: unknown
+    ): number {
+      const meta = (
+        providerMetadata as
+          | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
+          | undefined
+      )?.anthropic;
+      const read = meta?.cacheReadInputTokens ?? 0;
+      const write = meta?.cacheCreationInputTokens ?? 0;
+      const fresh = Math.max(0, (usage.inputTokens ?? 0) - read - write);
+      const usd =
+        (fresh * INPUT_PER_MTOK +
+          read * CACHE_READ_PER_MTOK +
+          write * CACHE_WRITE_PER_MTOK +
+          (usage.outputTokens ?? 0) * OUTPUT_PER_MTOK) /
+        1_000_000;
+      return Math.round(usd * 1_000_000);
+    }
+    function windowDate(now: Date): string {
+      return now.toISOString().slice(0, 10);
+    }
+    export function secondsUntilNextWindow(now: Date = new Date()): number {
+      const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      return Math.max(1, Math.ceil((next - now.getTime()) / 1000));
+    }
+    export interface GenSpend {
+      readonly generations: number;
+      readonly costMicroUsd: number;
+    }
+    export async function getGenSpendToday(now: Date = new Date()): Promise<GenSpend> {
+      const rows = await prisma.$queryRaw<
+        Array<{ generations: number; cost_micro_usd: bigint | number }>
+      >`SELECT generations, cost_micro_usd FROM gen_spend_windows WHERE window_date = ${windowDate(now)}::date`;
+      const row = rows[0];
+      if (!row) return { generations: 0, costMicroUsd: 0 };
+      return { generations: Number(row.generations), costMicroUsd: Number(row.cost_micro_usd) };
+    }
+    export async function recordGenSpend(costMicroUsd: number, now: Date = new Date()): Promise<void> {
+      await prisma.$executeRaw`
+        INSERT INTO gen_spend_windows (window_date, generations, cost_micro_usd)
+        VALUES (${windowDate(now)}::date, 1, ${costMicroUsd})
+        ON CONFLICT (window_date) DO UPDATE
+        SET generations = gen_spend_windows.generations + 1,
+            cost_micro_usd = gen_spend_windows.cost_micro_usd + EXCLUDED.cost_micro_usd`;
+    }
   </file>
   <file path="services/agent/src/services/liveness-monitor.ts">
     export interface LivenessMonitorConfig {
