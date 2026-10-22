@@ -1,14 +1,14 @@
 .swatch {
   display: flex;
   align-items: flex-end;
-  gap: var(--rialto-space-3);
+  gap: var(--rialto-space-sm);
 }
 
 .chip {
   flex: none;
-  width: var(--rialto-space-8);
-  height: var(--rialto-space-8);
-  border-radius: var(--rialto-radius-md);
+  width: var(--rialto-space-xl);
+  height: var(--rialto-space-xl);
+  border-radius: var(--rialto-radius-default);
   border: 1px solid var(--rialto-border);
 }
 
@@ -16,8 +16,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--rialto-space-3);
-  padding: var(--rialto-space-4);
-  border-radius: var(--rialto-radius-md);
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
   background: var(--rialto-surface);
 }
