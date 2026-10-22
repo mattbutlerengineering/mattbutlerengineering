@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { StrictMode } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { FloorPlan, Table, TableDisplayStatus } from "@mbe/types";
@@ -195,6 +196,31 @@ describe("FloorPlanCanvas sections", () => {
     await act(async () => loaded.hardwood?.());
     expect(screen.getByTestId("section-zone-s1").dataset.textured).toBe("true");
     expect(screen.getByTestId("section-zone-s2").dataset.textured).toBe("false");
+    vi.unstubAllGlobals();
+  });
+
+  it("still textures a zone under StrictMode, which is how the app renders in dev", async () => {
+    // `main.tsx` wraps the app in <StrictMode>, so a dev mount runs
+    // effect -> cleanup -> effect. This is the whole dev render path, not just
+    // the hook: a texture dropped by that remount is invisible in `pnpm dev`.
+    const loaded: Record<string, () => void> = {};
+    class StubImage {
+      onload: (() => void) | null = null;
+      set src(value: string) {
+        const material = value.split("/").pop()!.replace(".png", "");
+        loaded[material] = () => this.onload?.();
+      }
+    }
+    vi.stubGlobal("Image", StubImage);
+
+    render(
+      <StrictMode>
+        <FloorPlanCanvas {...defaultProps} sections={[{ ...zone, floorMaterial: "hardwood" }]} />
+      </StrictMode>
+    );
+
+    await act(async () => loaded.hardwood?.());
+    expect(screen.getByTestId("section-zone-s1").dataset.textured).toBe("true");
     vi.unstubAllGlobals();
   });
 

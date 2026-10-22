@@ -13641,21 +13641,27 @@
     
       useEffect(() => {
         if (!key) return;
-        let cancelled = false;
         for (const material of key.split(",") as FloorMaterial[]) {
           if (requestedRef.current.has(material)) continue;
           requestedRef.current.add(material);
           const image = new Image();
+          // Deliberately no per-effect-run cancel flag. `requestedRef` dedupes over
+          // the component's whole lifetime, so a run that is torn down mid-download
+          // is the *only* run that will ever ask for this material — discarding its
+          // load would leave the section permanently flat. StrictMode makes that
+          // certain rather than rare: `main.tsx` wraps the app, so every dev mount
+          // is effect -> cleanup -> effect, and a run-scoped flag means textures
+          // never appear in `pnpm dev` at all.
+          //
+          // A load that lands is the right texture whichever run requested it, and
+          // one that lands after unmount is a no-op `setState` on an unmounted
+          // component. Both are covered in `useFloorTextures.test.tsx`.
           image.onload = () => {
-            if (cancelled) return;
             // A fresh Map per load: the map already handed to the renderer is never mutated.
             setTextures((previous) => new Map(previous).set(material, image));
           };
           image.src = floorTextureUrl(material, import.meta.env.BASE_URL);
         }
-        return () => {
-          cancelled = true;
-        };
       }, [key]);
     
       return textures;
