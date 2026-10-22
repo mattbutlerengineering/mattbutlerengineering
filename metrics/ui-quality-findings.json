@@ -365,7 +365,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-04",
-    "last_seen": "2026-10-04",
+    "last_seen": "2026-10-22",
     "escalated_at": null
   },
   "rialto-web|visual-test|r1|accessibility/axe-serious": {
@@ -374,7 +374,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-04",
-    "last_seen": "2026-10-04",
+    "last_seen": "2026-10-22",
     "escalated_at": null
   },
   "rialto-web|components/tape-chart|r1|accessibility/axe-serious": {
@@ -419,7 +419,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-12",
-    "last_seen": "2026-10-12",
+    "last_seen": "2026-10-22",
     "escalated_at": null
   },
   "rialto-web|components/neon-sign|r1|accessibility/axe-serious": {
@@ -537,6 +537,51 @@
     "severity": "P2",
     "first_seen": "2026-10-17",
     "last_seen": "2026-10-17",
+    "escalated_at": null
+  },
+  "rialto-web|demos/telemetry|r1|accessibility/axe-minor": {
+    "issue": 7266,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-22",
+    "last_seen": "2026-10-22",
+    "escalated_at": null
+  },
+  "rialto-web|demos/telemetry|r1|accessibility/axe-moderate": {
+    "issue": 7267,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-22",
+    "last_seen": "2026-10-22",
+    "escalated_at": null
+  },
+  "rialto-web|demos/telemetry|r1|accessibility/axe-serious": {
+    "issue": 7268,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-22",
+    "last_seen": "2026-10-22",
+    "escalated_at": null
+  },
+  "rialto-web|demos/visual-test|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-22",
+    "last_seen": "2026-10-22",
+    "escalated_at": null
+  },
+  "rialto-web|demos/visual-test|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-22",
+    "last_seen": "2026-10-22",
     "escalated_at": null
   }
 }
