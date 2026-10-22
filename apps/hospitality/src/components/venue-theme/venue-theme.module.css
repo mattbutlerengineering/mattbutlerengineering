@@ -1,0 +1,23 @@
+.swatch {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--rialto-space-3);
+}
+
+.chip {
+  flex: none;
+  width: var(--rialto-space-8);
+  height: var(--rialto-space-8);
+  border-radius: var(--rialto-radius-md);
+  border: 1px solid var(--rialto-border);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-3);
+  padding: var(--rialto-space-4);
+  border-radius: var(--rialto-radius-md);
+  background: var(--rialto-surface);
+}

@@ -28,6 +28,7 @@ import { buildNavSections, ACCOUNT_SECTION_ID } from "../nav-sections.js";
 import { runNavAction } from "../nav-actions.js";
 import type { NavAction } from "../nav-actions.js";
 import { VenueProvider, useVenue } from "../contexts/VenueContext.js";
+import { VenueThemeProvider } from "../providers/VenueTheme.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
 import { LoadingPage } from "../pages/LoadingPage.js";
@@ -440,7 +441,9 @@ export function DashboardLayout() {
   return (
     <VenueProvider>
       <SSESyncProvider>
-        <DashboardLayoutInner />
+        <VenueThemeProvider>
+          <DashboardLayoutInner />
+        </VenueThemeProvider>
       </SSESyncProvider>
     </VenueProvider>
   );

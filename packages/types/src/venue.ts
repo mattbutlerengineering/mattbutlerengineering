@@ -1,3 +1,5 @@
+import type { VenueTheme } from "./schemas/venue.js";
+
 export interface VenueGroup {
   id: string;
   name: string;
@@ -101,6 +103,8 @@ export interface VenueSettings {
   guestModificationCutoffHours?: number;
   /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
   guestMaxPartySizeChange?: number;
+  /** Per-venue palette; validate with `VenueThemeSchema` before use. */
+  theme?: VenueTheme;
 }
 
 export type DepositType = "flat" | "per_person";

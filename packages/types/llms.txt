@@ -825,6 +825,12 @@
       export const DayScheduleSchema: unknown;
     </item>
     <item priority="high">
+      export const VenueThemeSchema: unknown;
+    </item>
+    <item priority="low">
+      type VenueTheme = z.infer<typeof VenueThemeSchema>;
+    </item>
+    <item priority="high">
       export const VenueGroupSchema: unknown;
     </item>
     <item priority="high">

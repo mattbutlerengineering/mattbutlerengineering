@@ -1921,6 +1921,38 @@
       }
     </item>
   </file>
+  <file path="src/lib/venue-theme.ts">
+    <item priority="medium">
+      function expandHex(hex: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function luminance(hex: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function contrastRatio(a: string, b: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function onAccentColor(accent: string): string { /* ... */ }
+    </item>
+    <item priority="low">
+      type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
+    </item>
+    <item priority="low">
+      interface ThemeContrastResult {
+        ok: boolean;
+        failures: ThemeContrastFailure[];
+      }
+    </item>
+    <item priority="high">
+      export function checkThemeContrast(theme: VenueTheme): ThemeContrastResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseVenueTheme(settings: object | null | undefined): VenueTheme | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function themeToCssVars(theme: VenueTheme): Record<string, string> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="menus">
   <file path="src/components/menus/price.ts">
