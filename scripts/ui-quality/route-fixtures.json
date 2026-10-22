@@ -1,7 +1,10 @@
 {
   "hospitality": {
     "book/:venueSlug": "/book/e2e-test-bistro",
-    "floor-plans/:id": "/floor-plans/fp_e2e_001"
+    "floor-plans/:id": "/floor-plans/fp_e2e_001",
+    "menu/:venueSlug": "/menu/e2e-test-bistro",
+    "menu/:venueSlug/:menuSlug": "/menu/e2e-test-bistro/dinner",
+    "menus/:menuId": "/menus/menu_e2e_1"
   },
   "marketing": {
     "*": "/ui-quality-not-found",
