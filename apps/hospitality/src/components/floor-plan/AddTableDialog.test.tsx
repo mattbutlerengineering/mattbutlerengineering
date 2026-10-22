@@ -277,4 +277,39 @@ describe("AddTableDialog", () => {
       document.body.removeChild(trigger);
     });
   });
+
+  it.each([
+    [
+      { width: 1200, height: 800 },
+      { x: 600, y: 400 },
+    ],
+    [
+      { width: 2000, height: 1200 },
+      { x: 1000, y: 600 },
+    ],
+  ])("places the new table at the centre of a %o canvas", async (canvas, centre) => {
+    const user = userEvent.setup();
+    render(<AddTableDialog {...defaultProps} canvas={canvas} />);
+    await user.type(screen.getByLabelText(/Table Name/), "T1");
+    await user.click(screen.getByRole("button", { name: /^add table$/i }));
+    await waitFor(() => expect(defaultProps.onSubmit).toHaveBeenCalled());
+    const sent = defaultProps.onSubmit.mock.calls[0]![0];
+    expect(sent.shapeMetadata).toMatchObject(centre);
+  });
+
+  it("does not drop the new table onto an existing one", async () => {
+    const user = userEvent.setup();
+    render(
+      <AddTableDialog
+        {...defaultProps}
+        canvas={{ width: 1200, height: 800 }}
+        existingTables={[{ x: 600, y: 400, width: 80, height: 60 }]}
+      />
+    );
+    await user.type(screen.getByLabelText(/Table Name/), "T1");
+    await user.click(screen.getByRole("button", { name: /^add table$/i }));
+    await waitFor(() => expect(defaultProps.onSubmit).toHaveBeenCalled());
+    const { x, y } = defaultProps.onSubmit.mock.calls[0]![0].shapeMetadata;
+    expect(Math.abs(x - 600) >= 80 || Math.abs(y - 400) >= 60).toBe(true);
+  });
 });

@@ -9,6 +9,7 @@ import {
   MAX_RENDERED_SEATS,
   snapToGrid,
   seatPlacements,
+  placeNewTable,
 } from "./floor-plan-geometry.js";
 
 describe("floor-plan-geometry", () => {
@@ -198,5 +199,28 @@ describe("floor-plan-geometry", () => {
         expect(input).toEqual(snapshot);
       });
     });
+  });
+});
+
+describe("placeNewTable", () => {
+  const size = { width: 80, height: 60 };
+
+  it.each([
+    ["cozy", { width: 800, height: 600 }],
+    ["standard", { width: 1200, height: 800 }],
+    ["grand", { width: 2000, height: 1200 }],
+  ])("centres on an empty %s canvas", (_name, canvas) => {
+    expect(placeNewTable(canvas, size, [])).toEqual({ x: canvas.width / 2, y: canvas.height / 2 });
+  });
+
+  it("nudges to the nearest free grid cell when the centre is taken", () => {
+    const canvas = { width: 1200, height: 800 };
+    const taken = [{ x: 600, y: 400, width: 80, height: 60 }];
+    const pos = placeNewTable(canvas, size, taken);
+    expect(pos).not.toEqual({ x: 600, y: 400 });
+    const overlaps = Math.abs(pos.x - 600) < (80 + 80) / 2 && Math.abs(pos.y - 400) < (60 + 60) / 2;
+    expect(overlaps).toBe(false);
+    expect(pos.x % GRID_SIZE).toBe(0);
+    expect(pos.y % GRID_SIZE).toBe(0);
   });
 });
