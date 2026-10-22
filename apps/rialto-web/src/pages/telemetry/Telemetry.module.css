@@ -66,6 +66,11 @@
   overflow-x: auto;
 }
 
+/* The LED column's "Live" header names it for assistive tech; hiding it keeps the frame pixel-identical. */
+.zoneTable th:last-child {
+  font-size: 0;
+}
+
 .vitalsRail {
   display: flex;
   flex-direction: column;

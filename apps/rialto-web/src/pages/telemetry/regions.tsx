@@ -182,7 +182,7 @@ export function ZoneTable({ frame, kind }: { frame: TelemetryFrame | null; kind:
     },
     {
       key: "live",
-      header: "",
+      header: "Live",
       width: "2rem",
       render: (row: TelemetryZone) =>
         row.id === frame?.activeZoneId ? (

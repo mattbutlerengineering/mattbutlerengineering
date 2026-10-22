@@ -177,3 +177,14 @@ describe("feed states", () => {
     expect(stale).toEqual(live);
   });
 });
+
+describe("zone table accessibility", () => {
+  it("gives every column header an accessible name", () => {
+    renderRoute("?frozen=1");
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers.length).toBeGreaterThan(0);
+    for (const header of headers) {
+      expect(header.textContent?.trim()).not.toBe("");
+    }
+  });
+});
