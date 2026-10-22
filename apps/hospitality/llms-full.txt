@@ -5406,6 +5406,170 @@
       };
     }
   </file>
+  <file path="src/lib/logo-palette-canvas.ts">
+    export const ACCEPTED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+    export const MAX_LOGO_BYTES = 8 * 1024 * 1024;
+    export type LogoPaletteFailure = "unsupported-type" | "too-large" | "decode-failed";
+    export type LogoPaletteResult =
+      | { readonly ok: true; readonly palette: readonly string[] }
+      | { readonly ok: false; readonly reason: LogoPaletteFailure };
+    export function classifyLogoFile(file: Pick<File, "type" | "size">): LogoPaletteFailure | null {
+      if (!ACCEPTED_LOGO_TYPES.some((type) => type === file.type)) return "unsupported-type";
+      if (file.size > MAX_LOGO_BYTES) return "too-large";
+      return null;
+    }
+    export async function readLogoPalette(
+      file: File,
+      maxColors = DEFAULT_MAX_COLORS
+    ): Promise<LogoPaletteResult> {
+      const invalid = classifyLogoFile(file);
+      if (invalid !== null) return { ok: false, reason: invalid };
+    
+      try {
+        const bitmap = await createImageBitmap(file);
+        try {
+          const { width, height } = fitWithin(bitmap.width, bitmap.height);
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (context === null) return { ok: false, reason: "decode-failed" };
+          context.drawImage(bitmap, 0, 0, width, height);
+          const { data } = context.getImageData(0, 0, width, height);
+          return { ok: true, palette: extractDominantColors(data, maxColors) };
+        } finally {
+          bitmap.close();
+        }
+      } catch {
+        return { ok: false, reason: "decode-failed" };
+      }
+    }
+  </file>
+  <file path="src/lib/logo-palette.ts">
+    export interface RgbPixel {
+      readonly r: number;
+      readonly g: number;
+      readonly b: number;
+    }
+    interface Centroid extends RgbPixel {
+      readonly count: number;
+    }
+    export type RgbaBytes = Uint8Array | Uint8ClampedArray;
+    export const DEFAULT_MAX_COLORS = 5;
+    export const PIXEL_STRIDE = 10;
+    export const MAX_SAMPLE_EDGE = 256;
+    export function fitWithin(
+      width: number,
+      height: number,
+      maxEdge = MAX_SAMPLE_EDGE
+    ): { readonly width: number; readonly height: number } {
+      const longest = Math.max(width, height);
+      if (longest <= maxEdge) return { width, height };
+      const scale = maxEdge / longest;
+      return {
+        width: Math.max(1, Math.floor(width * scale)),
+        height: Math.max(1, Math.floor(height * scale)),
+      };
+    }
+    export function samplePixels(rgba: RgbaBytes): readonly RgbPixel[] {
+      const pixels: RgbPixel[] = [];
+      const pixelCount = Math.floor(rgba.length / 4);
+    
+      for (let i = 0; i < pixelCount; i += PIXEL_STRIDE) {
+        const offset = i * 4;
+        const r = rgba[offset] ?? 0;
+        const g = rgba[offset + 1] ?? 0;
+        const b = rgba[offset + 2] ?? 0;
+        const a = rgba[offset + 3] ?? 0;
+    
+        if (a < ALPHA_THRESHOLD) continue;
+        if (r > NEAR_WHITE_THRESHOLD && g > NEAR_WHITE_THRESHOLD && b > NEAR_WHITE_THRESHOLD) continue;
+        if (r < NEAR_BLACK_THRESHOLD && g < NEAR_BLACK_THRESHOLD && b < NEAR_BLACK_THRESHOLD) continue;
+    
+        pixels.push({ r, g, b });
+      }
+    
+      return pixels;
+    }
+    function distance(a: RgbPixel, b: RgbPixel): number {
+      const dr = a.r - b.r;
+      const dg = a.g - b.g;
+      const db = a.b - b.b;
+      return dr * dr + dg * dg + db * db;
+    }
+    function initCentroids(pixels: readonly RgbPixel[], k: number): readonly RgbPixel[] {
+      const step = Math.max(1, Math.floor(pixels.length / k));
+      return Array.from(
+        { length: k },
+        (_, i) => pixels[Math.min(i * step, pixels.length - 1)] as RgbPixel
+      );
+    }
+    function nearestCentroid(pixel: RgbPixel, centroids: readonly RgbPixel[]): number {
+      let minDist = Infinity;
+      let nearest = 0;
+      for (let ci = 0; ci < centroids.length; ci++) {
+        const d = distance(pixel, centroids[ci] as RgbPixel);
+        if (d < minDist) {
+          minDist = d;
+          nearest = ci;
+        }
+      }
+      return nearest;
+    }
+    function meanOf(cluster: readonly RgbPixel[]): RgbPixel {
+      const sum = cluster.reduce((acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }), {
+        r: 0,
+        g: 0,
+        b: 0,
+      });
+      return {
+        r: Math.round(sum.r / cluster.length),
+        g: Math.round(sum.g / cluster.length),
+        b: Math.round(sum.b / cluster.length),
+      };
+    }
+    function runKMeans(pixels: readonly RgbPixel[], k: number): readonly Centroid[] {
+      if (pixels.length === 0) return [];
+    
+      const clampedK = Math.min(k, pixels.length);
+      let centroids = initCentroids(pixels, clampedK);
+    
+      for (let iter = 0; iter < KMEANS_ITERATIONS; iter++) {
+        const clusters: RgbPixel[][] = Array.from({ length: clampedK }, () => []);
+        for (const pixel of pixels) {
+          (clusters[nearestCentroid(pixel, centroids)] as RgbPixel[]).push(pixel);
+        }
+        // An empty cluster keeps its previous centroid rather than drifting.
+        centroids = clusters.map((cluster, ci) =>
+          cluster.length === 0 ? (centroids[ci] as RgbPixel) : meanOf(cluster)
+        );
+      }
+    
+      const clusterSizes: number[] = Array<number>(clampedK).fill(0);
+      for (const pixel of pixels) {
+        const nearest = nearestCentroid(pixel, centroids);
+        clusterSizes[nearest] = (clusterSizes[nearest] ?? 0) + 1;
+      }
+    
+      return centroids.map((c, i) => ({ ...c, count: clusterSizes[i] ?? 0 }));
+    }
+    function toHex(n: number): string {
+      return n.toString(16).padStart(2, "0");
+    }
+    function centroidToHex(c: RgbPixel): string {
+      return `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`;
+    }
+    export function extractDominantColors(
+      rgba: RgbaBytes,
+      maxColors = DEFAULT_MAX_COLORS
+    ): readonly string[] {
+      const pixels = samplePixels(rgba);
+      if (pixels.length === 0) return [];
+    
+      const ranked = runKMeans(pixels, maxColors).filter((c) => c.count > 0);
+      return [...ranked].sort((a, b) => b.count - a.count).map(centroidToHex);
+    }
+  </file>
   <file path="src/lib/offline-cache.ts">
     export type FloorPlanSnapshot = TableStatusDelta[];
     interface ReservationsCacheEntry {
@@ -5679,6 +5843,25 @@
       return contrastRatio(accent, LIGHT_ON_ACCENT) >= contrastRatio(accent, DARK_ON_ACCENT)
         ? LIGHT_ON_ACCENT
         : DARK_ON_ACCENT;
+    }
+    function channel(hex: string, index: number): number {
+      return parseInt(expandHex(hex).slice(index, index + 2), 16);
+    }
+    function toHexByte(value: number): string {
+      return Math.round(value).toString(16).padStart(2, "0");
+    }
+    export function deriveAccentHover(accent: string): string {
+      const toward = onAccentColor(accent);
+      const shifted = [0, 2, 4].map((i) => {
+        const from = channel(accent, i);
+        return from + (channel(toward, i) - from) * HOVER_SHIFT;
+      });
+      return `#${shifted.map(toHexByte).join("")}`;
+    }
+    export function paletteToTheme(palette: readonly string[]): VenueTheme | null {
+      const [accent] = palette;
+      if (accent === undefined) return null;
+      return { accent, accentHover: deriveAccentHover(accent), source: "extracted" };
     }
     export type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
     export interface ThemeContrastResult {

@@ -1786,6 +1786,12 @@
   "venueTheme": {
     "title": "Thème du lieu",
     "description": "La couleur de votre marque pour les boutons, liens et accents. Les palettes qui nuisent à la lisibilité ne peuvent pas être enregistrées.",
+    "logoLabel": "Extraire les couleurs d'un logo",
+    "logoHint": "PNG, JPEG ou WebP. L'image reste sur cet appareil — seules les couleurs sont enregistrées.",
+    "logoNoColours": "Ce logo n'a aucune couleur utilisable — il semble tout blanc, tout noir ou entièrement transparent.",
+    "logoUnsupportedType": "Ce fichier n'est pas une image PNG, JPEG ou WebP.",
+    "logoTooLarge": "Cette image est trop grande. Choisissez-en une de moins de 8 Mo.",
+    "logoDecodeFailed": "Cette image n'a pas pu être lue. Essayez un autre fichier.",
     "accent": "Couleur d'accent",
     "accentHover": "Couleur d'accent au survol",
     "previewTitle": "Aperçu",
