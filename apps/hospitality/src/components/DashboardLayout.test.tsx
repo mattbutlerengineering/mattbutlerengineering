@@ -606,6 +606,25 @@ describe("DashboardLayout", () => {
     });
   });
 
+  describe("sidebar overflow (#7294)", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const rule = (file: string, selector: string) =>
+      readFileSync(resolve(here, file), "utf-8").match(
+        new RegExp(`${selector.replace(".", "\\.")}\\s*\\{([^}]*)\\}`)
+      )?.[1] ?? "";
+
+    it("lets the sidebar column shrink to the body so the nav list scrolls instead of clipping", () => {
+      expect(rule("DashboardLayout.module.css", ".sidebarColumn")).toMatch(/min-height:\s*0/);
+    });
+
+    it("sizes the sidebar by flex inside the column, so the command hint stays visible", () => {
+      const root = rule("DashboardSidebar.module.css", ".root");
+      expect(root).toMatch(/flex:\s*1/);
+      expect(root).toMatch(/min-height:\s*0/);
+      expect(root).not.toMatch(/(^|[\s;])height:\s*100%/);
+    });
+  });
+
   it("keeps ChatPanel mounted after closing to preserve session state", async () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
