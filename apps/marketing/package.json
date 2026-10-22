@@ -27,6 +27,26 @@
       "name": "Marketing App (CSS)",
       "path": "dist/assets/index-*.css",
       "limit": "50 kB"
+    },
+    {
+      "name": "Factory Scene (lazy chunk)",
+      "path": "dist/assets/factory-scene-*.js",
+      "limit": "130 kB"
+    },
+    {
+      "name": "React Vendor",
+      "path": "dist/assets/vendor-react-*.js",
+      "limit": "80 kB"
+    },
+    {
+      "name": "Motion Vendor",
+      "path": "dist/assets/vendor-motion-*.js",
+      "limit": "52 kB"
+    },
+    {
+      "name": "Shipped Features (lazy chunk)",
+      "path": "dist/assets/shipped-features-*.js",
+      "limit": "32 kB"
     }
   ],
   "dependencies": {
