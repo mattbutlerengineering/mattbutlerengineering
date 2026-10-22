@@ -4156,3 +4156,13 @@ None — 0 `agent-skip`.
 - **P1 breaches escalated**: 0 open `ui-quality:p1` issues; `p1-age.mjs` reported 0 of 0 older than 7 days.
 - **Observation (not filed — no rubric tell covers it)**: the cookie-consent banner is position-fixed without reserving space, and at 375×812 it renders _on top of_ page content on every rialto-web route that shows it — body text, form fields and the consent buttons themselves overlap illegibly (clearest on `demos/auth-flow`, `demos/teams/new`, `demos/drivers/:id`, `demos/telemetry`). It also clips content at 1280×720 on longer pages. This is a real layout defect that the judged tell list cannot express; raising it would need a human rubric bump (the routine never edits the rubric). Two smaller ones in the same category: `components/confirm-dialog`'s "Delete Session" destructive trigger renders with no border or fill, reading as plain text rather than a control, while its siblings are bordered; and `components/data-table` at 375 px cuts the WINS column off the right edge with no horizontal affordance.
 - No pipeline bug, no stopped filing, no rejected push.
+
+## 2026-10-22 — mbe-learning-loop
+
+**Sensors:** 14/17 available (lighthouse, mutationScore, e2eStability not available — no live-site egress in this cloud checkout)
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 73/84, CI 100% (14/14), 0 flaky/43561 runs, 0% churn)
+**Sentry triage:** skipped — stored access token expired, not re-authorized this run
+**Verifications:** 5 checked (issues closed in 48h window), 0 verified, 0 failed, 5 skipped (no live signal: lighthouse/CORS-audit/CI-run unavailable for those issues) — 0 reopened
+**AI issue feedback:** 5 categories updated, 0 over the 40%-rejected budget-halving threshold (feature 2%, audit 0%, ci-fix 7%, meta-improvement 0%, acmm 0%) — all budgets stay at 3
+**Skill proposals:** 0 (Thursday — Friday-only)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm headroom 1.261 → 1.285). False-positive rate over last 30d (wontfix/not_planned closures across ci-fix/acmm/bug/audit/sentry-labeled issues): 15/248 ≈ 6% — well under the 30% loosen-threshold, no action needed. Verification skip rate stayed high this run purely from missing live signals (lighthouse/CORS/CI), not from fix failures — not counted against fix-effectiveness.
