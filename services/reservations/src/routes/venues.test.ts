@@ -1330,6 +1330,90 @@ describe("Venue Routes", () => {
 
         expect(response.statusCode).toBe(404);
       });
+
+      // #7250: `settings` stays free-form JSON, but `settings.profile` has a
+      // published public contract, so a bad value must be a 400 at the HTTP
+      // boundary rather than something the service silently stores.
+      describe("settings.profile validation", () => {
+        // Deliberately queues no mock return: these requests must never reach
+        // the service, and an unconsumed `mockResolvedValueOnce` would leak
+        // into a later suite's expectations.
+        async function patchProfile(profile: unknown) {
+          return app.inject({
+            method: "PATCH",
+            url: "/api/v1/venues/venue-123",
+            headers: { "x-auth-bypass": "true" },
+            payload: { settings: { profile } },
+          });
+        }
+
+        it.each([
+          ["an unknown venue type", { type: "food_truck" }],
+          ["a non-URL website", { website: "not a url" }],
+          ["a javascript: website", { website: "javascript:alert(1)" }],
+          ["an over-length description", { description: "x".repeat(281) }],
+          ["an address missing its city", { address: { line1: "1 Market St" } }],
+          [
+            "a non-two-letter country",
+            {
+              address: {
+                line1: "1 Market St",
+                city: "Seattle",
+                region: "WA",
+                postalCode: "98101",
+                country: "USA",
+              },
+            },
+          ],
+        ])("rejects %s with a 400 and never calls the service", async (_label, profile) => {
+          vi.mocked(venueService.update).mockClear();
+
+          const response = await patchProfile(profile);
+
+          expect(response.statusCode).toBe(400);
+          expect(venueService.update).not.toHaveBeenCalled();
+        });
+
+        it("accepts a valid profile alongside other operational settings", async () => {
+          vi.mocked(venueService.update).mockClear();
+          vi.mocked(venueService.update).mockResolvedValueOnce(mockVenue);
+
+          const response = await app.inject({
+            method: "PATCH",
+            url: "/api/v1/venues/venue-123",
+            headers: { "x-auth-bypass": "true" },
+            payload: {
+              settings: {
+                maxPartySize: 12,
+                profile: {
+                  type: "cafe",
+                  cuisines: ["Coffee"],
+                  website: "https://example.com",
+                  description: "Corner cafe.",
+                  address: {
+                    line1: "1 Market St",
+                    city: "Seattle",
+                    region: "WA",
+                    postalCode: "98101",
+                    country: "US",
+                  },
+                },
+              },
+            },
+          });
+
+          expect(response.statusCode).toBe(200);
+          expect(venueService.update).toHaveBeenCalledWith(
+            "venue-123",
+            expect.objectContaining({
+              settings: expect.objectContaining({
+                maxPartySize: 12,
+                profile: expect.objectContaining({ type: "cafe" }),
+              }),
+            })
+          );
+        });
+      });
     });
 
     describe("DELETE /v1/venues/:id", () => {

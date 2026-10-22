@@ -20,9 +20,22 @@ import { z } from "zod";
 
 import { OccasionSchema, SeatingPreferenceSchema, ReservationStatusSchema } from "./reservation.js";
 import { TableStatusSchema } from "./floor-plan.js";
+import { VenueProfileSchema } from "./venue.js";
 
 /** Arbitrary JSON object payload (derives to a bare `{ type: "object" }`). */
 const JsonObjectSchema = z.record(z.string(), z.unknown());
+
+/**
+ * `Venue.settings` stays free-form JSON — every operational key an operator
+ * or a future feature puts there keeps passing — but the one key with a
+ * published contract, `profile` (#7250), is validated at the HTTP boundary so
+ * a bad venue type, a non-http(s) website or an over-length description is a
+ * 400 rather than a silently-stored value. `looseObject` is what keeps the
+ * rest of the blob through the parse.
+ */
+const VenueSettingsBodySchema = z.looseObject({
+  profile: VenueProfileSchema.optional(),
+});
 
 // ── Reservations (routes/reservations.ts) ─────────────────────
 export const ListReservationsQuerySchema = z.object({
@@ -358,7 +371,7 @@ export const CreateVenueBodySchema = z
       .default("USD")
       .describe("ISO 4217 currency code"),
     operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
-    settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
+    settings: VenueSettingsBodySchema.describe("Venue-specific settings").optional(),
   })
   .describe("Venue creation payload");
 
@@ -373,7 +386,7 @@ export const UpdateVenueBodySchema = z
       .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
       .optional(),
     operatingHours: JsonObjectSchema.nullable().optional(),
-    settings: JsonObjectSchema.nullable().optional(),
+    settings: VenueSettingsBodySchema.nullable().optional(),
   })
   .describe("Fields to update");
 

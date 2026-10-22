@@ -1012,6 +1012,10 @@
       const venues = JSON.parse(loadFixture("venues-list"));
       return PublicVenueConfigSchema.parse({
         ...venues.data[0],
+        // `profile` lives inside the internal venue's `settings` blob; the public
+        // config carries it as a top-level, allow-listed field (#7250), exactly
+        // as `venueService.getPublicConfigBySlug` projects it.
+        profile: toPublicVenueProfile(venues.data[0].settings?.profile),
         deposit: {
           enabled: false,
           depositType: null,
@@ -1026,6 +1030,7 @@
       const venues = JSON.parse(loadFixture("venues-list"));
       return PublicVenueConfigSchema.parse({
         ...venues.data[0],
+        profile: toPublicVenueProfile(venues.data[0].settings?.profile),
         deposit: {
           enabled: true,
           depositType: "flat",
@@ -7929,6 +7934,107 @@
       }
     
       return payload;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="venue-profile">
+  <file path="src/components/venue-profile/venue-profile-form.ts">
+    export interface VenueProfileForm {
+      readonly type: string;
+      readonly cuisines: string;
+      readonly line1: string;
+      readonly line2: string;
+      readonly city: string;
+      readonly region: string;
+      readonly postalCode: string;
+      readonly country: string;
+      readonly website: string;
+      readonly description: string;
+    }
+    export const EMPTY_VENUE_PROFILE_FORM: VenueProfileForm = {
+      type: "",
+      cuisines: "",
+      line1: "",
+      line2: "",
+      city: "",
+      region: "",
+      postalCode: "",
+      country: "",
+      website: "",
+      description: "",
+    };
+    export type VenueProfileFieldError = "required" | "invalid" | "tooLong";
+    export type VenueProfileFormErrors = Partial<
+      Record<keyof VenueProfileForm, VenueProfileFieldError>
+    >;
+    export type VenueProfileFormResult =
+      | { readonly ok: true; readonly profile: VenueProfile }
+      | { readonly ok: false; readonly errors: VenueProfileFormErrors };
+    export function toVenueProfileForm(profile: VenueProfile | undefined): VenueProfileForm {
+      return {
+        type: profile?.type ?? "",
+        cuisines: (profile?.cuisines ?? []).join(", "),
+        line1: profile?.address?.line1 ?? "",
+        line2: profile?.address?.line2 ?? "",
+        city: profile?.address?.city ?? "",
+        region: profile?.address?.region ?? "",
+        postalCode: profile?.address?.postalCode ?? "",
+        country: profile?.address?.country ?? "",
+        website: profile?.website ?? "",
+        description: profile?.description ?? "",
+      };
+    }
+    function splitCuisines(raw: string): string[] {
+      return raw
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+    }
+    function addressFrom(form: VenueProfileForm): Record<string, string> | undefined {
+      const touched = ADDRESS_FIELDS.some((field) => form[field].trim().length > 0);
+      if (!touched) return undefined;
+    
+      const line2 = form.line2.trim();
+      return {
+        line1: form.line1.trim(),
+        ...(line2 ? { line2 } : {}),
+        city: form.city.trim(),
+        region: form.region.trim(),
+        postalCode: form.postalCode.trim(),
+        country: form.country.trim(),
+      };
+    }
+    function candidateFrom(form: VenueProfileForm): Record<string, unknown> {
+      const cuisines = splitCuisines(form.cuisines);
+      const website = form.website.trim();
+      const description = form.description.trim();
+      const address = addressFrom(form);
+    
+      return {
+        ...(form.type ? { type: form.type } : {}),
+        ...(cuisines.length > 0 ? { cuisines } : {}),
+        ...(address ? { address } : {}),
+        ...(website ? { website } : {}),
+        ...(description ? { description } : {}),
+      };
+    }
+    function errorCodeFor(code: string, value: string): VenueProfileFieldError {
+      if (code === "too_big") return "tooLong";
+      if (value.trim().length === 0) return "required";
+      return "invalid";
+    }
+    export function parseVenueProfileForm(form: VenueProfileForm): VenueProfileFormResult {
+      const parsed = VenueProfileSchema.safeParse(candidateFrom(form));
+      if (parsed.success) return { ok: true, profile: parsed.data };
+    
+      const errors: VenueProfileFormErrors = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path.at(-1);
+        if (typeof field !== "string" || !(field in EMPTY_VENUE_PROFILE_FORM)) continue;
+        const key = field as keyof VenueProfileForm;
+        errors[key] = errorCodeFor(issue.code, form[key]);
+      }
+      return { ok: false, errors };
     }
   </file>
   </section>

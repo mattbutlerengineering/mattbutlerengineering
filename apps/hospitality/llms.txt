@@ -3003,6 +3003,50 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="venue-profile">
+  <file path="src/components/venue-profile/venue-profile-form.ts">
+    <item priority="low">
+      interface VenueProfileForm {
+        type: string;
+        cuisines: string;
+        line1: string;
+        line2: string;
+        city: string;
+      }
+    </item>
+    <item priority="high">
+      export const EMPTY_VENUE_PROFILE_FORM: VenueProfileForm;
+    </item>
+    <item priority="low">
+      type VenueProfileFieldError = "required" | "invalid" | "tooLong";
+    </item>
+    <item priority="low">
+      type VenueProfileFormErrors = Partial<
+        Record<keyof VenueProfileForm, VenueProfileFie...;
+    </item>
+    <item priority="low">
+      type VenueProfileFormResult = { readonly ok: true; readonly  | { readonly ok: false; readonly;
+    </item>
+    <item priority="high">
+      export function toVenueProfileForm(profile: VenueProfile | undefined): VenueProfileForm { /* ... */ }
+    </item>
+    <item priority="medium">
+      function splitCuisines(raw: string): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addressFrom(form: VenueProfileForm): Record<string, string> | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function candidateFrom(form: VenueProfileForm): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function errorCodeFor(code: string, value: string): VenueProfileFieldError { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseVenueProfileForm(form: VenueProfileForm): VenueProfileFormResult { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="vite.manualChunks.ts">
   <file path="vite.manualChunks.ts">
     <item priority="high">

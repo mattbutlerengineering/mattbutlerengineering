@@ -8359,6 +8359,10 @@
       const venues = JSON.parse(loadFixture("venues-list"));
       return PublicVenueConfigSchema.parse({
         ...venues.data[0],
+        // `profile` lives inside the internal venue's `settings` blob; the public
+        // config carries it as a top-level, allow-listed field (#7250), exactly
+        // as `venueService.getPublicConfigBySlug` projects it.
+        profile: toPublicVenueProfile(venues.data[0].settings?.profile),
         deposit: {
           enabled: false,
           depositType: null,
@@ -8373,6 +8377,7 @@
       const venues = JSON.parse(loadFixture("venues-list"));
       return PublicVenueConfigSchema.parse({
         ...venues.data[0],
+        profile: toPublicVenueProfile(venues.data[0].settings?.profile),
         deposit: {
           enabled: true,
           depositType: "flat",
@@ -32579,7 +32584,7 @@
           .default("USD")
           .describe("ISO 4217 currency code"),
         operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
-        settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
+        settings: VenueSettingsBodySchema.describe("Venue-specific settings").optional(),
       })
       .describe("Venue creation payload");
     export const UpdateVenueBodySchema = z
@@ -32593,7 +32598,7 @@
           .regex(ISO_CURRENCY_PATTERN, "Must be a 3-letter ISO 4217 currency code")
           .optional(),
         operatingHours: JsonObjectSchema.nullable().optional(),
-        settings: JsonObjectSchema.nullable().optional(),
+        settings: VenueSettingsBodySchema.nullable().optional(),
       })
       .describe("Fields to update");
     export const CreateWaitlistBodySchema = z.object({
@@ -32807,6 +32812,29 @@
       close: z.string(),
       closed: z.boolean().optional(),
     });
+    export const VENUE_TYPES = ["fine_dining", "casual", "bar", "cafe"] as const;
+    export const VenueTypeSchema = z.enum(VENUE_TYPES);
+    export const VENUE_DESCRIPTION_MAX_LENGTH = 280;
+    export const VenueAddressSchema = z.object({
+      line1: z.string().min(1).max(200),
+      line2: z.string().max(200).optional(),
+      city: z.string().min(1).max(100),
+      region: z.string().min(1).max(100),
+      postalCode: z.string().min(1).max(20),
+      country: z.string().regex(/^[A-Za-z]{2}$/, "Must be an ISO 3166-1 alpha-2 country code"),
+    });
+    export const VenueProfileSchema = z.object({
+      type: VenueTypeSchema.optional(),
+      cuisines: z.array(z.string().min(1).max(50)).max(20).optional(),
+      address: VenueAddressSchema.optional(),
+      website: z.string().max(200).regex(HTTP_URL_PATTERN, "Must be an http(s) URL").optional(),
+      description: z.string().max(VENUE_DESCRIPTION_MAX_LENGTH).optional(),
+    });
+    export type VenueProfile = z.infer<typeof VenueProfileSchema>;
+    export function toPublicVenueProfile(stored: unknown): VenueProfile {
+      const parsed = VenueProfileSchema.safeParse(stored ?? {});
+      return parsed.success ? parsed.data : {};
+    }
     export const VenueThemeSchema = z.object({
       accent: HexColorSchema,
       accentHover: HexColorSchema,
@@ -32876,6 +32904,12 @@
         slotIntervalMinutes: z.number().optional(),
       }),
       deposit: PublicVenueDepositSchema,
+      /**
+       * Venue identity from `settings.profile`, through the allow-list (#7250).
+       * Optional so a client on this contract still parses a response from a
+       * service that predates it — the service always sends it, possibly `{}`.
+       */
+      profile: VenueProfileSchema.optional(),
     });
     export const DepositPaymentIntentSchema = z.object({
       clientSecret: z.string(),
@@ -44878,6 +44912,11 @@
             lateCancellationFeePercent: venue.lateCancellationFeePercent,
             noShowFeePercent: venue.noShowFeePercent,
           },
+          // `settings` is free-form JSON shared with operational keys, so the
+          // profile goes through the explicit `VenueProfileSchema` allow-list
+          // (#7250) — never a spread. `toPublicVenueProfile` fails closed on an
+          // absent, non-object or no-longer-valid stored value.
+          profile: toPublicVenueProfile(settings?.profile),
         };
       },
     
@@ -60514,6 +60553,14 @@
       guestModificationCutoffHours?: number;
       /** Largest allowed |newPartySize - currentPartySize| for a guest self-service change. */
       guestMaxPartySizeChange?: number;
+      /**
+       * Public restaurant identity — venue type, cuisines, postal address,
+       * website, description (#7250). Lives inside `settings` because `settings`
+       * is already `Json?` on the `Venue` row, so this needed no migration. It is
+       * the one key in this blob with a published public contract: see
+       * `VenueProfileSchema` and `PublicVenueConfig.profile`.
+       */
+      profile?: VenueProfile;
       /** Per-venue palette; validate with `VenueThemeSchema` before use. */
       theme?: VenueTheme;
     }
@@ -60577,6 +60624,13 @@
       operatingHours: OperatingHours | null;
       settings: PublicVenueSettings;
       deposit: PublicVenueDeposit;
+      /**
+       * Allow-listed projection of `settings.profile` (#7250). `settings` is
+       * free-form JSON, so this is built field by field through
+       * `toPublicVenueProfile` — never spread — and the route's response
+       * serializer drops anything the contract does not declare.
+       */
+      profile?: VenueProfile;
     }
     export interface CreateDepositPaymentIntentRequest {
       reservationId: string;
@@ -67112,6 +67166,107 @@
       }
     
       return payload;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="venue-profile">
+  <file path="apps/hospitality/src/components/venue-profile/venue-profile-form.ts">
+    export interface VenueProfileForm {
+      readonly type: string;
+      readonly cuisines: string;
+      readonly line1: string;
+      readonly line2: string;
+      readonly city: string;
+      readonly region: string;
+      readonly postalCode: string;
+      readonly country: string;
+      readonly website: string;
+      readonly description: string;
+    }
+    export const EMPTY_VENUE_PROFILE_FORM: VenueProfileForm = {
+      type: "",
+      cuisines: "",
+      line1: "",
+      line2: "",
+      city: "",
+      region: "",
+      postalCode: "",
+      country: "",
+      website: "",
+      description: "",
+    };
+    export type VenueProfileFieldError = "required" | "invalid" | "tooLong";
+    export type VenueProfileFormErrors = Partial<
+      Record<keyof VenueProfileForm, VenueProfileFieldError>
+    >;
+    export type VenueProfileFormResult =
+      | { readonly ok: true; readonly profile: VenueProfile }
+      | { readonly ok: false; readonly errors: VenueProfileFormErrors };
+    export function toVenueProfileForm(profile: VenueProfile | undefined): VenueProfileForm {
+      return {
+        type: profile?.type ?? "",
+        cuisines: (profile?.cuisines ?? []).join(", "),
+        line1: profile?.address?.line1 ?? "",
+        line2: profile?.address?.line2 ?? "",
+        city: profile?.address?.city ?? "",
+        region: profile?.address?.region ?? "",
+        postalCode: profile?.address?.postalCode ?? "",
+        country: profile?.address?.country ?? "",
+        website: profile?.website ?? "",
+        description: profile?.description ?? "",
+      };
+    }
+    function splitCuisines(raw: string): string[] {
+      return raw
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+    }
+    function addressFrom(form: VenueProfileForm): Record<string, string> | undefined {
+      const touched = ADDRESS_FIELDS.some((field) => form[field].trim().length > 0);
+      if (!touched) return undefined;
+    
+      const line2 = form.line2.trim();
+      return {
+        line1: form.line1.trim(),
+        ...(line2 ? { line2 } : {}),
+        city: form.city.trim(),
+        region: form.region.trim(),
+        postalCode: form.postalCode.trim(),
+        country: form.country.trim(),
+      };
+    }
+    function candidateFrom(form: VenueProfileForm): Record<string, unknown> {
+      const cuisines = splitCuisines(form.cuisines);
+      const website = form.website.trim();
+      const description = form.description.trim();
+      const address = addressFrom(form);
+    
+      return {
+        ...(form.type ? { type: form.type } : {}),
+        ...(cuisines.length > 0 ? { cuisines } : {}),
+        ...(address ? { address } : {}),
+        ...(website ? { website } : {}),
+        ...(description ? { description } : {}),
+      };
+    }
+    function errorCodeFor(code: string, value: string): VenueProfileFieldError {
+      if (code === "too_big") return "tooLong";
+      if (value.trim().length === 0) return "required";
+      return "invalid";
+    }
+    export function parseVenueProfileForm(form: VenueProfileForm): VenueProfileFormResult {
+      const parsed = VenueProfileSchema.safeParse(candidateFrom(form));
+      if (parsed.success) return { ok: true, profile: parsed.data };
+    
+      const errors: VenueProfileFormErrors = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path.at(-1);
+        if (typeof field !== "string" || !(field in EMPTY_VENUE_PROFILE_FORM)) continue;
+        const key = field as keyof VenueProfileForm;
+        errors[key] = errorCodeFor(issue.code, form[key]);
+      }
+      return { ok: false, errors };
     }
   </file>
   </section>
