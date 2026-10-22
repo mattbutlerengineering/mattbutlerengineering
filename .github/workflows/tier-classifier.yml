@@ -75,6 +75,20 @@ jobs:
           git diff --numstat "${base_sha}...HEAD" > /tmp/numstat.txt
           echo "count=$(wc -l < /tmp/changed-files.txt)" >> "$GITHUB_OUTPUT"
 
+      - name: Load tier policy from base branch
+        # The working tree is the PR HEAD, so importing
+        # scripts/tier-escalation.mjs from it would let a PR rewrite the
+        # escalation policy and lower its own tier. Read the module from the
+        # base branch instead; the PR-head checkout stays for the diff above.
+        # A base branch without the module fails this step, so Classify never
+        # runs, no tier label lands, and merge-queue-eligibility fails closed.
+        env:
+          PR_BASE_REF: ${{ steps.pr.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/tier-policy
+          git show "origin/${PR_BASE_REF}:scripts/tier-escalation.mjs" > /tmp/tier-policy/tier-escalation.mjs
+
       - name: Classify
         id: classify
         env:
@@ -84,7 +98,6 @@ jobs:
         run: |
           node - <<'NODE'
           const fs = require('node:fs');
-          const path = require('node:path');
           const { pathToFileURL } = require('node:url');
           const files = fs.readFileSync('/tmp/changed-files.txt', 'utf-8').split('\n').filter(Boolean);
 
@@ -98,6 +111,7 @@ jobs:
             { tier: T4, when: (f) => /^infrastructure\/pulumi\//.test(f), why: 'pulumi infra change' },
             { tier: T4, when: (f) => f === '.github/CODEOWNERS', why: 'CODEOWNERS edit' },
             { tier: T4, when: (f) => /^\.github\/workflows\/(codeql|coverage-gate|tier-classifier)\.yml$/.test(f), why: 'merge-gate workflow edit' },
+            { tier: T4, when: (f) => f === 'scripts/tier-escalation.mjs', why: 'tier-escalation policy edit (merge-gate policy)' },
             { tier: T4, when: (f) => /^services\/users\/src\/auth\//.test(f) || /^packages\/auth\/src\/middleware\//.test(f), why: 'auth-critical code path' },
             { tier: T4, when: (f) => f === 'docs/SECURITY-AI.md', why: 'SECURITY-AI.md edit' },
 
@@ -137,7 +151,9 @@ jobs:
 
           main().catch((e) => { console.error(e); process.exit(1); });
           async function main() {
-          const escalation = await import(pathToFileURL(path.resolve('scripts/tier-escalation.mjs')).href);
+          // Base-branch copy written by "Load tier policy from base branch";
+          // never the PR-head checkout's scripts/tier-escalation.mjs.
+          const escalation = await import(pathToFileURL('/tmp/tier-policy/tier-escalation.mjs').href);
 
           let highest = 0;
           const reasons = new Set();
