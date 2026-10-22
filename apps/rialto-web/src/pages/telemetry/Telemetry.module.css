@@ -131,3 +131,16 @@
   min-block-size: 9rem;
   justify-content: center;
 }
+
+/* The HUD has no visible title; axe page-has-heading-one needs an h1 (#7267). */
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

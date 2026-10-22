@@ -91,6 +91,13 @@ describe("Telemetry HUD", () => {
   });
 });
 
+describe("page heading", () => {
+  it("exposes a single level-one heading", () => {
+    renderRoute();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+});
+
 describe("route-local vibe switch", () => {
   it("lands under the game vibe", () => {
     const { container } = renderRoute("?frozen=1");
