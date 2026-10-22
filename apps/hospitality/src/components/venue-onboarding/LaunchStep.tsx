@@ -6,9 +6,9 @@ import type { BasicInfoData } from "./BasicInfoStep.js";
 import type { LocationTimeData } from "./LocationTimeStep.js";
 import type { SettingsData } from "./SettingsStep.js";
 import { EMPTY_FLOOR_PLAN_DRAFT, type FloorPlanDraft } from "./floor-plan-draft.js";
-import { templateById, type TemplateId } from "./floor-plan-templates.js";
+import { layoutForDraft, templateById } from "./floor-plan-templates.js";
 import { layoutCounts } from "./floor-plan-copy.js";
-import { TemplatePreview } from "./TemplatePreview.js";
+import { TemplateMiniPreview } from "../floor-plan/TemplateMiniPreview.js";
 import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
 import { LaunchStagePanel } from "./LaunchStagePanel.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -130,12 +130,12 @@ export function LaunchStep({
   }
 
   const hasOperatingHours = Object.keys(operatingHours).length > 0;
-  // FloorPlanDraft.templateId is a plain string (floor-plan-draft.ts can't
-  // import TemplateId from floor-plan-templates.ts without a cycle) but is
-  // only ever populated from a TemplateId — same cast FloorPlanStep.tsx's
-  // sibling call sites rely on implicitly via a pre-typed variable.
-  const template =
-    floorPlan.templateId !== null ? templateById(floorPlan.templateId as TemplateId) : null;
+  const template = floorPlan.templateId !== null ? templateById(floorPlan.templateId) : null;
+  // The draft as the operator left it — their own tables at their own
+  // positions, on the room's canvas with its walls and zones. Projected from
+  // the draft, never rebuilt from the template, so this picture agrees with the
+  // table count rendered beside it and with what Launch is about to create.
+  const reviewLayout = layoutForDraft(floorPlan);
   const tableCount = floorPlan.tables.length;
   const launchStarted =
     launch.inFlightStage !== null || launch.failedStage !== null || launch.venueId !== null;
@@ -244,7 +244,7 @@ export function LaunchStep({
               <div className={styles.reviewSection}>
                 <Text className={styles.reviewLabel}>{t("onboarding.launch.layout")}</Text>
                 <Text className={styles.reviewValue}>
-                  {t(`onboarding.floorPlan.templates.${template.id}.name`)}
+                  {t(`floorPlan.templates.items.${template.id}.name`)}
                 </Text>
               </div>
               <div className={styles.reviewSection}>
@@ -259,7 +259,9 @@ export function LaunchStep({
                     : t("onboarding.floorPlan.summary", layoutCounts(t, floorPlan.tables))}
                 </Text>
               </div>
-              <TemplatePreview tables={floorPlan.tables} className={styles.templatePreview} />
+              {reviewLayout && (
+                <TemplateMiniPreview layout={reviewLayout} className={styles.templatePreview} />
+              )}
             </Card>
           )}
         </Stack>

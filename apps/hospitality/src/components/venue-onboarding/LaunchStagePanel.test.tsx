@@ -28,9 +28,14 @@ function makeTables(count: number): DraftTable[] {
 
 function makeDraft(overrides: Partial<FloorPlanDraft> = {}): FloorPlanDraft {
   return {
-    templateId: "template-1",
+    templateId: "blank",
+    sizeId: "cozy",
     planName: "Main Floor",
     tables: makeTables(14),
+    sections: [],
+    walls: [],
+    width: 800,
+    height: 600,
     pristine: false,
     ...overrides,
   };
@@ -73,6 +78,7 @@ describe("LaunchStagePanel", () => {
       ...INITIAL_LAUNCH_PROGRESS,
       venueId: "venue-1",
       floorPlanId: "floor-plan-1",
+      sectionsDone: true,
       createdTableNames: ["T1", "T2", "T3", "T4", "T5", "T6"],
       inFlightStage: "tables",
     };
@@ -101,6 +107,7 @@ describe("LaunchStagePanel", () => {
       ...INITIAL_LAUNCH_PROGRESS,
       venueId: "venue-1",
       floorPlanId: "floor-plan-1",
+      sectionsDone: true,
       createdTableNames: ["T1", "T2", "T3", "T4", "T5", "T6"],
       failedStage: "tables",
       errorMessage: "Stopped at table 7 of 14",
@@ -158,6 +165,7 @@ describe("LaunchStagePanel", () => {
     const progress: LaunchProgress = {
       venueId: "venue-1",
       floorPlanId: "floor-plan-1",
+      sectionsDone: true,
       createdTableNames: makeTables(14).map((t) => t.name),
       activated: true,
       inFlightStage: null,
@@ -184,6 +192,7 @@ describe("LaunchStagePanel", () => {
       ...INITIAL_LAUNCH_PROGRESS,
       venueId: "venue-1",
       floorPlanId: "floor-plan-1",
+      sectionsDone: true,
       createdTableNames: ["T1", "T2", "T3", "T4", "T5", "T6"],
       inFlightStage: "tables",
     };
@@ -209,6 +218,7 @@ describe("LaunchStagePanel", () => {
       ...INITIAL_LAUNCH_PROGRESS,
       venueId: "venue-1",
       floorPlanId: "floor-plan-1",
+      sectionsDone: true,
       createdTableNames: ["T1", "T2", "T3", "T4", "T5", "T6"],
       inFlightStage: "tables",
     };

@@ -9,6 +9,7 @@ import { SectionMaterialPicker } from "../components/floor-plan/SectionMaterialP
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  GRID_SIZE,
   moveWallEndpoint,
   type Point,
   type WallEnd,
@@ -52,6 +53,12 @@ export function FloorPlanEditorPage() {
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
 
   const serverWalls = floorPlan?.layoutJson.walls;
+  // The plan's own canvas. Room templates (#7256) create plans up to 2000x1200,
+  // so neither the wall-coordinate inputs nor an endpoint drag may clamp
+  // against the 800x600 default — doing so silently shortens any wall that
+  // reaches past it, and the autosave below persists the result.
+  const planWidth = floorPlan?.layoutJson.width || CANVAS_WIDTH;
+  const planHeight = floorPlan?.layoutJson.height || CANVAS_HEIGHT;
   const walls = wallsDraft ?? serverWalls ?? [];
   const wallsDirty =
     wallsDraft !== null && JSON.stringify(wallsDraft) !== JSON.stringify(serverWalls ?? []);
@@ -153,9 +160,13 @@ export function FloorPlanEditorPage() {
   const handleWallEndpointMove = useCallback(
     (wallId: string, end: WallEnd, p: Point) =>
       setWallsDraft((prev) =>
-        (prev ?? serverWalls ?? []).map((w) => (w.id === wallId ? moveWallEndpoint(w, end, p) : w))
+        (prev ?? serverWalls ?? []).map((w) =>
+          w.id === wallId
+            ? moveWallEndpoint(w, end, p, GRID_SIZE, { width: planWidth, height: planHeight })
+            : w
+        )
       ),
-    [serverWalls]
+    [serverWalls, planWidth, planHeight]
   );
 
   const requestDeleteTable = useCallback((tableId: string) => {
@@ -309,10 +320,7 @@ export function FloorPlanEditorPage() {
         <AddTableDialog
           venueId={floorPlan.venueId}
           floorPlanId={floorPlan.id}
-          canvas={{
-            width: floorPlan.layoutJson.width || CANVAS_WIDTH,
-            height: floorPlan.layoutJson.height || CANVAS_HEIGHT,
-          }}
+          canvas={{ width: planWidth, height: planHeight }}
           existingTables={tables.flatMap((t) => {
             const m = t.shapeMetadata;
             return m ? [{ x: m.x, y: m.y, width: m.width, height: m.height }] : [];
@@ -434,6 +442,8 @@ export function FloorPlanEditorPage() {
             selectedId={selectedWallId}
             onChange={setWallsDraft}
             onSelect={setSelectedWallId}
+            planWidth={planWidth}
+            planHeight={planHeight}
           />
 
           {/* Table list */}

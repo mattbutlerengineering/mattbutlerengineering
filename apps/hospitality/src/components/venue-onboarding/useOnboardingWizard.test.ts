@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import type { Venue, CreateTableRequest } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "../floor-plan/floor-plan-geometry.js";
 import { EMPTY_FLOOR_PLAN_DRAFT } from "./floor-plan-draft.js";
+import { draftFromTemplate } from "./floor-plan-templates.js";
 import { ONBOARDING_STEPS } from "./onboarding-steps.js";
 import { INITIAL_LAUNCH_PROGRESS } from "./launch-sequence.js";
 import type { LaunchProgress } from "./launch-sequence.js";
@@ -226,17 +227,53 @@ describe("useOnboardingWizard", () => {
   });
 
   describe("setTemplate", () => {
-    it("restaurant yields 14 tables and pristine true; blank afterward yields zero tables and pristine true again", () => {
+    it("a room yields its own tables and pristine true; blank afterward empties the floor again", () => {
       const { result } = renderHook(() => useOnboardingWizard());
 
-      act(() => result.current.actions.setTemplate("restaurant"));
-      expect(result.current.data.floorPlan.tables).toHaveLength(14);
-      expect(result.current.data.floorPlan.planName).toBe("Main Dining Room");
+      act(() => result.current.actions.setTemplate("fine-dining"));
+      expect(result.current.data.floorPlan.tables).toHaveLength(
+        draftFromTemplate("fine-dining", "cozy").tables.length
+      );
+      expect(result.current.data.floorPlan.planName).toBe("Dining Room");
       expect(result.current.data.floorPlan.pristine).toBe(true);
+      expect(result.current.data.floorPlan.sections).toHaveLength(2);
+      expect(result.current.data.floorPlan.walls.length).toBeGreaterThan(0);
 
       act(() => result.current.actions.setTemplate("blank"));
       expect(result.current.data.floorPlan.tables).toHaveLength(0);
+      expect(result.current.data.floorPlan.sections).toHaveLength(0);
+      expect(result.current.data.floorPlan.walls).toHaveLength(0);
       expect(result.current.data.floorPlan.pristine).toBe(true);
+    });
+
+    it("defaults to Cozy, and rebuilds the chosen room when the size changes", () => {
+      const { result } = renderHook(() => useOnboardingWizard());
+
+      act(() => result.current.actions.setTemplate("fine-dining"));
+      expect(result.current.data.floorPlan.sizeId).toBe("cozy");
+      expect([result.current.data.floorPlan.width, result.current.data.floorPlan.height]).toEqual([
+        800, 600,
+      ]);
+
+      act(() => result.current.actions.setRoomSize("grand"));
+      expect(result.current.data.floorPlan.templateId).toBe("fine-dining");
+      expect([result.current.data.floorPlan.width, result.current.data.floorPlan.height]).toEqual([
+        2000, 1200,
+      ]);
+      expect(result.current.data.floorPlan.pristine).toBe(true);
+    });
+
+    it("remembers a size picked before any room, then builds the room at it", () => {
+      const { result } = renderHook(() => useOnboardingWizard());
+
+      act(() => result.current.actions.setRoomSize("spacious"));
+      expect(result.current.data.floorPlan.templateId).toBeNull();
+      expect(result.current.data.floorPlan.sizeId).toBe("spacious");
+
+      act(() => result.current.actions.setTemplate("cafe"));
+      expect([result.current.data.floorPlan.width, result.current.data.floorPlan.height]).toEqual([
+        1600, 1000,
+      ]);
     });
 
     it("clears errors.floorPlan", () => {
@@ -245,7 +282,7 @@ describe("useOnboardingWizard", () => {
       act(() => result.current.actions.next());
       expect(result.current.errors.floorPlan).not.toBeNull();
 
-      act(() => result.current.actions.setTemplate("restaurant"));
+      act(() => result.current.actions.setTemplate("fine-dining"));
       expect(result.current.errors.floorPlan).toBeNull();
     });
   });
@@ -300,7 +337,7 @@ describe("useOnboardingWizard", () => {
     it("leaves data.floorPlan deep-equal across next()/back() and goToStep() round trips at step 5", () => {
       const { result } = renderHook(() => useOnboardingWizard());
       advanceToStep5(result);
-      act(() => result.current.actions.setTemplate("restaurant"));
+      act(() => result.current.actions.setTemplate("fine-dining"));
       act(() => result.current.actions.addDraftTable(makeCreateTableRequest("Extra", 300, 300)));
       act(() => result.current.actions.moveDraftTable("Extra", 340, 340));
       const beforeNav = result.current.data.floorPlan;

@@ -18,13 +18,25 @@
  * No React, no Konva, no network.
  */
 
-import type { FloorPlan, Table, CreateTableRequest, TableShapeMetadata } from "@mbe/types";
+import type {
+  FloorPlan,
+  Table,
+  CreateTableRequest,
+  FloorPlanLayout,
+  TableShapeMetadata,
+  WallLayout,
+} from "@mbe/types";
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
   GRID_SIZE,
   SHAPE_DEFAULTS,
 } from "../floor-plan/floor-plan-geometry.js";
+import type {
+  RoomSizeId,
+  RoomTemplateId,
+  RoomTemplateSection,
+} from "../floor-plan/room-templates.js";
 
 export type DraftTableShape = TableShapeMetadata["shape"];
 
@@ -35,15 +47,43 @@ export interface DraftTable {
   capacity: number;
   minCovers: number;
   shape: DraftTableShape;
-  /** Centre coordinates, always multiples of GRID_SIZE. */
+  /** Centre coordinates. A table the manager adds is always a multiple of GRID_SIZE. */
   x: number;
   y: number;
+  /**
+   * Footprint, where a room template gave this table one of its own — a long
+   * table is 140 wide against a shape default of 80. Absent on a table the
+   * manager added, which keeps using SHAPE_DEFAULTS.
+   */
+  width?: number;
+  height?: number;
+  rotation?: number;
+  /**
+   * The room template's **local** section id, or null outside every zone.
+   * Launch resolves it to the real row id.
+   */
+  sectionId?: string | null;
+}
+
+/** The footprint to draw and save for a draft table. */
+export function draftTableSize(table: DraftTable): { width: number; height: number } {
+  const defaults = SHAPE_DEFAULTS[table.shape];
+  return { width: table.width ?? defaults.width, height: table.height ?? defaults.height };
 }
 
 export interface FloorPlanDraft {
-  templateId: string | null;
+  templateId: RoomTemplateId | null;
+  /** The room size the template was built at. */
+  sizeId: RoomSizeId;
   planName: string;
   tables: readonly DraftTable[];
+  /** Named zones the room template places; local ids until Launch makes their rows. */
+  sections: readonly RoomTemplateSection[];
+  /** Perimeter and interior walls the room template places. */
+  walls: readonly WallLayout[];
+  /** The canvas the template was built for; the plan is saved at this size. */
+  width: number;
+  height: number;
   /** False once the manager has moved, added or removed anything. Gates the replace-confirm. */
   pristine: boolean;
 }
@@ -56,10 +96,30 @@ export const DUPLICATE_TABLE_NAME_MESSAGE = "A table with this name already exis
 
 export const EMPTY_FLOOR_PLAN_DRAFT: FloorPlanDraft = {
   templateId: null,
+  sizeId: "cozy",
   planName: "",
   tables: [],
+  sections: [],
+  walls: [],
+  width: CANVAS_WIDTH,
+  height: CANVAS_HEIGHT,
   pristine: true,
 };
+
+/**
+ * The `layoutJson` this draft's plan is created with — the room's canvas and
+ * its walls. Section rectangles are absent: they are keyed by the section
+ * row's server id, which Launch only learns once it has created the rows.
+ */
+export function draftLayoutJson(draft: FloorPlanDraft): FloorPlanLayout {
+  return {
+    width: draft.width,
+    height: draft.height,
+    gridSize: GRID_SIZE,
+    showGrid: true,
+    ...(draft.walls.length > 0 ? { walls: [...draft.walls] } : {}),
+  };
+}
 
 // Fixed epoch for projected `createdAt`/`updatedAt` — a projection recomputed
 // on every render must not produce a new value (e.g. `new Date()`) each time.
@@ -75,7 +135,8 @@ export function draftToCanvasTables(draft: FloorPlanDraft): Table[] {
       shape: table.shape,
       x: table.x,
       y: table.y,
-      ...SHAPE_DEFAULTS[table.shape],
+      ...draftTableSize(table),
+      ...(table.rotation === undefined ? {} : { rotation: table.rotation }),
     };
 
     return {
@@ -91,6 +152,7 @@ export function draftToCanvasTables(draft: FloorPlanDraft): Table[] {
       status: "AVAILABLE",
       venueId: null,
       floorPlanId: null,
+      sectionId: table.sectionId ?? null,
       shapeMetadata,
       createdAt: DRAFT_TIMESTAMP,
       updatedAt: DRAFT_TIMESTAMP,
@@ -109,12 +171,7 @@ export function draftToCanvasFloorPlan(draft: FloorPlanDraft): FloorPlan {
     venueId: DRAFT_ID,
     name: draft.planName,
     isActive: false,
-    layoutJson: {
-      width: CANVAS_WIDTH,
-      height: CANVAS_HEIGHT,
-      gridSize: GRID_SIZE,
-      showGrid: true,
-    },
+    layoutJson: draftLayoutJson(draft),
     createdAt: DRAFT_TIMESTAMP,
     updatedAt: DRAFT_TIMESTAMP,
   };
@@ -156,7 +213,7 @@ export function draftTableToCreateRequest(
   venueId: string,
   floorPlanId: string
 ): CreateTableRequest {
-  const dims = SHAPE_DEFAULTS[table.shape];
+  const dims = draftTableSize(table);
 
   return {
     name: table.name,
@@ -170,6 +227,7 @@ export function draftTableToCreateRequest(
       y: table.y,
       width: dims.width,
       height: dims.height,
+      ...(table.rotation === undefined ? {} : { rotation: table.rotation }),
     },
   };
 }

@@ -1,0 +1,53 @@
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.templateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--rialto-space-sm);
+}
+
+.sizeRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: var(--rialto-space-sm);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs, 0.25rem);
+  align-items: stretch;
+  text-align: start;
+  padding: var(--rialto-space-sm);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  height: auto;
+}
+
+.cardSelected {
+  border-color: var(--rialto-accent);
+  background: var(--rialto-surface-elevated);
+}
+
+.cardPreview {
+  pointer-events: none;
+}
+
+.summary {
+  margin-top: auto;
+}
+
+.selectedPreview {
+  max-width: 32rem;
+}

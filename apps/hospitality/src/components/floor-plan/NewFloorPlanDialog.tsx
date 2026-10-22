@@ -3,26 +3,34 @@ import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Button, Heading, Input, Text } from "@mattbutlerengineering/rialto";
 import { useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
-import type { CreateFloorPlanRequest, FloorPlan } from "@mbe/types";
-import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE } from "./floor-plan-geometry.js";
+import type { FloorPlan } from "@mbe/types";
+import { TemplatePicker, type TemplateSelection } from "./TemplatePicker.js";
+import { roomSizeById, roomTemplateById, type RoomLayout } from "./room-templates.js";
 import styles from "./NewFloorPlanDialog.module.css";
 
-const DEFAULT_LAYOUT = {
-  width: CANVAS_WIDTH,
-  height: CANVAS_HEIGHT,
-  gridSize: GRID_SIZE,
-  showGrid: true,
-};
+/**
+ * Blank at Cozy is the canvas default, so an operator who names a plan and
+ * submits without touching the picker gets exactly the plan this dialog has
+ * always created (#7256).
+ */
+const DEFAULT_SELECTION: TemplateSelection = { templateId: "blank", sizeId: "cozy" };
 
 interface NewFloorPlanFormData {
   name: string;
+}
+
+export interface NewFloorPlanRequest {
+  readonly venueId: string;
+  readonly name: string;
+  /** The chosen room template, already built at the chosen size. */
+  readonly layout: RoomLayout;
 }
 
 export interface NewFloorPlanDialogProps {
   venueId: string;
   onCreated: (floorPlan: FloorPlan) => void;
   onClose: () => void;
-  onCreate: (data: CreateFloorPlanRequest) => Promise<FloorPlan>;
+  onCreate: (request: NewFloorPlanRequest) => Promise<FloorPlan>;
 }
 
 export function NewFloorPlanDialog({
@@ -34,6 +42,7 @@ export function NewFloorPlanDialog({
   const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selection, setSelection] = useState<TemplateSelection>(DEFAULT_SELECTION);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
@@ -73,11 +82,12 @@ export function NewFloorPlanDialog({
     setIsSubmitting(true);
     setError(null);
 
+    const size = roomSizeById(selection.sizeId);
     try {
       const floorPlan = await onCreate({
         venueId,
         name: data.name.trim(),
-        layoutJson: DEFAULT_LAYOUT,
+        layout: roomTemplateById(selection.templateId).build(size.width, size.height),
       });
       onCreated(floorPlan);
     } catch (err) {
@@ -140,6 +150,19 @@ export function NewFloorPlanDialog({
                 validate: (value) =>
                   value.trim().length > 0 || t("floorPlan.newDialog.nameRequired"),
               })}
+            />
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <Text className={styles.label}>{t("floorPlan.templates.pickerTitle")}</Text>
+            <Text variant="caption" color="secondary">
+              {t("floorPlan.templates.pickerDescription")}
+            </Text>
+            <TemplatePicker
+              templateId={selection.templateId}
+              sizeId={selection.sizeId}
+              onChange={setSelection}
+              disabled={isSubmitting}
             />
           </div>
 

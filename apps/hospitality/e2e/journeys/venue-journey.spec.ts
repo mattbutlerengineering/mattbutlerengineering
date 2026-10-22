@@ -81,7 +81,11 @@ test("venue onboarding journey against the live site", async ({ page }) => {
     // label, including "Floor plan", for the whole wizard, and Playwright's
     // default text match is case-insensitive: an unscoped getByText would
     // resolve to both the rail label and this step's own heading.
-    await expect(page.getByRole("radiogroup", { name: "Floor plan layout" })).toBeVisible();
+    //
+    // The step now asks two questions, each its own radiogroup (#7256): which
+    // room, and at what size. Assert the room group — it is the one step 5
+    // answers below, and it is the group that gates Next.
+    await expect(page.getByRole("radiogroup", { name: "Room template" })).toBeVisible();
   });
 
   await journey.step("Step 5 — pick a floor plan template", async () => {
@@ -90,7 +94,15 @@ test("venue onboarding journey against the live site", async ({ page }) => {
     // keeps this daily prod-writing journey's footprint to the venue, the
     // plan, and an activate call — no per-table POSTs — and gives the
     // celebration step below a fixed, non-interpolated sentence to assert.
-    await page.getByRole("radio", { name: "Blank — no tables" }).click();
+    //
+    // Anchored on the card's own name and scoped to the room group: the card
+    // label is "{{name}} — {{description}}" (#7256), and "blank" also occurs
+    // in this step's "Start blank instead" action and its validation copy, so
+    // a substring match could resolve to the wrong control.
+    await page
+      .getByRole("radiogroup", { name: "Room template" })
+      .getByRole("radio", { name: /^Blank — / })
+      .click();
     await page.getByRole("button", { name: "Next" }).click();
     await expect(page.getByRole("button", { name: "Launch Venue" })).toBeVisible();
   });
@@ -112,8 +124,9 @@ test("venue onboarding journey against the live site", async ({ page }) => {
 
   await journey.step("Handoff renders the new venue's floor plan editor", async () => {
     await expect(page).toHaveURL(/\/floor-plans\/[^/]+$/);
-    // "Blank" template's plan is named "Main Floor" (floor-plan-templates.ts)
-    // — fixed per template, not user-editable in the wizard.
+    // "Blank" template's plan is named "Main Floor" (its `planName` in
+    // src/components/floor-plan/room-templates.ts) — fixed per template, not
+    // user-editable in the wizard.
     await expect(page.getByRole("heading", { name: "Main Floor" })).toBeVisible();
     // The Launch sequence always activates the plan it creates (the
     // "activate" stage runs regardless of table count), so the editor shows

@@ -646,4 +646,73 @@ describe("FloorPlanCanvas", () => {
       expect(document.getElementById(describedBy as string)?.textContent).toMatch(/arrow keys/i);
     });
   });
+
+  // Room templates (#7256) create plans at 1200x800, 1600x1000 and 2000x1200,
+  // so the canvas has to read each plan's own size instead of assuming 800x600.
+  describe("plans larger than the default canvas", () => {
+    const biggerPlan: FloorPlan = { ...FLOOR_PLAN, layoutJson: { width: 1200, height: 800 } };
+    const getWrapper = () => screen.getByTestId("floor-plan-canvas-wrapper");
+
+    it("scales to the plan's own width, not the 800px default", () => {
+      // Container is 800 wide; a 1200-wide plan therefore renders at 67%.
+      render(<FloorPlanCanvas {...defaultProps} floorPlan={biggerPlan} />);
+      expect(screen.getByText("67%")).toBeDefined();
+    });
+
+    it("gives the stage the plan's own aspect ratio", () => {
+      render(<FloorPlanCanvas {...defaultProps} floorPlan={biggerPlan} />);
+      const stage = screen.getByTestId("konva-stage");
+      // 800 wide at 1200x800 => 800 * (800/1200) = 533 tall, not 600.
+      expect(Number(stage.getAttribute("data-width"))).toBe(800);
+      expect(Math.round(Number(stage.getAttribute("data-height")))).toBe(533);
+    });
+
+    it("re-scales when the plan it is showing changes size", () => {
+      const { rerender } = render(<FloorPlanCanvas {...defaultProps} />);
+      expect(screen.getByText("100%")).toBeDefined();
+
+      rerender(<FloorPlanCanvas {...defaultProps} floorPlan={biggerPlan} />);
+      expect(screen.getByText("67%")).toBeDefined();
+    });
+
+    it("lets a nudge reach the far edge of a wider plan", () => {
+      const onTableMove = vi.fn();
+      const table = makeTable("t4", "Far", {
+        shapeMetadata: { x: 1140, y: 400, width: 80, height: 60, shape: "rectangle" },
+      });
+      render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          floorPlan={biggerPlan}
+          tables={[table]}
+          selectedTableId="t4"
+          onTableMove={onTableMove}
+        />
+      );
+
+      fireEvent.keyDown(getWrapper(), { key: "ArrowRight" });
+      // Clamped to 1200 - 40, not to the default canvas's 800 - 40.
+      expect(onTableMove).toHaveBeenCalledWith("t4", 1160, 400);
+    });
+
+    it("clamps a nudge by the table's own footprint, not the shape default", () => {
+      const onTableMove = vi.fn();
+      // A template long table is 140 wide, where SHAPE_DEFAULTS.rectangle is 80.
+      const table = makeTable("t5", "Long", {
+        shapeMetadata: { x: 1120, y: 400, width: 140, height: 56, shape: "rectangle" },
+      });
+      render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          floorPlan={biggerPlan}
+          tables={[table]}
+          selectedTableId="t5"
+          onTableMove={onTableMove}
+        />
+      );
+
+      fireEvent.keyDown(getWrapper(), { key: "ArrowRight" });
+      expect(onTableMove).toHaveBeenCalledWith("t5", 1130, 400);
+    });
+  });
 });

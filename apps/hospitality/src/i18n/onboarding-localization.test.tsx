@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { localeRuntime } from "./runtime.js";
@@ -21,11 +21,21 @@ import {
   EMPTY_FLOOR_PLAN_DRAFT,
   type FloorPlanDraft,
 } from "../components/venue-onboarding/floor-plan-draft.js";
-import {
-  tablesForTemplate,
-  templateById,
-} from "../components/venue-onboarding/floor-plan-templates.js";
+import { draftFromTemplate } from "../components/venue-onboarding/floor-plan-templates.js";
 import { INITIAL_LAUNCH_PROGRESS } from "../components/venue-onboarding/launch-sequence.js";
+
+// The step's canvas draws the chosen room's zones (#7256), and SectionZone
+// reaches for Konva primitives (Label/Tag) and a texture loader this suite has
+// no business standing up — stub it, as the floor-plan suites do.
+vi.mock("../components/floor-plan/SectionZone.js", () => ({
+  SectionZone: ({ zone }: { zone: { id: string; name: string } }) => (
+    <div data-testid={`section-zone-${zone.id}`}>{zone.name}</div>
+  ),
+}));
+
+vi.mock("../components/floor-plan/WallShape.js", () => ({
+  WallShape: ({ wall }: { wall: { id: string } }) => <div data-testid={`wall-shape-${wall.id}`} />,
+}));
 
 // FloorPlanStep imports the Konva-backed canvas; the picker under test never renders it.
 vi.mock("react-konva", () => ({
@@ -39,13 +49,7 @@ vi.mock("react-konva", () => ({
   Text: () => null,
 }));
 
-const RESTAURANT = templateById("restaurant");
-const RESTAURANT_DRAFT: FloorPlanDraft = {
-  templateId: "restaurant",
-  planName: RESTAURANT.planName,
-  tables: tablesForTemplate(RESTAURANT),
-  pristine: true,
-};
+const RESTAURANT_DRAFT: FloorPlanDraft = draftFromTemplate("fine-dining", "cozy");
 
 function stubMatchMedia(matches: boolean) {
   Object.defineProperty(window, "matchMedia", {
@@ -78,7 +82,8 @@ interface Expectations {
   hoursAtLeastOne: string;
   recommendedButton: string;
   floorPlanHeading: string;
-  restaurantCard: string;
+  roomCard: string;
+  roomSizeLabel: string;
   launchButton: string;
   launchPanelLabel: string;
   railHours: string;
@@ -99,7 +104,8 @@ const CASES: readonly Expectations[] = [
     hoursAtLeastOne: "Al menos un día debe estar abierto",
     recommendedButton: "Usar ajustes recomendados",
     floorPlanHeading: "Plano del salón",
-    restaurantCard: "Restaurante — 14 mesas, 48 lugares",
+    roomCard: "Alta cocina",
+    roomSizeLabel: "Tamaño del salón",
     launchButton: "Lanzar local",
     launchPanelLabel: "Progreso del lanzamiento",
     railHours: "Horario",
@@ -118,7 +124,8 @@ const CASES: readonly Expectations[] = [
     hoursAtLeastOne: "Au moins un jour doit être ouvert",
     recommendedButton: "Utiliser les paramètres recommandés",
     floorPlanHeading: "Plan de salle",
-    restaurantCard: "Restaurant — 14 tables, 48 places",
+    roomCard: "Gastronomique",
+    roomSizeLabel: "Taille de la salle",
     launchButton: "Lancer l’établissement",
     launchPanelLabel: "Progression du lancement",
     railHours: "Heures",
@@ -176,6 +183,7 @@ describe.each(CASES)("venue onboarding wizard in $tag", (c) => {
           draft={RESTAURANT_DRAFT}
           error={null}
           onSelectTemplate={noop}
+          onSelectSize={noop}
           onAddTable={noop}
           onMoveTable={noop}
           onRemoveTable={noop}
@@ -185,7 +193,12 @@ describe.each(CASES)("venue onboarding wizard in $tag", (c) => {
     expect(screen.getAllByText(c.closedLabel)).toHaveLength(7);
     expect(screen.getByRole("button", { name: c.recommendedButton })).toBeInTheDocument();
     expect(screen.getByText(c.floorPlanHeading)).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: c.restaurantCard })).toBeInTheDocument();
+    // The room picker's own copy: a card named in the active locale, and the
+    // size group beside it (#7256).
+    expect(
+      screen.getByRole("radio", { name: new RegExp(`^${c.roomCard} — `) })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: c.roomSizeLabel })).toBeInTheDocument();
   });
 
   it("translates the launch review and stage panel", () => {
@@ -235,7 +248,12 @@ describe("currency option labels", () => {
       <LocationTimeStep data={{ ianaTimezone: "", currencyCode: "" }} errors={{}} onChange={noop} />
     );
     await user.click(screen.getByRole("combobox", { name: /Moneda/ }));
-    expect(await screen.findByRole("option", { name: "USD - dólar estadounidense" })).toBeVisible();
+    // The listbox is in the DOM a tick before it is visible (framer-motion does
+    // not settle synchronously under jsdom), so poll visibility rather than
+    // asserting it on the first match — asserting once made this test win or
+    // lose on worker load.
+    const option = await screen.findByRole("option", { name: "USD - dólar estadounidense" });
+    await waitFor(() => expect(option).toBeVisible());
     await localeRuntime.i18n.changeLanguage("en-US");
   });
 });

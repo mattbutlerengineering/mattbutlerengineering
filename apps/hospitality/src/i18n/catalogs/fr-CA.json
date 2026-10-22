@@ -128,7 +128,6 @@
       "intro": "Partez d’une disposition semblable à la vôtre, puis ajustez-la.",
       "required": "Choisissez une disposition pour continuer — choisissez Vide pour commencer avec une salle vide.",
       "locked": "Votre établissement est déjà en cours de création; cette disposition est donc verrouillée. Terminez la configuration, puis réorganisez les tables dans l’éditeur de plan de salle.",
-      "layoutLabel": "Disposition du plan de salle",
       "tableCount_one": "{{count}} table",
       "tableCount_many": "{{count}} de tables",
       "tableCount_other": "{{count}} tables",
@@ -136,10 +135,6 @@
       "seatCount_many": "{{count}} de places",
       "seatCount_other": "{{count}} places",
       "summary": "{{tables}} · {{seats}}",
-      "summaryBlank": "Aucune table",
-      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
-      "cardLabelBlank": "{{name}} — aucune table",
-      "layoutApplied": "Disposition {{name}} appliquée — {{tables}}",
       "tableAdded": "{{name}} ajoutée",
       "tableRemoved": "{{name}} supprimée",
       "addTable": "Ajouter une table",
@@ -160,28 +155,6 @@
         "square": "Carrée",
         "rectangle": "Rectangulaire",
         "circle": "Ronde"
-      },
-      "templates": {
-        "restaurant": {
-          "name": "Restaurant",
-          "zoneLine": "4 tables de 2 près des fenêtres · 6 tables de 4 · 2 tables rondes de 6 · 2 places au comptoir"
-        },
-        "cafe": {
-          "name": "Café",
-          "zoneLine": "5 tables de 2 près des fenêtres · 3 tables rondes de café · 2 tables de 4"
-        },
-        "bar": {
-          "name": "Bar",
-          "zoneLine": "6 tables hautes · 4 tables rondes debout · 2 banquettes"
-        },
-        "patio": {
-          "name": "Terrasse",
-          "zoneLine": "6 tables rondes avec parasol · 2 tables longues"
-        },
-        "blank": {
-          "name": "Vide",
-          "zoneLine": "Partez de zéro — ajoutez les tables vous-même"
-        }
       }
     },
     "launch": {
@@ -526,6 +499,74 @@
       "material": "Plancher",
       "materialFor": "Matériau du plancher de {{name}}",
       "materialNone": "Aucun"
+    },
+    "templates": {
+      "preview": "Aperçu du plan de salle : {{tables}} et {{sections}}",
+      "previewEmpty": "Aperçu du plan de salle : une salle vide",
+      "tableCount_one": "{{count}} table",
+      "tableCount_many": "{{count}} de tables",
+      "tableCount_other": "{{count}} tables",
+      "sectionCount_one": "{{count}} section",
+      "sectionCount_many": "{{count}} de sections",
+      "sectionCount_other": "{{count}} sections",
+      "pickerTitle": "Partir d'une salle",
+      "pickerDescription": "Choisissez une forme de salle et une taille. Vous pourrez tout déplacer ensuite.",
+      "templateLabel": "Modèle de salle",
+      "sizeLabel": "Taille de la salle",
+      "cardLabel": "{{name}} — {{description}}",
+      "summary": "{{tables}} · {{sections}}",
+      "summaryEmpty": "Rien de placé",
+      "applied": "{{name}} appliqué en {{size}} — {{tables}}",
+      "use": "Utiliser cette salle",
+      "startBlank": "Partir d'une salle vide",
+      "items": {
+        "blank": {
+          "name": "Vide",
+          "description": "Une salle vide que vous aménagez vous-même"
+        },
+        "fine-dining": {
+          "name": "Gastronomique",
+          "description": "Tables rondes, un salon privé et des tables pour deux près des fenêtres"
+        },
+        "casual-bistro": {
+          "name": "Bistro décontracté",
+          "description": "Tables en losange, une table commune et une rangée de banquettes"
+        },
+        "bar-lounge": {
+          "name": "Bar et salon",
+          "description": "Un long bar, des tables à cocktail et des banquettes de salon"
+        },
+        "cafe": {
+          "name": "Café",
+          "description": "Places près des fenêtres, un comptoir de service et des coins douillets"
+        },
+        "banquet-hall": {
+          "name": "Salle de banquet",
+          "description": "Tables rondes de huit, une table d'honneur et une scène"
+        },
+        "open-kitchen": {
+          "name": "Cuisine ouverte",
+          "description": "Un comptoir du chef, une cuisine visible et des places variées"
+        }
+      },
+      "sizes": {
+        "cozy": {
+          "name": "Intime",
+          "description": "Environ 93 m²"
+        },
+        "standard": {
+          "name": "Standard",
+          "description": "Environ 186 m²"
+        },
+        "spacious": {
+          "name": "Spacieux",
+          "description": "Environ 325 m²"
+        },
+        "grand": {
+          "name": "Grand",
+          "description": "Environ 465 m²"
+        }
+      }
     },
     "materials": {
       "hardwood": "Bois franc",

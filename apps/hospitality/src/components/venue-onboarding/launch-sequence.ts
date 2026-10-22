@@ -33,15 +33,22 @@ import type {
   CreateVenueRequest,
   Venue,
   FloorPlan,
+  FloorPlanSection,
   Table,
+  CreateFloorPlanSectionRequest,
   CreateTableRequest,
   CreateFloorPlanRequest,
+  UpdateFloorPlanRequest,
   FloorPlanLayout,
 } from "@mbe/types";
 import { ApiClientError } from "@mbe/api-client";
 import { localeRuntime } from "../../i18n/runtime.js";
 import type { FloorPlanDraft } from "./floor-plan-draft.js";
-import { draftTableToCreateRequest, DUPLICATE_TABLE_NAME_MESSAGE } from "./floor-plan-draft.js";
+import {
+  draftLayoutJson,
+  draftTableToCreateRequest,
+  DUPLICATE_TABLE_NAME_MESSAGE,
+} from "./floor-plan-draft.js";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE } from "../floor-plan/floor-plan-geometry.js";
 
 export type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
@@ -50,6 +57,14 @@ export type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
 export interface LaunchProgress {
   venueId: string | null;
   floorPlanId: string | null;
+  /**
+   * True once the plan's section rows exist and their zone rectangles are in
+   * its layout — or immediately, for a draft that names no zones. The plan and
+   * its zones are two writes inside one stage, so `floorPlanId` alone cannot
+   * say whether the stage finished: without this, a failure between them would
+   * mark floorPlan done and Retry would skip the zones for good.
+   */
+  sectionsDone: boolean;
   /** Names, not ids — the name is the server's unique key and therefore the resume key. */
   createdTableNames: readonly string[];
   activated: boolean;
@@ -61,6 +76,7 @@ export interface LaunchProgress {
 export const INITIAL_LAUNCH_PROGRESS: LaunchProgress = {
   venueId: null,
   floorPlanId: null,
+  sectionsDone: false,
   createdTableNames: [],
   activated: false,
   inFlightStage: null,
@@ -69,12 +85,9 @@ export const INITIAL_LAUNCH_PROGRESS: LaunchProgress = {
 };
 
 /**
- * The layoutJson every plan this wizard creates carries. A known,
- * deliberate duplication of `NewFloorPlanDialog.tsx`'s `DEFAULT_LAYOUT`
- * literal — that file is frozen by this run, so this module re-derives an
- * identical literal from the same geometry constants instead of importing
- * it. Hoisting the constant into floor-plan-geometry.ts is the real fix
- * and is out of scope here.
+ * The layoutJson a plan carries when the draft names no room — the canvas
+ * default. A draft with a room template chosen is saved at that room's own
+ * size and with its walls, via `draftLayoutJson`.
  */
 export const DEFAULT_LAYOUT: FloorPlanLayout = {
   width: CANVAS_WIDTH,
@@ -102,7 +115,7 @@ function isStageDone(
     case "venue":
       return progress.venueId !== null;
     case "floorPlan":
-      return progress.floorPlanId !== null;
+      return progress.floorPlanId !== null && progress.sectionsDone;
     case "tables":
       return draft.tables.every((table) => progress.createdTableNames.includes(table.name));
     case "activate":
@@ -134,7 +147,7 @@ function isDoneWithoutDraft(progress: LaunchProgress, stage: LaunchStageId): boo
     case "venue":
       return progress.venueId !== null;
     case "floorPlan":
-      return progress.floorPlanId !== null;
+      return progress.floorPlanId !== null && progress.sectionsDone;
     case "tables":
       return progress.createdTableNames.length > 0;
     case "activate":
@@ -166,7 +179,12 @@ export interface LaunchApi {
   venues: { create(data: CreateVenueRequest): Promise<Venue> };
   floorPlans: {
     create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
+    update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
     setActive(id: string): Promise<FloorPlan>;
+  };
+  floorPlanSections: {
+    list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]>;
+    create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
   };
   tables: { create(data: CreateTableRequest): Promise<Table> };
 }
@@ -193,6 +211,54 @@ async function runVenueStage(
   return next;
 }
 
+/**
+ * Creates the room's section rows and writes their zone rectangles into the
+ * plan's layout. Folded into the floorPlan stage rather than given a stage of
+ * its own so `LaunchProgress` keeps its four-stage shape; it is made resumable
+ * the same way tables are — **by name**. A retry lists what already exists and
+ * creates only the rest, so `progress.floorPlanId` being set (which makes the
+ * stage "done" and is recorded as soon as the plan exists) can never leave a
+ * half-built set of zones behind.
+ *
+ * A plan with no sections (Blank, or a draft from before rooms existed) makes
+ * no calls at all.
+ */
+async function createSectionsFor(
+  api: LaunchApi,
+  venueId: string,
+  floorPlanId: string,
+  draft: FloorPlanDraft
+): Promise<void> {
+  if (draft.sections.length === 0) return;
+
+  const existing = await api.floorPlanSections.list(venueId, floorPlanId);
+  const byName = new Map(existing.map((row) => [row.name, row]));
+
+  for (const [index, zone] of draft.sections.entries()) {
+    if (byName.has(zone.name)) continue;
+    const row = await api.floorPlanSections.create(venueId, {
+      floorPlanId,
+      name: zone.name,
+      color: zone.color,
+      displayOrder: index,
+    });
+    byName.set(zone.name, row);
+  }
+
+  // A zone's rectangle is keyed by its row id, so the layout can only be
+  // written once the rows exist.
+  const sections = draft.sections.flatMap((zone) => {
+    const row = byName.get(zone.name);
+    return row
+      ? [{ id: row.id, x: zone.x, y: zone.y, width: zone.width, height: zone.height }]
+      : [];
+  });
+
+  await api.floorPlans.update(floorPlanId, {
+    layoutJson: { ...draftLayoutJson(draft), sections },
+  });
+}
+
 async function runFloorPlanStage(
   api: LaunchApi,
   draft: FloorPlanDraft,
@@ -206,17 +272,35 @@ async function runFloorPlanStage(
     throw new Error("runLaunchSequence: floorPlan stage reached without a venueId");
   }
 
-  let floorPlan: FloorPlan;
-  try {
-    floorPlan = await api.floorPlans.create({
-      venueId,
-      name: draft.planName,
-      layoutJson: DEFAULT_LAYOUT,
-    });
-  } catch (err) {
-    throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
+  // A retry after the zones failed re-enters this stage with the plan already
+  // created; creating it again would leave the venue with two plans.
+  let floorPlanId = progress.floorPlanId;
+  if (floorPlanId === null) {
+    try {
+      const floorPlan = await api.floorPlans.create({
+        venueId,
+        name: draft.planName,
+        layoutJson: draft.templateId === null ? DEFAULT_LAYOUT : draftLayoutJson(draft),
+      });
+      floorPlanId = floorPlan.id;
+    } catch (err) {
+      throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
+    }
   }
-  const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
+
+  const withPlan: LaunchProgress = { ...progress, floorPlanId, inFlightStage: null };
+  try {
+    await createSectionsFor(api, venueId, floorPlanId, draft);
+  } catch (err) {
+    // Carry the plan's id out with the failure so Retry resumes at the zones
+    // (which are idempotent by name) instead of creating a second plan.
+    throw new LaunchStageError(
+      withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed")).message,
+      withPlan
+    );
+  }
+
+  const next: LaunchProgress = { ...withPlan, sectionsDone: true };
   onProgress(next);
   return next;
 }
