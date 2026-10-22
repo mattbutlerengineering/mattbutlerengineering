@@ -3491,6 +3491,50 @@
     <item priority="high">
       export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number { /* ... */ }
     </item>
+    <item priority="high">
+      export const ENDPOINT_HIT_RADIUS: unknown;
+    </item>
+    <item priority="high">
+      export const MIN_WALL_THICKNESS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_WALL_THICKNESS: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_WALL_THICKNESS: unknown;
+    </item>
+    <item priority="low">
+      interface Point {
+        x: number;
+        y: number;
+      }
+    </item>
+    <item priority="low">
+      type WallEnd = 1 | 2;
+    </item>
+    <item priority="high">
+      export function snapPoint(p: Point, gridSize: number = GRID_SIZE): Point { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hitTestEndpoint(
+        walls: readonly WallLayout[],
+        p: Point
+      ): { wallId: string; end: WallEnd } | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function moveWallEndpoint(
+        wall: WallLayout,
+        end: WallEnd,
+        p: Point,
+        gridSize: number = GRID_SIZE
+      ): WallLayout { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clampThickness(value: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createWall(kind: "wall" | "window", existing: readonly WallLayout[]): WallLayout { /* ... */ }
+    </item>
     <item priority="low">
       type TableShapeName = keyof typeof SHAPE_DEFAULTS;
     </item>
@@ -4240,6 +4284,9 @@
     </item>
     <item priority="high">
       export const useDeleteTable: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateFloorPlanLayout: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
@@ -8262,6 +8309,9 @@
   <file path="packages/types/src/schemas/floor-plan.ts">
     <item priority="high">
       export const TableShapeMetadataSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WallLayoutSchema: unknown;
     </item>
     <item priority="high">
       export const FloorPlanLayoutSchema: unknown;
@@ -16381,6 +16431,15 @@
         name: string;
         isActive: boolean;
         layoutJson: FloorPlanLayout;
+      }
+    </item>
+    <item priority="low">
+      interface WallLayout {
+        id: string;
+        x1: number;
+        y1: number;
+        x2: number;
+        y2: number;
       }
     </item>
     <item priority="low">

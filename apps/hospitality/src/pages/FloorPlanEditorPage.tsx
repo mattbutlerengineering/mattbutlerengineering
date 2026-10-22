@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
-import type { CreateTableRequest } from "@mbe/types";
+import type { CreateTableRequest, WallLayout } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
+import { WallsPanel } from "../components/floor-plan/WallsPanel.js";
+import { moveWallEndpoint } from "../components/floor-plan/floor-plan-geometry.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import {
   useFloorPlan,
@@ -11,6 +13,7 @@ import {
   useBulkUpdatePositions,
   useAddTable,
   useDeleteTable,
+  useUpdateFloorPlanLayout,
 } from "../hooks/useFloorPlans.js";
 import { useFloorPlanDraft, type PositionUpdate } from "../hooks/useFloorPlanDraft.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
@@ -33,6 +36,16 @@ export function FloorPlanEditorPage() {
   const bulkUpdateMutation = useBulkUpdatePositions();
   const addTableMutation = useAddTable();
   const deleteTableMutation = useDeleteTable();
+  const layoutMutation = useUpdateFloorPlanLayout();
+
+  // Walls are edited as a whole-array draft over the server's copy; null = untouched.
+  const [wallsDraft, setWallsDraft] = useState<WallLayout[] | null>(null);
+  const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
+
+  const serverWalls = floorPlan?.layoutJson.walls;
+  const walls = wallsDraft ?? serverWalls ?? [];
+  const wallsDirty =
+    wallsDraft !== null && JSON.stringify(wallsDraft) !== JSON.stringify(serverWalls ?? []);
 
   const floorPlanId = floorPlan?.id;
   const persist = useCallback(
@@ -49,7 +62,7 @@ export function FloorPlanEditorPage() {
     save: saveDraft,
     addTable,
     removeTable,
-    dirty: hasChanges,
+    dirty: tablesDirty,
     hasUnsentEdits,
     isSaving,
     saveFailure,
@@ -60,12 +73,23 @@ export function FloorPlanEditorPage() {
       : t("floorPlan.editor.saveFailed")
     : null;
   const saveError = draftSaveError ?? actionError;
+  const hasChanges = tablesDirty || wallsDirty;
 
   // A new save attempt supersedes any stale set-active/delete error.
   const handleSave = useCallback(async () => {
     setActionError(null);
     await saveDraft();
-  }, [saveDraft]);
+    if (wallsDirty && floorPlan && wallsDraft) {
+      try {
+        await layoutMutation.mutateAsync({
+          floorPlanId: floorPlan.id,
+          layoutJson: { ...floorPlan.layoutJson, walls: wallsDraft },
+        });
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : t("floorPlan.editor.saveFailed"));
+      }
+    }
+  }, [saveDraft, wallsDirty, floorPlan, wallsDraft, layoutMutation, t]);
 
   // Warn on browser tab close / refresh when unsaved changes exist
   useEffect(() => {
@@ -216,7 +240,7 @@ export function FloorPlanEditorPage() {
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!hasChanges || isSaving}
+            disabled={!hasChanges || isSaving || layoutMutation.isPending}
             className={`${styles.saveButton} ${hasChanges ? styles.saveButtonActive : styles.saveButtonDisabled}`}
           >
             {isSaving
@@ -252,6 +276,12 @@ export function FloorPlanEditorPage() {
             onTableSelect={setSelectedTableId}
             selectedTableId={selectedTableId}
             onDeleteRequest={requestDeleteTable}
+            walls={walls}
+            selectedWallId={selectedWallId}
+            onWallSelect={setSelectedWallId}
+            onWallEndpointMove={(wallId, end, p) =>
+              setWallsDraft(walls.map((w) => (w.id === wallId ? moveWallEndpoint(w, end, p) : w)))
+            }
             tableStatuses={tableStatuses}
             isStale={isStale}
           />
@@ -317,6 +347,13 @@ export function FloorPlanEditorPage() {
           ) : (
             <div className={styles.noSelection}>{t("floorPlan.editor.noSelection")}</div>
           )}
+
+          <WallsPanel
+            walls={walls}
+            selectedId={selectedWallId}
+            onChange={setWallsDraft}
+            onSelect={setSelectedWallId}
+          />
 
           {/* Table list */}
           <div className={styles.tableListSection}>

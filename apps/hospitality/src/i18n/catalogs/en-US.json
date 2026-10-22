@@ -495,6 +495,20 @@
       "occupied": "Occupied",
       "dirty": "Dirty",
       "ready": "Ready"
+    },
+    "walls": {
+      "title": "Walls and windows",
+      "addWall": "Add wall",
+      "addWindow": "Add window",
+      "empty": "No walls yet",
+      "wallN": "Wall {{n}}",
+      "windowN": "Window {{n}}",
+      "startX": "Start X",
+      "startY": "Start Y",
+      "endX": "End X",
+      "endY": "End Y",
+      "thickness": "Thickness",
+      "delete": "Delete wall"
     }
   },
   "localePicker": {
