@@ -40,12 +40,18 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          grant_type: "password",
+          // password-realm, not plain "password": plain ROPC resolves the connection
+          // via the tenant's Default Directory, which this tenant has not set, so it
+          // answers 500 "Authorization server not configured with default connection".
+          // Naming the realm explicitly avoids depending on that tenant setting, and
+          // matches apps/hospitality/e2e/auth-helpers.ts and scripts/e2e-auth-preflight.mjs.
+          grant_type: "http://auth0.com/oauth/grant-type/password-realm",
           username: config.email,
           password: config.password,
           audience: config.audience,
           client_id: config.clientId,
           scope: "openid profile email",
+          realm: "Username-Password-Authentication",
         }),
       });
     
