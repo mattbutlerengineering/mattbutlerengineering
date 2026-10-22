@@ -68256,6 +68256,13 @@
       sectionsDone: boolean;
       /** Names, not ids — the name is the server's unique key and therefore the resume key. */
       createdTableNames: readonly string[];
+      /**
+       * True once every table that a template placed in a zone has been assigned
+       * to its section. Tables and membership are two writes inside one stage, so
+       * `createdTableNames` alone cannot say whether the stage finished. Absent
+       * means not yet; it only matters for a draft with tables in zones.
+       */
+      membershipDone?: boolean;
       activated: boolean;
       inFlightStage: LaunchStageId | null;
       failedStage: LaunchStageId | null;
@@ -68294,10 +68301,18 @@
         case "floorPlan":
           return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
-          return draft.tables.every((table) => progress.createdTableNames.includes(table.name));
+          return (
+            draft.tables.every((table) => progress.createdTableNames.includes(table.name)) &&
+            (!needsMembership(draft) || progress.membershipDone === true)
+          );
         case "activate":
           return progress.activated;
       }
+    }
+    function needsMembership(draft: FloorPlanDraft): boolean {
+      return (
+        draft.sections.length > 0 && draft.tables.some((table) => (table.sectionId ?? null) !== null)
+      );
     }
     export function nextStage(progress: LaunchProgress, draft: FloorPlanDraft): LaunchStageId | null {
       for (const stage of stagesFor(draft)) {
@@ -68344,8 +68359,16 @@
       floorPlanSections: {
         list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]>;
         create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
+        assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]>;
       };
-      tables: { create(data: CreateTableRequest): Promise<Table> };
+      tables: {
+        create(data: CreateTableRequest): Promise<Table>;
+        list(params: {
+          venueId: string;
+          page?: number;
+          limit?: number;
+        }): Promise<PaginatedResponse<Table>>;
+      };
     }
     function withFallback(err: unknown, fallback: string): Error {
       return err instanceof Error && err.message ? err : new Error(fallback);
@@ -68454,6 +68477,33 @@
         this.partialProgress = partialProgress;
       }
     }
+    async function assignTablesToSections(
+      api: LaunchApi,
+      venueId: string,
+      floorPlanId: string,
+      draft: FloorPlanDraft
+    ): Promise<void> {
+      const idByTableName = new Map<string, string>();
+      for (let page = 1; ; page += 1) {
+        const { data, pagination } = await api.tables.list({ venueId, page, limit: MAX_PAGE_SIZE });
+        for (const table of data) idByTableName.set(table.name, table.id);
+        if (data.length === 0 || page >= pagination.totalPages) break;
+      }
+    
+      const rows = await api.floorPlanSections.list(venueId, floorPlanId);
+      const rowByName = new Map(rows.map((row) => [row.name, row]));
+    
+      for (const zone of draft.sections) {
+        const row = rowByName.get(zone.name);
+        if (!row) continue;
+        const tableIds = draft.tables.flatMap((table) => {
+          const id = idByTableName.get(table.name);
+          return table.sectionId === zone.id && id !== undefined ? [id] : [];
+        });
+        if (tableIds.length === 0) continue;
+        await api.floorPlanSections.assignTables(venueId, row.id, tableIds);
+      }
+    }
     async function runTablesStage(
       api: LaunchApi,
       draft: FloorPlanDraft,
@@ -68493,6 +68543,16 @@
     
         current = { ...current, createdTableNames: [...current.createdTableNames, table.name] };
         onProgress(current);
+      }
+    
+      if (needsMembership(draft)) {
+        try {
+          await assignTablesToSections(api, venueId, floorPlanId, draft);
+        } catch (err) {
+          const fallback = localeRuntime.i18n.t("onboarding.errors.generic");
+          throw new LaunchStageError(withFallback(err, fallback).message, current);
+        }
+        current = { ...current, membershipDone: true };
       }
     
       current = { ...current, inFlightStage: null };

@@ -20047,7 +20047,7 @@
         floorPlanId: string | null;
         sectionsDone: boolean;
         createdTableNames: readonly string[];
-        activated: boolean;
+        membershipDone?: boolean;
       }
     </item>
     <item priority="high">
@@ -20065,6 +20065,9 @@
         stage: LaunchStageId,
         draft: FloorPlanDraft
       ): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function needsMembership(draft: FloorPlanDraft): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function nextStage(progress: LaunchProgress, draft: FloorPlanDraft): LaunchStageId | null { /* ... */ }
@@ -20088,7 +20091,9 @@
           create(data: CreateFloorPlanRequest): Promise<Floor...;
         floorPlanSections: {
           list(venueId: string, floorPlanId?: string): Promis...;
-        tables: { create(data: CreateTableRequest): Promise<Table> };
+        tables: {
+          create(data: CreateTableRequest): Promise<Table>;
+       ...;
       }
     </item>
     <item priority="medium">
@@ -20122,6 +20127,14 @@
       class LaunchStageError {
         partialProgress: LaunchProgress;
       }
+    </item>
+    <item priority="low">
+      async function assignTablesToSections(
+        api: LaunchApi,
+        venueId: string,
+        floorPlanId: string,
+        draft: FloorPlanDraft
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function runTablesStage(
