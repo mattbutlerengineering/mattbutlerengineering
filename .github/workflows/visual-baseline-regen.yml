@@ -86,7 +86,7 @@ jobs:
         # cannot be built from source. `^...` is turbo's "dependencies of,
         # excluding itself"; every app package is `@mbe/<app>`.
         if: inputs.app != 'rialto'
-        run: pnpm build --filter "@mbe/${{ inputs.app }}^..."
+        run: pnpm build --filter "@mbe/$APP^..."
       - name: Build marketing (its visual config serves dist via vite preview)
         if: inputs.app == 'marketing'
         run: pnpm --dir apps/marketing exec vite build

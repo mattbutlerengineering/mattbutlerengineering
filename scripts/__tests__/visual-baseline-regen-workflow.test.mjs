@@ -26,6 +26,10 @@ describe("visual-baseline-regen workflow", () => {
     // cannot silently make this `undefined` and throw instead of asserting.
     const depBuild = steps.find((s) => /pnpm build --filter "@mbe\//.test(s.run ?? ""));
     expect(depBuild, "the app's dependency-closure build step is missing").toBeDefined();
+    // The closure itself, not merely that some @mbe/ package is built. Without
+    // this the step could be narrowed back to a single package — the exact
+    // shape of #7042 — with the suite still green.
+    expect(depBuild.run).toMatch(/pnpm build --filter "@mbe\/\$APP\^\.\.\."/);
     expect(depBuild.if).toMatch(/inputs\.app != 'rialto'/);
     const marketingBuild = steps.find((s) => /^Build marketing/.test(s.name ?? ""));
     expect(marketingBuild.if).toBe("inputs.app == 'marketing'");
