@@ -503,6 +503,20 @@
       "occupied": "Occupée",
       "dirty": "À nettoyer",
       "ready": "Prête"
+    },
+    "walls": {
+      "title": "Murs et fenêtres",
+      "addWall": "Ajouter un mur",
+      "addWindow": "Ajouter une fenêtre",
+      "empty": "Aucun mur pour l'instant",
+      "wallN": "Mur {{n}}",
+      "windowN": "Fenêtre {{n}}",
+      "startX": "X de départ",
+      "startY": "Y de départ",
+      "endX": "X d'arrivée",
+      "endY": "Y d'arrivée",
+      "thickness": "Épaisseur",
+      "delete": "Supprimer le mur"
     }
   },
   "localePicker": {

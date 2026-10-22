@@ -4,8 +4,9 @@ import { Stage, Layer } from "react-konva";
 import { useTranslation } from "react-i18next";
 import { Text } from "@mattbutlerengineering/rialto";
 import type { KonvaEventObject } from "konva/lib/Node";
-import type { Table, FloorPlan } from "@mbe/types";
+import type { Table, FloorPlan, WallLayout } from "@mbe/types";
 import { TableShape } from "./TableShape";
+import { WallShape } from "./WallShape.js";
 import { TableSelectionOverlay } from "./TableSelectionOverlay.js";
 import {
   CANVAS_WIDTH,
@@ -13,6 +14,8 @@ import {
   GRID_SIZE,
   SHAPE_DEFAULTS,
   snapToGrid,
+  type Point,
+  type WallEnd,
 } from "./floor-plan-geometry.js";
 import type { TableDisplayStatus } from "./table-status.js";
 import styles from "./FloorPlanCanvas.module.css";
@@ -74,6 +77,12 @@ export interface FloorPlanCanvasProps {
   onDeleteRequest?: (tableId: string) => void;
   /** Screen-reader message after a keyboard nudge ("Table 1 moved to 120, 100"). */
   onAnnounce?: (message: string) => void;
+  /** Walls and windows to draw; omitted = none (plans saved before walls existed). */
+  walls?: readonly WallLayout[];
+  selectedWallId?: string | null;
+  onWallSelect?: (wallId: string | null) => void;
+  /** Pointer drag of a selected wall's endpoint handle; omitted = walls are not draggable. */
+  onWallEndpointMove?: (wallId: string, end: WallEnd, p: Point) => void;
 }
 
 export function FloorPlanCanvas({
@@ -87,6 +96,10 @@ export function FloorPlanCanvas({
   isStale = false,
   onDeleteRequest,
   onAnnounce,
+  walls = [],
+  selectedWallId = null,
+  onWallSelect,
+  onWallEndpointMove,
 }: FloorPlanCanvasProps) {
   const { t } = useTranslation();
   const instructionsId = useId();
@@ -245,6 +258,15 @@ export function FloorPlanCanvas({
         onTap={handleStageClick}
       >
         <Layer>
+          {walls.map((wall) => (
+            <WallShape
+              key={wall.id}
+              wall={wall}
+              isSelected={wall.id === selectedWallId}
+              onSelect={(id) => onWallSelect?.(id)}
+              onEndpointDrag={readOnly ? undefined : onWallEndpointMove}
+            />
+          ))}
           {tables.map((table) => (
             <TableShape
               key={table.id}

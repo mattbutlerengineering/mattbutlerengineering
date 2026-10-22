@@ -10,12 +10,23 @@ export const TableShapeMetadataSchema = z.object({
   color: z.string().optional(),
 });
 
+export const WallLayoutSchema = z.object({
+  id: z.string(),
+  x1: z.number(),
+  y1: z.number(),
+  x2: z.number(),
+  y2: z.number(),
+  thickness: z.number().positive(),
+  wallType: z.enum(["wall", "window"]).optional(),
+});
+
 export const FloorPlanLayoutSchema = z.object({
   width: z.number(),
   height: z.number(),
   backgroundImage: z.string().optional(),
   gridSize: z.number().optional(),
   showGrid: z.boolean().optional(),
+  walls: z.array(WallLayoutSchema).optional(),
 });
 
 export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);

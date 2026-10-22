@@ -503,6 +503,20 @@
       "occupied": "Ocupada",
       "dirty": "Sucia",
       "ready": "Lista"
+    },
+    "walls": {
+      "title": "Paredes y ventanas",
+      "addWall": "Agregar pared",
+      "addWindow": "Agregar ventana",
+      "empty": "Aún no hay paredes",
+      "wallN": "Pared {{n}}",
+      "windowN": "Ventana {{n}}",
+      "startX": "X inicial",
+      "startY": "Y inicial",
+      "endX": "X final",
+      "endY": "Y final",
+      "thickness": "Grosor",
+      "delete": "Eliminar pared"
     }
   },
   "localePicker": {

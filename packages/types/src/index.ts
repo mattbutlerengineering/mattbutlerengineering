@@ -133,6 +133,7 @@ export {
 export type {
   FloorPlan,
   FloorPlanLayout,
+  WallLayout,
   TableShapeMetadata,
   CreateFloorPlanRequest,
   UpdateFloorPlanRequest,

@@ -1,4 +1,4 @@
-import type { FloorPlan, CreateTableRequest, Table } from "@mbe/types";
+import type { FloorPlan, FloorPlanLayout, CreateTableRequest, Table } from "@mbe/types";
 import type { useApiClient } from "./useApiClient.js";
 import { buildQueryKey, createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
@@ -102,4 +102,18 @@ export const useDeleteTable = createMutationHook<string>({
   // Invalidate all floor plan detail queries since we don't know which plan
   invalidateKeys: FLOOR_PLAN_QUERY_KEY,
   mutationFn: (api, tableId) => api.tables.delete(tableId),
+});
+
+/* ── useUpdateFloorPlanLayout mutation ───────────────── */
+
+export const useUpdateFloorPlanLayout = createMutationHook<
+  { floorPlanId: string; layoutJson: FloorPlanLayout },
+  FloorPlan
+>({
+  invalidateKeys: [],
+  mutationFn: (api, { floorPlanId, layoutJson }) =>
+    api.floorPlans.update(floorPlanId, { layoutJson }),
+  onSuccess: (queryClient, _data, variables) => {
+    queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
+  },
 });

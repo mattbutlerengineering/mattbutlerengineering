@@ -23,6 +23,7 @@ vi.mock("react-router", async () => {
 const mockGetById = vi.fn();
 const mockBulkUpdatePositions = vi.fn();
 const mockSetActive = vi.fn();
+const mockUpdate = vi.fn();
 const mockTablesCreate = vi.fn();
 const mockTablesDelete = vi.fn();
 
@@ -32,12 +33,34 @@ vi.mock("../hooks/useApiClient.js", () => ({
       getById: mockGetById,
       bulkUpdatePositions: mockBulkUpdatePositions,
       setActive: mockSetActive,
+      update: mockUpdate,
     },
     tables: {
       create: mockTablesCreate,
       delete: mockTablesDelete,
     },
   })),
+}));
+
+vi.mock("../components/floor-plan/WallsPanel.js", () => ({
+  WallsPanel: ({
+    walls,
+    onChange,
+  }: {
+    walls: { id: string }[];
+    onChange: (w: unknown[]) => void;
+  }) => (
+    <div>
+      <span data-testid="wall-count">{walls.length}</span>
+      <button
+        onClick={() =>
+          onChange([...walls, { id: "wall-9", x1: 0, y1: 0, x2: 100, y2: 0, thickness: 8 }])
+        }
+      >
+        Stub add wall
+      </button>
+    </div>
+  ),
 }));
 
 /* ── Mock useTableStatuses (SSESyncProvider isn't mounted in these tests) ── */
@@ -453,6 +476,32 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("Saved"));
       const saveButton = screen.getByText("Saved") as HTMLButtonElement;
       expect(saveButton.disabled).toBe(true);
+    });
+
+    it("saves edited walls into layoutJson, keeping the rest of the layout, and loads existing ones", async () => {
+      const existing = { id: "wall-1", x1: 0, y1: 0, x2: 50, y2: 0, thickness: 8 };
+      mockGetById.mockResolvedValue({
+        ...FLOOR_PLAN,
+        layoutJson: { width: 800, height: 600, gridSize: 20, walls: [existing] },
+        tables: [],
+      });
+      mockUpdate.mockResolvedValue(FLOOR_PLAN);
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId("wall-count").textContent).toBe("1"));
+      fireEvent.click(screen.getByText("Stub add wall"));
+      expect(screen.getByTestId("wall-count").textContent).toBe("2");
+      fireEvent.click(screen.getByText("Save Changes"));
+
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+      expect(mockUpdate).toHaveBeenCalledWith("fp-1", {
+        layoutJson: {
+          width: 800,
+          height: 600,
+          gridSize: 20,
+          walls: [existing, expect.objectContaining({ id: "wall-9" })],
+        },
+      });
     });
 
     it("opens add table dialog when + Add Table is clicked", async () => {
