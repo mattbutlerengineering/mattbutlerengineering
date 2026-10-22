@@ -482,6 +482,72 @@
     <item priority="high">
       export function createWall(kind: "wall" | "window", existing: readonly WallLayout[]): WallLayout { /* ... */ }
     </item>
+    <item priority="low">
+      type TableShapeName = keyof typeof SHAPE_DEFAULTS;
+    </item>
+    <item priority="high">
+      export const SEAT_GAP: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_RENDERED_SEATS: unknown;
+    </item>
+    <item priority="low">
+      interface SeatPlacement {
+        x: number;
+        y: number;
+        rotation: number;
+      }
+    </item>
+    <item priority="low">
+      interface SeatPlacementInput {
+        shape: TableShapeName;
+        capacity: number;
+        gap?: number;
+      }
+    </item>
+    <item priority="high">
+      type RectangleSide = (typeof RECTANGLE_SIDES)[number];
+    </item>
+    <item priority="medium">
+      function usableSeatCount(capacity: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function roundCoord(value: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function evenOffsets(count: number, length: number): readonly number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function circleSeats(count: number, radius: number): readonly SeatPlacement[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rectangleSeats(
+        count: number,
+        width: number,
+        height: number,
+        gap: number
+      ): readonly SeatPlacement[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/furniture-tokens.ts">
+    <item priority="high">
+      export const TABLE_SURFACE_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const TABLE_SHADOW_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const SEAT_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const FURNITURE_PALETTE: unknown;
+    </item>
+    <item priority="high">
+      export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number>;
+    </item>
   </file>
   <file path="src/components/floor-plan/table-status.ts">
     <item priority="high">

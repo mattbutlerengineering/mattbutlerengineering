@@ -1,9 +1,11 @@
 import { useRef, useEffect, useState } from "react";
-import { Group, Rect, Circle, Text } from "react-konva";
+import { Group, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
-import { SHAPE_DEFAULTS } from "./floor-plan-geometry.js";
+import { seatPlacements } from "./floor-plan-geometry.js";
+import { SeatArt, TableArt } from "./FurnitureArt.js";
+import { FURNITURE_PALETTE } from "./furniture-tokens.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
 
 /* Canvas (Konva) doesn't support CSS custom properties — `fillStyle` needs a
@@ -111,9 +113,13 @@ export function TableShape({
   const shape = table.shapeMetadata?.shape ?? "rectangle";
   const rotation = table.shapeMetadata?.rotation ?? 0;
 
-  // Determine color based on table state — inactive always wins over any
-  // live status, then live status, then the editor-only "available" default.
-  const fillColor = !table.isActive ? themeColors.inactive : themeColors[status ?? "available"];
+  // Determine the surface color — inactive always wins over any live status,
+  // then live status, then the per-table `shapeMetadata.color` tint, then the
+  // editor-only "available" default. Status outranks the tint so that a
+  // custom table color can never hide a seated or needs-bussing table.
+  const fillColor = !table.isActive
+    ? themeColors.inactive
+    : (status && themeColors[status]) || table.shapeMetadata?.color || themeColors.available;
 
   const handleDragStart = () => {
     onDragStart(table.id);
@@ -139,53 +145,14 @@ export function TableShape({
     }
   }, [isDragging]);
 
-  const renderShape = () => {
-    const strokeWidth = isSelected ? 3 : 1;
-    const stroke = isSelected ? themeColors.selectedStroke : "#b8b4ad";
-
-    switch (shape) {
-      case "circle":
-        return (
-          <Circle
-            radius={SHAPE_DEFAULTS.circle.width / 2}
-            fill={fillColor}
-            stroke={stroke}
-            strokeWidth={strokeWidth}
-          />
-        );
-      case "square":
-        return (
-          <Rect
-            width={SHAPE_DEFAULTS.square.width}
-            height={SHAPE_DEFAULTS.square.height}
-            offsetX={SHAPE_DEFAULTS.square.width / 2}
-            offsetY={SHAPE_DEFAULTS.square.height / 2}
-            fill={fillColor}
-            stroke={stroke}
-            strokeWidth={strokeWidth}
-            cornerRadius={4}
-          />
-        );
-      case "rectangle":
-      default:
-        return (
-          <Rect
-            width={SHAPE_DEFAULTS.rectangle.width}
-            height={SHAPE_DEFAULTS.rectangle.height}
-            offsetX={SHAPE_DEFAULTS.rectangle.width / 2}
-            offsetY={SHAPE_DEFAULTS.rectangle.height / 2}
-            fill={fillColor}
-            stroke={stroke}
-            strokeWidth={strokeWidth}
-            cornerRadius={4}
-          />
-        );
-    }
-  };
+  // Seats are drawn first so the table surface overlaps them — the look of
+  // chairs tucked under a table rather than floating beside it.
+  const seats = seatPlacements({ shape, capacity: table.capacity });
 
   return (
     <Group
       ref={groupRef}
+      name="table-group"
       x={x}
       y={y}
       rotation={rotation}
@@ -195,7 +162,17 @@ export function TableShape({
       onClick={handleClick}
       onTap={handleClick}
     >
-      {renderShape()}
+      {seats.map((seat) => (
+        // Seats have no identity of their own; their placement is deterministic
+        // and distinct, so the position is the stable key.
+        <SeatArt key={`${seat.x},${seat.y}`} x={seat.x} y={seat.y} rotation={seat.rotation} />
+      ))}
+      <TableArt
+        shape={shape}
+        fill={fillColor}
+        stroke={isSelected ? themeColors.selectedStroke : FURNITURE_PALETTE.edge}
+        strokeWidth={isSelected ? 3 : 1}
+      />
       <Text
         text={table.tableNumber || table.name}
         fontSize={14}

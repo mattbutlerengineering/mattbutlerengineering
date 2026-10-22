@@ -2250,6 +2250,104 @@
         wallType: kind,
       };
     }
+    export type TableShapeName = keyof typeof SHAPE_DEFAULTS;
+    export const SEAT_GAP = 7;
+    export const MAX_RENDERED_SEATS = 20;
+    export interface SeatPlacement {
+      readonly x: number;
+      readonly y: number;
+      readonly rotation: number;
+    }
+    export interface SeatPlacementInput {
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      /** Clearance from the table edge; defaults to the canonical SEAT_GAP. */
+      readonly gap?: number;
+    }
+    type RectangleSide = (typeof RECTANGLE_SIDES)[number];
+    function usableSeatCount(capacity: number): number {
+      if (!Number.isFinite(capacity) || capacity < 1) return 0;
+      return Math.min(MAX_RENDERED_SEATS, Math.floor(capacity));
+    }
+    function roundCoord(value: number): number {
+      return Math.round(value * 1000) / 1000;
+    }
+    function evenOffsets(count: number, length: number): readonly number[] {
+      return Array.from({ length: count }, (_, i) =>
+        roundCoord((length * (i + 1)) / (count + 1) - length / 2)
+      );
+    }
+    function circleSeats(count: number, radius: number): readonly SeatPlacement[] {
+      return Array.from({ length: count }, (_, i) => {
+        const degrees = -90 + (360 * i) / count;
+        const radians = (degrees * Math.PI) / 180;
+        return {
+          x: roundCoord(radius * Math.cos(radians)),
+          y: roundCoord(radius * Math.sin(radians)),
+          rotation: (degrees + 270) % 360,
+        };
+      });
+    }
+    function rectangleSeats(
+      count: number,
+      width: number,
+      height: number,
+      gap: number
+    ): readonly SeatPlacement[] {
+      // Round-robin across the four sides so a 2-top faces across the table, a
+      // 4-top takes one per side, and larger parties double up evenly.
+      const perSide = RECTANGLE_SIDES.map(
+        (_, sideIndex) => Math.floor(count / 4) + (count % 4 > sideIndex ? 1 : 0)
+      );
+    
+      return RECTANGLE_SIDES.flatMap((side, sideIndex) => {
+        const sideCount = perSide[sideIndex] ?? 0;
+        const horizontal = side === "top" || side === "bottom";
+        const offsets = evenOffsets(sideCount, horizontal ? width : height);
+        const distance = (horizontal ? height : width) / 2 + gap;
+        const sign = side === "top" || side === "left" ? -1 : 1;
+    
+        return offsets.map((offset) => ({
+          x: horizontal ? offset : sign * distance,
+          y: horizontal ? sign * distance : offset,
+          rotation: SIDE_ROTATION[side],
+        }));
+      });
+    }
+    export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] {
+      const gap = input.gap ?? SEAT_GAP;
+      const count = usableSeatCount(input.capacity);
+      if (count === 0) return [];
+    
+      const { width, height } = SHAPE_DEFAULTS[input.shape];
+      return input.shape === "circle"
+        ? circleSeats(count, width / 2 + gap)
+        : rectangleSeats(count, width, height, gap);
+    }
+  </file>
+  <file path="src/components/floor-plan/furniture-tokens.ts">
+    export const TABLE_SURFACE_NAME = "table-surface";
+    export const TABLE_SHADOW_NAME = "table-shadow";
+    export const SEAT_NAME = "seat";
+    export const FURNITURE_PALETTE = {
+      /**
+       * The wood tone the art was drawn in. The table surface is filled with the
+       * live status colour instead, so nothing renders in this tone — it is kept
+       * as the documented design intent and checked by the asset drift guard.
+       */
+      wood: "#8B7355",
+      grain: "#806A4E",
+      highlight: "#9C8468",
+      edge: "#6B5740",
+      shadow: "rgba(0,0,0,0.12)",
+      seatFrame: "#4a3f32",
+      seatEdge: "#3d3228",
+      seatCushion: "#5c4f40",
+    } as const;
+    export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number> = {
+      rectangle: 6,
+      square: 3,
+    };
   </file>
   <file path="src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
