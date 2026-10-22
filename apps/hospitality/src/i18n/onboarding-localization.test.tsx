@@ -35,6 +35,7 @@ vi.mock("react-konva", () => ({
   Rect: () => null,
   Circle: () => null,
   Line: () => null,
+  Path: () => null,
   Text: () => null,
 }));
 

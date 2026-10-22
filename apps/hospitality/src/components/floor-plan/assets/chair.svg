@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 10" width="12" height="10">
+  <!-- Outer frame -->
+  <rect x="0.5" y="0.5" width="11" height="9" rx="3" fill="#4a3f32" stroke="#3d3228" stroke-width="0.5"/>
+  <!-- Cushion -->
+  <rect x="2.5" y="2.5" width="7" height="5" rx="2" fill="#5c4f40"/>
+</svg>

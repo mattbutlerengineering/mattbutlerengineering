@@ -43,13 +43,58 @@ function readRialtoToken(tokenName: string, theme: "light" | "dark"): string {
 
 /* ── Mock react-konva ─────────────────────────────────────────── */
 // Konva runs in a canvas context — replace all primitives with DOM equivalents.
+// Each mock surfaces only the props these tests assert on (so unrecognised
+// Konva-only props never reach the DOM and warn), including Konva's `name`,
+// which is how TableShape tags the table surface and each seat.
 // The Group mock uses forwardRef and attaches a fake Konva node to the ref
 // so that groupRef.current.to() does not throw.
 
 vi.mock("react-konva", () => {
+  interface ShapeMockProps {
+    name?: string;
+    fill?: string;
+    stroke?: string;
+    strokeWidth?: number;
+    width?: number;
+    height?: number;
+    radius?: number;
+    cornerRadius?: number;
+    opacity?: number;
+  }
+
+  function shapeMock(kind: string) {
+    return function ShapeMock({
+      name,
+      fill,
+      stroke,
+      strokeWidth,
+      width,
+      height,
+      radius,
+      cornerRadius,
+      opacity,
+    }: ShapeMockProps) {
+      return (
+        <div
+          data-testid={`konva-${kind}`}
+          data-name={name}
+          data-fill={fill}
+          data-stroke={stroke}
+          data-stroke-width={strokeWidth}
+          data-width={width}
+          data-height={height}
+          data-radius={radius}
+          data-corner-radius={cornerRadius}
+          data-opacity={opacity}
+        />
+      );
+    };
+  }
+
   const GroupMock = React.forwardRef(function GroupMock(
     {
       children,
+      name,
       x,
       y,
       rotation,
@@ -60,6 +105,7 @@ vi.mock("react-konva", () => {
       onTap: _onTap,
     }: {
       children?: React.ReactNode;
+      name?: string;
       x?: number;
       y?: number;
       rotation?: number;
@@ -82,6 +128,7 @@ vi.mock("react-konva", () => {
       // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
       <div
         data-testid="konva-group"
+        data-name={name}
         data-x={x}
         data-y={y}
         data-rotation={rotation}
@@ -95,77 +142,19 @@ vi.mock("react-konva", () => {
 
   return {
     Group: GroupMock,
-    Rect: ({
-      fill,
-      stroke,
-      strokeWidth,
-      width,
-      height,
-      // strip Konva-only props so React does not warn
-      offsetX: _offsetX,
-      offsetY: _offsetY,
-      cornerRadius: _cornerRadius,
-    }: {
-      fill?: string;
-      stroke?: string;
-      strokeWidth?: number;
-      width?: number;
-      height?: number;
-      offsetX?: number;
-      offsetY?: number;
-      cornerRadius?: number;
-    }) => (
-      <div
-        data-testid="konva-rect"
-        data-fill={fill}
-        data-stroke={stroke}
-        data-stroke-width={strokeWidth}
-        data-width={width}
-        data-height={height}
-      />
-    ),
-    Circle: ({
-      fill,
-      stroke,
-      strokeWidth,
-      radius,
-    }: {
-      fill?: string;
-      stroke?: string;
-      strokeWidth?: number;
-      radius?: number;
-    }) => (
-      <div
-        data-testid="konva-circle"
-        data-fill={fill}
-        data-stroke={stroke}
-        data-stroke-width={strokeWidth}
-        data-radius={radius}
-      />
-    ),
+    Rect: shapeMock("rect"),
+    Circle: shapeMock("circle"),
+    Line: shapeMock("line"),
+    Path: shapeMock("path"),
     Text: ({
       text,
       fontSize,
       fill,
-      // strip Konva-only props
-      fontStyle: _fontStyle,
-      align: _align,
-      verticalAlign: _verticalAlign,
-      offsetX: _offsetX,
-      offsetY: _offsetY,
-      width: _width,
-      opacity: _opacity,
     }: {
       text?: string;
       fontSize?: number;
       fill?: string;
-      fontStyle?: string;
-      align?: string;
-      verticalAlign?: string;
-      offsetX?: number;
-      offsetY?: number;
-      width?: number;
-      opacity?: number;
+      [key: string]: unknown;
     }) => (
       <span data-testid="konva-text" data-text={text} data-font-size={fontSize} data-fill={fill} />
     ),
@@ -173,6 +162,7 @@ vi.mock("react-konva", () => {
 });
 
 import { TableShape } from "./TableShape.js";
+import { TABLE_CORNER_RADIUS, SEAT_NAME, TABLE_SURFACE_NAME } from "./furniture-tokens.js";
 
 /* ── Fixtures ─────────────────────────────────────────────────── */
 
@@ -211,6 +201,27 @@ const defaultProps = {
   onDragEnd: vi.fn(),
 };
 
+/* ── Queries ──────────────────────────────────────────────────────
+ * The shape now renders furniture art — many primitives per table — so
+ * every assertion targets a node by its Konva `name` rather than by
+ * primitive kind. */
+
+function queryNamed(name: string): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(`[data-name="${name}"]`));
+}
+
+function requireNamed(name: string): HTMLElement {
+  const [node] = queryNamed(name);
+  if (!node) throw new Error(`No rendered node named "${name}"`);
+  return node;
+}
+
+/** The table's own surface — the node carrying the status/selection colors. */
+const tableSurface = () => requireNamed(TABLE_SURFACE_NAME);
+/** The draggable root group for the table. */
+const tableGroup = () => requireNamed("table-group");
+const seatNodes = () => queryNamed(SEAT_NAME);
+
 /** Sets a CSS custom property on <html>, simulating the rialto stylesheet. */
 function setThemeVar(name: string, value: string): void {
   document.documentElement.style.setProperty(name, value);
@@ -246,47 +257,52 @@ describe("TableShape", () => {
       const table = makeTable({
         shapeMetadata: { x: 150, y: 250, width: 80, height: 60, shape: "rectangle" },
       });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
+      render(<TableShape table={table} {...defaultProps} />);
 
-      const group = getByTestId("konva-group");
+      const group = tableGroup();
       expect(group.getAttribute("data-x")).toBe("150");
       expect(group.getAttribute("data-y")).toBe("250");
     });
 
-    it("renders a Rect for rect shape by default", () => {
-      const table = makeTable();
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-rect")).toBeDefined();
+    it("renders a rounded rect surface for rect shape by default", () => {
+      render(<TableShape table={makeTable()} {...defaultProps} />);
+      const surface = tableSurface();
+      expect(surface.getAttribute("data-testid")).toBe("konva-rect");
+      expect(surface.getAttribute("data-corner-radius")).toBe(
+        String(TABLE_CORNER_RADIUS.rectangle)
+      );
     });
 
-    it("renders a Circle for circle shape", () => {
+    it("renders a circular surface for circle shape", () => {
       const table = makeTable({
         shapeMetadata: { x: 100, y: 100, width: 70, height: 70, shape: "circle" },
       });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-circle")).toBeDefined();
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-testid")).toBe("konva-circle");
     });
 
-    it("renders a Rect for square shape", () => {
+    it("renders a tighter-cornered surface for square shape", () => {
       const table = makeTable({
         shapeMetadata: { x: 100, y: 100, width: 60, height: 60, shape: "square" },
       });
-      const { getAllByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      // square also renders as Rect
-      const rects = getAllByTestId("konva-rect");
-      expect(rects.length).toBeGreaterThan(0);
+      render(<TableShape table={table} {...defaultProps} />);
+      const surface = tableSurface();
+      expect(surface.getAttribute("data-testid")).toBe("konva-rect");
+      expect(surface.getAttribute("data-corner-radius")).toBe(String(TABLE_CORNER_RADIUS.square));
     });
 
     it("falls back to rect shape when shapeMetadata is null", () => {
       const table = makeTable({ shapeMetadata: null });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-rect")).toBeDefined();
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-corner-radius")).toBe(
+        String(TABLE_CORNER_RADIUS.rectangle)
+      );
     });
 
     it("applies default position (100, 100) when shapeMetadata is null", () => {
       const table = makeTable({ shapeMetadata: null });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      const group = getByTestId("konva-group");
+      render(<TableShape table={table} {...defaultProps} />);
+      const group = tableGroup();
       expect(group.getAttribute("data-x")).toBe("100");
       expect(group.getAttribute("data-y")).toBe("100");
     });
@@ -295,8 +311,73 @@ describe("TableShape", () => {
       const table = makeTable({
         shapeMetadata: { x: 100, y: 100, width: 80, height: 60, shape: "rectangle", rotation: 45 },
       });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-group").getAttribute("data-rotation")).toBe("45");
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableGroup().getAttribute("data-rotation")).toBe("45");
+    });
+  });
+
+  describe("furniture art", () => {
+    it("draws wood grain over the rectangular table surface", () => {
+      render(<TableShape table={makeTable()} {...defaultProps} />);
+      // Grain lines and edge highlights are Konva Lines; a bare primitive had none.
+      expect(document.querySelectorAll('[data-testid="konva-line"]').length).toBeGreaterThan(0);
+    });
+
+    it("draws concentric grain rings and a highlight arc on a round table", () => {
+      const table = makeTable({
+        shapeMetadata: { x: 100, y: 100, width: 70, height: 70, shape: "circle" },
+        capacity: 0,
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      // Round art = contact shadow + surface + 3 grain rings.
+      expect(document.querySelectorAll('[data-testid="konva-circle"]').length).toBe(5);
+      expect(document.querySelectorAll('[data-testid="konva-path"]').length).toBe(1);
+    });
+
+    it("draws a contact shadow beneath the surface", () => {
+      render(<TableShape table={makeTable()} {...defaultProps} />);
+      expect(queryNamed("table-shadow")).toHaveLength(1);
+    });
+  });
+
+  describe("seats", () => {
+    it.each([2, 4, 6, 8])("draws one seat per cover for a capacity of %i", (capacity) => {
+      render(<TableShape table={makeTable({ capacity })} {...defaultProps} />);
+      expect(seatNodes()).toHaveLength(capacity);
+    });
+
+    it("draws seats around a round table too", () => {
+      const table = makeTable({
+        capacity: 5,
+        shapeMetadata: { x: 100, y: 100, width: 70, height: 70, shape: "circle" },
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(seatNodes()).toHaveLength(5);
+    });
+
+    it("draws no seats for a table with no capacity", () => {
+      render(<TableShape table={makeTable({ capacity: 0 })} {...defaultProps} />);
+      expect(seatNodes()).toHaveLength(0);
+    });
+
+    it("tucks seats under the table by drawing them before the surface", () => {
+      render(<TableShape table={makeTable({ capacity: 4 })} {...defaultProps} />);
+      const [firstSeat] = seatNodes();
+      expect(firstSeat).toBeDefined();
+      expect(firstSeat?.compareDocumentPosition(tableSurface())).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    });
+
+    it("places each seat at its geometric placement", () => {
+      const table = makeTable({
+        capacity: 2,
+        shapeMetadata: { x: 0, y: 0, width: 80, height: 60, shape: "rectangle" },
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      const groups = seatNodes();
+      expect(groups.map((g) => g.getAttribute("data-rotation"))).toEqual(["180", "0"]);
+      expect(groups.map((g) => g.getAttribute("data-y"))).toEqual(["-37", "37"]);
     });
   });
 
@@ -335,73 +416,103 @@ describe("TableShape", () => {
 
     it("uses inactive color when table is not active", () => {
       const table = makeTable({ isActive: false });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      const rect = getByTestId("konva-rect");
+      render(<TableShape table={table} {...defaultProps} />);
       // inactive color is #a8a49d
-      expect(rect.getAttribute("data-fill")).toBe("#a8a49d");
+      expect(tableSurface().getAttribute("data-fill")).toBe("#a8a49d");
     });
 
     it("uses available color when table is active", () => {
       const table = makeTable({ isActive: true });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      const rect = getByTestId("konva-rect");
+      render(<TableShape table={table} {...defaultProps} />);
       // available color is #5e6a2e
-      expect(rect.getAttribute("data-fill")).toBe("#5e6a2e");
+      expect(tableSurface().getAttribute("data-fill")).toBe("#5e6a2e");
     });
 
     it("uses the default available color when no status is provided (editor-only usage)", () => {
       const table = makeTable({ isActive: true });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      const rect = getByTestId("konva-rect");
-      expect(rect.getAttribute("data-fill")).toBe("#5e6a2e");
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("#5e6a2e");
     });
 
     it("renders the seated status color when status is seated", () => {
       const table = makeTable({ isActive: true });
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} status="seated" />
-      );
-      const rect = getByTestId("konva-rect");
+      render(<TableShape table={table} {...defaultProps} status="seated" />);
       // seated color mirrors --rialto-error (#b84a3c)
-      expect(rect.getAttribute("data-fill")).toBe("#b84a3c");
+      expect(tableSurface().getAttribute("data-fill")).toBe("#b84a3c");
     });
 
     it("renders the needs-bussing status color when status is needs-bussing", () => {
       const table = makeTable({ isActive: true });
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} status="needs-bussing" />
-      );
-      const rect = getByTestId("konva-rect");
+      render(<TableShape table={table} {...defaultProps} status="needs-bussing" />);
       // needs-bussing color mirrors --rialto-warning (#8a6820)
-      expect(rect.getAttribute("data-fill")).toBe("#8a6820");
+      expect(tableSurface().getAttribute("data-fill")).toBe("#8a6820");
     });
 
     it("renders the reserved-soon status color when status is reserved-soon", () => {
       const table = makeTable({ isActive: true });
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} status="reserved-soon" />
-      );
-      const rect = getByTestId("konva-rect");
+      render(<TableShape table={table} {...defaultProps} status="reserved-soon" />);
       // reserved-soon color mirrors --rialto-accent (#b0841e)
-      expect(rect.getAttribute("data-fill")).toBe("#b0841e");
+      expect(tableSurface().getAttribute("data-fill")).toBe("#b0841e");
     });
 
     it("renders the available status color when status is explicitly available", () => {
       const table = makeTable({ isActive: true });
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} status="available" />
-      );
-      const rect = getByTestId("konva-rect");
-      expect(rect.getAttribute("data-fill")).toBe("#5e6a2e");
+      render(<TableShape table={table} {...defaultProps} status="available" />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("#5e6a2e");
     });
 
     it("keeps the inactive color even when a live status is provided", () => {
       const table = makeTable({ isActive: false });
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} status="seated" />
-      );
-      const rect = getByTestId("konva-rect");
-      expect(rect.getAttribute("data-fill")).toBe("#a8a49d");
+      render(<TableShape table={table} {...defaultProps} status="seated" />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("#a8a49d");
+    });
+  });
+
+  describe("shapeMetadata.color tint", () => {
+    it("tints the table surface with shapeMetadata.color in the editor", () => {
+      const table = makeTable({
+        shapeMetadata: {
+          x: 10,
+          y: 10,
+          width: 80,
+          height: 60,
+          shape: "rectangle",
+          color: "#123456",
+        },
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("#123456");
+    });
+
+    it("lets a live status override the tint, so status always reads", () => {
+      const table = makeTable({
+        shapeMetadata: {
+          x: 10,
+          y: 10,
+          width: 80,
+          height: 60,
+          shape: "rectangle",
+          color: "#123456",
+        },
+      });
+      render(<TableShape table={table} {...defaultProps} status="seated" />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("#b84a3c");
+    });
+
+    it("lets an inactive table override the tint", () => {
+      const table = makeTable({
+        isActive: false,
+        shapeMetadata: {
+          x: 10,
+          y: 10,
+          width: 80,
+          height: 60,
+          shape: "rectangle",
+          color: "#123456",
+        },
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("#a8a49d");
     });
   });
 
@@ -409,37 +520,35 @@ describe("TableShape", () => {
     it("resolves the active fill from the --rialto-success custom property", () => {
       setThemeVar("--rialto-success", "rgb(1, 2, 3)");
       const table = makeTable({ isActive: true });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe("rgb(1, 2, 3)");
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("rgb(1, 2, 3)");
     });
 
     it("resolves the inactive fill from the --rialto-surface-deep custom property", () => {
       setThemeVar("--rialto-surface-deep", "rgb(4, 5, 6)");
       const table = makeTable({ isActive: false });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe("rgb(4, 5, 6)");
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("rgb(4, 5, 6)");
     });
 
     it("resolves the selected stroke from the --rialto-accent custom property", () => {
       setThemeVar("--rialto-accent", "rgb(7, 8, 9)");
       const table = makeTable();
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} isSelected={true} />
-      );
-      expect(getByTestId("konva-rect").getAttribute("data-stroke")).toBe("rgb(7, 8, 9)");
+      render(<TableShape table={table} {...defaultProps} isSelected={true} />);
+      expect(tableSurface().getAttribute("data-stroke")).toBe("rgb(7, 8, 9)");
     });
 
     it("updates fills when the theme changes at runtime, without a remount", async () => {
       setThemeVar("--rialto-success", "rgb(1, 1, 1)");
       const table = makeTable({ isActive: true });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe("rgb(1, 1, 1)");
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("rgb(1, 1, 1)");
 
       setThemeVar("--rialto-success", "rgb(2, 2, 2)");
       setTheme("dark");
 
       await waitFor(() => {
-        expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe("rgb(2, 2, 2)");
+        expect(tableSurface().getAttribute("data-fill")).toBe("rgb(2, 2, 2)");
       });
     });
 
@@ -456,12 +565,8 @@ describe("TableShape", () => {
       "falls back to the light-theme hex for status %s when its token is unset",
       (status, token) => {
         const table = makeTable({ isActive: true });
-        const { getByTestId } = render(
-          <TableShape table={table} {...defaultProps} status={status} />
-        );
-        expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
-          readRialtoToken(token, "light")
-        );
+        render(<TableShape table={table} {...defaultProps} status={status} />);
+        expect(tableSurface().getAttribute("data-fill")).toBe(readRialtoToken(token, "light"));
       }
     );
 
@@ -475,20 +580,16 @@ describe("TableShape", () => {
       (status, token) => {
         setTheme("dark");
         const table = makeTable({ isActive: true });
-        const { getByTestId } = render(
-          <TableShape table={table} {...defaultProps} status={status} />
-        );
-        expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
-          readRialtoToken(token, "dark")
-        );
+        render(<TableShape table={table} {...defaultProps} status={status} />);
+        expect(tableSurface().getAttribute("data-fill")).toBe(readRialtoToken(token, "dark"));
       }
     );
 
     it("falls back to the dark-theme hex for the inactive fill in dark mode", () => {
       setTheme("dark");
       const table = makeTable({ isActive: false });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-fill")).toBe(
         readRialtoToken("--rialto-surface-deep", "dark")
       );
     });
@@ -496,10 +597,8 @@ describe("TableShape", () => {
     it("falls back to the dark-theme hex for the selected stroke in dark mode", () => {
       setTheme("dark");
       const table = makeTable();
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} isSelected={true} />
-      );
-      expect(getByTestId("konva-rect").getAttribute("data-stroke")).toBe(
+      render(<TableShape table={table} {...defaultProps} isSelected={true} />);
+      expect(tableSurface().getAttribute("data-stroke")).toBe(
         readRialtoToken("--rialto-accent", "dark")
       );
     });
@@ -516,29 +615,21 @@ describe("TableShape", () => {
   describe("selection state", () => {
     it("applies thicker stroke when selected", () => {
       const table = makeTable();
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} isSelected={true} />
-      );
-      const rect = getByTestId("konva-rect");
-      expect(rect.getAttribute("data-stroke-width")).toBe("3");
+      render(<TableShape table={table} {...defaultProps} isSelected={true} />);
+      expect(tableSurface().getAttribute("data-stroke-width")).toBe("3");
     });
 
     it("applies thin stroke when not selected", () => {
       const table = makeTable();
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} isSelected={false} />
-      );
-      const rect = getByTestId("konva-rect");
-      expect(rect.getAttribute("data-stroke-width")).toBe("1");
+      render(<TableShape table={table} {...defaultProps} isSelected={false} />);
+      expect(tableSurface().getAttribute("data-stroke-width")).toBe("1");
     });
 
     it("calls onSelect with table id when clicked", () => {
       const onSelect = vi.fn();
       const table = makeTable({ id: "table-abc" });
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} onSelect={onSelect} />
-      );
-      getByTestId("konva-group").click();
+      render(<TableShape table={table} {...defaultProps} onSelect={onSelect} />);
+      tableGroup().click();
       expect(onSelect).toHaveBeenCalledWith("table-abc");
     });
   });
@@ -547,12 +638,9 @@ describe("TableShape", () => {
     it("calls onDragStart with table id when drag starts", () => {
       const onDragStart = vi.fn();
       const table = makeTable({ id: "table-xyz" });
-      const { getByTestId } = render(
-        <TableShape table={table} {...defaultProps} onDragStart={onDragStart} />
-      );
+      render(<TableShape table={table} {...defaultProps} onDragStart={onDragStart} />);
       // Trigger mousedown which we mapped to onDragStart
-      const group = getByTestId("konva-group");
-      group.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      tableGroup().dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       expect(onDragStart).toHaveBeenCalledWith("table-xyz");
     });
   });
