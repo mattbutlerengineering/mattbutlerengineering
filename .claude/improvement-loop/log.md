@@ -4136,3 +4136,23 @@ None — 0 `agent-skip`.
 **queueEfficiency:** composite 0.554 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:41, size:s:42, size:m:46, size:xl:23, size:l:24
 **Issues filed:** 0
+
+## 2026-10-22 — mbe-ui-quality
+
+- **State**: `state.mjs checkout` source `branch` (`ui-quality/ledger` @ `adca8993`, merged `origin/main` `dcb7a188`, 0 conflicts resolved).
+- **Builds**: all three apps built clean (`@mbe/marketing`, `@mbe/rialto-web`, `@mbe/hospitality`); no `unreachable:build` from a failed build.
+- **Routes**: 40 due / 36 audited / 36 captured. Plan held rialto-web only (38 capture rows, 38 passed); marketing and hospitality had no routes planned and their capture runs skipped. 20 rows `unreachable:auth` (all hospitality), 2 rows `unreachable:build` (`hospitality menu/:venueSlug`, `hospitality menu/:venueSlug/:menuSlug` — `no-fixture`, path null).
+- **Coverage before this fire**: 100% (133/133, provisional, first run 2026-10-01). `coverage.mjs` exit 0 — no breach.
+- **Browser**: resolved (`/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). No `blocker: no-browser`.
+- **Judged**: 38 rialto-web routes opened at both viewports (76 screenshots). 1 judged finding (`agent-built/gray-card-border` on `demos/drivers/:id`), 35 clean, **unjudged 2**, **dropped tells 0**. The 2 unjudged are `visual-test` and `demos/visual-test`, recorded `unjudged: "tool-error"`: both full-page captures are ~14,600 px tall and downscale past legibility in the image reader, so the whole page could not be assessed. Their legible fold crops were checked and showed no judged tell, but that covers only the first viewport, so `tells: []` would have overstated what was looked at.
+- **Calibration**: stamp **stale**. `calibration-status` exit 3 (the one trigger); `rate.mjs pairs --calibration` exit 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (human-owned, Verify stage). Logged, not retried. Re-queried after: still exit 3 / stale. Rating proceeded: 6 pairs over 1 app judged, `rate.mjs record` → rialto-web **4.17**.
+- **Filing**: plan exit 0 — reopen 1, create 3, skip 2, seeds 2, dropped 1. The dropped one is the judged `agent-built/gray-card-border` finding, suppressed because calibration is stale (intended).
+  - reopened: #6422 (`rialto-web demos/dashboard — accessibility/axe-serious`)
+  - created: #7266 (telemetry axe-minor), #7267 (telemetry axe-moderate), #7268 (telemetry axe-serious) — all three verified to carry the `ui-quality` label
+  - skipped: 2 `visual-test` findings (seed carrier)
+  - seeds: 2 `demos/visual-test` rows already present in `docs/backlog.md` from 2026-10-03, so no new diff
+  - Issue-state read was complete: all 28 ledger issue numbers fetched individually (all closed), and the `ui-quality` label listing returned 28 with `hasNextPage: false` — an exact match, so no adoptions and no escalation issue.
+- **Fix PR**: none — the plan carried `fix_pr_candidate: null`, so no action was eligible.
+- **P1 breaches escalated**: 0 open `ui-quality:p1` issues; `p1-age.mjs` reported 0 of 0 older than 7 days.
+- **Observation (not filed — no rubric tell covers it)**: the cookie-consent banner is position-fixed without reserving space, and at 375×812 it renders _on top of_ page content on every rialto-web route that shows it — body text, form fields and the consent buttons themselves overlap illegibly (clearest on `demos/auth-flow`, `demos/teams/new`, `demos/drivers/:id`, `demos/telemetry`). It also clips content at 1280×720 on longer pages. This is a real layout defect that the judged tell list cannot express; raising it would need a human rubric bump (the routine never edits the rubric). Two smaller ones in the same category: `components/confirm-dialog`'s "Delete Session" destructive trigger renders with no border or fill, reading as plain text rather than a control, while its siblings are bordered; and `components/data-table` at 375 px cuts the WINS column off the right edge with no horizontal affordance.
+- No pipeline bug, no stopped filing, no rejected push.
