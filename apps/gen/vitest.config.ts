@@ -2,7 +2,7 @@ import { resolve } from "path";
 import { defineVitestConfig } from "@mbe/config/vitest/react";
 
 export default defineVitestConfig({
-  include: ["src/**/*.test.{ts,tsx}"],
+  include: ["src/**/*.test.{ts,tsx}", "e2e/fixtures/**/*.test.ts"],
   coverage: {
     include: ["src/**/*.ts", "src/**/*.tsx"],
     exclude: ["src/**/*.test.{ts,tsx}", "src/main.tsx"],

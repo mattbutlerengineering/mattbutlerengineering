@@ -24,7 +24,10 @@ describe("apps/gen e2e CI coverage", () => {
   it("playwright discovers every spec in e2e/ (no testMatch/testIgnore narrowing)", () => {
     const config = read(resolve(APP_DIR, "playwright.config.ts"));
     expect(config).toMatch(/testDir:\s*"\.\/e2e"/);
-    expect(config).not.toMatch(/testMatch|testIgnore/);
+    // The one allowed narrowing: vitest-only unit tests under e2e/fixtures/.
+    // Exact glob, not "**/*.test.ts" — a11y.test.ts is a real Playwright spec.
+    const narrowing = config.replace(/testIgnore:\s*\["\*\*\/fixtures\/\*\.test\.ts"\],?/, "");
+    expect(narrowing).not.toMatch(/testMatch|testIgnore/);
   });
 
   it("test:e2e runs the whole suite, not a named file", () => {

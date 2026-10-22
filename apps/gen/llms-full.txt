@@ -1,7 +1,7 @@
 <codebase path="apps/gen">
   <section priority="medium" role="e2e">
   <file path="e2e/auth-helpers.ts">
-    interface Auth0Config {
+    export interface Auth0Config {
       domain: string;
       clientId: string;
       audience: string;
@@ -35,8 +35,12 @@
       token_type: string;
       expires_in: number;
     }
-    async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
-      const response = await fetch(`https://${config.domain}/oauth/token`, {
+    type FetchFn = typeof fetch;
+    export async function fetchAuth0Tokens(
+      config: Auth0Config,
+      fetchFn: FetchFn = fetch
+    ): Promise<TokenResponse> {
+      const response = await fetchFn(`https://${config.domain}/oauth/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

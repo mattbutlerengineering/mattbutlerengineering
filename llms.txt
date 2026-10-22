@@ -2481,7 +2481,7 @@
   </section>
   <section priority="medium" role="e2e">
   <file path="apps/gen/e2e/auth-helpers.ts">
-    <item priority="high">
+    <item priority="low">
       interface Auth0Config {
         domain: string;
         clientId: string;
@@ -2501,8 +2501,14 @@
         expires_in: number;
       }
     </item>
-    <item priority="low">
-      async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> { /* ... */ }
+    <item priority="high">
+      type FetchFn = typeof fetch;
+    </item>
+    <item priority="high">
+      export async function fetchAuth0Tokens(
+        config: Auth0Config,
+        fetchFn: FetchFn = fetch
+      ): Promise<TokenResponse> { /* ... */ }
     </item>
     <item priority="medium">
       function decodeJwtPayload(token: string): Record<string, unknown> { /* ... */ }
