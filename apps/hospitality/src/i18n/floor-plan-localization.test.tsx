@@ -23,6 +23,7 @@ const FLOOR_PLAN = {
   venueId: "v1",
   name: "Main",
   isActive: true,
+  layoutJson: { width: 800, height: 600 },
   updatedAt: "2026-01-02T00:00:00.000Z",
   tables: [],
 } as unknown as FloorPlan;
@@ -51,6 +52,7 @@ vi.mock("../hooks/useFloorPlans.js", () => ({
   useBulkUpdatePositions: () => ({ mutateAsync: vi.fn() }),
   useAddTable: () => ({ mutateAsync: vi.fn() }),
   useDeleteTable: () => ({ mutateAsync: vi.fn() }),
+  useUpdateFloorPlanLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../hooks/useFloorPlanDraft.js", () => ({
   useFloorPlanDraft: () => ({
