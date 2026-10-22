@@ -15,7 +15,11 @@ import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { describeApiError } from "../lib/describe-api-error.js";
-import { NewFloorPlanDialog } from "../components/floor-plan";
+import {
+  NewFloorPlanDialog,
+  createFloorPlanFromTemplate,
+  type NewFloorPlanRequest,
+} from "../components/floor-plan";
 import { useFloorPlans, useCloneFloorPlan } from "../hooks/useFloorPlans.js";
 import { useApiClient } from "../hooks/useApiClient.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
@@ -81,10 +85,10 @@ export function FloorPlansPage() {
 
   const cloneMutation = useCloneFloorPlan();
 
+  // Blank creates the plan and stops; a template goes on to add its sections
+  // and tables — all through the ordinary floor-plan, section and table routes.
   const handleCreate = useCallback(
-    async (data: Parameters<typeof api.floorPlans.create>[0]) => {
-      return api.floorPlans.create(data);
-    },
+    async (request: NewFloorPlanRequest) => createFloorPlanFromTemplate(api, request),
     [api]
   );
 

@@ -8350,6 +8350,9 @@
         body: JSON.stringify({ data }),
       });
     }
+    function postBody(route: Route): Record<string, unknown> {
+      return (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+    }
     export function buildPublicVenueFixture(): PublicVenue {
       const venues = JSON.parse(loadFixture("venues-list"));
       const venue = venues.data[0];
@@ -9179,11 +9182,56 @@
       await page.route(/\/api\/v1\/floor-plans\/[^/?]+$/, (route) => {
         const id = route.request().url().replace(/\?.*$/, "").split("/").pop();
         if (createdFloorPlan && createdFloorPlan.id === id) {
+          // A PATCH has to be applied, not just echoed: applying a room template
+          // (#7256) writes the zone rectangles into `layoutJson.sections` in a
+          // PATCH that follows the section-row POSTs, so dropping the body would
+          // leave the sections list and the plan's own layout disagreeing — rows
+          // exist, no rectangle for any of them — which is exactly the state a
+          // spec asserting the applied room would need to catch.
+          if (route.request().method() === "PATCH") {
+            createdFloorPlan = {
+              ...createdFloorPlan,
+              ...postBody(route),
+              id,
+              updatedAt: new Date().toISOString(),
+            };
+          }
           const planTables = createdTables.filter((table) => table.floorPlanId === id);
           return jsonOk(route, { ...createdFloorPlan, tables: planTables });
         }
         const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
         return jsonOk(route, floorPlans.data[0]);
+      });
+    
+      // Floor Plan Sections
+      // A room template (#7256) creates one section row per named zone before it
+      // writes their rectangles into the plan's layout, and the floor plan editor
+      // lists them. Stateful so a relaunch after a failure sees what the first
+      // attempt already created, which is exactly the resume path Launch relies on.
+      const createdSections: Array<Record<string, unknown>> = [];
+      await page.route(/\/api\/v1\/floor-plan-sections(\?|$)/, (route) => {
+        const method = route.request().method();
+        if (method === "GET") return jsonOk(route, createdSections);
+        if (method !== "POST") return route.fallback();
+    
+        const body = postBody(route);
+        const now = new Date().toISOString();
+        const section = {
+          id: `sec_e2e_${createdSections.length + 1}`,
+          venueId: "venue_e2e",
+          floorPlanId: body.floorPlanId ?? "fp_e2e_created",
+          name: body.name ?? "Section",
+          color: body.color ?? "#8b7355",
+          displayOrder: body.displayOrder ?? createdSections.length,
+          createdAt: now,
+          updatedAt: now,
+        };
+        createdSections.push(section);
+        return route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ data: section }),
+        });
       });
     
       // Availability
@@ -11525,6 +11573,160 @@
   </file>
   </section>
   <section priority="medium" role="floor-plan">
+  <file path="apps/hospitality/src/components/floor-plan/apply-room-template.ts">
+    export interface RoomTemplateApi {
+      readonly floorPlans: {
+        create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
+        update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
+      };
+      readonly floorPlanSections: {
+        create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
+        assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]>;
+      };
+      readonly tables: {
+        list(params: {
+          venueId: string;
+          page?: number;
+          limit?: number;
+        }): Promise<PaginatedResponse<Table>>;
+        create(data: CreateTableRequest): Promise<Table>;
+      };
+    }
+    async function listVenueTableNames(
+      api: RoomTemplateApi,
+      venueId: string
+    ): Promise<ReadonlySet<string>> {
+      const names = new Set<string>();
+      for (let page = 1; ; page += 1) {
+        const { data, pagination } = await api.tables.list({ venueId, page, limit: MAX_PAGE_SIZE });
+        for (const table of data) names.add(table.name);
+        if (data.length === 0 || names.size >= pagination.total || page >= pagination.totalPages) break;
+      }
+      return names;
+    }
+    export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
+      if (!taken.has(desired)) return desired;
+      // `taken` is finite, and among `desired-2 … desired-(size + 2)` there are
+      // more candidates than `taken` has entries, so one of them is always free.
+      for (let suffix = 2; suffix <= taken.size + 2; suffix += 1) {
+        const candidate = `${desired}-${suffix}`;
+        if (!taken.has(candidate)) return candidate;
+      }
+      /* c8 ignore next -- unreachable: the loop above exhausts a superset of `taken` */
+      throw new Error(`Could not find an unused name for table "${desired}"`);
+    }
+    export interface CreateFromTemplateInput {
+      readonly venueId: string;
+      readonly name: string;
+      readonly layout: RoomLayout;
+    }
+    export function templateLayoutJson(layout: RoomLayout): FloorPlanLayout {
+      return {
+        width: layout.width,
+        height: layout.height,
+        gridSize: GRID_SIZE,
+        showGrid: true,
+        ...(layout.walls.length > 0 ? { walls: [...layout.walls] } : {}),
+      };
+    }
+    export function templateTableRequest(
+      table: RoomTemplateTable,
+      venueId: string,
+      floorPlanId: string,
+      name: string = table.name
+    ): CreateTableRequest {
+      return {
+        name,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        venueId,
+        floorPlanId,
+        shapeMetadata: {
+          shape: table.shape,
+          x: table.x,
+          y: table.y,
+          width: table.width,
+          height: table.height,
+          rotation: table.rotation,
+        },
+      };
+    }
+    async function createSectionRows(
+      api: RoomTemplateApi,
+      venueId: string,
+      floorPlanId: string,
+      layout: RoomLayout
+    ): Promise<ReadonlyMap<string, FloorPlanSection>> {
+      const rows = new Map<string, FloorPlanSection>();
+      for (const [index, zone] of layout.sections.entries()) {
+        const row = await api.floorPlanSections.create(venueId, {
+          floorPlanId,
+          name: zone.name,
+          color: zone.color,
+          displayOrder: index,
+        });
+        rows.set(zone.id, row);
+      }
+      return rows;
+    }
+    function sectionRectangles(
+      layout: RoomLayout,
+      rows: ReadonlyMap<string, FloorPlanSection>
+    ): SectionLayout[] {
+      return layout.sections.flatMap((zone) => {
+        const row = rows.get(zone.id);
+        return row
+          ? [{ id: row.id, x: zone.x, y: zone.y, width: zone.width, height: zone.height }]
+          : [];
+      });
+    }
+    async function createTables(
+      api: RoomTemplateApi,
+      venueId: string,
+      floorPlanId: string,
+      layout: RoomLayout
+    ): Promise<ReadonlyMap<string, readonly string[]>> {
+      // Read the venue's existing names once, then grow the set as we go so the
+      // template's own tables cannot collide with each other either.
+      const taken = new Set(await listVenueTableNames(api, venueId));
+      const bySection = new Map<string, string[]>();
+      for (const table of layout.tables) {
+        const name = uniqueTableName(table.name, taken);
+        taken.add(name);
+        const created = await api.tables.create(
+          templateTableRequest(table, venueId, floorPlanId, name)
+        );
+        if (table.sectionId === null) continue;
+        bySection.set(table.sectionId, [...(bySection.get(table.sectionId) ?? []), created.id]);
+      }
+      return bySection;
+    }
+    export async function createFloorPlanFromTemplate(
+      api: RoomTemplateApi,
+      { venueId, name, layout }: CreateFromTemplateInput
+    ): Promise<FloorPlan> {
+      const layoutJson = templateLayoutJson(layout);
+      const plan = await api.floorPlans.create({ venueId, name, layoutJson });
+    
+      const rows = await createSectionRows(api, venueId, plan.id, layout);
+      const withSections =
+        rows.size > 0
+          ? await api.floorPlans.update(plan.id, {
+              layoutJson: { ...layoutJson, sections: sectionRectangles(layout, rows) },
+            })
+          : plan;
+    
+      const tablesBySection = await createTables(api, venueId, plan.id, layout);
+    
+      for (const [localSectionId, tableIds] of tablesBySection) {
+        const row = rows.get(localSectionId);
+        if (!row || tableIds.length === 0) continue;
+        await api.floorPlanSections.assignTables(venueId, row.id, [...tableIds]);
+      }
+    
+      return withSections;
+    }
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/floor-plan-geometry.ts">
     export const CANVAS_WIDTH = 800;
     export const CANVAS_HEIGHT = 600;
@@ -11617,11 +11819,12 @@
       wall: WallLayout,
       end: WallEnd,
       p: Point,
-      gridSize: number = GRID_SIZE
+      gridSize: number = GRID_SIZE,
+      canvas: { width: number; height: number } = { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }
     ): WallLayout {
       const snapped = snapPoint(p, gridSize);
-      const x = clampTo(snapped.x, 0, CANVAS_WIDTH);
-      const y = clampTo(snapped.y, 0, CANVAS_HEIGHT);
+      const x = clampTo(snapped.x, 0, canvas.width);
+      const y = clampTo(snapped.y, 0, canvas.height);
       return end === 1 ? { ...wall, x1: x, y1: y } : { ...wall, x2: x, y2: y };
     }
     export function clampThickness(value: number): number {
@@ -11753,6 +11956,294 @@
       rectangle: 6,
       square: 3,
     };
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/room-geometry.ts">
+    export function tableBounds(table: {
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+    }): { left: number; top: number; right: number; bottom: number } {
+      const radians = (table.rotation * Math.PI) / 180;
+      const cos = Math.abs(Math.cos(radians));
+      const sin = Math.abs(Math.sin(radians));
+      const halfWidth = (table.width * cos + table.height * sin) / 2;
+      const halfHeight = (table.width * sin + table.height * cos) / 2;
+    
+      return {
+        left: table.x - halfWidth,
+        top: table.y - halfHeight,
+        right: table.x + halfWidth,
+        bottom: table.y + halfHeight,
+      };
+    }
+    export type PerimeterSide = "top" | "right" | "bottom" | "left";
+    export interface PerimeterGap {
+      readonly side: PerimeterSide;
+      readonly from: number;
+      readonly to: number;
+    }
+    interface SideDefinition {
+      readonly side: PerimeterSide;
+      /** True when both of a wall's endpoints lie on this side's line. */
+      readonly onSide: (segment: WallLayout) => boolean;
+      /** The segment's extent along the side, as [low, high]. */
+      readonly span: (segment: WallLayout) => readonly [number, number];
+      readonly length: number;
+    }
+    function sideDefinitions(layout: RoomLayout): readonly SideDefinition[] {
+      const horizontal = (segment: WallLayout) =>
+        [Math.min(segment.x1, segment.x2), Math.max(segment.x1, segment.x2)] as const;
+      const vertical = (segment: WallLayout) =>
+        [Math.min(segment.y1, segment.y2), Math.max(segment.y1, segment.y2)] as const;
+    
+      return [
+        {
+          side: "top",
+          onSide: (s) => s.y1 === 0 && s.y2 === 0,
+          span: horizontal,
+          length: layout.width,
+        },
+        {
+          side: "right",
+          onSide: (s) => s.x1 === layout.width && s.x2 === layout.width,
+          span: vertical,
+          length: layout.height,
+        },
+        {
+          side: "bottom",
+          onSide: (s) => s.y1 === layout.height && s.y2 === layout.height,
+          span: horizontal,
+          length: layout.width,
+        },
+        {
+          side: "left",
+          onSide: (s) => s.x1 === 0 && s.x2 === 0,
+          span: vertical,
+          length: layout.height,
+        },
+      ];
+    }
+    function gapsOnSide(definition: SideDefinition, layout: RoomLayout): PerimeterGap[] {
+      const covered = layout.walls
+        .filter(definition.onSide)
+        .map(definition.span)
+        .filter(([low, high]) => high > low)
+        .sort((a, b) => a[0] - b[0]);
+    
+      const gaps: PerimeterGap[] = [];
+      let reached = 0;
+      for (const [low, high] of covered) {
+        if (low > reached) gaps.push({ side: definition.side, from: reached, to: low });
+        reached = Math.max(reached, high);
+      }
+      if (reached < definition.length) {
+        gaps.push({ side: definition.side, from: reached, to: definition.length });
+      }
+      return gaps;
+    }
+    export function perimeterGaps(layout: RoomLayout): readonly PerimeterGap[] {
+      return sideDefinitions(layout).flatMap((definition) => gapsOnSide(definition, layout));
+    }
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/room-template-copy.ts">
+    export function layoutSummary(t: TFunction, layout: RoomLayout): string {
+      if (layout.tables.length === 0 && layout.sections.length === 0) {
+        return t("floorPlan.templates.summaryEmpty");
+      }
+      return t("floorPlan.templates.summary", {
+        tables: t("floorPlan.templates.tableCount", { count: layout.tables.length }),
+        sections: t("floorPlan.templates.sectionCount", { count: layout.sections.length }),
+      });
+    }
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/room-templates.ts">
+    export type RoomTemplateId =
+      | "blank"
+      | "fine-dining"
+      | "casual-bistro"
+      | "bar-lounge"
+      | "cafe"
+      | "banquet-hall"
+      | "open-kitchen";
+    export type RoomSizeId = "cozy" | "standard" | "spacious" | "grand";
+    export interface RoomSize {
+      readonly id: RoomSizeId;
+      readonly width: number;
+      readonly height: number;
+    }
+    export const ROOM_SIZES: readonly RoomSize[] = [
+      { id: "cozy", width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+      { id: "standard", width: 1200, height: 800 },
+      { id: "spacious", width: 1600, height: 1000 },
+      { id: "grand", width: 2000, height: 1200 },
+    ] as const;
+    export interface RoomTemplateTable {
+      readonly id: string;
+      readonly name: string;
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      readonly minCovers: number;
+      /** Centre of the table, in canvas units — the origin Konva rotates about. */
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+      /** Local section id, or null when the table sits outside every zone. */
+      readonly sectionId: string | null;
+    }
+    export interface RoomTemplateSection {
+      readonly id: string;
+      readonly name: string;
+      readonly color: string;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+    }
+    export interface RoomLayout {
+      readonly width: number;
+      readonly height: number;
+      readonly tables: readonly RoomTemplateTable[];
+      readonly sections: readonly RoomTemplateSection[];
+      readonly walls: readonly WallLayout[];
+    }
+    export interface RoomTemplate {
+      readonly id: RoomTemplateId;
+      /** The plan's name once created. Saved data, so it stays en-US in every locale. */
+      readonly planName: string;
+      /** Width of the one doorway this template leaves in its perimeter; null for Blank. */
+      readonly doorWidth: number | null;
+      readonly build: (width: number, height: number) => RoomLayout;
+    }
+    interface TableSpec {
+      readonly name: string;
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      readonly minCovers: number;
+      /** Top-left of the unrotated footprint, matching the ported source's space. */
+      readonly left: number;
+      readonly top: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+    }
+    interface SectionSpec {
+      readonly name: string;
+      readonly color: string;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+    }
+    type WallSpec = Omit<WallLayout, "id">;
+    interface LayoutSpec {
+      readonly tables: readonly TableSpec[];
+      readonly sections: readonly SectionSpec[];
+      readonly walls: readonly WallSpec[];
+    }
+    type DoorSide = "bottom" | "left";
+    function perimeterWithDoor(
+      w: number,
+      h: number,
+      side: DoorSide,
+      position: number,
+      gap: number
+    ): WallSpec[] {
+      const t = PERIMETER_THICKNESS;
+      const p = Math.round(position);
+    
+      if (side === "bottom") {
+        return [
+          { x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+          { x1: w, y1: 0, x2: w, y2: h, thickness: t },
+          { x1: 0, y1: h, x2: p, y2: h, thickness: t },
+          { x1: p + gap, y1: h, x2: w, y2: h, thickness: t },
+          { x1: 0, y1: h, x2: 0, y2: 0, thickness: t },
+        ];
+      }
+    
+      return [
+        { x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+        { x1: w, y1: 0, x2: w, y2: h, thickness: t },
+        { x1: w, y1: h, x2: 0, y2: h, thickness: t },
+        { x1: 0, y1: 0, x2: 0, y2: p, thickness: t },
+        { x1: 0, y1: p + gap, x2: 0, y2: h, thickness: t },
+      ];
+    }
+    function slug(value: string): string {
+      return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+    }
+    function containingSection(
+      sections: readonly RoomTemplateSection[],
+      x: number,
+      y: number
+    ): string | null {
+      const found = sections.find(
+        (zone) => x >= zone.x && x <= zone.x + zone.width && y >= zone.y && y <= zone.y + zone.height
+      );
+      return found ? found.id : null;
+    }
+    function toLayout(
+      templateId: RoomTemplateId,
+      width: number,
+      height: number,
+      spec: LayoutSpec
+    ): RoomLayout {
+      const sections: readonly RoomTemplateSection[] = spec.sections.map((zone) => ({
+        ...zone,
+        id: `${templateId}-${slug(zone.name)}`,
+      }));
+    
+      const tables: readonly RoomTemplateTable[] = spec.tables.map((table) => {
+        const x = table.left + table.width / 2;
+        const y = table.top + table.height / 2;
+        return {
+          id: `${templateId}-${slug(table.name)}`,
+          name: table.name,
+          shape: table.shape,
+          capacity: table.capacity,
+          minCovers: table.minCovers,
+          x,
+          y,
+          width: table.width,
+          height: table.height,
+          rotation: table.rotation,
+          sectionId: containingSection(sections, x, y),
+        };
+      });
+    
+      const walls: readonly WallLayout[] = spec.walls.map((segment, index) => ({
+        ...segment,
+        id: `${templateId}-wall-${index + 1}`,
+      }));
+    
+      return { width, height, tables, sections, walls };
+    }
+    export const ROOM_TEMPLATES: readonly RoomTemplate[] = [
+      BLANK,
+      FINE_DINING,
+      CASUAL_BISTRO,
+      BAR_LOUNGE,
+      CAFE,
+      BANQUET_HALL,
+      OPEN_KITCHEN,
+    ] as const;
+    export function roomTemplateById(id: RoomTemplateId): RoomTemplate {
+      const found = ROOM_TEMPLATES.find((template) => template.id === id);
+      if (!found) throw new Error(`roomTemplateById: no template registered for id "${id}"`);
+      return found;
+    }
+    export function roomSizeById(id: RoomSizeId): RoomSize {
+      const found = ROOM_SIZES.find((size) => size.id === id);
+      if (!found) throw new Error(`roomSizeById: no size registered for id "${id}"`);
+      return found;
+    }
   </file>
   <file path="apps/hospitality/src/components/floor-plan/section-label-theme.ts">
     export interface SectionLabelTheme {
@@ -67510,11 +68001,6 @@
         seats: t("onboarding.floorPlan.seatCount", { count: seats }),
       };
     }
-    export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string {
-      return tables.length === 0
-        ? t("onboarding.floorPlan.summaryBlank")
-        : t("onboarding.floorPlan.summary", layoutCounts(t, tables));
-    }
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-draft.ts">
     export type DraftTableShape = TableShapeMetadata["shape"];
@@ -67525,14 +68011,40 @@
       capacity: number;
       minCovers: number;
       shape: DraftTableShape;
-      /** Centre coordinates, always multiples of GRID_SIZE. */
+      /** Centre coordinates. A table the manager adds is always a multiple of GRID_SIZE. */
       x: number;
       y: number;
+      /**
+       * Footprint, where a room template gave this table one of its own — a long
+       * table is 140 wide against a shape default of 80. Absent on a table the
+       * manager added, which keeps using SHAPE_DEFAULTS.
+       */
+      width?: number;
+      height?: number;
+      rotation?: number;
+      /**
+       * The room template's **local** section id, or null outside every zone.
+       * Launch resolves it to the real row id.
+       */
+      sectionId?: string | null;
+    }
+    export function draftTableSize(table: DraftTable): { width: number; height: number } {
+      const defaults = SHAPE_DEFAULTS[table.shape];
+      return { width: table.width ?? defaults.width, height: table.height ?? defaults.height };
     }
     export interface FloorPlanDraft {
-      templateId: string | null;
+      templateId: RoomTemplateId | null;
+      /** The room size the template was built at. */
+      sizeId: RoomSizeId;
       planName: string;
       tables: readonly DraftTable[];
+      /** Named zones the room template places; local ids until Launch makes their rows. */
+      sections: readonly RoomTemplateSection[];
+      /** Perimeter and interior walls the room template places. */
+      walls: readonly WallLayout[];
+      /** The canvas the template was built for; the plan is saved at this size. */
+      width: number;
+      height: number;
       /** False once the manager has moved, added or removed anything. Gates the replace-confirm. */
       pristine: boolean;
     }
@@ -67540,17 +68052,32 @@
     export const DUPLICATE_TABLE_NAME_MESSAGE = "A table with this name already exists";
     export const EMPTY_FLOOR_PLAN_DRAFT: FloorPlanDraft = {
       templateId: null,
+      sizeId: "cozy",
       planName: "",
       tables: [],
+      sections: [],
+      walls: [],
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
       pristine: true,
     };
+    export function draftLayoutJson(draft: FloorPlanDraft): FloorPlanLayout {
+      return {
+        width: draft.width,
+        height: draft.height,
+        gridSize: GRID_SIZE,
+        showGrid: true,
+        ...(draft.walls.length > 0 ? { walls: [...draft.walls] } : {}),
+      };
+    }
     export function draftToCanvasTables(draft: FloorPlanDraft): Table[] {
       return draft.tables.map((table) => {
         const shapeMetadata: TableShapeMetadata = {
           shape: table.shape,
           x: table.x,
           y: table.y,
-          ...SHAPE_DEFAULTS[table.shape],
+          ...draftTableSize(table),
+          ...(table.rotation === undefined ? {} : { rotation: table.rotation }),
         };
     
         return {
@@ -67566,6 +68093,7 @@
           status: "AVAILABLE",
           venueId: null,
           floorPlanId: null,
+          sectionId: table.sectionId ?? null,
           shapeMetadata,
           createdAt: DRAFT_TIMESTAMP,
           updatedAt: DRAFT_TIMESTAMP,
@@ -67578,12 +68106,7 @@
         venueId: DRAFT_ID,
         name: draft.planName,
         isActive: false,
-        layoutJson: {
-          width: CANVAS_WIDTH,
-          height: CANVAS_HEIGHT,
-          gridSize: GRID_SIZE,
-          showGrid: true,
-        },
+        layoutJson: draftLayoutJson(draft),
         createdAt: DRAFT_TIMESTAMP,
         updatedAt: DRAFT_TIMESTAMP,
       };
@@ -67614,7 +68137,7 @@
       venueId: string,
       floorPlanId: string
     ): CreateTableRequest {
-      const dims = SHAPE_DEFAULTS[table.shape];
+      const dims = draftTableSize(table);
     
       return {
         name: table.name,
@@ -67628,6 +68151,7 @@
           y: table.y,
           width: dims.width,
           height: dims.height,
+          ...(table.rotation === undefined ? {} : { rotation: table.rotation }),
         },
       };
     }
@@ -67641,212 +68165,69 @@
     }
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-templates.ts">
-    export type TemplateId = "restaurant" | "cafe" | "bar" | "patio" | "blank";
-    export interface Zone {
-      prefix: string;
-      shape: DraftTableShape;
-      capacity: number;
-      minCovers: number;
-      origin: { x: number; y: number };
-      cols: number;
-      rows: number;
-      /** Omitted when cols === 1. */
-      pitchX?: number;
-      /** Omitted when rows === 1. */
-      pitchY?: number;
+    export type TemplateId = RoomTemplateId;
+    export const FLOOR_PLAN_TEMPLATES: readonly RoomTemplate[] = ROOM_TEMPLATES;
+    export function templateById(id: TemplateId): RoomTemplate {
+      return roomTemplateById(id);
     }
-    export interface FloorPlanTemplate {
-      id: TemplateId;
-      /**
-       * The floor plan's name once created — fixed per template, not editable in the wizard. It is
-       * saved data (the plan's name on the server), so it stays the same in every locale; the
-       * picker's own copy (card name, zone line) lives in the catalog under
-       * `onboarding.floorPlan.templates.<id>`.
-       */
-      planName: string;
-      zones: readonly Zone[];
+    export function layoutForDraft(draft: FloorPlanDraft): RoomLayout | null {
+      if (draft.templateId === null) return null;
+      const size = roomSizeById(draft.sizeId);
+      return {
+        width: draft.width || size.width,
+        height: draft.height || size.height,
+        tables: draft.tables.map(previewTable),
+        sections: draft.sections,
+        walls: draft.walls,
+      };
     }
-    function tablesForZone(zone: Zone): DraftTable[] {
-      return Array.from({ length: zone.rows * zone.cols }, (_, i) => {
-        const r = Math.floor(i / zone.cols);
-        const c = i % zone.cols;
-        const name = `${zone.prefix}${i + 1}`;
-        const x = zone.cols === 1 ? zone.origin.x : zone.origin.x + c * (zone.pitchX ?? 0);
-        const y = zone.rows === 1 ? zone.origin.y : zone.origin.y + r * (zone.pitchY ?? 0);
+    function previewTable(table: DraftTable): RoomLayout["tables"][number] {
+      const { width, height } = draftTableSize(table);
+      return {
+        id: table.localId,
+        name: table.name,
+        shape: table.shape,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        x: table.x,
+        y: table.y,
+        width,
+        height,
+        rotation: table.rotation ?? 0,
+        sectionId: table.sectionId ?? null,
+      };
+    }
+    function draftTableFor(table: RoomLayout["tables"][number]): DraftTable {
+      return {
+        localId: table.name,
+        name: table.name,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        shape: table.shape,
+        x: table.x,
+        y: table.y,
+        width: table.width,
+        height: table.height,
+        rotation: table.rotation,
+        sectionId: table.sectionId,
+      };
+    }
+    export function draftFromTemplate(templateId: TemplateId, sizeId: RoomSizeId): FloorPlanDraft {
+      const template = roomTemplateById(templateId);
+      const size = roomSizeById(sizeId);
+      const layout = template.build(size.width, size.height);
     
-        return {
-          localId: name,
-          name,
-          capacity: zone.capacity,
-          minCovers: zone.minCovers,
-          shape: zone.shape,
-          x,
-          y,
-        };
-      });
-    }
-    export function tablesForTemplate(template: FloorPlanTemplate): DraftTable[] {
-      return template.zones.flatMap(tablesForZone);
-    }
-    export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
-      {
-        id: "restaurant",
-        planName: "Main Dining Room",
-        zones: [
-          {
-            prefix: "W",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 4,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "T",
-            shape: "rectangle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 120, y: 220 },
-            cols: 3,
-            rows: 2,
-            pitchX: 160,
-            pitchY: 140,
-          },
-          {
-            prefix: "R",
-            shape: "circle",
-            capacity: 6,
-            minCovers: 4,
-            origin: { x: 660, y: 220 },
-            cols: 1,
-            rows: 2,
-            pitchY: 140,
-          },
-          {
-            prefix: "B",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 120, y: 500 },
-            cols: 2,
-            rows: 1,
-            pitchX: 120,
-          },
-        ],
-      },
-      {
-        id: "cafe",
-        planName: "Main Floor",
-        zones: [
-          {
-            prefix: "W",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 5,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "C",
-            shape: "circle",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 140, y: 260 },
-            cols: 3,
-            rows: 1,
-            pitchX: 140,
-          },
-          {
-            prefix: "L",
-            shape: "rectangle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 200, y: 440 },
-            cols: 2,
-            rows: 1,
-            pitchX: 120,
-          },
-        ],
-      },
-      {
-        id: "bar",
-        planName: "Bar Floor",
-        zones: [
-          {
-            prefix: "H",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 6,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "S",
-            shape: "circle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 140, y: 260 },
-            cols: 4,
-            rows: 1,
-            pitchX: 140,
-          },
-          {
-            prefix: "B",
-            shape: "rectangle",
-            capacity: 6,
-            minCovers: 3,
-            origin: { x: 160, y: 440 },
-            cols: 2,
-            rows: 1,
-            pitchX: 140,
-          },
-        ],
-      },
-      {
-        id: "patio",
-        planName: "Patio",
-        zones: [
-          {
-            prefix: "P",
-            shape: "circle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 160, y: 140 },
-            cols: 3,
-            rows: 2,
-            pitchX: 180,
-            pitchY: 160,
-          },
-          {
-            prefix: "L",
-            shape: "rectangle",
-            capacity: 6,
-            minCovers: 3,
-            origin: { x: 200, y: 460 },
-            cols: 2,
-            rows: 1,
-            pitchX: 180,
-          },
-        ],
-      },
-      {
-        id: "blank",
-        planName: "Main Floor",
-        zones: [],
-      },
-    ] as const;
-    export function templateById(id: TemplateId): FloorPlanTemplate {
-      const template = FLOOR_PLAN_TEMPLATES.find((candidate) => candidate.id === id);
-      if (!template) {
-        throw new Error(`templateById: no template registered for id "${id}"`);
-      }
-      return template;
+      return {
+        templateId,
+        sizeId,
+        planName: template.planName,
+        tables: layout.tables.map(draftTableFor),
+        sections: layout.sections,
+        walls: layout.walls,
+        width: layout.width,
+        height: layout.height,
+        pristine: true,
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/generate-slug.ts">
@@ -67865,6 +68246,14 @@
     export interface LaunchProgress {
       venueId: string | null;
       floorPlanId: string | null;
+      /**
+       * True once the plan's section rows exist and their zone rectangles are in
+       * its layout — or immediately, for a draft that names no zones. The plan and
+       * its zones are two writes inside one stage, so `floorPlanId` alone cannot
+       * say whether the stage finished: without this, a failure between them would
+       * mark floorPlan done and Retry would skip the zones for good.
+       */
+      sectionsDone: boolean;
       /** Names, not ids — the name is the server's unique key and therefore the resume key. */
       createdTableNames: readonly string[];
       activated: boolean;
@@ -67875,6 +68264,7 @@
     export const INITIAL_LAUNCH_PROGRESS: LaunchProgress = {
       venueId: null,
       floorPlanId: null,
+      sectionsDone: false,
       createdTableNames: [],
       activated: false,
       inFlightStage: null,
@@ -67902,7 +68292,7 @@
         case "venue":
           return progress.venueId !== null;
         case "floorPlan":
-          return progress.floorPlanId !== null;
+          return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
           return draft.tables.every((table) => progress.createdTableNames.includes(table.name));
         case "activate":
@@ -67922,7 +68312,7 @@
         case "venue":
           return progress.venueId !== null;
         case "floorPlan":
-          return progress.floorPlanId !== null;
+          return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
           return progress.createdTableNames.length > 0;
         case "activate":
@@ -67948,7 +68338,12 @@
       venues: { create(data: CreateVenueRequest): Promise<Venue> };
       floorPlans: {
         create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
+        update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
         setActive(id: string): Promise<FloorPlan>;
+      };
+      floorPlanSections: {
+        list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]>;
+        create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
       };
       tables: { create(data: CreateTableRequest): Promise<Table> };
     }
@@ -67971,6 +68366,41 @@
       onProgress(next);
       return next;
     }
+    async function createSectionsFor(
+      api: LaunchApi,
+      venueId: string,
+      floorPlanId: string,
+      draft: FloorPlanDraft
+    ): Promise<void> {
+      if (draft.sections.length === 0) return;
+    
+      const existing = await api.floorPlanSections.list(venueId, floorPlanId);
+      const byName = new Map(existing.map((row) => [row.name, row]));
+    
+      for (const [index, zone] of draft.sections.entries()) {
+        if (byName.has(zone.name)) continue;
+        const row = await api.floorPlanSections.create(venueId, {
+          floorPlanId,
+          name: zone.name,
+          color: zone.color,
+          displayOrder: index,
+        });
+        byName.set(zone.name, row);
+      }
+    
+      // A zone's rectangle is keyed by its row id, so the layout can only be
+      // written once the rows exist.
+      const sections = draft.sections.flatMap((zone) => {
+        const row = byName.get(zone.name);
+        return row
+          ? [{ id: row.id, x: zone.x, y: zone.y, width: zone.width, height: zone.height }]
+          : [];
+      });
+    
+      await api.floorPlans.update(floorPlanId, {
+        layoutJson: { ...draftLayoutJson(draft), sections },
+      });
+    }
     async function runFloorPlanStage(
       api: LaunchApi,
       draft: FloorPlanDraft,
@@ -67984,17 +68414,35 @@
         throw new Error("runLaunchSequence: floorPlan stage reached without a venueId");
       }
     
-      let floorPlan: FloorPlan;
-      try {
-        floorPlan = await api.floorPlans.create({
-          venueId,
-          name: draft.planName,
-          layoutJson: DEFAULT_LAYOUT,
-        });
-      } catch (err) {
-        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
+      // A retry after the zones failed re-enters this stage with the plan already
+      // created; creating it again would leave the venue with two plans.
+      let floorPlanId = progress.floorPlanId;
+      if (floorPlanId === null) {
+        try {
+          const floorPlan = await api.floorPlans.create({
+            venueId,
+            name: draft.planName,
+            layoutJson: draft.templateId === null ? DEFAULT_LAYOUT : draftLayoutJson(draft),
+          });
+          floorPlanId = floorPlan.id;
+        } catch (err) {
+          throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
+        }
       }
-      const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
+    
+      const withPlan: LaunchProgress = { ...progress, floorPlanId, inFlightStage: null };
+      try {
+        await createSectionsFor(api, venueId, floorPlanId, draft);
+      } catch (err) {
+        // Carry the plan's id out with the failure so Retry resumes at the zones
+        // (which are idempotent by name) instead of creating a second plan.
+        throw new LaunchStageError(
+          withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed")).message,
+          withPlan
+        );
+      }
+    
+      const next: LaunchProgress = { ...withPlan, sectionsDone: true };
       onProgress(next);
       return next;
     }
@@ -68183,6 +68631,7 @@
       | { type: "SLUG_CHECK_START" }
       | { type: "SLUG_CHECK_RESULT"; status: "taken" | "available" }
       | { type: "SET_TEMPLATE"; templateId: TemplateId }
+      | { type: "SET_ROOM_SIZE"; sizeId: RoomSizeId }
       | { type: "ADD_DRAFT_TABLE"; request: CreateTableRequest }
       | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
       | { type: "REMOVE_DRAFT_TABLE"; localId: string }
@@ -68316,21 +68765,25 @@
           return { ...state, slugStatus: "available", errors: { ...state.errors, basicInfo: rest } };
         }
     
-        case "SET_TEMPLATE": {
-          const template = templateById(action.templateId);
+        case "SET_TEMPLATE":
           return {
             ...state,
             data: {
               ...state.data,
-              floorPlan: {
-                templateId: action.templateId,
-                planName: template.planName,
-                tables: tablesForTemplate(template),
-                pristine: true,
-              },
+              floorPlan: draftFromTemplate(action.templateId, state.data.floorPlan.sizeId),
             },
             errors: { ...state.errors, floorPlan: null },
           };
+    
+        case "SET_ROOM_SIZE": {
+          const { templateId } = state.data.floorPlan;
+          // Resizing is only meaningful once a room is chosen; until then the step
+          // just remembers the size so the chosen room is built at it.
+          const floorPlan =
+            templateId === null
+              ? { ...state.data.floorPlan, sizeId: action.sizeId }
+              : draftFromTemplate(templateId, action.sizeId);
+          return { ...state, data: { ...state.data, floorPlan } };
         }
     
         case "ADD_DRAFT_TABLE": {
@@ -68394,6 +68847,7 @@
       validateStep: () => void;
       checkSlugAvailability: (checkPromise: Promise<unknown>) => Promise<void>;
       setTemplate: (templateId: TemplateId) => void;
+      setRoomSize: (sizeId: RoomSizeId) => void;
       addDraftTable: (request: CreateTableRequest) => void;
       moveDraftTable: (localId: string, x: number, y: number) => void;
       removeDraftTable: (localId: string) => void;
@@ -68457,6 +68911,11 @@
         []
       );
     
+      const setRoomSize = useCallback(
+        (sizeId: RoomSizeId) => dispatch({ type: "SET_ROOM_SIZE", sizeId }),
+        []
+      );
+    
       const setTemplate = useCallback(
         (templateId: TemplateId) => dispatch({ type: "SET_TEMPLATE", templateId }),
         []
@@ -68491,6 +68950,7 @@
           validateStep,
           checkSlugAvailability,
           setTemplate,
+          setRoomSize,
           addDraftTable,
           moveDraftTable,
           removeDraftTable,
@@ -68504,6 +68964,7 @@
           validateStep,
           checkSlugAvailability,
           setTemplate,
+          setRoomSize,
           addDraftTable,
           moveDraftTable,
           removeDraftTable,

@@ -132,16 +132,26 @@ export function hitTestEndpoint(
   return best && { wallId: best.wallId, end: best.end };
 }
 
-/** Move one endpoint to `p`, snapped to the grid and kept inside the canvas. */
+/**
+ * Move one endpoint to `p`, snapped to the grid and kept inside the canvas.
+ *
+ * `canvas` is the **plan's own** size. It defaults to 800x600 for a plan whose
+ * `layoutJson` carries no dimensions, but passing the real one matters: room
+ * templates (#7256) create plans up to 2000x1200, and clamping those to the
+ * default would silently drag the right or bottom perimeter wall inwards —
+ * dragging a Grand plan's right edge would snap it from x=2000 to x=800, and
+ * `FloorPlanEditorPage` would then persist that.
+ */
 export function moveWallEndpoint(
   wall: WallLayout,
   end: WallEnd,
   p: Point,
-  gridSize: number = GRID_SIZE
+  gridSize: number = GRID_SIZE,
+  canvas: { width: number; height: number } = { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }
 ): WallLayout {
   const snapped = snapPoint(p, gridSize);
-  const x = clampTo(snapped.x, 0, CANVAS_WIDTH);
-  const y = clampTo(snapped.y, 0, CANVAS_HEIGHT);
+  const x = clampTo(snapped.x, 0, canvas.width);
+  const y = clampTo(snapped.y, 0, canvas.height);
   return end === 1 ? { ...wall, x1: x, y1: y } : { ...wall, x2: x, y2: y };
 }
 

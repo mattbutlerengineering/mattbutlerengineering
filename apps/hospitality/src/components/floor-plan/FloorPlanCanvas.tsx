@@ -123,24 +123,33 @@ export function FloorPlanCanvas({
   const floorTextures = useFloorTextures(sectionMaterials);
   const sectionLabelTheme = useSectionLabelTheme();
 
+  /**
+   * The plan's own canvas. Room templates (#7256) create plans at 1200x800,
+   * 1600x1000 and 2000x1200, so neither the scale nor the keyboard clamps can
+   * assume the 800x600 default — a plan saved before `layoutJson` carried
+   * dimensions, or one that stored a zero, still falls back to it.
+   */
+  const planWidth = floorPlan.layoutJson.width || CANVAS_WIDTH;
+  const planHeight = floorPlan.layoutJson.height || CANVAS_HEIGHT;
+
   // Resize canvas to fit container
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         const { width } = containerRef.current.getBoundingClientRect();
-        const aspectRatio = CANVAS_HEIGHT / CANVAS_WIDTH;
+        const aspectRatio = planHeight / planWidth;
         setDimensions({
           width: width,
           height: width * aspectRatio,
         });
-        setScale(width / CANVAS_WIDTH);
+        setScale(width / planWidth);
       }
     };
 
     updateDimensions();
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
-  }, []);
+  }, [planWidth, planHeight]);
 
   const handleDragStart = useCallback(
     (tableId: string) => {
@@ -203,7 +212,10 @@ export function FloorPlanCanvas({
       if (!delta) return;
       e.preventDefault();
       const shape = table.shapeMetadata?.shape ?? "rectangle";
-      const { width, height } = SHAPE_DEFAULTS[shape];
+      // A template table carries its own footprint (a long table is 140 wide
+      // where the shape default is 80); anything saved without one falls back.
+      const width = table.shapeMetadata?.width ?? SHAPE_DEFAULTS[shape].width;
+      const height = table.shapeMetadata?.height ?? SHAPE_DEFAULTS[shape].height;
       // x/y are the table CENTRE (TableShape offsets by half its size), so keep
       // the centre within half a shape of each edge. Only the pressed axis moves.
       const curX = table.shapeMetadata?.x ?? 100;
@@ -211,15 +223,25 @@ export function FloorPlanCanvas({
       const x =
         delta[0] === 0
           ? curX
-          : clamp(snapToGrid(curX + delta[0]), width / 2, CANVAS_WIDTH - width / 2);
+          : clamp(snapToGrid(curX + delta[0]), width / 2, planWidth - width / 2);
       const y =
         delta[1] === 0
           ? curY
-          : clamp(snapToGrid(curY + delta[1]), height / 2, CANVAS_HEIGHT - height / 2);
+          : clamp(snapToGrid(curY + delta[1]), height / 2, planHeight - height / 2);
       onTableMove(table.id, x, y);
       onAnnounce?.(t("floorPlan.canvas.moved", { name: table.name, x, y }));
     },
-    [readOnly, selectedTableId, tables, onDeleteRequest, onTableMove, onAnnounce, t]
+    [
+      readOnly,
+      selectedTableId,
+      tables,
+      onDeleteRequest,
+      onTableMove,
+      onAnnounce,
+      planWidth,
+      planHeight,
+      t,
+    ]
   );
 
   return (

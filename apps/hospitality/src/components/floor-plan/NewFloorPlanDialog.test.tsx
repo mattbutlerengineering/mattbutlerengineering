@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
+import { roomTemplateById } from "./room-templates.js";
 import { NewFloorPlanDialog } from "./NewFloorPlanDialog.js";
 
 vi.mock("./NewFloorPlanDialog.module.css", () => ({
@@ -71,7 +72,7 @@ describe("NewFloorPlanDialog", () => {
     });
   });
 
-  it("calls onCreate and onCreated on successful submit", async () => {
+  it("defaults to Blank at Cozy, so an untouched picker creates today's empty plan", async () => {
     const mockFloorPlan = { id: "fp-1", name: "Main Dining" };
     defaultProps.onCreate.mockResolvedValue(mockFloorPlan);
 
@@ -83,9 +84,35 @@ describe("NewFloorPlanDialog", () => {
       expect(defaultProps.onCreate).toHaveBeenCalledWith({
         venueId: "venue-1",
         name: "Main Dining",
-        layoutJson: { width: 800, height: 600, gridSize: 20, showGrid: true },
+        layout: { width: 800, height: 600, tables: [], sections: [], walls: [] },
       });
       expect(defaultProps.onCreated).toHaveBeenCalledWith(mockFloorPlan);
+    });
+  });
+
+  it("offers the room templates and sizes", () => {
+    render(<NewFloorPlanDialog {...defaultProps} />);
+
+    expect(screen.getByRole("radiogroup", { name: "Room template" })).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Room size" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Banquet Hall/ })).toBeInTheDocument();
+  });
+
+  it("creates the plan from the picked template at the picked size", async () => {
+    defaultProps.onCreate.mockResolvedValue({ id: "fp-2", name: "Bar Floor" });
+
+    render(<NewFloorPlanDialog {...defaultProps} />);
+    await userEvent.type(screen.getByLabelText(/Name/), "Bar Floor");
+    await userEvent.click(screen.getByRole("radio", { name: /Bar & Lounge/ }));
+    await userEvent.click(screen.getByRole("radio", { name: /Spacious/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      expect(defaultProps.onCreate).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        name: "Bar Floor",
+        layout: roomTemplateById("bar-lounge").build(1600, 1000),
+      });
     });
   });
 
@@ -124,6 +151,7 @@ describe("NewFloorPlanDialog", () => {
     expect(screen.getByLabelText(/Name/)).toBeDisabled();
     expect(screen.getByText("Creating...")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Banquet Hall/ })).toBeDisabled();
 
     resolveCreate!({ id: "fp-1", name: "Test" });
     await waitFor(() => {

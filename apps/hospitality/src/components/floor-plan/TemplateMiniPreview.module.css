@@ -1,0 +1,65 @@
+/*
+ * A scaled-down, non-interactive picture of one room template: walls, section
+ * zones and tables laid out as percentages of the canvas, so the same markup
+ * reads correctly at a card thumbnail or a half-page preview.
+ */
+
+.preview {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  /* The room's proportions come from the layout, set inline by the component. */
+  aspect-ratio: 4 / 3;
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+}
+
+.wall {
+  position: absolute;
+  background: var(--rialto-text-tertiary);
+}
+
+.window {
+  position: absolute;
+  background: var(--rialto-accent);
+  opacity: 0.55;
+}
+
+.section {
+  position: absolute;
+  border-radius: var(--rialto-radius-sharp, 2px);
+  /* Zone tint and border come from the section's own colour, which is data. */
+  border-style: dashed;
+  border-width: 1px;
+}
+
+.sectionName {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-family: var(--rialto-font-sans);
+  /* The scale bottoms out at --rialto-text-xs (~11px), which fills this
+     thumbnail; derive the sub-scale size from it rather than hardcoding
+     one, so a change to the scale still carries. */
+  font-size: calc(var(--rialto-text-xs) * 0.72);
+  font-weight: var(--rialto-weight-medium);
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.table {
+  position: absolute;
+  background: var(--rialto-text-secondary);
+  box-shadow: var(--rialto-shadow-sm);
+}
+
+.round {
+  border-radius: 50%;
+}
+
+.rect {
+  border-radius: var(--rialto-radius-sharp, 2px);
+}

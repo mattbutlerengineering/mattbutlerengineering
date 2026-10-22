@@ -10,6 +10,8 @@ import {
   DRAFT_ID,
   DUPLICATE_TABLE_NAME_MESSAGE,
   EMPTY_FLOOR_PLAN_DRAFT,
+  draftLayoutJson,
+  draftTableSize,
   draftToCanvasTables,
   draftToCanvasFloorPlan,
   draftTableFromCreateRequest,
@@ -33,9 +35,14 @@ function makeDraftTable(overrides: Partial<DraftTable> = {}): DraftTable {
 
 function makeDraft(overrides: Partial<FloorPlanDraft> = {}): FloorPlanDraft {
   return {
-    templateId: "template-1",
+    templateId: "blank",
+    sizeId: "cozy",
     planName: "Main Floor",
     tables: [makeDraftTable()],
+    sections: [],
+    walls: [],
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
     pristine: false,
     ...overrides,
   };
@@ -46,8 +53,13 @@ describe("floor-plan-draft", () => {
     it("EMPTY_FLOOR_PLAN_DRAFT is an empty, pristine draft", () => {
       expect(EMPTY_FLOOR_PLAN_DRAFT).toEqual({
         templateId: null,
+        sizeId: "cozy",
         planName: "",
         tables: [],
+        sections: [],
+        walls: [],
+        width: CANVAS_WIDTH,
+        height: CANVAS_HEIGHT,
         pristine: true,
       });
     });
@@ -162,11 +174,94 @@ describe("floor-plan-draft", () => {
       });
     });
 
+    it("projects the room's own canvas and walls once a template is chosen", () => {
+      const walls = [{ id: "w1", x1: 0, y1: 0, x2: 1200, y2: 0, thickness: 6 }];
+      const draft = makeDraft({ sizeId: "standard", width: 1200, height: 800, walls });
+
+      expect(draftToCanvasFloorPlan(draft).layoutJson).toEqual({
+        width: 1200,
+        height: 800,
+        gridSize: GRID_SIZE,
+        showGrid: true,
+        walls,
+      });
+    });
+
+    it("omits walls entirely for a room that builds none, as an empty plan always has", () => {
+      expect(draftLayoutJson(makeDraft())).not.toHaveProperty("walls");
+    });
+
+    it("copies the walls out, so a caller cannot reach into the draft through them", () => {
+      const walls = [{ id: "w1", x1: 0, y1: 0, x2: 800, y2: 0, thickness: 6 }];
+      const draft = makeDraft({ walls });
+
+      expect(draftLayoutJson(draft).walls).not.toBe(draft.walls);
+      expect(draftLayoutJson(draft).walls).toEqual(walls);
+    });
+
     it("is referentially stable in output value across repeated calls (no new Date() inside)", () => {
       const draft = makeDraft();
       const first = draftToCanvasFloorPlan(draft);
       const second = draftToCanvasFloorPlan(draft);
       expect(first).toEqual(second);
+    });
+  });
+
+  describe("draftTableSize", () => {
+    it("falls back to the shape default for a table the manager added", () => {
+      expect(draftTableSize(makeDraftTable())).toEqual(SHAPE_DEFAULTS.rectangle);
+    });
+
+    it("uses the room template's own footprint when the table carries one", () => {
+      expect(draftTableSize(makeDraftTable({ width: 140, height: 56 }))).toEqual({
+        width: 140,
+        height: 56,
+      });
+    });
+  });
+
+  describe("per-table footprint and rotation", () => {
+    it("draws a template table at its own size and angle on the canvas", () => {
+      const draft = makeDraft({
+        tables: [makeDraftTable({ shape: "square", width: 52, height: 52, rotation: 45 })],
+      });
+
+      expect(draftToCanvasTables(draft)[0]?.shapeMetadata).toEqual({
+        shape: "square",
+        x: 100,
+        y: 100,
+        width: 52,
+        height: 52,
+        rotation: 45,
+      });
+    });
+
+    it("saves a template table at its own size and angle", () => {
+      const table = makeDraftTable({ shape: "square", width: 52, height: 52, rotation: 45 });
+
+      expect(draftTableToCreateRequest(table, "v1", "fp1").shapeMetadata).toEqual({
+        shape: "square",
+        x: 100,
+        y: 100,
+        width: 52,
+        height: 52,
+        rotation: 45,
+      });
+    });
+
+    it("leaves rotation out for a table that has none, rather than writing 0", () => {
+      const request = draftTableToCreateRequest(makeDraftTable(), "v1", "fp1");
+      expect(request.shapeMetadata).not.toHaveProperty("rotation");
+      expect(draftToCanvasTables(makeDraft())[0]?.shapeMetadata).not.toHaveProperty("rotation");
+    });
+
+    it("carries the template's local section id onto the canvas table", () => {
+      const draft = makeDraft({ tables: [makeDraftTable({ sectionId: "cafe-kitchen" })] });
+      expect(draftToCanvasTables(draft)[0]?.sectionId).toBe("cafe-kitchen");
+    });
+
+    it("reports no section for a table the manager added", () => {
+      expect(draftToCanvasTables(makeDraft())[0]?.sectionId).toBeNull();
     });
   });
 
