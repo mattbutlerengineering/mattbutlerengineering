@@ -707,4 +707,18 @@ describe("work dir", () => {
     expect(fixtures["rialto-web"]["demos/drivers/:id"]).toBe("/demos/drivers/1");
     expect(fixtures["rialto-web"]["demos/drivers/:id/edit"]).toBe("/demos/drivers/1/edit");
   });
+
+  it("has a fixture for every parameterised hospitality page route in the ledger", () => {
+    const fixtures = JSON.parse(
+      readFileSync(join(REPO, "scripts/ui-quality/route-fixtures.json"), "utf8")
+    );
+    const missing = readFileSync(join(REPO, "metrics/ui-quality-ledger.jsonl"), "utf8")
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line))
+      .filter((r) => r.app === "hospitality" && r.kind === "page" && r.route.includes(":"))
+      .map((r) => r.route)
+      .filter((route) => fixtures.hospitality[route] === undefined);
+    expect(missing).toEqual([]);
+  });
 });

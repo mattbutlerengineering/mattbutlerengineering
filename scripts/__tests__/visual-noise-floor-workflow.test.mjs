@@ -51,6 +51,14 @@ describe("visual-noise-floor.yml — the `app` dispatch input", () => {
     expect(WORKFLOW).toMatch(/APP:\s*\$\{\{\s*inputs\.app\s*\|\|\s*'rialto-web'\s*\}\}/);
   });
 
+  it("builds the measured app's whole workspace dependency closure", () => {
+    // Building rialto alone is what broke the hospitality jobs for days:
+    // `@mbe/types` and `@mbe/api-client` resolve their runtime export condition
+    // to `dist/`, so an app importing either cannot be built from source
+    // (#7042). Pin the closure form — one package in it is not enough.
+    expect(WORKFLOW).toMatch(/pnpm build --filter "@mbe\/\$APP\^\.\.\."/);
+  });
+
   it("resolves every leg's config, spec and screenshot dir through visual-noise-floor.mjs paths", () => {
     expect(WORKFLOW).toMatch(
       /node scripts\/visual-noise-floor\.mjs paths --app "\$APP" --leg "\$\{\{ matrix\.leg \}\}" >> "\$GITHUB_OUTPUT"/

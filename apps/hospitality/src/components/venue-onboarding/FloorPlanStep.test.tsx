@@ -8,15 +8,27 @@ import {
   type FloorPlanDraft,
   type DraftTable,
 } from "./floor-plan-draft.js";
-import { FLOOR_PLAN_TEMPLATES, tablesForTemplate, templateById } from "./floor-plan-templates.js";
+import { FLOOR_PLAN_TEMPLATES, draftFromTemplate } from "./floor-plan-templates.js";
+import type { RoomTemplateId } from "../floor-plan/room-templates.js";
+import { snapToGrid } from "../floor-plan/floor-plan-geometry.js";
 
-const TEMPLATE_NAMES = {
-  restaurant: "Restaurant",
-  cafe: "Cafe",
-  bar: "Bar",
-  patio: "Patio",
+/** The catalog name of each room, as the picker cards label them. */
+const TEMPLATE_NAMES: Record<RoomTemplateId, string> = {
   blank: "Blank",
-} as const;
+  "fine-dining": "Fine Dining",
+  "casual-bistro": "Casual Bistro",
+  "bar-lounge": "Bar & Lounge",
+  cafe: "Café",
+  "banquet-hall": "Banquet Hall",
+  "open-kitchen": "Open Kitchen",
+};
+
+/** Matches a picker card by its name, ignoring the description that follows. */
+const cardNamed = (id: RoomTemplateId) =>
+  new RegExp(`^${TEMPLATE_NAMES[id].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} — `);
+
+/** The room used wherever a test needs a non-empty layout. */
+const ROOM: RoomTemplateId = "fine-dining";
 
 /* ── Mock react-konva + TableShape so FloorPlanCanvas can render under jsdom ── */
 
@@ -46,6 +58,16 @@ vi.mock("react-konva", () => ({
   Layer: ({ children }: { children?: ReactNode }) => (
     <div data-testid="konva-layer">{children}</div>
   ),
+}));
+
+vi.mock("../floor-plan/SectionZone.js", () => ({
+  SectionZone: ({ zone }: { zone: { id: string; name: string } }) => (
+    <div data-testid={`section-zone-${zone.id}`}>{zone.name}</div>
+  ),
+}));
+
+vi.mock("../floor-plan/WallShape.js", () => ({
+  WallShape: ({ wall }: { wall: { id: string } }) => <div data-testid={`wall-shape-${wall.id}`} />,
 }));
 
 vi.mock("../floor-plan/TableShape", () => ({
@@ -144,25 +166,21 @@ function setWideViewport(isWide: boolean) {
   }));
 }
 
-function draftFromTemplate(
-  templateId: string,
+function draftFor(
+  templateId: RoomTemplateId,
   overrides: Partial<FloorPlanDraft> = {}
 ): FloorPlanDraft {
-  const template = templateById(templateId as Parameters<typeof templateById>[0]);
-  return {
-    templateId,
-    planName: template.planName,
-    tables: tablesForTemplate(template),
-    pristine: true,
-    ...overrides,
-  };
+  return { ...draftFromTemplate(templateId, "cozy"), ...overrides };
 }
+
+const templateGroup = () => screen.getByRole("radiogroup", { name: "Room template" });
 
 function makeProps(overrides: Partial<React.ComponentProps<typeof FloorPlanStep>> = {}) {
   return {
     draft: EMPTY_FLOOR_PLAN_DRAFT,
     error: null,
     onSelectTemplate: vi.fn(),
+    onSelectSize: vi.fn(),
     onAddTable: vi.fn(),
     onMoveTable: vi.fn(),
     onRemoveTable: vi.fn(),
@@ -184,20 +202,29 @@ describe("FloorPlanStep", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders a radiogroup with five cards labelled per template", () => {
+    it("offers the seven room templates and the four sizes", () => {
       render(<FloorPlanStep {...makeProps()} />);
-      const group = screen.getByRole("radiogroup", { name: "Floor plan layout" });
-      const radios = within(group).getAllByRole("radio");
-      expect(radios).toHaveLength(5);
 
-      const restaurant = tablesForTemplate(templateById("restaurant"));
-      const seats = restaurant.reduce((sum, t) => sum + t.capacity, 0);
+      expect(within(templateGroup()).getAllByRole("radio")).toHaveLength(
+        FLOOR_PLAN_TEMPLATES.length
+      );
+      for (const template of FLOOR_PLAN_TEMPLATES) {
+        expect(
+          within(templateGroup()).getByRole("radio", { name: cardNamed(template.id) })
+        ).toBeInTheDocument();
+      }
       expect(
-        within(group).getByRole("radio", {
-          name: `Restaurant — ${restaurant.length} tables, ${seats} seats`,
-        })
-      ).toBeInTheDocument();
-      expect(within(group).getByRole("radio", { name: "Blank — no tables" })).toBeInTheDocument();
+        within(screen.getByRole("radiogroup", { name: "Room size" })).getAllByRole("radio")
+      ).toHaveLength(4);
+    });
+
+    it("checks nothing until a room is chosen, so Next stays refused", () => {
+      render(<FloorPlanStep {...makeProps()} />);
+
+      const checked = within(templateGroup())
+        .getAllByRole("radio")
+        .filter((node) => node.getAttribute("aria-checked") === "true");
+      expect(checked).toEqual([]);
     });
   });
 
@@ -208,26 +235,45 @@ describe("FloorPlanStep", () => {
         const onSelectTemplate = vi.fn();
         const user = userEvent.setup();
         render(<FloorPlanStep {...makeProps({ onSelectTemplate })} />);
-        const template = templateById(templateId);
-        const tables = tablesForTemplate(template);
-        const seats = tables.reduce((sum, t) => sum + t.capacity, 0);
-        const name =
-          template.id === "blank"
-            ? "Blank — no tables"
-            : `${TEMPLATE_NAMES[template.id]} — ${tables.length} tables, ${seats} seats`;
-        await user.click(screen.getByRole("radio", { name }));
+        await user.click(
+          within(templateGroup()).getByRole("radio", { name: cardNamed(templateId) })
+        );
         expect(onSelectTemplate).toHaveBeenCalledWith(templateId);
         expect(onSelectTemplate).toHaveBeenCalledTimes(1);
       }
     );
 
-    it("renders the canvas with the chosen template's table count once the draft reflects it", () => {
-      render(<FloorPlanStep {...makeProps({ draft: draftFromTemplate("restaurant") })} />);
-      expect(screen.getAllByTestId(/^table-shape-/)).toHaveLength(14);
+    it("renders the canvas with the chosen room's table count once the draft reflects it", () => {
+      const draft = draftFor(ROOM);
+      render(<FloorPlanStep {...makeProps({ draft })} />);
+      expect(screen.getAllByTestId(/^table-shape-/)).toHaveLength(draft.tables.length);
+    });
+
+    it("draws the room's walls and named zones alongside its tables", () => {
+      const draft = draftFor(ROOM);
+      render(<FloorPlanStep {...makeProps({ draft })} />);
+
+      for (const zone of draft.sections) {
+        expect(screen.getByTestId(`section-zone-${zone.id}`)).toBeInTheDocument();
+      }
+      expect(draft.walls.length).toBeGreaterThan(0);
+    });
+
+    it("reports a size change, keeping the chosen room", async () => {
+      const onSelectSize = vi.fn();
+      const user = userEvent.setup();
+      render(<FloorPlanStep {...makeProps({ draft: draftFor(ROOM), onSelectSize })} />);
+
+      await user.click(
+        within(screen.getByRole("radiogroup", { name: "Room size" })).getByRole("radio", {
+          name: /^Grand/,
+        })
+      );
+      expect(onSelectSize).toHaveBeenCalledWith("grand");
     });
 
     it("renders zero tables for the blank template", () => {
-      render(<FloorPlanStep {...makeProps({ draft: draftFromTemplate("blank") })} />);
+      render(<FloorPlanStep {...makeProps({ draft: draftFor("blank") })} />);
       expect(screen.queryAllByTestId(/^table-shape-/)).toHaveLength(0);
       expect(screen.getByText("An empty floor")).toBeInTheDocument();
     });
@@ -235,15 +281,15 @@ describe("FloorPlanStep", () => {
     it("with pristine: false, opens the confirm dialog and does not call onSelectTemplate until confirmed", async () => {
       const onSelectTemplate = vi.fn();
       const user = userEvent.setup();
-      const draft = draftFromTemplate("restaurant", { pristine: false });
+      const draft = draftFor(ROOM, { pristine: false });
       render(<FloorPlanStep {...makeProps({ draft, onSelectTemplate })} />);
 
-      await user.click(screen.getByRole("radio", { name: /^Cafe/ }));
+      await user.click(within(templateGroup()).getByRole("radio", { name: cardNamed("cafe") }));
       expect(onSelectTemplate).not.toHaveBeenCalled();
       expect(screen.getByText("Replace your layout?")).toBeInTheDocument();
       expect(
         screen.getByText(
-          "You've changed this floor plan. Choosing Cafe replaces your tables with the Cafe layout."
+          "You've changed this floor plan. Choosing Café replaces your tables with the Caf\u00e9 layout."
         )
       ).toBeInTheDocument();
 
@@ -251,7 +297,7 @@ describe("FloorPlanStep", () => {
       expect(onSelectTemplate).not.toHaveBeenCalled();
       expect(screen.queryByText("Replace your layout?")).not.toBeInTheDocument();
 
-      await user.click(screen.getByRole("radio", { name: /^Cafe/ }));
+      await user.click(within(templateGroup()).getByRole("radio", { name: cardNamed("cafe") }));
       await user.click(screen.getByRole("button", { name: "Replace layout" }));
       expect(onSelectTemplate).toHaveBeenCalledWith("cafe");
       expect(onSelectTemplate).toHaveBeenCalledTimes(1);
@@ -261,7 +307,7 @@ describe("FloorPlanStep", () => {
   describe("canvas drag", () => {
     it("calls onMoveTable with the canvas-snapped coordinates on drag end", () => {
       const onMoveTable = vi.fn();
-      const draft = draftFromTemplate("restaurant");
+      const draft = draftFor(ROOM);
       render(<FloorPlanStep {...makeProps({ draft, onMoveTable })} />);
 
       const firstTable = draft.tables[0] as DraftTable;
@@ -275,9 +321,7 @@ describe("FloorPlanStep", () => {
     it("rejects a duplicate name and does not call onAddTable", async () => {
       const onAddTable = vi.fn();
       const user = userEvent.setup();
-      const draft: FloorPlanDraft = {
-        templateId: "blank",
-        planName: "Main Floor",
+      const draft: FloorPlanDraft = draftFor("blank", {
         tables: [
           {
             localId: "t1",
@@ -290,7 +334,7 @@ describe("FloorPlanStep", () => {
           },
         ],
         pristine: false,
-      };
+      });
       render(<FloorPlanStep {...makeProps({ draft, onAddTable })} />);
 
       await user.click(screen.getByRole("button", { name: "Add table" }));
@@ -306,7 +350,7 @@ describe("FloorPlanStep", () => {
     it("calls onAddTable once with a fresh name and closes the dialog", async () => {
       const onAddTable = vi.fn();
       const user = userEvent.setup();
-      render(<FloorPlanStep {...makeProps({ draft: draftFromTemplate("blank"), onAddTable })} />);
+      render(<FloorPlanStep {...makeProps({ draft: draftFor("blank"), onAddTable })} />);
 
       await user.click(screen.getByRole("button", { name: "Add table" }));
       await user.type(screen.getByLabelText(/Table Name/), "Patio 1");
@@ -324,7 +368,7 @@ describe("FloorPlanStep", () => {
 
   describe("selection bar and remove", () => {
     it("shows the placeholder and no remove button when nothing is selected", () => {
-      render(<FloorPlanStep {...makeProps({ draft: draftFromTemplate("restaurant") })} />);
+      render(<FloorPlanStep {...makeProps({ draft: draftFor(ROOM) })} />);
       expect(screen.getByText("Select a table to move or remove it.")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Remove table" })).not.toBeInTheDocument();
     });
@@ -332,13 +376,13 @@ describe("FloorPlanStep", () => {
     it("selecting a table then pressing Remove table calls onRemoveTable with its localId", async () => {
       const onRemoveTable = vi.fn();
       const user = userEvent.setup();
-      const draft = draftFromTemplate("restaurant");
+      const draft = draftFor(ROOM);
       render(<FloorPlanStep {...makeProps({ draft, onRemoveTable })} />);
 
       const firstTable = draft.tables[0] as DraftTable;
       await user.click(screen.getByTestId(`table-shape-${firstTable.localId}`));
       expect(
-        screen.getByText(`${firstTable.name} · ${firstTable.capacity} seats · Square`)
+        screen.getByText(`${firstTable.name} · ${firstTable.capacity} seats · Circle`)
       ).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Remove table" }));
@@ -349,7 +393,7 @@ describe("FloorPlanStep", () => {
   describe("narrow viewport (M13)", () => {
     it("renders the preview and narrow-band copy, and no canvas or Add table button", () => {
       setWideViewport(false);
-      render(<FloorPlanStep {...makeProps({ draft: draftFromTemplate("restaurant") })} />);
+      render(<FloorPlanStep {...makeProps({ draft: draftFor(ROOM) })} />);
 
       expect(screen.queryByTestId("konva-stage")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Add table" })).not.toBeInTheDocument();
@@ -389,7 +433,7 @@ describe("FloorPlanStep", () => {
     });
 
     it("shows the zero-tables empty state when a template is chosen but has no tables", () => {
-      render(<FloorPlanStep {...makeProps({ draft: draftFromTemplate("blank") })} />);
+      render(<FloorPlanStep {...makeProps({ draft: draftFor("blank") })} />);
       expect(screen.getByText("An empty floor")).toBeInTheDocument();
       expect(
         screen.getByText("Add tables with the button above, or pick a layout to start from one.")
@@ -401,13 +445,13 @@ describe("FloorPlanStep", () => {
     it("announces the applied template and table count in a polite status region", async () => {
       const user = userEvent.setup();
       render(<FloorPlanStep {...makeProps()} />);
-      await user.click(screen.getByRole("radio", { name: "Blank — no tables" }));
-      expect(screen.getByRole("status")).toHaveTextContent("Blank layout applied — 0 tables");
+      await user.click(within(templateGroup()).getByRole("radio", { name: cardNamed("blank") }));
+      expect(screen.getByRole("status")).toHaveTextContent("Blank applied at Cozy — 0 tables");
     });
 
     it("announces a table added", async () => {
       const user = userEvent.setup();
-      render(<FloorPlanStep {...makeProps({ draft: draftFromTemplate("blank") })} />);
+      render(<FloorPlanStep {...makeProps({ draft: draftFor("blank") })} />);
       await user.click(screen.getByRole("button", { name: "Add table" }));
       await user.type(screen.getByLabelText(/Table Name/), "Patio 1");
       await user.click(screen.getByRole("button", { name: "Add Table" }));
@@ -418,7 +462,7 @@ describe("FloorPlanStep", () => {
 
     it("announces a table removed", async () => {
       const user = userEvent.setup();
-      const draft = draftFromTemplate("restaurant");
+      const draft = draftFor(ROOM);
       render(<FloorPlanStep {...makeProps({ draft })} />);
       const firstTable = draft.tables[0] as DraftTable;
       await user.click(screen.getByTestId(`table-shape-${firstTable.localId}`));
@@ -428,7 +472,7 @@ describe("FloorPlanStep", () => {
 
     it("announces a table moved on keyboard nudge, but not on pointer drag", () => {
       const onMoveTable = vi.fn();
-      const draft = draftFromTemplate("restaurant");
+      const draft = draftFor(ROOM);
       render(<FloorPlanStep {...makeProps({ draft, onMoveTable })} />);
 
       const firstTable = draft.tables[0] as DraftTable;
@@ -436,14 +480,15 @@ describe("FloorPlanStep", () => {
       fireEvent.mouseUp(screen.getByTestId(`table-shape-${firstTable.localId}`));
       expect(screen.getByRole("status")).toHaveTextContent("");
 
+      // A nudge always snaps. Room-template coordinates are fractions of the
+      // canvas rather than grid multiples, so the first nudge both moves the
+      // table and lands it on the grid — `x + 20` only held for the old
+      // grid-aligned zone templates.
+      const nudgedX = snapToGrid(firstTable.x + 20);
       fireEvent.keyDown(screen.getByTestId("floor-plan-canvas-wrapper"), { key: "ArrowRight" });
-      expect(onMoveTable).toHaveBeenLastCalledWith(
-        firstTable.localId,
-        firstTable.x + 20,
-        firstTable.y
-      );
+      expect(onMoveTable).toHaveBeenLastCalledWith(firstTable.localId, nudgedX, firstTable.y);
       expect(screen.getByRole("status")).toHaveTextContent(
-        `${firstTable.name} moved to ${firstTable.x + 20}, ${firstTable.y}`
+        `${firstTable.name} moved to ${nudgedX}, ${firstTable.y}`
       );
     });
   });
@@ -454,11 +499,11 @@ describe("FloorPlanStep", () => {
       const user = userEvent.setup();
       render(<FloorPlanStep {...makeProps({ onSelectTemplate })} />);
 
-      const first = screen.getByRole("radio", { name: /^Restaurant/ });
+      const first = within(templateGroup()).getByRole("radio", { name: cardNamed("blank") });
       first.focus();
       await user.keyboard("{ArrowRight}");
 
-      expect(onSelectTemplate).toHaveBeenCalledWith("cafe");
+      expect(onSelectTemplate).toHaveBeenCalledWith("fine-dining");
     });
   });
 
@@ -469,13 +514,13 @@ describe("FloorPlanStep", () => {
   describe("nudge listener vs. picker arrow keys (#4761 addendum)", () => {
     it("does not call onMoveTable when arrow keys are pressed on a picker card while a table is selected", () => {
       const onMoveTable = vi.fn();
-      const draft = draftFromTemplate("restaurant");
+      const draft = draftFor(ROOM);
       render(<FloorPlanStep {...makeProps({ draft, onMoveTable })} />);
 
       const firstTable = draft.tables[0] as DraftTable;
       fireEvent.click(screen.getByTestId(`table-shape-${firstTable.localId}`));
 
-      const pickerCard = screen.getByRole("radio", { name: /^Restaurant/ });
+      const pickerCard = within(templateGroup()).getByRole("radio", { name: cardNamed(ROOM) });
       pickerCard.focus();
       fireEvent.keyDown(pickerCard, { key: "ArrowRight" });
 
@@ -491,9 +536,7 @@ describe("FloorPlanStep", () => {
   // 5; this is the matching edit freeze.
   describe("read-only once launch has created server state (#4825)", () => {
     it("explains why the layout is frozen", () => {
-      render(
-        <FloorPlanStep {...makeProps({ draft: draftFromTemplate("restaurant"), readOnly: true })} />
-      );
+      render(<FloorPlanStep {...makeProps({ draft: draftFor(ROOM), readOnly: true })} />);
 
       expect(
         screen.getByText(
@@ -508,17 +551,17 @@ describe("FloorPlanStep", () => {
       render(
         <FloorPlanStep
           {...makeProps({
-            draft: draftFromTemplate("restaurant"),
+            draft: draftFor(ROOM),
             readOnly: true,
             onSelectTemplate,
           })}
         />
       );
 
-      const cards = within(screen.getByRole("radiogroup")).getAllByRole("radio");
+      const cards = within(templateGroup()).getAllByRole("radio");
       cards.forEach((card) => expect(card).toBeDisabled());
 
-      await user.click(screen.getByRole("radio", { name: /^Cafe/ }));
+      await user.click(within(templateGroup()).getByRole("radio", { name: cardNamed("cafe") }));
       expect(onSelectTemplate).not.toHaveBeenCalled();
       expect(screen.queryByText("Replace your layout?")).not.toBeInTheDocument();
     });
@@ -528,28 +571,26 @@ describe("FloorPlanStep", () => {
       render(
         <FloorPlanStep
           {...makeProps({
-            draft: draftFromTemplate("restaurant"),
+            draft: draftFor(ROOM),
             readOnly: true,
             onSelectTemplate,
           })}
         />
       );
 
-      fireEvent.keyDown(screen.getByRole("radiogroup"), { key: "ArrowRight" });
+      fireEvent.keyDown(templateGroup(), { key: "ArrowRight" });
       expect(onSelectTemplate).not.toHaveBeenCalled();
     });
 
     it("offers no Add table button", () => {
-      render(
-        <FloorPlanStep {...makeProps({ draft: draftFromTemplate("restaurant"), readOnly: true })} />
-      );
+      render(<FloorPlanStep {...makeProps({ draft: draftFor(ROOM), readOnly: true })} />);
       expect(screen.queryByRole("button", { name: "Add table" })).not.toBeInTheDocument();
     });
 
     it("offers no Remove table button for a selected table", async () => {
       const onRemoveTable = vi.fn();
       const user = userEvent.setup();
-      const draft = draftFromTemplate("restaurant");
+      const draft = draftFor(ROOM);
       render(<FloorPlanStep {...makeProps({ draft, readOnly: true, onRemoveTable })} />);
 
       const firstTable = draft.tables[0] as DraftTable;
@@ -561,7 +602,7 @@ describe("FloorPlanStep", () => {
 
     it("does not call onMoveTable on drag end or on an arrow-key nudge", () => {
       const onMoveTable = vi.fn();
-      const draft = draftFromTemplate("restaurant");
+      const draft = draftFor(ROOM);
       render(<FloorPlanStep {...makeProps({ draft, readOnly: true, onMoveTable })} />);
 
       const firstTable = draft.tables[0] as DraftTable;

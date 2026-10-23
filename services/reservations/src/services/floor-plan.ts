@@ -342,6 +342,7 @@ export const floorPlanService = {
           t.priority,
           t.venue_id AS "venueId",
           t.floor_plan_id AS "floorPlanId",
+          t.section_id AS "sectionId",
           t.shape_metadata AS "shapeMetadata",
           t.created_at AS "createdAt",
           t.updated_at AS "updatedAt"
@@ -403,6 +404,7 @@ export const floorPlanService = {
         where: { id: tableId },
         data: {
           floorPlanId: null,
+          sectionId: null,
           shapeMetadata: Prisma.DbNull,
         },
       });

@@ -309,6 +309,9 @@
     <item priority="medium">
       function jsonOk(route: Route, data: unknown): Promise<void> { /* ... */ }
     </item>
+    <item priority="medium">
+      function postBody(route: Route): Record<string, unknown> { /* ... */ }
+    </item>
     <item priority="high">
       export function buildPublicVenueFixture(): PublicVenue { /* ... */ }
     </item>
@@ -419,6 +422,75 @@
   </file>
   </section>
   <section priority="medium" role="floor-plan">
+  <file path="src/components/floor-plan/apply-room-template.ts">
+    <item priority="low">
+      interface RoomTemplateApi {
+        floorPlans: {
+          create(data: CreateFloorPlanRequest): Promise<Floor...;
+        floorPlanSections: {
+          create(venueId: string, data: CreateFloorPlanSectio...;
+        tables: {
+          list(params: {
+            venueId: string;
+            page?: ...;
+      }
+    </item>
+    <item priority="low">
+      async function listVenueTableNames(
+        api: RoomTemplateApi,
+        venueId: string
+      ): Promise<ReadonlySet<string>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CreateFromTemplateInput {
+        venueId: string;
+        name: string;
+        layout: RoomLayout;
+      }
+    </item>
+    <item priority="high">
+      export function templateLayoutJson(layout: RoomLayout): FloorPlanLayout { /* ... */ }
+    </item>
+    <item priority="high">
+      export function templateTableRequest(
+        table: RoomTemplateTable,
+        venueId: string,
+        floorPlanId: string,
+        name: string = table.name
+      ): CreateTableRequest { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createSectionRows(
+        api: RoomTemplateApi,
+        venueId: string,
+        floorPlanId: string,
+        layout: RoomLayout
+      ): Promise<ReadonlyMap<string, FloorPlanSection>> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sectionRectangles(
+        layout: RoomLayout,
+        rows: ReadonlyMap<string, FloorPlanSection>
+      ): SectionLayout[] { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createTables(
+        api: RoomTemplateApi,
+        venueId: string,
+        floorPlanId: string,
+        layout: RoomLayout
+      ): Promise<ReadonlyMap<string, readonly string[]>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createFloorPlanFromTemplate(
+        api: RoomTemplateApi,
+        { venueId, name, layout }: CreateFromTemplateInput
+      ): Promise<FloorPlan> { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/floor-plan/floor-plan-geometry.ts">
     <item priority="high">
       export const CANVAS_WIDTH: unknown;
@@ -434,6 +506,21 @@
     </item>
     <item priority="high">
       export const SHAPE_DEFAULTS: unknown;
+    </item>
+    <item priority="low">
+      interface PlacedRect {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export function placeNewTable(
+        canvas: { width: number; height: number },
+        size: { width: number; height: number },
+        existing: readonly PlacedRect[]
+      ): { x: number; y: number } { /* ... */ }
     </item>
     <item priority="high">
       export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number { /* ... */ }
@@ -473,7 +560,8 @@
         wall: WallLayout,
         end: WallEnd,
         p: Point,
-        gridSize: number = GRID_SIZE
+        gridSize: number = GRID_SIZE,
+        canvas: { width: number; height: number } = { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }
       ): WallLayout { /* ... */ }
     </item>
     <item priority="high">
@@ -532,6 +620,23 @@
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/floor-plan/floor-textures.ts">
+    <item priority="high">
+      export const FLOOR_TEXTURE_DIR: unknown;
+    </item>
+    <item priority="high">
+      export const TEXTURE_SOURCE_PX: unknown;
+    </item>
+    <item priority="high">
+      export const TEXTURE_TILE_PX: unknown;
+    </item>
+    <item priority="high">
+      export const TEXTURE_PATTERN_SCALE: unknown;
+    </item>
+    <item priority="high">
+      export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/floor-plan/furniture-tokens.ts">
     <item priority="high">
       export const TABLE_SURFACE_NAME: unknown;
@@ -547,6 +652,189 @@
     </item>
     <item priority="high">
       export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number>;
+    </item>
+  </file>
+  <file path="src/components/floor-plan/room-geometry.ts">
+    <item priority="high">
+      export function tableBounds(table: {
+        readonly x: number;
+        readonly y: number;
+        readonly width: number;
+        readonly height: number;
+        readonly rotation: number;
+      }): { left: number; top: number; right: number; bottom: number } { /* ... */ }
+    </item>
+    <item priority="low">
+      type PerimeterSide = "top" | "right" | "bottom" | "left";
+    </item>
+    <item priority="low">
+      interface PerimeterGap {
+        side: PerimeterSide;
+        from: number;
+        to: number;
+      }
+    </item>
+    <item priority="high">
+      interface SideDefinition {
+        side: PerimeterSide;
+        onSide: (segment: WallLayout) => boolean;
+        span: (segment: WallLayout) => readonly [number, number];
+        length: number;
+      }
+    </item>
+    <item priority="medium">
+      function sideDefinitions(layout: RoomLayout): readonly SideDefinition[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function gapsOnSide(definition: SideDefinition, layout: RoomLayout): PerimeterGap[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function perimeterGaps(layout: RoomLayout): readonly PerimeterGap[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/room-template-copy.ts">
+    <item priority="high">
+      export function layoutSummary(t: TFunction, layout: RoomLayout): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/room-templates.ts">
+    <item priority="low">
+      type RoomTemplateId = "blank" | "fine-dining" | "casual-bistro" | "bar-lounge" | "cafe" | "banquet-hall" | "open-kitchen";
+    </item>
+    <item priority="low">
+      type RoomSizeId = "cozy" | "standard" | "spacious" | "grand";
+    </item>
+    <item priority="low">
+      interface RoomSize {
+        id: RoomSizeId;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export const ROOM_SIZES: readonly RoomSize[];
+    </item>
+    <item priority="low">
+      interface RoomTemplateTable {
+        id: string;
+        name: string;
+        shape: TableShapeName;
+        capacity: number;
+        minCovers: number;
+      }
+    </item>
+    <item priority="low">
+      interface RoomTemplateSection {
+        id: string;
+        name: string;
+        color: string;
+        x: number;
+        y: number;
+      }
+    </item>
+    <item priority="low">
+      interface RoomLayout {
+        width: number;
+        height: number;
+        tables: readonly RoomTemplateTable[];
+        sections: readonly RoomTemplateSection[];
+        walls: readonly WallLayout[];
+      }
+    </item>
+    <item priority="low">
+      interface RoomTemplate {
+        id: RoomTemplateId;
+        planName: string;
+        doorWidth: number | null;
+        build: (width: number, height: number) => RoomLayout;
+      }
+    </item>
+    <item priority="high">
+      interface TableSpec {
+        name: string;
+        shape: TableShapeName;
+        capacity: number;
+        minCovers: number;
+        left: number;
+      }
+    </item>
+    <item priority="high">
+      interface SectionSpec {
+        name: string;
+        color: string;
+        x: number;
+        y: number;
+        width: number;
+      }
+    </item>
+    <item priority="high">
+      type WallSpec = Omit<WallLayout, "id">;
+    </item>
+    <item priority="high">
+      interface LayoutSpec {
+        tables: readonly TableSpec[];
+        sections: readonly SectionSpec[];
+        walls: readonly WallSpec[];
+      }
+    </item>
+    <item priority="high">
+      type DoorSide = "bottom" | "left";
+    </item>
+    <item priority="medium">
+      function perimeterWithDoor(
+        w: number,
+        h: number,
+        side: DoorSide,
+        position: number,
+        gap: number
+      ): WallSpec[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function slug(value: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function containingSection(
+        sections: readonly RoomTemplateSection[],
+        x: number,
+        y: number
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toLayout(
+        templateId: RoomTemplateId,
+        width: number,
+        height: number,
+        spec: LayoutSpec
+      ): RoomLayout { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ROOM_TEMPLATES: readonly RoomTemplate[];
+    </item>
+    <item priority="high">
+      export function roomTemplateById(id: RoomTemplateId): RoomTemplate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function roomSizeById(id: RoomSizeId): RoomSize { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/section-label-theme.ts">
+    <item priority="low">
+      interface SectionLabelTheme {
+        plate: string;
+        text: string;
+      }
+    </item>
+    <item priority="high">
+      export const SECTION_LABEL_TOKENS: unknown;
+    </item>
+    <item priority="high">
+      export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme>;
+    </item>
+    <item priority="high">
+      export function resolveSectionLabelTheme(): SectionLabelTheme { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useSectionLabelTheme(): SectionLabelTheme { /* ... */ }
     </item>
   </file>
   <file path="src/components/floor-plan/table-status.ts">
@@ -568,6 +856,32 @@
     </item>
     <item priority="high">
       export function deriveTableStatus(input: TableStatusInput): TableStatusResult { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/table-update.ts">
+    <item priority="low">
+      interface TableDetailsFormValues {
+        name: string;
+        tableNumber: string;
+        capacity: string;
+        minCovers: string;
+        maxCovers: string;
+      }
+    </item>
+    <item priority="high">
+      export function tableToFormValues(table: Table): TableDetailsFormValues { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildTableUpdate(
+        initial: TableDetailsFormValues,
+        current: TableDetailsFormValues
+      ): UpdateTableRequest { /* ... */ }
+    </item>
+    <item priority="medium">
+      function changedPositiveInt(initial: string, current: string): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parsePositiveInt(raw: string): number | null { /* ... */ }
     </item>
   </file>
   </section>
@@ -1032,8 +1346,34 @@
     <item priority="high">
       export const useDeleteTable: unknown;
     </item>
+    <item priority="low">
+      interface UpdateTablePayload {
+        tableId: string;
+        changes: UpdateTableRequest;
+      }
+    </item>
+    <item priority="high">
+      export const useUpdateTable: unknown;
+    </item>
     <item priority="high">
       export const useUpdateFloorPlanLayout: unknown;
+    </item>
+    <item priority="high">
+      export const FLOOR_PLAN_SECTIONS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useFloorPlanSections: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateFloorPlanSection: unknown;
+    </item>
+  </file>
+  <file path="src/hooks/useFloorTextures.ts">
+    <item priority="low">
+      type FloorTextureMap = ReadonlyMap<FloorMaterial, HTMLImageElement>;
+    </item>
+    <item priority="high">
+      export function useFloorTextures(materials: readonly FloorMaterial[]): FloorTextureMap { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useFocusAfter.ts">
@@ -1921,6 +2261,92 @@
       ): AuthErrorDescription { /* ... */ }
     </item>
   </file>
+  <file path="src/lib/logo-palette-canvas.ts">
+    <item priority="high">
+      export const ACCEPTED_LOGO_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_LOGO_BYTES: unknown;
+    </item>
+    <item priority="low">
+      type LogoPaletteFailure = "unsupported-type" | "too-large" | "decode-failed";
+    </item>
+    <item priority="low">
+      type LogoPaletteResult = { readonly ok: true; readonly  | { readonly ok: false; readonly;
+    </item>
+    <item priority="high">
+      export function classifyLogoFile(file: Pick<File, "type" | "size">): LogoPaletteFailure | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function readLogoPalette(
+        file: File,
+        maxColors = DEFAULT_MAX_COLORS
+      ): Promise<LogoPaletteResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/lib/logo-palette.ts">
+    <item priority="low">
+      interface RgbPixel {
+        r: number;
+        g: number;
+        b: number;
+      }
+    </item>
+    <item priority="high">
+      interface Centroid {
+        count: number;
+      }
+    </item>
+    <item priority="low">
+      type RgbaBytes = Uint8Array | Uint8ClampedArray;
+    </item>
+    <item priority="high">
+      export const DEFAULT_MAX_COLORS: unknown;
+    </item>
+    <item priority="high">
+      export const PIXEL_STRIDE: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_SAMPLE_EDGE: unknown;
+    </item>
+    <item priority="high">
+      export function fitWithin(
+        width: number,
+        height: number,
+        maxEdge = MAX_SAMPLE_EDGE
+      ): { readonly width: number; readonly height: number } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function samplePixels(rgba: RgbaBytes): readonly RgbPixel[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function distance(a: RgbPixel, b: RgbPixel): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function initCentroids(pixels: readonly RgbPixel[], k: number): readonly RgbPixel[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nearestCentroid(pixel: RgbPixel, centroids: readonly RgbPixel[]): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function meanOf(cluster: readonly RgbPixel[]): RgbPixel { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runKMeans(pixels: readonly RgbPixel[], k: number): readonly Centroid[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toHex(n: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function centroidToHex(c: RgbPixel): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractDominantColors(
+        rgba: RgbaBytes,
+        maxColors = DEFAULT_MAX_COLORS
+      ): readonly string[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/lib/offline-cache.ts">
     <item priority="low">
       type FloorPlanSnapshot = TableStatusDelta[];
@@ -2047,6 +2473,18 @@
     <item priority="high">
       export function onAccentColor(accent: string): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function channel(hex: string, index: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toHexByte(value: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deriveAccentHover(accent: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function paletteToTheme(palette: readonly string[]): VenueTheme | null { /* ... */ }
+    </item>
     <item priority="low">
       type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
     </item>
@@ -2164,6 +2602,32 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="src/test/png-luminance.ts">
+    <item priority="low">
+      interface DecodedPng {
+        width: number;
+        height: number;
+        data: Uint8Array;
+      }
+    </item>
+    <item priority="medium">
+      function unfilterRow(
+        filterType: number,
+        row: Uint8Array,
+        previous: Uint8Array,
+        out: Uint8Array
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decodePng(bytes: Buffer): DecodedPng { /* ... */ }
+    </item>
+    <item priority="high">
+      export function relativeLuminance(r: number, g: number, b: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function contrastRatio(a: number, b: number): number { /* ... */ }
+    </item>
+  </file>
   <file path="src/test/special-requests-fixtures.ts">
     <item priority="high">
       export const TWO_LINE_NOTE: unknown;
@@ -2703,9 +3167,6 @@
         tables: readonly DraftTable[]
       ): { tables: string; seats: string } { /* ... */ }
     </item>
-    <item priority="high">
-      export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string { /* ... */ }
-    </item>
   </file>
   <file path="src/components/venue-onboarding/floor-plan-draft.ts">
     <item priority="low">
@@ -2720,12 +3181,16 @@
         shape: DraftTableShape;
       }
     </item>
+    <item priority="high">
+      export function draftTableSize(table: DraftTable): { width: number; height: number } { /* ... */ }
+    </item>
     <item priority="low">
       interface FloorPlanDraft {
-        templateId: string | null;
+        templateId: RoomTemplateId | null;
+        sizeId: RoomSizeId;
         planName: string;
         tables: readonly DraftTable[];
-        pristine: boolean;
+        sections: readonly RoomTemplateSection[];
       }
     </item>
     <item priority="high">
@@ -2736,6 +3201,9 @@
     </item>
     <item priority="high">
       export const EMPTY_FLOOR_PLAN_DRAFT: FloorPlanDraft;
+    </item>
+    <item priority="high">
+      export function draftLayoutJson(draft: FloorPlanDraft): FloorPlanLayout { /* ... */ }
     </item>
     <item priority="high">
       export function draftToCanvasTables(draft: FloorPlanDraft): Table[] { /* ... */ }
@@ -2766,35 +3234,25 @@
   </file>
   <file path="src/components/venue-onboarding/floor-plan-templates.ts">
     <item priority="low">
-      type TemplateId = "restaurant" | "cafe" | "bar" | "patio" | "blank";
+      type TemplateId = RoomTemplateId;
     </item>
-    <item priority="low">
-      interface Zone {
-        prefix: string;
-        shape: DraftTableShape;
-        capacity: number;
-        minCovers: number;
-        origin: { x: number; y: number };
-      }
+    <item priority="high">
+      export const FLOOR_PLAN_TEMPLATES: readonly RoomTemplate[];
     </item>
-    <item priority="low">
-      interface FloorPlanTemplate {
-        id: TemplateId;
-        planName: string;
-        zones: readonly Zone[];
-      }
+    <item priority="high">
+      export function templateById(id: TemplateId): RoomTemplate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layoutForDraft(draft: FloorPlanDraft): RoomLayout | null { /* ... */ }
     </item>
     <item priority="medium">
-      function tablesForZone(zone: Zone): DraftTable[] { /* ... */ }
+      function previewTable(table: DraftTable): RoomLayout["tables"][number] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function draftTableFor(table: RoomLayout["tables"][number]): DraftTable { /* ... */ }
     </item>
     <item priority="high">
-      export function tablesForTemplate(template: FloorPlanTemplate): DraftTable[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[];
-    </item>
-    <item priority="high">
-      export function templateById(id: TemplateId): FloorPlanTemplate { /* ... */ }
+      export function draftFromTemplate(templateId: TemplateId, sizeId: RoomSizeId): FloorPlanDraft { /* ... */ }
     </item>
   </file>
   <file path="src/components/venue-onboarding/generate-slug.ts">
@@ -2813,9 +3271,9 @@
       interface LaunchProgress {
         venueId: string | null;
         floorPlanId: string | null;
+        sectionsDone: boolean;
         createdTableNames: readonly string[];
-        activated: boolean;
-        inFlightStage: LaunchStageId | null;
+        membershipDone?: boolean;
       }
     </item>
     <item priority="high">
@@ -2833,6 +3291,9 @@
         stage: LaunchStageId,
         draft: FloorPlanDraft
       ): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function needsMembership(draft: FloorPlanDraft): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function nextStage(progress: LaunchProgress, draft: FloorPlanDraft): LaunchStageId | null { /* ... */ }
@@ -2854,7 +3315,11 @@
         venues: { create(data: CreateVenueRequest): Promise<Venue> };
         floorPlans: {
           create(data: CreateFloorPlanRequest): Promise<Floor...;
-        tables: { create(data: CreateTableRequest): Promise<Table> };
+        floorPlanSections: {
+          list(venueId: string, floorPlanId?: string): Promis...;
+        tables: {
+          create(data: CreateTableRequest): Promise<Table>;
+       ...;
       }
     </item>
     <item priority="medium">
@@ -2869,6 +3334,14 @@
       ): Promise<LaunchProgress> { /* ... */ }
     </item>
     <item priority="low">
+      async function createSectionsFor(
+        api: LaunchApi,
+        venueId: string,
+        floorPlanId: string,
+        draft: FloorPlanDraft
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
       async function runFloorPlanStage(
         api: LaunchApi,
         draft: FloorPlanDraft,
@@ -2880,6 +3353,14 @@
       class LaunchStageError {
         partialProgress: LaunchProgress;
       }
+    </item>
+    <item priority="low">
+      async function assignTablesToSections(
+        api: LaunchApi,
+        venueId: string,
+        floorPlanId: string,
+        draft: FloorPlanDraft
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function runTablesStage(
@@ -2961,7 +3442,7 @@
       }
     </item>
     <item priority="high">
-      type OnboardingWizardAction = { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "NEXT" } | { type: "BACK" } | { type: "GO_TO_STEP"; step: nu | { type: "VALIDATE" } | { type: "SLUG_CHECK_START" } | { type: "SLUG_CHECK_RESULT"; s | { type: "SET_TEMPLATE"; templa | { type: "ADD_DRAFT_TABLE"; req | { type: "MOVE_DRAFT_TABLE"; lo | { type: "REMOVE_DRAFT_TABLE";  | { type: "SET_LAUNCH_PROGRESS";;
+      type OnboardingWizardAction = { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "NEXT" } | { type: "BACK" } | { type: "GO_TO_STEP"; step: nu | { type: "VALIDATE" } | { type: "SLUG_CHECK_START" } | { type: "SLUG_CHECK_RESULT"; s | { type: "SET_TEMPLATE"; templa | { type: "SET_ROOM_SIZE"; sizeI | { type: "ADD_DRAFT_TABLE"; req | { type: "MOVE_DRAFT_TABLE"; lo | { type: "REMOVE_DRAFT_TABLE";  | { type: "SET_LAUNCH_PROGRESS";;
     </item>
     <item priority="medium">
       function runStepValidation(state: OnboardingWizardState): {

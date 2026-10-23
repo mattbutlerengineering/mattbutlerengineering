@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { readFileSync, writeFileSync, rmSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync, mkdtempSync, mkdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -9,6 +9,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/tier-classifier.yml"), "utf8");
 const PR_TEMPLATE = readFileSync(resolve(ROOT, ".github/PULL_REQUEST_TEMPLATE.md"), "utf8");
+// Where the "Load tier policy from base branch" step writes the base-ref copy
+// of scripts/tier-escalation.mjs, and where the Classify step imports it from.
+const POLICY_DIR = "/tmp/tier-policy";
+const POLICY_PATH = `${POLICY_DIR}/tier-escalation.mjs`;
+const LOCAL_POLICY = resolve(ROOT, "scripts/tier-escalation.mjs");
 
 /**
  * Pull the `node - <<'NODE' ... NODE` heredoc body out of the workflow's
@@ -72,7 +77,8 @@ function runClassifier({
 
   const script = extractClassifierScript(WORKFLOW)
     .replace("/tmp/changed-files.txt", changedFilesPath)
-    .replace("/tmp/numstat.txt", numstatPath);
+    .replace("/tmp/numstat.txt", numstatPath)
+    .replace(POLICY_PATH, LOCAL_POLICY);
 
   const result = spawnSync(process.execPath, ["-e", script], {
     env: {
@@ -402,7 +408,25 @@ describe("tier-classifier path rules: ACMM automation output", () => {
 describe("tier-classifier delegates escalation to scripts/tier-escalation.mjs (#6655)", () => {
   const body = (prose) => `${PR_TEMPLATE}\n\n## Summary\n\n${prose}`;
 
-  it("#6610 shape: generated churn does not push a T3 PR to T4 on size", () => {
+  // #6610's real shape (Owner decision 2026-10-18): 988 code lines plus 16
+  // lines in services/reservations/CLAUDE.md, generated churn excluded, is
+  // 1004 counted lines. CLAUDE.md/AGENTS.md stay counted, so it lands T4.
+  it("#6610 shape: 988 code + 16 CLAUDE.md lines = 1004 counted escalates T3 to T4", () => {
+    const { tier, reasons } = runClassifier({
+      title: "feat: thing",
+      body: PR_TEMPLATE,
+      files: ["llms-full.txt", "services/a/src/routes/r.ts", "services/reservations/CLAUDE.md"],
+      additions: {
+        "llms-full.txt": 1194,
+        "services/a/src/routes/r.ts": 988,
+        "services/reservations/CLAUDE.md": 16,
+      },
+    });
+    expect(tier).toBe(4);
+    expect(reasons).toMatch(/1004 review-surface lines added/);
+  });
+
+  it("generated churn alone does not push 988 code lines over the threshold", () => {
     const { tier, reasons } = runClassifier({
       title: "feat: thing",
       body: PR_TEMPLATE,
@@ -473,15 +497,118 @@ describe("tier-classifier delegates escalation to scripts/tier-escalation.mjs (#
     tmpDirs.push(dir);
     writeFileSync(join(dir, "changed.txt"), "a.ts");
     const outputPath = join(dir, "out.txt");
-    const script = extractClassifierScript(WORKFLOW).replace(
-      "/tmp/changed-files.txt",
-      join(dir, "changed.txt")
-    );
+    const script = extractClassifierScript(WORKFLOW)
+      .replace("/tmp/changed-files.txt", join(dir, "changed.txt"))
+      .replace(POLICY_PATH, join(dir, "missing", "tier-escalation.mjs"));
     const result = spawnSync(process.execPath, ["-e", script], {
       env: { ...process.env, GITHUB_OUTPUT: outputPath },
       encoding: "utf8",
       cwd: dir,
     });
     expect(result.status).not.toBe(0);
+  });
+});
+
+/**
+ * Pull the `run: |` block of the step named `stepName` out of the workflow,
+ * dedented. Textual, like extractClassifierScript above.
+ */
+function extractStepRun(source, stepName) {
+  const lines = source.split("\n");
+  const start = lines.findIndex((l) => l.trim() === `- name: ${stepName}`);
+  if (start === -1) throw new Error(`tier-classifier.yml has no step named "${stepName}"`);
+  const runIdx = lines.findIndex((l, i) => i > start && l.trim() === "run: |");
+  if (runIdx === -1) throw new Error(`step "${stepName}" has no \`run: |\` block`);
+  const runIndent = lines[runIdx].search(/\S/);
+  const body = [];
+  for (const line of lines.slice(runIdx + 1)) {
+    if (line.trim() !== "" && line.search(/\S/) <= runIndent) break;
+    body.push(line);
+  }
+  const indent = Math.min(...body.filter((l) => l.trim()).map((l) => l.search(/\S/)));
+  return body.map((l) => l.slice(indent)).join("\n");
+}
+
+// Gate bypass (Owner decision 2026-10-18): Checkout puts the PR HEAD on disk,
+// so importing scripts/tier-escalation.mjs from it let a PR rewrite the policy
+// and lower its own tier. The policy must come from the base branch.
+describe("tier-classifier loads the escalation policy from the BASE branch", () => {
+  const LOAD_STEP = "Load tier policy from base branch";
+  const git = (cwd, ...args) => {
+    const r = spawnSync("git", args, { cwd, encoding: "utf8" });
+    if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
+    return r.stdout.trim();
+  };
+
+  /** A repo whose origin/main has `basePolicy` and whose HEAD (the PR) has `headPolicy`. */
+  function makeRepo({ basePolicy, headPolicy }) {
+    const dir = mkdtempSync(join(tmpdir(), "tier-policy-repo-"));
+    tmpDirs.push(dir);
+    git(dir, "init", "-q");
+    git(dir, "config", "user.email", "t@example.com");
+    git(dir, "config", "user.name", "t");
+    git(dir, "config", "commit.gpgsign", "false");
+    mkdirSync(join(dir, "scripts"));
+    const policy = join(dir, "scripts", "tier-escalation.mjs");
+    writeFileSync(join(dir, "README.md"), "x\n");
+    if (basePolicy !== undefined) writeFileSync(policy, basePolicy);
+    git(dir, "add", "-A");
+    git(dir, "commit", "-q", "--no-verify", "-m", "base");
+    git(dir, "update-ref", "refs/remotes/origin/main", "HEAD");
+    writeFileSync(policy, headPolicy);
+    git(dir, "add", "-A");
+    git(dir, "commit", "-q", "--no-verify", "-m", "pr head");
+    return dir;
+  }
+
+  function runLoadStep(repo) {
+    const out = mkdtempSync(join(tmpdir(), "tier-policy-out-"));
+    tmpDirs.push(out);
+    const script = extractStepRun(WORKFLOW, LOAD_STEP).replaceAll(POLICY_DIR, out);
+    // `bash -e` mirrors the GitHub Actions default shell (no pipefail).
+    const result = spawnSync("bash", ["-e", "-c", script], {
+      cwd: repo,
+      env: { ...process.env, PR_BASE_REF: "main" },
+      encoding: "utf8",
+    });
+    return { result, policyFile: join(out, "tier-escalation.mjs") };
+  }
+
+  it("writes the base-ref policy, not the PR head's edit", () => {
+    const repo = makeRepo({
+      basePolicy: "export const marker = 'base';\n",
+      headPolicy: "export const marker = 'head';\n",
+    });
+    const { result, policyFile } = runLoadStep(repo);
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(policyFile, "utf8")).toBe("export const marker = 'base';\n");
+  });
+
+  it("fails closed when the base branch has no policy module", () => {
+    const repo = makeRepo({ basePolicy: undefined, headPolicy: "export const x = 1;\n" });
+    const { result } = runLoadStep(repo);
+    expect(result.status).not.toBe(0);
+  });
+
+  it("Classify imports the base-ref copy, never the PR-head checkout's module", () => {
+    const script = extractClassifierScript(WORKFLOW);
+    expect(script).toContain(POLICY_PATH);
+    expect(script).not.toMatch(/path\.resolve\(\s*['"]scripts\/tier-escalation\.mjs['"]/);
+  });
+
+  it("the load step runs after PR metadata resolves and before Classify", () => {
+    const idx = (name) => WORKFLOW.indexOf(`- name: ${name}`);
+    expect(idx(LOAD_STEP)).toBeGreaterThan(idx("Resolve PR metadata"));
+    expect(idx(LOAD_STEP)).toBeLessThan(idx("Classify"));
+  });
+
+  it("a PR editing scripts/tier-escalation.mjs lands T4", () => {
+    const { tier, reasons } = runClassifier({
+      title: "refactor: tidy",
+      body: PR_TEMPLATE,
+      files: ["scripts/tier-escalation.mjs"],
+    });
+    expect(tier).toBe(4);
+    expect(reasons).toMatch(/`scripts\/tier-escalation\.mjs` -> T4/);
   });
 });

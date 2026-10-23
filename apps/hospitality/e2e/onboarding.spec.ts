@@ -5,9 +5,14 @@ import { mockApi } from "./api-mocks.js";
 
 /**
  * Drives steps 1-4 (Welcome, Location & Time, Operating Hours, Settings) with
- * minimal valid data, then picks `templateName` on step 5 (Floor Plan) and
- * advances to step 6 (Launch review). Shared by the two Launch-review tests
- * below (#4817) — everything before Launch is identical between them.
+ * minimal valid data, then picks the `templateName` room on step 5 (Floor
+ * Plan) and advances to step 6 (Launch review). Shared by the two
+ * Launch-review tests below (#4817) — everything before Launch is identical
+ * between them.
+ *
+ * Step 5 holds two radiogroups since #7256 (room template, room size), so
+ * every pick is scoped to the one it belongs to; a bare getByRole("radio")
+ * would be ambiguous.
  */
 async function advanceToLaunchReview(page: Page, templateName: string, venueName: string) {
   await page.getByLabel("Venue Name").fill(venueName);
@@ -26,7 +31,9 @@ async function advanceToLaunchReview(page: Page, templateName: string, venueName
   // Step 4 (Settings) — all fields optional, defaults apply.
   await page.getByRole("button", { name: "Next" }).click();
 
-  const templateOption = page.getByRole("radio", { name: templateName });
+  const templateOption = page
+    .getByRole("radiogroup", { name: "Room template" })
+    .getByRole("radio", { name: new RegExp(`^${templateName} \u2014 `) });
   await templateOption.click();
   await expect(templateOption).toBeChecked();
   await page.getByRole("button", { name: "Next" }).click();
@@ -187,18 +194,31 @@ test.describe("Venue onboarding wizard", () => {
     // Step 4 (Settings) — all fields optional, defaults apply.
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
-    // Step 5 (Floor plan) — Next is refused until a template is picked. All
-    // five layout options render as role="radio" cards; assert each is
-    // visible by role (not by their seat/table-count text, which is derived
-    // from template zone data, not this test's concern), pick one by role
-    // and accessible name (never canvas pixels), and assert the pick
-    // registered before advancing.
-    const templateOptions = mockedPage.getByRole("radio");
-    await expect(templateOptions).toHaveCount(5);
-    for (let i = 0; i < 5; i += 1) {
+    // Step 5 (Floor plan) — Next is refused until a room is picked. Since
+    // #7256 the step offers seven room templates and four sizes as two
+    // separate role="radiogroup"s; assert each option is visible by role (not
+    // by its table-count text, which is derived from the builders and is not
+    // this test's concern), pick one by role and accessible name (never canvas
+    // pixels), and assert the pick registered before advancing.
+    const templateGroup = mockedPage.getByRole("radiogroup", { name: "Room template" });
+    const templateOptions = templateGroup.getByRole("radio");
+    await expect(templateOptions).toHaveCount(7);
+    for (let i = 0; i < 7; i += 1) {
       await expect(templateOptions.nth(i)).toBeVisible();
     }
-    const blankOption = mockedPage.getByRole("radio", { name: "Blank — no tables" });
+    const sizeOptions = mockedPage
+      .getByRole("radiogroup", { name: "Room size" })
+      .getByRole("radio");
+    await expect(sizeOptions).toHaveCount(4);
+
+    // Matched on the card's accessible name, anchored. Each card carries an
+    // explicit aria-label of "{{name}} — {{description}}", so the name is the
+    // thing to assert; a `hasText` substring match would read textContent
+    // instead, and "blank" already recurs in this namespace ("Start blank
+    // instead", plus the validation copy telling you to pick Blank). Inert
+    // today, but a future room whose name or description contained "blank"
+    // would silently select the wrong card rather than fail.
+    const blankOption = templateGroup.getByRole("radio", { name: /^Blank — / });
     await blankOption.click();
     await expect(blankOption).toBeChecked();
 
@@ -222,7 +242,7 @@ test.describe("Venue onboarding wizard", () => {
   }) => {
     await mockedPage.goto("onboarding");
 
-    await advanceToLaunchReview(mockedPage, "Blank — no tables", "E2E Launch Venue");
+    await advanceToLaunchReview(mockedPage, "Blank", "E2E Launch Venue");
 
     await mockedPage.getByRole("button", { name: /launch venue/i }).click();
 
@@ -240,9 +260,12 @@ test.describe("Venue onboarding wizard", () => {
 
   // #4817: pins the retry-success launch handoff (VenueOnboardingPage.tsx's
   // handleRetry, PR #4815) through the real DOM — a regression here was
-  // previously guarded only by a unit test. Uses the Patio template (the
-  // fewest-tables non-blank layout) so the "tables" stage actually runs, then
-  // makes its first table POST reject exactly once via a one-shot override
+  // previously guarded only by a unit test. Uses Banquet Hall, which since
+  // #7256 is the fewest-tables non-blank room (15 tables; fine-dining 20,
+  // casual-bistro 21, cafe 22, open-kitchen 24, bar-lounge 25 — the count is
+  // size-independent, since the builders scale geometry, not quantity), so the
+  // "tables" stage actually runs without making this the slowest spec in the
+  // file. It then makes its first table POST reject exactly once via a one-shot override
   // layered on top of api-mocks.ts's stateful **/api/v1/tables handler
   // (Playwright routes are LIFO — the most recently registered matching
   // route wins, and route.fallback() hands the request to the next one).
@@ -271,7 +294,7 @@ test.describe("Venue onboarding wizard", () => {
       });
     });
 
-    await advanceToLaunchReview(mockedPage, "Patio — 8 tables, 36 seats", "E2E Retry Venue");
+    await advanceToLaunchReview(mockedPage, "Banquet Hall", "E2E Retry Venue");
 
     await mockedPage.getByRole("button", { name: /launch venue/i }).click();
 
@@ -280,6 +303,10 @@ test.describe("Venue onboarding wizard", () => {
 
     await retryButton.click();
 
-    await expect(mockedPage).toHaveURL(/\/floor-plans\/fp_e2e_created$/);
+    // Explicit timeout: this assertion waits out the whole replayed launch —
+    // 15 table POSTs plus the section writes — and `playwright.config.ts` sets
+    // only `actionTimeout`, so an `expect` here would otherwise run under
+    // Playwright's 5s default and go flaky on a cold, single-worker CI runner.
+    await expect(mockedPage).toHaveURL(/\/floor-plans\/fp_e2e_created$/, { timeout: 20_000 });
   });
 });

@@ -29,6 +29,57 @@ export const SHAPE_DEFAULTS = {
   circle: { width: 70, height: 70 },
 } as const;
 
+/** A table's centre and footprint, as the canvas stores it. */
+export interface PlacedRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where a new table of `size` goes on a plan with the given `canvas`: the canvas
+ * centre, or the nearest free grid cell when that would overlap an existing table.
+ * Nearest-first ring search; falls back to the centre if the canvas is full.
+ */
+export function placeNewTable(
+  canvas: { width: number; height: number },
+  size: { width: number; height: number },
+  existing: readonly PlacedRect[]
+): { x: number; y: number } {
+  const centre = { x: canvas.width / 2, y: canvas.height / 2 };
+  const free = (x: number, y: number) =>
+    existing.every(
+      (t) =>
+        Math.abs(x - t.x) >= (size.width + t.width) / 2 ||
+        Math.abs(y - t.y) >= (size.height + t.height) / 2
+    );
+  const inside = (x: number, y: number) =>
+    x >= size.width / 2 &&
+    x <= canvas.width - size.width / 2 &&
+    y >= size.height / 2 &&
+    y <= canvas.height - size.height / 2;
+  if (free(centre.x, centre.y)) return centre;
+
+  const cx = snapToGrid(centre.x);
+  const cy = snapToGrid(centre.y);
+  const maxRing = Math.ceil(Math.max(canvas.width, canvas.height) / GRID_SIZE);
+  for (let ring = 1; ring <= maxRing; ring++) {
+    let best: { x: number; y: number; d: number } | null = null;
+    for (let dx = -ring; dx <= ring; dx++) {
+      for (let dy = -ring; dy <= ring; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+        const x = cx + dx * GRID_SIZE;
+        const y = cy + dy * GRID_SIZE;
+        const d = dx * dx + dy * dy;
+        if (inside(x, y) && free(x, y) && (!best || d < best.d)) best = { x, y, d };
+      }
+    }
+    if (best) return { x: best.x, y: best.y };
+  }
+  return centre;
+}
+
 /**
  * Snap a coordinate to the nearest grid line.
  *
@@ -81,16 +132,26 @@ export function hitTestEndpoint(
   return best && { wallId: best.wallId, end: best.end };
 }
 
-/** Move one endpoint to `p`, snapped to the grid and kept inside the canvas. */
+/**
+ * Move one endpoint to `p`, snapped to the grid and kept inside the canvas.
+ *
+ * `canvas` is the **plan's own** size. It defaults to 800x600 for a plan whose
+ * `layoutJson` carries no dimensions, but passing the real one matters: room
+ * templates (#7256) create plans up to 2000x1200, and clamping those to the
+ * default would silently drag the right or bottom perimeter wall inwards —
+ * dragging a Grand plan's right edge would snap it from x=2000 to x=800, and
+ * `FloorPlanEditorPage` would then persist that.
+ */
 export function moveWallEndpoint(
   wall: WallLayout,
   end: WallEnd,
   p: Point,
-  gridSize: number = GRID_SIZE
+  gridSize: number = GRID_SIZE,
+  canvas: { width: number; height: number } = { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }
 ): WallLayout {
   const snapped = snapPoint(p, gridSize);
-  const x = clampTo(snapped.x, 0, CANVAS_WIDTH);
-  const y = clampTo(snapped.y, 0, CANVAS_HEIGHT);
+  const x = clampTo(snapped.x, 0, canvas.width);
+  const y = clampTo(snapped.y, 0, canvas.height);
   return end === 1 ? { ...wall, x1: x, y1: y } : { ...wall, x2: x, y2: y };
 }
 

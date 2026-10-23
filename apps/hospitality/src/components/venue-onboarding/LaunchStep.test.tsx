@@ -8,7 +8,7 @@ import type { BasicInfoData } from "./BasicInfoStep.js";
 import type { LocationTimeData } from "./LocationTimeStep.js";
 import type { SettingsData } from "./SettingsStep.js";
 import { EMPTY_FLOOR_PLAN_DRAFT, type FloorPlanDraft } from "./floor-plan-draft.js";
-import { templateById, tablesForTemplate } from "./floor-plan-templates.js";
+import { draftFromTemplate } from "./floor-plan-templates.js";
 import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
 
 // Button/Card/Text/Stack keep the pre-existing shallow mocks so the tests
@@ -58,21 +58,8 @@ const settings: SettingsData = {
   advanceBookingDays: "",
 };
 
-const RESTAURANT_TEMPLATE = templateById("restaurant");
-const RESTAURANT_DRAFT: FloorPlanDraft = {
-  templateId: "restaurant",
-  planName: RESTAURANT_TEMPLATE.planName,
-  tables: tablesForTemplate(RESTAURANT_TEMPLATE),
-  pristine: true,
-};
-
-const BLANK_TEMPLATE = templateById("blank");
-const BLANK_DRAFT: FloorPlanDraft = {
-  templateId: "blank",
-  planName: BLANK_TEMPLATE.planName,
-  tables: tablesForTemplate(BLANK_TEMPLATE),
-  pristine: true,
-};
+const RESTAURANT_DRAFT: FloorPlanDraft = draftFromTemplate("fine-dining", "cozy");
+const BLANK_DRAFT: FloorPlanDraft = draftFromTemplate("blank", "cozy");
 
 function mockMatchMedia(prefersReducedMotion: boolean) {
   Object.defineProperty(window, "matchMedia", {
@@ -194,7 +181,43 @@ describe("LaunchStep", () => {
     fireEvent.click(screen.getByText("Launch Venue"));
     await flushMicrotasks();
 
-    expect(screen.getByText("Your venue is live with 14 tables")).toBeTruthy();
+    expect(
+      screen.getByText(`Your venue is live with ${RESTAURANT_DRAFT.tables.length} tables`)
+    ).toBeTruthy();
+  });
+
+  // The review picture is projected from the draft, never rebuilt from the
+  // template (#7256 follow-up): the count beside it comes from draft.tables, so
+  // a rebuild would show a deleted table and a moved one at its old position
+  // while the text disagreed. Every other case here uses a pristine
+  // draftFromTemplate(...), which is why a rebuild looked correct.
+  it("previews the operator's edited draft, not a rebuild of its template", () => {
+    const moved = RESTAURANT_DRAFT.tables[0]!;
+    const removed = RESTAURANT_DRAFT.tables[1]!;
+    const edited: FloorPlanDraft = {
+      ...RESTAURANT_DRAFT,
+      tables: [{ ...moved, x: moved.x + 120 }, ...RESTAURANT_DRAFT.tables.slice(2)],
+      pristine: false,
+    };
+
+    renderLaunchStep({ floorPlan: edited });
+
+    const previewed = document.querySelectorAll('[data-preview="table"]');
+    expect(previewed).toHaveLength(RESTAURANT_DRAFT.tables.length - 1);
+
+    const ids = [...previewed].map((node) => node.getAttribute("data-preview-id"));
+    // The deleted table is gone from the picture, not just from the count.
+    expect(ids).not.toContain(removed.localId);
+    expect(ids).toContain(moved.localId);
+
+    // And the moved table is drawn at its new position: the preview places
+    // tables as a percentage of the room's canvas, so a +120 shift on a
+    // 800-wide room moves it +15%.
+    const movedNode = [...previewed].find(
+      (node) => node.getAttribute("data-preview-id") === moved.localId
+    ) as HTMLElement;
+    const pristineLeft = (moved.x / RESTAURANT_DRAFT.width) * 100;
+    expect(parseFloat(movedNode.style.left)).toBeGreaterThan(pristineLeft);
   });
 
   it("renders no fifth card when templateId is null (pre-#4761 default)", () => {
@@ -203,14 +226,17 @@ describe("LaunchStep", () => {
     expect(screen.queryByText("Floor Plan")).toBeNull();
   });
 
-  it("renders the Floor Plan review card for a 14-table Restaurant draft", () => {
+  it("renders the Floor Plan review card for a chosen room", () => {
+    const seats = RESTAURANT_DRAFT.tables.reduce((sum, table) => sum + table.capacity, 0);
     renderLaunchStep({ floorPlan: RESTAURANT_DRAFT });
 
     expect(screen.getByText("Floor Plan")).toBeTruthy();
     expect(screen.getByText("Layout")).toBeTruthy();
-    expect(screen.getByText("Restaurant")).toBeTruthy();
-    expect(screen.getByText("Main Dining Room")).toBeTruthy();
-    expect(screen.getByText("14 tables · 48 seats")).toBeTruthy();
+    expect(screen.getByText("Fine Dining")).toBeTruthy();
+    expect(screen.getByText(RESTAURANT_DRAFT.planName)).toBeTruthy();
+    expect(
+      screen.getByText(`${RESTAURANT_DRAFT.tables.length} tables · ${seats} seats`)
+    ).toBeTruthy();
   });
 
   it("renders the empty-tables copy for a Blank draft", () => {

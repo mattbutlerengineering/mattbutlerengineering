@@ -16,7 +16,7 @@
     "test:journey": "playwright test --config playwright.journey.config.ts",
     "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
     "size": "size-limit",
-    "size:check": "node scripts/check-vendor-chunk-coverage.mjs && size-limit"
+    "size:check": "node scripts/check-chunk-coverage.mjs && size-limit"
   },
   "size-limit": [
     {
@@ -32,7 +32,12 @@
     {
       "name": "Floor Plan Editor (lazy chunk)",
       "path": "dist/assets/FloorPlanEditorPage-*.js",
-      "limit": "4.2 kB"
+      "limit": "6 kB"
+    },
+    {
+      "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks)",
+      "path": "dist/assets/floor-plan-*.js",
+      "limit": "9 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",

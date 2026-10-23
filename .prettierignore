@@ -26,3 +26,13 @@ packages/rialto-plugin/generated/component-reference.md
 # Prettier's config. See .claude/rules/gotchas.md "pnpm-lock.yaml quote
 # style diffs are formatting noise".
 pnpm-lock.yaml
+
+# Reference-only copies of retired eat-sheet source, vendored so the remaining
+# migration issues (#7253-#7256) can be worked from any session rather than a
+# path on one machine. Their whole value is being byte-for-byte identical to the
+# original — several issues require porting an algorithm "verbatim in behaviour"
+# (k-means stride, thresholds, iteration count, palette ordering) — and
+# reformatting them would destroy exactly that. Nothing here is compiled, linted,
+# type-checked, tested or shipped; see docs/reference/eat-sheet/README.md.
+# Delete this entry along with the directory when the migration closes (#7257).
+docs/reference/eat-sheet/

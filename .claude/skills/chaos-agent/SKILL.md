@@ -40,24 +40,28 @@ fi
 
 ### Phase 1: Seed a Bug
 
-Pick a non-breaking but auditable bug type:
+**Only seed bugs that a PR-level check demonstrably gates.** The chaos PR is never
+merged (Phase 4), so the seeded bug never deploys — any bug type whose detector runs
+against the LIVE site (Lighthouse, site-audit crawls, dead-link checks, a11y scans) is
+**undetectable by construction** under this protocol. Run #7138 proved it the hard way:
+a synthetic lighthouse-perf bug sat on an unmerged branch for 72+ hours with no loop
+able to see it (#7302).
 
-1. **Lint violation** (fastest)
+Permitted bug type:
+
+1. **Lint violation** (pre-merge detectable: CI lint fails on the PR branch)
    - Add an unused variable or import in a non-critical file
    - File: `apps/marketing/src/utils/test-lint.ts` (new file)
    - Violation: ESLint will catch `no-unused-vars`
 
-2. **Dead link** (auditable by Lighthouse)
-   - Add a 404 link to a non-critical page
-   - File: `apps/marketing/src/pages/chaos-test.mdx` (new file)
-   - Content: Plain HTML with a dead link to trigger Playwright link check
+Retired bug types — do NOT seed these unless the protocol changes to verify via a
+deployed preview or a merge-then-revert cycle:
 
-3. **A11y issue** (auditable by Lighthouse)
-   - Add an image without alt text
-   - File: `apps/rialto-web/src/pages/chaos-test.tsx` (new file)
-   - Content: Render an img tag without alt attribute
+- ~~**Dead link** (Lighthouse)~~ — live-site detector; never sees an unmerged branch
+- ~~**A11y issue** (Lighthouse)~~ — same
+- ~~**Performance regression** (Lighthouse)~~ — same (the #7138 failure mode)
 
-**For this session, choose LINT VIOLATION (fastest, most deterministic).**
+**Always choose LINT VIOLATION.**
 
 ### Phase 2: Create a PR
 
@@ -136,6 +140,13 @@ If an issue was filed referencing the lint violation, the audit loop is working!
 
 ### Phase 4: Close and Document
 
+**Hard deadline: a chaos PR older than 48 hours is a failed run.** If Phase 3's
+verification hasn't happened within 48h of the PR opening (the seeding session died,
+or no later session picked it up), whoever finds it closes the PR, deletes the branch,
+and logs `verified:false` with a note — a dangling `chaos/*` PR is itself a measurement
+gap (#7138 dangled 72h before #7302 recorded the miss). Any session that sees an open
+`chaos/synthetic-bug-*` PR past this age should run this phase immediately.
+
 1. **Close the draft PR** (don't merge):
 
 ```bash
@@ -159,11 +170,14 @@ git branch -D chaos/synthetic-bug-*
 git push origin --delete chaos/synthetic-bug-*
 ```
 
-4. **Log result to state file:**
+4. **Log result to state file** (`verified` must reflect what actually happened — a
+   timed-out or undetected run logs `false` with a `note`, never gets skipped):
 
 ```bash
 mkdir -p .claude/state
 echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"bug_type\":\"lint_violation\",\"verified\":true,\"issue_number\":$ISSUE_NUM}" >> .claude/state/chaos-runs.jsonl
+# or, for a failed/expired run:
+# echo "{\"timestamp\":\"...\",\"bug_type\":\"lint_violation\",\"verified\":false,\"issue_number\":<meta-issue or null>,\"note\":\"<why>\"}" >> .claude/state/chaos-runs.jsonl
 ```
 
 ## Cleanup Script (Stale Branch Removal)

@@ -9,6 +9,8 @@ import {
   MAX_RENDERED_SEATS,
   snapToGrid,
   seatPlacements,
+  placeNewTable,
+  moveWallEndpoint,
 } from "./floor-plan-geometry.js";
 
 describe("floor-plan-geometry", () => {
@@ -198,5 +200,65 @@ describe("floor-plan-geometry", () => {
         expect(input).toEqual(snapshot);
       });
     });
+  });
+});
+
+describe("placeNewTable", () => {
+  const size = { width: 80, height: 60 };
+
+  it.each([
+    ["cozy", { width: 800, height: 600 }],
+    ["standard", { width: 1200, height: 800 }],
+    ["grand", { width: 2000, height: 1200 }],
+  ])("centres on an empty %s canvas", (_name, canvas) => {
+    expect(placeNewTable(canvas, size, [])).toEqual({ x: canvas.width / 2, y: canvas.height / 2 });
+  });
+
+  it("nudges to the nearest free grid cell when the centre is taken", () => {
+    const canvas = { width: 1200, height: 800 };
+    const taken = [{ x: 600, y: 400, width: 80, height: 60 }];
+    const pos = placeNewTable(canvas, size, taken);
+    expect(pos).not.toEqual({ x: 600, y: 400 });
+    const overlaps = Math.abs(pos.x - 600) < (80 + 80) / 2 && Math.abs(pos.y - 400) < (60 + 60) / 2;
+    expect(overlaps).toBe(false);
+    expect(pos.x % GRID_SIZE).toBe(0);
+    expect(pos.y % GRID_SIZE).toBe(0);
+  });
+});
+
+describe("moveWallEndpoint on a plan larger than the 800x600 default (#7256)", () => {
+  const wall = {
+    id: "w1",
+    x1: 0,
+    y1: 0,
+    x2: 2000,
+    y2: 0,
+    thickness: 8,
+    wallType: "wall" as const,
+  };
+
+  it("keeps a Grand plan's right perimeter endpoint where it was dragged", () => {
+    const moved = moveWallEndpoint(wall, 2, { x: 2000, y: 0 }, GRID_SIZE, {
+      width: 2000,
+      height: 1200,
+    });
+
+    expect(moved.x2).toBe(2000);
+  });
+
+  it("still clamps to the plan's own edge, not the default one", () => {
+    const moved = moveWallEndpoint(wall, 2, { x: 5000, y: 4000 }, GRID_SIZE, {
+      width: 2000,
+      height: 1200,
+    });
+
+    expect(moved.x2).toBe(2000);
+    expect(moved.y2).toBe(1200);
+  });
+
+  it("falls back to 800x600 when no canvas is given", () => {
+    const moved = moveWallEndpoint(wall, 2, { x: 2000, y: 0 });
+
+    expect(moved.x2).toBe(CANVAS_WIDTH);
   });
 });

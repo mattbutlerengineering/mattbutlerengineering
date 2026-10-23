@@ -1,6 +1,7 @@
 export * from "./user.js";
 export * from "./reservation.js";
 export * from "./floor-plan.js";
+export * from "./floor-plan-section.js";
 export * from "./menu.js";
 export * from "./table-status.js";
 export * from "./api.js";

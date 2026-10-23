@@ -173,8 +173,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build rialto (styles export requires dist/)
-        run: pnpm build --filter @mattbutlerengineering/rialto
+      # The app's and both services' workspace dependencies, not just rialto.
+      # `@mbe/types` resolves its runtime export condition to `dist/`, so
+      # `@mbe/service-bootstrap` cannot import it from source and `users-api` dies at
+      # boot with ERR_MODULE_NOT_FOUND — which surfaces only as
+      # `users-api never became healthy` in the health wait below.
+      - name: Build the app's and services' workspace dependencies (dist exports)
+        run: pnpm build --filter '@mbe/hospitality^...' --filter '@mbe/users-service^...' --filter '@mbe/reservations-service^...'
 
       - name: Install Playwright
         run: npx playwright install --with-deps chromium

@@ -124,9 +124,17 @@ export const PublicVenueSchema = z.object({
   phone: z.string().optional(),
 });
 
+/**
+ * Mirrors the Prisma `DepositType` enum. Exported under this name so the
+ * prisma-enum-drift guard (scripts/prisma-enum-drift.mjs) pairs it with the
+ * database enum — the inline copy it replaces was invisible to that check
+ * and drifted silently by construction (#7310).
+ */
+export const DepositTypeSchema = z.enum(["flat", "per_person"]);
+
 export const PublicVenueDepositSchema = z.object({
   enabled: z.boolean(),
-  depositType: z.enum(["flat", "per_person"]).nullable(),
+  depositType: DepositTypeSchema.nullable(),
   amountCents: z.number().nullable(),
   freeCancellationHours: z.number().nullable(),
   lateCancellationFeePercent: z.number().nullable(),

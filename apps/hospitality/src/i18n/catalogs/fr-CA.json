@@ -128,7 +128,6 @@
       "intro": "Partez d’une disposition semblable à la vôtre, puis ajustez-la.",
       "required": "Choisissez une disposition pour continuer — choisissez Vide pour commencer avec une salle vide.",
       "locked": "Votre établissement est déjà en cours de création; cette disposition est donc verrouillée. Terminez la configuration, puis réorganisez les tables dans l’éditeur de plan de salle.",
-      "layoutLabel": "Disposition du plan de salle",
       "tableCount_one": "{{count}} table",
       "tableCount_many": "{{count}} de tables",
       "tableCount_other": "{{count}} tables",
@@ -136,10 +135,6 @@
       "seatCount_many": "{{count}} de places",
       "seatCount_other": "{{count}} places",
       "summary": "{{tables}} · {{seats}}",
-      "summaryBlank": "Aucune table",
-      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
-      "cardLabelBlank": "{{name}} — aucune table",
-      "layoutApplied": "Disposition {{name}} appliquée — {{tables}}",
       "tableAdded": "{{name}} ajoutée",
       "tableRemoved": "{{name}} supprimée",
       "addTable": "Ajouter une table",
@@ -160,28 +155,6 @@
         "square": "Carrée",
         "rectangle": "Rectangulaire",
         "circle": "Ronde"
-      },
-      "templates": {
-        "restaurant": {
-          "name": "Restaurant",
-          "zoneLine": "4 tables de 2 près des fenêtres · 6 tables de 4 · 2 tables rondes de 6 · 2 places au comptoir"
-        },
-        "cafe": {
-          "name": "Café",
-          "zoneLine": "5 tables de 2 près des fenêtres · 3 tables rondes de café · 2 tables de 4"
-        },
-        "bar": {
-          "name": "Bar",
-          "zoneLine": "6 tables hautes · 4 tables rondes debout · 2 banquettes"
-        },
-        "patio": {
-          "name": "Terrasse",
-          "zoneLine": "6 tables rondes avec parasol · 2 tables longues"
-        },
-        "blank": {
-          "name": "Vide",
-          "zoneLine": "Partez de zéro — ajoutez les tables vous-même"
-        }
       }
     },
     "launch": {
@@ -435,12 +408,7 @@
       "name": "Nom",
       "tableNumber": "Numéro de table",
       "capacity": "Capacité",
-      "guests": "{{min}} - {{max}} convives",
       "location": "Emplacement",
-      "notSet": "Non défini",
-      "status": "Statut",
-      "statusActive": "Active",
-      "statusInactive": "Inactive",
       "position": "Position",
       "positionValue": "x : {{x}}, y : {{y}}",
       "deleteTable": "Supprimer la table",
@@ -453,7 +421,19 @@
       "deleteTitle": "Supprimer cette table?",
       "deleteDescription": "Cette action est irréversible.",
       "delete": "Supprimer",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "minCovers": "Couverts minimum",
+      "maxCovers": "Couverts maximum",
+      "tableNumberPlaceholder": "p. ex. 12",
+      "locationPlaceholder": "p. ex. Fenêtre",
+      "activeDescription": "Les tables inactives restent sur le plan de salle mais ne peuvent pas être réservées.",
+      "nameRequired": "Le nom de la table est obligatoire.",
+      "capacityMin": "La capacité doit être d'au moins 1.",
+      "minCoversMin": "Les couverts minimum doivent être d'au moins 1.",
+      "minCoversExceedsMax": "Les couverts minimum ne peuvent pas dépasser les couverts maximum.",
+      "maxCoversMin": "Les couverts maximum doivent être d'au moins 1.",
+      "saveTable": "Enregistrer la table",
+      "saveTableFailed": "Échec de l'enregistrement de la table."
     },
     "newDialog": {
       "title": "Nouveau plan de salle",
@@ -517,6 +497,90 @@
       "endY": "Y d'arrivée",
       "thickness": "Épaisseur",
       "delete": "Supprimer le mur"
+    },
+    "sections": {
+      "title": "Sections",
+      "tableCount_one": "{{count}} table",
+      "tableCount_many": "{{count}} de tables",
+      "tableCount_other": "{{count}} tables",
+      "material": "Plancher",
+      "materialFor": "Matériau du plancher de {{name}}",
+      "materialNone": "Aucun"
+    },
+    "templates": {
+      "preview": "Aperçu du plan de salle : {{tables}} et {{sections}}",
+      "previewEmpty": "Aperçu du plan de salle : une salle vide",
+      "tableCount_one": "{{count}} table",
+      "tableCount_many": "{{count}} de tables",
+      "tableCount_other": "{{count}} tables",
+      "sectionCount_one": "{{count}} section",
+      "sectionCount_many": "{{count}} de sections",
+      "sectionCount_other": "{{count}} sections",
+      "pickerTitle": "Partir d'une salle",
+      "pickerDescription": "Choisissez une forme de salle et une taille. Vous pourrez tout déplacer ensuite.",
+      "templateLabel": "Modèle de salle",
+      "sizeLabel": "Taille de la salle",
+      "cardLabel": "{{name}} — {{description}}",
+      "summary": "{{tables}} · {{sections}}",
+      "summaryEmpty": "Rien de placé",
+      "applied": "{{name}} appliqué en {{size}} — {{tables}}",
+      "use": "Utiliser cette salle",
+      "startBlank": "Partir d'une salle vide",
+      "items": {
+        "blank": {
+          "name": "Vide",
+          "description": "Une salle vide que vous aménagez vous-même"
+        },
+        "fine-dining": {
+          "name": "Gastronomique",
+          "description": "Tables rondes, un salon privé et des tables pour deux près des fenêtres"
+        },
+        "casual-bistro": {
+          "name": "Bistro décontracté",
+          "description": "Tables en losange, une table commune et une rangée de banquettes"
+        },
+        "bar-lounge": {
+          "name": "Bar et salon",
+          "description": "Un long bar, des tables à cocktail et des banquettes de salon"
+        },
+        "cafe": {
+          "name": "Café",
+          "description": "Places près des fenêtres, un comptoir de service et des coins douillets"
+        },
+        "banquet-hall": {
+          "name": "Salle de banquet",
+          "description": "Tables rondes de huit, une table d'honneur et une scène"
+        },
+        "open-kitchen": {
+          "name": "Cuisine ouverte",
+          "description": "Un comptoir du chef, une cuisine visible et des places variées"
+        }
+      },
+      "sizes": {
+        "cozy": {
+          "name": "Intime",
+          "description": "Environ 93 m²"
+        },
+        "standard": {
+          "name": "Standard",
+          "description": "Environ 186 m²"
+        },
+        "spacious": {
+          "name": "Spacieux",
+          "description": "Environ 325 m²"
+        },
+        "grand": {
+          "name": "Grand",
+          "description": "Environ 465 m²"
+        }
+      }
+    },
+    "materials": {
+      "hardwood": "Bois franc",
+      "concrete": "Béton",
+      "carpet": "Tapis",
+      "tile": "Tuile",
+      "marble": "Marbre"
     }
   },
   "localePicker": {
@@ -1780,6 +1844,12 @@
   "venueTheme": {
     "title": "Thème du lieu",
     "description": "La couleur de votre marque pour les boutons, liens et accents. Les palettes qui nuisent à la lisibilité ne peuvent pas être enregistrées.",
+    "logoLabel": "Extraire les couleurs d'un logo",
+    "logoHint": "PNG, JPEG ou WebP. L'image reste sur cet appareil — seules les couleurs sont enregistrées.",
+    "logoNoColours": "Ce logo n'a aucune couleur utilisable — il semble tout blanc, tout noir ou entièrement transparent.",
+    "logoUnsupportedType": "Ce fichier n'est pas une image PNG, JPEG ou WebP.",
+    "logoTooLarge": "Cette image est trop grande. Choisissez-en une de moins de 8 Mo.",
+    "logoDecodeFailed": "Cette image n'a pas pu être lue. Essayez un autre fichier.",
     "accent": "Couleur d'accent",
     "accentHover": "Couleur d'accent au survol",
     "previewTitle": "Aperçu",

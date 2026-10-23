@@ -128,7 +128,6 @@
       "intro": "Parte de una distribución como la tuya y luego acomódala.",
       "required": "Elige una distribución para continuar; elige En blanco para empezar con el salón vacío.",
       "locked": "Tu local ya se está creando, así que esta distribución está bloqueada. Termina la configuración y luego reacomoda las mesas en el editor de planos.",
-      "layoutLabel": "Distribución del plano",
       "tableCount_one": "{{count}} mesa",
       "tableCount_many": "{{count}} de mesas",
       "tableCount_other": "{{count}} mesas",
@@ -136,10 +135,6 @@
       "seatCount_many": "{{count}} de lugares",
       "seatCount_other": "{{count}} lugares",
       "summary": "{{tables}} · {{seats}}",
-      "summaryBlank": "Sin mesas",
-      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
-      "cardLabelBlank": "{{name}} — sin mesas",
-      "layoutApplied": "Distribución {{name}} aplicada — {{tables}}",
       "tableAdded": "{{name}} agregada",
       "tableRemoved": "{{name}} eliminada",
       "addTable": "Agregar mesa",
@@ -160,28 +155,6 @@
         "square": "Cuadrada",
         "rectangle": "Rectangular",
         "circle": "Circular"
-      },
-      "templates": {
-        "restaurant": {
-          "name": "Restaurante",
-          "zoneLine": "4 mesas de 2 junto a la ventana · 6 mesas de 4 · 2 mesas redondas de 6 · 2 lugares en barra"
-        },
-        "cafe": {
-          "name": "Cafetería",
-          "zoneLine": "5 mesas de 2 junto a la ventana · 3 mesas redondas · 2 mesas de 4"
-        },
-        "bar": {
-          "name": "Bar",
-          "zoneLine": "6 mesas altas · 4 mesas redondas de pie · 2 gabinetes"
-        },
-        "patio": {
-          "name": "Patio",
-          "zoneLine": "6 mesas redondas con sombrilla · 2 mesas largas"
-        },
-        "blank": {
-          "name": "En blanco",
-          "zoneLine": "Empieza vacío: agrega las mesas tú mismo"
-        }
       }
     },
     "launch": {
@@ -435,12 +408,7 @@
       "name": "Nombre",
       "tableNumber": "Número de mesa",
       "capacity": "Capacidad",
-      "guests": "{{min}} - {{max}} comensales",
       "location": "Ubicación",
-      "notSet": "Sin definir",
-      "status": "Estado",
-      "statusActive": "Activa",
-      "statusInactive": "Inactiva",
       "position": "Posición",
       "positionValue": "x: {{x}}, y: {{y}}",
       "deleteTable": "Eliminar mesa",
@@ -453,7 +421,19 @@
       "deleteTitle": "¿Eliminar esta mesa?",
       "deleteDescription": "Esta acción no se puede deshacer.",
       "delete": "Eliminar",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "minCovers": "Comensales mínimos",
+      "maxCovers": "Comensales máximos",
+      "tableNumberPlaceholder": "p. ej. 12",
+      "locationPlaceholder": "p. ej. Ventana",
+      "activeDescription": "Las mesas inactivas permanecen en el plano pero no se pueden reservar.",
+      "nameRequired": "El nombre de la mesa es obligatorio.",
+      "capacityMin": "La capacidad debe ser al menos 1.",
+      "minCoversMin": "Los comensales mínimos deben ser al menos 1.",
+      "minCoversExceedsMax": "Los comensales mínimos no pueden superar a los máximos.",
+      "maxCoversMin": "Los comensales máximos deben ser al menos 1.",
+      "saveTable": "Guardar mesa",
+      "saveTableFailed": "No se pudo guardar la mesa."
     },
     "newDialog": {
       "title": "Nuevo plano de sala",
@@ -517,6 +497,90 @@
       "endY": "Y final",
       "thickness": "Grosor",
       "delete": "Eliminar pared"
+    },
+    "sections": {
+      "title": "Secciones",
+      "tableCount_one": "{{count}} mesa",
+      "tableCount_many": "{{count}} de mesas",
+      "tableCount_other": "{{count}} mesas",
+      "material": "Piso",
+      "materialFor": "Material del piso de {{name}}",
+      "materialNone": "Ninguno"
+    },
+    "templates": {
+      "preview": "Vista previa del plano: {{tables}} y {{sections}}",
+      "previewEmpty": "Vista previa del plano: un piso vacío",
+      "tableCount_one": "{{count}} mesa",
+      "tableCount_many": "{{count}} de mesas",
+      "tableCount_other": "{{count}} mesas",
+      "sectionCount_one": "{{count}} sección",
+      "sectionCount_many": "{{count}} de secciones",
+      "sectionCount_other": "{{count}} secciones",
+      "pickerTitle": "Comienza con un salón",
+      "pickerDescription": "Elige la forma del salón y su tamaño. Después puedes mover todo.",
+      "templateLabel": "Plantilla de salón",
+      "sizeLabel": "Tamaño del salón",
+      "cardLabel": "{{name}} — {{description}}",
+      "summary": "{{tables}} · {{sections}}",
+      "summaryEmpty": "Nada colocado aún",
+      "applied": "{{name}} aplicado en {{size}} — {{tables}}",
+      "use": "Usar este salón",
+      "startBlank": "Mejor empezar en blanco",
+      "items": {
+        "blank": {
+          "name": "En blanco",
+          "description": "Un piso vacío que acomodas tú"
+        },
+        "fine-dining": {
+          "name": "Alta cocina",
+          "description": "Mesas redondas, un salón privado y mesas para dos junto a la ventana"
+        },
+        "casual-bistro": {
+          "name": "Bistró informal",
+          "description": "Mesas en diamante, una mesa comunitaria y una fila de bancas"
+        },
+        "bar-lounge": {
+          "name": "Bar y lounge",
+          "description": "Una barra larga, mesas de coctel y bancas de lounge"
+        },
+        "cafe": {
+          "name": "Café",
+          "description": "Asientos junto a la ventana, un mostrador de servicio y rincones acogedores"
+        },
+        "banquet-hall": {
+          "name": "Salón de banquetes",
+          "description": "Mesas redondas para ocho, una mesa principal y un escenario"
+        },
+        "open-kitchen": {
+          "name": "Cocina abierta",
+          "description": "Una barra del chef, cocina a la vista y asientos variados"
+        }
+      },
+      "sizes": {
+        "cozy": {
+          "name": "Acogedor",
+          "description": "Unos 93 m²"
+        },
+        "standard": {
+          "name": "Estándar",
+          "description": "Unos 186 m²"
+        },
+        "spacious": {
+          "name": "Amplio",
+          "description": "Unos 325 m²"
+        },
+        "grand": {
+          "name": "Gran salón",
+          "description": "Unos 465 m²"
+        }
+      }
+    },
+    "materials": {
+      "hardwood": "Madera",
+      "concrete": "Concreto",
+      "carpet": "Alfombra",
+      "tile": "Azulejo",
+      "marble": "Mármol"
     }
   },
   "localePicker": {
@@ -1780,6 +1844,12 @@
   "venueTheme": {
     "title": "Tema del local",
     "description": "El color de tu marca para botones, enlaces y resaltados. No se pueden guardar paletas que dificulten la lectura.",
+    "logoLabel": "Toma los colores de un logotipo",
+    "logoHint": "PNG, JPEG o WebP. La imagen permanece en este dispositivo: solo se guardan los colores.",
+    "logoNoColours": "Ese logotipo no tiene colores utilizables: parece todo blanco, todo negro o completamente transparente.",
+    "logoUnsupportedType": "Ese archivo no es una imagen PNG, JPEG o WebP.",
+    "logoTooLarge": "Esa imagen es demasiado grande. Elige una de menos de 8 MB.",
+    "logoDecodeFailed": "No se pudo leer esa imagen. Prueba con otro archivo.",
     "accent": "Color de acento",
     "accentHover": "Color de acento al pasar el cursor",
     "previewTitle": "Vista previa",

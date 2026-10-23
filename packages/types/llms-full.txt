@@ -310,6 +310,53 @@
       });
     }
   </file>
+  <file path="src/schemas/floor-plan-section.ts">
+    export const FLOOR_MATERIALS = ["hardwood", "concrete", "carpet", "tile", "marble"] as const;
+    export const FloorMaterialSchema = z.enum(FLOOR_MATERIALS);
+    export const FloorPlanSectionSchema = z.object({
+      id: z.string(),
+      venueId: z.string(),
+      floorPlanId: z.string(),
+      name: z.string(),
+      color: z.string(),
+      displayOrder: z.number().int(),
+      /**
+       * `null` means no floor finish: the zone renders exactly as it did before
+       * materials existed. Absent is tolerated too, so a client deployed ahead of
+       * the service still parses a response from before the column existed.
+       */
+      floorMaterial: FloorMaterialSchema.nullish(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
+    export const CreateFloorPlanSectionRequestSchema = z.object({
+      floorPlanId: z.string().min(1),
+      name: z.string().min(1),
+      color: HexColorSchema.optional(),
+      displayOrder: z.number().int().optional(),
+      /** Explicit `null` clears the floor finish; omitted leaves it untouched. */
+      floorMaterial: FloorMaterialSchema.nullable().optional(),
+    });
+    export const UpdateFloorPlanSectionRequestSchema = CreateFloorPlanSectionRequestSchema.omit({
+      floorPlanId: true,
+    }).partial();
+    export const ReorderFloorPlanSectionsRequestSchema = z.object({
+      floorPlanId: z.string().min(1),
+      ids: z.array(z.string().min(1)).min(1),
+    });
+    export const AssignSectionTablesRequestSchema = z.object({ tableIds: z.array(z.string().min(1)) });
+    export const FloorPlanSectionListQuerySchema = z.object({
+      venueId: z.string().min(1),
+      floorPlanId: z.string().min(1).optional(),
+    });
+    export const FloorPlanSectionVenueQuerySchema = z.object({ venueId: z.string().min(1) });
+    export type FloorMaterial = z.infer<typeof FloorMaterialSchema>;
+    export type FloorPlanSection = z.infer<typeof FloorPlanSectionSchema>;
+    export type CreateFloorPlanSectionRequest = z.infer<typeof CreateFloorPlanSectionRequestSchema>;
+    export type UpdateFloorPlanSectionRequest = z.infer<typeof UpdateFloorPlanSectionRequestSchema>;
+    export type ReorderFloorPlanSectionsRequest = z.infer<typeof ReorderFloorPlanSectionsRequestSchema>;
+    export type AssignSectionTablesRequest = z.infer<typeof AssignSectionTablesRequestSchema>;
+  </file>
   <file path="src/schemas/floor-plan.ts">
     export const TableShapeMetadataSchema = z.object({
       x: z.number(),
@@ -329,6 +376,13 @@
       thickness: z.number().positive(),
       wallType: z.enum(["wall", "window"]).optional(),
     });
+    export const SectionLayoutSchema = z.object({
+      id: z.string(),
+      x: z.number(),
+      y: z.number(),
+      width: z.number().positive(),
+      height: z.number().positive(),
+    });
     export const FloorPlanLayoutSchema = z.object({
       width: z.number(),
       height: z.number(),
@@ -336,6 +390,7 @@
       gridSize: z.number().optional(),
       showGrid: z.boolean().optional(),
       walls: z.array(WallLayoutSchema).optional(),
+      sections: z.array(SectionLayoutSchema).optional(),
     });
     export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
     export const TableSchema = z.object({
@@ -351,6 +406,7 @@
       status: TableStatusSchema,
       venueId: z.string().nullable(),
       floorPlanId: z.string().nullable(),
+      sectionId: z.string().nullable().optional(),
       shapeMetadata: TableShapeMetadataSchema.nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -646,6 +702,24 @@
     export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema);
     export const publicMenuResponseJsonSchema = toResponseJsonSchema(PublicMenuSchema);
     export const publicMenuDetailResponseJsonSchema = toResponseJsonSchema(PublicMenuDetailSchema);
+    export const floorPlanSectionListQueryJsonSchema = toRequestJsonSchema(
+      FloorPlanSectionListQuerySchema
+    );
+    export const floorPlanSectionVenueQueryJsonSchema = toRequestJsonSchema(
+      FloorPlanSectionVenueQuerySchema
+    );
+    export const createFloorPlanSectionBodyJsonSchema = toRequestJsonSchema(
+      CreateFloorPlanSectionRequestSchema
+    );
+    export const updateFloorPlanSectionBodyJsonSchema = toRequestJsonSchema(
+      UpdateFloorPlanSectionRequestSchema
+    );
+    export const reorderFloorPlanSectionsBodyJsonSchema = toRequestJsonSchema(
+      ReorderFloorPlanSectionsRequestSchema
+    );
+    export const assignSectionTablesBodyJsonSchema = toRequestJsonSchema(
+      AssignSectionTablesRequestSchema
+    );
     export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
     export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
     export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
@@ -1024,19 +1098,37 @@
     export const CreateTableBodySchema = z
       .object({
         name: z.string().describe("Unique table name (e.g., 'Table 1', 'Patio A')"),
+        tableNumber: z.string().describe("Display table number").optional(),
         capacity: z.number().int().min(1).describe("Maximum number of guests the table can seat"),
+        minCovers: z.number().int().min(1).describe("Minimum covers to seat (default 1)").optional(),
+        maxCovers: z.number().int().min(1).describe("Maximum covers to seat").optional(),
         location: z.string().describe("Location description (e.g., 'Main Floor', 'Patio')").optional(),
+        priority: z.number().int().min(0).describe("Seating priority (0 = highest)").optional(),
         venueId: z.string().describe("ID of the venue this table belongs to").optional(),
+        floorPlanId: z.string().describe("Floor plan to place the table on").optional(),
+        shapeMetadata: TableShapeMetadataSchema.describe("Canvas shape and position").optional(),
       })
       .describe("Table creation payload");
     export const UpdateTableBodySchema = z
       .object({
         name: z.string().describe("New table name").optional(),
+        tableNumber: z.string().describe("New display table number").optional(),
         capacity: z.number().int().min(1).describe("New capacity").optional(),
+        minCovers: z.number().int().min(1).describe("Minimum covers to seat").optional(),
+        maxCovers: z.number().int().min(1).describe("Maximum covers to seat").optional(),
         location: z.string().describe("New location description").optional(),
         isActive: z
           .boolean()
           .describe("Whether the table is active and available for reservations")
+          .optional(),
+        priority: z.number().int().min(0).describe("Seating priority (0 = highest)").optional(),
+        floorPlanId: z
+          .string()
+          .nullable()
+          .describe("Floor plan to assign, or null to unassign")
+          .optional(),
+        shapeMetadata: TableShapeMetadataSchema.nullable()
+          .describe("Canvas shape/position, or null to clear")
           .optional(),
       })
       .describe("Fields to update");
@@ -1379,9 +1471,10 @@
       settings: z.object({ maxPartySize: z.number().optional() }).nullable().optional(),
       phone: z.string().optional(),
     });
+    export const DepositTypeSchema = z.enum(["flat", "per_person"]);
     export const PublicVenueDepositSchema = z.object({
       enabled: z.boolean(),
-      depositType: z.enum(["flat", "per_person"]).nullable(),
+      depositType: DepositTypeSchema.nullable(),
       amountCents: z.number().nullable(),
       freeCancellationHours: z.number().nullable(),
       lateCancellationFeePercent: z.number().nullable(),
@@ -1678,6 +1771,13 @@
       thickness: number;
       wallType?: "wall" | "window";
     }
+    export interface SectionLayout {
+      id: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
     export interface FloorPlanLayout {
       width: number;
       height: number;
@@ -1685,6 +1785,7 @@
       gridSize?: number;
       showGrid?: boolean;
       walls?: WallLayout[];
+      sections?: SectionLayout[];
     }
     export interface CreateFloorPlanRequest {
       venueId: string;
@@ -2176,6 +2277,7 @@
       status: TableStatus;
       venueId: string | null;
       floorPlanId: string | null;
+      sectionId?: string | null;
       shapeMetadata: TableShapeMetadata | null;
       createdAt: string;
       updatedAt: string;

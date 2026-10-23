@@ -1,4 +1,12 @@
-import type { FloorPlan, FloorPlanLayout, CreateTableRequest, Table } from "@mbe/types";
+import type {
+  FloorPlan,
+  FloorPlanLayout,
+  FloorPlanSection,
+  UpdateFloorPlanSectionRequest,
+  CreateTableRequest,
+  Table,
+  UpdateTableRequest,
+} from "@mbe/types";
 import type { useApiClient } from "./useApiClient.js";
 import { buildQueryKey, createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
@@ -104,6 +112,19 @@ export const useDeleteTable = createMutationHook<string>({
   mutationFn: (api, tableId) => api.tables.delete(tableId),
 });
 
+/* ── useUpdateTable mutation ─────────────────────────── */
+
+export interface UpdateTablePayload {
+  tableId: string;
+  changes: UpdateTableRequest;
+}
+
+export const useUpdateTable = createMutationHook<UpdateTablePayload, Table>({
+  // Invalidate all floor plan detail queries since the payload carries no plan id
+  invalidateKeys: FLOOR_PLAN_QUERY_KEY,
+  mutationFn: (api, { tableId, changes }) => api.tables.update(tableId, changes),
+});
+
 /* ── useUpdateFloorPlanLayout mutation ───────────────── */
 
 export const useUpdateFloorPlanLayout = createMutationHook<
@@ -116,4 +137,29 @@ export const useUpdateFloorPlanLayout = createMutationHook<
   onSuccess: (queryClient, _data, variables) => {
     queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
   },
+});
+
+/* ── useFloorPlanSections ────────────────────────────── */
+
+export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
+
+export const useFloorPlanSections = createQueryHook<
+  FloorPlanSection[],
+  { venueId?: string | null; floorPlanId?: string | null }
+>({
+  key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+  fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
+  getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
+});
+
+/* ── useUpdateFloorPlanSection mutation ──────────────── */
+
+/** Patches one section (name, colour, floor material). Re-reads the section list on success. */
+export const useUpdateFloorPlanSection = createMutationHook<
+  { venueId: string; sectionId: string; data: UpdateFloorPlanSectionRequest },
+  FloorPlanSection
+>({
+  invalidateKeys: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+  mutationFn: (api, { venueId, sectionId, data }) =>
+    api.floorPlanSections.update(venueId, sectionId, data),
 });

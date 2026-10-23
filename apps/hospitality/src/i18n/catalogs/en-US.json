@@ -128,16 +128,11 @@
       "intro": "Start from a layout like yours, then arrange it.",
       "required": "Choose a layout to continue — pick Blank to start with an empty floor.",
       "locked": "Your venue is already being created, so this layout is locked. Finish setting up, then rearrange tables in the floor plan editor.",
-      "layoutLabel": "Floor plan layout",
       "tableCount_one": "{{count}} table",
       "tableCount_other": "{{count}} tables",
       "seatCount_one": "{{count}} seat",
       "seatCount_other": "{{count}} seats",
       "summary": "{{tables}} · {{seats}}",
-      "summaryBlank": "No tables",
-      "cardLabel": "{{name}} — {{tables}}, {{seats}}",
-      "cardLabelBlank": "{{name}} — no tables",
-      "layoutApplied": "{{name}} layout applied — {{tables}}",
       "tableAdded": "{{name}} added",
       "tableRemoved": "{{name}} removed",
       "addTable": "Add table",
@@ -158,28 +153,6 @@
         "square": "Square",
         "rectangle": "Rectangle",
         "circle": "Circle"
-      },
-      "templates": {
-        "restaurant": {
-          "name": "Restaurant",
-          "zoneLine": "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats"
-        },
-        "cafe": {
-          "name": "Cafe",
-          "zoneLine": "5 window 2-tops · 3 café rounds · 2 four-tops"
-        },
-        "bar": {
-          "name": "Bar",
-          "zoneLine": "6 high-tops · 4 standing rounds · 2 booths"
-        },
-        "patio": {
-          "name": "Patio",
-          "zoneLine": "6 umbrella rounds · 2 long tables"
-        },
-        "blank": {
-          "name": "Blank",
-          "zoneLine": "Start empty — add tables yourself"
-        }
       }
     },
     "launch": {
@@ -427,12 +400,7 @@
       "name": "Name",
       "tableNumber": "Table Number",
       "capacity": "Capacity",
-      "guests": "{{min}} - {{max}} guests",
       "location": "Location",
-      "notSet": "Not set",
-      "status": "Status",
-      "statusActive": "Active",
-      "statusInactive": "Inactive",
       "position": "Position",
       "positionValue": "x: {{x}}, y: {{y}}",
       "deleteTable": "Delete Table",
@@ -445,7 +413,19 @@
       "deleteTitle": "Delete this table?",
       "deleteDescription": "This action cannot be undone.",
       "delete": "Delete",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "minCovers": "Min Covers",
+      "maxCovers": "Max Covers",
+      "tableNumberPlaceholder": "e.g. 12",
+      "locationPlaceholder": "e.g. Window",
+      "activeDescription": "Inactive tables stay on the floor plan but cannot be booked.",
+      "nameRequired": "Table name is required.",
+      "capacityMin": "Capacity must be at least 1.",
+      "minCoversMin": "Min covers must be at least 1.",
+      "minCoversExceedsMax": "Min covers cannot exceed max covers.",
+      "maxCoversMin": "Max covers must be at least 1.",
+      "saveTable": "Save Table",
+      "saveTableFailed": "Failed to save table."
     },
     "newDialog": {
       "title": "New Floor Plan",
@@ -509,6 +489,87 @@
       "endY": "End Y",
       "thickness": "Thickness",
       "delete": "Delete wall"
+    },
+    "sections": {
+      "title": "Sections",
+      "tableCount_one": "{{count}} table",
+      "tableCount_other": "{{count}} tables",
+      "material": "Floor",
+      "materialFor": "Floor material for {{name}}",
+      "materialNone": "None"
+    },
+    "templates": {
+      "preview": "Floor plan preview: {{tables}} and {{sections}}",
+      "previewEmpty": "Floor plan preview: an empty floor",
+      "tableCount_one": "{{count}} table",
+      "tableCount_other": "{{count}} tables",
+      "sectionCount_one": "{{count}} section",
+      "sectionCount_other": "{{count}} sections",
+      "pickerTitle": "Start from a room",
+      "pickerDescription": "Pick a room shape and a size. You can move everything afterwards.",
+      "templateLabel": "Room template",
+      "sizeLabel": "Room size",
+      "cardLabel": "{{name}} — {{description}}",
+      "summary": "{{tables}} · {{sections}}",
+      "summaryEmpty": "Nothing placed yet",
+      "applied": "{{name}} applied at {{size}} — {{tables}}",
+      "use": "Use this room",
+      "startBlank": "Start blank instead",
+      "items": {
+        "blank": {
+          "name": "Blank",
+          "description": "An empty floor you arrange yourself"
+        },
+        "fine-dining": {
+          "name": "Fine Dining",
+          "description": "Round tables, a private room and window two-tops"
+        },
+        "casual-bistro": {
+          "name": "Casual Bistro",
+          "description": "Diamond tops, a communal table and a booth run"
+        },
+        "bar-lounge": {
+          "name": "Bar & Lounge",
+          "description": "A long bar, cocktail rounds and lounge booths"
+        },
+        "cafe": {
+          "name": "Café",
+          "description": "Window seats, a service counter and cozy nooks"
+        },
+        "banquet-hall": {
+          "name": "Banquet Hall",
+          "description": "Round eight-tops, a head table and a stage"
+        },
+        "open-kitchen": {
+          "name": "Open Kitchen",
+          "description": "A chef's counter, visible kitchen and mixed seating"
+        }
+      },
+      "sizes": {
+        "cozy": {
+          "name": "Cozy",
+          "description": "About 1,000 sq ft"
+        },
+        "standard": {
+          "name": "Standard",
+          "description": "About 2,000 sq ft"
+        },
+        "spacious": {
+          "name": "Spacious",
+          "description": "About 3,500 sq ft"
+        },
+        "grand": {
+          "name": "Grand",
+          "description": "About 5,000 sq ft"
+        }
+      }
+    },
+    "materials": {
+      "hardwood": "Hardwood",
+      "concrete": "Concrete",
+      "carpet": "Carpet",
+      "tile": "Tile",
+      "marble": "Marble"
     }
   },
   "localePicker": {
@@ -1756,6 +1817,12 @@
   "venueTheme": {
     "title": "Venue theme",
     "description": "Your brand colour for buttons, links and highlights. Palettes that would make text hard to read can't be saved.",
+    "logoLabel": "Take the colours from a logo",
+    "logoHint": "PNG, JPEG or WebP. The image stays on this device — only the colours are saved.",
+    "logoNoColours": "That logo has no usable colours — it looks all white, all black or fully transparent.",
+    "logoUnsupportedType": "That file isn't a PNG, JPEG or WebP image.",
+    "logoTooLarge": "That image is too large. Choose one under 8 MB.",
+    "logoDecodeFailed": "That image couldn't be read. Try a different file.",
     "accent": "Accent colour",
     "accentHover": "Accent hover colour",
     "previewTitle": "Preview",

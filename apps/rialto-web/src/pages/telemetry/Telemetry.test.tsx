@@ -91,6 +91,13 @@ describe("Telemetry HUD", () => {
   });
 });
 
+describe("page heading", () => {
+  it("exposes a single level-one heading", () => {
+    renderRoute();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+});
+
 describe("route-local vibe switch", () => {
   it("lands under the game vibe", () => {
     const { container } = renderRoute("?frozen=1");
@@ -168,5 +175,16 @@ describe("feed states", () => {
     expect(empty).toEqual(live);
     expect(connecting).toEqual(live);
     expect(stale).toEqual(live);
+  });
+});
+
+describe("zone table accessibility", () => {
+  it("gives every column header an accessible name", () => {
+    renderRoute("?frozen=1");
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers.length).toBeGreaterThan(0);
+    for (const header of headers) {
+      expect(header.textContent?.trim()).not.toBe("");
+    }
   });
 });

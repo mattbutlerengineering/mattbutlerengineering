@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { ApiClientError } from "@mbe/api-client";
-import type { CreateVenueRequest, Venue, FloorPlan, Table } from "@mbe/types";
+import type { CreateVenueRequest, Venue, FloorPlan, FloorPlanSection, Table } from "@mbe/types";
 import type { DraftTable, FloorPlanDraft } from "./floor-plan-draft.js";
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "../floor-plan/floor-plan-geometry.js";
 import {
   DEFAULT_LAYOUT,
   INITIAL_LAUNCH_PROGRESS,
@@ -39,16 +40,53 @@ function makeDraftTable(overrides: Partial<DraftTable> = {}): DraftTable {
 
 function makeDraft(overrides: Partial<FloorPlanDraft> = {}): FloorPlanDraft {
   return {
-    templateId: "template-1",
+    templateId: null,
+    sizeId: "cozy",
     planName: "Main Floor",
     tables: [
       makeDraftTable({ localId: "T1", name: "T1" }),
       makeDraftTable({ localId: "T2", name: "T2" }),
       makeDraftTable({ localId: "T3", name: "T3" }),
     ],
+    sections: [],
+    walls: [],
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
     pristine: false,
     ...overrides,
   };
+}
+
+/** A draft that names a room: its own canvas, a wall, and two named zones. */
+function makeRoomDraft(overrides: Partial<FloorPlanDraft> = {}): FloorPlanDraft {
+  return makeDraft({
+    templateId: "fine-dining",
+    sizeId: "standard",
+    width: 1200,
+    height: 800,
+    walls: [{ id: "w1", x1: 0, y1: 0, x2: 1200, y2: 0, thickness: 6 }],
+    sections: [
+      {
+        id: "fine-dining-main-dining",
+        name: "Main Dining",
+        color: "#8b7355",
+        x: 24,
+        y: 24,
+        width: 600,
+        height: 736,
+      },
+      {
+        id: "fine-dining-private",
+        name: "Private",
+        color: "#6b5740",
+        x: 744,
+        y: 24,
+        width: 432,
+        height: 736,
+      },
+    ],
+    ...overrides,
+  });
 }
 
 const VENUE_PAYLOAD: CreateVenueRequest = {
@@ -105,8 +143,23 @@ function makeTable(name: string): Table {
   };
 }
 
+function makeSection(name: string, venueId = "venue-1", floorPlanId = "floor-plan-1") {
+  return {
+    id: `section-${name}`,
+    venueId,
+    floorPlanId,
+    name,
+    color: "#8b7355",
+    displayOrder: 0,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  } satisfies FloorPlanSection;
+}
+
 /** Tracks cross-mock call order via a single shared log. */
 function makeFakeApi(callLog: string[] = []): LaunchApi & { callLog: string[] } {
+  const created: Table[] = [];
+  const sections: FloorPlanSection[] = [];
   return {
     callLog,
     venues: {
@@ -120,15 +173,50 @@ function makeFakeApi(callLog: string[] = []): LaunchApi & { callLog: string[] } 
         callLog.push("floorPlans.create");
         return makeFloorPlan();
       }),
+      update: vi.fn(async () => {
+        callLog.push("floorPlans.update");
+        return makeFloorPlan();
+      }),
       setActive: vi.fn(async () => {
         callLog.push("floorPlans.setActive");
         return { ...makeFloorPlan(), isActive: true };
       }),
     },
+    floorPlanSections: {
+      list: vi.fn(async () => {
+        callLog.push("floorPlanSections.list");
+        return [...sections];
+      }),
+      create: vi.fn(async (venueId: string, data: { floorPlanId: string; name: string }) => {
+        callLog.push(`floorPlanSections.create:${data.name}`);
+        const row = makeSection(data.name, venueId, data.floorPlanId);
+        sections.push(row);
+        return row;
+      }),
+      assignTables: vi.fn(async (_venueId: string, sectionId: string, tableIds: string[]) => {
+        callLog.push(`floorPlanSections.assignTables:${sectionId}`);
+        return tableIds.map((id) => makeTable(id.replace("table-", "")));
+      }),
+    },
     tables: {
       create: vi.fn(async (data: { name: string }) => {
         callLog.push(`tables.create:${data.name}`);
+        created.push(makeTable(data.name));
         return makeTable(data.name);
+      }),
+      list: vi.fn(async () => {
+        callLog.push("tables.list");
+        return {
+          data: [...created],
+          pagination: {
+            page: 1,
+            limit: 100,
+            total: created.length,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
+        };
       }),
     },
   };
@@ -151,6 +239,7 @@ describe("launch-sequence", () => {
       expect(INITIAL_LAUNCH_PROGRESS).toEqual({
         venueId: null,
         floorPlanId: null,
+        sectionsDone: false,
         createdTableNames: [],
         activated: false,
         inFlightStage: null,
@@ -179,6 +268,7 @@ describe("launch-sequence", () => {
       const done: LaunchProgress = {
         venueId: "v1",
         floorPlanId: "fp1",
+        sectionsDone: true,
         createdTableNames: ["T1", "T2", "T3"],
         activated: true,
         inFlightStage: null,
@@ -193,6 +283,7 @@ describe("launch-sequence", () => {
         ...INITIAL_LAUNCH_PROGRESS,
         venueId: "v1",
         floorPlanId: "fp1",
+        sectionsDone: true,
       };
       expect(nextStage(afterFloorPlan, makeDraft({ tables: [] }))).toBe("activate");
     });
@@ -207,6 +298,7 @@ describe("launch-sequence", () => {
             const progress: LaunchProgress = {
               venueId: "v1",
               floorPlanId: null,
+              sectionsDone: true,
               createdTableNames: [],
               activated,
               inFlightStage,
@@ -238,6 +330,7 @@ describe("launch-sequence", () => {
         ...INITIAL_LAUNCH_PROGRESS,
         venueId: "v1",
         floorPlanId: "fp1",
+        sectionsDone: true,
         activated: true,
       };
       expect(stageStateOf(progress, "venue")).toBe("done");
@@ -367,6 +460,16 @@ describe("launch-sequence", () => {
         name: "Patio",
         layoutJson: DEFAULT_LAYOUT,
       });
+    });
+
+    it("makes no section calls at all for a draft that names no zones", async () => {
+      const api = makeFakeApi();
+
+      await runLaunchSequence(api, makeDraft(), VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn());
+
+      expect(api.floorPlanSections.list).not.toHaveBeenCalled();
+      expect(api.floorPlanSections.create).not.toHaveBeenCalled();
+      expect(api.floorPlans.update).not.toHaveBeenCalled();
     });
 
     it("at N = 0, posts no table and the sequence still activates", async () => {
@@ -607,6 +710,246 @@ describe("launch-sequence", () => {
       expect(api.floorPlans.setActive).toHaveBeenCalledTimes(2);
       expect(second.activated).toBe(true);
       expect(second.failedStage).toBeNull();
+    });
+  });
+
+  // A room template (#7256) gives the plan its own canvas, perimeter walls and
+  // named zones. The zones are two writes inside the floorPlan stage, so the
+  // resume contract has to cover a failure between them.
+  describe("a draft that names a room", () => {
+    it("saves the room's own canvas and walls on the plan", async () => {
+      const api = makeFakeApi();
+      const draft = makeRoomDraft({ planName: "Dining Room" });
+
+      await runLaunchSequence(api, draft, VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn());
+
+      expect(api.floorPlans.create).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        name: "Dining Room",
+        layoutJson: {
+          width: 1200,
+          height: 800,
+          gridSize: 20,
+          showGrid: true,
+          walls: draft.walls,
+        },
+      });
+    });
+
+    it("creates one section row per zone, in order, then writes their rectangles", async () => {
+      const api = makeFakeApi();
+      const draft = makeRoomDraft();
+
+      await runLaunchSequence(api, draft, VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn());
+
+      expect(api.floorPlanSections.create).toHaveBeenCalledTimes(2);
+      expect(api.floorPlanSections.create).toHaveBeenNthCalledWith(1, "venue-1", {
+        floorPlanId: "floor-plan-1",
+        name: "Main Dining",
+        color: "#8b7355",
+        displayOrder: 0,
+      });
+      expect(api.floorPlans.update).toHaveBeenCalledWith("floor-plan-1", {
+        layoutJson: {
+          width: 1200,
+          height: 800,
+          gridSize: 20,
+          showGrid: true,
+          walls: draft.walls,
+          // Keyed by the ids the server minted, never the builder's local ones.
+          sections: [
+            { id: "section-Main Dining", x: 24, y: 24, width: 600, height: 736 },
+            { id: "section-Private", x: 744, y: 24, width: 432, height: 736 },
+          ],
+        },
+      });
+    });
+
+    it("orders the zones after the plan and before the tables", async () => {
+      const api = makeFakeApi();
+
+      await runLaunchSequence(
+        api,
+        makeRoomDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+
+      expect(api.callLog).toEqual([
+        "venues.create",
+        "floorPlans.create",
+        "floorPlanSections.list",
+        "floorPlanSections.create:Main Dining",
+        "floorPlanSections.create:Private",
+        "floorPlans.update",
+        "tables.create:T1",
+        "tables.create:T2",
+        "tables.create:T3",
+        "floorPlans.setActive",
+      ]);
+    });
+
+    it("holds the floorPlan stage open when the zones fail, keeping the plan it made", async () => {
+      const api = makeFakeApi();
+      api.floorPlanSections.create = vi.fn(async () => {
+        throw new Error("sections rejected");
+      });
+
+      const progress = await runLaunchSequence(
+        api,
+        makeRoomDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+
+      expect(progress.failedStage).toBe("floorPlan");
+      expect(progress.floorPlanId).toBe("floor-plan-1");
+      expect(progress.sectionsDone).toBe(false);
+      expect(api.tables.create).not.toHaveBeenCalled();
+      // Not done, so Retry comes back to this stage rather than skipping it.
+      expect(nextStage(progress, makeRoomDraft())).toBe("floorPlan");
+    });
+
+    it("resumes the zones without creating a second plan", async () => {
+      const api = makeFakeApi();
+      let failed = false;
+      api.floorPlanSections.create = vi.fn(async (venueId: string, data: { name: string }) => {
+        if (!failed) {
+          failed = true;
+          throw new Error("sections rejected");
+        }
+        api.callLog.push(`floorPlanSections.create:${data.name}`);
+        return makeSection(data.name, venueId);
+      });
+
+      const draft = makeRoomDraft();
+      const first = await runLaunchSequence(
+        api,
+        draft,
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+
+      expect(api.floorPlans.create).toHaveBeenCalledTimes(1);
+      expect(second.sectionsDone).toBe(true);
+      expect(second.activated).toBe(true);
+      expect(second.failedStage).toBeNull();
+    });
+
+    it("skips a zone a prior attempt already created, matching on its name", async () => {
+      const api = makeFakeApi();
+      api.floorPlanSections.list = vi.fn(async () => [makeSection("Main Dining")]);
+
+      await runLaunchSequence(
+        api,
+        makeRoomDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+
+      expect(api.floorPlanSections.create).toHaveBeenCalledTimes(1);
+      expect(api.floorPlanSections.create).toHaveBeenCalledWith(
+        "venue-1",
+        expect.objectContaining({ name: "Private" })
+      );
+    });
+  });
+
+  describe("section membership", () => {
+    function makeMemberDraft(): FloorPlanDraft {
+      return makeRoomDraft({
+        tables: [
+          makeDraftTable({ localId: "T1", name: "T1", sectionId: "fine-dining-main-dining" }),
+          makeDraftTable({ localId: "T2", name: "T2", sectionId: "fine-dining-private" }),
+          makeDraftTable({ localId: "T3", name: "T3", sectionId: "fine-dining-main-dining" }),
+          makeDraftTable({ localId: "T4", name: "T4", sectionId: null }),
+        ],
+      });
+    }
+
+    it("assigns each template table to the section the template put it in", async () => {
+      const api = makeFakeApi();
+
+      const progress = await runLaunchSequence(
+        api,
+        makeMemberDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+
+      expect(api.floorPlanSections.assignTables).toHaveBeenCalledTimes(2);
+      expect(api.floorPlanSections.assignTables).toHaveBeenCalledWith(
+        "venue-1",
+        "section-Main Dining",
+        ["table-T1", "table-T3"]
+      );
+      expect(api.floorPlanSections.assignTables).toHaveBeenCalledWith(
+        "venue-1",
+        "section-Private",
+        ["table-T2"]
+      );
+      expect(progress.failedStage).toBeNull();
+      expect(progress.activated).toBe(true);
+    });
+
+    it("makes no membership calls when no table sits in a zone", async () => {
+      const api = makeFakeApi();
+
+      await runLaunchSequence(
+        api,
+        makeRoomDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+
+      expect(api.tables.list).not.toHaveBeenCalled();
+      expect(api.floorPlanSections.assignTables).not.toHaveBeenCalled();
+    });
+
+    it("retries membership without recreating plans, sections or tables", async () => {
+      const api = makeFakeApi();
+      let failed = false;
+      api.floorPlanSections.assignTables = vi.fn(
+        async (_v: string, sectionId: string, ids: string[]) => {
+          if (!failed) {
+            failed = true;
+            throw new Error("assign rejected");
+          }
+          api.callLog.push(`floorPlanSections.assignTables:${sectionId}`);
+          return ids.map((id) => makeTable(id.replace("table-", "")));
+        }
+      );
+      const draft = makeMemberDraft();
+
+      const first = await runLaunchSequence(
+        api,
+        draft,
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn()
+      );
+      expect(first.failedStage).toBe("tables");
+      expect(nextStage(first, draft)).toBe("tables");
+
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+
+      expect(second.failedStage).toBeNull();
+      expect(second.activated).toBe(true);
+      expect(api.floorPlans.create).toHaveBeenCalledTimes(1);
+      expect(api.tables.create).toHaveBeenCalledTimes(4);
+      expect(api.floorPlanSections.create).toHaveBeenCalledTimes(2);
+      expect(api.floorPlanSections.assignTables).toHaveBeenCalledWith(
+        "venue-1",
+        "section-Private",
+        ["table-T2"]
+      );
     });
   });
 });

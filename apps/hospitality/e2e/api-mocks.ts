@@ -95,6 +95,20 @@ function jsonOk(route: Route, data: unknown): Promise<void> {
   });
 }
 
+/**
+ * The request's JSON body, as a plain object.
+ *
+ * `postDataJSON()` returns null when the request carries no body, which `?? {}`
+ * covers. Every caller of these routes is an `@mbe/api-client` method that
+ * serializes an object, so there is no malformed-JSON case to handle — and this
+ * deliberately does not guard one: a throw inside a Playwright route handler
+ * leaves the request neither fulfilled nor continued, so a "defensive" parse
+ * would hang the spec until some unrelated timeout fired instead of failing it.
+ */
+function postBody(route: Route): Record<string, unknown> {
+  return (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+}
+
 // GET /api/v1/venues/by-slug/:slug serves the curated PublicVenue
 // projection (#4022/#4031), not the full internal Venue. Parsing through
 // PublicVenueSchema (rather than hand-picking fields) means a future
@@ -1002,11 +1016,56 @@ export async function mockApi(page: Page): Promise<void> {
   await page.route(/\/api\/v1\/floor-plans\/[^/?]+$/, (route) => {
     const id = route.request().url().replace(/\?.*$/, "").split("/").pop();
     if (createdFloorPlan && createdFloorPlan.id === id) {
+      // A PATCH has to be applied, not just echoed: applying a room template
+      // (#7256) writes the zone rectangles into `layoutJson.sections` in a
+      // PATCH that follows the section-row POSTs, so dropping the body would
+      // leave the sections list and the plan's own layout disagreeing — rows
+      // exist, no rectangle for any of them — which is exactly the state a
+      // spec asserting the applied room would need to catch.
+      if (route.request().method() === "PATCH") {
+        createdFloorPlan = {
+          ...createdFloorPlan,
+          ...postBody(route),
+          id,
+          updatedAt: new Date().toISOString(),
+        };
+      }
       const planTables = createdTables.filter((table) => table.floorPlanId === id);
       return jsonOk(route, { ...createdFloorPlan, tables: planTables });
     }
     const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
     return jsonOk(route, floorPlans.data[0]);
+  });
+
+  // Floor Plan Sections
+  // A room template (#7256) creates one section row per named zone before it
+  // writes their rectangles into the plan's layout, and the floor plan editor
+  // lists them. Stateful so a relaunch after a failure sees what the first
+  // attempt already created, which is exactly the resume path Launch relies on.
+  const createdSections: Array<Record<string, unknown>> = [];
+  await page.route(/\/api\/v1\/floor-plan-sections(\?|$)/, (route) => {
+    const method = route.request().method();
+    if (method === "GET") return jsonOk(route, createdSections);
+    if (method !== "POST") return route.fallback();
+
+    const body = postBody(route);
+    const now = new Date().toISOString();
+    const section = {
+      id: `sec_e2e_${createdSections.length + 1}`,
+      venueId: "venue_e2e",
+      floorPlanId: body.floorPlanId ?? "fp_e2e_created",
+      name: body.name ?? "Section",
+      color: body.color ?? "#8b7355",
+      displayOrder: body.displayOrder ?? createdSections.length,
+      createdAt: now,
+      updatedAt: now,
+    };
+    createdSections.push(section);
+    return route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ data: section }),
+    });
   });
 
   // Availability

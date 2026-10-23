@@ -18,7 +18,8 @@ import {
   draftTableFromCreateRequest,
   type FloorPlanDraft,
 } from "./floor-plan-draft.js";
-import { templateById, tablesForTemplate, type TemplateId } from "./floor-plan-templates.js";
+import { draftFromTemplate, type TemplateId } from "./floor-plan-templates.js";
+import type { RoomSizeId } from "../floor-plan/room-templates.js";
 import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
 
 export const TOTAL_STEPS = 6;
@@ -60,6 +61,7 @@ type OnboardingWizardAction =
   | { type: "SLUG_CHECK_START" }
   | { type: "SLUG_CHECK_RESULT"; status: "taken" | "available" }
   | { type: "SET_TEMPLATE"; templateId: TemplateId }
+  | { type: "SET_ROOM_SIZE"; sizeId: RoomSizeId }
   | { type: "ADD_DRAFT_TABLE"; request: CreateTableRequest }
   | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
   | { type: "REMOVE_DRAFT_TABLE"; localId: string }
@@ -231,21 +233,25 @@ function reducer(
       return { ...state, slugStatus: "available", errors: { ...state.errors, basicInfo: rest } };
     }
 
-    case "SET_TEMPLATE": {
-      const template = templateById(action.templateId);
+    case "SET_TEMPLATE":
       return {
         ...state,
         data: {
           ...state.data,
-          floorPlan: {
-            templateId: action.templateId,
-            planName: template.planName,
-            tables: tablesForTemplate(template),
-            pristine: true,
-          },
+          floorPlan: draftFromTemplate(action.templateId, state.data.floorPlan.sizeId),
         },
         errors: { ...state.errors, floorPlan: null },
       };
+
+    case "SET_ROOM_SIZE": {
+      const { templateId } = state.data.floorPlan;
+      // Resizing is only meaningful once a room is chosen; until then the step
+      // just remembers the size so the chosen room is built at it.
+      const floorPlan =
+        templateId === null
+          ? { ...state.data.floorPlan, sizeId: action.sizeId }
+          : draftFromTemplate(templateId, action.sizeId);
+      return { ...state, data: { ...state.data, floorPlan } };
     }
 
     case "ADD_DRAFT_TABLE": {
@@ -310,6 +316,7 @@ export interface OnboardingWizardActions {
   validateStep: () => void;
   checkSlugAvailability: (checkPromise: Promise<unknown>) => Promise<void>;
   setTemplate: (templateId: TemplateId) => void;
+  setRoomSize: (sizeId: RoomSizeId) => void;
   addDraftTable: (request: CreateTableRequest) => void;
   moveDraftTable: (localId: string, x: number, y: number) => void;
   removeDraftTable: (localId: string) => void;
@@ -375,6 +382,11 @@ export function useOnboardingWizard(): OnboardingWizardResult {
     []
   );
 
+  const setRoomSize = useCallback(
+    (sizeId: RoomSizeId) => dispatch({ type: "SET_ROOM_SIZE", sizeId }),
+    []
+  );
+
   const setTemplate = useCallback(
     (templateId: TemplateId) => dispatch({ type: "SET_TEMPLATE", templateId }),
     []
@@ -409,6 +421,7 @@ export function useOnboardingWizard(): OnboardingWizardResult {
       validateStep,
       checkSlugAvailability,
       setTemplate,
+      setRoomSize,
       addDraftTable,
       moveDraftTable,
       removeDraftTable,
@@ -422,6 +435,7 @@ export function useOnboardingWizard(): OnboardingWizardResult {
       validateStep,
       checkSlugAvailability,
       setTemplate,
+      setRoomSize,
       addDraftTable,
       moveDraftTable,
       removeDraftTable,

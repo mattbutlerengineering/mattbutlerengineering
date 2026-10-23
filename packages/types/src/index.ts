@@ -135,6 +135,7 @@ export type {
   FloorPlan,
   FloorPlanLayout,
   WallLayout,
+  SectionLayout,
   TableShapeMetadata,
   CreateFloorPlanRequest,
   UpdateFloorPlanRequest,

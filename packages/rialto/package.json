@@ -444,7 +444,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@vitest/browser-playwright": "^5.0.3",
+    "@vitest/browser-playwright": "^5.0.5",
     "@vitest/coverage-v8": "catalog:",
     "axe-core": "^4.14.0",
     "eslint-plugin-storybook": "^10.6.2",
@@ -459,7 +459,7 @@
     "typescript": "^6.0.3",
     "vite": "catalog:",
     "vite-plugin-dts": "^5.1.2",
-    "vitest": "^5.0.3",
+    "vitest": "^5.0.5",
     "vitest-axe": "^0.1.0"
   },
   "size-limit": [

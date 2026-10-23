@@ -19,6 +19,9 @@
   border-radius: var(--rialto-radius-soft);
   background: var(--rialto-surface-recessed);
   padding: var(--rialto-space-md);
+  /* Tertiary text is under 4.5:1 on the dark recessed surface (axe
+     color-contrast on the status labels, #7268). */
+  --rialto-text-tertiary: var(--rialto-text-secondary);
 }
 
 .statusStrip {
@@ -61,6 +64,11 @@
 .zoneTable {
   min-inline-size: 0;
   overflow-x: auto;
+}
+
+/* The LED column's "Live" header names it for assistive tech; hiding it keeps the frame pixel-identical. */
+.zoneTable th:last-child {
+  font-size: 0;
 }
 
 .vitalsRail {
@@ -127,4 +135,17 @@
 .focal {
   min-block-size: 9rem;
   justify-content: center;
+}
+
+/* The HUD has no visible title; axe page-has-heading-one needs an h1 (#7267). */
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

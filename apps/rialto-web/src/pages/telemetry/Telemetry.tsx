@@ -53,6 +53,7 @@ export function Telemetry() {
   return (
     <RialtoProvider vibe={vibe} theme={theme}>
       <div className={styles.page}>
+        <h1 className={styles.srOnly}>Live telemetry</h1>
         <div
           className={styles.hud}
           data-feed-state={feed.kind}

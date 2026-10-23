@@ -4,7 +4,13 @@ import { useTranslation } from "react-i18next";
 import { Button, Heading, Input, Text } from "@mattbutlerengineering/rialto";
 import { useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CreateTableRequest } from "@mbe/types";
-import { SHAPE_DEFAULTS, CANVAS_CENTER } from "./floor-plan-geometry.js";
+import {
+  SHAPE_DEFAULTS,
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+  placeNewTable,
+  type PlacedRect,
+} from "./floor-plan-geometry.js";
 import styles from "./AddTableDialog.module.css";
 
 type TableShape = "rectangle" | "square" | "circle";
@@ -20,9 +26,20 @@ export interface AddTableDialogProps {
   floorPlanId: string;
   onSubmit: (data: CreateTableRequest) => Promise<void>;
   onClose: () => void;
+  /** The plan's own canvas; defaults to the legacy 800x600. */
+  canvas?: { width: number; height: number };
+  /** Tables already on the plan, so the new one is not dropped on top of one. */
+  existingTables?: readonly PlacedRect[];
 }
 
-export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddTableDialogProps) {
+export function AddTableDialog({
+  venueId,
+  floorPlanId,
+  onSubmit,
+  onClose,
+  canvas = { width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+  existingTables = [],
+}: AddTableDialogProps) {
   const { t } = useTranslation();
   const [shape, setShape] = useState<TableShape>("rectangle");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,6 +81,7 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
 
   const onFormSubmit = async (data: AddTableFormData) => {
     const dims = SHAPE_DEFAULTS[shape];
+    const pos = placeNewTable(canvas, dims, existingTables);
     const request: CreateTableRequest = {
       name: data.name.trim(),
       capacity: Number(data.capacity),
@@ -72,8 +90,8 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
       floorPlanId,
       shapeMetadata: {
         shape,
-        x: CANVAS_CENTER.x,
-        y: CANVAS_CENTER.y,
+        x: pos.x,
+        y: pos.y,
         width: dims.width,
         height: dims.height,
       },

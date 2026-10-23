@@ -1,11 +1,20 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
-import type { CreateTableRequest, WallLayout } from "@mbe/types";
+import type { CreateTableRequest, FloorMaterial, WallLayout } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
+import { TableDetailsForm } from "../components/floor-plan/TableDetailsForm.js";
 import { WallsPanel } from "../components/floor-plan/WallsPanel.js";
-import { moveWallEndpoint } from "../components/floor-plan/floor-plan-geometry.js";
+import { SectionMaterialPicker } from "../components/floor-plan/SectionMaterialPicker.js";
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  GRID_SIZE,
+  moveWallEndpoint,
+  type Point,
+  type WallEnd,
+} from "../components/floor-plan/floor-plan-geometry.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import {
   useFloorPlan,
@@ -13,7 +22,10 @@ import {
   useBulkUpdatePositions,
   useAddTable,
   useDeleteTable,
+  useUpdateTable,
   useUpdateFloorPlanLayout,
+  useFloorPlanSections,
+  useUpdateFloorPlanSection,
 } from "../hooks/useFloorPlans.js";
 import { useFloorPlanDraft, type PositionUpdate } from "../hooks/useFloorPlanDraft.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
@@ -28,6 +40,9 @@ export function FloorPlanEditorPage() {
   const { statuses: tableStatuses, isStale } = useTableStatuses();
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  // The details form reports its own unsaved edits; selecting another table
+  // remounts the form (key={table.id}), so the flag resets with the selection.
+  const [tableFormDirty, setTableFormDirty] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -36,6 +51,7 @@ export function FloorPlanEditorPage() {
   const bulkUpdateMutation = useBulkUpdatePositions();
   const addTableMutation = useAddTable();
   const deleteTableMutation = useDeleteTable();
+  const updateTableMutation = useUpdateTable();
   const layoutMutation = useUpdateFloorPlanLayout();
 
   // Walls are edited as a whole-array draft over the server's copy; null = untouched.
@@ -43,9 +59,46 @@ export function FloorPlanEditorPage() {
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
 
   const serverWalls = floorPlan?.layoutJson.walls;
+  // The plan's own canvas. Room templates (#7256) create plans up to 2000x1200,
+  // so neither the wall-coordinate inputs nor an endpoint drag may clamp
+  // against the 800x600 default — doing so silently shortens any wall that
+  // reaches past it, and the autosave below persists the result.
+  const planWidth = floorPlan?.layoutJson.width || CANVAS_WIDTH;
+  const planHeight = floorPlan?.layoutJson.height || CANVAS_HEIGHT;
   const walls = wallsDraft ?? serverWalls ?? [];
   const wallsDirty =
     wallsDraft !== null && JSON.stringify(wallsDraft) !== JSON.stringify(serverWalls ?? []);
+
+  // Section rows carry the name/colour; the layout carries each zone's rectangle.
+  const { data: sectionRows } = useFloorPlanSections({
+    venueId: floorPlan?.venueId,
+    floorPlanId: floorPlan?.id,
+  });
+  const sectionZones = useMemo(() => {
+    const rows = new Map((sectionRows ?? []).map((row) => [row.id, row]));
+    return (floorPlan?.layoutJson.sections ?? []).flatMap((rect) => {
+      const row = rows.get(rect.id);
+      if (!row) return [];
+      return [
+        { ...rect, name: row.name, color: row.color, floorMaterial: row.floorMaterial ?? null },
+      ];
+    });
+  }, [floorPlan?.layoutJson.sections, sectionRows]);
+
+  const sectionMutation = useUpdateFloorPlanSection();
+  const venueId = floorPlan?.venueId;
+  const handleMaterialChange = useCallback(
+    async (sectionId: string, floorMaterial: FloorMaterial | null) => {
+      if (!venueId) return;
+      setActionError(null);
+      try {
+        await sectionMutation.mutateAsync({ venueId, sectionId, data: { floorMaterial } });
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : t("floorPlan.editor.saveFailed"));
+      }
+    },
+    [venueId, sectionMutation, t]
+  );
 
   const floorPlanId = floorPlan?.id;
   const persist = useCallback(
@@ -93,7 +146,7 @@ export function FloorPlanEditorPage() {
 
   // Warn on browser tab close / refresh when unsaved changes exist
   useEffect(() => {
-    if (!hasChanges) return;
+    if (!hasChanges && !tableFormDirty) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
@@ -101,12 +154,25 @@ export function FloorPlanEditorPage() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasChanges]);
+  }, [hasChanges, tableFormDirty]);
 
   // Block SPA navigation when unsaved changes exist
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      hasChanges && currentLocation.pathname !== nextLocation.pathname
+      (hasChanges || tableFormDirty) && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // Stable identity (functional update over the draft-or-server walls) so WallShape's memo holds.
+  const handleWallEndpointMove = useCallback(
+    (wallId: string, end: WallEnd, p: Point) =>
+      setWallsDraft((prev) =>
+        (prev ?? serverWalls ?? []).map((w) =>
+          w.id === wallId
+            ? moveWallEndpoint(w, end, p, GRID_SIZE, { width: planWidth, height: planHeight })
+            : w
+        )
+      ),
+    [serverWalls, planWidth, planHeight]
   );
 
   const requestDeleteTable = useCallback((tableId: string) => {
@@ -260,6 +326,11 @@ export function FloorPlanEditorPage() {
         <AddTableDialog
           venueId={floorPlan.venueId}
           floorPlanId={floorPlan.id}
+          canvas={{ width: planWidth, height: planHeight }}
+          existingTables={tables.flatMap((t) => {
+            const m = t.shapeMetadata;
+            return m ? [{ x: m.x, y: m.y, width: m.width, height: m.height }] : [];
+          })}
           onSubmit={handleAddTable}
           onClose={() => setShowAddDialog(false)}
         />
@@ -273,15 +344,17 @@ export function FloorPlanEditorPage() {
             floorPlan={floorPlan}
             tables={tables}
             onTableMove={handleTableMove}
-            onTableSelect={setSelectedTableId}
+            onTableSelect={(id) => {
+              setSelectedTableId(id);
+              setTableFormDirty(false);
+            }}
             selectedTableId={selectedTableId}
             onDeleteRequest={requestDeleteTable}
+            sections={sectionZones}
             walls={walls}
             selectedWallId={selectedWallId}
             onWallSelect={setSelectedWallId}
-            onWallEndpointMove={(wallId, end, p) =>
-              setWallsDraft(walls.map((w) => (w.id === wallId ? moveWallEndpoint(w, end, p) : w)))
-            }
+            onWallEndpointMove={handleWallEndpointMove}
             tableStatuses={tableStatuses}
             isStale={isStale}
           />
@@ -292,60 +365,43 @@ export function FloorPlanEditorPage() {
           <Heading className={styles.sidebarTitle}>{t("floorPlan.editor.detailsTitle")}</Heading>
 
           {selectedTable ? (
-            <div className={styles.detailsStack}>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.name")}</Text>
-                <div className={styles.detailValue}>{selectedTable.name}</div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.tableNumber")}</Text>
-                <div className={styles.detailValue}>{selectedTable.tableNumber}</div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.capacity")}</Text>
-                <div className={styles.detailValue}>
-                  {t("floorPlan.editor.guests", {
-                    min: selectedTable.minCovers,
-                    max: selectedTable.maxCovers ?? selectedTable.capacity,
-                  })}
-                </div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.location")}</Text>
-                <div className={styles.detailValue}>
-                  {selectedTable.location ?? t("floorPlan.editor.notSet")}
-                </div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.status")}</Text>
-                <div
-                  className={
-                    selectedTable.isActive ? styles.detailValueActive : styles.detailValueInactive
-                  }
-                >
-                  {selectedTable.isActive
-                    ? t("floorPlan.editor.statusActive")
-                    : t("floorPlan.editor.statusInactive")}
-                </div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.position")}</Text>
-                <div className={styles.detailValueMono}>
-                  {t("floorPlan.editor.positionValue", {
-                    x: selectedTable.shapeMetadata?.x ?? 0,
-                    y: selectedTable.shapeMetadata?.y ?? 0,
-                  })}
-                </div>
-              </div>
-              <Button
-                className={styles.deleteTableButton}
-                onClick={() => requestDeleteTable(selectedTable.id)}
-              >
-                {t("floorPlan.editor.deleteTable")}
-              </Button>
-            </div>
+            <TableDetailsForm
+              key={selectedTable.id}
+              table={selectedTable}
+              onSave={async (tableId, changes) => {
+                await updateTableMutation.mutateAsync({ tableId, changes });
+                setTableFormDirty(false);
+              }}
+              onDelete={requestDeleteTable}
+              onDirtyChange={setTableFormDirty}
+            />
           ) : (
             <div className={styles.noSelection}>{t("floorPlan.editor.noSelection")}</div>
+          )}
+
+          {sectionRows && sectionRows.length > 0 && (
+            <section aria-labelledby="floor-plan-sections-title">
+              <Heading id="floor-plan-sections-title" className={styles.sidebarTitle}>
+                {t("floorPlan.sections.title")}
+              </Heading>
+              <ul>
+                {sectionRows.map((row) => (
+                  <li key={row.id}>
+                    <Text className={styles.detailLabel}>{row.name}</Text>{" "}
+                    <Text className={styles.detailValue}>
+                      {t("floorPlan.sections.tableCount", {
+                        count: tables.filter((table) => table.sectionId === row.id).length,
+                      })}
+                    </Text>
+                    <SectionMaterialPicker
+                      section={row}
+                      disabled={sectionMutation.isPending}
+                      onChange={(material) => handleMaterialChange(row.id, material)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           <WallsPanel
@@ -353,6 +409,8 @@ export function FloorPlanEditorPage() {
             selectedId={selectedWallId}
             onChange={setWallsDraft}
             onSelect={setSelectedWallId}
+            planWidth={planWidth}
+            planHeight={planHeight}
           />
 
           {/* Table list */}

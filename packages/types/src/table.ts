@@ -30,6 +30,7 @@ export interface Table {
   status: TableStatus;
   venueId: string | null;
   floorPlanId: string | null;
+  sectionId?: string | null;
   shapeMetadata: TableShapeMetadata | null;
   createdAt: string;
   updatedAt: string;

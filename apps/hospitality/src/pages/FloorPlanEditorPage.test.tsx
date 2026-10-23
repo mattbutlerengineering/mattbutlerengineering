@@ -24,6 +24,8 @@ const mockGetById = vi.fn();
 const mockBulkUpdatePositions = vi.fn();
 const mockSetActive = vi.fn();
 const mockUpdate = vi.fn();
+const mockSectionsList = vi.fn();
+const mockSectionsUpdate = vi.fn();
 const mockTablesCreate = vi.fn();
 const mockTablesDelete = vi.fn();
 
@@ -35,6 +37,7 @@ vi.mock("../hooks/useApiClient.js", () => ({
       setActive: mockSetActive,
       update: mockUpdate,
     },
+    floorPlanSections: { list: mockSectionsList, update: mockSectionsUpdate },
     tables: {
       create: mockTablesCreate,
       delete: mockTablesDelete,
@@ -90,7 +93,9 @@ vi.mock("../components/floor-plan/index.js", () => ({
     tableStatuses,
     isStale,
     onDeleteRequest,
+    sections,
   }: {
+    sections?: { id: string; name: string; color: string; floorMaterial?: string | null }[];
     onDeleteRequest?: (id: string) => void;
     tables: Table[];
     onTableMove: (id: string, x: number, y: number) => void;
@@ -101,7 +106,13 @@ vi.mock("../components/floor-plan/index.js", () => ({
     tableStatuses?: ReadonlyMap<string, string>;
     isStale?: boolean;
   }) => (
-    <div data-testid="floor-plan-canvas" data-selected={selectedTableId} data-stale={isStale}>
+    <div
+      data-testid="floor-plan-canvas"
+      data-selected={selectedTableId}
+      data-stale={isStale}
+      data-sections={sections?.map((z) => `${z.name}:${z.color}`).join(",")}
+      data-materials={sections?.map((z) => z.floorMaterial ?? "").join(",")}
+    >
       {/* Stands in for the real canvas's focus-scoped Delete/Backspace handling. */}
       <button
         data-testid="canvas-delete-key"
@@ -198,6 +209,46 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     children: React.ReactNode;
     className?: string;
   }) => <span>{children}</span>,
+  Input: ({
+    label,
+    error: _error,
+    hint,
+    ...rest
+  }: {
+    label: string;
+    error?: boolean;
+    hint?: string;
+  } & React.InputHTMLAttributes<HTMLInputElement>) => (
+    <label>
+      {label}
+      <input {...rest} />
+      {hint && <span>{hint}</span>}
+    </label>
+  ),
+  Checkbox: ({
+    label,
+    description,
+    checked,
+    onCheckedChange,
+    disabled,
+  }: {
+    label: string;
+    description?: string;
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+    disabled?: boolean;
+  }) => (
+    <label>
+      {label}
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onCheckedChange(e.target.checked)}
+      />
+      {description && <span>{description}</span>}
+    </label>
+  ),
   ConfirmDialog: ({
     open,
     title,
@@ -223,6 +274,31 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         <button onClick={onConfirm}>{confirmLabel ?? "Leave"}</button>
       </div>
     ) : null,
+}));
+
+/* ── Mock SectionMaterialPicker ───────────────────────────────── */
+// Its own test covers the rialto Select; here we only need the two callbacks
+// the page wires up — pick a material, and clear one.
+
+vi.mock("../components/floor-plan/SectionMaterialPicker.js", () => ({
+  SectionMaterialPicker: ({
+    section,
+    onChange,
+    disabled,
+  }: {
+    section: { id: string; name: string; floorMaterial?: string | null };
+    onChange: (m: string | null) => void;
+    disabled?: boolean;
+  }) => (
+    <span data-testid={`material-picker-${section.id}`} data-value={section.floorMaterial ?? ""}>
+      <button disabled={disabled} onClick={() => onChange("tile")}>
+        {`Pick tile for ${section.name}`}
+      </button>
+      <button disabled={disabled} onClick={() => onChange(null)}>
+        {`Clear floor for ${section.name}`}
+      </button>
+    </span>
+  ),
 }));
 
 /* ── Mock ErrorRetryBanner ────────────────────────────────────── */
@@ -314,6 +390,7 @@ let FloorPlanEditorPage: (...args: any[]) => React.ReactNode;
 beforeEach(async () => {
   vi.clearAllMocks();
   mockUseTableStatuses.mockReturnValue({ statuses: new Map(), isStale: false });
+  mockSectionsList.mockResolvedValue([]);
   const mod = await import("./FloorPlanEditorPage.js");
   FloorPlanEditorPage = mod.FloorPlanEditorPage;
 });
@@ -433,18 +510,21 @@ describe("FloorPlanEditorPage", () => {
       // Click table in the sidebar list
       fireEvent.click(screen.getByText("A1"));
 
-      expect(await screen.findByText("Window")).toBeDefined();
+      // The sidebar now mounts the editable TableDetailsForm seeded from the table.
+      expect(await screen.findByDisplayValue("Window")).toBeDefined();
       expect(screen.queryByText("Select a table to view details")).toBeNull();
     });
 
-    it("shows capacity range in table details", async () => {
+    it("seeds capacity and covers fields in the details form", async () => {
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
       renderPage();
 
       await waitFor(() => screen.getByText("A1"));
       fireEvent.click(screen.getByText("A1"));
 
-      expect(await screen.findByText(/1 - 4 guests/)).toBeDefined();
+      expect(await screen.findByLabelText(/Capacity/)).toHaveProperty("value", "4");
+      expect(screen.getByLabelText(/Min Covers/)).toHaveProperty("value", "1");
+      expect(screen.getByLabelText(/Max Covers/)).toHaveProperty("value", "4");
     });
 
     it("shows position in table details", async () => {
@@ -457,14 +537,14 @@ describe("FloorPlanEditorPage", () => {
       expect(await screen.findByText(/x: 100, y: 200/)).toBeDefined();
     });
 
-    it("shows Not set when location is null", async () => {
+    it("seeds an empty location field when location is null", async () => {
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_B] });
       renderPage();
 
       await waitFor(() => screen.getByText("B2"));
       fireEvent.click(screen.getByText("B2"));
 
-      expect(await screen.findByText("Not set")).toBeDefined();
+      expect(await screen.findByLabelText(/Location/)).toHaveProperty("value", "");
     });
   });
 
@@ -502,6 +582,134 @@ describe("FloorPlanEditorPage", () => {
           walls: [existing, expect.objectContaining({ id: "wall-9" })],
         },
       });
+    });
+
+    it("draws saved section zones with their row's name and colour, and lists each with its table count", async () => {
+      mockGetById.mockResolvedValue({
+        ...FLOOR_PLAN,
+        layoutJson: {
+          width: 800,
+          height: 600,
+          sections: [
+            { id: "sec-1", x: 0, y: 0, width: 100, height: 100 },
+            { id: "gone", x: 0, y: 0, width: 50, height: 50 },
+          ],
+        },
+        tables: [{ ...FLOOR_PLAN.tables![0]!, sectionId: "sec-1" }],
+      });
+      mockSectionsList.mockResolvedValue([
+        { id: "sec-1", venueId: "venue-1", floorPlanId: "fp-1", name: "Patio", color: "#3366cc" },
+      ]);
+      renderPage();
+
+      await waitFor(() =>
+        expect(screen.getByTestId("floor-plan-canvas").dataset.sections).toBe("Patio:#3366cc")
+      );
+      expect(mockSectionsList).toHaveBeenCalledWith("venue-1", "fp-1");
+      expect(screen.getByText("Patio")).toBeDefined();
+      expect(screen.getByText("1 table")).toBeDefined();
+    });
+
+    it("passes each section's saved floor material through to the canvas", async () => {
+      mockGetById.mockResolvedValue({
+        ...FLOOR_PLAN,
+        layoutJson: {
+          width: 800,
+          height: 600,
+          sections: [{ id: "sec-1", x: 0, y: 0, width: 100, height: 100 }],
+        },
+      });
+      mockSectionsList.mockResolvedValue([
+        {
+          id: "sec-1",
+          venueId: "venue-1",
+          floorPlanId: "fp-1",
+          name: "Patio",
+          color: "#3366cc",
+          floorMaterial: "hardwood",
+        },
+      ]);
+      renderPage();
+
+      await waitFor(() =>
+        expect(screen.getByTestId("floor-plan-canvas").dataset.materials).toBe("hardwood")
+      );
+    });
+
+    it("saves a picked material, and clears it again, through the section route", async () => {
+      mockGetById.mockResolvedValue({
+        ...FLOOR_PLAN,
+        layoutJson: {
+          width: 800,
+          height: 600,
+          sections: [{ id: "sec-1", x: 0, y: 0, width: 100, height: 100 }],
+        },
+      });
+      mockSectionsList.mockResolvedValue([
+        {
+          id: "sec-1",
+          venueId: "venue-1",
+          floorPlanId: "fp-1",
+          name: "Patio",
+          color: "#3366cc",
+          floorMaterial: null,
+        },
+      ]);
+      // The real route answers with the updated section, not an empty object.
+      mockSectionsUpdate.mockImplementation((_venueId, sectionId, data) => ({
+        id: sectionId,
+        venueId: "venue-1",
+        floorPlanId: "fp-1",
+        name: "Patio",
+        color: "#3366cc",
+        displayOrder: 0,
+        floorMaterial: data.floorMaterial ?? null,
+        createdAt: "2026-10-22T00:00:00.000Z",
+        updatedAt: "2026-10-22T00:00:00.000Z",
+      }));
+      renderPage();
+
+      fireEvent.click(await screen.findByText("Pick tile for Patio"));
+      await waitFor(() =>
+        expect(mockSectionsUpdate).toHaveBeenCalledWith("venue-1", "sec-1", {
+          floorMaterial: "tile",
+        })
+      );
+
+      fireEvent.click(screen.getByText("Clear floor for Patio"));
+      await waitFor(() =>
+        expect(mockSectionsUpdate).toHaveBeenLastCalledWith("venue-1", "sec-1", {
+          floorMaterial: null,
+        })
+      );
+    });
+
+    it("surfaces a failed material save inline instead of losing it", async () => {
+      mockGetById.mockResolvedValue({
+        ...FLOOR_PLAN,
+        layoutJson: {
+          width: 800,
+          height: 600,
+          sections: [{ id: "sec-1", x: 0, y: 0, width: 100, height: 100 }],
+        },
+      });
+      mockSectionsList.mockResolvedValue([
+        {
+          id: "sec-1",
+          venueId: "venue-1",
+          floorPlanId: "fp-1",
+          name: "Patio",
+          color: "#3366cc",
+          floorMaterial: null,
+        },
+      ]);
+      mockSectionsUpdate.mockRejectedValue(new Error("Floor save failed"));
+      renderPage();
+
+      fireEvent.click(await screen.findByText("Pick tile for Patio"));
+      await waitFor(() => expect(screen.getByText("Floor save failed")).toBeDefined());
+      // The editor stays usable — this is an inline banner, not a replaced page.
+      expect(screen.getByTestId("floor-plan-canvas")).toBeDefined();
     });
 
     it("opens add table dialog when + Add Table is clicked", async () => {

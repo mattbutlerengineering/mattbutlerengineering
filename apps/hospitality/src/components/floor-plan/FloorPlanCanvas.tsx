@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { useState, useRef, useEffect, useCallback, useId, useMemo } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Stage, Layer } from "react-konva";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,9 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan, WallLayout } from "@mbe/types";
 import { TableShape } from "./TableShape";
 import { WallShape } from "./WallShape.js";
+import { SectionZone, type SectionZoneData } from "./SectionZone.js";
+import { useSectionLabelTheme } from "./section-label-theme.js";
+import { useFloorTextures } from "../../hooks/useFloorTextures.js";
 import { TableSelectionOverlay } from "./TableSelectionOverlay.js";
 import {
   CANVAS_WIDTH,
@@ -77,6 +80,8 @@ export interface FloorPlanCanvasProps {
   onDeleteRequest?: (tableId: string) => void;
   /** Screen-reader message after a keyboard nudge ("Table 1 moved to 120, 100"). */
   onAnnounce?: (message: string) => void;
+  /** Section zones to draw beneath the tables; omitted = none (plans saved before sections existed). */
+  sections?: readonly SectionZoneData[];
   /** Walls and windows to draw; omitted = none (plans saved before walls existed). */
   walls?: readonly WallLayout[];
   selectedWallId?: string | null;
@@ -96,6 +101,7 @@ export function FloorPlanCanvas({
   isStale = false,
   onDeleteRequest,
   onAnnounce,
+  sections = [],
   walls = [],
   selectedWallId = null,
   onWallSelect,
@@ -108,24 +114,42 @@ export function FloorPlanCanvas({
   const [draggingTableId, setDraggingTableId] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
 
+  // Floor textures are loaded once for the whole canvas, not per zone, so two
+  // sections sharing a material share one image and one request.
+  const sectionMaterials = useMemo(
+    () => sections.flatMap((zone) => (zone.floorMaterial ? [zone.floorMaterial] : [])),
+    [sections]
+  );
+  const floorTextures = useFloorTextures(sectionMaterials);
+  const sectionLabelTheme = useSectionLabelTheme();
+
+  /**
+   * The plan's own canvas. Room templates (#7256) create plans at 1200x800,
+   * 1600x1000 and 2000x1200, so neither the scale nor the keyboard clamps can
+   * assume the 800x600 default — a plan saved before `layoutJson` carried
+   * dimensions, or one that stored a zero, still falls back to it.
+   */
+  const planWidth = floorPlan.layoutJson.width || CANVAS_WIDTH;
+  const planHeight = floorPlan.layoutJson.height || CANVAS_HEIGHT;
+
   // Resize canvas to fit container
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         const { width } = containerRef.current.getBoundingClientRect();
-        const aspectRatio = CANVAS_HEIGHT / CANVAS_WIDTH;
+        const aspectRatio = planHeight / planWidth;
         setDimensions({
           width: width,
           height: width * aspectRatio,
         });
-        setScale(width / CANVAS_WIDTH);
+        setScale(width / planWidth);
       }
     };
 
     updateDimensions();
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
-  }, []);
+  }, [planWidth, planHeight]);
 
   const handleDragStart = useCallback(
     (tableId: string) => {
@@ -152,6 +176,9 @@ export function FloorPlanCanvas({
     },
     [selectedTableId, onTableSelect]
   );
+
+  // Stable identity so WallShape's memo holds across canvas re-renders.
+  const handleWallSelect = useCallback((id: string) => onWallSelect?.(id), [onWallSelect]);
 
   const handleStageClick = useCallback(
     (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
@@ -185,7 +212,10 @@ export function FloorPlanCanvas({
       if (!delta) return;
       e.preventDefault();
       const shape = table.shapeMetadata?.shape ?? "rectangle";
-      const { width, height } = SHAPE_DEFAULTS[shape];
+      // A template table carries its own footprint (a long table is 140 wide
+      // where the shape default is 80); anything saved without one falls back.
+      const width = table.shapeMetadata?.width ?? SHAPE_DEFAULTS[shape].width;
+      const height = table.shapeMetadata?.height ?? SHAPE_DEFAULTS[shape].height;
       // x/y are the table CENTRE (TableShape offsets by half its size), so keep
       // the centre within half a shape of each edge. Only the pressed axis moves.
       const curX = table.shapeMetadata?.x ?? 100;
@@ -193,15 +223,25 @@ export function FloorPlanCanvas({
       const x =
         delta[0] === 0
           ? curX
-          : clamp(snapToGrid(curX + delta[0]), width / 2, CANVAS_WIDTH - width / 2);
+          : clamp(snapToGrid(curX + delta[0]), width / 2, planWidth - width / 2);
       const y =
         delta[1] === 0
           ? curY
-          : clamp(snapToGrid(curY + delta[1]), height / 2, CANVAS_HEIGHT - height / 2);
+          : clamp(snapToGrid(curY + delta[1]), height / 2, planHeight - height / 2);
       onTableMove(table.id, x, y);
       onAnnounce?.(t("floorPlan.canvas.moved", { name: table.name, x, y }));
     },
-    [readOnly, selectedTableId, tables, onDeleteRequest, onTableMove, onAnnounce, t]
+    [
+      readOnly,
+      selectedTableId,
+      tables,
+      onDeleteRequest,
+      onTableMove,
+      onAnnounce,
+      planWidth,
+      planHeight,
+      t,
+    ]
   );
 
   return (
@@ -258,12 +298,20 @@ export function FloorPlanCanvas({
         onTap={handleStageClick}
       >
         <Layer>
+          {sections.map((zone) => (
+            <SectionZone
+              key={zone.id}
+              zone={zone}
+              texture={zone.floorMaterial ? floorTextures.get(zone.floorMaterial) : undefined}
+              labelTheme={sectionLabelTheme}
+            />
+          ))}
           {walls.map((wall) => (
             <WallShape
               key={wall.id}
               wall={wall}
               isSelected={wall.id === selectedWallId}
-              onSelect={(id) => onWallSelect?.(id)}
+              onSelect={handleWallSelect}
               onEndpointDrag={readOnly ? undefined : onWallEndpointMove}
             />
           ))}

@@ -53,3 +53,41 @@ describe("WallShape", () => {
     expect(screen.getAllByTestId("handle")).toHaveLength(2);
   });
 });
+
+describe("WallShape memoization", () => {
+  it("does not re-render when props are unchanged, and re-renders when isSelected flips", () => {
+    let renderCount = 0;
+    const tracked: WallLayout = { ...wall };
+    Object.defineProperty(tracked, "x1", {
+      get() {
+        renderCount++;
+        return 0;
+      },
+    });
+    const onSelect = () => {};
+
+    function Harness({ selected }: { selected: boolean }) {
+      const [tick, setTick] = React.useState(0);
+      return (
+        <>
+          <button
+            data-testid="force-rerender"
+            data-tick={tick}
+            onClick={() => setTick((n) => n + 1)}
+          />
+          <WallShape wall={tracked} isSelected={selected} onSelect={onSelect} />
+        </>
+      );
+    }
+
+    const { rerender } = render(<Harness selected={false} />);
+    const countAfterMount = renderCount;
+    expect(countAfterMount).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("force-rerender"));
+    expect(renderCount).toBe(countAfterMount);
+
+    rerender(<Harness selected />);
+    expect(renderCount).toBeGreaterThan(countAfterMount);
+  });
+});

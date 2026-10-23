@@ -266,7 +266,7 @@ The vocabulary is owned by `SSE_EVENT_CATALOG` in `packages/types/src/sse-events
 | `timeline/`         | `src/components/timeline/`         | TimelineGrid, ReservationBlock, CancelDialog, EditDrawer, WalkInDialog                        |
 | `booking-widget/`   | `src/components/booking-widget/`   | BookingWidget (4-step), DatePartySelector, TimeSlotPicker, GuestDetailsForm, ConfirmationView |
 | `floor-plan/`       | `src/components/floor-plan/`       | FloorPlanCanvas (Konva.js), TableShape, NewFloorPlanDialog, AddTableDialog                    |
-| `venue-onboarding/` | `src/components/venue-onboarding/` | 5-step wizard: BasicInfo, Location, Hours, Settings, Confirmation                             |
+| `venue-onboarding/` | `src/components/venue-onboarding/` | 6-step wizard: Welcome, LocationTime, OperatingHours, Settings, FloorPlan, Launch             |
 | `dashboard/`        | `src/components/dashboard/`        | ReservationList, ActivityFeed (used by HomePage)                                              |
 
 ### Styling Rules

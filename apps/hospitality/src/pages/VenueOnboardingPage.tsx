@@ -226,6 +226,7 @@ export function VenueOnboardingPage() {
               draft={data.floorPlan}
               error={errors.floorPlan}
               onSelectTemplate={actions.setTemplate}
+              onSelectSize={actions.setRoomSize}
               onAddTable={actions.addDraftTable}
               onMoveTable={actions.moveDraftTable}
               onRemoveTable={actions.removeDraftTable}

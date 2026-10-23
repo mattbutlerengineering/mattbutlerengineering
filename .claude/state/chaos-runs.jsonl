@@ -1,0 +1,1 @@
+{"timestamp":"2026-10-22T23:20:00Z","bug_type":"lighthouse_perf","verified":false,"issue_number":7302,"note":"undetectable by construction: unmerged branch never deploys; site-audit crawls live site only; PR #7138 dangled 72h"}

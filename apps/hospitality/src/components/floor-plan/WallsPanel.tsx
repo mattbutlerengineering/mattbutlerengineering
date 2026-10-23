@@ -15,6 +15,16 @@ export interface WallsPanelProps {
   selectedId: string | null;
   onChange: (walls: WallLayout[]) => void;
   onSelect: (wallId: string | null) => void;
+  /**
+   * The plan's own canvas, which the coordinate inputs clamp against. Defaults
+   * to 800x600 for a plan whose `layoutJson` carries no dimensions; room
+   * templates (#7256) create plans up to 2000x1200, and clamping those to the
+   * default silently shortens any wall that reaches past it — typing 1201 for
+   * a 1200-wide plan's End X would snap it to 800, losing 400 units, and
+   * FloorPlanEditorPage would persist that.
+   */
+  planWidth?: number;
+  planHeight?: number;
 }
 
 type CoordKey = "x1" | "y1" | "x2" | "y2";
@@ -25,7 +35,14 @@ const clampTo = (v: number, max: number) => Math.min(Math.max(v, 0), max);
  * The keyboard path for walls: every pointer affordance on the canvas (select, drag an endpoint,
  * re-thickness, delete, add) has a button or number field here.
  */
-export function WallsPanel({ walls, selectedId, onChange, onSelect }: WallsPanelProps) {
+export function WallsPanel({
+  walls,
+  selectedId,
+  onChange,
+  onSelect,
+  planWidth = CANVAS_WIDTH,
+  planHeight = CANVAS_HEIGHT,
+}: WallsPanelProps) {
   const { t } = useTranslation();
   const selected = walls.find((w) => w.id === selectedId) ?? null;
 
@@ -82,10 +99,10 @@ export function WallsPanel({ walls, selectedId, onChange, onSelect }: WallsPanel
 
       {selected && (
         <Stack gap="sm">
-          {coord("x1", t("floorPlan.walls.startX"), CANVAS_WIDTH)}
-          {coord("y1", t("floorPlan.walls.startY"), CANVAS_HEIGHT)}
-          {coord("x2", t("floorPlan.walls.endX"), CANVAS_WIDTH)}
-          {coord("y2", t("floorPlan.walls.endY"), CANVAS_HEIGHT)}
+          {coord("x1", t("floorPlan.walls.startX"), planWidth)}
+          {coord("y1", t("floorPlan.walls.startY"), planHeight)}
+          {coord("x2", t("floorPlan.walls.endX"), planWidth)}
+          {coord("y2", t("floorPlan.walls.endY"), planHeight)}
           <Input
             label={t("floorPlan.walls.thickness")}
             type="number"

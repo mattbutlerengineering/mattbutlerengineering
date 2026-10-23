@@ -30,6 +30,45 @@ export function onAccentColor(accent: string): string {
     : DARK_ON_ACCENT;
 }
 
+/** How far a hover shade sits from its accent, toward the text that rides on it. */
+const HOVER_SHIFT = 0.12;
+
+function channel(hex: string, index: number): number {
+  return parseInt(expandHex(hex).slice(index, index + 2), 16);
+}
+
+function toHexByte(value: number): string {
+  return Math.round(value).toString(16).padStart(2, "0");
+}
+
+/**
+ * The hover shade of an accent: a step toward whichever text colour rides on
+ * it, so a dark accent lightens and a light accent darkens. Used when a palette
+ * is extracted from a logo, which yields one colour per slot and no hover.
+ */
+export function deriveAccentHover(accent: string): string {
+  const toward = onAccentColor(accent);
+  const shifted = [0, 2, 4].map((i) => {
+    const from = channel(accent, i);
+    return from + (channel(toward, i) - from) * HOVER_SHIFT;
+  });
+  return `#${shifted.map(toHexByte).join("")}`;
+}
+
+/**
+ * A ranked palette (see `lib/logo-palette.ts`) as a venue theme: the dominant
+ * colour becomes the accent, its hover shade is derived, and the optional
+ * surface/text slots are left to rialto's stock values — a logo says nothing
+ * about them, and guessing would risk the contrast gate for no gain. The gate
+ * itself is not applied here: `checkThemeContrast` judges an extracted theme on
+ * exactly the same terms as a manual one, at the one place that saves.
+ */
+export function paletteToTheme(palette: readonly string[]): VenueTheme | null {
+  const [accent] = palette;
+  if (accent === undefined) return null;
+  return { accent, accentHover: deriveAccentHover(accent), source: "extracted" };
+}
+
 export type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
 
 export interface ThemeContrastResult {

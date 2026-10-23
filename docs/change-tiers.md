@@ -25,6 +25,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 - Any change to `prisma/schema.prisma` that removes or renames a field on a model that has prod data.
 - Any change under `infrastructure/pulumi/` that affects the `prod` stack (changes detected by Pulumi preview).
 - Any change to `.github/CODEOWNERS`, `.github/workflows/codeql.yml`, `.github/workflows/coverage-gate.yml`, or any workflow that gates merge.
+- Any change to `scripts/tier-escalation.mjs`, the escalation policy `tier-classifier` applies. The workflow loads that module from the PR's **base** branch, never from the PR head, so a PR cannot edit the policy to lower its own tier; the edit itself lands T4.
 - Any change to `services/users/src/auth/`, `packages/auth/src/middleware/`, or files implementing authorization checks.
 - Any change to `docs/SECURITY-AI.md` (this file's policy peer).
 - Any rotation of secrets, tokens, or API keys via repo changes (env templates, `wrangler.toml` bindings, `pulumi/Pulumi.prod.yaml`).

@@ -1003,6 +1003,9 @@
         body: JSON.stringify({ data }),
       });
     }
+    function postBody(route: Route): Record<string, unknown> {
+      return (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+    }
     export function buildPublicVenueFixture(): PublicVenue {
       const venues = JSON.parse(loadFixture("venues-list"));
       const venue = venues.data[0];
@@ -1832,11 +1835,56 @@
       await page.route(/\/api\/v1\/floor-plans\/[^/?]+$/, (route) => {
         const id = route.request().url().replace(/\?.*$/, "").split("/").pop();
         if (createdFloorPlan && createdFloorPlan.id === id) {
+          // A PATCH has to be applied, not just echoed: applying a room template
+          // (#7256) writes the zone rectangles into `layoutJson.sections` in a
+          // PATCH that follows the section-row POSTs, so dropping the body would
+          // leave the sections list and the plan's own layout disagreeing — rows
+          // exist, no rectangle for any of them — which is exactly the state a
+          // spec asserting the applied room would need to catch.
+          if (route.request().method() === "PATCH") {
+            createdFloorPlan = {
+              ...createdFloorPlan,
+              ...postBody(route),
+              id,
+              updatedAt: new Date().toISOString(),
+            };
+          }
           const planTables = createdTables.filter((table) => table.floorPlanId === id);
           return jsonOk(route, { ...createdFloorPlan, tables: planTables });
         }
         const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
         return jsonOk(route, floorPlans.data[0]);
+      });
+    
+      // Floor Plan Sections
+      // A room template (#7256) creates one section row per named zone before it
+      // writes their rectangles into the plan's layout, and the floor plan editor
+      // lists them. Stateful so a relaunch after a failure sees what the first
+      // attempt already created, which is exactly the resume path Launch relies on.
+      const createdSections: Array<Record<string, unknown>> = [];
+      await page.route(/\/api\/v1\/floor-plan-sections(\?|$)/, (route) => {
+        const method = route.request().method();
+        if (method === "GET") return jsonOk(route, createdSections);
+        if (method !== "POST") return route.fallback();
+    
+        const body = postBody(route);
+        const now = new Date().toISOString();
+        const section = {
+          id: `sec_e2e_${createdSections.length + 1}`,
+          venueId: "venue_e2e",
+          floorPlanId: body.floorPlanId ?? "fp_e2e_created",
+          name: body.name ?? "Section",
+          color: body.color ?? "#8b7355",
+          displayOrder: body.displayOrder ?? createdSections.length,
+          createdAt: now,
+          updatedAt: now,
+        };
+        createdSections.push(section);
+        return route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ data: section }),
+        });
       });
     
       // Availability
@@ -2181,6 +2229,160 @@
   </file>
   </section>
   <section priority="medium" role="floor-plan">
+  <file path="src/components/floor-plan/apply-room-template.ts">
+    export interface RoomTemplateApi {
+      readonly floorPlans: {
+        create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
+        update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
+      };
+      readonly floorPlanSections: {
+        create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
+        assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]>;
+      };
+      readonly tables: {
+        list(params: {
+          venueId: string;
+          page?: number;
+          limit?: number;
+        }): Promise<PaginatedResponse<Table>>;
+        create(data: CreateTableRequest): Promise<Table>;
+      };
+    }
+    async function listVenueTableNames(
+      api: RoomTemplateApi,
+      venueId: string
+    ): Promise<ReadonlySet<string>> {
+      const names = new Set<string>();
+      for (let page = 1; ; page += 1) {
+        const { data, pagination } = await api.tables.list({ venueId, page, limit: MAX_PAGE_SIZE });
+        for (const table of data) names.add(table.name);
+        if (data.length === 0 || names.size >= pagination.total || page >= pagination.totalPages) break;
+      }
+      return names;
+    }
+    export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
+      if (!taken.has(desired)) return desired;
+      // `taken` is finite, and among `desired-2 … desired-(size + 2)` there are
+      // more candidates than `taken` has entries, so one of them is always free.
+      for (let suffix = 2; suffix <= taken.size + 2; suffix += 1) {
+        const candidate = `${desired}-${suffix}`;
+        if (!taken.has(candidate)) return candidate;
+      }
+      /* c8 ignore next -- unreachable: the loop above exhausts a superset of `taken` */
+      throw new Error(`Could not find an unused name for table "${desired}"`);
+    }
+    export interface CreateFromTemplateInput {
+      readonly venueId: string;
+      readonly name: string;
+      readonly layout: RoomLayout;
+    }
+    export function templateLayoutJson(layout: RoomLayout): FloorPlanLayout {
+      return {
+        width: layout.width,
+        height: layout.height,
+        gridSize: GRID_SIZE,
+        showGrid: true,
+        ...(layout.walls.length > 0 ? { walls: [...layout.walls] } : {}),
+      };
+    }
+    export function templateTableRequest(
+      table: RoomTemplateTable,
+      venueId: string,
+      floorPlanId: string,
+      name: string = table.name
+    ): CreateTableRequest {
+      return {
+        name,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        venueId,
+        floorPlanId,
+        shapeMetadata: {
+          shape: table.shape,
+          x: table.x,
+          y: table.y,
+          width: table.width,
+          height: table.height,
+          rotation: table.rotation,
+        },
+      };
+    }
+    async function createSectionRows(
+      api: RoomTemplateApi,
+      venueId: string,
+      floorPlanId: string,
+      layout: RoomLayout
+    ): Promise<ReadonlyMap<string, FloorPlanSection>> {
+      const rows = new Map<string, FloorPlanSection>();
+      for (const [index, zone] of layout.sections.entries()) {
+        const row = await api.floorPlanSections.create(venueId, {
+          floorPlanId,
+          name: zone.name,
+          color: zone.color,
+          displayOrder: index,
+        });
+        rows.set(zone.id, row);
+      }
+      return rows;
+    }
+    function sectionRectangles(
+      layout: RoomLayout,
+      rows: ReadonlyMap<string, FloorPlanSection>
+    ): SectionLayout[] {
+      return layout.sections.flatMap((zone) => {
+        const row = rows.get(zone.id);
+        return row
+          ? [{ id: row.id, x: zone.x, y: zone.y, width: zone.width, height: zone.height }]
+          : [];
+      });
+    }
+    async function createTables(
+      api: RoomTemplateApi,
+      venueId: string,
+      floorPlanId: string,
+      layout: RoomLayout
+    ): Promise<ReadonlyMap<string, readonly string[]>> {
+      // Read the venue's existing names once, then grow the set as we go so the
+      // template's own tables cannot collide with each other either.
+      const taken = new Set(await listVenueTableNames(api, venueId));
+      const bySection = new Map<string, string[]>();
+      for (const table of layout.tables) {
+        const name = uniqueTableName(table.name, taken);
+        taken.add(name);
+        const created = await api.tables.create(
+          templateTableRequest(table, venueId, floorPlanId, name)
+        );
+        if (table.sectionId === null) continue;
+        bySection.set(table.sectionId, [...(bySection.get(table.sectionId) ?? []), created.id]);
+      }
+      return bySection;
+    }
+    export async function createFloorPlanFromTemplate(
+      api: RoomTemplateApi,
+      { venueId, name, layout }: CreateFromTemplateInput
+    ): Promise<FloorPlan> {
+      const layoutJson = templateLayoutJson(layout);
+      const plan = await api.floorPlans.create({ venueId, name, layoutJson });
+    
+      const rows = await createSectionRows(api, venueId, plan.id, layout);
+      const withSections =
+        rows.size > 0
+          ? await api.floorPlans.update(plan.id, {
+              layoutJson: { ...layoutJson, sections: sectionRectangles(layout, rows) },
+            })
+          : plan;
+    
+      const tablesBySection = await createTables(api, venueId, plan.id, layout);
+    
+      for (const [localSectionId, tableIds] of tablesBySection) {
+        const row = rows.get(localSectionId);
+        if (!row || tableIds.length === 0) continue;
+        await api.floorPlanSections.assignTables(venueId, row.id, [...tableIds]);
+      }
+    
+      return withSections;
+    }
+  </file>
   <file path="src/components/floor-plan/floor-plan-geometry.ts">
     export const CANVAS_WIDTH = 800;
     export const CANVAS_HEIGHT = 600;
@@ -2194,6 +2396,49 @@
       square: { width: 60, height: 60 },
       circle: { width: 70, height: 70 },
     } as const;
+    export interface PlacedRect {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+    export function placeNewTable(
+      canvas: { width: number; height: number },
+      size: { width: number; height: number },
+      existing: readonly PlacedRect[]
+    ): { x: number; y: number } {
+      const centre = { x: canvas.width / 2, y: canvas.height / 2 };
+      const free = (x: number, y: number) =>
+        existing.every(
+          (t) =>
+            Math.abs(x - t.x) >= (size.width + t.width) / 2 ||
+            Math.abs(y - t.y) >= (size.height + t.height) / 2
+        );
+      const inside = (x: number, y: number) =>
+        x >= size.width / 2 &&
+        x <= canvas.width - size.width / 2 &&
+        y >= size.height / 2 &&
+        y <= canvas.height - size.height / 2;
+      if (free(centre.x, centre.y)) return centre;
+    
+      const cx = snapToGrid(centre.x);
+      const cy = snapToGrid(centre.y);
+      const maxRing = Math.ceil(Math.max(canvas.width, canvas.height) / GRID_SIZE);
+      for (let ring = 1; ring <= maxRing; ring++) {
+        let best: { x: number; y: number; d: number } | null = null;
+        for (let dx = -ring; dx <= ring; dx++) {
+          for (let dy = -ring; dy <= ring; dy++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+            const x = cx + dx * GRID_SIZE;
+            const y = cy + dy * GRID_SIZE;
+            const d = dx * dx + dy * dy;
+            if (inside(x, y) && free(x, y) && (!best || d < best.d)) best = { x, y, d };
+          }
+        }
+        if (best) return { x: best.x, y: best.y };
+      }
+      return centre;
+    }
     export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number {
       return Math.round(value / gridSize) * gridSize;
     }
@@ -2230,11 +2475,12 @@
       wall: WallLayout,
       end: WallEnd,
       p: Point,
-      gridSize: number = GRID_SIZE
+      gridSize: number = GRID_SIZE,
+      canvas: { width: number; height: number } = { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }
     ): WallLayout {
       const snapped = snapPoint(p, gridSize);
-      const x = clampTo(snapped.x, 0, CANVAS_WIDTH);
-      const y = clampTo(snapped.y, 0, CANVAS_HEIGHT);
+      const x = clampTo(snapped.x, 0, canvas.width);
+      const y = clampTo(snapped.y, 0, canvas.height);
       return end === 1 ? { ...wall, x1: x, y1: y } : { ...wall, x2: x, y2: y };
     }
     export function clampThickness(value: number): number {
@@ -2330,6 +2576,19 @@
         : rectangleSeats(count, width, height, gap);
     }
   </file>
+  <file path="src/components/floor-plan/floor-textures.ts">
+    export const FLOOR_TEXTURE_DIR = "floor-plan/textures";
+    export const TEXTURE_SOURCE_PX = 64;
+    export const TEXTURE_TILE_PX = GRID_SIZE * 4;
+    export const TEXTURE_PATTERN_SCALE = {
+      x: TEXTURE_TILE_PX / TEXTURE_SOURCE_PX,
+      y: TEXTURE_TILE_PX / TEXTURE_SOURCE_PX,
+    } as const;
+    export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string {
+      const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+      return `${base}${FLOOR_TEXTURE_DIR}/${material}.png`;
+    }
+  </file>
   <file path="src/components/floor-plan/furniture-tokens.ts">
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
@@ -2353,6 +2612,334 @@
       rectangle: 6,
       square: 3,
     };
+  </file>
+  <file path="src/components/floor-plan/room-geometry.ts">
+    export function tableBounds(table: {
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+    }): { left: number; top: number; right: number; bottom: number } {
+      const radians = (table.rotation * Math.PI) / 180;
+      const cos = Math.abs(Math.cos(radians));
+      const sin = Math.abs(Math.sin(radians));
+      const halfWidth = (table.width * cos + table.height * sin) / 2;
+      const halfHeight = (table.width * sin + table.height * cos) / 2;
+    
+      return {
+        left: table.x - halfWidth,
+        top: table.y - halfHeight,
+        right: table.x + halfWidth,
+        bottom: table.y + halfHeight,
+      };
+    }
+    export type PerimeterSide = "top" | "right" | "bottom" | "left";
+    export interface PerimeterGap {
+      readonly side: PerimeterSide;
+      readonly from: number;
+      readonly to: number;
+    }
+    interface SideDefinition {
+      readonly side: PerimeterSide;
+      /** True when both of a wall's endpoints lie on this side's line. */
+      readonly onSide: (segment: WallLayout) => boolean;
+      /** The segment's extent along the side, as [low, high]. */
+      readonly span: (segment: WallLayout) => readonly [number, number];
+      readonly length: number;
+    }
+    function sideDefinitions(layout: RoomLayout): readonly SideDefinition[] {
+      const horizontal = (segment: WallLayout) =>
+        [Math.min(segment.x1, segment.x2), Math.max(segment.x1, segment.x2)] as const;
+      const vertical = (segment: WallLayout) =>
+        [Math.min(segment.y1, segment.y2), Math.max(segment.y1, segment.y2)] as const;
+    
+      return [
+        {
+          side: "top",
+          onSide: (s) => s.y1 === 0 && s.y2 === 0,
+          span: horizontal,
+          length: layout.width,
+        },
+        {
+          side: "right",
+          onSide: (s) => s.x1 === layout.width && s.x2 === layout.width,
+          span: vertical,
+          length: layout.height,
+        },
+        {
+          side: "bottom",
+          onSide: (s) => s.y1 === layout.height && s.y2 === layout.height,
+          span: horizontal,
+          length: layout.width,
+        },
+        {
+          side: "left",
+          onSide: (s) => s.x1 === 0 && s.x2 === 0,
+          span: vertical,
+          length: layout.height,
+        },
+      ];
+    }
+    function gapsOnSide(definition: SideDefinition, layout: RoomLayout): PerimeterGap[] {
+      const covered = layout.walls
+        .filter(definition.onSide)
+        .map(definition.span)
+        .filter(([low, high]) => high > low)
+        .sort((a, b) => a[0] - b[0]);
+    
+      const gaps: PerimeterGap[] = [];
+      let reached = 0;
+      for (const [low, high] of covered) {
+        if (low > reached) gaps.push({ side: definition.side, from: reached, to: low });
+        reached = Math.max(reached, high);
+      }
+      if (reached < definition.length) {
+        gaps.push({ side: definition.side, from: reached, to: definition.length });
+      }
+      return gaps;
+    }
+    export function perimeterGaps(layout: RoomLayout): readonly PerimeterGap[] {
+      return sideDefinitions(layout).flatMap((definition) => gapsOnSide(definition, layout));
+    }
+  </file>
+  <file path="src/components/floor-plan/room-template-copy.ts">
+    export function layoutSummary(t: TFunction, layout: RoomLayout): string {
+      if (layout.tables.length === 0 && layout.sections.length === 0) {
+        return t("floorPlan.templates.summaryEmpty");
+      }
+      return t("floorPlan.templates.summary", {
+        tables: t("floorPlan.templates.tableCount", { count: layout.tables.length }),
+        sections: t("floorPlan.templates.sectionCount", { count: layout.sections.length }),
+      });
+    }
+  </file>
+  <file path="src/components/floor-plan/room-templates.ts">
+    export type RoomTemplateId =
+      | "blank"
+      | "fine-dining"
+      | "casual-bistro"
+      | "bar-lounge"
+      | "cafe"
+      | "banquet-hall"
+      | "open-kitchen";
+    export type RoomSizeId = "cozy" | "standard" | "spacious" | "grand";
+    export interface RoomSize {
+      readonly id: RoomSizeId;
+      readonly width: number;
+      readonly height: number;
+    }
+    export const ROOM_SIZES: readonly RoomSize[] = [
+      { id: "cozy", width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+      { id: "standard", width: 1200, height: 800 },
+      { id: "spacious", width: 1600, height: 1000 },
+      { id: "grand", width: 2000, height: 1200 },
+    ] as const;
+    export interface RoomTemplateTable {
+      readonly id: string;
+      readonly name: string;
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      readonly minCovers: number;
+      /** Centre of the table, in canvas units — the origin Konva rotates about. */
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+      /** Local section id, or null when the table sits outside every zone. */
+      readonly sectionId: string | null;
+    }
+    export interface RoomTemplateSection {
+      readonly id: string;
+      readonly name: string;
+      readonly color: string;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+    }
+    export interface RoomLayout {
+      readonly width: number;
+      readonly height: number;
+      readonly tables: readonly RoomTemplateTable[];
+      readonly sections: readonly RoomTemplateSection[];
+      readonly walls: readonly WallLayout[];
+    }
+    export interface RoomTemplate {
+      readonly id: RoomTemplateId;
+      /** The plan's name once created. Saved data, so it stays en-US in every locale. */
+      readonly planName: string;
+      /** Width of the one doorway this template leaves in its perimeter; null for Blank. */
+      readonly doorWidth: number | null;
+      readonly build: (width: number, height: number) => RoomLayout;
+    }
+    interface TableSpec {
+      readonly name: string;
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      readonly minCovers: number;
+      /** Top-left of the unrotated footprint, matching the ported source's space. */
+      readonly left: number;
+      readonly top: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+    }
+    interface SectionSpec {
+      readonly name: string;
+      readonly color: string;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+    }
+    type WallSpec = Omit<WallLayout, "id">;
+    interface LayoutSpec {
+      readonly tables: readonly TableSpec[];
+      readonly sections: readonly SectionSpec[];
+      readonly walls: readonly WallSpec[];
+    }
+    type DoorSide = "bottom" | "left";
+    function perimeterWithDoor(
+      w: number,
+      h: number,
+      side: DoorSide,
+      position: number,
+      gap: number
+    ): WallSpec[] {
+      const t = PERIMETER_THICKNESS;
+      const p = Math.round(position);
+    
+      if (side === "bottom") {
+        return [
+          { x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+          { x1: w, y1: 0, x2: w, y2: h, thickness: t },
+          { x1: 0, y1: h, x2: p, y2: h, thickness: t },
+          { x1: p + gap, y1: h, x2: w, y2: h, thickness: t },
+          { x1: 0, y1: h, x2: 0, y2: 0, thickness: t },
+        ];
+      }
+    
+      return [
+        { x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+        { x1: w, y1: 0, x2: w, y2: h, thickness: t },
+        { x1: w, y1: h, x2: 0, y2: h, thickness: t },
+        { x1: 0, y1: 0, x2: 0, y2: p, thickness: t },
+        { x1: 0, y1: p + gap, x2: 0, y2: h, thickness: t },
+      ];
+    }
+    function slug(value: string): string {
+      return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+    }
+    function containingSection(
+      sections: readonly RoomTemplateSection[],
+      x: number,
+      y: number
+    ): string | null {
+      const found = sections.find(
+        (zone) => x >= zone.x && x <= zone.x + zone.width && y >= zone.y && y <= zone.y + zone.height
+      );
+      return found ? found.id : null;
+    }
+    function toLayout(
+      templateId: RoomTemplateId,
+      width: number,
+      height: number,
+      spec: LayoutSpec
+    ): RoomLayout {
+      const sections: readonly RoomTemplateSection[] = spec.sections.map((zone) => ({
+        ...zone,
+        id: `${templateId}-${slug(zone.name)}`,
+      }));
+    
+      const tables: readonly RoomTemplateTable[] = spec.tables.map((table) => {
+        const x = table.left + table.width / 2;
+        const y = table.top + table.height / 2;
+        return {
+          id: `${templateId}-${slug(table.name)}`,
+          name: table.name,
+          shape: table.shape,
+          capacity: table.capacity,
+          minCovers: table.minCovers,
+          x,
+          y,
+          width: table.width,
+          height: table.height,
+          rotation: table.rotation,
+          sectionId: containingSection(sections, x, y),
+        };
+      });
+    
+      const walls: readonly WallLayout[] = spec.walls.map((segment, index) => ({
+        ...segment,
+        id: `${templateId}-wall-${index + 1}`,
+      }));
+    
+      return { width, height, tables, sections, walls };
+    }
+    export const ROOM_TEMPLATES: readonly RoomTemplate[] = [
+      BLANK,
+      FINE_DINING,
+      CASUAL_BISTRO,
+      BAR_LOUNGE,
+      CAFE,
+      BANQUET_HALL,
+      OPEN_KITCHEN,
+    ] as const;
+    export function roomTemplateById(id: RoomTemplateId): RoomTemplate {
+      const found = ROOM_TEMPLATES.find((template) => template.id === id);
+      if (!found) throw new Error(`roomTemplateById: no template registered for id "${id}"`);
+      return found;
+    }
+    export function roomSizeById(id: RoomSizeId): RoomSize {
+      const found = ROOM_SIZES.find((size) => size.id === id);
+      if (!found) throw new Error(`roomSizeById: no size registered for id "${id}"`);
+      return found;
+    }
+  </file>
+  <file path="src/components/floor-plan/section-label-theme.ts">
+    export interface SectionLabelTheme {
+      /** Opaque plate behind the name. */
+      plate: string;
+      /** The name itself. */
+      text: string;
+    }
+    export const SECTION_LABEL_TOKENS = {
+      plate: "--rialto-surface",
+      text: "--rialto-text-primary",
+    } as const;
+    export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme> = {
+      light: { plate: "#f8f6f3", text: "#1a1918" },
+      dark: { plate: "#1e1c1a", text: "rgb(253 252 250 / 0.92)" },
+    };
+    export function resolveSectionLabelTheme(): SectionLabelTheme {
+      const theme: "light" | "dark" =
+        document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      const fallback = SECTION_LABEL_FALLBACKS[theme];
+      const computed = getComputedStyle(document.documentElement);
+      return {
+        plate: computed.getPropertyValue(SECTION_LABEL_TOKENS.plate).trim() || fallback.plate,
+        text: computed.getPropertyValue(SECTION_LABEL_TOKENS.text).trim() || fallback.text,
+      };
+    }
+    export function useSectionLabelTheme(): SectionLabelTheme {
+      const [theme, setTheme] = useState(resolveSectionLabelTheme);
+    
+      useEffect(() => {
+        const observer = new MutationObserver(() => setTheme(resolveSectionLabelTheme()));
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+        return () => observer.disconnect();
+      }, []);
+    
+      return theme;
+    }
   </file>
   <file path="src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
@@ -2380,6 +2967,71 @@
     export function deriveTableStatus(input: TableStatusInput): TableStatusResult {
       const status = deriveTableDisplayStatus(input);
       return { status, colorToken: TABLE_STATUS_COLOR_TOKEN[status] };
+    }
+  </file>
+  <file path="src/components/floor-plan/table-update.ts">
+    export interface TableDetailsFormValues {
+      name: string;
+      tableNumber: string;
+      capacity: string;
+      minCovers: string;
+      maxCovers: string;
+      location: string;
+      isActive: boolean;
+    }
+    export function tableToFormValues(table: Table): TableDetailsFormValues {
+      return {
+        name: table.name,
+        tableNumber: table.tableNumber ?? "",
+        capacity: String(table.capacity),
+        minCovers: String(table.minCovers),
+        // A numeric input needs a value, and `PATCH /api/v1/tables/:id` has no way
+        // to express "clear the maximum" — `maxCovers` is `number | undefined` on
+        // the wire, never null. Seeding an absent maximum from capacity keeps the
+        // field meaningful without inventing a write: the delta below is computed
+        // against these seeded values, so leaving the field alone sends nothing.
+        maxCovers: String(table.maxCovers ?? table.capacity),
+        location: table.location ?? "",
+        isActive: table.isActive,
+      };
+    }
+    export function buildTableUpdate(
+      initial: TableDetailsFormValues,
+      current: TableDetailsFormValues
+    ): UpdateTableRequest {
+      const changes: UpdateTableRequest = {};
+    
+      const name = current.name.trim();
+      if (name !== initial.name.trim()) changes.name = name;
+    
+      const tableNumber = current.tableNumber.trim();
+      if (tableNumber !== initial.tableNumber.trim()) changes.tableNumber = tableNumber;
+    
+      const location = current.location.trim();
+      if (location !== initial.location.trim()) changes.location = location;
+    
+      if (current.isActive !== initial.isActive) changes.isActive = current.isActive;
+    
+      const capacity = changedPositiveInt(initial.capacity, current.capacity);
+      if (capacity !== null) changes.capacity = capacity;
+    
+      const minCovers = changedPositiveInt(initial.minCovers, current.minCovers);
+      if (minCovers !== null) changes.minCovers = minCovers;
+    
+      const maxCovers = changedPositiveInt(initial.maxCovers, current.maxCovers);
+      if (maxCovers !== null) changes.maxCovers = maxCovers;
+    
+      return changes;
+    }
+    function changedPositiveInt(initial: string, current: string): number | null {
+      if (current.trim() === initial.trim()) return null;
+      return parsePositiveInt(current);
+    }
+    export function parsePositiveInt(raw: string): number | null {
+      const trimmed = raw.trim();
+      if (!/^\d+$/.test(trimmed)) return null;
+      const parsed = Number(trimmed);
+      return parsed >= 1 ? parsed : null;
     }
   </file>
   </section>
@@ -3386,6 +4038,15 @@
       invalidateKeys: FLOOR_PLAN_QUERY_KEY,
       mutationFn: (api, tableId) => api.tables.delete(tableId),
     });
+    export interface UpdateTablePayload {
+      tableId: string;
+      changes: UpdateTableRequest;
+    }
+    export const useUpdateTable = createMutationHook<UpdateTablePayload, Table>({
+      // Invalidate all floor plan detail queries since the payload carries no plan id
+      invalidateKeys: FLOOR_PLAN_QUERY_KEY,
+      mutationFn: (api, { tableId, changes }) => api.tables.update(tableId, changes),
+    });
     export const useUpdateFloorPlanLayout = createMutationHook<
       { floorPlanId: string; layoutJson: FloorPlanLayout },
       FloorPlan
@@ -3397,6 +4058,60 @@
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
+    export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
+    export const useFloorPlanSections = createQueryHook<
+      FloorPlanSection[],
+      { venueId?: string | null; floorPlanId?: string | null }
+    >({
+      key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
+      getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
+    });
+    export const useUpdateFloorPlanSection = createMutationHook<
+      { venueId: string; sectionId: string; data: UpdateFloorPlanSectionRequest },
+      FloorPlanSection
+    >({
+      invalidateKeys: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      mutationFn: (api, { venueId, sectionId, data }) =>
+        api.floorPlanSections.update(venueId, sectionId, data),
+    });
+  </file>
+  <file path="src/hooks/useFloorTextures.ts">
+    export type FloorTextureMap = ReadonlyMap<FloorMaterial, HTMLImageElement>;
+    export function useFloorTextures(materials: readonly FloorMaterial[]): FloorTextureMap {
+      // A content key, not the array identity: callers rebuild the list on every
+      // render, and the effect must only re-run when the set of materials differs.
+      const key = [...new Set(materials)].sort().join(",");
+      const [textures, setTextures] = useState<FloorTextureMap>(EMPTY);
+      const requestedRef = useRef<Set<FloorMaterial>>(new Set());
+    
+      useEffect(() => {
+        if (!key) return;
+        for (const material of key.split(",") as FloorMaterial[]) {
+          if (requestedRef.current.has(material)) continue;
+          requestedRef.current.add(material);
+          const image = new Image();
+          // Deliberately no per-effect-run cancel flag. `requestedRef` dedupes over
+          // the component's whole lifetime, so a run that is torn down mid-download
+          // is the *only* run that will ever ask for this material — discarding its
+          // load would leave the section permanently flat. StrictMode makes that
+          // certain rather than rare: `main.tsx` wraps the app, so every dev mount
+          // is effect -> cleanup -> effect, and a run-scoped flag means textures
+          // never appear in `pnpm dev` at all.
+          //
+          // A load that lands is the right texture whichever run requested it, and
+          // one that lands after unmount is a no-op `setState` on an unmounted
+          // component. Both are covered in `useFloorTextures.test.tsx`.
+          image.onload = () => {
+            // A fresh Map per load: the map already handed to the renderer is never mutated.
+            setTextures((previous) => new Map(previous).set(material, image));
+          };
+          image.src = floorTextureUrl(material, import.meta.env.BASE_URL);
+        }
+      }, [key]);
+    
+      return textures;
+    }
   </file>
   <file path="src/hooks/useFocusAfter.ts">
     export type FocusTarget =
@@ -5397,6 +6112,170 @@
       };
     }
   </file>
+  <file path="src/lib/logo-palette-canvas.ts">
+    export const ACCEPTED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+    export const MAX_LOGO_BYTES = 8 * 1024 * 1024;
+    export type LogoPaletteFailure = "unsupported-type" | "too-large" | "decode-failed";
+    export type LogoPaletteResult =
+      | { readonly ok: true; readonly palette: readonly string[] }
+      | { readonly ok: false; readonly reason: LogoPaletteFailure };
+    export function classifyLogoFile(file: Pick<File, "type" | "size">): LogoPaletteFailure | null {
+      if (!ACCEPTED_LOGO_TYPES.some((type) => type === file.type)) return "unsupported-type";
+      if (file.size > MAX_LOGO_BYTES) return "too-large";
+      return null;
+    }
+    export async function readLogoPalette(
+      file: File,
+      maxColors = DEFAULT_MAX_COLORS
+    ): Promise<LogoPaletteResult> {
+      const invalid = classifyLogoFile(file);
+      if (invalid !== null) return { ok: false, reason: invalid };
+    
+      try {
+        const bitmap = await createImageBitmap(file);
+        try {
+          const { width, height } = fitWithin(bitmap.width, bitmap.height);
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (context === null) return { ok: false, reason: "decode-failed" };
+          context.drawImage(bitmap, 0, 0, width, height);
+          const { data } = context.getImageData(0, 0, width, height);
+          return { ok: true, palette: extractDominantColors(data, maxColors) };
+        } finally {
+          bitmap.close();
+        }
+      } catch {
+        return { ok: false, reason: "decode-failed" };
+      }
+    }
+  </file>
+  <file path="src/lib/logo-palette.ts">
+    export interface RgbPixel {
+      readonly r: number;
+      readonly g: number;
+      readonly b: number;
+    }
+    interface Centroid extends RgbPixel {
+      readonly count: number;
+    }
+    export type RgbaBytes = Uint8Array | Uint8ClampedArray;
+    export const DEFAULT_MAX_COLORS = 5;
+    export const PIXEL_STRIDE = 10;
+    export const MAX_SAMPLE_EDGE = 256;
+    export function fitWithin(
+      width: number,
+      height: number,
+      maxEdge = MAX_SAMPLE_EDGE
+    ): { readonly width: number; readonly height: number } {
+      const longest = Math.max(width, height);
+      if (longest <= maxEdge) return { width, height };
+      const scale = maxEdge / longest;
+      return {
+        width: Math.max(1, Math.floor(width * scale)),
+        height: Math.max(1, Math.floor(height * scale)),
+      };
+    }
+    export function samplePixels(rgba: RgbaBytes): readonly RgbPixel[] {
+      const pixels: RgbPixel[] = [];
+      const pixelCount = Math.floor(rgba.length / 4);
+    
+      for (let i = 0; i < pixelCount; i += PIXEL_STRIDE) {
+        const offset = i * 4;
+        const r = rgba[offset] ?? 0;
+        const g = rgba[offset + 1] ?? 0;
+        const b = rgba[offset + 2] ?? 0;
+        const a = rgba[offset + 3] ?? 0;
+    
+        if (a < ALPHA_THRESHOLD) continue;
+        if (r > NEAR_WHITE_THRESHOLD && g > NEAR_WHITE_THRESHOLD && b > NEAR_WHITE_THRESHOLD) continue;
+        if (r < NEAR_BLACK_THRESHOLD && g < NEAR_BLACK_THRESHOLD && b < NEAR_BLACK_THRESHOLD) continue;
+    
+        pixels.push({ r, g, b });
+      }
+    
+      return pixels;
+    }
+    function distance(a: RgbPixel, b: RgbPixel): number {
+      const dr = a.r - b.r;
+      const dg = a.g - b.g;
+      const db = a.b - b.b;
+      return dr * dr + dg * dg + db * db;
+    }
+    function initCentroids(pixels: readonly RgbPixel[], k: number): readonly RgbPixel[] {
+      const step = Math.max(1, Math.floor(pixels.length / k));
+      return Array.from(
+        { length: k },
+        (_, i) => pixels[Math.min(i * step, pixels.length - 1)] as RgbPixel
+      );
+    }
+    function nearestCentroid(pixel: RgbPixel, centroids: readonly RgbPixel[]): number {
+      let minDist = Infinity;
+      let nearest = 0;
+      for (let ci = 0; ci < centroids.length; ci++) {
+        const d = distance(pixel, centroids[ci] as RgbPixel);
+        if (d < minDist) {
+          minDist = d;
+          nearest = ci;
+        }
+      }
+      return nearest;
+    }
+    function meanOf(cluster: readonly RgbPixel[]): RgbPixel {
+      const sum = cluster.reduce((acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }), {
+        r: 0,
+        g: 0,
+        b: 0,
+      });
+      return {
+        r: Math.round(sum.r / cluster.length),
+        g: Math.round(sum.g / cluster.length),
+        b: Math.round(sum.b / cluster.length),
+      };
+    }
+    function runKMeans(pixels: readonly RgbPixel[], k: number): readonly Centroid[] {
+      if (pixels.length === 0) return [];
+    
+      const clampedK = Math.min(k, pixels.length);
+      let centroids = initCentroids(pixels, clampedK);
+    
+      for (let iter = 0; iter < KMEANS_ITERATIONS; iter++) {
+        const clusters: RgbPixel[][] = Array.from({ length: clampedK }, () => []);
+        for (const pixel of pixels) {
+          (clusters[nearestCentroid(pixel, centroids)] as RgbPixel[]).push(pixel);
+        }
+        // An empty cluster keeps its previous centroid rather than drifting.
+        centroids = clusters.map((cluster, ci) =>
+          cluster.length === 0 ? (centroids[ci] as RgbPixel) : meanOf(cluster)
+        );
+      }
+    
+      const clusterSizes: number[] = Array<number>(clampedK).fill(0);
+      for (const pixel of pixels) {
+        const nearest = nearestCentroid(pixel, centroids);
+        clusterSizes[nearest] = (clusterSizes[nearest] ?? 0) + 1;
+      }
+    
+      return centroids.map((c, i) => ({ ...c, count: clusterSizes[i] ?? 0 }));
+    }
+    function toHex(n: number): string {
+      return n.toString(16).padStart(2, "0");
+    }
+    function centroidToHex(c: RgbPixel): string {
+      return `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`;
+    }
+    export function extractDominantColors(
+      rgba: RgbaBytes,
+      maxColors = DEFAULT_MAX_COLORS
+    ): readonly string[] {
+      const pixels = samplePixels(rgba);
+      if (pixels.length === 0) return [];
+    
+      const ranked = runKMeans(pixels, maxColors).filter((c) => c.count > 0);
+      return [...ranked].sort((a, b) => b.count - a.count).map(centroidToHex);
+    }
+  </file>
   <file path="src/lib/offline-cache.ts">
     export type FloorPlanSnapshot = TableStatusDelta[];
     interface ReservationsCacheEntry {
@@ -5671,6 +6550,25 @@
         ? LIGHT_ON_ACCENT
         : DARK_ON_ACCENT;
     }
+    function channel(hex: string, index: number): number {
+      return parseInt(expandHex(hex).slice(index, index + 2), 16);
+    }
+    function toHexByte(value: number): string {
+      return Math.round(value).toString(16).padStart(2, "0");
+    }
+    export function deriveAccentHover(accent: string): string {
+      const toward = onAccentColor(accent);
+      const shifted = [0, 2, 4].map((i) => {
+        const from = channel(accent, i);
+        return from + (channel(toward, i) - from) * HOVER_SHIFT;
+      });
+      return `#${shifted.map(toHexByte).join("")}`;
+    }
+    export function paletteToTheme(palette: readonly string[]): VenueTheme | null {
+      const [accent] = palette;
+      if (accent === undefined) return null;
+      return { accent, accentHover: deriveAccentHover(accent), source: "extracted" };
+    }
     export type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
     export interface ThemeContrastResult {
       ok: boolean;
@@ -5919,6 +6817,101 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="src/test/png-luminance.ts">
+    export interface DecodedPng {
+      readonly width: number;
+      readonly height: number;
+      /** Row-major RGBA bytes, `width * height * 4` long. */
+      readonly data: Uint8Array;
+    }
+    function unfilterRow(
+      filterType: number,
+      row: Uint8Array,
+      previous: Uint8Array,
+      out: Uint8Array
+    ): void {
+      for (let i = 0; i < row.length; i++) {
+        const left = i >= RGBA_CHANNELS ? out[i - RGBA_CHANNELS]! : 0;
+        const up = previous[i]!;
+        const upLeft = i >= RGBA_CHANNELS ? previous[i - RGBA_CHANNELS]! : 0;
+        let value: number;
+        switch (filterType) {
+          case 0:
+            value = row[i]!;
+            break;
+          case 1:
+            value = row[i]! + left;
+            break;
+          case 2:
+            value = row[i]! + up;
+            break;
+          case 3:
+            value = row[i]! + ((left + up) >> 1);
+            break;
+          case 4: {
+            const predictor = left + up - upLeft;
+            const dLeft = Math.abs(predictor - left);
+            const dUp = Math.abs(predictor - up);
+            const dUpLeft = Math.abs(predictor - upLeft);
+            const paeth = dLeft <= dUp && dLeft <= dUpLeft ? left : dUp <= dUpLeft ? up : upLeft;
+            value = row[i]! + paeth;
+            break;
+          }
+          default:
+            throw new Error(`Unsupported PNG filter type ${filterType}`);
+        }
+        out[i] = value & 0xff;
+      }
+    }
+    export function decodePng(bytes: Buffer): DecodedPng {
+      if (!bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+        throw new Error("Not a PNG");
+      }
+      const width = bytes.readUInt32BE(16);
+      const height = bytes.readUInt32BE(20);
+      const bitDepth = bytes[24];
+      const colorType = bytes[25];
+      const interlace = bytes[28];
+      if (bitDepth !== EIGHT_BIT || colorType !== COLOR_TYPE_RGBA || interlace !== 0) {
+        throw new Error(
+          `Unsupported PNG: bitDepth=${bitDepth} colorType=${colorType} interlace=${interlace}`
+        );
+      }
+    
+      const idat: Buffer[] = [];
+      let offset = PNG_SIGNATURE.length;
+      while (offset + 8 <= bytes.length) {
+        const length = bytes.readUInt32BE(offset);
+        if (bytes.toString("ascii", offset + 4, offset + 8) === "IDAT") {
+          idat.push(bytes.subarray(offset + 8, offset + 8 + length));
+        }
+        offset += 12 + length;
+      }
+    
+      const raw = inflateSync(Buffer.concat(idat));
+      const stride = width * RGBA_CHANNELS;
+      const data = new Uint8Array(height * stride);
+      let previous = new Uint8Array(stride);
+      for (let y = 0; y < height; y++) {
+        const start = y * (stride + 1);
+        const out = new Uint8Array(stride);
+        unfilterRow(raw[start]!, raw.subarray(start + 1, start + 1 + stride), previous, out);
+        data.set(out, y * stride);
+        previous = out;
+      }
+      return { width, height, data };
+    }
+    export function relativeLuminance(r: number, g: number, b: number): number {
+      const channel = (value: number): number => {
+        const s = value / 255;
+        return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    }
+    export function contrastRatio(a: number, b: number): number {
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    }
+  </file>
   <file path="src/test/special-requests-fixtures.ts">
     export const TWO_LINE_NOTE =
       "  Our anniversary.\nWindow seat if you can, and she can't have tree nuts.  \n";
@@ -6891,11 +7884,6 @@
         seats: t("onboarding.floorPlan.seatCount", { count: seats }),
       };
     }
-    export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string {
-      return tables.length === 0
-        ? t("onboarding.floorPlan.summaryBlank")
-        : t("onboarding.floorPlan.summary", layoutCounts(t, tables));
-    }
   </file>
   <file path="src/components/venue-onboarding/floor-plan-draft.ts">
     export type DraftTableShape = TableShapeMetadata["shape"];
@@ -6906,14 +7894,40 @@
       capacity: number;
       minCovers: number;
       shape: DraftTableShape;
-      /** Centre coordinates, always multiples of GRID_SIZE. */
+      /** Centre coordinates. A table the manager adds is always a multiple of GRID_SIZE. */
       x: number;
       y: number;
+      /**
+       * Footprint, where a room template gave this table one of its own — a long
+       * table is 140 wide against a shape default of 80. Absent on a table the
+       * manager added, which keeps using SHAPE_DEFAULTS.
+       */
+      width?: number;
+      height?: number;
+      rotation?: number;
+      /**
+       * The room template's **local** section id, or null outside every zone.
+       * Launch resolves it to the real row id.
+       */
+      sectionId?: string | null;
+    }
+    export function draftTableSize(table: DraftTable): { width: number; height: number } {
+      const defaults = SHAPE_DEFAULTS[table.shape];
+      return { width: table.width ?? defaults.width, height: table.height ?? defaults.height };
     }
     export interface FloorPlanDraft {
-      templateId: string | null;
+      templateId: RoomTemplateId | null;
+      /** The room size the template was built at. */
+      sizeId: RoomSizeId;
       planName: string;
       tables: readonly DraftTable[];
+      /** Named zones the room template places; local ids until Launch makes their rows. */
+      sections: readonly RoomTemplateSection[];
+      /** Perimeter and interior walls the room template places. */
+      walls: readonly WallLayout[];
+      /** The canvas the template was built for; the plan is saved at this size. */
+      width: number;
+      height: number;
       /** False once the manager has moved, added or removed anything. Gates the replace-confirm. */
       pristine: boolean;
     }
@@ -6921,17 +7935,32 @@
     export const DUPLICATE_TABLE_NAME_MESSAGE = "A table with this name already exists";
     export const EMPTY_FLOOR_PLAN_DRAFT: FloorPlanDraft = {
       templateId: null,
+      sizeId: "cozy",
       planName: "",
       tables: [],
+      sections: [],
+      walls: [],
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
       pristine: true,
     };
+    export function draftLayoutJson(draft: FloorPlanDraft): FloorPlanLayout {
+      return {
+        width: draft.width,
+        height: draft.height,
+        gridSize: GRID_SIZE,
+        showGrid: true,
+        ...(draft.walls.length > 0 ? { walls: [...draft.walls] } : {}),
+      };
+    }
     export function draftToCanvasTables(draft: FloorPlanDraft): Table[] {
       return draft.tables.map((table) => {
         const shapeMetadata: TableShapeMetadata = {
           shape: table.shape,
           x: table.x,
           y: table.y,
-          ...SHAPE_DEFAULTS[table.shape],
+          ...draftTableSize(table),
+          ...(table.rotation === undefined ? {} : { rotation: table.rotation }),
         };
     
         return {
@@ -6947,6 +7976,7 @@
           status: "AVAILABLE",
           venueId: null,
           floorPlanId: null,
+          sectionId: table.sectionId ?? null,
           shapeMetadata,
           createdAt: DRAFT_TIMESTAMP,
           updatedAt: DRAFT_TIMESTAMP,
@@ -6959,12 +7989,7 @@
         venueId: DRAFT_ID,
         name: draft.planName,
         isActive: false,
-        layoutJson: {
-          width: CANVAS_WIDTH,
-          height: CANVAS_HEIGHT,
-          gridSize: GRID_SIZE,
-          showGrid: true,
-        },
+        layoutJson: draftLayoutJson(draft),
         createdAt: DRAFT_TIMESTAMP,
         updatedAt: DRAFT_TIMESTAMP,
       };
@@ -6995,7 +8020,7 @@
       venueId: string,
       floorPlanId: string
     ): CreateTableRequest {
-      const dims = SHAPE_DEFAULTS[table.shape];
+      const dims = draftTableSize(table);
     
       return {
         name: table.name,
@@ -7009,6 +8034,7 @@
           y: table.y,
           width: dims.width,
           height: dims.height,
+          ...(table.rotation === undefined ? {} : { rotation: table.rotation }),
         },
       };
     }
@@ -7022,212 +8048,69 @@
     }
   </file>
   <file path="src/components/venue-onboarding/floor-plan-templates.ts">
-    export type TemplateId = "restaurant" | "cafe" | "bar" | "patio" | "blank";
-    export interface Zone {
-      prefix: string;
-      shape: DraftTableShape;
-      capacity: number;
-      minCovers: number;
-      origin: { x: number; y: number };
-      cols: number;
-      rows: number;
-      /** Omitted when cols === 1. */
-      pitchX?: number;
-      /** Omitted when rows === 1. */
-      pitchY?: number;
+    export type TemplateId = RoomTemplateId;
+    export const FLOOR_PLAN_TEMPLATES: readonly RoomTemplate[] = ROOM_TEMPLATES;
+    export function templateById(id: TemplateId): RoomTemplate {
+      return roomTemplateById(id);
     }
-    export interface FloorPlanTemplate {
-      id: TemplateId;
-      /**
-       * The floor plan's name once created — fixed per template, not editable in the wizard. It is
-       * saved data (the plan's name on the server), so it stays the same in every locale; the
-       * picker's own copy (card name, zone line) lives in the catalog under
-       * `onboarding.floorPlan.templates.<id>`.
-       */
-      planName: string;
-      zones: readonly Zone[];
+    export function layoutForDraft(draft: FloorPlanDraft): RoomLayout | null {
+      if (draft.templateId === null) return null;
+      const size = roomSizeById(draft.sizeId);
+      return {
+        width: draft.width || size.width,
+        height: draft.height || size.height,
+        tables: draft.tables.map(previewTable),
+        sections: draft.sections,
+        walls: draft.walls,
+      };
     }
-    function tablesForZone(zone: Zone): DraftTable[] {
-      return Array.from({ length: zone.rows * zone.cols }, (_, i) => {
-        const r = Math.floor(i / zone.cols);
-        const c = i % zone.cols;
-        const name = `${zone.prefix}${i + 1}`;
-        const x = zone.cols === 1 ? zone.origin.x : zone.origin.x + c * (zone.pitchX ?? 0);
-        const y = zone.rows === 1 ? zone.origin.y : zone.origin.y + r * (zone.pitchY ?? 0);
+    function previewTable(table: DraftTable): RoomLayout["tables"][number] {
+      const { width, height } = draftTableSize(table);
+      return {
+        id: table.localId,
+        name: table.name,
+        shape: table.shape,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        x: table.x,
+        y: table.y,
+        width,
+        height,
+        rotation: table.rotation ?? 0,
+        sectionId: table.sectionId ?? null,
+      };
+    }
+    function draftTableFor(table: RoomLayout["tables"][number]): DraftTable {
+      return {
+        localId: table.name,
+        name: table.name,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        shape: table.shape,
+        x: table.x,
+        y: table.y,
+        width: table.width,
+        height: table.height,
+        rotation: table.rotation,
+        sectionId: table.sectionId,
+      };
+    }
+    export function draftFromTemplate(templateId: TemplateId, sizeId: RoomSizeId): FloorPlanDraft {
+      const template = roomTemplateById(templateId);
+      const size = roomSizeById(sizeId);
+      const layout = template.build(size.width, size.height);
     
-        return {
-          localId: name,
-          name,
-          capacity: zone.capacity,
-          minCovers: zone.minCovers,
-          shape: zone.shape,
-          x,
-          y,
-        };
-      });
-    }
-    export function tablesForTemplate(template: FloorPlanTemplate): DraftTable[] {
-      return template.zones.flatMap(tablesForZone);
-    }
-    export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
-      {
-        id: "restaurant",
-        planName: "Main Dining Room",
-        zones: [
-          {
-            prefix: "W",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 4,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "T",
-            shape: "rectangle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 120, y: 220 },
-            cols: 3,
-            rows: 2,
-            pitchX: 160,
-            pitchY: 140,
-          },
-          {
-            prefix: "R",
-            shape: "circle",
-            capacity: 6,
-            minCovers: 4,
-            origin: { x: 660, y: 220 },
-            cols: 1,
-            rows: 2,
-            pitchY: 140,
-          },
-          {
-            prefix: "B",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 120, y: 500 },
-            cols: 2,
-            rows: 1,
-            pitchX: 120,
-          },
-        ],
-      },
-      {
-        id: "cafe",
-        planName: "Main Floor",
-        zones: [
-          {
-            prefix: "W",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 5,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "C",
-            shape: "circle",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 140, y: 260 },
-            cols: 3,
-            rows: 1,
-            pitchX: 140,
-          },
-          {
-            prefix: "L",
-            shape: "rectangle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 200, y: 440 },
-            cols: 2,
-            rows: 1,
-            pitchX: 120,
-          },
-        ],
-      },
-      {
-        id: "bar",
-        planName: "Bar Floor",
-        zones: [
-          {
-            prefix: "H",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 6,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "S",
-            shape: "circle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 140, y: 260 },
-            cols: 4,
-            rows: 1,
-            pitchX: 140,
-          },
-          {
-            prefix: "B",
-            shape: "rectangle",
-            capacity: 6,
-            minCovers: 3,
-            origin: { x: 160, y: 440 },
-            cols: 2,
-            rows: 1,
-            pitchX: 140,
-          },
-        ],
-      },
-      {
-        id: "patio",
-        planName: "Patio",
-        zones: [
-          {
-            prefix: "P",
-            shape: "circle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 160, y: 140 },
-            cols: 3,
-            rows: 2,
-            pitchX: 180,
-            pitchY: 160,
-          },
-          {
-            prefix: "L",
-            shape: "rectangle",
-            capacity: 6,
-            minCovers: 3,
-            origin: { x: 200, y: 460 },
-            cols: 2,
-            rows: 1,
-            pitchX: 180,
-          },
-        ],
-      },
-      {
-        id: "blank",
-        planName: "Main Floor",
-        zones: [],
-      },
-    ] as const;
-    export function templateById(id: TemplateId): FloorPlanTemplate {
-      const template = FLOOR_PLAN_TEMPLATES.find((candidate) => candidate.id === id);
-      if (!template) {
-        throw new Error(`templateById: no template registered for id "${id}"`);
-      }
-      return template;
+      return {
+        templateId,
+        sizeId,
+        planName: template.planName,
+        tables: layout.tables.map(draftTableFor),
+        sections: layout.sections,
+        walls: layout.walls,
+        width: layout.width,
+        height: layout.height,
+        pristine: true,
+      };
     }
   </file>
   <file path="src/components/venue-onboarding/generate-slug.ts">
@@ -7246,8 +8129,23 @@
     export interface LaunchProgress {
       venueId: string | null;
       floorPlanId: string | null;
+      /**
+       * True once the plan's section rows exist and their zone rectangles are in
+       * its layout — or immediately, for a draft that names no zones. The plan and
+       * its zones are two writes inside one stage, so `floorPlanId` alone cannot
+       * say whether the stage finished: without this, a failure between them would
+       * mark floorPlan done and Retry would skip the zones for good.
+       */
+      sectionsDone: boolean;
       /** Names, not ids — the name is the server's unique key and therefore the resume key. */
       createdTableNames: readonly string[];
+      /**
+       * True once every table that a template placed in a zone has been assigned
+       * to its section. Tables and membership are two writes inside one stage, so
+       * `createdTableNames` alone cannot say whether the stage finished. Absent
+       * means not yet; it only matters for a draft with tables in zones.
+       */
+      membershipDone?: boolean;
       activated: boolean;
       inFlightStage: LaunchStageId | null;
       failedStage: LaunchStageId | null;
@@ -7256,6 +8154,7 @@
     export const INITIAL_LAUNCH_PROGRESS: LaunchProgress = {
       venueId: null,
       floorPlanId: null,
+      sectionsDone: false,
       createdTableNames: [],
       activated: false,
       inFlightStage: null,
@@ -7283,12 +8182,20 @@
         case "venue":
           return progress.venueId !== null;
         case "floorPlan":
-          return progress.floorPlanId !== null;
+          return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
-          return draft.tables.every((table) => progress.createdTableNames.includes(table.name));
+          return (
+            draft.tables.every((table) => progress.createdTableNames.includes(table.name)) &&
+            (!needsMembership(draft) || progress.membershipDone === true)
+          );
         case "activate":
           return progress.activated;
       }
+    }
+    function needsMembership(draft: FloorPlanDraft): boolean {
+      return (
+        draft.sections.length > 0 && draft.tables.some((table) => (table.sectionId ?? null) !== null)
+      );
     }
     export function nextStage(progress: LaunchProgress, draft: FloorPlanDraft): LaunchStageId | null {
       for (const stage of stagesFor(draft)) {
@@ -7303,7 +8210,7 @@
         case "venue":
           return progress.venueId !== null;
         case "floorPlan":
-          return progress.floorPlanId !== null;
+          return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
           return progress.createdTableNames.length > 0;
         case "activate":
@@ -7329,9 +8236,22 @@
       venues: { create(data: CreateVenueRequest): Promise<Venue> };
       floorPlans: {
         create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
+        update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
         setActive(id: string): Promise<FloorPlan>;
       };
-      tables: { create(data: CreateTableRequest): Promise<Table> };
+      floorPlanSections: {
+        list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]>;
+        create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
+        assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]>;
+      };
+      tables: {
+        create(data: CreateTableRequest): Promise<Table>;
+        list(params: {
+          venueId: string;
+          page?: number;
+          limit?: number;
+        }): Promise<PaginatedResponse<Table>>;
+      };
     }
     function withFallback(err: unknown, fallback: string): Error {
       return err instanceof Error && err.message ? err : new Error(fallback);
@@ -7352,6 +8272,41 @@
       onProgress(next);
       return next;
     }
+    async function createSectionsFor(
+      api: LaunchApi,
+      venueId: string,
+      floorPlanId: string,
+      draft: FloorPlanDraft
+    ): Promise<void> {
+      if (draft.sections.length === 0) return;
+    
+      const existing = await api.floorPlanSections.list(venueId, floorPlanId);
+      const byName = new Map(existing.map((row) => [row.name, row]));
+    
+      for (const [index, zone] of draft.sections.entries()) {
+        if (byName.has(zone.name)) continue;
+        const row = await api.floorPlanSections.create(venueId, {
+          floorPlanId,
+          name: zone.name,
+          color: zone.color,
+          displayOrder: index,
+        });
+        byName.set(zone.name, row);
+      }
+    
+      // A zone's rectangle is keyed by its row id, so the layout can only be
+      // written once the rows exist.
+      const sections = draft.sections.flatMap((zone) => {
+        const row = byName.get(zone.name);
+        return row
+          ? [{ id: row.id, x: zone.x, y: zone.y, width: zone.width, height: zone.height }]
+          : [];
+      });
+    
+      await api.floorPlans.update(floorPlanId, {
+        layoutJson: { ...draftLayoutJson(draft), sections },
+      });
+    }
     async function runFloorPlanStage(
       api: LaunchApi,
       draft: FloorPlanDraft,
@@ -7365,17 +8320,35 @@
         throw new Error("runLaunchSequence: floorPlan stage reached without a venueId");
       }
     
-      let floorPlan: FloorPlan;
-      try {
-        floorPlan = await api.floorPlans.create({
-          venueId,
-          name: draft.planName,
-          layoutJson: DEFAULT_LAYOUT,
-        });
-      } catch (err) {
-        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
+      // A retry after the zones failed re-enters this stage with the plan already
+      // created; creating it again would leave the venue with two plans.
+      let floorPlanId = progress.floorPlanId;
+      if (floorPlanId === null) {
+        try {
+          const floorPlan = await api.floorPlans.create({
+            venueId,
+            name: draft.planName,
+            layoutJson: draft.templateId === null ? DEFAULT_LAYOUT : draftLayoutJson(draft),
+          });
+          floorPlanId = floorPlan.id;
+        } catch (err) {
+          throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
+        }
       }
-      const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
+    
+      const withPlan: LaunchProgress = { ...progress, floorPlanId, inFlightStage: null };
+      try {
+        await createSectionsFor(api, venueId, floorPlanId, draft);
+      } catch (err) {
+        // Carry the plan's id out with the failure so Retry resumes at the zones
+        // (which are idempotent by name) instead of creating a second plan.
+        throw new LaunchStageError(
+          withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed")).message,
+          withPlan
+        );
+      }
+    
+      const next: LaunchProgress = { ...withPlan, sectionsDone: true };
       onProgress(next);
       return next;
     }
@@ -7385,6 +8358,33 @@
       constructor(message: string, partialProgress: LaunchProgress) {
         super(message);
         this.partialProgress = partialProgress;
+      }
+    }
+    async function assignTablesToSections(
+      api: LaunchApi,
+      venueId: string,
+      floorPlanId: string,
+      draft: FloorPlanDraft
+    ): Promise<void> {
+      const idByTableName = new Map<string, string>();
+      for (let page = 1; ; page += 1) {
+        const { data, pagination } = await api.tables.list({ venueId, page, limit: MAX_PAGE_SIZE });
+        for (const table of data) idByTableName.set(table.name, table.id);
+        if (data.length === 0 || page >= pagination.totalPages) break;
+      }
+    
+      const rows = await api.floorPlanSections.list(venueId, floorPlanId);
+      const rowByName = new Map(rows.map((row) => [row.name, row]));
+    
+      for (const zone of draft.sections) {
+        const row = rowByName.get(zone.name);
+        if (!row) continue;
+        const tableIds = draft.tables.flatMap((table) => {
+          const id = idByTableName.get(table.name);
+          return table.sectionId === zone.id && id !== undefined ? [id] : [];
+        });
+        if (tableIds.length === 0) continue;
+        await api.floorPlanSections.assignTables(venueId, row.id, tableIds);
       }
     }
     async function runTablesStage(
@@ -7426,6 +8426,16 @@
     
         current = { ...current, createdTableNames: [...current.createdTableNames, table.name] };
         onProgress(current);
+      }
+    
+      if (needsMembership(draft)) {
+        try {
+          await assignTablesToSections(api, venueId, floorPlanId, draft);
+        } catch (err) {
+          const fallback = localeRuntime.i18n.t("onboarding.errors.generic");
+          throw new LaunchStageError(withFallback(err, fallback).message, current);
+        }
+        current = { ...current, membershipDone: true };
       }
     
       current = { ...current, inFlightStage: null };
@@ -7564,6 +8574,7 @@
       | { type: "SLUG_CHECK_START" }
       | { type: "SLUG_CHECK_RESULT"; status: "taken" | "available" }
       | { type: "SET_TEMPLATE"; templateId: TemplateId }
+      | { type: "SET_ROOM_SIZE"; sizeId: RoomSizeId }
       | { type: "ADD_DRAFT_TABLE"; request: CreateTableRequest }
       | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
       | { type: "REMOVE_DRAFT_TABLE"; localId: string }
@@ -7697,21 +8708,25 @@
           return { ...state, slugStatus: "available", errors: { ...state.errors, basicInfo: rest } };
         }
     
-        case "SET_TEMPLATE": {
-          const template = templateById(action.templateId);
+        case "SET_TEMPLATE":
           return {
             ...state,
             data: {
               ...state.data,
-              floorPlan: {
-                templateId: action.templateId,
-                planName: template.planName,
-                tables: tablesForTemplate(template),
-                pristine: true,
-              },
+              floorPlan: draftFromTemplate(action.templateId, state.data.floorPlan.sizeId),
             },
             errors: { ...state.errors, floorPlan: null },
           };
+    
+        case "SET_ROOM_SIZE": {
+          const { templateId } = state.data.floorPlan;
+          // Resizing is only meaningful once a room is chosen; until then the step
+          // just remembers the size so the chosen room is built at it.
+          const floorPlan =
+            templateId === null
+              ? { ...state.data.floorPlan, sizeId: action.sizeId }
+              : draftFromTemplate(templateId, action.sizeId);
+          return { ...state, data: { ...state.data, floorPlan } };
         }
     
         case "ADD_DRAFT_TABLE": {
@@ -7775,6 +8790,7 @@
       validateStep: () => void;
       checkSlugAvailability: (checkPromise: Promise<unknown>) => Promise<void>;
       setTemplate: (templateId: TemplateId) => void;
+      setRoomSize: (sizeId: RoomSizeId) => void;
       addDraftTable: (request: CreateTableRequest) => void;
       moveDraftTable: (localId: string, x: number, y: number) => void;
       removeDraftTable: (localId: string) => void;
@@ -7838,6 +8854,11 @@
         []
       );
     
+      const setRoomSize = useCallback(
+        (sizeId: RoomSizeId) => dispatch({ type: "SET_ROOM_SIZE", sizeId }),
+        []
+      );
+    
       const setTemplate = useCallback(
         (templateId: TemplateId) => dispatch({ type: "SET_TEMPLATE", templateId }),
         []
@@ -7872,6 +8893,7 @@
           validateStep,
           checkSlugAvailability,
           setTemplate,
+          setRoomSize,
           addDraftTable,
           moveDraftTable,
           removeDraftTable,
@@ -7885,6 +8907,7 @@
           validateStep,
           checkSlugAvailability,
           setTemplate,
+          setRoomSize,
           addDraftTable,
           moveDraftTable,
           removeDraftTable,

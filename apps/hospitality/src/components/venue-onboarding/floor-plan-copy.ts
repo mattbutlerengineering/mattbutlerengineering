@@ -12,10 +12,3 @@ export function layoutCounts(
     seats: t("onboarding.floorPlan.seatCount", { count: seats }),
   };
 }
-
-/** "14 tables · 48 seats", or "No tables" for an empty layout. */
-export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string {
-  return tables.length === 0
-    ? t("onboarding.floorPlan.summaryBlank")
-    : t("onboarding.floorPlan.summary", layoutCounts(t, tables));
-}

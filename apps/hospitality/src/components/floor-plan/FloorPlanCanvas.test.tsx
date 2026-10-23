@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { StrictMode } from "react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { FloorPlan, Table, TableDisplayStatus } from "@mbe/types";
 
@@ -84,6 +85,26 @@ vi.mock("./TableShape.js", () => ({
   ),
 }));
 
+vi.mock("./SectionZone.js", () => ({
+  SectionZone: ({
+    zone,
+    texture,
+    labelTheme,
+  }: {
+    zone: { id: string; name: string };
+    texture?: HTMLImageElement;
+    labelTheme?: { plate: string; text: string };
+  }) => (
+    <div
+      data-testid={`section-zone-${zone.id}`}
+      data-textured={String(Boolean(texture))}
+      data-label-plate={labelTheme?.plate}
+    >
+      {zone.name}
+    </div>
+  ),
+}));
+
 import { FloorPlanCanvas } from "./FloorPlanCanvas.js";
 
 /* ── Fixtures ─────────────────────────────────────────────────── */
@@ -133,6 +154,81 @@ const defaultProps = {
 };
 
 /* ── Tests ────────────────────────────────────────────────────── */
+
+describe("FloorPlanCanvas sections", () => {
+  const zone = { id: "s1", name: "Patio", color: "#3366cc", x: 0, y: 0, width: 100, height: 100 };
+
+  it("renders section zones beneath the tables", () => {
+    render(<FloorPlanCanvas {...defaultProps} sections={[zone]} />);
+    const zoneEl = screen.getByTestId("section-zone-s1");
+    const tableEl = screen.getByTestId("table-shape-t1");
+    expect(zoneEl.compareDocumentPosition(tableEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("renders as before when a plan has no sections", () => {
+    render(<FloorPlanCanvas {...defaultProps} />);
+    expect(screen.queryByTestId(/section-zone-/)).toBeNull();
+    expect(screen.getByTestId("table-shape-t1")).toBeTruthy();
+  });
+
+  it("hands each zone the texture for its own material, and none to a bare zone", async () => {
+    const loaded: Record<string, () => void> = {};
+    class StubImage {
+      onload: (() => void) | null = null;
+      set src(value: string) {
+        const material = value.split("/").pop()!.replace(".png", "");
+        loaded[material] = () => this.onload?.();
+      }
+    }
+    vi.stubGlobal("Image", StubImage);
+
+    render(
+      <FloorPlanCanvas
+        {...defaultProps}
+        sections={[
+          { ...zone, floorMaterial: "hardwood" },
+          { ...zone, id: "s2", name: "Bar", floorMaterial: null },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("section-zone-s1").dataset.textured).toBe("false");
+
+    await act(async () => loaded.hardwood?.());
+    expect(screen.getByTestId("section-zone-s1").dataset.textured).toBe("true");
+    expect(screen.getByTestId("section-zone-s2").dataset.textured).toBe("false");
+    vi.unstubAllGlobals();
+  });
+
+  it("still textures a zone under StrictMode, which is how the app renders in dev", async () => {
+    // `main.tsx` wraps the app in <StrictMode>, so a dev mount runs
+    // effect -> cleanup -> effect. This is the whole dev render path, not just
+    // the hook: a texture dropped by that remount is invisible in `pnpm dev`.
+    const loaded: Record<string, () => void> = {};
+    class StubImage {
+      onload: (() => void) | null = null;
+      set src(value: string) {
+        const material = value.split("/").pop()!.replace(".png", "");
+        loaded[material] = () => this.onload?.();
+      }
+    }
+    vi.stubGlobal("Image", StubImage);
+
+    render(
+      <StrictMode>
+        <FloorPlanCanvas {...defaultProps} sections={[{ ...zone, floorMaterial: "hardwood" }]} />
+      </StrictMode>
+    );
+
+    await act(async () => loaded.hardwood?.());
+    expect(screen.getByTestId("section-zone-s1").dataset.textured).toBe("true");
+    vi.unstubAllGlobals();
+  });
+
+  it("resolves one label theme for the whole canvas", () => {
+    render(<FloorPlanCanvas {...defaultProps} sections={[zone]} />);
+    expect(screen.getByTestId("section-zone-s1").dataset.labelPlate).toBeTruthy();
+  });
+});
 
 describe("FloorPlanCanvas", () => {
   beforeEach(() => {
@@ -548,6 +644,75 @@ describe("FloorPlanCanvas", () => {
       const describedBy = wrapper.getAttribute("aria-describedby");
       expect(describedBy).toBeTruthy();
       expect(document.getElementById(describedBy as string)?.textContent).toMatch(/arrow keys/i);
+    });
+  });
+
+  // Room templates (#7256) create plans at 1200x800, 1600x1000 and 2000x1200,
+  // so the canvas has to read each plan's own size instead of assuming 800x600.
+  describe("plans larger than the default canvas", () => {
+    const biggerPlan: FloorPlan = { ...FLOOR_PLAN, layoutJson: { width: 1200, height: 800 } };
+    const getWrapper = () => screen.getByTestId("floor-plan-canvas-wrapper");
+
+    it("scales to the plan's own width, not the 800px default", () => {
+      // Container is 800 wide; a 1200-wide plan therefore renders at 67%.
+      render(<FloorPlanCanvas {...defaultProps} floorPlan={biggerPlan} />);
+      expect(screen.getByText("67%")).toBeDefined();
+    });
+
+    it("gives the stage the plan's own aspect ratio", () => {
+      render(<FloorPlanCanvas {...defaultProps} floorPlan={biggerPlan} />);
+      const stage = screen.getByTestId("konva-stage");
+      // 800 wide at 1200x800 => 800 * (800/1200) = 533 tall, not 600.
+      expect(Number(stage.getAttribute("data-width"))).toBe(800);
+      expect(Math.round(Number(stage.getAttribute("data-height")))).toBe(533);
+    });
+
+    it("re-scales when the plan it is showing changes size", () => {
+      const { rerender } = render(<FloorPlanCanvas {...defaultProps} />);
+      expect(screen.getByText("100%")).toBeDefined();
+
+      rerender(<FloorPlanCanvas {...defaultProps} floorPlan={biggerPlan} />);
+      expect(screen.getByText("67%")).toBeDefined();
+    });
+
+    it("lets a nudge reach the far edge of a wider plan", () => {
+      const onTableMove = vi.fn();
+      const table = makeTable("t4", "Far", {
+        shapeMetadata: { x: 1140, y: 400, width: 80, height: 60, shape: "rectangle" },
+      });
+      render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          floorPlan={biggerPlan}
+          tables={[table]}
+          selectedTableId="t4"
+          onTableMove={onTableMove}
+        />
+      );
+
+      fireEvent.keyDown(getWrapper(), { key: "ArrowRight" });
+      // Clamped to 1200 - 40, not to the default canvas's 800 - 40.
+      expect(onTableMove).toHaveBeenCalledWith("t4", 1160, 400);
+    });
+
+    it("clamps a nudge by the table's own footprint, not the shape default", () => {
+      const onTableMove = vi.fn();
+      // A template long table is 140 wide, where SHAPE_DEFAULTS.rectangle is 80.
+      const table = makeTable("t5", "Long", {
+        shapeMetadata: { x: 1120, y: 400, width: 140, height: 56, shape: "rectangle" },
+      });
+      render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          floorPlan={biggerPlan}
+          tables={[table]}
+          selectedTableId="t5"
+          onTableMove={onTableMove}
+        />
+      );
+
+      fireEvent.keyDown(getWrapper(), { key: "ArrowRight" });
+      expect(onTableMove).toHaveBeenCalledWith("t5", 1130, 400);
     });
   });
 });

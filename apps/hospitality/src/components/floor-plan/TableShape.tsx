@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { memo, useRef, useEffect, useState } from "react";
 import { Group, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -83,7 +83,7 @@ export interface TableShapeProps {
   status?: TableDisplayStatus;
 }
 
-export function TableShape({
+function TableShapeComponent({
   table,
   isSelected,
   isDragging,
@@ -197,3 +197,6 @@ export function TableShape({
     </Group>
   );
 }
+
+// Memoized so an SSE status delta for one table does not re-render every table on the canvas.
+export const TableShape = memo(TableShapeComponent);

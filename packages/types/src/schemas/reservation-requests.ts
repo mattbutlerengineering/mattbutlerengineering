@@ -19,7 +19,7 @@
 import { z } from "zod";
 
 import { OccasionSchema, SeatingPreferenceSchema, ReservationStatusSchema } from "./reservation.js";
-import { TableStatusSchema } from "./floor-plan.js";
+import { TableStatusSchema, TableShapeMetadataSchema } from "./floor-plan.js";
 import { VenueProfileSchema } from "./venue.js";
 
 /** Arbitrary JSON object payload (derives to a bare `{ type: "object" }`). */
@@ -304,23 +304,50 @@ export const ListTablesQuerySchema = z.object({
   venueId: z.string().describe("Filter by venue ID").optional(),
 });
 
+// Declares every field tableService.create consumes (#7321) — useAddTable
+// sends floorPlanId + shapeMetadata today, and they passed only because
+// toRequestJsonSchema strips additionalProperties. Mirrors CreateTableRequest;
+// create-table-request.test.ts pins the two together.
 export const CreateTableBodySchema = z
   .object({
     name: z.string().describe("Unique table name (e.g., 'Table 1', 'Patio A')"),
+    tableNumber: z.string().describe("Display table number").optional(),
     capacity: z.number().int().min(1).describe("Maximum number of guests the table can seat"),
+    minCovers: z.number().int().min(1).describe("Minimum covers to seat (default 1)").optional(),
+    maxCovers: z.number().int().min(1).describe("Maximum covers to seat").optional(),
     location: z.string().describe("Location description (e.g., 'Main Floor', 'Patio')").optional(),
+    priority: z.number().int().min(0).describe("Seating priority (0 = highest)").optional(),
     venueId: z.string().describe("ID of the venue this table belongs to").optional(),
+    floorPlanId: z.string().describe("Floor plan to place the table on").optional(),
+    shapeMetadata: TableShapeMetadataSchema.describe("Canvas shape and position").optional(),
   })
   .describe("Table creation payload");
 
+// Declares every field tableService.update persists (#7319) — before, the
+// undeclared ones passed only because toRequestJsonSchema strips
+// additionalProperties, so tightening request validation would have silently
+// dropped them. Mirrors UpdateTableRequest; a type-level test pins the two
+// together (update-table-request.test.ts).
 export const UpdateTableBodySchema = z
   .object({
     name: z.string().describe("New table name").optional(),
+    tableNumber: z.string().describe("New display table number").optional(),
     capacity: z.number().int().min(1).describe("New capacity").optional(),
+    minCovers: z.number().int().min(1).describe("Minimum covers to seat").optional(),
+    maxCovers: z.number().int().min(1).describe("Maximum covers to seat").optional(),
     location: z.string().describe("New location description").optional(),
     isActive: z
       .boolean()
       .describe("Whether the table is active and available for reservations")
+      .optional(),
+    priority: z.number().int().min(0).describe("Seating priority (0 = highest)").optional(),
+    floorPlanId: z
+      .string()
+      .nullable()
+      .describe("Floor plan to assign, or null to unassign")
+      .optional(),
+    shapeMetadata: TableShapeMetadataSchema.nullable()
+      .describe("Canvas shape/position, or null to clear")
       .optional(),
   })
   .describe("Fields to update");

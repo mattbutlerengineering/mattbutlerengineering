@@ -106,8 +106,10 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build rialto (styles + dist export required by marketing)
-        run: pnpm build --filter @mattbutlerengineering/rialto
+      # Named so it cannot be confused with the "Build marketing" step below:
+      # the sibling tests in scripts/__tests__ locate steps by a `^name` regex.
+      - name: Build the workspace dependencies marketing imports (dist exports)
+        run: pnpm build --filter '@mbe/marketing^...'
       - name: Build marketing (the visual config serves dist via vite preview)
         run: pnpm --dir apps/marketing exec vite build
       - name: Install Playwright browsers
@@ -211,8 +213,13 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build rialto (styles + dist export required by hospitality)
-        run: pnpm build --filter @mattbutlerengineering/rialto
+      # Every workspace package hospitality imports, not just rialto. `@mbe/types`
+      # and `@mbe/api-client` resolve their runtime export condition to `dist/`, so
+      # the webServer's `vite build` cannot resolve them from source — it fails with
+      # `Rolldown failed to resolve import "@mbe/types"`. `^...` is turbo's
+      # "dependencies of, excluding itself".
+      - name: Build hospitality's workspace dependencies (dist exports)
+        run: pnpm build --filter '@mbe/hospitality^...'
       - name: Install Playwright browsers
         run: pnpm --dir apps/hospitality exec playwright install --with-deps chromium
       - name: Run visual regression tests

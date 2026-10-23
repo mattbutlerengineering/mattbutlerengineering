@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   contrastRatio,
   checkThemeContrast,
+  deriveAccentHover,
+  paletteToTheme,
   parseVenueTheme,
   themeToCssVars,
   onAccentColor,
@@ -71,5 +73,57 @@ describe("themeToCssVars", () => {
     expect(vars["--rialto-text-on-accent"]).toBe("#fdfcfa");
     expect(vars["--rialto-surface"]).toBeUndefined();
     expect(themeToCssVars({ ...good, surface: "#fff" })["--rialto-surface"]).toBe("#fff");
+  });
+});
+
+describe("deriveAccentHover", () => {
+  it("shifts a dark accent toward the light text that sits on it", () => {
+    expect(deriveAccentHover("#7a1f3d")).toBe("#8a3a54");
+    expect(contrastRatio("#8a3a54", "#000000")).toBeGreaterThan(
+      contrastRatio("#7a1f3d", "#000000")
+    );
+  });
+
+  it("shifts a light accent toward the dark text that sits on it", () => {
+    const hover = deriveAccentHover("#f5d77a");
+    expect(contrastRatio(hover, "#ffffff")).toBeGreaterThan(contrastRatio("#f5d77a", "#ffffff"));
+  });
+
+  it("expands 3-digit hex", () => {
+    expect(deriveAccentHover("#049")).toBe(deriveAccentHover("#004499"));
+  });
+});
+
+describe("paletteToTheme", () => {
+  it("returns null for an empty palette", () => {
+    expect(paletteToTheme([])).toBeNull();
+  });
+
+  it("takes the dominant colour as the accent and marks the theme extracted", () => {
+    expect(paletteToTheme(["#7a1f3d", "#1ec81e"])).toEqual({
+      accent: "#7a1f3d",
+      accentHover: "#8a3a54",
+      source: "extracted",
+    });
+  });
+
+  it("leaves surface, surfaceElevated and textPrimary to rialto's stock values", () => {
+    const theme = paletteToTheme(["#7a1f3d"]);
+    expect(theme?.surface).toBeUndefined();
+    expect(theme?.surfaceElevated).toBeUndefined();
+    expect(theme?.textPrimary).toBeUndefined();
+  });
+
+  it("is judged by the contrast gate exactly as a manual palette is", () => {
+    const readable = paletteToTheme(["#7a1f3d"]);
+    expect(readable && checkThemeContrast(readable).ok).toBe(true);
+    const unreadable = paletteToTheme(["#808080"]);
+    expect(unreadable && checkThemeContrast(unreadable)).toEqual(
+      checkThemeContrast({ accent: "#808080", accentHover: "#888888", source: "manual" })
+    );
+  });
+
+  it("is rejected by parseVenueTheme when the logo's colours are unreadable", () => {
+    expect(parseVenueTheme({ theme: paletteToTheme(["#808080"]) })).toBeNull();
   });
 });

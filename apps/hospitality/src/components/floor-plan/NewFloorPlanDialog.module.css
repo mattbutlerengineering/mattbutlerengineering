@@ -15,7 +15,11 @@
   border-radius: var(--rialto-radius-default);
   box-shadow: var(--rialto-shadow-lg);
   width: 100%;
-  max-width: 26rem;
+  /* Wide enough for the room-template grid; it was 26rem when the dialog held
+     only a name field. */
+  max-width: 48rem;
+  max-height: 85vh;
+  overflow-y: auto;
   padding: var(--rialto-space-lg);
   display: flex;
   flex-direction: column;

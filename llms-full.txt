@@ -6525,6 +6525,11 @@
           for (const pkg of packagesToPack) {
             await packDirectory(pkg, root);
           }
+          // The root llms.txt embeds every package's context, so it drifts
+          // whenever any package repacked — and nothing else refreshes it at
+          // commit time (#7315). packDirectory logs its own "Packing context
+          // for: ." line, which the tests key on.
+          await packDirectory(".", root);
         } catch (error) {
           console.error(
             "Error detecting changed files:",
@@ -8350,6 +8355,9 @@
         body: JSON.stringify({ data }),
       });
     }
+    function postBody(route: Route): Record<string, unknown> {
+      return (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+    }
     export function buildPublicVenueFixture(): PublicVenue {
       const venues = JSON.parse(loadFixture("venues-list"));
       const venue = venues.data[0];
@@ -9179,11 +9187,56 @@
       await page.route(/\/api\/v1\/floor-plans\/[^/?]+$/, (route) => {
         const id = route.request().url().replace(/\?.*$/, "").split("/").pop();
         if (createdFloorPlan && createdFloorPlan.id === id) {
+          // A PATCH has to be applied, not just echoed: applying a room template
+          // (#7256) writes the zone rectangles into `layoutJson.sections` in a
+          // PATCH that follows the section-row POSTs, so dropping the body would
+          // leave the sections list and the plan's own layout disagreeing — rows
+          // exist, no rectangle for any of them — which is exactly the state a
+          // spec asserting the applied room would need to catch.
+          if (route.request().method() === "PATCH") {
+            createdFloorPlan = {
+              ...createdFloorPlan,
+              ...postBody(route),
+              id,
+              updatedAt: new Date().toISOString(),
+            };
+          }
           const planTables = createdTables.filter((table) => table.floorPlanId === id);
           return jsonOk(route, { ...createdFloorPlan, tables: planTables });
         }
         const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
         return jsonOk(route, floorPlans.data[0]);
+      });
+    
+      // Floor Plan Sections
+      // A room template (#7256) creates one section row per named zone before it
+      // writes their rectangles into the plan's layout, and the floor plan editor
+      // lists them. Stateful so a relaunch after a failure sees what the first
+      // attempt already created, which is exactly the resume path Launch relies on.
+      const createdSections: Array<Record<string, unknown>> = [];
+      await page.route(/\/api\/v1\/floor-plan-sections(\?|$)/, (route) => {
+        const method = route.request().method();
+        if (method === "GET") return jsonOk(route, createdSections);
+        if (method !== "POST") return route.fallback();
+    
+        const body = postBody(route);
+        const now = new Date().toISOString();
+        const section = {
+          id: `sec_e2e_${createdSections.length + 1}`,
+          venueId: "venue_e2e",
+          floorPlanId: body.floorPlanId ?? "fp_e2e_created",
+          name: body.name ?? "Section",
+          color: body.color ?? "#8b7355",
+          displayOrder: body.displayOrder ?? createdSections.length,
+          createdAt: now,
+          updatedAt: now,
+        };
+        createdSections.push(section);
+        return route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ data: section }),
+        });
       });
     
       // Availability
@@ -11525,6 +11578,160 @@
   </file>
   </section>
   <section priority="medium" role="floor-plan">
+  <file path="apps/hospitality/src/components/floor-plan/apply-room-template.ts">
+    export interface RoomTemplateApi {
+      readonly floorPlans: {
+        create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
+        update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
+      };
+      readonly floorPlanSections: {
+        create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
+        assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]>;
+      };
+      readonly tables: {
+        list(params: {
+          venueId: string;
+          page?: number;
+          limit?: number;
+        }): Promise<PaginatedResponse<Table>>;
+        create(data: CreateTableRequest): Promise<Table>;
+      };
+    }
+    async function listVenueTableNames(
+      api: RoomTemplateApi,
+      venueId: string
+    ): Promise<ReadonlySet<string>> {
+      const names = new Set<string>();
+      for (let page = 1; ; page += 1) {
+        const { data, pagination } = await api.tables.list({ venueId, page, limit: MAX_PAGE_SIZE });
+        for (const table of data) names.add(table.name);
+        if (data.length === 0 || names.size >= pagination.total || page >= pagination.totalPages) break;
+      }
+      return names;
+    }
+    export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
+      if (!taken.has(desired)) return desired;
+      // `taken` is finite, and among `desired-2 … desired-(size + 2)` there are
+      // more candidates than `taken` has entries, so one of them is always free.
+      for (let suffix = 2; suffix <= taken.size + 2; suffix += 1) {
+        const candidate = `${desired}-${suffix}`;
+        if (!taken.has(candidate)) return candidate;
+      }
+      /* c8 ignore next -- unreachable: the loop above exhausts a superset of `taken` */
+      throw new Error(`Could not find an unused name for table "${desired}"`);
+    }
+    export interface CreateFromTemplateInput {
+      readonly venueId: string;
+      readonly name: string;
+      readonly layout: RoomLayout;
+    }
+    export function templateLayoutJson(layout: RoomLayout): FloorPlanLayout {
+      return {
+        width: layout.width,
+        height: layout.height,
+        gridSize: GRID_SIZE,
+        showGrid: true,
+        ...(layout.walls.length > 0 ? { walls: [...layout.walls] } : {}),
+      };
+    }
+    export function templateTableRequest(
+      table: RoomTemplateTable,
+      venueId: string,
+      floorPlanId: string,
+      name: string = table.name
+    ): CreateTableRequest {
+      return {
+        name,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        venueId,
+        floorPlanId,
+        shapeMetadata: {
+          shape: table.shape,
+          x: table.x,
+          y: table.y,
+          width: table.width,
+          height: table.height,
+          rotation: table.rotation,
+        },
+      };
+    }
+    async function createSectionRows(
+      api: RoomTemplateApi,
+      venueId: string,
+      floorPlanId: string,
+      layout: RoomLayout
+    ): Promise<ReadonlyMap<string, FloorPlanSection>> {
+      const rows = new Map<string, FloorPlanSection>();
+      for (const [index, zone] of layout.sections.entries()) {
+        const row = await api.floorPlanSections.create(venueId, {
+          floorPlanId,
+          name: zone.name,
+          color: zone.color,
+          displayOrder: index,
+        });
+        rows.set(zone.id, row);
+      }
+      return rows;
+    }
+    function sectionRectangles(
+      layout: RoomLayout,
+      rows: ReadonlyMap<string, FloorPlanSection>
+    ): SectionLayout[] {
+      return layout.sections.flatMap((zone) => {
+        const row = rows.get(zone.id);
+        return row
+          ? [{ id: row.id, x: zone.x, y: zone.y, width: zone.width, height: zone.height }]
+          : [];
+      });
+    }
+    async function createTables(
+      api: RoomTemplateApi,
+      venueId: string,
+      floorPlanId: string,
+      layout: RoomLayout
+    ): Promise<ReadonlyMap<string, readonly string[]>> {
+      // Read the venue's existing names once, then grow the set as we go so the
+      // template's own tables cannot collide with each other either.
+      const taken = new Set(await listVenueTableNames(api, venueId));
+      const bySection = new Map<string, string[]>();
+      for (const table of layout.tables) {
+        const name = uniqueTableName(table.name, taken);
+        taken.add(name);
+        const created = await api.tables.create(
+          templateTableRequest(table, venueId, floorPlanId, name)
+        );
+        if (table.sectionId === null) continue;
+        bySection.set(table.sectionId, [...(bySection.get(table.sectionId) ?? []), created.id]);
+      }
+      return bySection;
+    }
+    export async function createFloorPlanFromTemplate(
+      api: RoomTemplateApi,
+      { venueId, name, layout }: CreateFromTemplateInput
+    ): Promise<FloorPlan> {
+      const layoutJson = templateLayoutJson(layout);
+      const plan = await api.floorPlans.create({ venueId, name, layoutJson });
+    
+      const rows = await createSectionRows(api, venueId, plan.id, layout);
+      const withSections =
+        rows.size > 0
+          ? await api.floorPlans.update(plan.id, {
+              layoutJson: { ...layoutJson, sections: sectionRectangles(layout, rows) },
+            })
+          : plan;
+    
+      const tablesBySection = await createTables(api, venueId, plan.id, layout);
+    
+      for (const [localSectionId, tableIds] of tablesBySection) {
+        const row = rows.get(localSectionId);
+        if (!row || tableIds.length === 0) continue;
+        await api.floorPlanSections.assignTables(venueId, row.id, [...tableIds]);
+      }
+    
+      return withSections;
+    }
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/floor-plan-geometry.ts">
     export const CANVAS_WIDTH = 800;
     export const CANVAS_HEIGHT = 600;
@@ -11538,6 +11745,49 @@
       square: { width: 60, height: 60 },
       circle: { width: 70, height: 70 },
     } as const;
+    export interface PlacedRect {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+    export function placeNewTable(
+      canvas: { width: number; height: number },
+      size: { width: number; height: number },
+      existing: readonly PlacedRect[]
+    ): { x: number; y: number } {
+      const centre = { x: canvas.width / 2, y: canvas.height / 2 };
+      const free = (x: number, y: number) =>
+        existing.every(
+          (t) =>
+            Math.abs(x - t.x) >= (size.width + t.width) / 2 ||
+            Math.abs(y - t.y) >= (size.height + t.height) / 2
+        );
+      const inside = (x: number, y: number) =>
+        x >= size.width / 2 &&
+        x <= canvas.width - size.width / 2 &&
+        y >= size.height / 2 &&
+        y <= canvas.height - size.height / 2;
+      if (free(centre.x, centre.y)) return centre;
+    
+      const cx = snapToGrid(centre.x);
+      const cy = snapToGrid(centre.y);
+      const maxRing = Math.ceil(Math.max(canvas.width, canvas.height) / GRID_SIZE);
+      for (let ring = 1; ring <= maxRing; ring++) {
+        let best: { x: number; y: number; d: number } | null = null;
+        for (let dx = -ring; dx <= ring; dx++) {
+          for (let dy = -ring; dy <= ring; dy++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+            const x = cx + dx * GRID_SIZE;
+            const y = cy + dy * GRID_SIZE;
+            const d = dx * dx + dy * dy;
+            if (inside(x, y) && free(x, y) && (!best || d < best.d)) best = { x, y, d };
+          }
+        }
+        if (best) return { x: best.x, y: best.y };
+      }
+      return centre;
+    }
     export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number {
       return Math.round(value / gridSize) * gridSize;
     }
@@ -11574,11 +11824,12 @@
       wall: WallLayout,
       end: WallEnd,
       p: Point,
-      gridSize: number = GRID_SIZE
+      gridSize: number = GRID_SIZE,
+      canvas: { width: number; height: number } = { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }
     ): WallLayout {
       const snapped = snapPoint(p, gridSize);
-      const x = clampTo(snapped.x, 0, CANVAS_WIDTH);
-      const y = clampTo(snapped.y, 0, CANVAS_HEIGHT);
+      const x = clampTo(snapped.x, 0, canvas.width);
+      const y = clampTo(snapped.y, 0, canvas.height);
       return end === 1 ? { ...wall, x1: x, y1: y } : { ...wall, x2: x, y2: y };
     }
     export function clampThickness(value: number): number {
@@ -11674,6 +11925,19 @@
         : rectangleSeats(count, width, height, gap);
     }
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/floor-textures.ts">
+    export const FLOOR_TEXTURE_DIR = "floor-plan/textures";
+    export const TEXTURE_SOURCE_PX = 64;
+    export const TEXTURE_TILE_PX = GRID_SIZE * 4;
+    export const TEXTURE_PATTERN_SCALE = {
+      x: TEXTURE_TILE_PX / TEXTURE_SOURCE_PX,
+      y: TEXTURE_TILE_PX / TEXTURE_SOURCE_PX,
+    } as const;
+    export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string {
+      const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+      return `${base}${FLOOR_TEXTURE_DIR}/${material}.png`;
+    }
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/furniture-tokens.ts">
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
@@ -11697,6 +11961,334 @@
       rectangle: 6,
       square: 3,
     };
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/room-geometry.ts">
+    export function tableBounds(table: {
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+    }): { left: number; top: number; right: number; bottom: number } {
+      const radians = (table.rotation * Math.PI) / 180;
+      const cos = Math.abs(Math.cos(radians));
+      const sin = Math.abs(Math.sin(radians));
+      const halfWidth = (table.width * cos + table.height * sin) / 2;
+      const halfHeight = (table.width * sin + table.height * cos) / 2;
+    
+      return {
+        left: table.x - halfWidth,
+        top: table.y - halfHeight,
+        right: table.x + halfWidth,
+        bottom: table.y + halfHeight,
+      };
+    }
+    export type PerimeterSide = "top" | "right" | "bottom" | "left";
+    export interface PerimeterGap {
+      readonly side: PerimeterSide;
+      readonly from: number;
+      readonly to: number;
+    }
+    interface SideDefinition {
+      readonly side: PerimeterSide;
+      /** True when both of a wall's endpoints lie on this side's line. */
+      readonly onSide: (segment: WallLayout) => boolean;
+      /** The segment's extent along the side, as [low, high]. */
+      readonly span: (segment: WallLayout) => readonly [number, number];
+      readonly length: number;
+    }
+    function sideDefinitions(layout: RoomLayout): readonly SideDefinition[] {
+      const horizontal = (segment: WallLayout) =>
+        [Math.min(segment.x1, segment.x2), Math.max(segment.x1, segment.x2)] as const;
+      const vertical = (segment: WallLayout) =>
+        [Math.min(segment.y1, segment.y2), Math.max(segment.y1, segment.y2)] as const;
+    
+      return [
+        {
+          side: "top",
+          onSide: (s) => s.y1 === 0 && s.y2 === 0,
+          span: horizontal,
+          length: layout.width,
+        },
+        {
+          side: "right",
+          onSide: (s) => s.x1 === layout.width && s.x2 === layout.width,
+          span: vertical,
+          length: layout.height,
+        },
+        {
+          side: "bottom",
+          onSide: (s) => s.y1 === layout.height && s.y2 === layout.height,
+          span: horizontal,
+          length: layout.width,
+        },
+        {
+          side: "left",
+          onSide: (s) => s.x1 === 0 && s.x2 === 0,
+          span: vertical,
+          length: layout.height,
+        },
+      ];
+    }
+    function gapsOnSide(definition: SideDefinition, layout: RoomLayout): PerimeterGap[] {
+      const covered = layout.walls
+        .filter(definition.onSide)
+        .map(definition.span)
+        .filter(([low, high]) => high > low)
+        .sort((a, b) => a[0] - b[0]);
+    
+      const gaps: PerimeterGap[] = [];
+      let reached = 0;
+      for (const [low, high] of covered) {
+        if (low > reached) gaps.push({ side: definition.side, from: reached, to: low });
+        reached = Math.max(reached, high);
+      }
+      if (reached < definition.length) {
+        gaps.push({ side: definition.side, from: reached, to: definition.length });
+      }
+      return gaps;
+    }
+    export function perimeterGaps(layout: RoomLayout): readonly PerimeterGap[] {
+      return sideDefinitions(layout).flatMap((definition) => gapsOnSide(definition, layout));
+    }
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/room-template-copy.ts">
+    export function layoutSummary(t: TFunction, layout: RoomLayout): string {
+      if (layout.tables.length === 0 && layout.sections.length === 0) {
+        return t("floorPlan.templates.summaryEmpty");
+      }
+      return t("floorPlan.templates.summary", {
+        tables: t("floorPlan.templates.tableCount", { count: layout.tables.length }),
+        sections: t("floorPlan.templates.sectionCount", { count: layout.sections.length }),
+      });
+    }
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/room-templates.ts">
+    export type RoomTemplateId =
+      | "blank"
+      | "fine-dining"
+      | "casual-bistro"
+      | "bar-lounge"
+      | "cafe"
+      | "banquet-hall"
+      | "open-kitchen";
+    export type RoomSizeId = "cozy" | "standard" | "spacious" | "grand";
+    export interface RoomSize {
+      readonly id: RoomSizeId;
+      readonly width: number;
+      readonly height: number;
+    }
+    export const ROOM_SIZES: readonly RoomSize[] = [
+      { id: "cozy", width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+      { id: "standard", width: 1200, height: 800 },
+      { id: "spacious", width: 1600, height: 1000 },
+      { id: "grand", width: 2000, height: 1200 },
+    ] as const;
+    export interface RoomTemplateTable {
+      readonly id: string;
+      readonly name: string;
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      readonly minCovers: number;
+      /** Centre of the table, in canvas units — the origin Konva rotates about. */
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+      /** Local section id, or null when the table sits outside every zone. */
+      readonly sectionId: string | null;
+    }
+    export interface RoomTemplateSection {
+      readonly id: string;
+      readonly name: string;
+      readonly color: string;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+    }
+    export interface RoomLayout {
+      readonly width: number;
+      readonly height: number;
+      readonly tables: readonly RoomTemplateTable[];
+      readonly sections: readonly RoomTemplateSection[];
+      readonly walls: readonly WallLayout[];
+    }
+    export interface RoomTemplate {
+      readonly id: RoomTemplateId;
+      /** The plan's name once created. Saved data, so it stays en-US in every locale. */
+      readonly planName: string;
+      /** Width of the one doorway this template leaves in its perimeter; null for Blank. */
+      readonly doorWidth: number | null;
+      readonly build: (width: number, height: number) => RoomLayout;
+    }
+    interface TableSpec {
+      readonly name: string;
+      readonly shape: TableShapeName;
+      readonly capacity: number;
+      readonly minCovers: number;
+      /** Top-left of the unrotated footprint, matching the ported source's space. */
+      readonly left: number;
+      readonly top: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+    }
+    interface SectionSpec {
+      readonly name: string;
+      readonly color: string;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+    }
+    type WallSpec = Omit<WallLayout, "id">;
+    interface LayoutSpec {
+      readonly tables: readonly TableSpec[];
+      readonly sections: readonly SectionSpec[];
+      readonly walls: readonly WallSpec[];
+    }
+    type DoorSide = "bottom" | "left";
+    function perimeterWithDoor(
+      w: number,
+      h: number,
+      side: DoorSide,
+      position: number,
+      gap: number
+    ): WallSpec[] {
+      const t = PERIMETER_THICKNESS;
+      const p = Math.round(position);
+    
+      if (side === "bottom") {
+        return [
+          { x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+          { x1: w, y1: 0, x2: w, y2: h, thickness: t },
+          { x1: 0, y1: h, x2: p, y2: h, thickness: t },
+          { x1: p + gap, y1: h, x2: w, y2: h, thickness: t },
+          { x1: 0, y1: h, x2: 0, y2: 0, thickness: t },
+        ];
+      }
+    
+      return [
+        { x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+        { x1: w, y1: 0, x2: w, y2: h, thickness: t },
+        { x1: w, y1: h, x2: 0, y2: h, thickness: t },
+        { x1: 0, y1: 0, x2: 0, y2: p, thickness: t },
+        { x1: 0, y1: p + gap, x2: 0, y2: h, thickness: t },
+      ];
+    }
+    function slug(value: string): string {
+      return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+    }
+    function containingSection(
+      sections: readonly RoomTemplateSection[],
+      x: number,
+      y: number
+    ): string | null {
+      const found = sections.find(
+        (zone) => x >= zone.x && x <= zone.x + zone.width && y >= zone.y && y <= zone.y + zone.height
+      );
+      return found ? found.id : null;
+    }
+    function toLayout(
+      templateId: RoomTemplateId,
+      width: number,
+      height: number,
+      spec: LayoutSpec
+    ): RoomLayout {
+      const sections: readonly RoomTemplateSection[] = spec.sections.map((zone) => ({
+        ...zone,
+        id: `${templateId}-${slug(zone.name)}`,
+      }));
+    
+      const tables: readonly RoomTemplateTable[] = spec.tables.map((table) => {
+        const x = table.left + table.width / 2;
+        const y = table.top + table.height / 2;
+        return {
+          id: `${templateId}-${slug(table.name)}`,
+          name: table.name,
+          shape: table.shape,
+          capacity: table.capacity,
+          minCovers: table.minCovers,
+          x,
+          y,
+          width: table.width,
+          height: table.height,
+          rotation: table.rotation,
+          sectionId: containingSection(sections, x, y),
+        };
+      });
+    
+      const walls: readonly WallLayout[] = spec.walls.map((segment, index) => ({
+        ...segment,
+        id: `${templateId}-wall-${index + 1}`,
+      }));
+    
+      return { width, height, tables, sections, walls };
+    }
+    export const ROOM_TEMPLATES: readonly RoomTemplate[] = [
+      BLANK,
+      FINE_DINING,
+      CASUAL_BISTRO,
+      BAR_LOUNGE,
+      CAFE,
+      BANQUET_HALL,
+      OPEN_KITCHEN,
+    ] as const;
+    export function roomTemplateById(id: RoomTemplateId): RoomTemplate {
+      const found = ROOM_TEMPLATES.find((template) => template.id === id);
+      if (!found) throw new Error(`roomTemplateById: no template registered for id "${id}"`);
+      return found;
+    }
+    export function roomSizeById(id: RoomSizeId): RoomSize {
+      const found = ROOM_SIZES.find((size) => size.id === id);
+      if (!found) throw new Error(`roomSizeById: no size registered for id "${id}"`);
+      return found;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/section-label-theme.ts">
+    export interface SectionLabelTheme {
+      /** Opaque plate behind the name. */
+      plate: string;
+      /** The name itself. */
+      text: string;
+    }
+    export const SECTION_LABEL_TOKENS = {
+      plate: "--rialto-surface",
+      text: "--rialto-text-primary",
+    } as const;
+    export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme> = {
+      light: { plate: "#f8f6f3", text: "#1a1918" },
+      dark: { plate: "#1e1c1a", text: "rgb(253 252 250 / 0.92)" },
+    };
+    export function resolveSectionLabelTheme(): SectionLabelTheme {
+      const theme: "light" | "dark" =
+        document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      const fallback = SECTION_LABEL_FALLBACKS[theme];
+      const computed = getComputedStyle(document.documentElement);
+      return {
+        plate: computed.getPropertyValue(SECTION_LABEL_TOKENS.plate).trim() || fallback.plate,
+        text: computed.getPropertyValue(SECTION_LABEL_TOKENS.text).trim() || fallback.text,
+      };
+    }
+    export function useSectionLabelTheme(): SectionLabelTheme {
+      const [theme, setTheme] = useState(resolveSectionLabelTheme);
+    
+      useEffect(() => {
+        const observer = new MutationObserver(() => setTheme(resolveSectionLabelTheme()));
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+        return () => observer.disconnect();
+      }, []);
+    
+      return theme;
+    }
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
@@ -11724,6 +12316,71 @@
     export function deriveTableStatus(input: TableStatusInput): TableStatusResult {
       const status = deriveTableDisplayStatus(input);
       return { status, colorToken: TABLE_STATUS_COLOR_TOKEN[status] };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/table-update.ts">
+    export interface TableDetailsFormValues {
+      name: string;
+      tableNumber: string;
+      capacity: string;
+      minCovers: string;
+      maxCovers: string;
+      location: string;
+      isActive: boolean;
+    }
+    export function tableToFormValues(table: Table): TableDetailsFormValues {
+      return {
+        name: table.name,
+        tableNumber: table.tableNumber ?? "",
+        capacity: String(table.capacity),
+        minCovers: String(table.minCovers),
+        // A numeric input needs a value, and `PATCH /api/v1/tables/:id` has no way
+        // to express "clear the maximum" — `maxCovers` is `number | undefined` on
+        // the wire, never null. Seeding an absent maximum from capacity keeps the
+        // field meaningful without inventing a write: the delta below is computed
+        // against these seeded values, so leaving the field alone sends nothing.
+        maxCovers: String(table.maxCovers ?? table.capacity),
+        location: table.location ?? "",
+        isActive: table.isActive,
+      };
+    }
+    export function buildTableUpdate(
+      initial: TableDetailsFormValues,
+      current: TableDetailsFormValues
+    ): UpdateTableRequest {
+      const changes: UpdateTableRequest = {};
+    
+      const name = current.name.trim();
+      if (name !== initial.name.trim()) changes.name = name;
+    
+      const tableNumber = current.tableNumber.trim();
+      if (tableNumber !== initial.tableNumber.trim()) changes.tableNumber = tableNumber;
+    
+      const location = current.location.trim();
+      if (location !== initial.location.trim()) changes.location = location;
+    
+      if (current.isActive !== initial.isActive) changes.isActive = current.isActive;
+    
+      const capacity = changedPositiveInt(initial.capacity, current.capacity);
+      if (capacity !== null) changes.capacity = capacity;
+    
+      const minCovers = changedPositiveInt(initial.minCovers, current.minCovers);
+      if (minCovers !== null) changes.minCovers = minCovers;
+    
+      const maxCovers = changedPositiveInt(initial.maxCovers, current.maxCovers);
+      if (maxCovers !== null) changes.maxCovers = maxCovers;
+    
+      return changes;
+    }
+    function changedPositiveInt(initial: string, current: string): number | null {
+      if (current.trim() === initial.trim()) return null;
+      return parsePositiveInt(current);
+    }
+    export function parsePositiveInt(raw: string): number | null {
+      const trimmed = raw.trim();
+      if (!/^\d+$/.test(trimmed)) return null;
+      const parsed = Number(trimmed);
+      return parsed >= 1 ? parsed : null;
     }
   </file>
   </section>
@@ -13548,6 +14205,15 @@
       invalidateKeys: FLOOR_PLAN_QUERY_KEY,
       mutationFn: (api, tableId) => api.tables.delete(tableId),
     });
+    export interface UpdateTablePayload {
+      tableId: string;
+      changes: UpdateTableRequest;
+    }
+    export const useUpdateTable = createMutationHook<UpdateTablePayload, Table>({
+      // Invalidate all floor plan detail queries since the payload carries no plan id
+      invalidateKeys: FLOOR_PLAN_QUERY_KEY,
+      mutationFn: (api, { tableId, changes }) => api.tables.update(tableId, changes),
+    });
     export const useUpdateFloorPlanLayout = createMutationHook<
       { floorPlanId: string; layoutJson: FloorPlanLayout },
       FloorPlan
@@ -13559,6 +14225,60 @@
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
+    export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
+    export const useFloorPlanSections = createQueryHook<
+      FloorPlanSection[],
+      { venueId?: string | null; floorPlanId?: string | null }
+    >({
+      key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
+      getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
+    });
+    export const useUpdateFloorPlanSection = createMutationHook<
+      { venueId: string; sectionId: string; data: UpdateFloorPlanSectionRequest },
+      FloorPlanSection
+    >({
+      invalidateKeys: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      mutationFn: (api, { venueId, sectionId, data }) =>
+        api.floorPlanSections.update(venueId, sectionId, data),
+    });
+  </file>
+  <file path="apps/hospitality/src/hooks/useFloorTextures.ts">
+    export type FloorTextureMap = ReadonlyMap<FloorMaterial, HTMLImageElement>;
+    export function useFloorTextures(materials: readonly FloorMaterial[]): FloorTextureMap {
+      // A content key, not the array identity: callers rebuild the list on every
+      // render, and the effect must only re-run when the set of materials differs.
+      const key = [...new Set(materials)].sort().join(",");
+      const [textures, setTextures] = useState<FloorTextureMap>(EMPTY);
+      const requestedRef = useRef<Set<FloorMaterial>>(new Set());
+    
+      useEffect(() => {
+        if (!key) return;
+        for (const material of key.split(",") as FloorMaterial[]) {
+          if (requestedRef.current.has(material)) continue;
+          requestedRef.current.add(material);
+          const image = new Image();
+          // Deliberately no per-effect-run cancel flag. `requestedRef` dedupes over
+          // the component's whole lifetime, so a run that is torn down mid-download
+          // is the *only* run that will ever ask for this material — discarding its
+          // load would leave the section permanently flat. StrictMode makes that
+          // certain rather than rare: `main.tsx` wraps the app, so every dev mount
+          // is effect -> cleanup -> effect, and a run-scoped flag means textures
+          // never appear in `pnpm dev` at all.
+          //
+          // A load that lands is the right texture whichever run requested it, and
+          // one that lands after unmount is a no-op `setState` on an unmounted
+          // component. Both are covered in `useFloorTextures.test.tsx`.
+          image.onload = () => {
+            // A fresh Map per load: the map already handed to the renderer is never mutated.
+            setTextures((previous) => new Map(previous).set(material, image));
+          };
+          image.src = floorTextureUrl(material, import.meta.env.BASE_URL);
+        }
+      }, [key]);
+    
+      return textures;
+    }
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
     export type FocusTarget =
@@ -15048,6 +15768,50 @@
           window.scrollTo(0, 0);
         }
       }, [pathname, hash, navigationType, containerRef]);
+    }
+  </file>
+  <file path="docs/reference/eat-sheet/src/client/features/floor-plan/hooks/useTextures.ts">
+    export interface TextureMap {
+      readonly [key: string]: HTMLImageElement;
+    }
+    export interface UseTexturesResult {
+      readonly loaded: boolean;
+      readonly textures: TextureMap;
+    }
+    export function useTextures(): UseTexturesResult {
+      const [loaded, setLoaded] = useState(false);
+      const [textures, setTextures] = useState<TextureMap>({});
+    
+      useEffect(() => {
+        let cancelled = false;
+        const entries = Object.entries(ASSET_MAP);
+        const images: Record<string, HTMLImageElement> = {};
+        let count = 0;
+    
+        for (const [key, src] of entries) {
+          const img = new Image();
+          img.onload = () => {
+            images[key] = img;
+            count += 1;
+            if (count === entries.length && !cancelled) {
+              setTextures(images);
+              setLoaded(true);
+            }
+          };
+          img.onerror = () => {
+            count += 1;
+            if (count === entries.length && !cancelled) {
+              setTextures(images);
+              setLoaded(true);
+            }
+          };
+          img.src = src;
+        }
+    
+        return () => { cancelled = true; };
+      }, []);
+    
+      return { loaded, textures };
     }
   </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
@@ -17391,6 +18155,170 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/lib/logo-palette-canvas.ts">
+    export const ACCEPTED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+    export const MAX_LOGO_BYTES = 8 * 1024 * 1024;
+    export type LogoPaletteFailure = "unsupported-type" | "too-large" | "decode-failed";
+    export type LogoPaletteResult =
+      | { readonly ok: true; readonly palette: readonly string[] }
+      | { readonly ok: false; readonly reason: LogoPaletteFailure };
+    export function classifyLogoFile(file: Pick<File, "type" | "size">): LogoPaletteFailure | null {
+      if (!ACCEPTED_LOGO_TYPES.some((type) => type === file.type)) return "unsupported-type";
+      if (file.size > MAX_LOGO_BYTES) return "too-large";
+      return null;
+    }
+    export async function readLogoPalette(
+      file: File,
+      maxColors = DEFAULT_MAX_COLORS
+    ): Promise<LogoPaletteResult> {
+      const invalid = classifyLogoFile(file);
+      if (invalid !== null) return { ok: false, reason: invalid };
+    
+      try {
+        const bitmap = await createImageBitmap(file);
+        try {
+          const { width, height } = fitWithin(bitmap.width, bitmap.height);
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (context === null) return { ok: false, reason: "decode-failed" };
+          context.drawImage(bitmap, 0, 0, width, height);
+          const { data } = context.getImageData(0, 0, width, height);
+          return { ok: true, palette: extractDominantColors(data, maxColors) };
+        } finally {
+          bitmap.close();
+        }
+      } catch {
+        return { ok: false, reason: "decode-failed" };
+      }
+    }
+  </file>
+  <file path="apps/hospitality/src/lib/logo-palette.ts">
+    export interface RgbPixel {
+      readonly r: number;
+      readonly g: number;
+      readonly b: number;
+    }
+    interface Centroid extends RgbPixel {
+      readonly count: number;
+    }
+    export type RgbaBytes = Uint8Array | Uint8ClampedArray;
+    export const DEFAULT_MAX_COLORS = 5;
+    export const PIXEL_STRIDE = 10;
+    export const MAX_SAMPLE_EDGE = 256;
+    export function fitWithin(
+      width: number,
+      height: number,
+      maxEdge = MAX_SAMPLE_EDGE
+    ): { readonly width: number; readonly height: number } {
+      const longest = Math.max(width, height);
+      if (longest <= maxEdge) return { width, height };
+      const scale = maxEdge / longest;
+      return {
+        width: Math.max(1, Math.floor(width * scale)),
+        height: Math.max(1, Math.floor(height * scale)),
+      };
+    }
+    export function samplePixels(rgba: RgbaBytes): readonly RgbPixel[] {
+      const pixels: RgbPixel[] = [];
+      const pixelCount = Math.floor(rgba.length / 4);
+    
+      for (let i = 0; i < pixelCount; i += PIXEL_STRIDE) {
+        const offset = i * 4;
+        const r = rgba[offset] ?? 0;
+        const g = rgba[offset + 1] ?? 0;
+        const b = rgba[offset + 2] ?? 0;
+        const a = rgba[offset + 3] ?? 0;
+    
+        if (a < ALPHA_THRESHOLD) continue;
+        if (r > NEAR_WHITE_THRESHOLD && g > NEAR_WHITE_THRESHOLD && b > NEAR_WHITE_THRESHOLD) continue;
+        if (r < NEAR_BLACK_THRESHOLD && g < NEAR_BLACK_THRESHOLD && b < NEAR_BLACK_THRESHOLD) continue;
+    
+        pixels.push({ r, g, b });
+      }
+    
+      return pixels;
+    }
+    function distance(a: RgbPixel, b: RgbPixel): number {
+      const dr = a.r - b.r;
+      const dg = a.g - b.g;
+      const db = a.b - b.b;
+      return dr * dr + dg * dg + db * db;
+    }
+    function initCentroids(pixels: readonly RgbPixel[], k: number): readonly RgbPixel[] {
+      const step = Math.max(1, Math.floor(pixels.length / k));
+      return Array.from(
+        { length: k },
+        (_, i) => pixels[Math.min(i * step, pixels.length - 1)] as RgbPixel
+      );
+    }
+    function nearestCentroid(pixel: RgbPixel, centroids: readonly RgbPixel[]): number {
+      let minDist = Infinity;
+      let nearest = 0;
+      for (let ci = 0; ci < centroids.length; ci++) {
+        const d = distance(pixel, centroids[ci] as RgbPixel);
+        if (d < minDist) {
+          minDist = d;
+          nearest = ci;
+        }
+      }
+      return nearest;
+    }
+    function meanOf(cluster: readonly RgbPixel[]): RgbPixel {
+      const sum = cluster.reduce((acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }), {
+        r: 0,
+        g: 0,
+        b: 0,
+      });
+      return {
+        r: Math.round(sum.r / cluster.length),
+        g: Math.round(sum.g / cluster.length),
+        b: Math.round(sum.b / cluster.length),
+      };
+    }
+    function runKMeans(pixels: readonly RgbPixel[], k: number): readonly Centroid[] {
+      if (pixels.length === 0) return [];
+    
+      const clampedK = Math.min(k, pixels.length);
+      let centroids = initCentroids(pixels, clampedK);
+    
+      for (let iter = 0; iter < KMEANS_ITERATIONS; iter++) {
+        const clusters: RgbPixel[][] = Array.from({ length: clampedK }, () => []);
+        for (const pixel of pixels) {
+          (clusters[nearestCentroid(pixel, centroids)] as RgbPixel[]).push(pixel);
+        }
+        // An empty cluster keeps its previous centroid rather than drifting.
+        centroids = clusters.map((cluster, ci) =>
+          cluster.length === 0 ? (centroids[ci] as RgbPixel) : meanOf(cluster)
+        );
+      }
+    
+      const clusterSizes: number[] = Array<number>(clampedK).fill(0);
+      for (const pixel of pixels) {
+        const nearest = nearestCentroid(pixel, centroids);
+        clusterSizes[nearest] = (clusterSizes[nearest] ?? 0) + 1;
+      }
+    
+      return centroids.map((c, i) => ({ ...c, count: clusterSizes[i] ?? 0 }));
+    }
+    function toHex(n: number): string {
+      return n.toString(16).padStart(2, "0");
+    }
+    function centroidToHex(c: RgbPixel): string {
+      return `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`;
+    }
+    export function extractDominantColors(
+      rgba: RgbaBytes,
+      maxColors = DEFAULT_MAX_COLORS
+    ): readonly string[] {
+      const pixels = samplePixels(rgba);
+      if (pixels.length === 0) return [];
+    
+      const ranked = runKMeans(pixels, maxColors).filter((c) => c.count > 0);
+      return [...ranked].sort((a, b) => b.count - a.count).map(centroidToHex);
+    }
+  </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
     export type FloorPlanSnapshot = TableStatusDelta[];
     interface ReservationsCacheEntry {
@@ -17664,6 +18592,25 @@
       return contrastRatio(accent, LIGHT_ON_ACCENT) >= contrastRatio(accent, DARK_ON_ACCENT)
         ? LIGHT_ON_ACCENT
         : DARK_ON_ACCENT;
+    }
+    function channel(hex: string, index: number): number {
+      return parseInt(expandHex(hex).slice(index, index + 2), 16);
+    }
+    function toHexByte(value: number): string {
+      return Math.round(value).toString(16).padStart(2, "0");
+    }
+    export function deriveAccentHover(accent: string): string {
+      const toward = onAccentColor(accent);
+      const shifted = [0, 2, 4].map((i) => {
+        const from = channel(accent, i);
+        return from + (channel(toward, i) - from) * HOVER_SHIFT;
+      });
+      return `#${shifted.map(toHexByte).join("")}`;
+    }
+    export function paletteToTheme(palette: readonly string[]): VenueTheme | null {
+      const [accent] = palette;
+      if (accent === undefined) return null;
+      return { accent, accentHover: deriveAccentHover(accent), source: "extracted" };
     }
     export type ThemeContrastFailure = "accent-text" | "accent-surface" | "text-surface";
     export interface ThemeContrastResult {
@@ -25243,6 +26190,162 @@
       );
     }
   </file>
+  <file path="services/reservations/src/routes/floor-plan-sections.ts">
+    interface VenueQuery {
+      venueId: string;
+    }
+    export const floorPlanSectionRoutes: FastifyPluginAsync = async (fastify) => {
+      const { floorPlanSectionService } = fastify.services;
+    
+      fastify.get<{
+        Querystring: VenueQuery & { floorPlanId?: string };
+        Reply: { data: FloorPlanSection[] } | ProblemDetails;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List a venue's floor-plan sections",
+            querystring: floorPlanSectionListQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, _reply, { venueId }) => ({
+          data: await floorPlanSectionService.list(venueId, request.query.floorPlanId),
+        }))
+      );
+    
+      fastify.post<{
+        Querystring: VenueQuery;
+        Body: CreateFloorPlanSectionRequest;
+        Reply: ApiResponse<FloorPlanSection> | ProblemDetails;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a floor-plan section",
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+            body: createFloorPlanSectionBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const section = await floorPlanSectionService.create(venueId, request.body);
+          if (!section) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
+          }
+          return reply.code(201).send({ data: section });
+        })
+      );
+    
+      fastify.put<{
+        Querystring: VenueQuery;
+        Body: ReorderFloorPlanSectionsRequest;
+        Reply: { data: FloorPlanSection[] } | ProblemDetails;
+      }>(
+        "/order",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Reorder a floor plan's sections",
+            description: "`ids` lists every section to place; its index becomes `displayOrder`.",
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+            body: reorderFloorPlanSectionsBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const { floorPlanId, ids } = request.body;
+          const sections = await floorPlanSectionService.reorder(venueId, floorPlanId, ids);
+          if (!sections) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return { data: sections };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { sectionId: string };
+        Querystring: VenueQuery;
+        Body: UpdateFloorPlanSectionRequest;
+        Reply: ApiResponse<FloorPlanSection> | ProblemDetails;
+      }>(
+        "/:sectionId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Rename or recolour a floor-plan section",
+            params: sectionIdParams,
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+            body: updateFloorPlanSectionBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const section = await floorPlanSectionService.update(
+            venueId,
+            request.params.sectionId,
+            request.body
+          );
+          if (!section) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return { data: section };
+        })
+      );
+    
+      fastify.delete<{
+        Params: { sectionId: string };
+        Querystring: VenueQuery;
+        Reply: void | ProblemDetails;
+      }>(
+        "/:sectionId",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a floor-plan section (its tables are kept, unassigned)",
+            params: sectionIdParams,
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          if (!(await floorPlanSectionService.delete(venueId, request.params.sectionId))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
+          }
+          return reply.code(204).send();
+        })
+      );
+    
+      fastify.put<{
+        Params: { sectionId: string };
+        Querystring: VenueQuery;
+        Body: AssignSectionTablesRequest;
+        Reply: { data: Table[] } | ProblemDetails;
+      }>(
+        "/:sectionId/tables",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Set the tables that belong to a section",
+            description:
+              "`tableIds` becomes the section's exact membership; other tables leave it. " +
+              "Every table must belong to the section's floor plan.",
+            params: sectionIdParams,
+            querystring: floorPlanSectionVenueQueryJsonSchema,
+            body: assignSectionTablesBodyJsonSchema,
+          },
+        },
+        venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+          const tables = await floorPlanSectionService.assignTables(
+            venueId,
+            request.params.sectionId,
+            request.body.tableIds
+          );
+          if (!tables) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", TABLES_NOT_FOUND));
+          }
+          return { data: tables };
+        })
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/floor-plans.ts">
     export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       // Domain services come from the buildApp seam (issue #3357); tests inject fakes
@@ -29343,6 +30446,47 @@
         );
       });
     }
+    interface SectionIds {
+      sectionId: string;
+      floorPlanId: string;
+      tableId: string;
+    }
+    async function seedSection(ctx: SweepContext, venueId: string): Promise<SectionIds> {
+      const floorPlanId = await createDisposableFloorPlan(ctx, venueId);
+      const tableId = await createDisposableTable(ctx, venueId);
+      expectOk(
+        await asAdmin(ctx, {
+          method: "POST",
+          url: `/api/v1/floor-plans/tables/${tableId}/assign`,
+          payload: { floorPlanId },
+        }),
+        "seed table onto floor plan"
+      );
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: `${SECTIONS_PATH}?venueId=${venueId}`,
+        payload: { floorPlanId, name: "Sweep section" },
+      });
+      expectOk(res, "seed floor plan section");
+      return { sectionId: res.json<{ data: { id: string } }>().data.id, floorPlanId, tableId };
+    }
+    function okSectionRoute(
+      build: (ids: SectionIds, venueId: string) => Pick<InjectOptions, "method" | "url" | "payload">
+    ): RouteFixture {
+      return ok(async (ctx) => {
+        expectOk(
+          await asAdmin(ctx, build(await seedSection(ctx, ctx.venueA.id), ctx.venueA.id)),
+          "admin venue A"
+        );
+        expectOk(
+          await asMember(ctx, build(await seedSection(ctx, ctx.venueA.id), ctx.venueA.id)),
+          "member venue A"
+        );
+        const ids = await seedSection(ctx, ctx.venueA.id);
+        expectDenied(await asMember(ctx, build(ids, ctx.venueB.id)), "member venue B");
+        expectDenied(await asAdmin(ctx, build(ids, ctx.venueB.id)), "admin venue B, venue A's ids");
+      });
+    }
     interface MenuTreeIds {
       menuId: string;
       sectionId: string;
@@ -29394,6 +30538,7 @@
       ...venueFixtures,
       ...availabilityFixtures,
       ...floorPlanFixtures,
+      ...floorPlanSectionFixtures,
       ...menuFixtures,
       ...guestFixtures,
       ...reservationFixtures,
@@ -31814,6 +32959,53 @@
       });
     }
   </file>
+  <file path="packages/types/src/schemas/floor-plan-section.ts">
+    export const FLOOR_MATERIALS = ["hardwood", "concrete", "carpet", "tile", "marble"] as const;
+    export const FloorMaterialSchema = z.enum(FLOOR_MATERIALS);
+    export const FloorPlanSectionSchema = z.object({
+      id: z.string(),
+      venueId: z.string(),
+      floorPlanId: z.string(),
+      name: z.string(),
+      color: z.string(),
+      displayOrder: z.number().int(),
+      /**
+       * `null` means no floor finish: the zone renders exactly as it did before
+       * materials existed. Absent is tolerated too, so a client deployed ahead of
+       * the service still parses a response from before the column existed.
+       */
+      floorMaterial: FloorMaterialSchema.nullish(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
+    export const CreateFloorPlanSectionRequestSchema = z.object({
+      floorPlanId: z.string().min(1),
+      name: z.string().min(1),
+      color: HexColorSchema.optional(),
+      displayOrder: z.number().int().optional(),
+      /** Explicit `null` clears the floor finish; omitted leaves it untouched. */
+      floorMaterial: FloorMaterialSchema.nullable().optional(),
+    });
+    export const UpdateFloorPlanSectionRequestSchema = CreateFloorPlanSectionRequestSchema.omit({
+      floorPlanId: true,
+    }).partial();
+    export const ReorderFloorPlanSectionsRequestSchema = z.object({
+      floorPlanId: z.string().min(1),
+      ids: z.array(z.string().min(1)).min(1),
+    });
+    export const AssignSectionTablesRequestSchema = z.object({ tableIds: z.array(z.string().min(1)) });
+    export const FloorPlanSectionListQuerySchema = z.object({
+      venueId: z.string().min(1),
+      floorPlanId: z.string().min(1).optional(),
+    });
+    export const FloorPlanSectionVenueQuerySchema = z.object({ venueId: z.string().min(1) });
+    export type FloorMaterial = z.infer<typeof FloorMaterialSchema>;
+    export type FloorPlanSection = z.infer<typeof FloorPlanSectionSchema>;
+    export type CreateFloorPlanSectionRequest = z.infer<typeof CreateFloorPlanSectionRequestSchema>;
+    export type UpdateFloorPlanSectionRequest = z.infer<typeof UpdateFloorPlanSectionRequestSchema>;
+    export type ReorderFloorPlanSectionsRequest = z.infer<typeof ReorderFloorPlanSectionsRequestSchema>;
+    export type AssignSectionTablesRequest = z.infer<typeof AssignSectionTablesRequestSchema>;
+  </file>
   <file path="packages/types/src/schemas/floor-plan.ts">
     export const TableShapeMetadataSchema = z.object({
       x: z.number(),
@@ -31833,6 +33025,13 @@
       thickness: z.number().positive(),
       wallType: z.enum(["wall", "window"]).optional(),
     });
+    export const SectionLayoutSchema = z.object({
+      id: z.string(),
+      x: z.number(),
+      y: z.number(),
+      width: z.number().positive(),
+      height: z.number().positive(),
+    });
     export const FloorPlanLayoutSchema = z.object({
       width: z.number(),
       height: z.number(),
@@ -31840,6 +33039,7 @@
       gridSize: z.number().optional(),
       showGrid: z.boolean().optional(),
       walls: z.array(WallLayoutSchema).optional(),
+      sections: z.array(SectionLayoutSchema).optional(),
     });
     export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
     export const TableSchema = z.object({
@@ -31855,6 +33055,7 @@
       status: TableStatusSchema,
       venueId: z.string().nullable(),
       floorPlanId: z.string().nullable(),
+      sectionId: z.string().nullable().optional(),
       shapeMetadata: TableShapeMetadataSchema.nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -32150,6 +33351,24 @@
     export const menuVenueQueryJsonSchema = toRequestJsonSchema(MenuVenueQuerySchema);
     export const publicMenuResponseJsonSchema = toResponseJsonSchema(PublicMenuSchema);
     export const publicMenuDetailResponseJsonSchema = toResponseJsonSchema(PublicMenuDetailSchema);
+    export const floorPlanSectionListQueryJsonSchema = toRequestJsonSchema(
+      FloorPlanSectionListQuerySchema
+    );
+    export const floorPlanSectionVenueQueryJsonSchema = toRequestJsonSchema(
+      FloorPlanSectionVenueQuerySchema
+    );
+    export const createFloorPlanSectionBodyJsonSchema = toRequestJsonSchema(
+      CreateFloorPlanSectionRequestSchema
+    );
+    export const updateFloorPlanSectionBodyJsonSchema = toRequestJsonSchema(
+      UpdateFloorPlanSectionRequestSchema
+    );
+    export const reorderFloorPlanSectionsBodyJsonSchema = toRequestJsonSchema(
+      ReorderFloorPlanSectionsRequestSchema
+    );
+    export const assignSectionTablesBodyJsonSchema = toRequestJsonSchema(
+      AssignSectionTablesRequestSchema
+    );
     export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
     export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
     export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
@@ -32528,19 +33747,37 @@
     export const CreateTableBodySchema = z
       .object({
         name: z.string().describe("Unique table name (e.g., 'Table 1', 'Patio A')"),
+        tableNumber: z.string().describe("Display table number").optional(),
         capacity: z.number().int().min(1).describe("Maximum number of guests the table can seat"),
+        minCovers: z.number().int().min(1).describe("Minimum covers to seat (default 1)").optional(),
+        maxCovers: z.number().int().min(1).describe("Maximum covers to seat").optional(),
         location: z.string().describe("Location description (e.g., 'Main Floor', 'Patio')").optional(),
+        priority: z.number().int().min(0).describe("Seating priority (0 = highest)").optional(),
         venueId: z.string().describe("ID of the venue this table belongs to").optional(),
+        floorPlanId: z.string().describe("Floor plan to place the table on").optional(),
+        shapeMetadata: TableShapeMetadataSchema.describe("Canvas shape and position").optional(),
       })
       .describe("Table creation payload");
     export const UpdateTableBodySchema = z
       .object({
         name: z.string().describe("New table name").optional(),
+        tableNumber: z.string().describe("New display table number").optional(),
         capacity: z.number().int().min(1).describe("New capacity").optional(),
+        minCovers: z.number().int().min(1).describe("Minimum covers to seat").optional(),
+        maxCovers: z.number().int().min(1).describe("Maximum covers to seat").optional(),
         location: z.string().describe("New location description").optional(),
         isActive: z
           .boolean()
           .describe("Whether the table is active and available for reservations")
+          .optional(),
+        priority: z.number().int().min(0).describe("Seating priority (0 = highest)").optional(),
+        floorPlanId: z
+          .string()
+          .nullable()
+          .describe("Floor plan to assign, or null to unassign")
+          .optional(),
+        shapeMetadata: TableShapeMetadataSchema.nullable()
+          .describe("Canvas shape/position, or null to clear")
           .optional(),
       })
       .describe("Fields to update");
@@ -32883,9 +34120,10 @@
       settings: z.object({ maxPartySize: z.number().optional() }).nullable().optional(),
       phone: z.string().optional(),
     });
+    export const DepositTypeSchema = z.enum(["flat", "per_person"]);
     export const PublicVenueDepositSchema = z.object({
       enabled: z.boolean(),
-      depositType: z.enum(["flat", "per_person"]).nullable(),
+      depositType: DepositTypeSchema.nullable(),
       amountCents: z.number().nullable(),
       freeCancellationHours: z.number().nullable(),
       lateCancellationFeePercent: z.number().nullable(),
@@ -33507,12 +34745,19 @@
         thoughtsTokenCount?: number;
       };
     }
+    type SleepLike = (ms: number) => Promise<void>;
+    function retryDelayMs(res: Response): number {
+      const header = Number(res.headers.get("retry-after"));
+      if (!Number.isFinite(header) || header <= 0) return DEFAULT_RETRY_DELAY_MS;
+      return Math.min(header * 1000, MAX_RETRY_DELAY_MS);
+    }
     export function createProvider(
       id: ProviderId,
       apiKey: string,
       fetchImpl: FetchLike = fetch,
       model: string = DEFAULT_MODELS[id],
-      pricing: Pricing = PRICING[id]
+      pricing: Pricing = PRICING[id],
+      sleep: SleepLike = realSleep
     ): Provider {
       const redact = (s: string) => s.split(apiKey).join("[redacted]");
       return {
@@ -33522,11 +34767,16 @@
         pricing,
         call: async (req) => {
           const wire = WIRES[id](apiKey, model, req);
-          const res = await fetchImpl(wire.url, {
-            method: "POST",
-            headers: { "content-type": "application/json", ...wire.headers },
-            body: JSON.stringify(wire.body),
-          });
+          let res: Response;
+          for (let attempt = 1; ; attempt += 1) {
+            res = await fetchImpl(wire.url, {
+              method: "POST",
+              headers: { "content-type": "application/json", ...wire.headers },
+              body: JSON.stringify(wire.body),
+            });
+            if (res.status !== 429 || attempt >= MAX_ATTEMPTS) break;
+            await sleep(retryDelayMs(res));
+          }
           if (!res.ok) {
             const detail = redact((await res.text()).slice(0, 300));
             throw new Error(`HTTP ${res.status} from ${id}: ${detail}`);
@@ -38667,6 +39917,7 @@
       guestService: typeof guestService;
       floorPlanService: typeof floorPlanService;
       menuService: typeof menuService;
+      floorPlanSectionService: typeof floorPlanSectionService;
       holdService: typeof holdService;
       /** Built in `buildApp` over the one payments adapter — never a module singleton. */
       depositService: DepositService;
@@ -38682,6 +39933,7 @@
       guestService,
       floorPlanService,
       menuService,
+      floorPlanSectionService,
       holdService,
       waitlistService,
       briefingService,
@@ -38820,6 +40072,145 @@
         });
       }
     }
+  </file>
+  <file path="services/reservations/src/services/floor-plan-section.ts">
+    interface PrismaFloorPlanSection {
+      id: string;
+      venueId: string;
+      floorPlanId: string;
+      name: string;
+      color: string;
+      displayOrder: number;
+      floorMaterial: FloorMaterial | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    function mapSection(section: PrismaFloorPlanSection): FloorPlanSection {
+      return {
+        id: section.id,
+        venueId: section.venueId,
+        floorPlanId: section.floorPlanId,
+        name: section.name,
+        color: section.color,
+        displayOrder: section.displayOrder,
+        // `?? null` so a row read before the column existed still serialises as an
+        // explicit "no floor finish" rather than dropping the key off the wire.
+        floorMaterial: section.floorMaterial ?? null,
+        createdAt: section.createdAt.toISOString(),
+        updatedAt: section.updatedAt.toISOString(),
+      };
+    }
+    export const floorPlanSectionService = {
+      async list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]> {
+        const sections = await prisma.floorPlanSection.findMany({
+          where: { venueId, ...(floorPlanId ? { floorPlanId } : {}) },
+          orderBy: BY_ORDER,
+        });
+        return sections.map(mapSection);
+      },
+    
+      /** `null` when the floor plan is not this venue's. */
+      async create(
+        venueId: string,
+        data: CreateFloorPlanSectionRequest
+      ): Promise<FloorPlanSection | null> {
+        // Re-parsing strips unknown keys: an `id`/`venueId` smuggled into the body must never reach Prisma.
+        const body = CreateFloorPlanSectionRequestSchema.parse(data);
+        const floorPlan = await prisma.floorPlan.findFirst({
+          where: { id: body.floorPlanId, venueId },
+          select: { id: true },
+        });
+        if (!floorPlan) return null;
+        return mapSection(await prisma.floorPlanSection.create({ data: { ...body, venueId } }));
+      },
+    
+      async update(
+        venueId: string,
+        sectionId: string,
+        data: UpdateFloorPlanSectionRequest
+      ): Promise<FloorPlanSection | null> {
+        const where = { id: sectionId, venueId };
+        // Allowlist via the schema: a body `floorPlanId` would otherwise re-parent the section.
+        const { count } = await prisma.floorPlanSection.updateMany({
+          where,
+          data: UpdateFloorPlanSectionRequestSchema.parse(data),
+        });
+        if (count === 0) return null;
+        const section = await prisma.floorPlanSection.findFirst({ where });
+        return section ? mapSection(section) : null;
+      },
+    
+      /** Its tables are kept and become unassigned (`ON DELETE SET NULL`). */
+      async delete(venueId: string, sectionId: string): Promise<boolean> {
+        const { count } = await prisma.floorPlanSection.deleteMany({
+          where: { id: sectionId, venueId },
+        });
+        return count > 0;
+      },
+    
+      /**
+       * Persists `displayOrder = index` for the given section ids. Returns `null`
+       * (nothing written) unless every id is a distinct section of this floor plan
+       * in this venue — a foreign or duplicated id fails the whole reorder.
+       */
+      async reorder(
+        venueId: string,
+        floorPlanId: string,
+        ids: string[]
+      ): Promise<FloorPlanSection[] | null> {
+        if (new Set(ids).size !== ids.length) return null;
+        // Explicit transaction: bypasses the per-call auto-wrap, so set the venue ourselves.
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const owned = await tx.floorPlanSection.count({
+            where: { id: { in: ids }, floorPlanId, venueId },
+          });
+          if (owned !== ids.length) return null;
+          for (const [displayOrder, id] of ids.entries()) {
+            await tx.floorPlanSection.updateMany({
+              where: { id, floorPlanId, venueId },
+              data: { displayOrder },
+            });
+          }
+          const sections = await tx.floorPlanSection.findMany({
+            where: { floorPlanId, venueId },
+            orderBy: BY_ORDER,
+          });
+          return sections.map(mapSection);
+        });
+      },
+    
+      /**
+       * Makes `tableIds` the section's exact membership: they join it, and every
+       * other table leaves it. Returns `null` (nothing written) unless the section
+       * is this venue's and every table is a distinct table of the section's own
+       * floor plan in this venue — a table cannot be pulled across plans or venues.
+       */
+      async assignTables(
+        venueId: string,
+        sectionId: string,
+        tableIds: string[]
+      ): Promise<Table[] | null> {
+        const section = await prisma.floorPlanSection.findFirst({
+          where: { id: sectionId, venueId },
+          select: { floorPlanId: true },
+        });
+        if (!section) return null;
+        const ids = [...new Set(tableIds)];
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const where = { id: { in: ids }, venueId, floorPlanId: section.floorPlanId };
+          if ((await tx.table.count({ where })) !== ids.length) return null;
+          await tx.table.updateMany({
+            where: { venueId, sectionId, id: { notIn: ids } },
+            data: { sectionId: null },
+          });
+          await tx.table.updateMany({ where, data: { sectionId } });
+          const tables = await tx.table.findMany({ where: { venueId, sectionId } });
+          return tables.map(toTable);
+        });
+      },
+    };
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
     type PrismaFloorPlan = {
@@ -39147,6 +40538,7 @@
               t.priority,
               t.venue_id AS "venueId",
               t.floor_plan_id AS "floorPlanId",
+              t.section_id AS "sectionId",
               t.shape_metadata AS "shapeMetadata",
               t.created_at AS "createdAt",
               t.updated_at AS "updatedAt"
@@ -39208,6 +40600,7 @@
             where: { id: tableId },
             data: {
               floorPlanId: null,
+              sectionId: null,
               shapeMetadata: Prisma.DbNull,
             },
           });
@@ -43184,6 +44577,7 @@
       status: string;
       venueId: string | null;
       floorPlanId: string | null;
+      sectionId?: string | null;
       shapeMetadata: unknown;
       createdAt: Date;
       updatedAt: Date;
@@ -43230,6 +44624,7 @@
         status: row.status as TableStatus,
         venueId: row.venueId,
         floorPlanId: row.floorPlanId,
+        sectionId: row.sectionId ?? null,
         shapeMetadata: row.shapeMetadata as TableShapeMetadata | null,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
@@ -44404,6 +45799,7 @@
       "menu",
       "menuSection",
       "menuItem",
+      "floorPlanSection",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -54978,6 +56374,67 @@
       }
     }
   </file>
+  <file path="packages/api-client/src/floor-plan-sections.ts">
+    function sectionPath(venueId: string, segments: string[] = [], extraQuery = ""): string {
+      const path = ["/api/v1/floor-plan-sections", ...segments.map(encodeURIComponent)].join("/");
+      return `${path}?venueId=${encodeURIComponent(venueId)}${extraQuery}`;
+    }
+    export class FloorPlanSectionsClient {
+      constructor(private client: ApiClient) {}
+    
+      async list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]> {
+        const extra = floorPlanId ? `&floorPlanId=${encodeURIComponent(floorPlanId)}` : "";
+        const response = await this.client.get<{ data: FloorPlanSection[] }>(
+          sectionPath(venueId, [], extra),
+          undefined,
+          sectionListResponseSchema
+        );
+        return response.data;
+      }
+    
+      async create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection> {
+        return this.client.postOne<FloorPlanSection>(
+          sectionPath(venueId),
+          data,
+          FloorPlanSectionSchema
+        );
+      }
+    
+      async update(
+        venueId: string,
+        sectionId: string,
+        data: UpdateFloorPlanSectionRequest
+      ): Promise<FloorPlanSection> {
+        return this.client.patchOne<FloorPlanSection>(
+          sectionPath(venueId, [sectionId]),
+          data,
+          FloorPlanSectionSchema
+        );
+      }
+    
+      async delete(venueId: string, sectionId: string): Promise<void> {
+        return this.client.delete(sectionPath(venueId, [sectionId]));
+      }
+    
+      /** Persists `displayOrder` as each id's index (`PUT /order`). */
+      async reorder(venueId: string, floorPlanId: string, ids: string[]): Promise<FloorPlanSection[]> {
+        return this.client.putOne<FloorPlanSection[]>(
+          sectionPath(venueId, ["order"]),
+          { floorPlanId, ids },
+          sectionListSchema
+        );
+      }
+    
+      /** Makes `tableIds` the section's exact membership (`PUT /:sectionId/tables`). */
+      async assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]> {
+        return this.client.putOne<Table[]>(
+          sectionPath(venueId, [sectionId, "tables"]),
+          { tableIds },
+          tableListSchema
+        );
+      }
+    }
+  </file>
   <file path="packages/api-client/src/floor-plans.ts">
     export class FloorPlansClient {
       constructor(private client: ApiClient) {}
@@ -55191,6 +56648,7 @@
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
+        floorPlanSections: new FloorPlanSectionsClient(client),
         menus: new MenusClient(client),
         publicVenue: new PublicVenueClient(client),
         waitlist: new WaitlistClient(client),
@@ -59934,6 +61392,13 @@
       thickness: number;
       wallType?: "wall" | "window";
     }
+    export interface SectionLayout {
+      id: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
     export interface FloorPlanLayout {
       width: number;
       height: number;
@@ -59941,6 +61406,7 @@
       gridSize?: number;
       showGrid?: boolean;
       walls?: WallLayout[];
+      sections?: SectionLayout[];
     }
     export interface CreateFloorPlanRequest {
       venueId: string;
@@ -60432,6 +61898,7 @@
       status: TableStatus;
       venueId: string | null;
       floorPlanId: string | null;
+      sectionId?: string | null;
       shapeMetadata: TableShapeMetadata | null;
       createdAt: string;
       updatedAt: string;
@@ -61193,6 +62660,7 @@
       await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
       await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
       await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+      await fastify.register(floorPlanSectionRoutes, { prefix: "/api/v1/floor-plan-sections" });
       await fastify.register(menuRoutes, { prefix: "/api/v1/menus" });
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
       await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
@@ -61807,6 +63275,7 @@
         { name: "tables", instance: api.tables },
         { name: "guests", instance: api.guests },
         { name: "floorPlans", instance: api.floorPlans },
+        { name: "floorPlanSections", instance: api.floorPlanSections },
         { name: "menus", instance: api.menus },
         { name: "publicVenue", instance: api.publicVenue },
         { name: "waitlist", instance: api.waitlist },
@@ -62875,7 +64344,413 @@
     }
   </file>
   </section>
+  <section priority="medium" role="templates">
+  <file path="docs/reference/eat-sheet/src/shared/templates/floor-plan.ts">
+    export interface FloorPlanTemplate {
+      readonly name: string;
+      readonly description: string;
+      readonly icon: string;
+      readonly build: (w: number, h: number) => SaveFloorPlanPayload;
+    }
+    export interface TemplateSize {
+      readonly label: string;
+      readonly sub: string;
+      readonly width: number;
+      readonly height: number;
+    }
+    export const TEMPLATE_SIZES: readonly TemplateSize[] = [
+      { label: "Cozy", sub: "~1,000 sq ft", width: 800, height: 600 },
+      { label: "Standard", sub: "~2,000 sq ft", width: 1200, height: 800 },
+      { label: "Spacious", sub: "~3,500 sq ft", width: 1600, height: 1000 },
+      { label: "Grand", sub: "~5,000 sq ft", width: 2000, height: 1200 },
+    ] as const;
+    export function templateIdFromName(name: string): string {
+      return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    }
+    function perimeterWalls(w: number, h: number, t: number = 6): SaveWallPayload[] {
+      return [
+        { id: nanoid(), x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+        { id: nanoid(), x1: w, y1: 0, x2: w, y2: h, thickness: t },
+        { id: nanoid(), x1: w, y1: h, x2: 0, y2: h, thickness: t },
+        { id: nanoid(), x1: 0, y1: h, x2: 0, y2: 0, thickness: t },
+      ];
+    }
+    function perimeterWithDoor(
+      w: number, h: number,
+      side: "bottom" | "left", pos: number, gap: number, t: number = 6,
+    ): SaveWallPayload[] {
+      if (side === "bottom") {
+        return [
+          { id: nanoid(), x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+          { id: nanoid(), x1: w, y1: 0, x2: w, y2: h, thickness: t },
+          { id: nanoid(), x1: 0, y1: h, x2: pos, y2: h, thickness: t },
+          { id: nanoid(), x1: pos + gap, y1: h, x2: w, y2: h, thickness: t },
+          { id: nanoid(), x1: 0, y1: h, x2: 0, y2: 0, thickness: t },
+        ];
+      }
+      return [
+        { id: nanoid(), x1: 0, y1: 0, x2: w, y2: 0, thickness: t },
+        { id: nanoid(), x1: w, y1: 0, x2: w, y2: h, thickness: t },
+        { id: nanoid(), x1: w, y1: h, x2: 0, y2: h, thickness: t },
+        { id: nanoid(), x1: 0, y1: 0, x2: 0, y2: pos, thickness: t },
+        { id: nanoid(), x1: 0, y1: pos + gap, x2: 0, y2: h, thickness: t },
+      ];
+    }
+    export const TEMPLATES: readonly FloorPlanTemplate[] = [
+      {
+        name: "Blank",
+        description: "Empty floor with perimeter walls",
+        icon: "blank",
+        build: (w, h) => ({
+          canvasWidth: w, canvasHeight: h, tables: [], sections: [],
+          walls: perimeterWalls(w, h),
+        }),
+      },
+    
+      {
+        name: "Fine Dining",
+        description: "Spacious round tables, private room, window 2-tops",
+        icon: "fine-dining",
+        build: (w, h) => {
+          // Divider at 60% width separates main from private
+          const div = w * 0.6;
+          return {
+            canvasWidth: w, canvasHeight: h,
+            tables: [
+              // Window 2-tops along left wall (5% from left, evenly spaced)
+              R(w * 0.04, h * 0.08, 2, "W1", 36), R(w * 0.04, h * 0.24, 2, "W2", 36),
+              R(w * 0.04, h * 0.40, 2, "W3", 36), R(w * 0.04, h * 0.56, 2, "W4", 36),
+              // Main dining — staggered 4-tops and 6-tops filling 55% width
+              R(w * 0.16, h * 0.10, 4, "T1", 52), R(w * 0.32, h * 0.10, 4, "T2", 52), R(w * 0.48, h * 0.10, 4, "T3", 52),
+              R(w * 0.24, h * 0.30, 6, "T4", 64), R(w * 0.42, h * 0.30, 6, "T5", 64),
+              R(w * 0.16, h * 0.50, 4, "T6", 52), R(w * 0.32, h * 0.50, 4, "T7", 52), R(w * 0.48, h * 0.50, 4, "T8", 52),
+              R(w * 0.24, h * 0.70, 4, "T9", 52), R(w * 0.42, h * 0.70, 4, "T10", 52),
+              R(w * 0.16, h * 0.85, 4, "T11", 52),
+              // Private dining room (right 35%)
+              R(w * 0.72, h * 0.12, 8, "P1", 84),
+              LT(w * 0.68, h * 0.35, 10, "P2", 140, 56),
+              R(w * 0.68, h * 0.58, 4, "P3", 52), R(w * 0.84, h * 0.58, 4, "P4", 52),
+              R(w * 0.76, h * 0.78, 6, "P5", 64),
+            ],
+            sections: [
+              SEC("Main Dining", "#8B7355", w * 0.02, h * 0.03, div - w * 0.04, h * 0.92),
+              SEC("Private", "#6b5740", div + w * 0.02, h * 0.03, w * 0.36, h * 0.92),
+            ],
+            walls: [
+              ...perimeterWithDoor(w, h, "bottom", w * 0.35, 80),
+              WL(div, 0, div, h * 0.75), WL(div, h * 0.75, w, h * 0.75),
+              WIN(0, h * 0.05, 0, h * 0.20), WIN(0, h * 0.25, 0, h * 0.40), WIN(0, h * 0.45, 0, h * 0.60),
+            ],
+          };
+        },
+      },
+    
+      {
+        name: "Casual Bistro",
+        description: "Diamond tops, communal table, booths, dense layout",
+        icon: "casual",
+        build: (w, h) => {
+          const boothX = w * 0.68;
+          return {
+            canvasWidth: w, canvasHeight: h,
+            tables: [
+              // Window 2-tops
+              R(w * 0.04, h * 0.10, 2, "W1", 36), R(w * 0.04, h * 0.28, 2, "W2", 36),
+              R(w * 0.04, h * 0.46, 2, "W3", 36), R(w * 0.04, h * 0.64, 2, "W4", 36),
+              // Diamond 4-tops — row 1
+              SQ(w * 0.18, h * 0.08, 4, "T1", 52, 45), SQ(w * 0.34, h * 0.08, 4, "T2", 52, 45), SQ(w * 0.50, h * 0.08, 4, "T3", 52, 45),
+              // Diamond 4-tops — row 2 (offset)
+              SQ(w * 0.26, h * 0.26, 4, "T4", 52, 45), SQ(w * 0.42, h * 0.26, 4, "T5", 52, 45),
+              // Diamond 4-tops — row 3
+              SQ(w * 0.18, h * 0.44, 4, "T6", 52, 45), SQ(w * 0.34, h * 0.44, 4, "T7", 52, 45), SQ(w * 0.50, h * 0.44, 4, "T8", 52, 45),
+              // Communal table
+              LT(w * 0.20, h * 0.66, 10, "C1", 200, 60),
+              // Bottom tables
+              R(w * 0.20, h * 0.84, 4, "T9", 52), R(w * 0.40, h * 0.84, 4, "T10", 52),
+              // Booths along right
+              LT(boothX, h * 0.06, 4, "B1", 100, 48), LT(boothX, h * 0.20, 4, "B2", 100, 48),
+              LT(boothX, h * 0.34, 4, "B3", 100, 48), LT(boothX, h * 0.48, 4, "B4", 100, 48),
+              LT(boothX, h * 0.62, 4, "B5", 100, 48), LT(boothX, h * 0.76, 4, "B6", 100, 48),
+            ],
+            sections: [
+              SEC("Dining", "#8B7355", w * 0.10, h * 0.03, w * 0.52, h * 0.56),
+              SEC("Booths", "#6b5740", boothX - w * 0.03, h * 0.02, w * 0.33, h * 0.88),
+            ],
+            walls: [
+              ...perimeterWithDoor(w, h, "bottom", w * 0.35, 70),
+              WL(boothX - w * 0.04, 0, boothX - w * 0.04, h * 0.90),
+              WIN(0, h * 0.05, 0, h * 0.22), WIN(0, h * 0.28, 0, h * 0.45), WIN(0, h * 0.52, 0, h * 0.68),
+            ],
+          };
+        },
+      },
+    
+      {
+        name: "Bar & Lounge",
+        description: "Long bar, cocktail tables, lounge booths",
+        icon: "bar",
+        build: (w, h) => {
+          const barY = h * 0.18;
+          return {
+            canvasWidth: w, canvasHeight: h,
+            tables: [
+              // Bar stools — spread across bar width
+              R(w * 0.18, h * 0.05, 1, "B1", 32), R(w * 0.26, h * 0.05, 1, "B2", 32),
+              R(w * 0.34, h * 0.05, 1, "B3", 32), R(w * 0.42, h * 0.05, 1, "B4", 32),
+              R(w * 0.50, h * 0.05, 1, "B5", 32), R(w * 0.58, h * 0.05, 1, "B6", 32),
+              R(w * 0.66, h * 0.05, 1, "B7", 32), R(w * 0.74, h * 0.05, 1, "B8", 32),
+              R(w * 0.82, h * 0.05, 1, "B9", 32),
+              // Cocktail rounds — 3 rows filling middle
+              R(w * 0.08, h * 0.32, 3, "T1", 44), R(w * 0.22, h * 0.32, 3, "T2", 44),
+              R(w * 0.36, h * 0.32, 3, "T3", 44), R(w * 0.50, h * 0.32, 3, "T4", 44),
+              R(w * 0.15, h * 0.48, 3, "T5", 44), R(w * 0.29, h * 0.48, 3, "T6", 44),
+              R(w * 0.43, h * 0.48, 3, "T7", 44),
+              // Booths along right
+              LT(w * 0.72, h * 0.30, 6, "T8", 110, 48),
+              LT(w * 0.72, h * 0.46, 6, "T9", 110, 48),
+              LT(w * 0.72, h * 0.62, 6, "T10", 110, 48),
+              // Lounge — bottom, full width
+              SQ(w * 0.08, h * 0.72, 4, "L1", 56), SQ(w * 0.22, h * 0.72, 4, "L2", 56),
+              SQ(w * 0.36, h * 0.72, 4, "L3", 56), R(w * 0.52, h * 0.72, 6, "L4", 64),
+              SQ(w * 0.08, h * 0.88, 4, "L5", 56), SQ(w * 0.22, h * 0.88, 4, "L6", 56),
+            ],
+            sections: [
+              SEC("Bar", "#c49a2a", w * 0.14, h * 0.01, w * 0.74, barY - h * 0.01),
+              SEC("Lounge", "#6b8a6b", w * 0.03, h * 0.67, w * 0.60, h * 0.30),
+            ],
+            walls: [
+              ...perimeterWithDoor(w, h, "bottom", w * 0.04, 80),
+              // Bar counter
+              WL(w * 0.15, barY, w * 0.88, barY, 8),
+              WL(w * 0.13, 0, w * 0.13, barY), WL(w * 0.90, 0, w * 0.90, barY),
+              // Booth divider
+              WL(w * 0.67, h * 0.25, w * 0.67, h * 0.78),
+            ],
+          };
+        },
+      },
+    
+      {
+        name: "Café",
+        description: "Window seats, service counter, cozy nooks",
+        icon: "cafe",
+        build: (w, h) => {
+          const counterX = w * 0.55;
+          return {
+            canvasWidth: w, canvasHeight: h,
+            tables: [
+              // Window seats — 2-tops along left
+              R(w * 0.05, h * 0.08, 2, "W1", 36), R(w * 0.05, h * 0.22, 2, "W2", 36),
+              R(w * 0.05, h * 0.36, 2, "W3", 36), R(w * 0.05, h * 0.50, 2, "W4", 36),
+              R(w * 0.05, h * 0.64, 2, "W5", 36), R(w * 0.05, h * 0.78, 2, "W6", 36),
+              // Main tables — filling center area
+              SQ(w * 0.20, h * 0.08, 4, "T1", 52), SQ(w * 0.36, h * 0.08, 4, "T2", 52),
+              R(w * 0.20, h * 0.28, 4, "T3", 48), R(w * 0.36, h * 0.28, 4, "T4", 48),
+              SQ(w * 0.20, h * 0.48, 4, "T5", 52), SQ(w * 0.36, h * 0.48, 4, "T6", 52),
+              R(w * 0.28, h * 0.68, 6, "T7", 64),
+              R(w * 0.20, h * 0.86, 4, "T8", 48), R(w * 0.38, h * 0.86, 4, "T9", 48),
+              // Counter stools
+              R(counterX - 30, h * 0.28, 1, "C1", 32), R(counterX - 30, h * 0.38, 1, "C2", 32),
+              R(counterX - 30, h * 0.48, 1, "C3", 32), R(counterX - 30, h * 0.58, 1, "C4", 32),
+              R(counterX - 30, h * 0.68, 1, "C5", 32),
+              // Back communal table
+              LT(w * 0.62, h * 0.72, 8, "C6", 180, 52),
+              LT(w * 0.62, h * 0.86, 6, "C7", 140, 48),
+            ],
+            sections: [
+              SEC("Window Seats", "#5a8db5", w * 0.01, h * 0.03, w * 0.12, h * 0.88),
+              SEC("Kitchen", "#e07050", w * 0.58, h * 0.02, w * 0.40, h * 0.30),
+            ],
+            walls: [
+              ...perimeterWithDoor(w, h, "left", h * 0.82, 60),
+              WL(counterX, h * 0.20, counterX, h * 0.78),
+              WL(w * 0.56, 0, w * 0.56, h * 0.35), WL(w * 0.56, h * 0.35, w, h * 0.35),
+              WIN(0, h * 0.04, 0, h * 0.18), WIN(0, h * 0.22, 0, h * 0.36),
+              WIN(0, h * 0.40, 0, h * 0.54), WIN(0, h * 0.58, 0, h * 0.72), WIN(0, h * 0.76, 0, h * 0.88),
+            ],
+          };
+        },
+      },
+    
+      {
+        name: "Banquet Hall",
+        description: "Large round tables, head table, stage area",
+        icon: "banquet",
+        build: (w, h) => {
+          const stageY = h * 0.78;
+          return {
+            canvasWidth: w, canvasHeight: h,
+            tables: [
+              // Round 8-tops — 4-3-4 staggered grid filling room
+              R(w * 0.08, h * 0.06, 8, "T1", 80), R(w * 0.28, h * 0.06, 8, "T2", 80),
+              R(w * 0.48, h * 0.06, 8, "T3", 80), R(w * 0.68, h * 0.06, 8, "T4", 80),
+              R(w * 0.18, h * 0.26, 8, "T5", 80), R(w * 0.38, h * 0.26, 8, "T6", 80), R(w * 0.58, h * 0.26, 8, "T7", 80),
+              R(w * 0.08, h * 0.46, 8, "T8", 80), R(w * 0.28, h * 0.46, 8, "T9", 80),
+              R(w * 0.48, h * 0.46, 8, "T10", 80), R(w * 0.68, h * 0.46, 8, "T11", 80),
+              // Smaller tables along right wall
+              R(w * 0.88, h * 0.10, 6, "T12", 60), R(w * 0.88, h * 0.30, 6, "T13", 60),
+              R(w * 0.88, h * 0.50, 6, "T14", 60),
+              // Head table — long, at stage
+              LT(w * 0.20, stageY + h * 0.04, 16, "HEAD", Math.min(500, w * 0.5), 56),
+            ],
+            sections: [
+              SEC("Seating", "#8B7355", w * 0.03, h * 0.02, w * 0.82, stageY - h * 0.06),
+              SEC("Stage", "#c49a2a", w * 0.15, stageY, w * 0.60, h * 0.18),
+            ],
+            walls: [
+              ...perimeterWithDoor(w, h, "bottom", w * 0.06, 100),
+              WL(0, stageY, w, stageY),
+            ],
+          };
+        },
+      },
+    
+      {
+        name: "Open Kitchen",
+        description: "Chef's counter, visible kitchen, mixed seating",
+        icon: "open-kitchen",
+        build: (w, h) => {
+          const kitchenX = w * 0.50;
+          const counterY = h * 0.35;
+          return {
+            canvasWidth: w, canvasHeight: h,
+            tables: [
+              // Chef's counter stools
+              R(kitchenX + w * 0.04, counterY + 20, 1, "K1", 32),
+              R(kitchenX + w * 0.12, counterY + 20, 1, "K2", 32),
+              R(kitchenX + w * 0.20, counterY + 20, 1, "K3", 32),
+              R(kitchenX + w * 0.28, counterY + 20, 1, "K4", 32),
+              R(kitchenX + w * 0.36, counterY + 20, 1, "K5", 32),
+              R(kitchenX + w * 0.44, counterY + 20, 1, "K6", 32),
+              // Main dining — diamond squares + rounds
+              SQ(w * 0.06, h * 0.06, 4, "T1", 52, 45), SQ(w * 0.22, h * 0.06, 4, "T2", 52, 45),
+              R(w * 0.38, h * 0.06, 6, "T3", 64),
+              SQ(w * 0.14, h * 0.26, 4, "T4", 52, 45), R(w * 0.30, h * 0.26, 4, "T5", 48),
+              // Bottom dining — filling lower half
+              LT(w * 0.06, h * 0.50, 6, "T6", 110, 48), LT(w * 0.26, h * 0.50, 6, "T7", 110, 48),
+              R(w * 0.06, h * 0.68, 4, "T8", 52), R(w * 0.22, h * 0.68, 4, "T9", 52),
+              SQ(w * 0.38, h * 0.65, 4, "T10", 52, 45),
+              R(w * 0.06, h * 0.84, 4, "T11", 48), R(w * 0.22, h * 0.84, 4, "T12", 48),
+              LT(w * 0.36, h * 0.84, 6, "T13", 110, 48),
+              // Bar area
+              R(w * 0.62, h * 0.56, 2, "B1", 40), R(w * 0.76, h * 0.56, 2, "B2", 40),
+              R(w * 0.62, h * 0.70, 2, "B3", 40), R(w * 0.76, h * 0.70, 2, "B4", 40),
+              R(w * 0.69, h * 0.84, 4, "B5", 52),
+            ],
+            sections: [
+              SEC("Dining", "#8B7355", w * 0.02, h * 0.02, kitchenX - w * 0.04, h * 0.94),
+              SEC("Kitchen", "#e07050", kitchenX + w * 0.02, h * 0.02, w * 0.46, counterY - h * 0.04),
+              SEC("Bar", "#c49a2a", w * 0.56, h * 0.50, w * 0.40, h * 0.46),
+            ],
+            walls: [
+              ...perimeterWithDoor(w, h, "left", h * 0.85, 60),
+              WL(kitchenX, 0, kitchenX, counterY),
+              WL(kitchenX, counterY, w, counterY),
+              WL(kitchenX + 10, counterY + 10, w * 0.96, counterY + 10, 8),
+              WIN(0, h * 0.04, 0, h * 0.22), WIN(0, h * 0.30, 0, h * 0.48),
+            ],
+          };
+        },
+      },
+    ];
+  </file>
+  </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/png-luminance.ts">
+    export interface DecodedPng {
+      readonly width: number;
+      readonly height: number;
+      /** Row-major RGBA bytes, `width * height * 4` long. */
+      readonly data: Uint8Array;
+    }
+    function unfilterRow(
+      filterType: number,
+      row: Uint8Array,
+      previous: Uint8Array,
+      out: Uint8Array
+    ): void {
+      for (let i = 0; i < row.length; i++) {
+        const left = i >= RGBA_CHANNELS ? out[i - RGBA_CHANNELS]! : 0;
+        const up = previous[i]!;
+        const upLeft = i >= RGBA_CHANNELS ? previous[i - RGBA_CHANNELS]! : 0;
+        let value: number;
+        switch (filterType) {
+          case 0:
+            value = row[i]!;
+            break;
+          case 1:
+            value = row[i]! + left;
+            break;
+          case 2:
+            value = row[i]! + up;
+            break;
+          case 3:
+            value = row[i]! + ((left + up) >> 1);
+            break;
+          case 4: {
+            const predictor = left + up - upLeft;
+            const dLeft = Math.abs(predictor - left);
+            const dUp = Math.abs(predictor - up);
+            const dUpLeft = Math.abs(predictor - upLeft);
+            const paeth = dLeft <= dUp && dLeft <= dUpLeft ? left : dUp <= dUpLeft ? up : upLeft;
+            value = row[i]! + paeth;
+            break;
+          }
+          default:
+            throw new Error(`Unsupported PNG filter type ${filterType}`);
+        }
+        out[i] = value & 0xff;
+      }
+    }
+    export function decodePng(bytes: Buffer): DecodedPng {
+      if (!bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+        throw new Error("Not a PNG");
+      }
+      const width = bytes.readUInt32BE(16);
+      const height = bytes.readUInt32BE(20);
+      const bitDepth = bytes[24];
+      const colorType = bytes[25];
+      const interlace = bytes[28];
+      if (bitDepth !== EIGHT_BIT || colorType !== COLOR_TYPE_RGBA || interlace !== 0) {
+        throw new Error(
+          `Unsupported PNG: bitDepth=${bitDepth} colorType=${colorType} interlace=${interlace}`
+        );
+      }
+    
+      const idat: Buffer[] = [];
+      let offset = PNG_SIGNATURE.length;
+      while (offset + 8 <= bytes.length) {
+        const length = bytes.readUInt32BE(offset);
+        if (bytes.toString("ascii", offset + 4, offset + 8) === "IDAT") {
+          idat.push(bytes.subarray(offset + 8, offset + 8 + length));
+        }
+        offset += 12 + length;
+      }
+    
+      const raw = inflateSync(Buffer.concat(idat));
+      const stride = width * RGBA_CHANNELS;
+      const data = new Uint8Array(height * stride);
+      let previous = new Uint8Array(stride);
+      for (let y = 0; y < height; y++) {
+        const start = y * (stride + 1);
+        const out = new Uint8Array(stride);
+        unfilterRow(raw[start]!, raw.subarray(start + 1, start + 1 + stride), previous, out);
+        data.set(out, y * stride);
+        previous = out;
+      }
+      return { width, height, data };
+    }
+    export function relativeLuminance(r: number, g: number, b: number): number {
+      const channel = (value: number): number => {
+        const s = value / 255;
+        return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    }
+    export function contrastRatio(a: number, b: number): number {
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    }
+  </file>
   <file path="apps/hospitality/src/test/special-requests-fixtures.ts">
     export const TWO_LINE_NOTE =
       "  Our anniversary.\nWindow seat if you can, and she can't have tree nuts.  \n";
@@ -65162,6 +67037,119 @@
   </file>
   </section>
   <section priority="medium" role="types">
+  <file path="docs/reference/eat-sheet/src/shared/types/floor-plan.ts">
+    export type TableShape = "circle" | "square" | "rectangle";
+    export const TABLE_SHAPES: readonly TableShape[] = [
+      "circle",
+      "square",
+      "rectangle",
+    ] as const;
+    export const TABLE_SHAPE_LABELS: Record<TableShape, string> = {
+      circle: "Round",
+      square: "Square",
+      rectangle: "Rectangular",
+    } as const;
+    export interface TableLayout {
+      readonly id: string;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+    }
+    export interface SectionLayout {
+      readonly id: string;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+    }
+    export type WallType = "wall" | "window";
+    export interface WallLayout {
+      readonly id: string;
+      readonly x1: number;
+      readonly y1: number;
+      readonly x2: number;
+      readonly y2: number;
+      readonly thickness: number;
+      readonly wallType?: WallType | undefined;
+    }
+    export interface LayoutData {
+      readonly tables: readonly TableLayout[];
+      readonly sections: readonly SectionLayout[];
+      readonly walls: readonly WallLayout[];
+    }
+    export interface FloorPlanTable {
+      readonly id: string;
+      readonly floorPlanId: string;
+      readonly sectionId: string | null;
+      readonly label: string;
+      readonly shape: TableShape;
+      readonly minCapacity: number;
+      readonly maxCapacity: number;
+    }
+    export interface FloorPlanSection {
+      readonly id: string;
+      readonly floorPlanId: string;
+      readonly name: string;
+      readonly color: string;
+      readonly floorMaterial?: "hardwood" | "concrete" | "carpet" | "tile" | "marble" | undefined;
+    }
+    export interface FloorPlan {
+      readonly id: string;
+      readonly tenantId: string;
+      readonly name: string;
+      readonly sortOrder: number;
+      readonly canvasWidth: number;
+      readonly canvasHeight: number;
+      readonly createdAt: string;
+      readonly updatedAt: string;
+    }
+    export interface FloorPlanFull extends FloorPlan {
+      readonly layoutData: LayoutData;
+      readonly tables: readonly FloorPlanTable[];
+      readonly sections: readonly FloorPlanSection[];
+    }
+    export interface SaveTablePayload {
+      readonly id: string;
+      readonly label: string;
+      readonly shape: TableShape;
+      readonly minCapacity: number;
+      readonly maxCapacity: number;
+      readonly sectionId: string | null;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly rotation: number;
+    }
+    export interface SaveSectionPayload {
+      readonly id: string;
+      readonly name: string;
+      readonly color: string;
+      readonly floorMaterial?: "hardwood" | "concrete" | "carpet" | "tile" | "marble" | undefined;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+    }
+    export interface SaveWallPayload {
+      readonly id: string;
+      readonly x1: number;
+      readonly y1: number;
+      readonly x2: number;
+      readonly y2: number;
+      readonly thickness: number;
+      readonly wallType?: WallType | undefined;
+    }
+    export interface SaveFloorPlanPayload {
+      readonly canvasWidth: number;
+      readonly canvasHeight: number;
+      readonly tables: readonly SaveTablePayload[];
+      readonly sections: readonly SaveSectionPayload[];
+      readonly walls: readonly SaveWallPayload[];
+    }
+  </file>
   <file path="packages/auth/src/types/index.ts">
     export interface OIDCConfig {
       /** OIDC authority URL (e.g., https://your-tenant.auth0.com) */
@@ -66123,11 +68111,6 @@
         seats: t("onboarding.floorPlan.seatCount", { count: seats }),
       };
     }
-    export function layoutSummary(t: TFunction, tables: readonly DraftTable[]): string {
-      return tables.length === 0
-        ? t("onboarding.floorPlan.summaryBlank")
-        : t("onboarding.floorPlan.summary", layoutCounts(t, tables));
-    }
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-draft.ts">
     export type DraftTableShape = TableShapeMetadata["shape"];
@@ -66138,14 +68121,40 @@
       capacity: number;
       minCovers: number;
       shape: DraftTableShape;
-      /** Centre coordinates, always multiples of GRID_SIZE. */
+      /** Centre coordinates. A table the manager adds is always a multiple of GRID_SIZE. */
       x: number;
       y: number;
+      /**
+       * Footprint, where a room template gave this table one of its own — a long
+       * table is 140 wide against a shape default of 80. Absent on a table the
+       * manager added, which keeps using SHAPE_DEFAULTS.
+       */
+      width?: number;
+      height?: number;
+      rotation?: number;
+      /**
+       * The room template's **local** section id, or null outside every zone.
+       * Launch resolves it to the real row id.
+       */
+      sectionId?: string | null;
+    }
+    export function draftTableSize(table: DraftTable): { width: number; height: number } {
+      const defaults = SHAPE_DEFAULTS[table.shape];
+      return { width: table.width ?? defaults.width, height: table.height ?? defaults.height };
     }
     export interface FloorPlanDraft {
-      templateId: string | null;
+      templateId: RoomTemplateId | null;
+      /** The room size the template was built at. */
+      sizeId: RoomSizeId;
       planName: string;
       tables: readonly DraftTable[];
+      /** Named zones the room template places; local ids until Launch makes their rows. */
+      sections: readonly RoomTemplateSection[];
+      /** Perimeter and interior walls the room template places. */
+      walls: readonly WallLayout[];
+      /** The canvas the template was built for; the plan is saved at this size. */
+      width: number;
+      height: number;
       /** False once the manager has moved, added or removed anything. Gates the replace-confirm. */
       pristine: boolean;
     }
@@ -66153,17 +68162,32 @@
     export const DUPLICATE_TABLE_NAME_MESSAGE = "A table with this name already exists";
     export const EMPTY_FLOOR_PLAN_DRAFT: FloorPlanDraft = {
       templateId: null,
+      sizeId: "cozy",
       planName: "",
       tables: [],
+      sections: [],
+      walls: [],
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
       pristine: true,
     };
+    export function draftLayoutJson(draft: FloorPlanDraft): FloorPlanLayout {
+      return {
+        width: draft.width,
+        height: draft.height,
+        gridSize: GRID_SIZE,
+        showGrid: true,
+        ...(draft.walls.length > 0 ? { walls: [...draft.walls] } : {}),
+      };
+    }
     export function draftToCanvasTables(draft: FloorPlanDraft): Table[] {
       return draft.tables.map((table) => {
         const shapeMetadata: TableShapeMetadata = {
           shape: table.shape,
           x: table.x,
           y: table.y,
-          ...SHAPE_DEFAULTS[table.shape],
+          ...draftTableSize(table),
+          ...(table.rotation === undefined ? {} : { rotation: table.rotation }),
         };
     
         return {
@@ -66179,6 +68203,7 @@
           status: "AVAILABLE",
           venueId: null,
           floorPlanId: null,
+          sectionId: table.sectionId ?? null,
           shapeMetadata,
           createdAt: DRAFT_TIMESTAMP,
           updatedAt: DRAFT_TIMESTAMP,
@@ -66191,12 +68216,7 @@
         venueId: DRAFT_ID,
         name: draft.planName,
         isActive: false,
-        layoutJson: {
-          width: CANVAS_WIDTH,
-          height: CANVAS_HEIGHT,
-          gridSize: GRID_SIZE,
-          showGrid: true,
-        },
+        layoutJson: draftLayoutJson(draft),
         createdAt: DRAFT_TIMESTAMP,
         updatedAt: DRAFT_TIMESTAMP,
       };
@@ -66227,7 +68247,7 @@
       venueId: string,
       floorPlanId: string
     ): CreateTableRequest {
-      const dims = SHAPE_DEFAULTS[table.shape];
+      const dims = draftTableSize(table);
     
       return {
         name: table.name,
@@ -66241,6 +68261,7 @@
           y: table.y,
           width: dims.width,
           height: dims.height,
+          ...(table.rotation === undefined ? {} : { rotation: table.rotation }),
         },
       };
     }
@@ -66254,212 +68275,69 @@
     }
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-templates.ts">
-    export type TemplateId = "restaurant" | "cafe" | "bar" | "patio" | "blank";
-    export interface Zone {
-      prefix: string;
-      shape: DraftTableShape;
-      capacity: number;
-      minCovers: number;
-      origin: { x: number; y: number };
-      cols: number;
-      rows: number;
-      /** Omitted when cols === 1. */
-      pitchX?: number;
-      /** Omitted when rows === 1. */
-      pitchY?: number;
+    export type TemplateId = RoomTemplateId;
+    export const FLOOR_PLAN_TEMPLATES: readonly RoomTemplate[] = ROOM_TEMPLATES;
+    export function templateById(id: TemplateId): RoomTemplate {
+      return roomTemplateById(id);
     }
-    export interface FloorPlanTemplate {
-      id: TemplateId;
-      /**
-       * The floor plan's name once created — fixed per template, not editable in the wizard. It is
-       * saved data (the plan's name on the server), so it stays the same in every locale; the
-       * picker's own copy (card name, zone line) lives in the catalog under
-       * `onboarding.floorPlan.templates.<id>`.
-       */
-      planName: string;
-      zones: readonly Zone[];
+    export function layoutForDraft(draft: FloorPlanDraft): RoomLayout | null {
+      if (draft.templateId === null) return null;
+      const size = roomSizeById(draft.sizeId);
+      return {
+        width: draft.width || size.width,
+        height: draft.height || size.height,
+        tables: draft.tables.map(previewTable),
+        sections: draft.sections,
+        walls: draft.walls,
+      };
     }
-    function tablesForZone(zone: Zone): DraftTable[] {
-      return Array.from({ length: zone.rows * zone.cols }, (_, i) => {
-        const r = Math.floor(i / zone.cols);
-        const c = i % zone.cols;
-        const name = `${zone.prefix}${i + 1}`;
-        const x = zone.cols === 1 ? zone.origin.x : zone.origin.x + c * (zone.pitchX ?? 0);
-        const y = zone.rows === 1 ? zone.origin.y : zone.origin.y + r * (zone.pitchY ?? 0);
+    function previewTable(table: DraftTable): RoomLayout["tables"][number] {
+      const { width, height } = draftTableSize(table);
+      return {
+        id: table.localId,
+        name: table.name,
+        shape: table.shape,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        x: table.x,
+        y: table.y,
+        width,
+        height,
+        rotation: table.rotation ?? 0,
+        sectionId: table.sectionId ?? null,
+      };
+    }
+    function draftTableFor(table: RoomLayout["tables"][number]): DraftTable {
+      return {
+        localId: table.name,
+        name: table.name,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        shape: table.shape,
+        x: table.x,
+        y: table.y,
+        width: table.width,
+        height: table.height,
+        rotation: table.rotation,
+        sectionId: table.sectionId,
+      };
+    }
+    export function draftFromTemplate(templateId: TemplateId, sizeId: RoomSizeId): FloorPlanDraft {
+      const template = roomTemplateById(templateId);
+      const size = roomSizeById(sizeId);
+      const layout = template.build(size.width, size.height);
     
-        return {
-          localId: name,
-          name,
-          capacity: zone.capacity,
-          minCovers: zone.minCovers,
-          shape: zone.shape,
-          x,
-          y,
-        };
-      });
-    }
-    export function tablesForTemplate(template: FloorPlanTemplate): DraftTable[] {
-      return template.zones.flatMap(tablesForZone);
-    }
-    export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
-      {
-        id: "restaurant",
-        planName: "Main Dining Room",
-        zones: [
-          {
-            prefix: "W",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 4,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "T",
-            shape: "rectangle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 120, y: 220 },
-            cols: 3,
-            rows: 2,
-            pitchX: 160,
-            pitchY: 140,
-          },
-          {
-            prefix: "R",
-            shape: "circle",
-            capacity: 6,
-            minCovers: 4,
-            origin: { x: 660, y: 220 },
-            cols: 1,
-            rows: 2,
-            pitchY: 140,
-          },
-          {
-            prefix: "B",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 120, y: 500 },
-            cols: 2,
-            rows: 1,
-            pitchX: 120,
-          },
-        ],
-      },
-      {
-        id: "cafe",
-        planName: "Main Floor",
-        zones: [
-          {
-            prefix: "W",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 5,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "C",
-            shape: "circle",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 140, y: 260 },
-            cols: 3,
-            rows: 1,
-            pitchX: 140,
-          },
-          {
-            prefix: "L",
-            shape: "rectangle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 200, y: 440 },
-            cols: 2,
-            rows: 1,
-            pitchX: 120,
-          },
-        ],
-      },
-      {
-        id: "bar",
-        planName: "Bar Floor",
-        zones: [
-          {
-            prefix: "H",
-            shape: "square",
-            capacity: 2,
-            minCovers: 1,
-            origin: { x: 100, y: 80 },
-            cols: 6,
-            rows: 1,
-            pitchX: 120,
-          },
-          {
-            prefix: "S",
-            shape: "circle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 140, y: 260 },
-            cols: 4,
-            rows: 1,
-            pitchX: 140,
-          },
-          {
-            prefix: "B",
-            shape: "rectangle",
-            capacity: 6,
-            minCovers: 3,
-            origin: { x: 160, y: 440 },
-            cols: 2,
-            rows: 1,
-            pitchX: 140,
-          },
-        ],
-      },
-      {
-        id: "patio",
-        planName: "Patio",
-        zones: [
-          {
-            prefix: "P",
-            shape: "circle",
-            capacity: 4,
-            minCovers: 2,
-            origin: { x: 160, y: 140 },
-            cols: 3,
-            rows: 2,
-            pitchX: 180,
-            pitchY: 160,
-          },
-          {
-            prefix: "L",
-            shape: "rectangle",
-            capacity: 6,
-            minCovers: 3,
-            origin: { x: 200, y: 460 },
-            cols: 2,
-            rows: 1,
-            pitchX: 180,
-          },
-        ],
-      },
-      {
-        id: "blank",
-        planName: "Main Floor",
-        zones: [],
-      },
-    ] as const;
-    export function templateById(id: TemplateId): FloorPlanTemplate {
-      const template = FLOOR_PLAN_TEMPLATES.find((candidate) => candidate.id === id);
-      if (!template) {
-        throw new Error(`templateById: no template registered for id "${id}"`);
-      }
-      return template;
+      return {
+        templateId,
+        sizeId,
+        planName: template.planName,
+        tables: layout.tables.map(draftTableFor),
+        sections: layout.sections,
+        walls: layout.walls,
+        width: layout.width,
+        height: layout.height,
+        pristine: true,
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/generate-slug.ts">
@@ -66478,8 +68356,23 @@
     export interface LaunchProgress {
       venueId: string | null;
       floorPlanId: string | null;
+      /**
+       * True once the plan's section rows exist and their zone rectangles are in
+       * its layout — or immediately, for a draft that names no zones. The plan and
+       * its zones are two writes inside one stage, so `floorPlanId` alone cannot
+       * say whether the stage finished: without this, a failure between them would
+       * mark floorPlan done and Retry would skip the zones for good.
+       */
+      sectionsDone: boolean;
       /** Names, not ids — the name is the server's unique key and therefore the resume key. */
       createdTableNames: readonly string[];
+      /**
+       * True once every table that a template placed in a zone has been assigned
+       * to its section. Tables and membership are two writes inside one stage, so
+       * `createdTableNames` alone cannot say whether the stage finished. Absent
+       * means not yet; it only matters for a draft with tables in zones.
+       */
+      membershipDone?: boolean;
       activated: boolean;
       inFlightStage: LaunchStageId | null;
       failedStage: LaunchStageId | null;
@@ -66488,6 +68381,7 @@
     export const INITIAL_LAUNCH_PROGRESS: LaunchProgress = {
       venueId: null,
       floorPlanId: null,
+      sectionsDone: false,
       createdTableNames: [],
       activated: false,
       inFlightStage: null,
@@ -66515,12 +68409,20 @@
         case "venue":
           return progress.venueId !== null;
         case "floorPlan":
-          return progress.floorPlanId !== null;
+          return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
-          return draft.tables.every((table) => progress.createdTableNames.includes(table.name));
+          return (
+            draft.tables.every((table) => progress.createdTableNames.includes(table.name)) &&
+            (!needsMembership(draft) || progress.membershipDone === true)
+          );
         case "activate":
           return progress.activated;
       }
+    }
+    function needsMembership(draft: FloorPlanDraft): boolean {
+      return (
+        draft.sections.length > 0 && draft.tables.some((table) => (table.sectionId ?? null) !== null)
+      );
     }
     export function nextStage(progress: LaunchProgress, draft: FloorPlanDraft): LaunchStageId | null {
       for (const stage of stagesFor(draft)) {
@@ -66535,7 +68437,7 @@
         case "venue":
           return progress.venueId !== null;
         case "floorPlan":
-          return progress.floorPlanId !== null;
+          return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
           return progress.createdTableNames.length > 0;
         case "activate":
@@ -66561,9 +68463,22 @@
       venues: { create(data: CreateVenueRequest): Promise<Venue> };
       floorPlans: {
         create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
+        update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
         setActive(id: string): Promise<FloorPlan>;
       };
-      tables: { create(data: CreateTableRequest): Promise<Table> };
+      floorPlanSections: {
+        list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]>;
+        create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection>;
+        assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]>;
+      };
+      tables: {
+        create(data: CreateTableRequest): Promise<Table>;
+        list(params: {
+          venueId: string;
+          page?: number;
+          limit?: number;
+        }): Promise<PaginatedResponse<Table>>;
+      };
     }
     function withFallback(err: unknown, fallback: string): Error {
       return err instanceof Error && err.message ? err : new Error(fallback);
@@ -66584,6 +68499,41 @@
       onProgress(next);
       return next;
     }
+    async function createSectionsFor(
+      api: LaunchApi,
+      venueId: string,
+      floorPlanId: string,
+      draft: FloorPlanDraft
+    ): Promise<void> {
+      if (draft.sections.length === 0) return;
+    
+      const existing = await api.floorPlanSections.list(venueId, floorPlanId);
+      const byName = new Map(existing.map((row) => [row.name, row]));
+    
+      for (const [index, zone] of draft.sections.entries()) {
+        if (byName.has(zone.name)) continue;
+        const row = await api.floorPlanSections.create(venueId, {
+          floorPlanId,
+          name: zone.name,
+          color: zone.color,
+          displayOrder: index,
+        });
+        byName.set(zone.name, row);
+      }
+    
+      // A zone's rectangle is keyed by its row id, so the layout can only be
+      // written once the rows exist.
+      const sections = draft.sections.flatMap((zone) => {
+        const row = byName.get(zone.name);
+        return row
+          ? [{ id: row.id, x: zone.x, y: zone.y, width: zone.width, height: zone.height }]
+          : [];
+      });
+    
+      await api.floorPlans.update(floorPlanId, {
+        layoutJson: { ...draftLayoutJson(draft), sections },
+      });
+    }
     async function runFloorPlanStage(
       api: LaunchApi,
       draft: FloorPlanDraft,
@@ -66597,17 +68547,35 @@
         throw new Error("runLaunchSequence: floorPlan stage reached without a venueId");
       }
     
-      let floorPlan: FloorPlan;
-      try {
-        floorPlan = await api.floorPlans.create({
-          venueId,
-          name: draft.planName,
-          layoutJson: DEFAULT_LAYOUT,
-        });
-      } catch (err) {
-        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
+      // A retry after the zones failed re-enters this stage with the plan already
+      // created; creating it again would leave the venue with two plans.
+      let floorPlanId = progress.floorPlanId;
+      if (floorPlanId === null) {
+        try {
+          const floorPlan = await api.floorPlans.create({
+            venueId,
+            name: draft.planName,
+            layoutJson: draft.templateId === null ? DEFAULT_LAYOUT : draftLayoutJson(draft),
+          });
+          floorPlanId = floorPlan.id;
+        } catch (err) {
+          throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed"));
+        }
       }
-      const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
+    
+      const withPlan: LaunchProgress = { ...progress, floorPlanId, inFlightStage: null };
+      try {
+        await createSectionsFor(api, venueId, floorPlanId, draft);
+      } catch (err) {
+        // Carry the plan's id out with the failure so Retry resumes at the zones
+        // (which are idempotent by name) instead of creating a second plan.
+        throw new LaunchStageError(
+          withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.planFailed")).message,
+          withPlan
+        );
+      }
+    
+      const next: LaunchProgress = { ...withPlan, sectionsDone: true };
       onProgress(next);
       return next;
     }
@@ -66617,6 +68585,33 @@
       constructor(message: string, partialProgress: LaunchProgress) {
         super(message);
         this.partialProgress = partialProgress;
+      }
+    }
+    async function assignTablesToSections(
+      api: LaunchApi,
+      venueId: string,
+      floorPlanId: string,
+      draft: FloorPlanDraft
+    ): Promise<void> {
+      const idByTableName = new Map<string, string>();
+      for (let page = 1; ; page += 1) {
+        const { data, pagination } = await api.tables.list({ venueId, page, limit: MAX_PAGE_SIZE });
+        for (const table of data) idByTableName.set(table.name, table.id);
+        if (data.length === 0 || page >= pagination.totalPages) break;
+      }
+    
+      const rows = await api.floorPlanSections.list(venueId, floorPlanId);
+      const rowByName = new Map(rows.map((row) => [row.name, row]));
+    
+      for (const zone of draft.sections) {
+        const row = rowByName.get(zone.name);
+        if (!row) continue;
+        const tableIds = draft.tables.flatMap((table) => {
+          const id = idByTableName.get(table.name);
+          return table.sectionId === zone.id && id !== undefined ? [id] : [];
+        });
+        if (tableIds.length === 0) continue;
+        await api.floorPlanSections.assignTables(venueId, row.id, tableIds);
       }
     }
     async function runTablesStage(
@@ -66658,6 +68653,16 @@
     
         current = { ...current, createdTableNames: [...current.createdTableNames, table.name] };
         onProgress(current);
+      }
+    
+      if (needsMembership(draft)) {
+        try {
+          await assignTablesToSections(api, venueId, floorPlanId, draft);
+        } catch (err) {
+          const fallback = localeRuntime.i18n.t("onboarding.errors.generic");
+          throw new LaunchStageError(withFallback(err, fallback).message, current);
+        }
+        current = { ...current, membershipDone: true };
       }
     
       current = { ...current, inFlightStage: null };
@@ -66796,6 +68801,7 @@
       | { type: "SLUG_CHECK_START" }
       | { type: "SLUG_CHECK_RESULT"; status: "taken" | "available" }
       | { type: "SET_TEMPLATE"; templateId: TemplateId }
+      | { type: "SET_ROOM_SIZE"; sizeId: RoomSizeId }
       | { type: "ADD_DRAFT_TABLE"; request: CreateTableRequest }
       | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
       | { type: "REMOVE_DRAFT_TABLE"; localId: string }
@@ -66929,21 +68935,25 @@
           return { ...state, slugStatus: "available", errors: { ...state.errors, basicInfo: rest } };
         }
     
-        case "SET_TEMPLATE": {
-          const template = templateById(action.templateId);
+        case "SET_TEMPLATE":
           return {
             ...state,
             data: {
               ...state.data,
-              floorPlan: {
-                templateId: action.templateId,
-                planName: template.planName,
-                tables: tablesForTemplate(template),
-                pristine: true,
-              },
+              floorPlan: draftFromTemplate(action.templateId, state.data.floorPlan.sizeId),
             },
             errors: { ...state.errors, floorPlan: null },
           };
+    
+        case "SET_ROOM_SIZE": {
+          const { templateId } = state.data.floorPlan;
+          // Resizing is only meaningful once a room is chosen; until then the step
+          // just remembers the size so the chosen room is built at it.
+          const floorPlan =
+            templateId === null
+              ? { ...state.data.floorPlan, sizeId: action.sizeId }
+              : draftFromTemplate(templateId, action.sizeId);
+          return { ...state, data: { ...state.data, floorPlan } };
         }
     
         case "ADD_DRAFT_TABLE": {
@@ -67007,6 +69017,7 @@
       validateStep: () => void;
       checkSlugAvailability: (checkPromise: Promise<unknown>) => Promise<void>;
       setTemplate: (templateId: TemplateId) => void;
+      setRoomSize: (sizeId: RoomSizeId) => void;
       addDraftTable: (request: CreateTableRequest) => void;
       moveDraftTable: (localId: string, x: number, y: number) => void;
       removeDraftTable: (localId: string) => void;
@@ -67070,6 +69081,11 @@
         []
       );
     
+      const setRoomSize = useCallback(
+        (sizeId: RoomSizeId) => dispatch({ type: "SET_ROOM_SIZE", sizeId }),
+        []
+      );
+    
       const setTemplate = useCallback(
         (templateId: TemplateId) => dispatch({ type: "SET_TEMPLATE", templateId }),
         []
@@ -67104,6 +69120,7 @@
           validateStep,
           checkSlugAvailability,
           setTemplate,
+          setRoomSize,
           addDraftTable,
           moveDraftTable,
           removeDraftTable,
@@ -67117,6 +69134,7 @@
           validateStep,
           checkSlugAvailability,
           setTemplate,
+          setRoomSize,
           addDraftTable,
           moveDraftTable,
           removeDraftTable,
@@ -67267,6 +69285,162 @@
         errors[key] = errorCodeFor(issue.code, form[key]);
       }
       return { ok: false, errors };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="venues">
+  <file path="docs/reference/eat-sheet/src/server/features/venues/color-extraction.ts">
+    interface RgbPixel {
+      readonly r: number;
+      readonly g: number;
+      readonly b: number;
+    }
+    interface Centroid extends RgbPixel {
+      readonly count: number;
+    }
+    function decodePng(bytes: Uint8Array): readonly RgbPixel[] {
+      const img = UPNG.decode(bytes.buffer as ArrayBuffer);
+      const frames = UPNG.toRGBA8(img) as ArrayBuffer[];
+      if (frames.length === 0) return [];
+    
+      const rgba = new Uint8Array(frames[0] as ArrayBuffer);
+      return extractPixels(rgba);
+    }
+    function decodeJpeg(bytes: Uint8Array): readonly RgbPixel[] {
+      const result = jpeg.decode(bytes, { useTArray: true }) as {
+        data: Uint8Array;
+        width: number;
+        height: number;
+      };
+      return extractPixels(result.data);
+    }
+    function extractPixels(rgba: Uint8Array): readonly RgbPixel[] {
+      const pixels: RgbPixel[] = [];
+      const pixelCount = Math.floor(rgba.length / 4);
+    
+      for (let i = 0; i < pixelCount; i += PIXEL_STRIDE) {
+        const offset = i * 4;
+        const r = rgba[offset] ?? 0;
+        const g = rgba[offset + 1] ?? 0;
+        const b = rgba[offset + 2] ?? 0;
+        const a = rgba[offset + 3] ?? 0;
+    
+        if (a < ALPHA_THRESHOLD) continue;
+        if (r > NEAR_WHITE_THRESHOLD && g > NEAR_WHITE_THRESHOLD && b > NEAR_WHITE_THRESHOLD) continue;
+        if (r < NEAR_BLACK_THRESHOLD && g < NEAR_BLACK_THRESHOLD && b < NEAR_BLACK_THRESHOLD) continue;
+    
+        pixels.push({ r, g, b });
+      }
+    
+      return pixels;
+    }
+    function distance(a: RgbPixel, b: RgbPixel): number {
+      const dr = a.r - b.r;
+      const dg = a.g - b.g;
+      const db = a.b - b.b;
+      return dr * dr + dg * dg + db * db;
+    }
+    function initCentroids(pixels: readonly RgbPixel[], k: number): readonly RgbPixel[] {
+      // Spread initial centroids evenly through the pixel list for determinism
+      const step = Math.max(1, Math.floor(pixels.length / k));
+      return Array.from({ length: k }, (_, i) => pixels[Math.min(i * step, pixels.length - 1)] as RgbPixel);
+    }
+    function runKMeans(pixels: readonly RgbPixel[], k: number): readonly Centroid[] {
+      if (pixels.length === 0) return [];
+    
+      const clampedK = Math.min(k, pixels.length);
+      let centroids = initCentroids(pixels, clampedK);
+    
+      for (let iter = 0; iter < KMEANS_ITERATIONS; iter++) {
+        // Assign each pixel to nearest centroid
+        const clusters: RgbPixel[][] = Array.from({ length: clampedK }, () => []);
+    
+        for (const pixel of pixels) {
+          let minDist = Infinity;
+          let nearest = 0;
+          for (let ci = 0; ci < centroids.length; ci++) {
+            const d = distance(pixel, centroids[ci] as RgbPixel);
+            if (d < minDist) {
+              minDist = d;
+              nearest = ci;
+            }
+          }
+          (clusters[nearest] as RgbPixel[]).push(pixel);
+        }
+    
+        // Recompute centroids as mean of cluster members
+        centroids = clusters.map((cluster, ci) => {
+          if (cluster.length === 0) return centroids[ci] as RgbPixel;
+          const sum = cluster.reduce(
+            (acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }),
+            { r: 0, g: 0, b: 0 },
+          );
+          return {
+            r: Math.round(sum.r / cluster.length),
+            g: Math.round(sum.g / cluster.length),
+            b: Math.round(sum.b / cluster.length),
+          };
+        });
+      }
+    
+      // Final assignment to get cluster sizes
+      const clusterSizes: number[] = Array(clampedK).fill(0) as number[];
+      for (const pixel of pixels) {
+        let minDist = Infinity;
+        let nearest = 0;
+        for (let ci = 0; ci < centroids.length; ci++) {
+          const d = distance(pixel, centroids[ci] as RgbPixel);
+          if (d < minDist) {
+            minDist = d;
+            nearest = ci;
+          }
+        }
+        clusterSizes[nearest] = (clusterSizes[nearest] ?? 0) + 1;
+      }
+    
+      return centroids.map((c, i) => ({ ...c, count: clusterSizes[i] ?? 0 }));
+    }
+    function toHex(n: number): string {
+      return n.toString(16).padStart(2, "0");
+    }
+    function centroidToHex(c: RgbPixel): string {
+      return `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`;
+    }
+    export async function extractDominantColors(
+      bytes: Uint8Array,
+      mimeType: string,
+      maxColors = DEFAULT_MAX_COLORS,
+    ): Promise<readonly string[]> {
+      // Guard: empty input
+      if (bytes.length === 0) return [];
+    
+      // Guard: SVGs have no pixel data
+      if (mimeType === "image/svg+xml") return [];
+    
+      let pixels: readonly RgbPixel[];
+    
+      try {
+        if (mimeType === "image/png") {
+          pixels = decodePng(bytes);
+        } else if (mimeType === "image/jpeg" || mimeType === "image/jpg") {
+          pixels = decodeJpeg(bytes);
+        } else {
+          // Unsupported format
+          return [];
+        }
+      } catch {
+        // Decode failures return empty rather than throwing
+        return [];
+      }
+    
+      if (pixels.length === 0) return [];
+    
+      const clusters = runKMeans(pixels, maxColors);
+    
+      return clusters
+        .filter((c) => c.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .map(centroidToHex);
     }
   </file>
   </section>

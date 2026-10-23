@@ -4156,3 +4156,58 @@ None — 0 `agent-skip`.
 - **P1 breaches escalated**: 0 open `ui-quality:p1` issues; `p1-age.mjs` reported 0 of 0 older than 7 days.
 - **Observation (not filed — no rubric tell covers it)**: the cookie-consent banner is position-fixed without reserving space, and at 375×812 it renders _on top of_ page content on every rialto-web route that shows it — body text, form fields and the consent buttons themselves overlap illegibly (clearest on `demos/auth-flow`, `demos/teams/new`, `demos/drivers/:id`, `demos/telemetry`). It also clips content at 1280×720 on longer pages. This is a real layout defect that the judged tell list cannot express; raising it would need a human rubric bump (the routine never edits the rubric). Two smaller ones in the same category: `components/confirm-dialog`'s "Delete Session" destructive trigger renders with no border or fill, reading as plain text rather than a control, while its siblings are bordered; and `components/data-table` at 375 px cuts the WINS column off the right edge with no horizontal affordance.
 - No pipeline bug, no stopped filing, no rejected push.
+
+## 2026-10-22 — mbe-learning-loop
+
+**Sensors:** 14/17 available (lighthouse, mutationScore, e2eStability not available — no live-site egress in this cloud checkout)
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 73/84, CI 100% (14/14), 0 flaky/43561 runs, 0% churn)
+**Sentry triage:** skipped — stored access token expired, not re-authorized this run
+**Verifications:** 5 checked (issues closed in 48h window), 0 verified, 0 failed, 5 skipped (no live signal: lighthouse/CORS-audit/CI-run unavailable for those issues) — 0 reopened
+**AI issue feedback:** 5 categories updated, 0 over the 40%-rejected budget-halving threshold (feature 2%, audit 0%, ci-fix 7%, meta-improvement 0%, acmm 0%) — all budgets stay at 3
+**Skill proposals:** 0 (Thursday — Friday-only)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm headroom 1.261 → 1.285). False-positive rate over last 30d (wontfix/not_planned closures across ci-fix/acmm/bug/audit/sentry-labeled issues): 15/248 ≈ 6% — well under the 30% loosen-threshold, no action needed. Verification skip rate stayed high this run purely from missing live signals (lighthouse/CORS/CI), not from fix failures — not counted against fix-effectiveness.
+
+## 2026-10-22 — goal-loop (local triage)
+
+- **Chaos verification FAILED, experiment invalid by construction**: #7138 (2026-10-19) seeded a hidden 4000x4000 image in `PageHeader.tsx` as a "lighthouse-perf" bug on an unmerged branch — but site-audit crawls the live site, and chaos protocol forbids merging, so no loop could ever have detected it. It dangled open 72h with nothing noticing. Filed #7302 (constrain chaos-agent to pre-merge-detectable bug types; add a 48h staleness sweep for `chaos/*` PRs). Logged `verified:false` in `.claude/state/chaos-runs.jsonl`.
+- **PR #7300 merged**: 24 hospitality visual baselines regenerated from CI actuals (run 39854737636); review pass sampled 4 old/new pairs by eye — all complete branded renders; 8 added baselines are the new eat-sheet-port menus routes.
+- **Checkout triage**: dead session's leftovers (stamped 2026-10-18) cleared from the main checkout — stale ADR-027 copy (landed as ADR-028), pre-completion localization doc copies, junk. Rescued: `TableDetailsForm` orphan → branch `rescue/table-details-form` + issue #7303; `hospitality-phase-0/breakdown.md` → committed in this PR. Removed stale `roa-close` worktree that held `main` checked out at an Oct-17 commit (clean, no live process); deleted merged branch `docs/mbe-feature-drain-routine` local+remote.
+- **Telemetry gap closed**: queue-telemetry rows for #7254/#7255 (claimed 2026-10-22 by the drain) existed only in the dead branch's working tree — appended to `metrics/queue-telemetry.jsonl` in this PR.
+
+## 2026-10-23 — mbe-evening (progress-tracker)
+
+| Metric        | Value                                                                                                                                                                                                         | Status         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Created (7d)  | 26 (13 audit + 13 ci-fix)                                                                                                                                                                                     | —              |
+| Closed (7d)   | 25 (13 audit + 12 ci-fix)                                                                                                                                                                                     | —              |
+| Closure Rate  | 96.2% (25/26)                                                                                                                                                                                                 | Green          |
+| Time-to-Close | 6.1h mean (25 closed in window)                                                                                                                                                                               | Green          |
+| Agent Success | 0% (has-pr 0 / (0 + agent-failed 1)) — a snapshot of the currently-empty open queue, not a trend                                                                                                              | N/A (caveated) |
+| CI Pass       | 100% (12/12 completed, excluding 5 skipped + 1 cancelled + 2 still-pending from the 20-run main sample)                                                                                                       | Green          |
+| Queue         | 0 ready issues                                                                                                                                                                                                | Green          |
+| Stale         | 0 (ready>7d)                                                                                                                                                                                                  | Green          |
+| Blocked       | 1 (#7219, agent-failed)                                                                                                                                                                                       | Red (target 0) |
+| Skipped       | 0 (agent-skip)                                                                                                                                                                                                | Green          |
+| Daily Spend   | $0 attributed (`recordSpend`, 0 sessions today); 0 queue-telemetry rows claimed today, so today's true queue-worker share is unknown, not $0                                                                  | N/A            |
+| 7d Spend      | $3.96 (`.claude/agent-spend/sessions.jsonl`, 5 rows) + queue-worker cost **unknown** (`metrics/queue-telemetry.jsonl`, 152 window rows, 0 carry `cost_usd`, 6 carry tokens = 935,203, 146 rows without usage) | Red (caveated) |
+| Cost/Issue    | unknown — 0% queue-worker cost coverage this window makes $3.96/25 a severe undercount, not a usable per-issue figure                                                                                         | N/A            |
+
+### Patterns
+
+- Queue-worker cost visibility dropped to zero `cost_usd` rows in the 7d window — this is the roll-off the last three evenings' entries predicted, not a new regression: the most recent cost-bearing row (#6367, $27.97) is dated 2026-10-15, one day outside tonight's cutoff. 7d spend is now a pure undercount rather than the ~$122.7 plateau reported the prior three evenings.
+- `ready` sat at 0 again tonight. This iteration's `implement-queue` run (mbe-evening step 1) confirmed directly: zero `ready` issues, zero open PRs, nothing to claim, implement, or merge — Phase 1 through 3 were no-ops. Audit/ci-fix creation and closure stayed healthy regardless (26 created, 25 closed, 96.2% closure, 6.1h mean time-to-close, 48 PRs merged in 7d, 0 reverts), so this reads as an upstream-discovery gap, not a claiming bug.
+- #7219 (`ci-fix: routine mbe-daily-issue is dark`, `agent-failed`) is now ~1.9 days old — inside the 3-day `auto-retry-stale` window still. Will cross that threshold tomorrow evening if it's still open.
+
+### Recommendations
+
+- None urgent this iteration — zero `ready` issues meant Phase 1-3 of `implement-queue` had nothing to do. Revisit #7219 tomorrow evening: it crosses the 3-day auto-retry-stale threshold then.
+
+### Skipped Issues
+
+None — 0 `agent-skip`.
+
+## 2026-10-23
+
+**queueEfficiency:** composite 0.937 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:35, size:xs:45, size:xl:21, size:s:40, size:l:18
+**Issues filed:** 0

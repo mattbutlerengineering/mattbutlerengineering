@@ -70,7 +70,7 @@ describe("toTable", () => {
 });
 
 describe("toTable characterization", () => {
-  it("emits all 15 fields with ISO timestamps and passes nullable and JSON fields through", () => {
+  it("emits all 16 fields with ISO timestamps and passes nullable and JSON fields through", () => {
     const shapeMetadata = { shape: "round", x: 10, y: 20, width: 80, height: 80, rotation: 0 };
     const row = makePrismaTable({
       tableNumber: "12",
@@ -96,11 +96,12 @@ describe("toTable characterization", () => {
       status: "DIRTY",
       venueId: row.venueId,
       floorPlanId: "fp-1",
+      sectionId: null,
       shapeMetadata,
       createdAt: NOW.toISOString(),
       updatedAt: NOW.toISOString(),
     });
-    expect(Object.keys(toTable(row))).toHaveLength(15);
+    expect(Object.keys(toTable(row))).toHaveLength(16);
   });
 
   it("keeps nulls as null", () => {

@@ -959,11 +959,11 @@ describe("apiService factory", () => {
       name: "agent-api",
       port: 3003,
       dockerfile: "services/agent/Dockerfile",
-      extraEnvs: [{ key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" }],
+      extraEnvs: [{ key: "EXTRA_FLAG", value: "extra-value" }],
     });
 
     const envs = service.envs as Array<{ key: string; value?: string; type?: string }>;
-    expect(envs.find((e) => e.key === "DEFAULT_MODEL")?.value).toBe("anthropic/claude-haiku-4.5");
+    expect(envs.find((e) => e.key === "EXTRA_FLAG")?.value).toBe("extra-value");
   });
 
   it("produces correct spec for each of the three API services", () => {
@@ -981,7 +981,7 @@ describe("apiService factory", () => {
       name: "agent-api",
       port: 3003,
       dockerfile: "services/agent/Dockerfile",
-      extraEnvs: [{ key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" }],
+      extraEnvs: [{ key: "EXTRA_FLAG", value: "extra-value" }],
     });
 
     expect(usersSpec.name).toBe("users-api");

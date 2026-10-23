@@ -851,6 +851,67 @@
       }
     }
   </file>
+  <file path="src/floor-plan-sections.ts">
+    function sectionPath(venueId: string, segments: string[] = [], extraQuery = ""): string {
+      const path = ["/api/v1/floor-plan-sections", ...segments.map(encodeURIComponent)].join("/");
+      return `${path}?venueId=${encodeURIComponent(venueId)}${extraQuery}`;
+    }
+    export class FloorPlanSectionsClient {
+      constructor(private client: ApiClient) {}
+    
+      async list(venueId: string, floorPlanId?: string): Promise<FloorPlanSection[]> {
+        const extra = floorPlanId ? `&floorPlanId=${encodeURIComponent(floorPlanId)}` : "";
+        const response = await this.client.get<{ data: FloorPlanSection[] }>(
+          sectionPath(venueId, [], extra),
+          undefined,
+          sectionListResponseSchema
+        );
+        return response.data;
+      }
+    
+      async create(venueId: string, data: CreateFloorPlanSectionRequest): Promise<FloorPlanSection> {
+        return this.client.postOne<FloorPlanSection>(
+          sectionPath(venueId),
+          data,
+          FloorPlanSectionSchema
+        );
+      }
+    
+      async update(
+        venueId: string,
+        sectionId: string,
+        data: UpdateFloorPlanSectionRequest
+      ): Promise<FloorPlanSection> {
+        return this.client.patchOne<FloorPlanSection>(
+          sectionPath(venueId, [sectionId]),
+          data,
+          FloorPlanSectionSchema
+        );
+      }
+    
+      async delete(venueId: string, sectionId: string): Promise<void> {
+        return this.client.delete(sectionPath(venueId, [sectionId]));
+      }
+    
+      /** Persists `displayOrder` as each id's index (`PUT /order`). */
+      async reorder(venueId: string, floorPlanId: string, ids: string[]): Promise<FloorPlanSection[]> {
+        return this.client.putOne<FloorPlanSection[]>(
+          sectionPath(venueId, ["order"]),
+          { floorPlanId, ids },
+          sectionListSchema
+        );
+      }
+    
+      /** Makes `tableIds` the section's exact membership (`PUT /:sectionId/tables`). */
+      async assignTables(venueId: string, sectionId: string, tableIds: string[]): Promise<Table[]> {
+        return this.client.putOne<Table[]>(
+          sectionPath(venueId, [sectionId, "tables"]),
+          { tableIds },
+          tableListSchema
+        );
+      }
+    }
+  </file>
   <file path="src/floor-plans.ts">
     export class FloorPlansClient {
       constructor(private client: ApiClient) {}
@@ -1064,6 +1125,7 @@
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
+        floorPlanSections: new FloorPlanSectionsClient(client),
         menus: new MenusClient(client),
         publicVenue: new PublicVenueClient(client),
         waitlist: new WaitlistClient(client),

@@ -155,12 +155,62 @@
       export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) { /* ... */ }
     </item>
   </file>
+  <file path="src/schemas/floor-plan-section.ts">
+    <item priority="high">
+      export const FLOOR_MATERIALS: unknown;
+    </item>
+    <item priority="high">
+      export const FloorMaterialSchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanSectionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateFloorPlanSectionRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateFloorPlanSectionRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReorderFloorPlanSectionsRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AssignSectionTablesRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanSectionListQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanSectionVenueQuerySchema: unknown;
+    </item>
+    <item priority="low">
+      type FloorMaterial = z.infer<typeof FloorMaterialSchema>;
+    </item>
+    <item priority="low">
+      type FloorPlanSection = z.infer<typeof FloorPlanSectionSchema>;
+    </item>
+    <item priority="low">
+      type CreateFloorPlanSectionRequest = z.infer<typeof CreateFloorPlanSectionRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateFloorPlanSectionRequest = z.infer<typeof UpdateFloorPlanSectionRequestSchema>;
+    </item>
+    <item priority="low">
+      type ReorderFloorPlanSectionsRequest = z.infer<typeof ReorderFloorPlanSectionsRequestSchema>;
+    </item>
+    <item priority="low">
+      type AssignSectionTablesRequest = z.infer<typeof AssignSectionTablesRequestSchema>;
+    </item>
+  </file>
   <file path="src/schemas/floor-plan.ts">
     <item priority="high">
       export const TableShapeMetadataSchema: unknown;
     </item>
     <item priority="high">
       export const WallLayoutSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SectionLayoutSchema: unknown;
     </item>
     <item priority="high">
       export const FloorPlanLayoutSchema: unknown;
@@ -397,6 +447,24 @@
     </item>
     <item priority="high">
       export const publicMenuDetailResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const floorPlanSectionListQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const floorPlanSectionVenueQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createFloorPlanSectionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateFloorPlanSectionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const reorderFloorPlanSectionsBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const assignSectionTablesBodyJsonSchema: unknown;
     </item>
     <item priority="high">
       export const createMenuBodyJsonSchema: unknown;
@@ -864,6 +932,9 @@
       export const PublicVenueSchema: unknown;
     </item>
     <item priority="high">
+      export const DepositTypeSchema: unknown;
+    </item>
+    <item priority="high">
       export const PublicVenueDepositSchema: unknown;
     </item>
     <item priority="high">
@@ -1109,6 +1180,15 @@
         y1: number;
         x2: number;
         y2: number;
+      }
+    </item>
+    <item priority="low">
+      interface SectionLayout {
+        id: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
       }
     </item>
     <item priority="low">

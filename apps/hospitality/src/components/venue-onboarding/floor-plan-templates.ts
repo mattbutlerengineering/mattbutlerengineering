@@ -1,240 +1,123 @@
 /**
- * The five floor-plan layout templates offered by the picker (Restaurant,
- * Cafe, Bar, Patio, Blank), and the zone-based generator that expands each
- * one into the `DraftTable[]` the wizard's canvas step edits.
+ * The room templates the new-venue wizard's floor-plan step offers, and the
+ * projection of one into the `FloorPlanDraft` that step edits.
  *
- * A zone is a rectangular grid of identical tables. The generator walks a
- * template's zones and emits tables row-major, which is what makes the
- * template invariants (unique names, in-bounds, non-overlapping,
- * grid-aligned) true by construction instead of by a runtime guard.
- *
- * Single source of geometry: CANVAS_WIDTH / CANVAS_HEIGHT / GRID_SIZE /
- * SHAPE_DEFAULTS come from ../floor-plan/floor-plan-geometry.js — never
- * hardcoded here.
+ * This used to hold five layout templates of its own, each a grid of identical
+ * tables ("zones") on a fixed 800×600 canvas with no walls and no sections.
+ * #7256 replaced them with the seven ported room templates in
+ * `../floor-plan/room-templates.ts`, which answer the question the wizard was
+ * really asking — *what shape is your room* — with a perimeter, a doorway,
+ * named zones and a table mix, at any of four sizes. This module is now the
+ * thin adapter between those builders and the draft; the geometry lives there.
  *
  * No React, no Konva, no network.
  */
 
-import type { DraftTable, DraftTableShape } from "./floor-plan-draft.js";
+import {
+  ROOM_TEMPLATES,
+  roomSizeById,
+  roomTemplateById,
+  type RoomLayout,
+  type RoomSizeId,
+  type RoomTemplate,
+  type RoomTemplateId,
+} from "../floor-plan/room-templates.js";
+import { draftTableSize, type DraftTable, type FloorPlanDraft } from "./floor-plan-draft.js";
 
-export type TemplateId = "restaurant" | "cafe" | "bar" | "patio" | "blank";
+/** The wizard's template ids are the room-template ids. */
+export type TemplateId = RoomTemplateId;
 
-export interface Zone {
-  prefix: string;
-  shape: DraftTableShape;
-  capacity: number;
-  minCovers: number;
-  origin: { x: number; y: number };
-  cols: number;
-  rows: number;
-  /** Omitted when cols === 1. */
-  pitchX?: number;
-  /** Omitted when rows === 1. */
-  pitchY?: number;
-}
+/** Picker order, Blank first. */
+export const FLOOR_PLAN_TEMPLATES: readonly RoomTemplate[] = ROOM_TEMPLATES;
 
-export interface FloorPlanTemplate {
-  id: TemplateId;
-  /**
-   * The floor plan's name once created — fixed per template, not editable in the wizard. It is
-   * saved data (the plan's name on the server), so it stays the same in every locale; the
-   * picker's own copy (card name, zone line) lives in the catalog under
-   * `onboarding.floorPlan.templates.<id>`.
-   */
-  planName: string;
-  zones: readonly Zone[];
+/** Looks up a template by id. `TemplateId` is a closed union, so every id resolves. */
+export function templateById(id: TemplateId): RoomTemplate {
+  return roomTemplateById(id);
 }
 
 /**
- * Expands one zone into its `DraftTable`s. The table at row r, column c is
- * named `${prefix}${r * cols + c + 1}` and centred at
- * `(origin.x + c * pitchX, origin.y + r * pitchY)` — pitchX/pitchY are only
- * read when cols/rows > 1, matching their "omitted when 1" contract.
+ * The layout a draft is currently showing — **the operator's draft**, not a
+ * rebuild of its template.
+ *
+ * This deliberately projects `draft.tables` rather than calling
+ * `template.build(...)` again. The draft is editable from step 5 (drag a table,
+ * remove one, add one), so rebuilding would show the pristine template: the
+ * preview would still include a table the operator deleted, and still draw a
+ * moved one at its original position, while the table count rendered beside it
+ * — derived from `draft.tables` — disagreed. The canvas and walls still come
+ * from the draft's own stored room, so an un-edited draft previews exactly as
+ * before.
  */
-function tablesForZone(zone: Zone): DraftTable[] {
-  return Array.from({ length: zone.rows * zone.cols }, (_, i) => {
-    const r = Math.floor(i / zone.cols);
-    const c = i % zone.cols;
-    const name = `${zone.prefix}${i + 1}`;
-    const x = zone.cols === 1 ? zone.origin.x : zone.origin.x + c * (zone.pitchX ?? 0);
-    const y = zone.rows === 1 ? zone.origin.y : zone.origin.y + r * (zone.pitchY ?? 0);
-
-    return {
-      localId: name,
-      name,
-      capacity: zone.capacity,
-      minCovers: zone.minCovers,
-      shape: zone.shape,
-      x,
-      y,
-    };
-  });
+export function layoutForDraft(draft: FloorPlanDraft): RoomLayout | null {
+  if (draft.templateId === null) return null;
+  const size = roomSizeById(draft.sizeId);
+  return {
+    width: draft.width || size.width,
+    height: draft.height || size.height,
+    tables: draft.tables.map(previewTable),
+    sections: draft.sections,
+    walls: draft.walls,
+  };
 }
 
-/** Render-time expansion of a template's zones into tables. Never stored. */
-export function tablesForTemplate(template: FloorPlanTemplate): DraftTable[] {
-  return template.zones.flatMap(tablesForZone);
+/**
+ * One draft table as the preview's table. A table the operator added carries no
+ * footprint of its own, so it falls back to its shape's default — the same
+ * resolution `FloorPlanCanvas` and `draftTableSize` use.
+ */
+function previewTable(table: DraftTable): RoomLayout["tables"][number] {
+  const { width, height } = draftTableSize(table);
+  return {
+    id: table.localId,
+    name: table.name,
+    shape: table.shape,
+    capacity: table.capacity,
+    minCovers: table.minCovers,
+    x: table.x,
+    y: table.y,
+    width,
+    height,
+    rotation: table.rotation ?? 0,
+    sectionId: table.sectionId ?? null,
+  };
 }
 
-export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
-  {
-    id: "restaurant",
-    planName: "Main Dining Room",
-    zones: [
-      {
-        prefix: "W",
-        shape: "square",
-        capacity: 2,
-        minCovers: 1,
-        origin: { x: 100, y: 80 },
-        cols: 4,
-        rows: 1,
-        pitchX: 120,
-      },
-      {
-        prefix: "T",
-        shape: "rectangle",
-        capacity: 4,
-        minCovers: 2,
-        origin: { x: 120, y: 220 },
-        cols: 3,
-        rows: 2,
-        pitchX: 160,
-        pitchY: 140,
-      },
-      {
-        prefix: "R",
-        shape: "circle",
-        capacity: 6,
-        minCovers: 4,
-        origin: { x: 660, y: 220 },
-        cols: 1,
-        rows: 2,
-        pitchY: 140,
-      },
-      {
-        prefix: "B",
-        shape: "square",
-        capacity: 2,
-        minCovers: 1,
-        origin: { x: 120, y: 500 },
-        cols: 2,
-        rows: 1,
-        pitchX: 120,
-      },
-    ],
-  },
-  {
-    id: "cafe",
-    planName: "Main Floor",
-    zones: [
-      {
-        prefix: "W",
-        shape: "square",
-        capacity: 2,
-        minCovers: 1,
-        origin: { x: 100, y: 80 },
-        cols: 5,
-        rows: 1,
-        pitchX: 120,
-      },
-      {
-        prefix: "C",
-        shape: "circle",
-        capacity: 2,
-        minCovers: 1,
-        origin: { x: 140, y: 260 },
-        cols: 3,
-        rows: 1,
-        pitchX: 140,
-      },
-      {
-        prefix: "L",
-        shape: "rectangle",
-        capacity: 4,
-        minCovers: 2,
-        origin: { x: 200, y: 440 },
-        cols: 2,
-        rows: 1,
-        pitchX: 120,
-      },
-    ],
-  },
-  {
-    id: "bar",
-    planName: "Bar Floor",
-    zones: [
-      {
-        prefix: "H",
-        shape: "square",
-        capacity: 2,
-        minCovers: 1,
-        origin: { x: 100, y: 80 },
-        cols: 6,
-        rows: 1,
-        pitchX: 120,
-      },
-      {
-        prefix: "S",
-        shape: "circle",
-        capacity: 4,
-        minCovers: 2,
-        origin: { x: 140, y: 260 },
-        cols: 4,
-        rows: 1,
-        pitchX: 140,
-      },
-      {
-        prefix: "B",
-        shape: "rectangle",
-        capacity: 6,
-        minCovers: 3,
-        origin: { x: 160, y: 440 },
-        cols: 2,
-        rows: 1,
-        pitchX: 140,
-      },
-    ],
-  },
-  {
-    id: "patio",
-    planName: "Patio",
-    zones: [
-      {
-        prefix: "P",
-        shape: "circle",
-        capacity: 4,
-        minCovers: 2,
-        origin: { x: 160, y: 140 },
-        cols: 3,
-        rows: 2,
-        pitchX: 180,
-        pitchY: 160,
-      },
-      {
-        prefix: "L",
-        shape: "rectangle",
-        capacity: 6,
-        minCovers: 3,
-        origin: { x: 200, y: 460 },
-        cols: 2,
-        rows: 1,
-        pitchX: 180,
-      },
-    ],
-  },
-  {
-    id: "blank",
-    planName: "Main Floor",
-    zones: [],
-  },
-] as const;
+/** One room-template table as the draft table the wizard's canvas edits. */
+function draftTableFor(table: RoomLayout["tables"][number]): DraftTable {
+  return {
+    localId: table.name,
+    name: table.name,
+    capacity: table.capacity,
+    minCovers: table.minCovers,
+    shape: table.shape,
+    x: table.x,
+    y: table.y,
+    width: table.width,
+    height: table.height,
+    rotation: table.rotation,
+    sectionId: table.sectionId,
+  };
+}
 
-/** Looks up a template by id. `TemplateId` is a closed union, so every id resolves. */
-export function templateById(id: TemplateId): FloorPlanTemplate {
-  const template = FLOOR_PLAN_TEMPLATES.find((candidate) => candidate.id === id);
-  if (!template) {
-    throw new Error(`templateById: no template registered for id "${id}"`);
-  }
-  return template;
+/**
+ * A fresh, pristine draft holding everything the chosen room places. Pure —
+ * the builders are, and nothing here is cached — so re-picking the same room
+ * at the same size always yields the same draft.
+ */
+export function draftFromTemplate(templateId: TemplateId, sizeId: RoomSizeId): FloorPlanDraft {
+  const template = roomTemplateById(templateId);
+  const size = roomSizeById(sizeId);
+  const layout = template.build(size.width, size.height);
+
+  return {
+    templateId,
+    sizeId,
+    planName: template.planName,
+    tables: layout.tables.map(draftTableFor),
+    sections: layout.sections,
+    walls: layout.walls,
+    width: layout.width,
+    height: layout.height,
+    pristine: true,
+  };
 }
