@@ -1105,6 +1105,15 @@ export async function mockApi(page: Page): Promise<void> {
     });
   });
 
+  // Launch assigns each template table to its section with
+  // PUT /floor-plan-sections/:id/tables (exact membership). Unmocked, the
+  // request is proxied to a dead API and the launch fails after the tables
+  // stage, so neither Launch nor Retry could reach the floor plan editor.
+  await page.route(/\/api\/v1\/floor-plan-sections\/[^/?]+\/tables(\?|$)/, (route) => {
+    if (route.request().method() !== "PUT") return route.fallback();
+    return jsonOk(route, []);
+  });
+
   // Availability
   await page.route("**/api/v1/availability/*/dates*", (route) => {
     return route.fulfill({
