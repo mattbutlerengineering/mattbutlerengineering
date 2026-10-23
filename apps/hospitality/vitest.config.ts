@@ -5,6 +5,7 @@ import thresholds from "./.coverage-thresholds.json" with { type: "json" };
 export default defineVitestConfig({
   include: [
     "src/**/*.test.{ts,tsx}",
+    "scripts/**/*.test.mjs",
     "vite.manualChunks.test.ts",
     "e2e/fixtures/**/*.test.ts",
     "e2e/journeys/**/*.test.ts",
