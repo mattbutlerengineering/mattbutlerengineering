@@ -154,12 +154,29 @@ const PARSERS: { readonly [K in ProviderId]: (json: unknown) => Parsed } = {
 
 const WIRES = { anthropic: anthropicWire, openai: openaiWire, gemini: geminiWire } as const;
 
+// Free-tier per-minute quotas (Gemini: ~10-15 RPM) 429 mid-run; a bounded retry
+// lets one invocation finish instead of losing whole arms. 429 only — any other
+// status still fails fast on the first response.
+const MAX_ATTEMPTS = 4;
+const DEFAULT_RETRY_DELAY_MS = 30_000;
+const MAX_RETRY_DELAY_MS = 120_000;
+
+type SleepLike = (ms: number) => Promise<void>;
+const realSleep: SleepLike = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function retryDelayMs(res: Response): number {
+  const header = Number(res.headers.get("retry-after"));
+  if (!Number.isFinite(header) || header <= 0) return DEFAULT_RETRY_DELAY_MS;
+  return Math.min(header * 1000, MAX_RETRY_DELAY_MS);
+}
+
 export function createProvider(
   id: ProviderId,
   apiKey: string,
   fetchImpl: FetchLike = fetch,
   model: string = DEFAULT_MODELS[id],
-  pricing: Pricing = PRICING[id]
+  pricing: Pricing = PRICING[id],
+  sleep: SleepLike = realSleep
 ): Provider {
   const redact = (s: string) => s.split(apiKey).join("[redacted]");
   return {
@@ -169,11 +186,16 @@ export function createProvider(
     pricing,
     call: async (req) => {
       const wire = WIRES[id](apiKey, model, req);
-      const res = await fetchImpl(wire.url, {
-        method: "POST",
-        headers: { "content-type": "application/json", ...wire.headers },
-        body: JSON.stringify(wire.body),
-      });
+      let res: Response;
+      for (let attempt = 1; ; attempt += 1) {
+        res = await fetchImpl(wire.url, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...wire.headers },
+          body: JSON.stringify(wire.body),
+        });
+        if (res.status !== 429 || attempt >= MAX_ATTEMPTS) break;
+        await sleep(retryDelayMs(res));
+      }
       if (!res.ok) {
         const detail = redact((await res.text()).slice(0, 300));
         throw new Error(`HTTP ${res.status} from ${id}: ${detail}`);
