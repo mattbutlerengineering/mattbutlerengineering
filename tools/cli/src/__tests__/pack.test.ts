@@ -200,6 +200,31 @@ describe("pack command", () => {
       expect(output).toContain("Detected changes");
     });
 
+    it("repacks the root aggregate whenever any package repacked (#7315)", async () => {
+      mockExistsSync.mockImplementation(() => true);
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        if (String(cmd).includes("git diff")) {
+          return "packages/types/src/schemas/venue.ts\n" as never;
+        }
+        return "" as never;
+      });
+
+      await runPackChanged();
+
+      const output = logSpy.mock.calls.flat().join("\n");
+      expect(output).toContain("context for: .");
+    });
+
+    it("does not repack the root when no package changed", async () => {
+      mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+      mockExecSync.mockReturnValue("README.md\n" as never);
+
+      await runPackChanged();
+
+      const output = logSpy.mock.calls.flat().join("\n");
+      expect(output).not.toContain("context for: .");
+    });
+
     it("handles git diff errors gracefully", async () => {
       mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
       mockExecSync.mockImplementation(() => {
