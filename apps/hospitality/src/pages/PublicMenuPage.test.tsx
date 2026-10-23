@@ -131,6 +131,12 @@ describe("PublicMenuPage", () => {
     expect(screen.queryByText(/public\/v1/)).toBeNull();
   });
 
+  it("gives the not-found state an h1 so the page always has a top-level heading", async () => {
+    mockGetPublic.mockRejectedValue(new Error("404"));
+    renderPage("/menu/grand/x");
+    expect(await screen.findByRole("heading", { level: 1, name: "Menu not found" })).toBeTruthy();
+  });
+
   it("shows a not-found state for an unknown venue", async () => {
     mockGetBySlug.mockRejectedValue(new Error("404"));
     mockGetPublic.mockRejectedValue(new Error("404"));
