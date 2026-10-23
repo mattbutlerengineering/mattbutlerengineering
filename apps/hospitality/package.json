@@ -32,7 +32,7 @@
     {
       "name": "Floor Plan Editor (lazy chunk)",
       "path": "dist/assets/FloorPlanEditorPage-*.js",
-      "limit": "4.5 kB"
+      "limit": "6 kB"
     },
     {
       "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks)",

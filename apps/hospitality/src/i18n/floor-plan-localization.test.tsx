@@ -67,6 +67,7 @@ vi.mock("../hooks/useFloorPlans.js", () => ({
   useBulkUpdatePositions: () => ({ mutateAsync: vi.fn() }),
   useAddTable: () => ({ mutateAsync: vi.fn() }),
   useDeleteTable: () => ({ mutateAsync: vi.fn() }),
+  useUpdateTable: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateFloorPlanLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useFloorPlanSections: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useUpdateFloorPlanSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
