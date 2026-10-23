@@ -393,9 +393,6 @@ pnpm db:migrate:status # Show migration status
 | `CORS_ORIGINS`               | No         | Comma-separated allowed origins                                 |
 | `DATABASE_URL`               | Yes        | Postgres connection                                             |
 | `ANTHROPIC_API_KEY`          | Yes        | Claude API key                                                  |
-| `DEFAULT_MODEL`              | No         | Default model (default: claude-sonnet-5)                        |
-| `DEFAULT_MAX_TURNS`          | No         | Default max turns per session (default: 50)                     |
-| `DEFAULT_MAX_BUDGET_USD`     | No         | Default budget cap per session (default: 1.00)                  |
 | `MAX_CONCURRENT_SESSIONS`    | No         | Max parallel sessions (default: 5)                              |
 | `GEN_DAILY_CEILING_USD`      | No         | Aggregate `/api/gen/*` spend ceiling per UTC day (default: 0.5) |
 | `GITHUB_TOKEN`               | Yes        | GitHub PAT for PR creation                                      |
