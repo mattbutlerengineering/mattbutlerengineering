@@ -89,3 +89,37 @@ describe("needsFullRegen", () => {
     expect(needsFullRegen(["packages/auth/package.json"])).toBe(true);
   });
 });
+
+describe("collectChangedFiles (#7263)", () => {
+  it("unions committed, staged, unstaged and untracked files", async () => {
+    const { collectChangedFiles, CHANGE_SET_GIT_ARGS } = await import("../check-regen-needed.mjs");
+    const byQuery = new Map([
+      ["diff --name-only origin/main...HEAD", "a.ts\nshared.ts\n"],
+      ["diff --name-only --cached", "b.ts\n"],
+      ["diff --name-only", "c.ts\nshared.ts\n"],
+      ["ls-files --others --exclude-standard", "d.ts\n"],
+    ]);
+    const files = collectChangedFiles((args) => byQuery.get(args.join(" ")) ?? "");
+    expect(files.sort()).toEqual(["a.ts", "b.ts", "c.ts", "d.ts", "shared.ts"]);
+    expect(CHANGE_SET_GIT_ARGS).toHaveLength(4);
+  });
+
+  it("an uncommitted packages/ source edit reaches the decision — the #7263 shape", async () => {
+    const { collectChangedFiles } = await import("../check-regen-needed.mjs");
+    const { needsFullRegen } = await import("../check-regen-needed.mjs");
+    // Committed range empty (worker has not committed yet); the edit is unstaged.
+    const files = collectChangedFiles((args) =>
+      args.join(" ") === "diff --name-only" ? "packages/types/src/schemas/venue.ts\n" : ""
+    );
+    expect(needsFullRegen(files)).toBe(true);
+  });
+
+  it("propagates a git failure so the entry point fails closed to full", async () => {
+    const { collectChangedFiles } = await import("../check-regen-needed.mjs");
+    expect(() =>
+      collectChangedFiles(() => {
+        throw new Error("git exploded");
+      })
+    ).toThrow("git exploded");
+  });
+});

@@ -10,9 +10,16 @@
  *     pnpm regen --check       # fast path: test-only or unrelated changes
  *   fi
  *
- * Prints "full" when `git diff --name-only origin/main...HEAD` intersects the
- * generated-artifact source paths defined in regen-manifest.mjs.
- * Prints "check" when only test files or other non-source paths changed.
+ * Prints "full" when the change set intersects the generated-artifact source
+ * paths defined in regen-manifest.mjs; "check" when only test files or other
+ * non-source paths changed.
+ *
+ * The change set is the UNION of committed (`origin/main...HEAD`), staged
+ * (`--cached`), unstaged, and untracked files — not just the committed range.
+ * #7263 measured the committed-only version answering "check" on an
+ * uncommitted packages/types edit that a full regen then proved drifted four
+ * artifacts: a worker that asks before committing must not be handed the
+ * fast path. Fail closed: if any git query errors, answer "full".
  *
  * The source list (REGEN_SOURCE_PREFIXES / REGEN_SOURCE_EXCLUDES) is the
  * canonical definition in regen-manifest.mjs — do not duplicate it here.
@@ -45,12 +52,42 @@ export function needsFullRegen(changedFiles) {
   );
 }
 
-// Entry point: run git diff and print gating decision.
+/** The git queries whose union is the change set. Exported for the test. */
+export const CHANGE_SET_GIT_ARGS = [
+  ["diff", "--name-only", "origin/main...HEAD"], // committed on the branch
+  ["diff", "--name-only", "--cached"], // staged
+  ["diff", "--name-only"], // unstaged edits to tracked files
+  ["ls-files", "--others", "--exclude-standard"], // untracked
+];
+
+/**
+ * Collects the union of all four change sources. `runGit` takes a git argv
+ * array and returns stdout; any throw means the change set cannot be proven
+ * complete, so the caller must treat the answer as "full" (fail closed).
+ *
+ * @param {(args: string[]) => string} runGit
+ * @returns {string[]}
+ */
+export function collectChangedFiles(runGit) {
+  const files = new Set();
+  for (const args of CHANGE_SET_GIT_ARGS) {
+    for (const line of runGit(args).trim().split("\n")) {
+      if (line) files.add(line);
+    }
+  }
+  return [...files];
+}
+
+// Entry point: gather the change set and print the gating decision.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const result = execFileSync("git", ["diff", "--name-only", "origin/main...HEAD"], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
-  const files = result.trim().split("\n").filter(Boolean);
-  process.stdout.write((needsFullRegen(files) ? "full" : "check") + "\n");
+  let decision;
+  try {
+    const files = collectChangedFiles((args) =>
+      execFileSync("git", args, { cwd: ROOT, encoding: "utf8" })
+    );
+    decision = needsFullRegen(files) ? "full" : "check";
+  } catch {
+    decision = "full"; // change set unknowable -> never hand out the fast path
+  }
+  process.stdout.write(decision + "\n");
 }
