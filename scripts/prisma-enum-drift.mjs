@@ -7,14 +7,23 @@
 // the guard discovers pairs by name instead of hardcoding one list (a
 // hardcoded list would be a third copy, the exact disease).
 //
-// Scope note (#7286 AC-5): discovery-by-name covers FloorMaterial and every
-// other duplicated pair without per-enum wiring — 10 pairs at the time of
-// writing. A Prisma enum with no same-named TS schema is reported as
-// unpaired, not failed: TS vocabularies that deliberately extend a stored
-// one use a different name (e.g. `TableDisplayStatusSchema` layers
-// display-only states over the stored `TableStatusSchema`), so a name match
-// is the signal that the two are meant to agree. The test pins the exact
-// unpaired set, so a new Prisma enum forces an explicit pairing decision.
+// Scope note (#7286 AC-5, tightened by the #7308 review -> #7310): the test
+// feeds this module ALL THREE services' prisma/schema.prisma files (users
+// has zero enums today), and a pair whose two sides use different names is
+// declared in CROSS_NAME_PAIRS below rather than silently escaping
+// discovery — the review found services/agent's `SessionStatus` duplicated
+// verbatim by `AgentSessionStatusSchema`. A Prisma enum with no paired TS
+// schema is reported as unpaired, not failed: TS vocabularies that
+// deliberately extend a stored one use a different name (e.g.
+// `TableDisplayStatusSchema` layers display-only states over the stored
+// `TableStatusSchema`), so a declared pairing is the signal that the two
+// are meant to agree. The test pins the exact unpaired set, so a new
+// Prisma enum forces an explicit pairing decision.
+
+/** Prisma enum name -> TS schema base name, where the two legitimately differ. */
+export const CROSS_NAME_PAIRS = {
+  SessionStatus: "AgentSessionStatus",
+};
 
 /**
  * Parses `enum <Name> { ... }` blocks out of Prisma schema source.
@@ -71,14 +80,16 @@ function extractStrings(arrayLiteral) {
  * Pure comparison. Returns { compared, unpaired, drifted } where drifted is
  * [{ name, onlyInPrisma, onlyInTs }]. Order differences are not drift —
  * Postgres enum order matters only for sorting, which nothing here relies on.
+ * `aliases` maps a Prisma enum name to the TS schema base name it pairs with
+ * when the two differ (see CROSS_NAME_PAIRS).
  */
-export function findEnumDrift(prismaEnums, zodEnums) {
+export function findEnumDrift(prismaEnums, zodEnums, aliases = {}) {
   const compared = [];
   const unpaired = [];
   const drifted = [];
 
   for (const [name, prismaValues] of prismaEnums) {
-    const tsValues = zodEnums.get(name);
+    const tsValues = zodEnums.get(aliases[name] ?? name);
     if (!tsValues) {
       unpaired.push(name);
       continue;
