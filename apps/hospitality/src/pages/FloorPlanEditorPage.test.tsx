@@ -209,6 +209,46 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     children: React.ReactNode;
     className?: string;
   }) => <span>{children}</span>,
+  Input: ({
+    label,
+    error: _error,
+    hint,
+    ...rest
+  }: {
+    label: string;
+    error?: boolean;
+    hint?: string;
+  } & React.InputHTMLAttributes<HTMLInputElement>) => (
+    <label>
+      {label}
+      <input {...rest} />
+      {hint && <span>{hint}</span>}
+    </label>
+  ),
+  Checkbox: ({
+    label,
+    description,
+    checked,
+    onCheckedChange,
+    disabled,
+  }: {
+    label: string;
+    description?: string;
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+    disabled?: boolean;
+  }) => (
+    <label>
+      {label}
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onCheckedChange(e.target.checked)}
+      />
+      {description && <span>{description}</span>}
+    </label>
+  ),
   ConfirmDialog: ({
     open,
     title,
@@ -470,18 +510,21 @@ describe("FloorPlanEditorPage", () => {
       // Click table in the sidebar list
       fireEvent.click(screen.getByText("A1"));
 
-      expect(await screen.findByText("Window")).toBeDefined();
+      // The sidebar now mounts the editable TableDetailsForm seeded from the table.
+      expect(await screen.findByDisplayValue("Window")).toBeDefined();
       expect(screen.queryByText("Select a table to view details")).toBeNull();
     });
 
-    it("shows capacity range in table details", async () => {
+    it("seeds capacity and covers fields in the details form", async () => {
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
       renderPage();
 
       await waitFor(() => screen.getByText("A1"));
       fireEvent.click(screen.getByText("A1"));
 
-      expect(await screen.findByText(/1 - 4 guests/)).toBeDefined();
+      expect(await screen.findByLabelText(/Capacity/)).toHaveProperty("value", "4");
+      expect(screen.getByLabelText(/Min Covers/)).toHaveProperty("value", "1");
+      expect(screen.getByLabelText(/Max Covers/)).toHaveProperty("value", "4");
     });
 
     it("shows position in table details", async () => {
@@ -494,14 +537,14 @@ describe("FloorPlanEditorPage", () => {
       expect(await screen.findByText(/x: 100, y: 200/)).toBeDefined();
     });
 
-    it("shows Not set when location is null", async () => {
+    it("seeds an empty location field when location is null", async () => {
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_B] });
       renderPage();
 
       await waitFor(() => screen.getByText("B2"));
       fireEvent.click(screen.getByText("B2"));
 
-      expect(await screen.findByText("Not set")).toBeDefined();
+      expect(await screen.findByLabelText(/Location/)).toHaveProperty("value", "");
     });
   });
 

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest, FloorMaterial, WallLayout } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
+import { TableDetailsForm } from "../components/floor-plan/TableDetailsForm.js";
 import { WallsPanel } from "../components/floor-plan/WallsPanel.js";
 import { SectionMaterialPicker } from "../components/floor-plan/SectionMaterialPicker.js";
 import {
@@ -21,6 +22,7 @@ import {
   useBulkUpdatePositions,
   useAddTable,
   useDeleteTable,
+  useUpdateTable,
   useUpdateFloorPlanLayout,
   useFloorPlanSections,
   useUpdateFloorPlanSection,
@@ -38,6 +40,9 @@ export function FloorPlanEditorPage() {
   const { statuses: tableStatuses, isStale } = useTableStatuses();
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  // The details form reports its own unsaved edits; selecting another table
+  // remounts the form (key={table.id}), so the flag resets with the selection.
+  const [tableFormDirty, setTableFormDirty] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -46,6 +51,7 @@ export function FloorPlanEditorPage() {
   const bulkUpdateMutation = useBulkUpdatePositions();
   const addTableMutation = useAddTable();
   const deleteTableMutation = useDeleteTable();
+  const updateTableMutation = useUpdateTable();
   const layoutMutation = useUpdateFloorPlanLayout();
 
   // Walls are edited as a whole-array draft over the server's copy; null = untouched.
@@ -140,7 +146,7 @@ export function FloorPlanEditorPage() {
 
   // Warn on browser tab close / refresh when unsaved changes exist
   useEffect(() => {
-    if (!hasChanges) return;
+    if (!hasChanges && !tableFormDirty) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
@@ -148,12 +154,12 @@ export function FloorPlanEditorPage() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasChanges]);
+  }, [hasChanges, tableFormDirty]);
 
   // Block SPA navigation when unsaved changes exist
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      hasChanges && currentLocation.pathname !== nextLocation.pathname
+      (hasChanges || tableFormDirty) && currentLocation.pathname !== nextLocation.pathname
   );
 
   // Stable identity (functional update over the draft-or-server walls) so WallShape's memo holds.
@@ -338,7 +344,10 @@ export function FloorPlanEditorPage() {
             floorPlan={floorPlan}
             tables={tables}
             onTableMove={handleTableMove}
-            onTableSelect={setSelectedTableId}
+            onTableSelect={(id) => {
+              setSelectedTableId(id);
+              setTableFormDirty(false);
+            }}
             selectedTableId={selectedTableId}
             onDeleteRequest={requestDeleteTable}
             sections={sectionZones}
@@ -356,58 +365,16 @@ export function FloorPlanEditorPage() {
           <Heading className={styles.sidebarTitle}>{t("floorPlan.editor.detailsTitle")}</Heading>
 
           {selectedTable ? (
-            <div className={styles.detailsStack}>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.name")}</Text>
-                <div className={styles.detailValue}>{selectedTable.name}</div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.tableNumber")}</Text>
-                <div className={styles.detailValue}>{selectedTable.tableNumber}</div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.capacity")}</Text>
-                <div className={styles.detailValue}>
-                  {t("floorPlan.editor.guests", {
-                    min: selectedTable.minCovers,
-                    max: selectedTable.maxCovers ?? selectedTable.capacity,
-                  })}
-                </div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.location")}</Text>
-                <div className={styles.detailValue}>
-                  {selectedTable.location ?? t("floorPlan.editor.notSet")}
-                </div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.status")}</Text>
-                <div
-                  className={
-                    selectedTable.isActive ? styles.detailValueActive : styles.detailValueInactive
-                  }
-                >
-                  {selectedTable.isActive
-                    ? t("floorPlan.editor.statusActive")
-                    : t("floorPlan.editor.statusInactive")}
-                </div>
-              </div>
-              <div>
-                <Text className={styles.detailLabel}>{t("floorPlan.editor.position")}</Text>
-                <div className={styles.detailValueMono}>
-                  {t("floorPlan.editor.positionValue", {
-                    x: selectedTable.shapeMetadata?.x ?? 0,
-                    y: selectedTable.shapeMetadata?.y ?? 0,
-                  })}
-                </div>
-              </div>
-              <Button
-                className={styles.deleteTableButton}
-                onClick={() => requestDeleteTable(selectedTable.id)}
-              >
-                {t("floorPlan.editor.deleteTable")}
-              </Button>
-            </div>
+            <TableDetailsForm
+              key={selectedTable.id}
+              table={selectedTable}
+              onSave={async (tableId, changes) => {
+                await updateTableMutation.mutateAsync({ tableId, changes });
+                setTableFormDirty(false);
+              }}
+              onDelete={requestDeleteTable}
+              onDirtyChange={setTableFormDirty}
+            />
           ) : (
             <div className={styles.noSelection}>{t("floorPlan.editor.noSelection")}</div>
           )}

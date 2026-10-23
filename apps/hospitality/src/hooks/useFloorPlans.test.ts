@@ -8,6 +8,7 @@ import {
   useActivateFloorPlan,
   useBulkUpdatePositions,
   useAddTable,
+  useUpdateTable,
 } from "./useFloorPlans.js";
 import type { FloorPlan } from "@mbe/types";
 
@@ -18,6 +19,7 @@ const mockGetById = vi.fn();
 const mockSetActive = vi.fn();
 const mockBulkUpdatePositions = vi.fn();
 const mockCreateTable = vi.fn();
+const mockUpdateTable = vi.fn();
 
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
@@ -29,6 +31,7 @@ vi.mock("./useApiClient.js", () => ({
     },
     tables: {
       create: mockCreateTable,
+      update: mockUpdateTable,
     },
   }),
 }));
@@ -190,6 +193,17 @@ describe("floor-plan mutations invalidate the cached useFloorPlan entry", () => 
 
     await result.current.mutateAsync({ floorPlanId: "fp-1", positions: [] });
 
+    expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
+  });
+
+  it("useUpdateTable PATCHes only the delta and invalidates the detail entry", async () => {
+    mockUpdateTable.mockResolvedValue({ id: "t-1", name: "Patio 1" });
+    const { queryClient, wrapper } = seededClient();
+    const { result } = renderHook(() => useUpdateTable(), { wrapper });
+
+    await result.current.mutateAsync({ tableId: "t-1", changes: { name: "Patio 1" } });
+
+    expect(mockUpdateTable).toHaveBeenCalledWith("t-1", { name: "Patio 1" });
     expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
   });
 

@@ -3911,6 +3911,32 @@
       export function deriveTableStatus(input: TableStatusInput): TableStatusResult { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/table-update.ts">
+    <item priority="low">
+      interface TableDetailsFormValues {
+        name: string;
+        tableNumber: string;
+        capacity: string;
+        minCovers: string;
+        maxCovers: string;
+      }
+    </item>
+    <item priority="high">
+      export function tableToFormValues(table: Table): TableDetailsFormValues { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildTableUpdate(
+        initial: TableDetailsFormValues,
+        current: TableDetailsFormValues
+      ): UpdateTableRequest { /* ... */ }
+    </item>
+    <item priority="medium">
+      function changedPositiveInt(initial: string, current: string): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parsePositiveInt(raw: string): number | null { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="gates">
   <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
@@ -4572,6 +4598,15 @@
     </item>
     <item priority="high">
       export const useDeleteTable: unknown;
+    </item>
+    <item priority="low">
+      interface UpdateTablePayload {
+        tableId: string;
+        changes: UpdateTableRequest;
+      }
+    </item>
+    <item priority="high">
+      export const useUpdateTable: unknown;
     </item>
     <item priority="high">
       export const useUpdateFloorPlanLayout: unknown;

@@ -426,7 +426,19 @@
       "deleteTitle": "¿Eliminar esta mesa?",
       "deleteDescription": "Esta acción no se puede deshacer.",
       "delete": "Eliminar",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "minCovers": "Comensales mínimos",
+      "maxCovers": "Comensales máximos",
+      "tableNumberPlaceholder": "p. ej. 12",
+      "locationPlaceholder": "p. ej. Ventana",
+      "activeDescription": "Las mesas inactivas permanecen en el plano pero no se pueden reservar.",
+      "nameRequired": "El nombre de la mesa es obligatorio.",
+      "capacityMin": "La capacidad debe ser al menos 1.",
+      "minCoversMin": "Los comensales mínimos deben ser al menos 1.",
+      "minCoversExceedsMax": "Los comensales mínimos no pueden superar a los máximos.",
+      "maxCoversMin": "Los comensales máximos deben ser al menos 1.",
+      "saveTable": "Guardar mesa",
+      "saveTableFailed": "No se pudo guardar la mesa."
     },
     "newDialog": {
       "title": "Nuevo plano de sala",

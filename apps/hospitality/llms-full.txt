@@ -2969,6 +2969,71 @@
       return { status, colorToken: TABLE_STATUS_COLOR_TOKEN[status] };
     }
   </file>
+  <file path="src/components/floor-plan/table-update.ts">
+    export interface TableDetailsFormValues {
+      name: string;
+      tableNumber: string;
+      capacity: string;
+      minCovers: string;
+      maxCovers: string;
+      location: string;
+      isActive: boolean;
+    }
+    export function tableToFormValues(table: Table): TableDetailsFormValues {
+      return {
+        name: table.name,
+        tableNumber: table.tableNumber ?? "",
+        capacity: String(table.capacity),
+        minCovers: String(table.minCovers),
+        // A numeric input needs a value, and `PATCH /api/v1/tables/:id` has no way
+        // to express "clear the maximum" — `maxCovers` is `number | undefined` on
+        // the wire, never null. Seeding an absent maximum from capacity keeps the
+        // field meaningful without inventing a write: the delta below is computed
+        // against these seeded values, so leaving the field alone sends nothing.
+        maxCovers: String(table.maxCovers ?? table.capacity),
+        location: table.location ?? "",
+        isActive: table.isActive,
+      };
+    }
+    export function buildTableUpdate(
+      initial: TableDetailsFormValues,
+      current: TableDetailsFormValues
+    ): UpdateTableRequest {
+      const changes: UpdateTableRequest = {};
+    
+      const name = current.name.trim();
+      if (name !== initial.name.trim()) changes.name = name;
+    
+      const tableNumber = current.tableNumber.trim();
+      if (tableNumber !== initial.tableNumber.trim()) changes.tableNumber = tableNumber;
+    
+      const location = current.location.trim();
+      if (location !== initial.location.trim()) changes.location = location;
+    
+      if (current.isActive !== initial.isActive) changes.isActive = current.isActive;
+    
+      const capacity = changedPositiveInt(initial.capacity, current.capacity);
+      if (capacity !== null) changes.capacity = capacity;
+    
+      const minCovers = changedPositiveInt(initial.minCovers, current.minCovers);
+      if (minCovers !== null) changes.minCovers = minCovers;
+    
+      const maxCovers = changedPositiveInt(initial.maxCovers, current.maxCovers);
+      if (maxCovers !== null) changes.maxCovers = maxCovers;
+    
+      return changes;
+    }
+    function changedPositiveInt(initial: string, current: string): number | null {
+      if (current.trim() === initial.trim()) return null;
+      return parsePositiveInt(current);
+    }
+    export function parsePositiveInt(raw: string): number | null {
+      const trimmed = raw.trim();
+      if (!/^\d+$/.test(trimmed)) return null;
+      const parsed = Number(trimmed);
+      return parsed >= 1 ? parsed : null;
+    }
+  </file>
   </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/create-mutation-hook.ts">
@@ -3972,6 +4037,15 @@
       // Invalidate all floor plan detail queries since we don't know which plan
       invalidateKeys: FLOOR_PLAN_QUERY_KEY,
       mutationFn: (api, tableId) => api.tables.delete(tableId),
+    });
+    export interface UpdateTablePayload {
+      tableId: string;
+      changes: UpdateTableRequest;
+    }
+    export const useUpdateTable = createMutationHook<UpdateTablePayload, Table>({
+      // Invalidate all floor plan detail queries since the payload carries no plan id
+      invalidateKeys: FLOOR_PLAN_QUERY_KEY,
+      mutationFn: (api, { tableId, changes }) => api.tables.update(tableId, changes),
     });
     export const useUpdateFloorPlanLayout = createMutationHook<
       { floorPlanId: string; layoutJson: FloorPlanLayout },
