@@ -5,6 +5,7 @@ import type {
   Menu,
   MenuItem,
   MenuSection,
+  PublicMenuDetail,
   PublicVenue,
   PublicVenueConfig,
   GuestRiskResult,
@@ -272,6 +273,42 @@ const PUBLIC_HOLD = {
 
 type StoredSection = MenuSection & { items: MenuItem[] };
 type StoredMenu = Menu & { sections: StoredSection[] };
+
+/** One ACTIVE guest menu, slug "dinner" — what the ui-quality capture of the guest menu route needs (#7331). */
+export function buildPublicMenuFixture(): PublicMenuDetail {
+  return {
+    id: "menu_capture_1",
+    name: "Dinner",
+    slug: "dinner",
+    description: null,
+    displayOrder: 0,
+    currencyCode: "USD",
+    sections: [
+      {
+        id: "section_capture_1",
+        name: "Mains",
+        displayOrder: 0,
+        items: [
+          {
+            id: "item_capture_1",
+            name: "Roast chicken",
+            description: null,
+            priceCents: 2400,
+            status: "AVAILABLE",
+            displayOrder: 0,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/** Serve `buildPublicMenuFixture` for the guest menu route; call after `mockApi` so it takes precedence. */
+export async function mockPublicMenu(page: Page): Promise<void> {
+  await page.route(/\/public\/v1\/venues\/[^/?]+\/menus\/dinner(\?.*)?$/, (route) =>
+    jsonOk(route, buildPublicMenuFixture())
+  );
+}
 
 /**
  * Stateful menus store (#7073). Operator mutations (`/api/v1/menus/...`) write the same in-memory

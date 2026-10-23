@@ -15,7 +15,7 @@ import {
   loadCapturePlan,
   resetManifest,
 } from "@mbe/ui-quality-capture";
-import { mockApi } from "./api-mocks.js";
+import { mockApi, mockPublicMenu } from "./api-mocks.js";
 import { localDay } from "./local-day.js";
 
 const plan = loadCapturePlan("hospitality");
@@ -33,6 +33,7 @@ if (plan.entries.length === 0) {
 for (const entry of plan.entries) {
   test(`capture ${entry.route}`, async ({ page, baseURL }) => {
     await mockApi(page);
+    await mockPublicMenu(page);
     // Local noon today: the mocks re-date fixtures to the runner's local day,
     // and a fixed instant keeps clocks and "today" labels stable in the pixels.
     await page.clock.setFixedTime(new Date(`${localDay()}T12:00:00`));

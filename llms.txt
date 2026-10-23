@@ -2614,6 +2614,12 @@
     <item priority="high">
       type StoredMenu = Menu & { sections: StoredSection[] };
     </item>
+    <item priority="high">
+      export function buildPublicMenuFixture(): PublicMenuDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockPublicMenu(page: Page): Promise<void> { /* ... */ }
+    </item>
     <item priority="low">
       async function mockMenus(page: Page): Promise<void> { /* ... */ }
     </item>

@@ -8451,6 +8451,38 @@
     }
     type StoredSection = MenuSection & { items: MenuItem[] };
     type StoredMenu = Menu & { sections: StoredSection[] };
+    export function buildPublicMenuFixture(): PublicMenuDetail {
+      return {
+        id: "menu_capture_1",
+        name: "Dinner",
+        slug: "dinner",
+        description: null,
+        displayOrder: 0,
+        currencyCode: "USD",
+        sections: [
+          {
+            id: "section_capture_1",
+            name: "Mains",
+            displayOrder: 0,
+            items: [
+              {
+                id: "item_capture_1",
+                name: "Roast chicken",
+                description: null,
+                priceCents: 2400,
+                status: "AVAILABLE",
+                displayOrder: 0,
+              },
+            ],
+          },
+        ],
+      };
+    }
+    export async function mockPublicMenu(page: Page): Promise<void> {
+      await page.route(/\/public\/v1\/venues\/[^/?]+\/menus\/dinner(\?.*)?$/, (route) =>
+        jsonOk(route, buildPublicMenuFixture())
+      );
+    }
     async function mockMenus(page: Page): Promise<void> {
       const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
       const venueId = venues.data[0]?.id ?? "";
