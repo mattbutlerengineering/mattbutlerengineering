@@ -2,7 +2,8 @@
 stage: ship
 run: feature:zone-batch-nonstrict-main
 date: 2026-10-18
-outcome: prepared
+outcome: released
+released-at: 2026-10-19
 pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7110
 assumptions:
   - "Two releases are in play. The feature itself (#6678 `d1047723e`, merged 2026-10-15T05:37:59Z, with ADR-027 via #6661 `14c71bc53`) already reached users, so that part is released and needs no release action here. WO-30 (`39204320e`, Review's Major) is new code on this branch and has not merged. The outcome is therefore `prepared`, not the `released` the brief's Resume section expected; it becomes `released` when this PR merges."
@@ -154,6 +155,9 @@ new work (a seed or capture), not a fix to this change.
 
 ## Outcome
 
-Prepared and stopped. #6678 is live on `main`. WO-30 waits on the pull
-request named in `pending-merge:`. When it merges, write back
-`outcome: released` and `released-at:`.
+Released. #6678 was live on `main` since 2026-10-15; WO-30 merged via the
+pull request named in `pending-merge:` (#7110, squash `333a15e4a`,
+2026-10-19T02:37:44Z, read back via
+`gh api repos/{owner}/{repo}/pulls/7110` on 2026-10-22). Write-back
+performed 2026-10-22 per the protocol's Ship-outcome section; the run now
+waits at Operate on its minimum-signal.
