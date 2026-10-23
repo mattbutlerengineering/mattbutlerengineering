@@ -2,7 +2,8 @@
 stage: ship
 run: maintenance:localization-conditional-literals
 date: 2026-10-18
-outcome: prepared
+outcome: released
+released-at: 2026-10-19
 pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7108
 assumptions:
   - "Autorun: the brief's Release authorization is prepare-and-stop. Ship pushes the branch and opens one PR (code plus run docs). It does not merge, enable auto-merge, deploy, publish rialto, tag, or run `changeset version`."
@@ -100,6 +101,8 @@ the bundle as the en-US `RialtoMessages` values:
 
 ## Outcome
 
-Prepared and stopped. The run is waiting on the pull request that
-`pending-merge:` names. The write-back (`gh pr view 7108 --json state,mergedAt`)
-records `released` and `released-at:` once the Owner merges.
+Released. The pull request `pending-merge:` names merged: #7108, squash
+`afdcc9fff`, 2026-10-19T02:37:07Z, read back via
+`gh api repos/{owner}/{repo}/pulls/7108` on 2026-10-22. Write-back
+performed 2026-10-22 per the protocol's Ship-outcome section; the run now
+waits at Operate on its minimum-signal (the 14-day leg lands 2026-11-02).
