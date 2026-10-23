@@ -65,6 +65,9 @@ export function TableDetailsForm({
 
   useEffect(() => {
     onDirtyChange?.(hasChanges);
+    // Unmount (delete, deselection, navigation) must clear the flag, or the
+    // page's nav guard stays armed for a form that no longer exists.
+    return () => onDirtyChange?.(false);
   }, [hasChanges, onDirtyChange]);
 
   const onFormSubmit = async (values: TextFieldValues) => {

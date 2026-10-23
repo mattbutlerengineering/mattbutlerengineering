@@ -258,4 +258,18 @@ describe("TableDetailsForm", () => {
       expect(onDelete).toHaveBeenCalledWith("table-a");
     });
   });
+
+  describe("unmount (#7318 review)", () => {
+    it("reports not-dirty on unmount so the page's nav guard disarms after delete or deselection", async () => {
+      const user = userEvent.setup();
+      const { unmount } = renderForm();
+
+      await user.type(screen.getByLabelText("Name"), "!");
+      await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(true));
+
+      unmount();
+
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    });
+  });
 });
