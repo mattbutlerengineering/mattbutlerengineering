@@ -52,11 +52,17 @@ export function needsFullRegen(changedFiles) {
   );
 }
 
-/** The git queries whose union is the change set. Exported for the test. */
+/**
+ * The git queries whose union is the change set. Exported for the test.
+ * `--no-renames` matters: with rename detection on, `--name-only` prints only
+ * the rename DESTINATION, so `git mv <regen source> <non-source>` would hide
+ * the source-side deletion — which still drifts that package's artifacts —
+ * from the decision (#7313 review). Disabling it reports delete(old)+add(new).
+ */
 export const CHANGE_SET_GIT_ARGS = [
-  ["diff", "--name-only", "origin/main...HEAD"], // committed on the branch
-  ["diff", "--name-only", "--cached"], // staged
-  ["diff", "--name-only"], // unstaged edits to tracked files
+  ["diff", "--name-only", "--no-renames", "origin/main...HEAD"], // committed on the branch
+  ["diff", "--name-only", "--no-renames", "--cached"], // staged
+  ["diff", "--name-only", "--no-renames"], // unstaged edits to tracked files
   ["ls-files", "--others", "--exclude-standard"], // untracked
 ];
 

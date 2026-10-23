@@ -94,9 +94,9 @@ describe("collectChangedFiles (#7263)", () => {
   it("unions committed, staged, unstaged and untracked files", async () => {
     const { collectChangedFiles, CHANGE_SET_GIT_ARGS } = await import("../check-regen-needed.mjs");
     const byQuery = new Map([
-      ["diff --name-only origin/main...HEAD", "a.ts\nshared.ts\n"],
-      ["diff --name-only --cached", "b.ts\n"],
-      ["diff --name-only", "c.ts\nshared.ts\n"],
+      ["diff --name-only --no-renames origin/main...HEAD", "a.ts\nshared.ts\n"],
+      ["diff --name-only --no-renames --cached", "b.ts\n"],
+      ["diff --name-only --no-renames", "c.ts\nshared.ts\n"],
       ["ls-files --others --exclude-standard", "d.ts\n"],
     ]);
     const files = collectChangedFiles((args) => byQuery.get(args.join(" ")) ?? "");
@@ -109,7 +109,9 @@ describe("collectChangedFiles (#7263)", () => {
     const { needsFullRegen } = await import("../check-regen-needed.mjs");
     // Committed range empty (worker has not committed yet); the edit is unstaged.
     const files = collectChangedFiles((args) =>
-      args.join(" ") === "diff --name-only" ? "packages/types/src/schemas/venue.ts\n" : ""
+      args.join(" ") === "diff --name-only --no-renames"
+        ? "packages/types/src/schemas/venue.ts\n"
+        : ""
     );
     expect(needsFullRegen(files)).toBe(true);
   });
@@ -121,5 +123,25 @@ describe("collectChangedFiles (#7263)", () => {
         throw new Error("git exploded");
       })
     ).toThrow("git exploded");
+  });
+});
+
+describe("rename visibility (#7313 review)", () => {
+  it("queries carry --no-renames so a rename out of a source path surfaces its deletion", async () => {
+    const { CHANGE_SET_GIT_ARGS } = await import("../check-regen-needed.mjs");
+    for (const args of CHANGE_SET_GIT_ARGS.filter((a) => a[0] === "diff")) {
+      expect(args).toContain("--no-renames");
+    }
+  });
+
+  it("a rename reported as delete(old)+add(new) reaches the decision via the old path", async () => {
+    const { collectChangedFiles, needsFullRegen } = await import("../check-regen-needed.mjs");
+    // With --no-renames, the committed range lists both sides of the rename.
+    const files = collectChangedFiles((args) =>
+      args.includes("origin/main...HEAD")
+        ? "packages/types/src/schemas/old.ts\ndocs/old-moved.md\n"
+        : ""
+    );
+    expect(needsFullRegen(files)).toBe(true);
   });
 });
