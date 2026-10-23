@@ -227,12 +227,19 @@
       }
     </item>
     <item priority="high">
+      type SleepLike = (ms: number) => Promise<void>;
+    </item>
+    <item priority="medium">
+      function retryDelayMs(res: Response): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function createProvider(
         id: ProviderId,
         apiKey: string,
         fetchImpl: FetchLike = fetch,
         model: string = DEFAULT_MODELS[id],
-        pricing: Pricing = PRICING[id]
+        pricing: Pricing = PRICING[id],
+        sleep: SleepLike = realSleep
       ): Provider { /* ... */ }
     </item>
   </file>

@@ -281,6 +281,94 @@ describe("providers (fake fetch)", () => {
   });
 });
 
+describe("429 retry (free-tier rate limits)", () => {
+  const req = {
+    system: "sys",
+    messages: [{ role: "user" as const, content: "hi" }],
+    maxOutputTokens: 100,
+  };
+  const ok = () =>
+    Response.json({
+      candidates: [{ content: { parts: [{ text: "out" }] } }],
+      usageMetadata: { promptTokenCount: 11, candidatesTokenCount: 5 },
+    });
+
+  it("retries a 429 after the default delay and succeeds", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("quota", { status: 429 }))
+      .mockResolvedValueOnce(ok());
+    const sleep = vi.fn(async () => {});
+    const p = createProvider(
+      "gemini",
+      "k",
+      fetchImpl as unknown as typeof fetch,
+      undefined,
+      undefined,
+      sleep
+    );
+    expect(await p.call(req)).toMatchObject({ text: "out" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(30_000);
+  });
+
+  it("honors a Retry-After header, capped at 120s", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("quota", { status: 429, headers: { "retry-after": "7" } })
+      )
+      .mockResolvedValueOnce(
+        new Response("quota", { status: 429, headers: { "retry-after": "900" } })
+      )
+      .mockResolvedValueOnce(ok());
+    const sleep = vi.fn(async () => {});
+    const p = createProvider(
+      "gemini",
+      "k",
+      fetchImpl as unknown as typeof fetch,
+      undefined,
+      undefined,
+      sleep
+    );
+    await p.call(req);
+    expect(sleep).toHaveBeenNthCalledWith(1, 7_000);
+    expect(sleep).toHaveBeenNthCalledWith(2, 120_000);
+  });
+
+  it("gives up after 4 attempts and throws the 429", async () => {
+    const fetchImpl = vi.fn(async () => new Response("quota", { status: 429 }));
+    const sleep = vi.fn(async () => {});
+    const p = createProvider(
+      "gemini",
+      "k",
+      fetchImpl as unknown as typeof fetch,
+      undefined,
+      undefined,
+      sleep
+    );
+    await expect(p.call(req)).rejects.toThrow(/HTTP 429/);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(sleep).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry non-429 errors", async () => {
+    const fetchImpl = vi.fn(async () => new Response("bad", { status: 401 }));
+    const sleep = vi.fn(async () => {});
+    const p = createProvider(
+      "gemini",
+      "k",
+      fetchImpl as unknown as typeof fetch,
+      undefined,
+      undefined,
+      sleep
+    );
+    await expect(p.call(req)).rejects.toThrow(/HTTP 401/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+});
+
 describe("production configuration (#7233)", () => {
   const req = {
     system: "sys",
