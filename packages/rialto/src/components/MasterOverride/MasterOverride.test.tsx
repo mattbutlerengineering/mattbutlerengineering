@@ -16,6 +16,12 @@ function Harness(props: { initial?: boolean }) {
 
 describe("MasterOverride", () => {
   describe("initial render", () => {
+    it("keeps the visible cover text inside the cover button's accessible name", () => {
+      render(<MasterOverride label="Kill switch" coverLabel="Lift to arm" />);
+      const cover = screen.getByRole("button", { name: /lift safety cover for kill switch/i });
+      expect(cover.getAttribute("aria-label")).toContain("Lift to arm");
+    });
+
     it("renders the cover as the first interactive control", () => {
       render(<Harness />);
       expect(
