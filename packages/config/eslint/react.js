@@ -96,4 +96,19 @@ export default [
       "@typescript-eslint/no-explicit-any": "warn",
     },
   },
+  {
+    // Playwright specs and fixtures run in Node and never render React, so the
+    // React rule families do not describe them. The concrete false positive:
+    // a fixture's second callback parameter is conventionally named `use`
+    // (`async ({ page }, use) => { await use(page) }`), and both rules-of-hooks
+    // implementations read that call as React's `use()` hook escaping a
+    // component. Scoped off here rather than suppressed per-file, because the
+    // shape recurs in every fixture file. Last in the array so it also applies
+    // to `e2e/**` files the `*.test.{ts,tsx}` block above matches.
+    files: ["**/e2e/**"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+      "@eslint-react/rules-of-hooks": "off",
+    },
+  },
 ];
