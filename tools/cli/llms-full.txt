@@ -2250,6 +2250,11 @@
           for (const pkg of packagesToPack) {
             await packDirectory(pkg, root);
           }
+          // The root llms.txt embeds every package's context, so it drifts
+          // whenever any package repacked — and nothing else refreshes it at
+          // commit time (#7315). packDirectory logs its own "Packing context
+          // for: ." line, which the tests key on.
+          await packDirectory(".", root);
         } catch (error) {
           console.error(
             "Error detecting changed files:",
