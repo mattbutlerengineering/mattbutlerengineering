@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.8.1
+
+### Patch Changes
+
+- [#7335](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7335) [`3585ad6`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3585ad6a9bdc68a7925fd303d0d09d8fefb49afe) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - MasterOverride: the safety cover button's accessible name now starts with its visible text, fixing the axe `label-content-name-mismatch` violation.
+
 ## 0.8.0
 
 ### Minor Changes
