@@ -4211,3 +4211,31 @@ None — 0 `agent-skip`.
 **queueEfficiency:** composite 0.937 (baseline n/a) — healthy
 **Difficulty distribution:** size:m:35, size:xs:45, size:xl:21, size:s:40, size:l:18
 **Issues filed:** 0
+
+## 2026-10-23 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source=`branch` on `ui-quality/ledger` (head 454d8df93, merged main a41625269, 0 conflicts resolved). All builds green — CLI, rialto, and all three apps.
+
+**Routes:** 40 due / 40 captured / 40 audited (marketing 0 due, rialto-web 38, hospitality 2). 20 hospitality routes `unreachable:auth` as always. The two hospitality `menu/*` routes that were `unreachable:build` last fire captured cleanly this time, so `unreachable:build` is back to 0.
+
+**Judge:** rubric v1, model `claude-opus-5`. 40/40 judged, **0 unjudged, 0 dropped tells**, 0 judged findings — every route clean against the judged tells. Note the two `visual-test` harness routes (previously `unjudged:tool-error`) were judged this fire: their full-page captures are 14.6k/30.5k px tall and only legible at `.fold.png` resolution, which plus the rubric's harness carve-out ("their bugs still count, their taste does not") is what the clean verdict rests on.
+
+**Calibration:** stamp **`stale`**. `calibration-status` → exit 3, so calibration was attempted once; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the ≥10-pair labelling is a human, Verify-stage prerequisite). Not retried. Re-queried status: still `stale`. Agent-built findings therefore stay suppressed by the plan, as intended. Rating ran anyway: 10 pairs recorded, hospitality 0, rialto-web 3.75.
+
+**Mechanical:** 7 findings — 3 axe-serious, 3 axe-moderate, 1 failed-request.
+
+**Filed:** 3 issues created, 0 reopened, 0 commented, 0 seeds, 0 escalations.
+
+- #7330 hospitality `menu/:venueSlug/:menuSlug` — accessibility/axe-moderate (page-has-heading-one)
+- #7331 hospitality `menu/:venueSlug/:menuSlug` — bugs/failed-request (404 on the menus API; note this was a local `vite preview` with no fixture API behind it, so a human may want to confirm it reproduces against a real backend before spending a worker on it)
+- #7332 rialto-web `components/master-override` — accessibility/axe-serious (label-content-name-mismatch, 3 nodes)
+
+All three came back carrying `ui-quality`, so filing was not stopped. 4 actions skipped (seed-carrier findings on the two `visual-test` routes). All 31 previously-tracked issues are closed; the `ui-quality` label enumeration returned `totalCount: 31` with `hasNextPage: false`, matching the findings ledger exactly — no unknown labelled issues to adopt.
+
+**Fix PR:** none — the plan carried `fix_pr_candidate: null`, so there was nothing to open one for.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+
+**Coverage:** 98.4% before this fire (131/133, provisional), **100% after (135/135)** — the two formerly build-unreachable hospitality routes and the two formerly tool-error visual-test routes all resolved.
+
+**Blockers / pipeline bugs:** none. Browser resolved (`chromium_headless_shell-1194`). No `blocker: no-browser`, no stopped filing, no script exited 2 except the expected `pairs --calibration`.

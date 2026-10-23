@@ -365,7 +365,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-04",
-    "last_seen": "2026-10-22",
+    "last_seen": "2026-10-23",
     "escalated_at": null
   },
   "rialto-web|visual-test|r1|accessibility/axe-serious": {
@@ -374,7 +374,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-04",
-    "last_seen": "2026-10-22",
+    "last_seen": "2026-10-23",
     "escalated_at": null
   },
   "rialto-web|components/tape-chart|r1|accessibility/axe-serious": {
@@ -572,7 +572,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-22",
-    "last_seen": "2026-10-22",
+    "last_seen": "2026-10-23",
     "escalated_at": null
   },
   "rialto-web|demos/visual-test|r1|accessibility/axe-serious": {
@@ -581,7 +581,34 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-22",
-    "last_seen": "2026-10-22",
+    "last_seen": "2026-10-23",
+    "escalated_at": null
+  },
+  "hospitality|menu/:venueSlug/:menuSlug|r1|accessibility/axe-moderate": {
+    "issue": 7330,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-23",
+    "last_seen": "2026-10-23",
+    "escalated_at": null
+  },
+  "hospitality|menu/:venueSlug/:menuSlug|r1|bugs/failed-request": {
+    "issue": 7331,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-23",
+    "last_seen": "2026-10-23",
+    "escalated_at": null
+  },
+  "rialto-web|components/master-override|r1|accessibility/axe-serious": {
+    "issue": 7332,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-23",
+    "last_seen": "2026-10-23",
     "escalated_at": null
   }
 }
