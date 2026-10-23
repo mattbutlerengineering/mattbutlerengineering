@@ -4173,3 +4173,35 @@ None — 0 `agent-skip`.
 - **PR #7300 merged**: 24 hospitality visual baselines regenerated from CI actuals (run 39854737636); review pass sampled 4 old/new pairs by eye — all complete branded renders; 8 added baselines are the new eat-sheet-port menus routes.
 - **Checkout triage**: dead session's leftovers (stamped 2026-10-18) cleared from the main checkout — stale ADR-027 copy (landed as ADR-028), pre-completion localization doc copies, junk. Rescued: `TableDetailsForm` orphan → branch `rescue/table-details-form` + issue #7303; `hospitality-phase-0/breakdown.md` → committed in this PR. Removed stale `roa-close` worktree that held `main` checked out at an Oct-17 commit (clean, no live process); deleted merged branch `docs/mbe-feature-drain-routine` local+remote.
 - **Telemetry gap closed**: queue-telemetry rows for #7254/#7255 (claimed 2026-10-22 by the drain) existed only in the dead branch's working tree — appended to `metrics/queue-telemetry.jsonl` in this PR.
+
+## 2026-10-23 — mbe-evening (progress-tracker)
+
+| Metric        | Value                                                                                                                                                                                                         | Status         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Created (7d)  | 26 (13 audit + 13 ci-fix)                                                                                                                                                                                     | —              |
+| Closed (7d)   | 25 (13 audit + 12 ci-fix)                                                                                                                                                                                     | —              |
+| Closure Rate  | 96.2% (25/26)                                                                                                                                                                                                 | Green          |
+| Time-to-Close | 6.1h mean (25 closed in window)                                                                                                                                                                               | Green          |
+| Agent Success | 0% (has-pr 0 / (0 + agent-failed 1)) — a snapshot of the currently-empty open queue, not a trend                                                                                                              | N/A (caveated) |
+| CI Pass       | 100% (12/12 completed, excluding 5 skipped + 1 cancelled + 2 still-pending from the 20-run main sample)                                                                                                       | Green          |
+| Queue         | 0 ready issues                                                                                                                                                                                                | Green          |
+| Stale         | 0 (ready>7d)                                                                                                                                                                                                  | Green          |
+| Blocked       | 1 (#7219, agent-failed)                                                                                                                                                                                       | Red (target 0) |
+| Skipped       | 0 (agent-skip)                                                                                                                                                                                                | Green          |
+| Daily Spend   | $0 attributed (`recordSpend`, 0 sessions today); 0 queue-telemetry rows claimed today, so today's true queue-worker share is unknown, not $0                                                                  | N/A            |
+| 7d Spend      | $3.96 (`.claude/agent-spend/sessions.jsonl`, 5 rows) + queue-worker cost **unknown** (`metrics/queue-telemetry.jsonl`, 152 window rows, 0 carry `cost_usd`, 6 carry tokens = 935,203, 146 rows without usage) | Red (caveated) |
+| Cost/Issue    | unknown — 0% queue-worker cost coverage this window makes $3.96/25 a severe undercount, not a usable per-issue figure                                                                                         | N/A            |
+
+### Patterns
+
+- Queue-worker cost visibility dropped to zero `cost_usd` rows in the 7d window — this is the roll-off the last three evenings' entries predicted, not a new regression: the most recent cost-bearing row (#6367, $27.97) is dated 2026-10-15, one day outside tonight's cutoff. 7d spend is now a pure undercount rather than the ~$122.7 plateau reported the prior three evenings.
+- `ready` sat at 0 again tonight. This iteration's `implement-queue` run (mbe-evening step 1) confirmed directly: zero `ready` issues, zero open PRs, nothing to claim, implement, or merge — Phase 1 through 3 were no-ops. Audit/ci-fix creation and closure stayed healthy regardless (26 created, 25 closed, 96.2% closure, 6.1h mean time-to-close, 48 PRs merged in 7d, 0 reverts), so this reads as an upstream-discovery gap, not a claiming bug.
+- #7219 (`ci-fix: routine mbe-daily-issue is dark`, `agent-failed`) is now ~1.9 days old — inside the 3-day `auto-retry-stale` window still. Will cross that threshold tomorrow evening if it's still open.
+
+### Recommendations
+
+- None urgent this iteration — zero `ready` issues meant Phase 1-3 of `implement-queue` had nothing to do. Revisit #7219 tomorrow evening: it crosses the 3-day auto-retry-stale threshold then.
+
+### Skipped Issues
+
+None — 0 `agent-skip`.
