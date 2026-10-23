@@ -338,6 +338,13 @@ export function runCli(
       .sort()
       .at(-1);
     const snapshot = { ...derived.snapshot, generatedAt: newest ?? derived.snapshot.generatedAt };
+    // A self-check that passes on no data is worse than none: an empty result
+    // means the collector lost its inputs (#7348), not that nothing shipped.
+    if (snapshot.features.length === 0) {
+      throw new Error(
+        "zero features collected; refusing to overwrite the snapshot with an empty one"
+      );
+    }
     const { skipped } = derived;
     const json = `${JSON.stringify(snapshot, null, 2)}\n`;
     if (opts.dryRun) log(json.trimEnd());
