@@ -304,12 +304,22 @@ export const ListTablesQuerySchema = z.object({
   venueId: z.string().describe("Filter by venue ID").optional(),
 });
 
+// Declares every field tableService.create consumes (#7321) — useAddTable
+// sends floorPlanId + shapeMetadata today, and they passed only because
+// toRequestJsonSchema strips additionalProperties. Mirrors CreateTableRequest;
+// create-table-request.test.ts pins the two together.
 export const CreateTableBodySchema = z
   .object({
     name: z.string().describe("Unique table name (e.g., 'Table 1', 'Patio A')"),
+    tableNumber: z.string().describe("Display table number").optional(),
     capacity: z.number().int().min(1).describe("Maximum number of guests the table can seat"),
+    minCovers: z.number().int().min(1).describe("Minimum covers to seat (default 1)").optional(),
+    maxCovers: z.number().int().min(1).describe("Maximum covers to seat").optional(),
     location: z.string().describe("Location description (e.g., 'Main Floor', 'Patio')").optional(),
+    priority: z.number().int().min(0).describe("Seating priority (0 = highest)").optional(),
     venueId: z.string().describe("ID of the venue this table belongs to").optional(),
+    floorPlanId: z.string().describe("Floor plan to place the table on").optional(),
+    shapeMetadata: TableShapeMetadataSchema.describe("Canvas shape and position").optional(),
   })
   .describe("Table creation payload");
 
