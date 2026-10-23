@@ -2,14 +2,35 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { findEnumDrift, parsePrismaEnums, parseZodEnums } from "../prisma-enum-drift.mjs";
+import {
+  CROSS_NAME_PAIRS,
+  findEnumDrift,
+  parsePrismaEnums,
+  parseZodEnums,
+} from "../prisma-enum-drift.mjs";
 
 const REPO_ROOT = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
-const PRISMA_SCHEMA = path.join(REPO_ROOT, "services/reservations/prisma/schema.prisma");
+// All three services' schemas (#7310): users has zero enums today, but
+// reading it anyway means an enum added there lands in the guard without
+// anyone remembering to wire it.
+const PRISMA_SCHEMAS = [
+  "services/agent/prisma/schema.prisma",
+  "services/reservations/prisma/schema.prisma",
+  "services/users/prisma/schema.prisma",
+].map((p) => path.join(REPO_ROOT, p));
 const TYPES_SCHEMAS_DIR = path.join(REPO_ROOT, "packages/types/src/schemas");
 
 function realPrismaEnums() {
-  return parsePrismaEnums(readFileSync(PRISMA_SCHEMA, "utf8"));
+  const merged = new Map();
+  for (const schemaPath of PRISMA_SCHEMAS) {
+    for (const [name, values] of parsePrismaEnums(readFileSync(schemaPath, "utf8"))) {
+      if (merged.has(name)) {
+        throw new Error(`enum ${name} declared in more than one schema.prisma — disambiguate`);
+      }
+      merged.set(name, values);
+    }
+  }
+  return merged;
 }
 
 function realZodEnums() {
@@ -84,12 +105,37 @@ describe("findEnumDrift", () => {
     expect(unpaired).toEqual(["FloorMaterial"]);
     expect(drifted).toEqual([]);
   });
+
+  it("pairs a cross-named enum through aliases, and still detects its drift", () => {
+    const agentPrisma = new Map([["SessionStatus", ["PENDING", "RUNNING"]]]);
+    const zod = new Map([["AgentSessionStatus", ["PENDING", "RUNNING", "TIMED_OUT"]]]);
+    const aliases = { SessionStatus: "AgentSessionStatus" };
+
+    const agree = findEnumDrift(
+      agentPrisma,
+      new Map([["AgentSessionStatus", ["PENDING", "RUNNING"]]]),
+      aliases
+    );
+    expect(agree.compared).toEqual(["SessionStatus"]);
+    expect(agree.drifted).toEqual([]);
+
+    const drift = findEnumDrift(agentPrisma, zod, aliases);
+    expect(drift.drifted).toEqual([
+      { name: "SessionStatus", onlyInPrisma: [], onlyInTs: ["TIMED_OUT"] },
+    ]);
+  });
 });
 
 describe("real sources", () => {
-  it("every name-paired Prisma/Zod enum agrees (FloorMaterial among them)", () => {
-    const { compared, drifted } = findEnumDrift(realPrismaEnums(), realZodEnums());
+  it("every paired Prisma/Zod enum agrees (FloorMaterial, DepositType and the aliased SessionStatus among them)", () => {
+    const { compared, drifted } = findEnumDrift(
+      realPrismaEnums(),
+      realZodEnums(),
+      CROSS_NAME_PAIRS
+    );
     expect(compared).toContain("FloorMaterial");
+    expect(compared).toContain("DepositType");
+    expect(compared).toContain("SessionStatus");
     expect(drifted).toEqual([]);
   });
 
@@ -100,12 +146,14 @@ describe("real sources", () => {
   });
 
   it("pins the exact unpaired set, so a new Prisma enum forces an explicit pairing decision", () => {
-    // These three have no same-named `<Name>Schema = z.enum(...)` in
-    // packages/types/src/schemas (checked 2026-10-22: DepositType and
-    // EmailStatus are server-internal, VenueRole's TS shape lives outside the
-    // schemas dir). Adding a Prisma enum lands its name here — decide whether
-    // it should instead get a same-named schema the guard can compare.
-    const { unpaired } = findEnumDrift(realPrismaEnums(), realZodEnums());
-    expect(unpaired.sort()).toEqual(["DepositType", "EmailStatus", "VenueRole"]);
+    // These two have no paired `<Name>Schema = z.enum(...)` in
+    // packages/types/src/schemas and no CROSS_NAME_PAIRS entry (re-checked
+    // for #7310: EmailStatus and VenueRole have zero vocabulary or schema
+    // duplicates anywhere in packages/types — the #7308 review verified
+    // this with value-set greps, not just name greps). Adding a Prisma enum
+    // lands its name here — decide whether it should get a same-named
+    // schema, a CROSS_NAME_PAIRS entry, or genuinely stay server-internal.
+    const { unpaired } = findEnumDrift(realPrismaEnums(), realZodEnums(), CROSS_NAME_PAIRS);
+    expect(unpaired.sort()).toEqual(["EmailStatus", "VenueRole"]);
   });
 });

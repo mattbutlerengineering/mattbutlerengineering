@@ -1453,9 +1453,10 @@
       settings: z.object({ maxPartySize: z.number().optional() }).nullable().optional(),
       phone: z.string().optional(),
     });
+    export const DepositTypeSchema = z.enum(["flat", "per_person"]);
     export const PublicVenueDepositSchema = z.object({
       enabled: z.boolean(),
-      depositType: z.enum(["flat", "per_person"]).nullable(),
+      depositType: DepositTypeSchema.nullable(),
       amountCents: z.number().nullable(),
       freeCancellationHours: z.number().nullable(),
       lateCancellationFeePercent: z.number().nullable(),

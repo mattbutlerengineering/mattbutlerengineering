@@ -9527,6 +9527,9 @@
       export const PublicVenueSchema: unknown;
     </item>
     <item priority="high">
+      export const DepositTypeSchema: unknown;
+    </item>
+    <item priority="high">
       export const PublicVenueDepositSchema: unknown;
     </item>
     <item priority="high">
