@@ -62,6 +62,26 @@ describe("useChatStream", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("merges requestContext into every request body", async () => {
+    vi.mocked(streamNDJSON).mockReturnValueOnce(mockStream([{ type: "text", content: "ok" }]));
+    const { result } = renderHook(() =>
+      useChatStream({
+        ...createMockProps(),
+        requestContext: { venueId: "venue-1", timeZone: "America/Los_Angeles" },
+      })
+    );
+
+    await act(async () => {
+      await result.current.send("how does tonight look?");
+    });
+
+    expect(vi.mocked(streamNDJSON).mock.calls[0]![0].body).toEqual({
+      venueId: "venue-1",
+      timeZone: "America/Los_Angeles",
+      messages: [{ role: "user", content: "how does tonight look?" }],
+    });
+  });
+
   it("sends a message and accumulates response from NDJSON stream", async () => {
     vi.mocked(streamNDJSON).mockReturnValueOnce(
       mockStream([
@@ -177,6 +197,38 @@ describe("useChatStream", () => {
       toolName: "create_reservation",
       toolInput: { guestName: "Smith", date: "2026-05-18", time: "19:00", partySize: 4 },
     });
+  });
+
+  it("confirm targets the venue the action was proposed in, even after a venue switch", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          {
+            type: "action_request",
+            actionId: "call-9",
+            toolName: "update_table_status",
+            toolInput: { tableNumber: 5, status: "DIRTY" },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Done" }]));
+
+    const { result, rerender } = renderHook(
+      ({ venueId }: { venueId: string }) =>
+        useChatStream({ ...createMockProps(), requestContext: { venueId } }),
+      { initialProps: { venueId: "venue-a" } }
+    );
+
+    await act(async () => {
+      await result.current.send("table 5 is dirty");
+    });
+    rerender({ venueId: "venue-b" });
+    await act(async () => {
+      await result.current.confirmAction();
+    });
+
+    const confirmBody = vi.mocked(streamNDJSON).mock.calls[1]![0].body as { venueId: string };
+    expect(confirmBody.venueId).toBe("venue-a");
   });
 
   it("confirm sends action_confirm message and clears pending", async () => {

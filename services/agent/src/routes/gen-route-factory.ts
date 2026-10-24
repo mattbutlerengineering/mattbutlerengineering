@@ -39,6 +39,11 @@ export interface GenRouteConfig<TSchema extends z.ZodType> {
   readonly maxSteps: number;
   /** Overrides the catalog prompt (default: catalog.prompt()). */
   readonly systemPrompt?: string;
+  /**
+   * Per-request system prompt built from the parsed body; receives the catalog
+   * prompt to extend. Takes precedence over `systemPrompt`.
+   */
+  readonly getSystemPrompt?: (parsed: z.infer<TSchema>, catalogPrompt: string) => string;
   readonly toolChoice?: GenRunnerConfig["toolChoice"];
   readonly failOnToolError?: boolean;
   /**
@@ -205,7 +210,9 @@ export function createGenRoute<TSchema extends z.ZodType>(
           ? config.toMessages(parsed)
           : (parsed as { messages: GenMessages }).messages;
 
-        const systemPrompt = config.systemPrompt ?? SYSTEM_PROMPT;
+        const systemPrompt = config.getSystemPrompt
+          ? config.getSystemPrompt(parsed, SYSTEM_PROMPT)
+          : (config.systemPrompt ?? SYSTEM_PROMPT);
         const cacheKey =
           config.cache && streamFormat === "ndjson"
             ? genSpecCacheKey({

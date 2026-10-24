@@ -80,10 +80,12 @@ export interface ChatPanelProps {
   getAccessToken: () => string | null | Promise<string | null>;
   standalone?: boolean;
   registry?: ComponentRegistry;
+  /** Extra fields merged into every request body (e.g. the selected venue). */
+  requestContext?: Readonly<Record<string, unknown>>;
 }
 
 export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function ChatPanel(
-  { onClose, api, stream, domainContext, getAccessToken, standalone, registry },
+  { onClose, api, stream, domainContext, getAccessToken, standalone, registry, requestContext },
   ref
 ) {
   const { messages: t } = useRialtoLocale();
@@ -103,6 +105,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
     stream,
     domainContext,
     getAccessToken,
+    requestContext,
   });
 
   const [inputValue, setInputValue] = useState("");

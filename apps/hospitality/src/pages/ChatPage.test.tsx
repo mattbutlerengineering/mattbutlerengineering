@@ -7,12 +7,26 @@ vi.mock("@mbe/auth/react", () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("../constants/copilotContext.js", () => ({
+  HOSPITALITY_DOMAIN_CONTEXT: { schemas: [] },
+  useChatRequestContext: () => ({ venueId: "venue-1", timeZone: "America/Los_Angeles" }),
+}));
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  ChatPanel: ({ standalone, registry }: { standalone?: boolean; registry?: object }) => (
+  ChatPanel: ({
+    standalone,
+    registry,
+    requestContext,
+  }: {
+    standalone?: boolean;
+    registry?: object;
+    requestContext?: Record<string, unknown>;
+  }) => (
     <div
       data-testid="chat-panel"
       data-standalone={standalone}
       data-has-registry={String(Boolean(registry))}
+      data-request-context={JSON.stringify(requestContext)}
     >
       Chat Panel
     </div>
@@ -30,6 +44,19 @@ vi.mock("../components/PageHeader.js", () => ({
 import { ChatPage } from "./ChatPage";
 
 describe("ChatPage", () => {
+  it("sends the selected venue and its time zone with every message", () => {
+    render(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId("chat-panel")).toHaveAttribute(
+      "data-request-context",
+      JSON.stringify({ venueId: "venue-1", timeZone: "America/Los_Angeles" })
+    );
+  });
+
   it("renders ChatPanel in standalone mode", () => {
     render(
       <MemoryRouter>

@@ -215,6 +215,7 @@
         stream: ChatStreamFn;
         domainContext: DomainContext;
         getAccessToken: () => string | null | Promise<string | null>;
+        requestContext?: Readonly<Record<string, unknown>>;
       }
     </item>
     <item priority="low">
@@ -231,6 +232,7 @@
         api,
         stream,
         getAccessToken,
+        requestContext,
       }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
     </item>
   </file>
@@ -1833,6 +1835,18 @@
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
+    </item>
+    <item priority="high">
+      interface ChatVenue {
+        id: string;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="high">
+      export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChatRequestContext(): Record<string, string> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
@@ -7809,6 +7823,22 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="services/agent/src/routes/gen-agent-prompt.ts">
+    <item priority="low">
+      interface AgentPromptContext {
+        venueId?: string | undefined;
+        timeZone?: string | undefined;
+        now: Date;
+        catalogPrompt: string;
+      }
+    </item>
+    <item priority="medium">
+      function weekdayIn(timeZone: string, now: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildAgentSystemPrompt(ctx: AgentPromptContext): string { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/routes/gen-agent-tools.ts">
     <item priority="high">
       type ApiClient = ReturnType<typeof createApiClient>;
@@ -7823,7 +7853,12 @@
     <item priority="low">
       interface CreateAgentToolsOptions {
         confirmedAction?: ConfirmedAction | undefined;
+        venueId?: string | undefined;
+        timeZone?: string | undefined;
       }
+    </item>
+    <item priority="high">
+      export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
     </item>
     <item priority="medium">
       function gateWriteTools(
@@ -7841,6 +7876,9 @@
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
+    <item priority="medium">
+      function isTimeZone(value: string): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export const genAgentRoutes: unknown;
     </item>

@@ -208,7 +208,7 @@ describe("POST /api/gen/agent", () => {
         // ai@7: system prompt rides the instructions option, never messages.
         instructions: expect.objectContaining({
           role: "system",
-          content: "mock system prompt",
+          content: expect.stringContaining("mock system prompt"),
           providerOptions: {
             anthropic: { cacheControl: { type: "ephemeral" } },
           },
@@ -221,6 +221,41 @@ describe("POST /api/gen/agent", () => {
         ]),
       })
     );
+  });
+
+  it("builds the system prompt from the selected venue and its time zone", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([]),
+      usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    await app.inject({
+      method: "POST",
+      url: "/api/gen/agent",
+      payload: {
+        messages: [{ role: "user", content: "how does tonight look?" }],
+        venueId: "venue-1",
+        timeZone: "America/Los_Angeles",
+      },
+    });
+
+    const call = vi.mocked(streamText).mock.calls[0]![0] as {
+      instructions: { content: string };
+    };
+    expect(call.instructions.content).toMatch(/venue is already selected/i);
+    expect(call.instructions.content).toContain("America/Los_Angeles");
+    expect(call.instructions.content).toContain("mock system prompt");
+  });
+
+  it("returns 400 for an unknown time zone", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gen/agent",
+      payload: { messages: [{ role: "user", content: "hi" }], timeZone: "Mars/Olympus" },
+    });
+
+    expect(response.statusCode).toBe(400);
   });
 
   it("streams tool_status events when tools are called", async () => {
