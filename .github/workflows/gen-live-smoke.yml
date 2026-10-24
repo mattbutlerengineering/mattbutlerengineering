@@ -92,8 +92,12 @@ jobs:
             --data @body.json)
           echo "HTTP $http_code"
           [ "$http_code" = "200" ]
-          if cmp -s gen1.ndjson gen2.ndjson; then
-            echo "cache HIT: repeat replayed byte-identical NDJSON"
+          # The spec cache stores jsonb, which reorders keys, so compare the
+          # normalized (sorted-key, compact) lines rather than raw bytes.
+          jq -cS . gen1.ndjson > gen1.norm.ndjson
+          jq -cS . gen2.ndjson > gen2.norm.ndjson
+          if cmp -s gen1.norm.ndjson gen2.norm.ndjson; then
+            echo "cache HIT: repeat replayed semantically identical NDJSON"
           else
             # A miss is not a failure (TTL/instance timing), but say so loudly.
             echo "::warning::repeat prompt did not replay identical NDJSON — spec cache may have missed"
