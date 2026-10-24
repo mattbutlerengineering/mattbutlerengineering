@@ -1856,5 +1856,15 @@
     "previewButton": "Reservar",
     "contrastFailed": "Estos colores no tienen suficiente contraste para leer el texto. Elige un acento más oscuro o más claro.",
     "save": "Guardar tema"
+  },
+  "rehearsal": {
+    "banner": {
+      "title": "Ensayo — no son reservaciones reales",
+      "play": "Reproducir",
+      "pause": "Pausar",
+      "step": "Siguiente evento",
+      "speed": "{{speed}}×"
+    },
+    "loading": "Cargando tus mesas…"
   }
 }

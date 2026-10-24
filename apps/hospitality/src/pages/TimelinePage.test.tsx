@@ -11,6 +11,7 @@ import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
+import { useTables } from "../hooks/useTables.js";
 import type { UseTimelineDataResult } from "../hooks/useTimelineData.js";
 import type { Reservation, Table } from "@mbe/types";
 import React from "react";
@@ -681,6 +682,38 @@ describe("TimelinePage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Live")).toBeDefined();
+    });
+  });
+
+  describe("rehearsal mode (#7372)", () => {
+    it("shows the rehearsal banner and never mounts the live data hook", () => {
+      vi.mocked(useTables).mockReturnValue({
+        data: [makeTable()],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      const data = makeTimelineData();
+      vi.mocked(useTimelineData).mockReturnValue(data);
+      renderPage(["/timeline?rehearsal=true"]);
+      expect(screen.getByTestId("rehearsal-banner")).toBeInTheDocument();
+      expect(useTimelineData).not.toHaveBeenCalled();
+      for (const write of [
+        data.seatGuest,
+        data.cancelReservation,
+        data.updateReservation,
+        data.markNoShow,
+        data.createWalkIn,
+        data.updateTableStatus,
+      ]) {
+        expect(write).not.toHaveBeenCalled();
+      }
+    });
+
+    it("has no banner outside rehearsal mode", () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
+      renderPage(["/timeline"]);
+      expect(screen.queryByTestId("rehearsal-banner")).toBeNull();
     });
   });
 

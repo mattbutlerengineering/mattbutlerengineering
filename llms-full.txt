@@ -68235,6 +68235,7 @@
   <file path="apps/hospitality/src/utils/timeline-intent.ts">
     export const WALK_IN_PARAM = "walkin";
     export const SELECTED_PARAM = "selected";
+    export const REHEARSAL_PARAM = "rehearsal";
     export interface TimelineIntent {
       /** Exactly `walkin=true` — any other spelling is no intent. */
       readonly walkIn: boolean;
