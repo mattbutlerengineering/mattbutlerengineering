@@ -75,7 +75,6 @@ export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
     };
 
     const parts = buildFormattedParts(bar, roomName, formatters, strings);
-    const ariaLabel = strings.reservationAriaTemplate(r, parts);
 
     const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -89,6 +88,12 @@ export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
       r.ratePerNight != null
         ? formatters.currency(r.ratePerNight * bar.span, r.currency)
         : undefined;
+
+    // WCAG 2.5.3: the accessible name must contain the visible text. A custom
+    // reservationAriaTemplate may omit it, so lead with it when it is missing.
+    const visibleText = priceShort ? `${title} ${priceShort}` : title;
+    const described = strings.reservationAriaTemplate(r, parts);
+    const ariaLabel = described.includes(visibleText) ? described : `${visibleText}, ${described}`;
 
     return (
       <button
