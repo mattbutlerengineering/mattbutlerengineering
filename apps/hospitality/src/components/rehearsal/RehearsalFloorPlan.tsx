@@ -16,7 +16,7 @@ const NOOP = () => {};
  * or mutation hooks, and the canvas is `readOnly` with every edit handler inert.
  */
 export function RehearsalFloorPlan({ floorPlan }: { floorPlan: FloorPlan }) {
-  const tables = floorPlan.tables ?? [];
+  const tables = useMemo(() => floorPlan.tables ?? [], [floorPlan.tables]);
   const tableIds = useMemo(() => tables.map((table) => table.id), [tables]);
   const events = useMemo(
     () =>
