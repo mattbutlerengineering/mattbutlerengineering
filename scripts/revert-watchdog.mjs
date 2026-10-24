@@ -1068,7 +1068,7 @@ async function reopenCulpritIssues(args) {
     getIssue: async (n) => {
       try {
         const issue = api(`repos/{owner}/{repo}/issues/${n}`);
-        const events = api(`repos/{owner}/{repo}/issues/${n}/events`, "--paginate");
+        const events = api(`repos/{owner}/{repo}/issues/${n}/events?per_page=100`);
         const closedEvent = [...events].reverse().find((e) => e.event === "closed");
         return {
           number: n,
