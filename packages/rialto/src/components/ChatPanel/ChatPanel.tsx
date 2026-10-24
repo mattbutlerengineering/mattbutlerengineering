@@ -10,17 +10,60 @@ import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ComponentRegistry = Record<string, React.ComponentType<any>>;
 
-function renderElement(el: ChatMessageElement, registry?: ComponentRegistry) {
+// Registry components implement json-render's ComponentRenderProps contract
+// ({ element, children, emit, on }); ChatPanel has no action system, so events
+// are accepted and dropped.
+const NOOP_EMIT = () => {};
+const NOOP_ON = () => ({ bound: false, shouldPreventDefault: false });
+
+function renderElement(
+  el: ChatMessageElement,
+  registry: ComponentRegistry | undefined,
+  elementsById: ReadonlyMap<string, ChatMessageElement>,
+  seen: ReadonlySet<string>
+): React.ReactNode {
   const Component = registry?.[el.type];
-  if (Component) {
-    const safeProps = sanitizeElementProps(el.props ?? {});
-    return <Component key={el.id} {...safeProps} />;
+  if (!Component) {
+    return (
+      <div key={el.id} className={styles.elementCard} data-element-type={el.type}>
+        {el.props?.title ? String(el.props.title) : el.type}
+      </div>
+    );
   }
+  const safeProps = sanitizeElementProps(el.props ?? {});
+  const nextSeen = new Set(seen).add(el.id);
+  const childNodes = (el.children ?? [])
+    .filter((childId) => !nextSeen.has(childId))
+    .map((childId) => elementsById.get(childId))
+    .filter((child): child is ChatMessageElement => child !== undefined)
+    .map((child) => renderElement(child, registry, elementsById, nextSeen));
   return (
-    <div key={el.id} className={styles.elementCard} data-element-type={el.type}>
-      {el.props?.title ? String(el.props.title) : el.type}
-    </div>
+    <Component
+      key={el.id}
+      element={{ key: el.id, type: el.type, props: safeProps }}
+      emit={NOOP_EMIT}
+      on={NOOP_ON}
+    >
+      {childNodes.length > 0 ? childNodes : undefined}
+    </Component>
   );
+}
+
+/**
+ * The agent streams a flat element list whose `children` are ids. Render only
+ * the roots (elements no other element references) and nest the rest; if a
+ * reference cycle leaves no roots, fall back to rendering every element (the
+ * per-path `seen` set in renderElement keeps that finite).
+ */
+function renderElements(
+  elements: readonly ChatMessageElement[],
+  registry: ComponentRegistry | undefined
+): React.ReactNode {
+  const byId = new Map(elements.map((el) => [el.id, el]));
+  const referenced = new Set(elements.flatMap((el) => el.children ?? []));
+  const roots = elements.filter((el) => !referenced.has(el.id));
+  const topLevel = roots.length > 0 ? roots : elements;
+  return topLevel.map((el) => renderElement(el, registry, byId, new Set()));
 }
 
 export interface ChatPanelProps {
@@ -87,7 +130,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
             {msg.content}
             {msg.elements && msg.elements.length > 0 && (
               <div className={styles.elements} data-testid="chat-elements">
-                {msg.elements.map((el) => renderElement(el, registry))}
+                {renderElements(msg.elements, registry)}
               </div>
             )}
           </div>

@@ -8,11 +8,19 @@ vi.mock("@mbe/auth/react", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  ChatPanel: ({ standalone }: { standalone?: boolean }) => (
-    <div data-testid="chat-panel" data-standalone={standalone}>
+  ChatPanel: ({ standalone, registry }: { standalone?: boolean; registry?: object }) => (
+    <div
+      data-testid="chat-panel"
+      data-standalone={standalone}
+      data-has-registry={String(Boolean(registry))}
+    >
       Chat Panel
     </div>
   ),
+}));
+
+vi.mock("@mbe/rialto-catalog", () => ({
+  registry: { Card: () => null },
 }));
 
 vi.mock("../components/PageHeader.js", () => ({
@@ -32,6 +40,16 @@ describe("ChatPage", () => {
     const panel = screen.getByTestId("chat-panel");
     expect(panel).toBeInTheDocument();
     expect(panel).toHaveAttribute("data-standalone", "true");
+  });
+
+  it("passes the catalog registry so generated elements render as real components", () => {
+    render(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-has-registry", "true");
   });
 
   it("renders a page heading", () => {
