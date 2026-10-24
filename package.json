@@ -16,7 +16,7 @@
     "db:generate": "pnpm --filter './services/*' exec prisma generate",
     "repo-audit": "node scripts/run-repo-audit.mjs",
     "check:prettier": "prettier --experimental-cli --check . \".claude/**/*.md\"",
-    "check:boundaries": "depcruise apps services packages tools infrastructure/worker plugins scripts infrastructure/pulumi --config .dependency-cruiser.cjs",
+    "check:boundaries": "depcruise apps services packages tools infrastructure/worker plugins scripts infrastructure/pulumi tests --config .dependency-cruiser.cjs",
     "check:knip": "knip",
     "check:circular-deps": "node scripts/check-circular-deps.js",
     "check:dep-versions": "node scripts/check-dep-versions.js",

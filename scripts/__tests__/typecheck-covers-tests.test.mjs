@@ -172,4 +172,20 @@ describe("every workspace TS test file is type-checked by its package's typechec
     );
     expect(offenders).toEqual({});
   });
+
+  it("leaves no tracked TS test file outside every workspace package", () => {
+    const owned = [...coverage.keys()];
+    const packages = discoverWorkspaceGlobs(ROOT).flatMap((g) => resolveGlob(g, ROOT));
+    const dirs = packages.map((p) => p.wsDir);
+    const tracked = execFileSync("git", ["ls-files", "-z"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split("\0")
+      .filter((f) => TS_TEST_FILE.test(f) && existsSync(join(ROOT, f)));
+    const orphans = tracked.filter((f) => !dirs.some((d) => f.startsWith(`${d}/`)));
+    expect(owned.length).toBeGreaterThan(0);
+    expect(orphans).toEqual([]);
+  });
 });

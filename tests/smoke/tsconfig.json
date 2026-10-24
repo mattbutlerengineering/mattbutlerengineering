@@ -1,0 +1,9 @@
+{
+  "extends": "@mbe/config/typescript/node",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["*.ts"],
+  "exclude": []
+}
