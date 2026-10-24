@@ -1829,5 +1829,15 @@
     "previewButton": "Reserve",
     "contrastFailed": "These colours don't have enough contrast for readable text. Choose a darker or lighter accent.",
     "save": "Save theme"
+  },
+  "rehearsal": {
+    "banner": {
+      "title": "Rehearsal — not real bookings",
+      "play": "Play",
+      "pause": "Pause",
+      "step": "Next event",
+      "speed": "{{speed}}×"
+    },
+    "loading": "Loading your tables…"
   }
 }

@@ -1856,5 +1856,15 @@
     "previewButton": "Réserver",
     "contrastFailed": "Ces couleurs n'offrent pas assez de contraste pour un texte lisible. Choisissez un accent plus foncé ou plus clair.",
     "save": "Enregistrer le thème"
+  },
+  "rehearsal": {
+    "banner": {
+      "title": "Répétition — pas de vraies réservations",
+      "play": "Lecture",
+      "pause": "Pause",
+      "step": "Événement suivant",
+      "speed": "{{speed}}×"
+    },
+    "loading": "Chargement de vos tables…"
   }
 }

@@ -19941,6 +19941,9 @@
     <item priority="high">
       export const SELECTED_PARAM: unknown;
     </item>
+    <item priority="high">
+      export const REHEARSAL_PARAM: unknown;
+    </item>
     <item priority="low">
       interface TimelineIntent {
         walkIn: boolean;

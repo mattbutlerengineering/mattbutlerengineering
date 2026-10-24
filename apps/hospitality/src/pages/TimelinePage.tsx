@@ -21,6 +21,7 @@ import { ReservationDetails } from "../components/timeline/ReservationDetails.js
 import { tableStatusInline } from "../components/timeline/table-status-menu.js";
 // By path, not the barrel: TimelinePage.test.tsx mocks the barrel wholesale.
 import { SHEET_BLOCK_SIZE, reservationSheetSize } from "../components/timeline/sheet-size.js";
+import { RehearsalTimeline } from "../components/rehearsal/RehearsalTimeline.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { KpiStat } from "../components/KpiStat.js";
 import { LiveStatus } from "../components/LiveStatus.js";
@@ -28,6 +29,7 @@ import { OfflineBanner } from "../components/OfflineBanner.js";
 import { PageHeader } from "../components/PageHeader";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
+import { useTables } from "../hooks/useTables.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
@@ -38,7 +40,11 @@ import { describeApiError, type ApiErrorDescription } from "../lib/describe-api-
 import { formatLongDateWithYear, formatServiceDate } from "../utils/format.js";
 import { deviceDate } from "../utils/service-day.js";
 import { seatedReservationIds } from "../utils/seated.js";
-import { parseTimelineIntent, stripTimelineIntent } from "../utils/timeline-intent.js";
+import {
+  REHEARSAL_PARAM,
+  parseTimelineIntent,
+  stripTimelineIntent,
+} from "../utils/timeline-intent.js";
 import styles from "./TimelinePage.module.css";
 
 /* ── URL filter schema ──────────────────────── */
@@ -144,7 +150,7 @@ function CloseIcon() {
  * surfaces own their own failures (they reject); this page owns outcomes — the selection, the one
  * `role=status` sentence and the focus target that follow a success.
  */
-export function TimelinePage() {
+function LiveTimelinePage() {
   const { t } = useTranslation();
   const { selectedVenueId, selectedVenue } = useVenue();
   const fmt = useVenueFormat();
@@ -675,5 +681,63 @@ export function TimelinePage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Rehearsal mode (`?rehearsal=true`, Dress Rehearsal): the floor plan's tables are read, then a
+ * client-side simulated service fills the grid. It mounts none of the live page's data or
+ * mutation hooks, so it cannot write to the API.
+ */
+function RehearsalTimelinePage() {
+  const { t } = useTranslation();
+  const { selectedVenueId } = useVenue();
+  const now = useNow();
+  const { data: tables, isLoading } = useTables({
+    venueId: selectedVenueId ?? undefined,
+    limit: 100,
+    enabled: !!selectedVenueId,
+  });
+
+  return (
+    <div className={styles.root}>
+      <div className={styles.header}>
+        <div className={styles.headerTop}>
+          <PageHeader
+            title={t("timeline.page.title")}
+            description={t("timeline.page.description")}
+          />
+        </div>
+      </div>
+      <div className={styles.content} data-testid="primary-content">
+        <div className={styles.timelineArea}>
+          {isLoading || !tables ? (
+            <TimelineSkeleton />
+          ) : tables.length === 0 ? (
+            <EmptyState
+              variant="flat"
+              heading={t("timeline.page.noTablesHeading")}
+              description={t("timeline.page.noTablesDescription")}
+              action={
+                <Link to="/floor-plans" className={styles.emptyStateLink}>
+                  {t("timeline.page.floorPlans")}
+                </Link>
+              }
+            />
+          ) : (
+            <RehearsalTimeline tables={tables} date={deviceDate(now)} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TimelinePage() {
+  const [searchParams] = useSearchParams();
+  return searchParams.get(REHEARSAL_PARAM) === "true" ? (
+    <RehearsalTimelinePage />
+  ) : (
+    <LiveTimelinePage />
   );
 }
