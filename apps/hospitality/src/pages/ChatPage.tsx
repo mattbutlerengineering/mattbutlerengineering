@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { streamNDJSON } from "@mbe/api-client/streaming";
 import { useAuth } from "@mbe/auth/react";
 import { ChatPanel } from "@mattbutlerengineering/rialto";
+import { registry } from "@mbe/rialto-catalog";
 import { PageHeader } from "../components/PageHeader.js";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
 import styles from "./ChatPage.module.css";
@@ -28,6 +29,7 @@ export function ChatPage() {
         stream={streamNDJSON}
         domainContext={HOSPITALITY_DOMAIN_CONTEXT}
         getAccessToken={getAccessToken}
+        registry={registry}
       />
     </div>
   );

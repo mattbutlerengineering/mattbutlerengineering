@@ -112,11 +112,28 @@ describe("ChatPanel", () => {
     expect(screen.getByText("hi there")).toBeInTheDocument();
   });
 
-  it("renders elements via json-render when registry is provided", () => {
-    const TestCard = ({ title }: { title: string }) => (
-      <div data-testid="rendered-card">{title}</div>
-    );
-    const registry = { Card: TestCard };
+  // Registry components implement json-render's ComponentRenderProps contract:
+  // they read `element.props`, receive `emit`/`on` functions, and nest rendered
+  // `children` — they do NOT take their props spread onto them.
+  const ContractCard = ({
+    element,
+    children,
+    emit,
+    on,
+  }: {
+    element: { key: string; type: string; props: Record<string, unknown> };
+    children?: React.ReactNode;
+    emit: (event: string) => void;
+    on: (event: string) => unknown;
+  }) => (
+    <div data-testid={`card-${element.key}`} data-emit-type={typeof emit} data-on-type={typeof on}>
+      {String(element.props.title ?? "")}
+      {children}
+    </div>
+  );
+
+  it("invokes registry components with json-render's ComponentRenderProps contract", () => {
+    const registry = { Card: ContractCard };
 
     mockHookReturn = {
       ...mockHookReturn,
@@ -131,19 +148,95 @@ describe("ChatPanel", () => {
 
     render(<ChatPanel {...defaultProps} registry={registry} />);
 
-    expect(screen.getByTestId("rendered-card")).toBeInTheDocument();
+    const card = screen.getByTestId("card-el-1");
+    expect(card).toBeInTheDocument();
     expect(screen.getByText("7pm Slot")).toBeInTheDocument();
+    expect(card).toHaveAttribute("data-emit-type", "function");
+    expect(card).toHaveAttribute("data-on-type", "function");
+  });
+
+  it("nests children by id instead of rendering a flat list", () => {
+    const registry = { Card: ContractCard };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "",
+          elements: [
+            { id: "parent", type: "Card", props: { title: "Parent" }, children: ["child"] },
+            { id: "child", type: "Card", props: { title: "Child" } },
+          ],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    const parent = screen.getByTestId("card-parent");
+    const child = screen.getByTestId("card-child");
+    expect(parent).toContainElement(child);
+    // The child renders once, nested — not a second time as a top-level sibling.
+    expect(screen.getAllByTestId("card-child")).toHaveLength(1);
+  });
+
+  it("renders an unknown-type parent's known children inside its placeholder", () => {
+    const registry = { Card: ContractCard };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "",
+          elements: [
+            { id: "p", type: "NotInCatalog", props: { title: "Mystery" }, children: ["c"] },
+            { id: "c", type: "Card", props: { title: "Real child" } },
+          ],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    // The child is referenced (not a root), so it must render inside the
+    // unknown parent's placeholder rather than disappearing entirely.
+    expect(screen.getByText("Real child")).toBeInTheDocument();
+  });
+
+  it("renders cyclic children references without recursing forever", () => {
+    const registry = { Card: ContractCard };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "",
+          elements: [
+            { id: "a", type: "Card", props: { title: "A" }, children: ["b"] },
+            { id: "b", type: "Card", props: { title: "B" }, children: ["a"] },
+          ],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    expect(screen.getAllByText("A").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("B").length).toBeGreaterThanOrEqual(1);
   });
 
   it("strips dangerous props from element specs", () => {
-    const Spy = (props: Record<string, unknown>) => (
+    const Spy = ({ element }: { element: { props: Record<string, unknown> } }) => (
       <div
         data-testid="spy"
-        data-has-dangerous={String("dangerouslySetInnerHTML" in props)}
-        data-has-onclick={String("onClick" in props)}
-        data-has-ref={String("ref" in props)}
+        data-has-dangerous={String("dangerouslySetInnerHTML" in element.props)}
+        data-has-onclick={String("onClick" in element.props)}
+        data-has-ref={String("ref" in element.props)}
       >
-        {String(props.title ?? "")}
+        {String(element.props.title ?? "")}
       </div>
     );
     const registry = { Alert: Spy };

@@ -83,6 +83,11 @@
       "name": "Sentry Vendor (@sentry/*)",
       "path": "dist/assets/sentry-vendor-*.js",
       "limit": "33 kB"
+    },
+    {
+      "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
+      "path": "dist/assets/copilotContext-*.js",
+      "limit": "8 kB"
     }
   ],
   "dependencies": {
