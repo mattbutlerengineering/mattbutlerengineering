@@ -319,7 +319,6 @@ function label(locale: Locale, key: string): string {
   return value;
 }
 
-/* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks -- Playwright fixtures, as in fixtures.ts */
 const sweepTest = test.extend<{ unmocked: string[] }>({
   // eslint-disable-next-line no-empty-pattern -- Playwright's fixture signature
   unmocked: async ({}, use) => {
@@ -332,7 +331,6 @@ const sweepTest = test.extend<{ unmocked: string[] }>({
     await use(page);
   },
 });
-/* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 
 for (const locale of LOCALES) {
   sweepTest.describe(`locale sweep — ${locale}`, () => {
