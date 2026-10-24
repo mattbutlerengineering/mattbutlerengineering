@@ -51,6 +51,42 @@ describe("gen-stream", () => {
       });
     });
 
+    it("reads cache tokens from ai@7 usage.inputTokenDetails (provider metadata carries none, #7435)", () => {
+      const log = fakeLog();
+      logGenCost(log, {
+        usage: {
+          inputTokens: 13389,
+          outputTokens: 5,
+          inputTokenDetails: { cacheReadTokens: 10000, cacheWriteTokens: 0 },
+        },
+        providerMetadata: { anthropic: { usage: { cache_read_input_tokens: 10000 } } },
+        label: "gen-ui cost log",
+      });
+      const infoCall = log.info.mock.calls[0];
+      if (!infoCall) throw new Error("expected a log.info call");
+      expect(infoCall[0]).toMatchObject({
+        cacheReadInputTokens: 10000,
+        cacheCreationInputTokens: 0,
+      });
+    });
+
+    it("falls back to the raw anthropic usage in provider metadata", () => {
+      const log = fakeLog();
+      logGenCost(log, {
+        usage: { inputTokens: 13389 },
+        providerMetadata: {
+          anthropic: { usage: { cache_creation_input_tokens: 10000, cache_read_input_tokens: 0 } },
+        },
+        label: "gen-ui cost log",
+      });
+      const infoCall = log.info.mock.calls[0];
+      if (!infoCall) throw new Error("expected a log.info call");
+      expect(infoCall[0]).toMatchObject({
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 10000,
+      });
+    });
+
     it("logs run telemetry on the same line, leaving the existing fields untouched", () => {
       const log = fakeLog();
       logGenCost(log, {
