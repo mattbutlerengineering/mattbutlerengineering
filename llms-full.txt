@@ -20950,6 +20950,8 @@
       // carries the same context into the stream callbacks and into retry().
       const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
       const [refineError, setRefineError] = useState<Error | null>(null);
+      // Catalog-validation failure of a completed full generation (see onComplete).
+      const [validationError, setValidationError] = useState<Error | null>(null);
       const nodeRefineRef = useRef<NodeRefine | null>(null);
       const savePendingRef = useRef(false);
       const diffHistory = useSpecDiffHistory();
@@ -20990,6 +20992,31 @@
             }
             nodeRefineRef.current = null;
             setPinnedSpec(savedSpec);
+          }
+          if (!nodeRefine) {
+            // A full generation is checked with the same validator as a refine.
+            // Off-catalog elements would otherwise render as silent placeholders.
+            // The streamed spec stays on screen (activeId stays null) next to the
+            // error affordance, and the attempt is recorded as "failed" in history,
+            // the same as a stream failure, rather than saved as a success.
+            const validation = validateSpecAgainstCatalog(completedSpec);
+            if (!validation.ok) {
+              setValidationError(
+                new Error(`The generated UI is not valid Rialto: ${validation.message}`)
+              );
+              void saveSpec({
+                prompt: promptRef.current,
+                kind: "failed",
+                spec: EMPTY_SPEC,
+                rawLines: [],
+              }).catch((saveErr: unknown) => {
+                console.error(
+                  "[usePlaygroundSession] Failed to record failed attempt in history:",
+                  saveErr
+                );
+              });
+              return;
+            }
           }
           options?.onGenerationComplete?.();
           // Undo/redo wait for the save: its late .then would otherwise overwrite them.
@@ -21045,7 +21072,7 @@
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
-      const displayError = activeId === null ? (refineError ?? error) : null;
+      const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
       const activeSpecId = !isStreaming && activeId ? activeId : null;
       const failedPrompt = displayError ? rawPrompt : null;
     
@@ -21053,6 +21080,7 @@
         nodeRefineRef.current = null;
         setPinnedSpec(null);
         setRefineError(null);
+        setValidationError(null);
         // A new spec makes the old diffs meaningless: they were made on the previous one.
         clearDiffs();
         setLastChange(null);
@@ -21102,6 +21130,7 @@
           nodeRefineRef.current = { base: displaySpec, key, instruction, parentId: activeId };
           setPinnedSpec(displaySpec);
           setRefineError(null);
+          setValidationError(null);
           setActiveId(null);
           void send(
             createSubtreeRefinementPrompt(subtree, ancestors, instruction),
@@ -21191,7 +21220,7 @@
         }
         const retryPrompt = activeEntry ? resolveEntry(activeEntry).prompt : rawPrompt;
         if (!retryPrompt) return;
-        const recoverableError = error && !isTransportError(error) ? error : null;
+        const recoverableError = validationError ?? (error && !isTransportError(error) ? error : null);
         setRawPrompt(retryPrompt);
         promptRef.current = retryPrompt;
         kindRef.current = recoverableError ? "recover" : "generate";
@@ -21204,7 +21233,7 @@
         } else {
           void send(retryPrompt);
         }
-      }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
+      }, [activeEntry, error, validationError, rawPrompt, resetTo, send, refineNode]);
     
       const applyDiff = useCallback(
         (diff: SpecDiff | null) => {
