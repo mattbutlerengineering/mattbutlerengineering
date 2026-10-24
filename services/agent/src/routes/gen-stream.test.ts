@@ -107,7 +107,7 @@ describe("gen-stream", () => {
       logGenCost(log, {
         usage: { inputTokens: 1, outputTokens: 1 },
         providerMetadata: undefined,
-        label: "gen-chat cost log",
+        label: "gen-ui cost log",
       });
 
       const infoCall = log.info.mock.calls[0];
