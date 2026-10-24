@@ -1020,6 +1020,23 @@ describe("registry seam validation (graceful degradation)", () => {
     expect(within(root).getByText("Still Here")).toBeTruthy();
   });
 
+  it("clamps an over-limit string prop instead of dropping the element", () => {
+    // Live chat run 2026-10-24: the model sent an 89-char Alert title against a
+    // 60-char limit and the whole Alert became "Component could not be displayed".
+    const longTitle =
+      "Which venue should I check? Send me the venue ID and I'll pull up tonight's reservations.";
+    expect(longTitle.length).toBeGreaterThan(60);
+    const { container } = renderSpec({
+      root: "alert",
+      elements: { alert: { type: "Alert", props: { variant: "info", title: longTitle } } },
+    });
+
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    const shown = within(container).getByText(/^Which venue should I check\?/);
+    expect(shown.textContent!.length).toBeLessThanOrEqual(60);
+    expect(shown.textContent!.endsWith("…")).toBe(true);
+  });
+
   it("does not render a fallback for a fully valid element", () => {
     const { container } = renderSpec({
       root: "ok",
