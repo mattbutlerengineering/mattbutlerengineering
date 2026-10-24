@@ -6941,6 +6941,18 @@
       const { selectedVenue } = useVenue();
       return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
     }
+    export function useChatSuggestions(): readonly string[] {
+      const { t } = useTranslation();
+      return useMemo(
+        () => [
+          t("chat.suggestions.tonight"),
+          t("chat.suggestions.openTables"),
+          t("chat.suggestions.availability"),
+          t("chat.suggestions.walkIn"),
+        ],
+        [t]
+      );
+    }
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
     export function getSessionLapseCopy(t: TFunction) {
@@ -17101,6 +17113,10 @@
       readonly chatPlaceholder: string;
       /** ChatPanel send button. */
       readonly send: string;
+      /** ChatPanel button that stops a streaming reply. */
+      readonly stop: string;
+      /** ChatPanel accessible name for the starter-suggestion group. */
+      readonly chatSuggestions: string;
       /** ChatPanel drawer title. */
       readonly chat: string;
       /** ChatPanel tool denial, rendered after the bold tool name. */
@@ -17231,6 +17247,8 @@
       chatInput: "Chat input",
       chatPlaceholder: "Ask about availability, reservations...",
       send: "Send",
+      stop: "Stop",
+      chatSuggestions: "Suggested questions",
       chat: "Chat",
       toolBlocked: (reason) => `was blocked: ${reason}`,
       reservation: "Reservation",
@@ -18970,6 +18988,8 @@
       chatInput: "Entrada del chat",
       chatPlaceholder: "Pregunta sobre disponibilidad, reservaciones...",
       send: "Enviar",
+      stop: "Detener",
+      chatSuggestions: "Preguntas sugeridas",
       chat: "Conversación",
       toolBlocked: (reason) => `fue bloqueado: ${reason}`,
       reservation: "Reservación",
@@ -19114,6 +19134,8 @@
       chatInput: "Saisie du clavardage",
       chatPlaceholder: "Posez une question sur les disponibilités, les réservations...",
       send: "Envoyer",
+      stop: "Arrêter",
+      chatSuggestions: "Questions suggérées",
       chat: "Clavardage",
       toolBlocked: (reason) => `a été bloqué : ${reason}`,
       reservation: "Réservation",

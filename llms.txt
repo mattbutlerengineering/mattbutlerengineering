@@ -1848,6 +1848,9 @@
     <item priority="high">
       export function useChatRequestContext(): Record<string, string> { /* ... */ }
     </item>
+    <item priority="high">
+      export function useChatSuggestions(): readonly string[] { /* ... */ }
+    </item>
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
     <item priority="high">

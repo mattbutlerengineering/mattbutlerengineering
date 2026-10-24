@@ -71,6 +71,8 @@ export const esMX: RialtoMessages = {
   chatInput: "Entrada del chat",
   chatPlaceholder: "Pregunta sobre disponibilidad, reservaciones...",
   send: "Enviar",
+  stop: "Detener",
+  chatSuggestions: "Preguntas sugeridas",
   chat: "Conversación",
   toolBlocked: (reason) => `fue bloqueado: ${reason}`,
   reservation: "Reservación",

@@ -823,6 +823,18 @@
       const { selectedVenue } = useVenue();
       return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
     }
+    export function useChatSuggestions(): readonly string[] {
+      const { t } = useTranslation();
+      return useMemo(
+        () => [
+          t("chat.suggestions.tonight"),
+          t("chat.suggestions.openTables"),
+          t("chat.suggestions.availability"),
+          t("chat.suggestions.walkIn"),
+        ],
+        [t]
+      );
+    }
   </file>
   <file path="src/constants/session-lapse-copy.ts">
     export function getSessionLapseCopy(t: TFunction) {

@@ -1441,7 +1441,13 @@
     "back": "Volver al servicio de esta noche"
   },
   "chat": {
-    "title": "Chat"
+    "title": "Chat",
+    "suggestions": {
+      "tonight": "¿Cómo pinta la noche de hoy?",
+      "openTables": "¿Qué mesas están libres ahora?",
+      "availability": "¿Tenemos mesa para 4 a las 7 esta noche?",
+      "walkIn": "Llegaron 2 personas sin reserva. ¿Dónde las siento?"
+    }
   },
   "setupHours": {
     "title": "Horario de atención",

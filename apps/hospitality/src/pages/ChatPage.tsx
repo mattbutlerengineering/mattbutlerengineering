@@ -5,7 +5,11 @@ import { useAuth } from "@mbe/auth/react";
 import { ChatPanel } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { PageHeader } from "../components/PageHeader.js";
-import { HOSPITALITY_DOMAIN_CONTEXT, useChatRequestContext } from "../constants/copilotContext.js";
+import {
+  HOSPITALITY_DOMAIN_CONTEXT,
+  useChatRequestContext,
+  useChatSuggestions,
+} from "../constants/copilotContext.js";
 import styles from "./ChatPage.module.css";
 
 // Standalone mode never renders ChatPanel's own close control (that's a
@@ -17,6 +21,7 @@ export function ChatPage() {
   const { accessToken } = useAuth();
   const { t } = useTranslation();
   const requestContext = useChatRequestContext();
+  const suggestions = useChatSuggestions();
 
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
@@ -32,6 +37,7 @@ export function ChatPage() {
         getAccessToken={getAccessToken}
         registry={registry}
         requestContext={requestContext}
+        suggestions={suggestions}
       />
     </div>
   );

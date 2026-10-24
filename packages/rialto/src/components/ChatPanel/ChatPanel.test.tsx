@@ -415,6 +415,74 @@ describe("ChatPanel", () => {
     expect(input).toBeEnabled();
   });
 
+  it("offers starter suggestions on an empty conversation and sends one on click", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatPanel {...defaultProps} suggestions={["How does tonight look?", "Seat a walk-in"]} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "How does tonight look?" }));
+
+    expect(mockSend).toHaveBeenCalledWith("How does tonight look?");
+  });
+
+  it("hides suggestions once the conversation has started", () => {
+    mockHookReturn = { ...mockHookReturn, messages: [{ role: "user", content: "hi" }] };
+    render(<ChatPanel {...defaultProps} suggestions={["How does tonight look?"]} />);
+
+    expect(screen.queryByRole("button", { name: "How does tonight look?" })).toBeNull();
+  });
+
+  it("shows a typing indicator on every turn while waiting for the reply", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [
+        { role: "user", content: "first" },
+        { role: "assistant", content: "answer" },
+        { role: "user", content: "second" },
+      ],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.getByLabelText("Loading")).toBeInTheDocument();
+  });
+
+  it("replaces Send with Stop while a reply is streaming", async () => {
+    const user = userEvent.setup();
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [{ role: "user", content: "hi" }],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Stop" }));
+
+    expect(mockStop).toHaveBeenCalled();
+  });
+
+  it("scrolls the conversation to the newest message", () => {
+    const scrollTo = vi.fn();
+    const original = HTMLElement.prototype.scrollTo;
+    HTMLElement.prototype.scrollTo = scrollTo;
+    try {
+      mockHookReturn = {
+        ...mockHookReturn,
+        messages: [
+          { role: "user", content: "hi" },
+          { role: "assistant", content: "hello" },
+        ],
+      };
+      render(<ChatPanel {...defaultProps} />);
+
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number) }));
+    } finally {
+      HTMLElement.prototype.scrollTo = original;
+    }
+  });
+
   it("passes axe", async () => {
     const { container } = render(<ChatPanel {...defaultProps} />);
     const results = await axe(container, {

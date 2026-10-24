@@ -1441,7 +1441,13 @@
     "back": "Retour au service de ce soir"
   },
   "chat": {
-    "title": "Clavardage"
+    "title": "Clavardage",
+    "suggestions": {
+      "tonight": "De quoi a l’air la soirée?",
+      "openTables": "Quelles tables sont libres en ce moment?",
+      "availability": "Avons-nous une table pour 4 à 19 h ce soir?",
+      "walkIn": "Deux personnes viennent d’arriver sans réservation. Où les placer?"
+    }
   },
   "setupHours": {
     "title": "Heures d'ouverture",
