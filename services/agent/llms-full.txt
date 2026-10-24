@@ -632,6 +632,14 @@
     }
   </file>
   <file path="src/routes/gen-agent.ts">
+    export function agentApiOrigin(apiBaseUrl: string | undefined): string {
+      if (!apiBaseUrl) return LOCAL_API_ORIGIN;
+      try {
+        return new URL(apiBaseUrl).origin;
+      } catch {
+        return LOCAL_API_ORIGIN;
+      }
+    }
     function isTimeZone(value: string): boolean {
       try {
         new Intl.DateTimeFormat("en-US", { timeZone: value });
@@ -678,7 +686,7 @@
         const authHeader = request.headers.authorization;
         const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
         const api = createApiClient({
-          baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
+          baseUrl: agentApiOrigin(process.env.API_BASE_URL),
           getAccessToken: () => token,
         });
         return createAgentTools(request.log, api, {

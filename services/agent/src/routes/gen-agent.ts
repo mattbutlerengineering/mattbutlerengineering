@@ -7,6 +7,23 @@ import { createAgentTools } from "./gen-agent-tools.js";
 import { createGenRoute } from "./gen-route-factory.js";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 
+const LOCAL_API_ORIGIN = "http://localhost:3000";
+
+/**
+ * The origin the agent's api-client calls. api-client paths are absolute
+ * (`/api/v1/...`) but prod's API_BASE_URL carries an `/api` suffix, so using it
+ * verbatim requested `/api/api/v1/...` and every tool call 404'd. Same rule as
+ * service-bootstrap's Swagger server URL: only the origin is used.
+ */
+export function agentApiOrigin(apiBaseUrl: string | undefined): string {
+  if (!apiBaseUrl) return LOCAL_API_ORIGIN;
+  try {
+    return new URL(apiBaseUrl).origin;
+  } catch {
+    return LOCAL_API_ORIGIN;
+  }
+}
+
 function isTimeZone(value: string): boolean {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: value });
@@ -83,7 +100,7 @@ export const genAgentRoutes = createGenRoute({
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
     const api = createApiClient({
-      baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
+      baseUrl: agentApiOrigin(process.env.API_BASE_URL),
       getAccessToken: () => token,
     });
     return createAgentTools(request.log, api, {
