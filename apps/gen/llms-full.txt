@@ -373,7 +373,11 @@
               return;
             }
     
-            const error = err instanceof Error ? err : new Error(String(err));
+            const raised = err instanceof Error ? err : new Error(String(err));
+            // Swap in limit-specific copy but keep the status fields, so the
+            // result still classifies as a transport failure.
+            const limitCopy = describeLimitError(raised);
+            const error = limitCopy ? Object.assign(new Error(limitCopy), { ...raised }) : raised;
             setError(error);
             setIsStreaming(false);
             onErrorRef.current?.(error);
@@ -1164,9 +1168,35 @@
     export function isTransportError(error: Error): boolean {
       return (
         error instanceof TypeError ||
+        statusOf(error) !== undefined ||
         error.message.startsWith("Request failed:") ||
         error.message === "Response body is not readable"
       );
+    }
+    function statusOf(error: Error): number | undefined {
+      const status = (error as { status?: unknown }).status;
+      return typeof status === "number" ? status : undefined;
+    }
+    function minutesLabel(seconds: number | undefined): string {
+      const minutes = Math.max(1, Math.ceil((seconds ?? 60) / 60));
+      return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+    }
+    export function describeLimitError(error: Error): string | null {
+      const status = statusOf(error);
+      const { problemType, retryAfterSeconds } = error as {
+        problemType?: string;
+        retryAfterSeconds?: number;
+      };
+      if (status === 429) {
+        return `You've sent too many requests. Try again in about ${minutesLabel(retryAfterSeconds)}.`;
+      }
+      if (status === 503 && problemType === CEILING_REACHED) {
+        return "The daily budget for generation has been reached. Come back tomorrow.";
+      }
+      if (status === 503 && problemType === CEILING_UNAVAILABLE) {
+        return "Generation is temporarily unavailable. Please try again shortly.";
+      }
+      return null;
     }
   </file>
   <file path="src/pages/createErrorRecoveryPrompt.ts">
