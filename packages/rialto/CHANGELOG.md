@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.8.2
+
+### Patch Changes
+
+- [#7411](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7411) [`996a9ab`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/996a9ab681b474138020f58754f222652a22d51d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tag: selected state uses `--rialto-text-on-accent` text so it meets WCAG AA 4.5:1 contrast in light and dark themes.
+
+- [#7407](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7407) [`c67f643`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c67f64308d20e8f029901ebe0be210a0fc64a64f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart: a bar's accessible name now always contains its visible text (title and price), fixing the axe `label-content-name-mismatch` finding (WCAG 2.5.3).
+
 ## 0.8.1
 
 ### Patch Changes
