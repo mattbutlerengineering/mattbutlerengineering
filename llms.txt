@@ -174,7 +174,11 @@
         role: "user" | "assistant";
         content: string;
         elements?: ChatMessageElement[];
+        note?: string;
       }
+    </item>
+    <item priority="medium">
+      function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } { /* ... */ }
     </item>
     <item priority="low">
       interface PendingAction {

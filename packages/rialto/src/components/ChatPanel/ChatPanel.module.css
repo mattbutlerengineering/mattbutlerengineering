@@ -41,6 +41,13 @@
   white-space: pre-wrap;
 }
 
+.messageNote {
+  display: block;
+  margin-block-start: var(--rialto-space-xs);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
 .suggestions {
   display: flex;
   flex-direction: column;

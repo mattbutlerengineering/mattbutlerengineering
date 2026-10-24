@@ -333,6 +333,50 @@ describe("useChatStream", () => {
     expect(result.current.pendingAction).toBeNull();
   });
 
+  it("tells the model about a cancel on the next turn, so it doesn't re-ask", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          { type: "text", content: "Seat Lee at lml?" },
+          {
+            type: "action_request",
+            actionId: "call-4",
+            toolName: "seat_walk_in",
+            toolInput: { partySize: 2 },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Okay." }]));
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("seat Lee");
+    });
+    act(() => {
+      result.current.cancelAction();
+    });
+
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "Seat Lee at lml?",
+      note: "Cancelled. Nothing was changed.",
+    });
+
+    await act(async () => {
+      await result.current.send("thanks");
+    });
+
+    const body = vi.mocked(streamNDJSON).mock.calls[1]![0].body as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(body.messages).toEqual([
+      { role: "user", content: "seat Lee" },
+      { role: "assistant", content: "Seat Lee at lml?\n\nCancelled. Nothing was changed." },
+      { role: "user", content: "thanks" },
+    ]);
+  });
+
   it("exposes a human-readable error when the stream fails", async () => {
     vi.mocked(streamNDJSON).mockReturnValueOnce(
       erroringStream(new Error("Request failed: Internal Server Error"))

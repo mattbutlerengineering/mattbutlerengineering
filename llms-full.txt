@@ -296,6 +296,11 @@
       role: "user" | "assistant";
       content: string;
       elements?: ChatMessageElement[];
+      /** A local outcome shown under the message (e.g. a cancelled action). */
+      note?: string;
+    }
+    function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } {
+      return { role: m.role, content: m.note ? `${m.content}\n\n${m.note}` : m.content };
     }
     export interface PendingAction {
       actionId: string;
@@ -489,10 +494,7 @@
           const updatedMessages = [...messagesRef.current, userMessage];
           setMessages(updatedMessages);
     
-          await streamRequest(
-            { messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })) },
-            updatedMessages
-          );
+          await streamRequest({ messages: updatedMessages.map(toWireMessage) }, updatedMessages);
         },
         [streamRequest]
       );
@@ -507,7 +509,7 @@
         await streamRequest(
           {
             ...pendingContextRef.current,
-            messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
+            messages: currentMsgs.map(toWireMessage),
             // The server executes exactly this toolName + toolInput (its confirmation
             // gate ignores the model's re-derived input), so send what the user saw.
             actionConfirm: {
@@ -522,7 +524,13 @@
     
       const cancelAction = useCallback(() => {
         setPendingAction(null);
-      }, []);
+        // Mark the proposing reply, so the UI and the next request both say so.
+        setMessages((prev) => {
+          const last = prev.at(-1);
+          if (last?.role !== "assistant") return prev;
+          return [...prev.slice(0, -1), { ...last, note: t.actionCancelled }];
+        });
+      }, [t]);
     
       const stop = useCallback(() => {
         abortControllerRef.current?.abort();
@@ -17157,6 +17165,8 @@
       readonly stop: string;
       /** ChatPanel accessible name for the starter-suggestion group. */
       readonly chatSuggestions: string;
+      /** ChatPanel note under a reply whose proposed action the user cancelled. */
+      readonly actionCancelled: string;
       /** ChatPanel drawer title. */
       readonly chat: string;
       /** ChatPanel tool denial, rendered after the bold tool name. */
@@ -17289,6 +17299,7 @@
       send: "Send",
       stop: "Stop",
       chatSuggestions: "Suggested questions",
+      actionCancelled: "Cancelled. Nothing was changed.",
       chat: "Chat",
       toolBlocked: (reason) => `was blocked: ${reason}`,
       reservation: "Reservation",
@@ -19030,6 +19041,7 @@
       send: "Enviar",
       stop: "Detener",
       chatSuggestions: "Preguntas sugeridas",
+      actionCancelled: "Cancelado. No se cambió nada.",
       chat: "Conversación",
       toolBlocked: (reason) => `fue bloqueado: ${reason}`,
       reservation: "Reservación",
@@ -19176,6 +19188,7 @@
       send: "Envoyer",
       stop: "Arrêter",
       chatSuggestions: "Questions suggérées",
+      actionCancelled: "Annulé. Rien n’a été modifié.",
       chat: "Clavardage",
       toolBlocked: (reason) => `a été bloqué : ${reason}`,
       reservation: "Réservation",

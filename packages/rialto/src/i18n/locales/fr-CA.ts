@@ -73,6 +73,7 @@ export const frCA: RialtoMessages = {
   send: "Envoyer",
   stop: "Arrêter",
   chatSuggestions: "Questions suggérées",
+  actionCancelled: "Annulé. Rien n’a été modifié.",
   chat: "Clavardage",
   toolBlocked: (reason) => `a été bloqué : ${reason}`,
   reservation: "Réservation",

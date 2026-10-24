@@ -13,6 +13,17 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   elements?: ChatMessageElement[];
+  /** A local outcome shown under the message (e.g. a cancelled action). */
+  note?: string;
+}
+
+/**
+ * The text the server sees for a message. A note rides along with its message
+ * so the model learns the outcome (e.g. that the user cancelled), without
+ * inventing a turn the server's strict user/assistant alternation would reject.
+ */
+function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } {
+  return { role: m.role, content: m.note ? `${m.content}\n\n${m.note}` : m.content };
 }
 
 export interface PendingAction {
@@ -219,10 +230,7 @@ export function useChatStream({
       const updatedMessages = [...messagesRef.current, userMessage];
       setMessages(updatedMessages);
 
-      await streamRequest(
-        { messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })) },
-        updatedMessages
-      );
+      await streamRequest({ messages: updatedMessages.map(toWireMessage) }, updatedMessages);
     },
     [streamRequest]
   );
@@ -237,7 +245,7 @@ export function useChatStream({
     await streamRequest(
       {
         ...pendingContextRef.current,
-        messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
+        messages: currentMsgs.map(toWireMessage),
         // The server executes exactly this toolName + toolInput (its confirmation
         // gate ignores the model's re-derived input), so send what the user saw.
         actionConfirm: {
@@ -252,7 +260,13 @@ export function useChatStream({
 
   const cancelAction = useCallback(() => {
     setPendingAction(null);
-  }, []);
+    // Mark the proposing reply, so the UI and the next request both say so.
+    setMessages((prev) => {
+      const last = prev.at(-1);
+      if (last?.role !== "assistant") return prev;
+      return [...prev.slice(0, -1), { ...last, note: t.actionCancelled }];
+    });
+  }, [t]);
 
   const stop = useCallback(() => {
     abortControllerRef.current?.abort();

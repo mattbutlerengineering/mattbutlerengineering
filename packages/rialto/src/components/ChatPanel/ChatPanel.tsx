@@ -199,6 +199,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
             className={msg.role === "user" ? styles.userMessage : styles.assistantMessage}
           >
             {msg.content && <span className={styles.messageText}>{msg.content}</span>}
+            {msg.note && <span className={styles.messageNote}>{msg.note}</span>}
             {msg.elements && msg.elements.length > 0 && (
               <div className={styles.elements} data-testid="chat-elements">
                 {renderElements(msg.elements, registry)}

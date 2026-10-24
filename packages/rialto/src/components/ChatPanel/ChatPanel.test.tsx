@@ -369,6 +369,19 @@ describe("ChatPanel", () => {
     expect(screen.queryByText(/cmti2ghiw/)).toBeNull();
   });
 
+  it("shows a message's note under it (e.g. a cancelled action)", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        { role: "user", content: "seat Lee" },
+        { role: "assistant", content: "Seat Lee at lml?", note: "Cancelled. Nothing was changed." },
+      ],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.getByText("Cancelled. Nothing was changed.")).toBeInTheDocument();
+  });
+
   it("displays tool input details in confirmation prompt", () => {
     mockHookReturn = {
       ...mockHookReturn,
