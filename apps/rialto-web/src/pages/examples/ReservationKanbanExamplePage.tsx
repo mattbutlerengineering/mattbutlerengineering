@@ -186,7 +186,7 @@ function KanbanCardItem({
           <Button
             variant="ghost"
             size="sm"
-            aria-label={`Move ${card.guest} to next stage`}
+            aria-label={`Move to next stage → ${card.guest}`}
             onClick={() => onAdvance(card.id)}
           >
             Move to next stage →
