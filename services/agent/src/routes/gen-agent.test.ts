@@ -365,6 +365,48 @@ describe("POST /api/gen/agent", () => {
     });
   });
 
+  it("returns 400 for actionConfirm with a non-write toolName", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gen/agent",
+      payload: {
+        messages: [{ role: "user", content: "confirm it" }],
+        actionConfirm: { actionId: "call-1", toolName: "check_availability", toolInput: {} },
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("appends a confirmation message for the model when actionConfirm is present", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([{ type: "text-delta", text: "Done." }]),
+      usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    await app.inject({
+      method: "POST",
+      url: "/api/gen/agent",
+      payload: {
+        messages: [{ role: "user", content: "cancel the Smith reservation" }],
+        actionConfirm: {
+          actionId: "call-3",
+          toolName: "cancel_reservation",
+          toolInput: { reservationId: "r1" },
+        },
+      },
+    });
+
+    const call = vi.mocked(streamText).mock.calls[0]![0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const last = call.messages.at(-1)!;
+    expect(last.role).toBe("user");
+    expect(last.content).toContain("cancel_reservation");
+    expect(last.content.toLowerCase()).toContain("confirm");
+  });
+
   it("streams NDJSON text response", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
       fullStream: mockAsyncIterable([

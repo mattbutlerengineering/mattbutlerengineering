@@ -208,8 +208,16 @@ describe("useChatStream", () => {
     expect(result.current.pendingAction).toBeNull();
 
     const lastCall = vi.mocked(streamNDJSON).mock.calls[1]![0];
-    const body = lastCall.body as { actionConfirm: { actionId: string } };
-    expect(body.actionConfirm).toEqual({ actionId: "call-3" });
+    const body = lastCall.body as {
+      actionConfirm: { actionId: string; toolName: string; toolInput: Record<string, unknown> };
+    };
+    // The server's confirmation gate executes exactly this toolName + toolInput,
+    // so the confirm resend must carry what the user saw — not just the id.
+    expect(body.actionConfirm).toEqual({
+      actionId: "call-3",
+      toolName: "create_reservation",
+      toolInput: { guestName: "Smith" },
+    });
   });
 
   it("cancel clears pending action and adds cancel message", async () => {

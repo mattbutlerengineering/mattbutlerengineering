@@ -215,7 +215,13 @@ export function useChatStream({
     await streamRequest(
       {
         messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
-        actionConfirm: { actionId: action.actionId },
+        // The server executes exactly this toolName + toolInput (its confirmation
+        // gate ignores the model's re-derived input), so send what the user saw.
+        actionConfirm: {
+          actionId: action.actionId,
+          toolName: action.toolName,
+          toolInput: action.toolInput,
+        },
       },
       currentMsgs
     );

@@ -57,13 +57,15 @@ export interface GenRunnerConfig {
 }
 
 /** Tool names that require user confirmation before execution. */
-export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
+export const GEN_WRITE_TOOL_NAMES = [
   "create_reservation",
   "modify_reservation",
   "cancel_reservation",
   "seat_walk_in",
   "update_table_status",
-]);
+] as const;
+
+export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
 
 export type GenToolMap = Record<string, unknown>;
 export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
