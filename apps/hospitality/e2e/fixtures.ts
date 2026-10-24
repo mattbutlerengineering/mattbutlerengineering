@@ -2,7 +2,6 @@ import { test as base } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { mockApi } from "./api-mocks.js";
 
-/* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
   authPage: async ({ page }, use) => {
     // storageState (from auth.setup.ts) already provides the OIDC session.
@@ -24,6 +23,5 @@ export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
     await page.unrouteAll({ behavior: "ignoreErrors" });
   },
 });
-/* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 
 export { expect } from "@playwright/test";

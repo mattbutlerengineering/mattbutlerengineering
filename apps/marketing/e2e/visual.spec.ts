@@ -75,7 +75,6 @@ const isAppData = (url: URL) =>
   url.hostname === "localhost" &&
   (/^\/(api|public)\//.test(url.pathname) || /\.json$/.test(url.pathname));
 
-/* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks -- Playwright fixtures, not React hooks */
 const test = base.extend<{ unmockedApi: string[] }>({
   // eslint-disable-next-line no-empty-pattern -- Playwright's fixture signature
   unmockedApi: async ({}, use) => {
@@ -97,7 +96,6 @@ const test = base.extend<{ unmockedApi: string[] }>({
     await use(page);
   },
 });
-/* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 
 interface LedgerRow {
   route: string;

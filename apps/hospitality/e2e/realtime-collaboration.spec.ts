@@ -85,7 +85,6 @@ function buildUpdatedReservations(): string {
  * Each context carries its own auth session (loaded from the shared storageState)
  * and its own route handlers, giving true isolation between "Host A" and "Host B".
  */
-/* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 const test = base.extend<{
   contextA: BrowserContext;
   contextB: BrowserContext;
@@ -149,7 +148,6 @@ const test = base.extend<{
     await page.unrouteAll({ behavior: "ignoreErrors" });
   },
 });
-/* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 
 test.describe("CF-10: Real-time collaboration across two sessions", () => {
   test("Context B receives SSE walk-in event and shows new reservation without reload", async ({
