@@ -32,6 +32,7 @@ export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
     venueLine,
     "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
     "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
+    "A change (booking, walk-in, cancellation, table status) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
     "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
     "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
     "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
