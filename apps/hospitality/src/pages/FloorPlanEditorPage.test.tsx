@@ -370,11 +370,11 @@ function createWrapper() {
   };
 }
 
-function renderPage(id = "fp-1") {
+function renderPage(id = "fp-1", search = "") {
   const Wrapper = createWrapper();
   return render(
     <Wrapper>
-      <MemoryRouter initialEntries={[`/floor-plans/${id}`]}>
+      <MemoryRouter initialEntries={[`/floor-plans/${id}${search}`]}>
         <Routes>
           <Route path="/floor-plans/:id" element={<FloorPlanEditorPage />} />
         </Routes>
@@ -398,6 +398,36 @@ beforeEach(async () => {
 /* ── Tests ────────────────────────────────────────────────────── */
 
 describe("FloorPlanEditorPage", () => {
+  describe("rehearsal mode (#7373)", () => {
+    it("shows the banner and a read-only canvas with no editing controls or API writes", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A, TABLE_B] });
+      renderPage("fp-1", "?rehearsal=true");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("rehearsal-banner")).toBeDefined();
+      });
+      expect(screen.queryByText("+ Add Table")).toBeNull();
+      expect(screen.queryByText("Set as Active")).toBeNull();
+      for (const write of [
+        mockBulkUpdatePositions,
+        mockSetActive,
+        mockUpdate,
+        mockSectionsUpdate,
+        mockTablesCreate,
+        mockTablesDelete,
+      ]) {
+        expect(write).not.toHaveBeenCalled();
+      }
+    });
+
+    it("has no banner outside rehearsal mode", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+      await waitFor(() => expect(screen.getByText("Main Dining")).toBeDefined());
+      expect(screen.queryByTestId("rehearsal-banner")).toBeNull();
+    });
+  });
+
   describe("page load", () => {
     it("shows loading spinner initially", () => {
       // Never resolves during this test
