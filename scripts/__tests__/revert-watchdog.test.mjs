@@ -1086,6 +1086,52 @@ describe("runReopenOnRevertMerge", () => {
     expect(deps.getCulpritPr).not.toHaveBeenCalled();
   });
 
+  it("reopens every issue a culprit with many closing keywords closed", async () => {
+    const deps = base();
+    deps.getCulpritPr = vi.fn(async () => ({
+      number: 80,
+      body: "Closes #5\nFixes #6\nResolves #7",
+      merge_commit_sha: "msha",
+    }));
+    deps.getIssue = vi.fn(async (n) => ({
+      number: n,
+      state: "closed",
+      state_reason: "completed",
+      closedByCommit: "msha",
+    }));
+    expect(await runReopenOnRevertMerge(deps)).toEqual([5, 6, 7]);
+    expect(deps.reopenIssue).toHaveBeenCalledTimes(3);
+  });
+
+  it("is a no-op for an issue a human already reopened (no second comment)", async () => {
+    const deps = base();
+    deps.getIssue = vi.fn(async (n) => ({
+      number: n,
+      state: "open",
+      state_reason: "reopened",
+      closedByCommit: "msha",
+    }));
+    expect(await runReopenOnRevertMerge(deps)).toEqual([]);
+    expect(deps.reopenIssue).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent: a re-run on the same merged revert reopens nothing new", async () => {
+    const deps = base();
+    const open = new Set();
+    deps.getIssue = vi.fn(async (n) => ({
+      number: n,
+      state: open.has(n) ? "open" : "closed",
+      state_reason: open.has(n) ? "reopened" : "completed",
+      closedByCommit: "msha",
+    }));
+    deps.reopenIssue = vi.fn(async (n) => {
+      open.add(n);
+    });
+    expect(await runReopenOnRevertMerge(deps)).toEqual([5, 6]);
+    expect(await runReopenOnRevertMerge(deps)).toEqual([]);
+    expect(deps.reopenIssue).toHaveBeenCalledTimes(2);
+  });
+
   it("is a no-op when the culprit PR closed nothing", async () => {
     const deps = base();
     deps.getCulpritPr = vi.fn(async () => ({
