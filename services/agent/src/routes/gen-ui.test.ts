@@ -190,14 +190,15 @@ describe("POST /api/gen/ui", () => {
       expect.objectContaining({
         model: mockAnthropicModel,
         tools: expect.objectContaining({ render_component: expect.anything() }),
+        // ai@7: system prompt rides the instructions option, never messages.
+        instructions: expect.objectContaining({
+          role: "system",
+          content: expect.stringContaining("mock system prompt"),
+          providerOptions: {
+            anthropic: { cacheControl: { type: "ephemeral" } },
+          },
+        }),
         messages: expect.arrayContaining([
-          expect.objectContaining({
-            role: "system",
-            content: expect.stringContaining("mock system prompt"),
-            providerOptions: {
-              anthropic: { cacheControl: { type: "ephemeral" } },
-            },
-          }),
           expect.objectContaining({
             role: "user",
             content: "a booking form",

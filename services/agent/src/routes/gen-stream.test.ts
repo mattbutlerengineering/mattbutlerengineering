@@ -1,31 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import type { FastifyBaseLogger, FastifyReply } from "fastify";
-import { GEN_MODEL_ID, buildGenMessages, logGenCost, applyStreamHeaders } from "./gen-stream.js";
+import {
+  GEN_MODEL_ID,
+  genSystemInstructions,
+  logGenCost,
+  applyStreamHeaders,
+} from "./gen-stream.js";
 
 describe("gen-stream", () => {
-  describe("buildGenMessages", () => {
-    it("prepends a cache-controlled system message before the conversation", () => {
-      const out = buildGenMessages("SYS", [
-        { role: "user", content: "hi" },
-        { role: "assistant", content: "hello" },
-      ]);
-
-      expect(out).toHaveLength(3);
-      expect(out[0]).toEqual({
+  describe("genSystemInstructions", () => {
+    it("builds a cache-controlled system message for streamText's instructions option", () => {
+      // ai@7 forbids system-role entries inside `messages`; the instructions
+      // option accepts a SystemModelMessage so cacheControl is preserved.
+      expect(genSystemInstructions("SYS")).toEqual({
         role: "system",
         content: "SYS",
         providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       });
-      expect(out[1]).toEqual({ role: "user", content: "hi" });
-      expect(out[2]).toEqual({ role: "assistant", content: "hello" });
-    });
-
-    it("handles an empty conversation (system message only)", () => {
-      const out = buildGenMessages("SYS", []);
-      expect(out).toHaveLength(1);
-      const [systemMessage] = out;
-      if (!systemMessage) throw new Error("expected a system message");
-      expect(systemMessage.role).toBe("system");
     });
   });
 

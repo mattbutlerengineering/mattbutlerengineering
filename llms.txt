@@ -7945,10 +7945,7 @@
       export const GEN_MAX_OUTPUT_TOKENS: unknown;
     </item>
     <item priority="high">
-      type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: ...;
-    </item>
-    <item priority="high">
-      export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) { /* ... */ }
+      export function genSystemInstructions(systemPrompt: string) { /* ... */ }
     </item>
     <item priority="high">
       interface GenUsage {
