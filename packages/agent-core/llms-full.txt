@@ -1211,6 +1211,10 @@
     export function suiteDidNotRun(report: EvalReport): boolean {
       return report.tasks.length > 0 && report.tasks.every(taskDidNotRun);
     }
+    export function suiteJudgeUnavailable(report: EvalReport): boolean {
+      const judged = report.tasks.filter((t) => t.judgeResult !== undefined);
+      return judged.length > 0 && judged.every((t) => t.judgeResult?.evaluationFailed === true);
+    }
   </file>
   <file path="src/eval/task-scorer.ts">
     export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Promise<TaskScore> {
@@ -1226,14 +1230,18 @@
     
       // LLM-judge signals — only when criteria are specified and a judge is injected.
       let judgeResult: TaskScore["judgeResult"];
+      let inconclusiveJudge = false;
       if (rubric.judgeCriteria.length > 0) {
         judgeResult = await runJudge(task.prompt, rubric.judgeCriteria.join("\n"), judge);
-        signals.push(judgeResult.passed);
+        // An unavailable judge is not a verdict: it keeps the task from passing
+        // but must not lower the score as though the work had been judged bad (#7351).
+        if (judgeResult.evaluationFailed) inconclusiveJudge = true;
+        else signals.push(judgeResult.passed);
       }
     
       const satisfied = signals.filter(Boolean).length;
       const score = signals.length === 0 ? 0 : satisfied / signals.length;
-      const passed = signals.every(Boolean);
+      const passed = !inconclusiveJudge && signals.every(Boolean);
     
       return {
         taskId: task.id,
@@ -9333,7 +9341,9 @@
           prompt,
           options: {
             model: mergedConfig.model,
-            maxTurns: 1,
+            // A json_schema response needs a turn beyond the answer itself: with 1
+            // the SDK returns error_max_turns on every call (#7351).
+            maxTurns: JUDGE_MAX_TURNS,
             maxBudgetUsd: mergedConfig.maxBudgetUsd,
             permissionMode: "plan",
             systemPrompt: "You are a code review evaluator. Respond only with the requested JSON.",

@@ -118,6 +118,36 @@ describe("evaluateSuccess", () => {
     expect(result.passed).toBe(true);
   });
 
+  it("allows more than one turn so a json_schema response can complete (#7351)", async () => {
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([
+        createMockEvalResult({ passed: true, confidence: 0.9, reasoning: "ok", issues: [] }),
+      ]) as ReturnType<typeof query>
+    );
+
+    await evaluateSuccess("Fix bug", "diff --git a/file.ts");
+
+    expect(vi.mocked(query).mock.calls[0]![0].options?.maxTurns).toBeGreaterThanOrEqual(2);
+  });
+
+  it("reports turn exhaustion as evaluationFailed, not a verdict (#7351)", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([
+        {
+          ...createMockEvalResult({ passed: true, confidence: 1, reasoning: "", issues: [] }),
+          subtype: "error_max_turns",
+        },
+      ]) as unknown as ReturnType<typeof query>
+    );
+
+    const result = await evaluateSuccess("Fix bug", "diff --git a/file.ts");
+
+    expect(result.evaluationFailed).toBe(true);
+    expect(result.passed).toBe(false);
+    consoleError.mockRestore();
+  });
+
   // ── fail-closed when the LLM judge could not run ─────────────────────
 
   it("fails closed (not a pass) when the SDK query throws", async () => {
