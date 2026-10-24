@@ -11,6 +11,7 @@ vi.mock("../constants/copilotContext.js", () => ({
   HOSPITALITY_DOMAIN_CONTEXT: { schemas: [] },
   useChatRequestContext: () => ({ venueId: "venue-1", timeZone: "America/Los_Angeles" }),
   useChatSuggestions: () => ["How does tonight look?"],
+  useDescribeChatAction: () => () => ({ title: "", details: [] }),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({

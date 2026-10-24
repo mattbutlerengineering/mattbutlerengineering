@@ -51,6 +51,13 @@
       "slots": []
     },
     {
+      "name": "ActionDescription",
+      "description": "How the confirm bar presents a pending write: a title and labelled values.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "Alert",
       "description": "Props for the Alert component, an inline feedback message used to communicate\ncontextual information, success confirmations, warnings, or errors within a page flow.\n\nDismissible alerts animate out and call `onDismiss` after the exit transition completes.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -763,6 +770,12 @@
           "type": "readonly string[] | undefined",
           "required": false,
           "description": "Starter prompts offered on an empty conversation; clicking one sends it."
+        },
+        {
+          "name": "describeAction",
+          "type": "((action: PendingAction) => ActionDescription) | undefined",
+          "required": false,
+          "description": "Presents a pending write in the confirm bar (e.g. a table's name instead of\nits id). Defaults to the tool name and raw input."
         }
       ],
       "slots": []

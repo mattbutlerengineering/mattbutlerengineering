@@ -1423,6 +1423,25 @@
       "openTables": "Which tables are open right now?",
       "availability": "Do we have a table for 4 at 7 tonight?",
       "walkIn": "Party of 2 just walked in. Where can I seat them?"
+    },
+    "actions": {
+      "create_reservation": "Book a reservation",
+      "modify_reservation": "Change a reservation",
+      "cancel_reservation": "Cancel a reservation",
+      "seat_walk_in": "Seat a walk-in",
+      "update_table_status": "Update a table",
+      "fields": {
+        "guestName": "Guest",
+        "partySize": "Party size",
+        "date": "Date",
+        "startTime": "Start",
+        "endTime": "End",
+        "tableId": "Table",
+        "table": "Table",
+        "status": "Status",
+        "notes": "Notes",
+        "reservationId": "Reservation"
+      }
     }
   },
   "setupHours": {

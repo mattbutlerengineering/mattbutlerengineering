@@ -22,6 +22,7 @@ import {
   HOSPITALITY_DOMAIN_CONTEXT,
   useChatRequestContext,
   useChatSuggestions,
+  useDescribeChatAction,
 } from "../constants/copilotContext.js";
 import { getSessionLapseCopy } from "../constants/session-lapse-copy.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
@@ -94,6 +95,7 @@ function DashboardLayoutInner() {
   const { selectedVenue, venuesError, refetchVenues } = useVenue();
   const chatRequestContext = useChatRequestContext();
   const chatSuggestions = useChatSuggestions();
+  const describeChatAction = useDescribeChatAction();
   useSSESync();
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -434,6 +436,7 @@ function DashboardLayoutInner() {
             registry={registry}
             requestContext={chatRequestContext}
             suggestions={chatSuggestions}
+            describeAction={describeChatAction}
           />
         </div>
       )}

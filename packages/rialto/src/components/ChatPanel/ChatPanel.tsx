@@ -2,7 +2,7 @@ import { forwardRef, useState, useCallback, useEffect, useRef, type KeyboardEven
 import { Drawer } from "../Drawer/Drawer.js";
 import { useChatStream, type ChatStreamFn } from "./useChatStream.js";
 import type { DomainContext } from "./types.js";
-import type { ChatMessageElement } from "./useChatStream.js";
+import type { ChatMessageElement, PendingAction } from "./useChatStream.js";
 import { sanitizeElementProps } from "./sanitize.js";
 import styles from "./ChatPanel.module.css";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
@@ -72,6 +72,23 @@ function renderElements(
   return topLevel.map((el) => renderElement(el, registry, byId, new Set()));
 }
 
+/** How the confirm bar presents a pending write: a title and labelled values. */
+export interface ActionDescription {
+  title: string;
+  details: ReadonlyArray<{ label: string; value: string }>;
+}
+
+/** The default: the tool name and its raw input, as the server sent them. */
+function describeRawAction(action: PendingAction): ActionDescription {
+  return {
+    title: action.toolName.replace(/_/g, " "),
+    details: Object.entries(action.toolInput).map(([label, value]) => ({
+      label,
+      value: String(value),
+    })),
+  };
+}
+
 export interface ChatPanelProps {
   onClose: () => void;
   api: string;
@@ -85,6 +102,11 @@ export interface ChatPanelProps {
   requestContext?: Readonly<Record<string, unknown>>;
   /** Starter prompts offered on an empty conversation; clicking one sends it. */
   suggestions?: readonly string[];
+  /**
+   * Presents a pending write in the confirm bar (e.g. a table's name instead of
+   * its id). Defaults to the tool name and raw input.
+   */
+  describeAction?: (action: PendingAction) => ActionDescription;
 }
 
 export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function ChatPanel(
@@ -98,6 +120,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
     registry,
     requestContext,
     suggestions,
+    describeAction = describeRawAction,
   },
   ref
 ) {
@@ -211,14 +234,21 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
       </div>
       {pendingAction && (
         <div className={styles.confirmBar} role="alert">
-          <div className={styles.confirmLabel}>{pendingAction.toolName.replace(/_/g, " ")}</div>
-          <div className={styles.confirmDetails}>
-            {Object.entries(pendingAction.toolInput).map(([key, value]) => (
-              <span key={key} className={styles.confirmDetail}>
-                <strong>{key}</strong>: {String(value)}
-              </span>
-            ))}
-          </div>
+          {(() => {
+            const description = describeAction(pendingAction);
+            return (
+              <>
+                <div className={styles.confirmLabel}>{description.title}</div>
+                <div className={styles.confirmDetails}>
+                  {description.details.map(({ label, value }) => (
+                    <span key={label} className={styles.confirmDetail}>
+                      <strong>{label}</strong>: {value}
+                    </span>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
           <div className={styles.confirmActions}>
             <button
               className={styles.confirmButton}

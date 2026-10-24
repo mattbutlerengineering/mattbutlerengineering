@@ -835,6 +835,46 @@
         [t]
       );
     }
+    type ChatActionKey =
+      | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
+      | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
+      | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+    type Translate = (key: ChatActionKey) => string;
+    function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
+      return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+    }
+    export function describeChatAction(
+      action: PendingAction,
+      t: Translate,
+      tableName: (id: string) => string | undefined
+    ): ActionDescription {
+      const titleKey = lookup(ACTION_TITLES, action.toolName);
+      return {
+        title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+        details: Object.entries(action.toolInput).map(([key, raw]) => {
+          const value = String(raw);
+          const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+          const shown =
+            key === "tableId" ? (tableName(value) ?? value) : statusKey ? t(statusKey) : value;
+          const labelKey = lookup(ACTION_FIELDS, key);
+          return { label: labelKey ? t(labelKey) : key, value: shown };
+        }),
+      };
+    }
+    export function useDescribeChatAction(): (action: PendingAction) => ActionDescription {
+      const { t } = useTranslation();
+      const { selectedVenue } = useVenue();
+      const { data: tables } = useTables({
+        venueId: selectedVenue?.id ?? "",
+        limit: 100,
+        enabled: Boolean(selectedVenue),
+      });
+      return useCallback(
+        (action: PendingAction) =>
+          describeChatAction(action, t, (id) => tables?.find((table) => table.id === id)?.name),
+        [t, tables]
+      );
+    }
   </file>
   <file path="src/constants/session-lapse-copy.ts">
     export function getSessionLapseCopy(t: TFunction) {

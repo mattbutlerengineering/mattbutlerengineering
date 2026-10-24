@@ -374,22 +374,26 @@ export function createAgentTools(
       description:
         "Update a table's status (clean, dirty, occupied, available). Requires confirmation.",
       inputSchema: z.object({
-        tableNumber: z.number().describe("Table number"),
+        table: z.string().describe("The table's name or number, as staff call it"),
         status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
       }),
-      execute: async ({ tableNumber, status: newStatus }) => {
+      execute: async ({ table: tableRef, status: newStatus }) => {
         if (!venueId) return NO_VENUE;
-        log.info({ venueId, tableNumber, newStatus }, "update_table_status tool called");
+        log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
         try {
           const tablesResult = await api.tables.list({ venueId });
-          const table = tablesResult.data.find((t) => t.tableNumber === String(tableNumber));
+          // Tables may have a number, a name, or both; staff use whichever is painted on.
+          const wanted = tableRef.trim().toLowerCase();
+          const table = tablesResult.data.find(
+            (t) => t.tableNumber === tableRef.trim() || t.name?.toLowerCase() === wanted
+          );
           if (!table) {
-            return { error: `Table ${tableNumber} not found in this venue.` };
+            return { error: `Table ${tableRef} not found in this venue.` };
           }
           const updated = await api.tables.updateStatus(table.id, newStatus);
           return { table: updated };
         } catch (err) {
-          log.error({ err, venueId, tableNumber }, "update_table_status failed");
+          log.error({ err, venueId, tableRef }, "update_table_status failed");
           return { error: "Failed to update table status. Please try again." };
         }
       },

@@ -1447,6 +1447,25 @@
       "openTables": "Quelles tables sont libres en ce moment?",
       "availability": "Avons-nous une table pour 4 à 19 h ce soir?",
       "walkIn": "Deux personnes viennent d’arriver sans réservation. Où les placer?"
+    },
+    "actions": {
+      "create_reservation": "Créer une réservation",
+      "modify_reservation": "Modifier une réservation",
+      "cancel_reservation": "Annuler une réservation",
+      "seat_walk_in": "Placer un client sans réservation",
+      "update_table_status": "Mettre une table à jour",
+      "fields": {
+        "guestName": "Client",
+        "partySize": "Personnes",
+        "date": "Date",
+        "startTime": "Début",
+        "endTime": "Fin",
+        "tableId": "Table",
+        "table": "Table",
+        "status": "Statut",
+        "notes": "Notes",
+        "reservationId": "Réservation"
+      }
     }
   },
   "setupHours": {

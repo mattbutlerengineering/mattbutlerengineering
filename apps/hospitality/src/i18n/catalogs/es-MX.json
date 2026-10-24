@@ -1447,6 +1447,25 @@
       "openTables": "¿Qué mesas están libres ahora?",
       "availability": "¿Tenemos mesa para 4 a las 7 esta noche?",
       "walkIn": "Llegaron 2 personas sin reserva. ¿Dónde las siento?"
+    },
+    "actions": {
+      "create_reservation": "Crear una reserva",
+      "modify_reservation": "Cambiar una reserva",
+      "cancel_reservation": "Cancelar una reserva",
+      "seat_walk_in": "Sentar a un cliente sin reserva",
+      "update_table_status": "Actualizar una mesa",
+      "fields": {
+        "guestName": "Cliente",
+        "partySize": "Personas",
+        "date": "Fecha",
+        "startTime": "Inicio",
+        "endTime": "Fin",
+        "tableId": "Mesa",
+        "table": "Mesa",
+        "status": "Estado",
+        "notes": "Notas",
+        "reservationId": "Reserva"
+      }
     }
   },
   "setupHours": {
