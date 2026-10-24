@@ -33,6 +33,7 @@ export function TapeChartSections() {
             endDate="2026-01-22"
             rooms={tapeChartDefaultRooms}
             reservations={tapeChartDefaultReservations}
+            strings={{ regionLabel: "Reservations tape chart — Default" }}
             currency="USD"
             density="comfortable"
             viewMode="grid"
@@ -50,6 +51,7 @@ export function TapeChartSections() {
             endDate="2026-01-29"
             rooms={tapeChartStressRooms}
             reservations={tapeChartStressReservations}
+            strings={{ regionLabel: "Reservations tape chart — Stress" }}
             currency="USD"
             density="comfortable"
             viewMode="grid"
@@ -67,6 +69,7 @@ export function TapeChartSections() {
             endDate="2026-03-09"
             rooms={OVERLAP.rooms}
             reservations={OVERLAP.reservations}
+            strings={{ regionLabel: "Reservations tape chart — Overlaps" }}
             classifyOverlap={CLASSIFY_OVERLAP}
             currency="USD"
             density="comfortable"

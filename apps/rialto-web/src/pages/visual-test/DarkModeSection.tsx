@@ -97,6 +97,7 @@ export function DarkModeSection() {
         <Section id="dark-tape-chart" title="Dark — TapeChart">
           <div className={styles.card}>
             <TapeChart
+              strings={{ regionLabel: "Reservations tape chart — Dark" }}
               startDate="2026-01-15"
               endDate="2026-01-22"
               rooms={tapeChartDefaultRooms}
