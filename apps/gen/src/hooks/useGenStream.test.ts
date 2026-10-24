@@ -151,4 +151,27 @@ describe("useGenStream", () => {
     expect(result.current.isStreaming).toBe(false);
     expect(onError).toHaveBeenCalledOnce();
   });
+
+  it("replaces a 429 with the per-user rate-limit copy, keeping the status", async () => {
+    mockStreamNDJSON.mockImplementation(() => {
+      async function* gen(): AsyncGenerator<never> {
+        yield* [] as never[];
+        throw Object.assign(new Error("Request failed: Too Many Requests"), {
+          status: 429,
+          retryAfterSeconds: 120,
+        });
+      }
+      return gen();
+    });
+
+    const onError = vi.fn();
+    const { result } = renderHook(() => useGenStream({ api: "/gen/stream", onError }));
+    await act(async () => {
+      await result.current.send("Test prompt");
+    });
+
+    expect(result.current.error?.message).toMatch(/too many requests.*2 minutes/i);
+    expect((result.current.error as Error & { status?: number }).status).toBe(429);
+    expect(onError).toHaveBeenCalledWith(result.current.error);
+  });
 });

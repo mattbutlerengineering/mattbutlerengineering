@@ -7005,6 +7005,15 @@
     <item priority="high">
       export function isTransportError(error: Error): boolean { /* ... */ }
     </item>
+    <item priority="medium">
+      function statusOf(error: Error): number | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function minutesLabel(seconds: number | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeLimitError(error: Error): string | null { /* ... */ }
+    </item>
   </file>
   <file path="apps/gen/src/pages/createErrorRecoveryPrompt.ts">
     <item priority="high">
@@ -7804,8 +7813,31 @@
     <item priority="high">
       type ApiClient = ReturnType<typeof createApiClient>;
     </item>
+    <item priority="low">
+      interface ConfirmedAction {
+        actionId: string;
+        toolName: string;
+        toolInput: Record<string, unknown>;
+      }
+    </item>
+    <item priority="low">
+      interface CreateAgentToolsOptions {
+        confirmedAction?: ConfirmedAction | undefined;
+      }
+    </item>
+    <item priority="medium">
+      function gateWriteTools(
+        tools: ToolSet,
+        log: FastifyBaseLogger,
+        confirmedAction?: ConfirmedAction
+      ): ToolSet { /* ... */ }
+    </item>
     <item priority="high">
-      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet { /* ... */ }
+      export function createAgentTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        options: CreateAgentToolsOptions = {}
+      ): ToolSet { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
@@ -7864,6 +7896,9 @@
         maxSteps: number;
         onFinish?: (payload: GenFinishPayload) => Promise<void>;
       }
+    </item>
+    <item priority="high">
+      export const GEN_WRITE_TOOL_NAMES: unknown;
     </item>
     <item priority="high">
       export const GEN_WRITE_TOOLS: ReadonlySet<string>;
@@ -10495,6 +10530,29 @@
     </item>
     <item priority="high">
       export const prisma: unknown;
+    </item>
+  </file>
+  <file path="services/agent/src/services/gen-spec-cache.ts">
+    <item priority="high">
+      export const GEN_SPEC_CACHE_TTL_HOURS: unknown;
+    </item>
+    <item priority="low">
+      interface GenSpecCacheKeyInput {
+        route: string;
+        messages: ReadonlyArray<{ readonly role: string; readonly content: ...;
+        modelId: string;
+        systemPrompt: string;
+        maxOutputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function genSpecCacheKey(input: GenSpecCacheKeyInput): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getCachedSpec(key: string): Promise<unknown[] | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function putCachedSpec(key: string, lines: unknown[]): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/services/gen-spend-ceiling.ts">
@@ -15639,6 +15697,13 @@
         body: unknown;
         headers?: Record<string, string>;
         signal?: AbortSignal;
+      }
+    </item>
+    <item priority="high">
+      class StreamRequestError {
+        status: number;
+        problemType: string;
+        retryAfterSeconds: number;
       }
     </item>
     <item priority="high">

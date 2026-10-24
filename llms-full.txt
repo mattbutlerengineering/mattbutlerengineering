@@ -390,7 +390,12 @@
           const controller = new AbortController();
           abortControllerRef.current = controller;
     
-          lastRequestRef.current = { body, baseMessages };
+          // Never store actionConfirm for replay: the server's gate re-arms on any
+          // body carrying it, so a retry() after a confirmed resend would execute
+          // the write again. A retry re-asks the model; the gate holds the write
+          // until the user confirms afresh.
+          const { actionConfirm: _confirmed, ...replayBody } = body;
+          lastRequestRef.current = { body: replayBody, baseMessages };
           setIsStreaming(true);
           setError(null);
           setActiveTool(null);
@@ -485,7 +490,13 @@
         await streamRequest(
           {
             messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
-            actionConfirm: { actionId: action.actionId },
+            // The server executes exactly this toolName + toolInput (its confirmation
+            // gate ignores the model's re-derived input), so send what the user saw.
+            actionConfirm: {
+              actionId: action.actionId,
+              toolName: action.toolName,
+              toolInput: action.toolInput,
+            },
           },
           currentMsgs
         );
@@ -12767,7 +12778,11 @@
               return;
             }
     
-            const error = err instanceof Error ? err : new Error(String(err));
+            const raised = err instanceof Error ? err : new Error(String(err));
+            // Swap in limit-specific copy but keep the status fields, so the
+            // result still classifies as a transport failure.
+            const limitCopy = describeLimitError(raised);
+            const error = limitCopy ? Object.assign(new Error(limitCopy), { ...raised }) : raised;
             setError(error);
             setIsStreaming(false);
             onErrorRef.current?.(error);
@@ -20808,9 +20823,35 @@
     export function isTransportError(error: Error): boolean {
       return (
         error instanceof TypeError ||
+        statusOf(error) !== undefined ||
         error.message.startsWith("Request failed:") ||
         error.message === "Response body is not readable"
       );
+    }
+    function statusOf(error: Error): number | undefined {
+      const status = (error as { status?: unknown }).status;
+      return typeof status === "number" ? status : undefined;
+    }
+    function minutesLabel(seconds: number | undefined): string {
+      const minutes = Math.max(1, Math.ceil((seconds ?? 60) / 60));
+      return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+    }
+    export function describeLimitError(error: Error): string | null {
+      const status = statusOf(error);
+      const { problemType, retryAfterSeconds } = error as {
+        problemType?: string;
+        retryAfterSeconds?: number;
+      };
+      if (status === 429) {
+        return `You've sent too many requests. Try again in about ${minutesLabel(retryAfterSeconds)}.`;
+      }
+      if (status === 503 && problemType === CEILING_REACHED) {
+        return "The daily budget for generation has been reached. Come back tomorrow.";
+      }
+      if (status === 503 && problemType === CEILING_UNAVAILABLE) {
+        return "Generation is temporarily unavailable. Please try again shortly.";
+      }
+      return null;
     }
   </file>
   <file path="apps/gen/src/pages/createErrorRecoveryPrompt.ts">
@@ -23793,8 +23834,62 @@
   <section priority="medium" role="routes">
   <file path="services/agent/src/routes/gen-agent-tools.ts">
     type ApiClient = ReturnType<typeof createApiClient>;
-    export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet {
-      return {
+    export interface ConfirmedAction {
+      /** Echo of the action_request's actionId — traceability only (a resend produces new tool-call ids). */
+      readonly actionId: string;
+      readonly toolName: string;
+      readonly toolInput: Record<string, unknown>;
+    }
+    export interface CreateAgentToolsOptions {
+      readonly confirmedAction?: ConfirmedAction | undefined;
+    }
+    function gateWriteTools(
+      tools: ToolSet,
+      log: FastifyBaseLogger,
+      confirmedAction?: ConfirmedAction
+    ): ToolSet {
+      let consumed = false;
+      const gated: ToolSet = { ...tools };
+      for (const name of GEN_WRITE_TOOL_NAMES) {
+        const original = gated[name];
+        const originalExecute = original?.execute;
+        if (!original || !originalExecute) continue;
+        gated[name] = {
+          ...original,
+          execute: async (_input: never, ctx: never) => {
+            if (confirmedAction?.toolName !== name) {
+              log.info({ toolName: name }, "write tool call held for user confirmation");
+              return CONFIRMATION_PENDING;
+            }
+            if (consumed) {
+              return { error: "This confirmed action has already been executed." };
+            }
+            const schema = original.inputSchema as z.ZodType;
+            const parsed = schema.safeParse(confirmedAction.toolInput);
+            if (!parsed.success) {
+              log.error(
+                { toolName: name, actionId: confirmedAction.actionId },
+                "confirmed action input invalid, refusing to execute"
+              );
+              return { error: "The confirmed action's parameters are invalid. Please start over." };
+            }
+            consumed = true;
+            log.info(
+              { toolName: name, actionId: confirmedAction.actionId },
+              "executing user-confirmed action"
+            );
+            return originalExecute(parsed.data as never, ctx);
+          },
+        } as ToolSet[string];
+      }
+      return gated;
+    }
+    export function createAgentTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      options: CreateAgentToolsOptions = {}
+    ): ToolSet {
+      const tools: ToolSet = {
         // ── Read tools (instant, no confirmation) ──────────────
         check_availability: tool({
           description: "Check available time slots for a venue on a specific date",
@@ -24063,6 +24158,7 @@
           },
         }),
       };
+      return gateWriteTools(tools, log, options.confirmedAction);
     }
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
@@ -24076,14 +24172,31 @@
       schema: GenAgentBodySchema,
       streamFormat: "ndjson",
       maxSteps: 5,
-      getTools: async (request) => {
+      toMessages: (parsed) =>
+        parsed.actionConfirm
+          ? [
+              ...parsed.messages,
+              {
+                role: "user" as const,
+                content: `I confirm the pending ${parsed.actionConfirm.toolName} action. Execute it now with the confirmed parameters.`,
+              },
+            ]
+          : parsed.messages,
+      // On the armed resend the model re-calls the tool being confirmed; emitting
+      // its action_request again would pop a stale confirm dialog in the client for
+      // a write this request already executes. Other tools' requests still surface.
+      createEventSerializer: (parsed) => (event) =>
+        event.type === "action_request" && event.toolName === parsed.actionConfirm?.toolName
+          ? undefined
+          : event,
+      getTools: async (request, parsed) => {
         const authHeader = request.headers.authorization;
         const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
         const api = createApiClient({
           baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
           getAccessToken: () => token,
         });
-        return createAgentTools(request.log, api);
+        return createAgentTools(request.log, api, { confirmedAction: parsed.actionConfirm });
       },
     });
   </file>
@@ -24117,6 +24230,11 @@
       readonly systemPrompt?: string;
       readonly toolChoice?: GenRunnerConfig["toolChoice"];
       readonly failOnToolError?: boolean;
+      /**
+       * ndjson only: serve identical requests from the Postgres spec cache. Only
+       * successful runs are stored; a hit replays the exact lines a miss streamed.
+       */
+      readonly cache?: boolean;
       /** Derives the chat messages from the parsed body (default: `parsed.messages`). */
       readonly toMessages?: (parsed: z.infer<TSchema>) => GenMessages;
       /**
@@ -24257,6 +24375,39 @@
               ? config.toMessages(parsed)
               : (parsed as { messages: GenMessages }).messages;
     
+            const systemPrompt = config.systemPrompt ?? SYSTEM_PROMPT;
+            const cacheKey =
+              config.cache && streamFormat === "ndjson"
+                ? genSpecCacheKey({
+                    route: path,
+                    messages,
+                    modelId: GEN_MODEL_ID,
+                    systemPrompt,
+                    maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
+                  })
+                : undefined;
+    
+            if (cacheKey) {
+              // Cache trouble must never fail a request: fall through to the model.
+              const cached = await getCachedSpec(cacheKey).catch((err: unknown) => {
+                request.log.warn({ err }, "gen spec cache read failed");
+                return null;
+              });
+              if (cached) {
+                applyStreamHeaders(reply, contentType);
+                return reply.send(
+                  new ReadableStream({
+                    start(controller) {
+                      for (const line of cached) {
+                        controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+                      }
+                      controller.close();
+                    },
+                  })
+                );
+              }
+            }
+    
             const tools = await getTools(request, parsed);
             // A run that errors before onFinish still consumed tokens: charge the worst case.
             let usageReported = false;
@@ -24264,7 +24415,7 @@
               if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
             };
             const runner = createGenRunner({
-              systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
+              systemPrompt,
               modelId: GEN_MODEL_ID,
               maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
               maxSteps,
@@ -24314,14 +24465,23 @@
             const ndjsonStream = new ReadableStream({
               async start(controller) {
                 let emitted = false;
+                const lines: unknown[] = [];
                 try {
                   await runner.run(messages, tools, async (event) => {
                     const line = serializeEvent(event);
                     if (line === undefined) return;
                     emitted = true;
+                    lines.push(line);
                     controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
                   });
                   if (!emitted) throw emptyOutputError();
+                  // Only a run that finished cleanly reaches here: errors and the
+                  // maxOutputTokens truncation both throw out of runner.run above.
+                  if (cacheKey) {
+                    await putCachedSpec(cacheKey, lines).catch((err: unknown) => {
+                      request.log.warn({ err }, "gen spec cache write failed");
+                    });
+                  }
                   controller.close();
                 } catch (err) {
                   request.log.error({ err }, "gen stream failed");
@@ -24385,13 +24545,14 @@
        */
       readonly failOnToolError?: boolean;
     }
-    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
+    export const GEN_WRITE_TOOL_NAMES = [
       "create_reservation",
       "modify_reservation",
       "cancel_reservation",
       "seat_walk_in",
       "update_table_status",
-    ]);
+    ] as const;
+    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
     export interface GenRunner {
@@ -24776,6 +24937,7 @@
       // ai@7 to retry the tool call on, so a tool-error can only ever mean the
       // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
       failOnToolError: true,
+      cache: true,
       toMessages: ({ prompt, context, target }: GenUiBody) => [
         {
           role: "user",
@@ -37307,6 +37469,47 @@
   <file path="services/agent/src/services/database.ts">
     export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
+  </file>
+  <file path="services/agent/src/services/gen-spec-cache.ts">
+    export const GEN_SPEC_CACHE_TTL_HOURS = 24;
+    export interface GenSpecCacheKeyInput {
+      readonly route: string;
+      readonly messages: ReadonlyArray<{ readonly role: string; readonly content: string }>;
+      readonly modelId: string;
+      /**
+       * The full system prompt. It embeds `catalog.prompt()`, so it changes whenever
+       * the catalog does — derived from the catalog, never a hand-kept version.
+       */
+      readonly systemPrompt: string;
+      readonly maxOutputTokens: number;
+    }
+    export function genSpecCacheKey(input: GenSpecCacheKeyInput): string {
+      // JSON framing keeps field and message boundaries unambiguous.
+      const payload = JSON.stringify([
+        input.route,
+        input.modelId,
+        createHash("sha256").update(input.systemPrompt).digest("hex"),
+        input.maxOutputTokens,
+        input.messages.map((m) => [m.role, normalize(m.content)]),
+      ]);
+      return createHash("sha256").update(payload).digest("hex");
+    }
+    export async function getCachedSpec(key: string): Promise<unknown[] | null> {
+      const rows = await prisma.$queryRaw<Array<{ lines: unknown[] }>>`
+        SELECT lines FROM gen_spec_cache
+        WHERE key = ${key}
+          AND created_at > now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS}::int)`;
+      return rows[0]?.lines ?? null;
+    }
+    export async function putCachedSpec(key: string, lines: unknown[]): Promise<void> {
+      await prisma.$executeRaw`
+        INSERT INTO gen_spec_cache (key, lines, created_at)
+        VALUES (${key}, ${JSON.stringify(lines)}::jsonb, now())
+        ON CONFLICT (key) DO UPDATE SET lines = EXCLUDED.lines, created_at = now()`;
+      await prisma.$executeRaw`
+        DELETE FROM gen_spec_cache
+        WHERE created_at <= now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS}::int)`;
+    }
   </file>
   <file path="services/agent/src/services/gen-spend-ceiling.ts">
     export const GEN_DAILY_CEILING_DEFAULT_USD = 0.5;
@@ -57757,6 +57960,22 @@
       /** AbortSignal for cancellation */
       signal?: AbortSignal;
     }
+    export class StreamRequestError extends Error {
+      readonly status: number;
+      readonly problemType?: string;
+      readonly retryAfterSeconds?: number;
+    
+      constructor(
+        message: string,
+        fields: { status: number; problemType?: string; retryAfterSeconds?: number }
+      ) {
+        super(message);
+        this.name = "StreamRequestError";
+        this.status = fields.status;
+        this.problemType = fields.problemType;
+        this.retryAfterSeconds = fields.retryAfterSeconds;
+      }
+    }
     export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> {
       const response = await fetch(config.url, {
         method: "POST",
@@ -57770,16 +57989,20 @@
     
       if (!response.ok) {
         let detail = response.statusText || `HTTP ${response.status}`;
+        let problemType: string | undefined;
         try {
-          const body = await response.json();
-          detail =
-            ((body as Record<string, unknown>).detail as string) ??
-            ((body as Record<string, unknown>).message as string) ??
-            detail;
+          const body = (await response.json()) as Record<string, unknown>;
+          detail = (body.detail as string) ?? (body.message as string) ?? detail;
+          if (typeof body.type === "string") problemType = body.type;
         } catch {
           // Response body is not JSON — use status text
         }
-        throw new Error(`Request failed: ${detail}`);
+        const retryAfter = Number(response.headers.get("Retry-After"));
+        throw new StreamRequestError(`Request failed: ${detail}`, {
+          status: response.status,
+          problemType,
+          retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+        });
       }
     
       if (!response.body) {

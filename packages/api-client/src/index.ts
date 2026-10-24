@@ -34,7 +34,7 @@ export {
   type GetVenueTimeSlotsParams,
   type GetDatesParams,
 } from "./availability.js";
-export { streamNDJSON, type StreamConfig } from "./streaming.js";
+export { streamNDJSON, StreamRequestError, type StreamConfig } from "./streaming.js";
 export {
   AgentSessionClient,
   type SessionSummary,

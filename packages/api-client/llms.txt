@@ -417,6 +417,13 @@
       }
     </item>
     <item priority="high">
+      class StreamRequestError {
+        status: number;
+        problemType: string;
+        retryAfterSeconds: number;
+      }
+    </item>
+    <item priority="high">
       export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> { /* ... */ }
     </item>
   </file>
