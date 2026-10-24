@@ -20,6 +20,7 @@ import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
 import { getSessionLapseCopy } from "../constants/session-lapse-copy.js";
+import { useChatRequestContext } from "../hooks/useChatRequestContext.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useTheme } from "../hooks/use-theme.js";
@@ -88,6 +89,7 @@ function DashboardLayoutInner() {
   const readiness = useVenueReadiness();
   const isAdmin = useIsAdmin();
   const { selectedVenue, venuesError, refetchVenues } = useVenue();
+  const chatRequestContext = useChatRequestContext();
   useSSESync();
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -426,6 +428,7 @@ function DashboardLayoutInner() {
             domainContext={HOSPITALITY_DOMAIN_CONTEXT}
             getAccessToken={getAccessToken}
             registry={registry}
+            requestContext={chatRequestContext}
           />
         </div>
       )}

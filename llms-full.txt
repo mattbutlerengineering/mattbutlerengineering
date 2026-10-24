@@ -329,6 +329,11 @@
       stream: ChatStreamFn;
       domainContext: DomainContext;
       getAccessToken: () => string | null | Promise<string | null>;
+      /**
+       * Extra fields the host app merges into every request body, e.g. the
+       * selected venue and its time zone, so the server knows what "tonight" means.
+       */
+      requestContext?: Readonly<Record<string, unknown>>;
     }
     export interface UseChatStreamReturn {
       messages: ChatMessage[];
@@ -349,6 +354,7 @@
       api,
       stream,
       getAccessToken,
+      requestContext,
     }: UseChatStreamOptions): UseChatStreamReturn {
       const { messages: t } = useRialtoLocale();
       const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -361,6 +367,7 @@
       const abortControllerRef = useRef<AbortController | null>(null);
       const getAccessTokenRef = useRef(getAccessToken);
       const streamRef = useRef(stream);
+      const requestContextRef = useRef(requestContext);
       const messagesRef = useRef(messages);
       const pendingActionRef = useRef(pendingAction);
       const lastRequestRef = useRef<{
@@ -377,6 +384,10 @@
       }, [stream]);
     
       useEffect(() => {
+        requestContextRef.current = requestContext;
+      }, [requestContext]);
+    
+      useEffect(() => {
         messagesRef.current = messages;
       }, [messages]);
     
@@ -385,8 +396,9 @@
       }, [pendingAction]);
     
       const streamRequest = useCallback(
-        async (body: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
+        async (requestBody: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
           abortControllerRef.current?.abort();
+          const body = { ...requestContextRef.current, ...requestBody };
           const controller = new AbortController();
           abortControllerRef.current = controller;
     
@@ -14015,6 +14027,21 @@
       return { status, error, selectSlot, confirm, abandon };
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useChatRequestContext.ts">
+    interface ChatVenue {
+      readonly id: string;
+      readonly ianaTimezone: string;
+    }
+    export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> {
+      if (!venue) return {};
+      const timeZone = resolveTimeZone(venue.ianaTimezone);
+      return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
+    }
+    export function useChatRequestContext(): Record<string, string> {
+      const { selectedVenue } = useVenue();
+      return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     export interface DashboardStats {
       totalReservations: number;
@@ -23861,6 +23888,40 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="services/agent/src/routes/gen-agent-prompt.ts">
+    export interface AgentPromptContext {
+      /** The venue selected in the app, when there is one. */
+      readonly venueId?: string | undefined;
+      /** The venue's IANA time zone; UTC when absent. */
+      readonly timeZone?: string | undefined;
+      readonly now: Date;
+      /** The rialto catalog's component rules, appended verbatim. */
+      readonly catalogPrompt: string;
+    }
+    function weekdayIn(timeZone: string, now: Date): string {
+      return new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(now);
+    }
+    export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
+      const timeZone = ctx.timeZone ?? "UTC";
+      const today = `${weekdayIn(timeZone, ctx.now)}, ${todayIn(timeZone, ctx.now)}`;
+      const venueLine = ctx.venueId
+        ? "The user's venue is already selected, and every tool is scoped to it automatically."
+        : "No venue is selected yet. If a request needs venue data, ask the user to pick a venue in the app.";
+    
+      return [
+        "You are the assistant for a restaurant's front-of-house staff, inside their hospitality dashboard.",
+        `Today is ${today} (${timeZone}). Resolve "tonight", "tomorrow", and weekday names against this date, and pass dates to tools as YYYY-MM-DD.`,
+        venueLine,
+        "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
+        "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
+        "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
+        "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
+        "You can't manage the waitlist, deposits, or menus yet. Say so plainly and point the user to that page in the dashboard.",
+        "",
+        ctx.catalogPrompt,
+      ].join("\n");
+    }
+  </file>
   <file path="services/agent/src/routes/gen-agent-tools.ts">
     type ApiClient = ReturnType<typeof createApiClient>;
     export interface ConfirmedAction {
@@ -23871,6 +23932,18 @@
     }
     export interface CreateAgentToolsOptions {
       readonly confirmedAction?: ConfirmedAction | undefined;
+      /** The venue the user has selected in the app; every venue-scoped tool is pinned to it. */
+      readonly venueId?: string | undefined;
+      /** The venue's IANA time zone, so "today" means the venue's today rather than UTC's. */
+      readonly timeZone?: string | undefined;
+    }
+    export function todayIn(timeZone: string | undefined, now: Date = new Date()): string {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: timeZone ?? "UTC",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
     }
     function gateWriteTools(
       tools: ToolSet,
@@ -23918,16 +23991,18 @@
       api: ApiClient,
       options: CreateAgentToolsOptions = {}
     ): ToolSet {
+      const { venueId, timeZone } = options;
       const tools: ToolSet = {
         // ── Read tools (instant, no confirmation) ──────────────
+        // venueId never comes from the model: it is the app's selected venue.
         check_availability: tool({
-          description: "Check available time slots for a venue on a specific date",
+          description: "Check available time slots on a specific date",
           inputSchema: z.object({
-            venueId: z.string().describe("The venue ID to check availability for"),
             date: z.string().describe("Date in YYYY-MM-DD format"),
             partySize: z.number().describe("Number of guests"),
           }),
-          execute: async ({ venueId, date, partySize }) => {
+          execute: async ({ date, partySize }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, date, partySize }, "check_availability tool called");
             try {
               const slots = await api.availability.getTimeSlots({ venueId, date, partySize });
@@ -23940,20 +24015,21 @@
         }),
     
         lookup_reservation: tool({
-          description: "Find reservations by guest name, date, or confirmation number",
+          description: "Find reservations by guest name and/or date",
           inputSchema: z.object({
-            guestName: z.string().optional().describe("Guest name to search"),
+            guestName: z.string().optional().describe("Guest name (or part of it) to search"),
             date: z.string().optional().describe("Date in YYYY-MM-DD format"),
-            venueId: z.string().optional().describe("Venue ID to filter by"),
           }),
-          execute: async ({ date, venueId }) => {
+          execute: async ({ guestName, date }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ date, venueId }, "lookup_reservation tool called");
             try {
-              const result = await api.reservations.list({
-                ...(date ? { date } : {}),
-                ...(venueId ? { venueId } : {}),
-              });
-              return { reservations: result.data };
+              const result = await api.reservations.list({ venueId, ...(date ? { date } : {}) });
+              const needle = guestName?.trim().toLowerCase();
+              const reservations = needle
+                ? result.data.filter((r) => r.guestName?.toLowerCase().includes(needle))
+                : result.data;
+              return { reservations };
             } catch (err) {
               log.error({ err, date, venueId }, "lookup_reservation failed");
               return { error: "Failed to look up reservations. Please try again." };
@@ -23965,15 +24041,12 @@
           description: "Search guest directory by name, email, or phone",
           inputSchema: z.object({
             query: z.string().describe("Search term (name, email, or phone)"),
-            venueId: z.string().optional().describe("Venue ID to scope search"),
           }),
-          execute: async ({ query, venueId }) => {
+          execute: async ({ query }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ query, venueId }, "search_guests tool called");
             try {
-              const result = await api.guests.search({
-                venueId: venueId ?? "",
-                query,
-              });
+              const result = await api.guests.search({ venueId, query });
               return { guests: result.data };
             } catch (err) {
               log.error({ err, query, venueId }, "search_guests failed");
@@ -23985,10 +24058,10 @@
         get_table_status: tool({
           description: "Check the status of a specific table or all tables",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             tableNumber: z.number().optional().describe("Specific table number to check"),
           }),
-          execute: async ({ venueId }) => {
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId }, "get_table_status tool called");
             try {
               const result = await api.tables.list({ venueId });
@@ -24003,17 +24076,17 @@
         list_today_reservations: tool({
           description: "List all reservations for today or a specified date",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             date: z.string().optional().describe("Date in YYYY-MM-DD format, defaults to today"),
             status: z
               .enum(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"])
               .optional()
               .describe("Filter by reservation status"),
           }),
-          execute: async ({ venueId, date, status }) => {
+          execute: async ({ date, status }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, date, status }, "list_today_reservations tool called");
             try {
-              const queryDate = date ?? new Date().toISOString().split("T")[0];
+              const queryDate = date ?? todayIn(timeZone);
               const result = await api.reservations.list({
                 venueId,
                 date: queryDate,
@@ -24132,7 +24205,6 @@
           description:
             "Create a walk-in reservation and seat guests immediately. Requires confirmation.",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             partySize: z.number().describe("Number of guests"),
             tableId: z
               .string()
@@ -24140,7 +24212,8 @@
               .describe("Specific table to seat at (auto-assigns if omitted)"),
             guestName: z.string().optional().describe("Guest name if provided"),
           }),
-          execute: async ({ venueId, partySize, tableId, guestName }) => {
+          execute: async ({ partySize, tableId, guestName }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
             try {
               if (!tableId) {
@@ -24166,11 +24239,11 @@
           description:
             "Update a table's status (clean, dirty, occupied, available). Requires confirmation.",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             tableNumber: z.number().describe("Table number"),
             status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
           }),
-          execute: async ({ venueId, tableNumber, status: newStatus }) => {
+          execute: async ({ tableNumber, status: newStatus }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, tableNumber, newStatus }, "update_table_status tool called");
             try {
               const tablesResult = await api.tables.list({ venueId });
@@ -24191,6 +24264,14 @@
     }
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
+    function isTimeZone(value: string): boolean {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: value });
+        return true;
+      } catch {
+        return false;
+      }
+    }
     export const genAgentRoutes = createGenRoute({
       path: "/api/gen/agent",
       costLogLabel: "gen-agent cost log",
@@ -24201,6 +24282,13 @@
       schema: GenAgentBodySchema,
       streamFormat: "ndjson",
       maxSteps: 5,
+      getSystemPrompt: (parsed, catalogPrompt) =>
+        buildAgentSystemPrompt({
+          venueId: parsed.venueId,
+          timeZone: parsed.timeZone,
+          now: new Date(),
+          catalogPrompt,
+        }),
       toMessages: (parsed) =>
         parsed.actionConfirm
           ? [
@@ -24225,7 +24313,11 @@
           baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
           getAccessToken: () => token,
         });
-        return createAgentTools(request.log, api, { confirmedAction: parsed.actionConfirm });
+        return createAgentTools(request.log, api, {
+          confirmedAction: parsed.actionConfirm,
+          venueId: parsed.venueId,
+          timeZone: parsed.timeZone,
+        });
       },
     });
   </file>
@@ -24241,6 +24333,11 @@
       readonly maxSteps: number;
       /** Overrides the catalog prompt (default: catalog.prompt()). */
       readonly systemPrompt?: string;
+      /**
+       * Per-request system prompt built from the parsed body; receives the catalog
+       * prompt to extend. Takes precedence over `systemPrompt`.
+       */
+      readonly getSystemPrompt?: (parsed: z.infer<TSchema>, catalogPrompt: string) => string;
       readonly toolChoice?: GenRunnerConfig["toolChoice"];
       readonly failOnToolError?: boolean;
       /**
@@ -24388,7 +24485,9 @@
               ? config.toMessages(parsed)
               : (parsed as { messages: GenMessages }).messages;
     
-            const systemPrompt = config.systemPrompt ?? SYSTEM_PROMPT;
+            const systemPrompt = config.getSystemPrompt
+              ? config.getSystemPrompt(parsed, SYSTEM_PROMPT)
+              : (config.systemPrompt ?? SYSTEM_PROMPT);
             const cacheKey =
               config.cache && streamFormat === "ndjson"
                 ? genSpecCacheKey({

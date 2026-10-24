@@ -1,0 +1,51 @@
+# Hospitality chat: scenario run 2026-10-24
+
+Live run against prod (`mattbutlerengineering.com/hospitality`, chat drawer), signed in as the Owner's own account. Every write confirm was to be cancelled; none came up, because no scenario got far enough to reach a write tool. Model calls: 8 of the 30/hr budget.
+
+Plan and finding definitions: scenarios 1–20, findings F1–F12, from the pre-run code review.
+
+## Scenario verdicts (batch 1)
+
+| #   | Scenario                    | Verdict  | What happened                                                                                                                         | Findings    |
+| --- | --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | "How does tonight look?"    | fail     | Asks the host for a venue ID. Rendered card shows "Component could not be displayed".                                                 | F1, F2, F13 |
+| 4   | "When is the Garcia party…" | fail     | 2× `lookup_reservation` + 1× `search_guests`, all errored. Asks for venue ID and says "I don't know today's date".                    | F3, F4, F5  |
+| 5   | "Book Tom for Friday"       | fail     | Asks for venue ID, start **and end** time, and the calendar date for "Friday".                                                        | F1, F5      |
+| 9   | "Table 12 is clean"         | fail     | Asks for venue ID; unsure whether "clean" means AVAILABLE or READY.                                                                   | F1, F5      |
+| 13  | Waitlist (capability gap)   | pass     | Says clearly it can't, and offers alternatives. Still asks for a venue ID.                                                            | F12         |
+| 15  | Spanish host                | degraded | Answers in Spanish (good), but asks for "el ID del local".                                                                            | F1          |
+| 17  | "Cancel every reservation…" | pass     | No unconfirmed write; promises a per-item confirm. Still blocked on venue ID and date.                                                | F1, F5      |
+| 20  | Menu question               | degraded | "I don't have menu information." Menus exist in the product (eat-sheet port is live), so this is a capability gap, not a scope limit. | F12         |
+
+Not yet run: 2, 3, 6, 7, 8, 10, 11, 12, 14, 16, 18, 19. All need venue context to say anything useful, so they wait for the P0 fix.
+
+## New findings from the live run
+
+| #   | Finding                                                                                                                                                                                                                                                                                   | Evidence                                                                    |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| F13 | An element whose string prop goes over the catalog `charLimits` fails seam validation, and the whole element is replaced by "Component could not be displayed". Scenario 1: an Alert `title` of 89 chars against a 60-char max. The model doesn't respect the limits, so this will recur. | `rialto-catalog/src/registry.tsx` `SeamFallback`; `generated-schemas.ts:12` |
+| F14 | The model calls `render_component` for plain conversational replies, so the card just repeats the text (scenario 1).                                                                                                                                                                      | NDJSON for scenario 1                                                       |
+| F16 | Assistant markdown is shown raw: `**bold**` and `- ` bullets appear literally and newlines collapse into one paragraph.                                                                                                                                                                   | `ChatPanel.tsx` renders `{msg.content}` as plain text                       |
+
+## Confirmed live (from the pre-run list)
+
+- **F1/F2 (no venue context):** every scenario hits it. This is the top blocker.
+- **F3/F4 (broken lookups):** `search_guests` and `lookup_reservation` both error out.
+- **F5 (no date or persona):** the model says "I don't know today's date" unprompted.
+- **F10 (no auto-scroll):** after 8 turns, `scrollTop` is 0 with `scrollHeight` 2112 and `clientHeight` 526. The newest answer is off-screen and there's no empty state.
+- **F12 (capability gaps):** waitlist and menus.
+
+## Ranked fix list
+
+1. **P0, venue + date context** (F1, F2, F5, F6). This one fix unblocks 17 of the 20 scenarios.
+2. **P0, tool fixes** (F3, F4).
+3. **P1, ChatPanel rendering:** markdown (F16), auto-scroll, empty state with starter prompts, Stop button, typing indicator (F10).
+4. **P1, seam truncation** (F13): clamp over-limit strings instead of dropping the element.
+5. **P1, prompt guidance:** render cards only for structured data (F14). Folds into the P0 system prompt.
+6. **P2:** friendly 429 copy (F9), cancel feedback, a shared persisted conversation (F11), waitlist and menu tools (F12).
+
+## Improvement tracking
+
+| Date       | Change         | Scenarios passing |
+| ---------- | -------------- | ----------------- |
+| 2026-10-24 | none, baseline | 2 / 8 run         |

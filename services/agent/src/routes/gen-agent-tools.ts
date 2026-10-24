@@ -18,6 +18,24 @@ export interface ConfirmedAction {
 
 export interface CreateAgentToolsOptions {
   readonly confirmedAction?: ConfirmedAction | undefined;
+  /** The venue the user has selected in the app; every venue-scoped tool is pinned to it. */
+  readonly venueId?: string | undefined;
+  /** The venue's IANA time zone, so "today" means the venue's today rather than UTC's. */
+  readonly timeZone?: string | undefined;
+}
+
+const NO_VENUE = {
+  error: "No venue is selected. Ask the user to pick a venue in the app, then try again.",
+} as const;
+
+/** YYYY-MM-DD for `now` in `timeZone` (UTC when absent). */
+export function todayIn(timeZone: string | undefined, now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timeZone ?? "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
 }
 
 const CONFIRMATION_PENDING = {
@@ -81,16 +99,18 @@ export function createAgentTools(
   api: ApiClient,
   options: CreateAgentToolsOptions = {}
 ): ToolSet {
+  const { venueId, timeZone } = options;
   const tools: ToolSet = {
     // ── Read tools (instant, no confirmation) ──────────────
+    // venueId never comes from the model: it is the app's selected venue.
     check_availability: tool({
-      description: "Check available time slots for a venue on a specific date",
+      description: "Check available time slots on a specific date",
       inputSchema: z.object({
-        venueId: z.string().describe("The venue ID to check availability for"),
         date: z.string().describe("Date in YYYY-MM-DD format"),
         partySize: z.number().describe("Number of guests"),
       }),
-      execute: async ({ venueId, date, partySize }) => {
+      execute: async ({ date, partySize }) => {
+        if (!venueId) return NO_VENUE;
         log.info({ venueId, date, partySize }, "check_availability tool called");
         try {
           const slots = await api.availability.getTimeSlots({ venueId, date, partySize });
@@ -103,20 +123,21 @@ export function createAgentTools(
     }),
 
     lookup_reservation: tool({
-      description: "Find reservations by guest name, date, or confirmation number",
+      description: "Find reservations by guest name and/or date",
       inputSchema: z.object({
-        guestName: z.string().optional().describe("Guest name to search"),
+        guestName: z.string().optional().describe("Guest name (or part of it) to search"),
         date: z.string().optional().describe("Date in YYYY-MM-DD format"),
-        venueId: z.string().optional().describe("Venue ID to filter by"),
       }),
-      execute: async ({ date, venueId }) => {
+      execute: async ({ guestName, date }) => {
+        if (!venueId) return NO_VENUE;
         log.info({ date, venueId }, "lookup_reservation tool called");
         try {
-          const result = await api.reservations.list({
-            ...(date ? { date } : {}),
-            ...(venueId ? { venueId } : {}),
-          });
-          return { reservations: result.data };
+          const result = await api.reservations.list({ venueId, ...(date ? { date } : {}) });
+          const needle = guestName?.trim().toLowerCase();
+          const reservations = needle
+            ? result.data.filter((r) => r.guestName?.toLowerCase().includes(needle))
+            : result.data;
+          return { reservations };
         } catch (err) {
           log.error({ err, date, venueId }, "lookup_reservation failed");
           return { error: "Failed to look up reservations. Please try again." };
@@ -128,15 +149,12 @@ export function createAgentTools(
       description: "Search guest directory by name, email, or phone",
       inputSchema: z.object({
         query: z.string().describe("Search term (name, email, or phone)"),
-        venueId: z.string().optional().describe("Venue ID to scope search"),
       }),
-      execute: async ({ query, venueId }) => {
+      execute: async ({ query }) => {
+        if (!venueId) return NO_VENUE;
         log.info({ query, venueId }, "search_guests tool called");
         try {
-          const result = await api.guests.search({
-            venueId: venueId ?? "",
-            query,
-          });
+          const result = await api.guests.search({ venueId, query });
           return { guests: result.data };
         } catch (err) {
           log.error({ err, query, venueId }, "search_guests failed");
@@ -148,10 +166,10 @@ export function createAgentTools(
     get_table_status: tool({
       description: "Check the status of a specific table or all tables",
       inputSchema: z.object({
-        venueId: z.string().describe("Venue ID"),
         tableNumber: z.number().optional().describe("Specific table number to check"),
       }),
-      execute: async ({ venueId }) => {
+      execute: async () => {
+        if (!venueId) return NO_VENUE;
         log.info({ venueId }, "get_table_status tool called");
         try {
           const result = await api.tables.list({ venueId });
@@ -166,17 +184,17 @@ export function createAgentTools(
     list_today_reservations: tool({
       description: "List all reservations for today or a specified date",
       inputSchema: z.object({
-        venueId: z.string().describe("Venue ID"),
         date: z.string().optional().describe("Date in YYYY-MM-DD format, defaults to today"),
         status: z
           .enum(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"])
           .optional()
           .describe("Filter by reservation status"),
       }),
-      execute: async ({ venueId, date, status }) => {
+      execute: async ({ date, status }) => {
+        if (!venueId) return NO_VENUE;
         log.info({ venueId, date, status }, "list_today_reservations tool called");
         try {
-          const queryDate = date ?? new Date().toISOString().split("T")[0];
+          const queryDate = date ?? todayIn(timeZone);
           const result = await api.reservations.list({
             venueId,
             date: queryDate,
@@ -295,7 +313,6 @@ export function createAgentTools(
       description:
         "Create a walk-in reservation and seat guests immediately. Requires confirmation.",
       inputSchema: z.object({
-        venueId: z.string().describe("Venue ID"),
         partySize: z.number().describe("Number of guests"),
         tableId: z
           .string()
@@ -303,7 +320,8 @@ export function createAgentTools(
           .describe("Specific table to seat at (auto-assigns if omitted)"),
         guestName: z.string().optional().describe("Guest name if provided"),
       }),
-      execute: async ({ venueId, partySize, tableId, guestName }) => {
+      execute: async ({ partySize, tableId, guestName }) => {
+        if (!venueId) return NO_VENUE;
         log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
         try {
           if (!tableId) {
@@ -329,11 +347,11 @@ export function createAgentTools(
       description:
         "Update a table's status (clean, dirty, occupied, available). Requires confirmation.",
       inputSchema: z.object({
-        venueId: z.string().describe("Venue ID"),
         tableNumber: z.number().describe("Table number"),
         status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
       }),
-      execute: async ({ venueId, tableNumber, status: newStatus }) => {
+      execute: async ({ tableNumber, status: newStatus }) => {
+        if (!venueId) return NO_VENUE;
         log.info({ venueId, tableNumber, newStatus }, "update_table_status tool called");
         try {
           const tablesResult = await api.tables.list({ venueId });

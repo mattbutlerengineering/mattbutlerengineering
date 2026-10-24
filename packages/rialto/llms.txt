@@ -215,6 +215,7 @@
         stream: ChatStreamFn;
         domainContext: DomainContext;
         getAccessToken: () => string | null | Promise<string | null>;
+        requestContext?: Readonly<Record<string, unknown>>;
       }
     </item>
     <item priority="low">
@@ -231,6 +232,7 @@
         api,
         stream,
         getAccessToken,
+        requestContext,
       }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
     </item>
   </file>

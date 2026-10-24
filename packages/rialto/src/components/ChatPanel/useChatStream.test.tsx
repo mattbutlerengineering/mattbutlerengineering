@@ -62,6 +62,26 @@ describe("useChatStream", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("merges requestContext into every request body", async () => {
+    vi.mocked(streamNDJSON).mockReturnValueOnce(mockStream([{ type: "text", content: "ok" }]));
+    const { result } = renderHook(() =>
+      useChatStream({
+        ...createMockProps(),
+        requestContext: { venueId: "venue-1", timeZone: "America/Los_Angeles" },
+      })
+    );
+
+    await act(async () => {
+      await result.current.send("how does tonight look?");
+    });
+
+    expect(vi.mocked(streamNDJSON).mock.calls[0]![0].body).toEqual({
+      venueId: "venue-1",
+      timeZone: "America/Los_Angeles",
+      messages: [{ role: "user", content: "how does tonight look?" }],
+    });
+  });
+
   it("sends a message and accumulates response from NDJSON stream", async () => {
     vi.mocked(streamNDJSON).mockReturnValueOnce(
       mockStream([

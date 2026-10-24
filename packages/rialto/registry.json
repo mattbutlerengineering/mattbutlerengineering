@@ -751,6 +751,12 @@
           "name": "registry",
           "type": "ComponentRegistry | undefined",
           "required": false
+        },
+        {
+          "name": "requestContext",
+          "type": "Readonly<Record<string, unknown>> | undefined",
+          "required": false,
+          "description": "Extra fields merged into every request body (e.g. the selected venue)."
         }
       ],
       "slots": []

@@ -6,6 +6,7 @@ import { ChatPanel } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { PageHeader } from "../components/PageHeader.js";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
+import { useChatRequestContext } from "../hooks/useChatRequestContext.js";
 import styles from "./ChatPage.module.css";
 
 // Standalone mode never renders ChatPanel's own close control (that's a
@@ -16,6 +17,7 @@ const NOOP = () => {};
 export function ChatPage() {
   const { accessToken } = useAuth();
   const { t } = useTranslation();
+  const requestContext = useChatRequestContext();
 
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
@@ -30,6 +32,7 @@ export function ChatPage() {
         domainContext={HOSPITALITY_DOMAIN_CONTEXT}
         getAccessToken={getAccessToken}
         registry={registry}
+        requestContext={requestContext}
       />
     </div>
   );

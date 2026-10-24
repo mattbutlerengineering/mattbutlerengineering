@@ -1213,6 +1213,20 @@
       export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useChatRequestContext.ts">
+    <item priority="high">
+      interface ChatVenue {
+        id: string;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="high">
+      export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChatRequestContext(): Record<string, string> { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
     <item priority="low">
       interface DashboardStats {

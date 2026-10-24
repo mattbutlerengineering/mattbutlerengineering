@@ -57,6 +57,11 @@ export interface UseChatStreamOptions {
   stream: ChatStreamFn;
   domainContext: DomainContext;
   getAccessToken: () => string | null | Promise<string | null>;
+  /**
+   * Extra fields the host app merges into every request body, e.g. the
+   * selected venue and its time zone, so the server knows what "tonight" means.
+   */
+  requestContext?: Readonly<Record<string, unknown>>;
 }
 
 export interface UseChatStreamReturn {
@@ -79,6 +84,7 @@ export function useChatStream({
   api,
   stream,
   getAccessToken,
+  requestContext,
 }: UseChatStreamOptions): UseChatStreamReturn {
   const { messages: t } = useRialtoLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -91,6 +97,7 @@ export function useChatStream({
   const abortControllerRef = useRef<AbortController | null>(null);
   const getAccessTokenRef = useRef(getAccessToken);
   const streamRef = useRef(stream);
+  const requestContextRef = useRef(requestContext);
   const messagesRef = useRef(messages);
   const pendingActionRef = useRef(pendingAction);
   const lastRequestRef = useRef<{
@@ -107,6 +114,10 @@ export function useChatStream({
   }, [stream]);
 
   useEffect(() => {
+    requestContextRef.current = requestContext;
+  }, [requestContext]);
+
+  useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
@@ -115,8 +126,9 @@ export function useChatStream({
   }, [pendingAction]);
 
   const streamRequest = useCallback(
-    async (body: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
+    async (requestBody: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
       abortControllerRef.current?.abort();
+      const body = { ...requestContextRef.current, ...requestBody };
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
