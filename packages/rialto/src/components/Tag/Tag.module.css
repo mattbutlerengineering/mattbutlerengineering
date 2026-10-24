@@ -85,7 +85,7 @@
 .selected {
   background: var(--rialto-accent);
   border-color: var(--rialto-accent);
-  color: white;
+  color: var(--rialto-text-on-accent);
 }
 
 .selected:hover {
