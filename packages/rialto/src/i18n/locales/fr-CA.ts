@@ -71,6 +71,8 @@ export const frCA: RialtoMessages = {
   chatInput: "Saisie du clavardage",
   chatPlaceholder: "Posez une question sur les disponibilités, les réservations...",
   send: "Envoyer",
+  stop: "Arrêter",
+  chatSuggestions: "Questions suggérées",
   chat: "Clavardage",
   toolBlocked: (reason) => `a été bloqué : ${reason}`,
   reservation: "Réservation",

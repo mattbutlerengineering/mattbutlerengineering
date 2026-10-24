@@ -1417,7 +1417,13 @@
     "back": "Back to tonight's service"
   },
   "chat": {
-    "title": "Chat"
+    "title": "Chat",
+    "suggestions": {
+      "tonight": "How does tonight look?",
+      "openTables": "Which tables are open right now?",
+      "availability": "Do we have a table for 4 at 7 tonight?",
+      "walkIn": "Party of 2 just walked in. Where can I seat them?"
+    }
   },
   "setupHours": {
     "title": "Operating Hours",

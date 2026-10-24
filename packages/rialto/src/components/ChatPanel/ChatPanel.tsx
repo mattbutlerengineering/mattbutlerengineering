@@ -1,4 +1,4 @@
-import { forwardRef, useState, useCallback, type KeyboardEvent } from "react";
+import { forwardRef, useState, useCallback, useEffect, useRef, type KeyboardEvent } from "react";
 import { Drawer } from "../Drawer/Drawer.js";
 import { useChatStream, type ChatStreamFn } from "./useChatStream.js";
 import type { DomainContext } from "./types.js";
@@ -6,6 +6,7 @@ import type { ChatMessageElement } from "./useChatStream.js";
 import { sanitizeElementProps } from "./sanitize.js";
 import styles from "./ChatPanel.module.css";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ComponentRegistry = Record<string, React.ComponentType<any>>;
@@ -82,10 +83,22 @@ export interface ChatPanelProps {
   registry?: ComponentRegistry;
   /** Extra fields merged into every request body (e.g. the selected venue). */
   requestContext?: Readonly<Record<string, unknown>>;
+  /** Starter prompts offered on an empty conversation; clicking one sends it. */
+  suggestions?: readonly string[];
 }
 
 export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function ChatPanel(
-  { onClose, api, stream, domainContext, getAccessToken, standalone, registry, requestContext },
+  {
+    onClose,
+    api,
+    stream,
+    domainContext,
+    getAccessToken,
+    standalone,
+    registry,
+    requestContext,
+    suggestions,
+  },
   ref
 ) {
   const { messages: t } = useRialtoLocale();
@@ -97,6 +110,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
     activeTool,
     permissionDenials,
     send,
+    stop,
     retry,
     confirmAction,
     cancelAction,
@@ -109,13 +123,25 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
   });
 
   const [inputValue, setInputValue] = useState("");
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const { reduced } = useMotionPreset();
+
+  // Keep the newest message in view as replies stream in.
+  useEffect(() => {
+    const log = messagesRef.current;
+    log?.scrollTo?.({ top: log.scrollHeight, behavior: reduced ? "auto" : "smooth" });
+  }, [messages, activeTool, pendingAction, error, reduced]);
+
+  const awaitingReply = isStreaming && !activeTool && messages.at(-1)?.role !== "assistant";
+  const showSuggestions = messages.length === 0 && !isStreaming && (suggestions?.length ?? 0) > 0;
 
   const handleSubmit = useCallback(() => {
     const trimmed = inputValue.trim();
-    if (!trimmed) return;
+    // Sending mid-stream would abort the reply in flight; Stop is the way to end it.
+    if (!trimmed || isStreaming) return;
     setInputValue("");
     send(trimmed);
-  }, [inputValue, send]);
+  }, [inputValue, isStreaming, send]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -129,13 +155,27 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
 
   const content = (
     <div className={styles.body}>
-      <div className={styles.messages} role="log" aria-live="polite">
+      <div ref={messagesRef} className={styles.messages} role="log" aria-live="polite">
+        {showSuggestions && (
+          <div className={styles.suggestions} role="group" aria-label={t.chatSuggestions}>
+            {suggestions!.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                className={styles.suggestion}
+                onClick={() => send(suggestion)}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        )}
         {messages.map((msg, i) => (
           <div
             key={i}
             className={msg.role === "user" ? styles.userMessage : styles.assistantMessage}
           >
-            {msg.content}
+            {msg.content && <span className={styles.messageText}>{msg.content}</span>}
             {msg.elements && msg.elements.length > 0 && (
               <div className={styles.elements} data-testid="chat-elements">
                 {renderElements(msg.elements, registry)}
@@ -143,7 +183,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
             )}
           </div>
         ))}
-        {isStreaming && messages.length === 0 && (
+        {awaitingReply && (
           <div className={styles.loading} aria-label={t.loading}>
             ...
           </div>
@@ -207,14 +247,20 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
           placeholder={t.chatPlaceholder}
           rows={1}
         />
-        <button
-          className={styles.sendButton}
-          onClick={handleSubmit}
-          disabled={!inputValue.trim() || isStreaming}
-          aria-label={t.send}
-        >
-          {t.send}
-        </button>
+        {isStreaming ? (
+          <button className={styles.sendButton} onClick={stop} aria-label={t.stop}>
+            {t.stop}
+          </button>
+        ) : (
+          <button
+            className={styles.sendButton}
+            onClick={handleSubmit}
+            disabled={!inputValue.trim()}
+            aria-label={t.send}
+          >
+            {t.send}
+          </button>
+        )}
       </div>
     </div>
   );

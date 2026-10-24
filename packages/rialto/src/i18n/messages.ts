@@ -184,6 +184,10 @@ export interface RialtoMessages {
   readonly chatPlaceholder: string;
   /** ChatPanel send button. */
   readonly send: string;
+  /** ChatPanel button that stops a streaming reply. */
+  readonly stop: string;
+  /** ChatPanel accessible name for the starter-suggestion group. */
+  readonly chatSuggestions: string;
   /** ChatPanel drawer title. */
   readonly chat: string;
   /** ChatPanel tool denial, rendered after the bold tool name. */
@@ -315,6 +319,8 @@ export const enUS: RialtoMessages = {
   chatInput: "Chat input",
   chatPlaceholder: "Ask about availability, reservations...",
   send: "Send",
+  stop: "Stop",
+  chatSuggestions: "Suggested questions",
   chat: "Chat",
   toolBlocked: (reason) => `was blocked: ${reason}`,
   reservation: "Reservation",

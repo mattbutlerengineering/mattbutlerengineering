@@ -10,6 +10,7 @@ vi.mock("@mbe/auth/react", () => ({
 vi.mock("../constants/copilotContext.js", () => ({
   HOSPITALITY_DOMAIN_CONTEXT: { schemas: [] },
   useChatRequestContext: () => ({ venueId: "venue-1", timeZone: "America/Los_Angeles" }),
+  useChatSuggestions: () => ["How does tonight look?"],
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -17,16 +18,19 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     standalone,
     registry,
     requestContext,
+    suggestions,
   }: {
     standalone?: boolean;
     registry?: object;
     requestContext?: Record<string, unknown>;
+    suggestions?: readonly string[];
   }) => (
     <div
       data-testid="chat-panel"
       data-standalone={standalone}
       data-has-registry={String(Boolean(registry))}
       data-request-context={JSON.stringify(requestContext)}
+      data-suggestions={JSON.stringify(suggestions)}
     >
       Chat Panel
     </div>
@@ -44,6 +48,19 @@ vi.mock("../components/PageHeader.js", () => ({
 import { ChatPage } from "./ChatPage";
 
 describe("ChatPage", () => {
+  it("offers starter suggestions", () => {
+    render(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId("chat-panel")).toHaveAttribute(
+      "data-suggestions",
+      JSON.stringify(["How does tonight look?"])
+    );
+  });
+
   it("sends the selected venue and its time zone with every message", () => {
     render(
       <MemoryRouter>

@@ -757,6 +757,12 @@
           "type": "Readonly<Record<string, unknown>> | undefined",
           "required": false,
           "description": "Extra fields merged into every request body (e.g. the selected venue)."
+        },
+        {
+          "name": "suggestions",
+          "type": "readonly string[] | undefined",
+          "required": false,
+          "description": "Starter prompts offered on an empty conversation; clicking one sends it."
         }
       ],
       "slots": []

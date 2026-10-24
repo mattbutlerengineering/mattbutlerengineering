@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { DomainContext } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import { resolveTimeZone } from "../utils/format.js";
@@ -50,4 +51,18 @@ export function chatRequestContext(venue: ChatVenue | null | undefined): Record<
 export function useChatRequestContext(): Record<string, string> {
   const { selectedVenue } = useVenue();
   return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+}
+
+/** Starter prompts for an empty chat: the questions the chat can answer well today. */
+export function useChatSuggestions(): readonly string[] {
+  const { t } = useTranslation();
+  return useMemo(
+    () => [
+      t("chat.suggestions.tonight"),
+      t("chat.suggestions.openTables"),
+      t("chat.suggestions.availability"),
+      t("chat.suggestions.walkIn"),
+    ],
+    [t]
+  );
 }
