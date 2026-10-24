@@ -576,6 +576,56 @@ export function extractClosedIssueNumbers(body) {
   return [...numbers].sort((a, b) => a - b);
 }
 
+/** Pure: the issues a merged revert should put back in the queue — still
+ * closed as `completed`, and closed by the culprit PR's own merge commit
+ * (not by an unrelated later change). */
+export function planIssueReopens({ issues, culpritMergeSha }) {
+  if (!culpritMergeSha) return [];
+  return (issues ?? [])
+    .filter(
+      (issue) =>
+        issue.state === "closed" &&
+        issue.state_reason === "completed" &&
+        issue.closedByCommit === culpritMergeSha
+    )
+    .map((issue) => issue.number);
+}
+
+/** Pure: comment posted on an issue reopened because its fix was reverted. */
+export function buildReopenComment(revertPrNumber, culpritPrNumber) {
+  return `Reopened: the change that closed this issue (#${culpritPrNumber}) was reverted by #${revertPrNumber}. The work is no longer on main, so this is back in the queue.`;
+}
+
+const REVERT_TITLE_CULPRIT_PATTERN = /^revert: #(\d+) /;
+
+/**
+ * Reopens the issues a reverted culprit PR had closed, once the revert PR
+ * has actually merged (a proposed revert closed unmerged reopens nothing).
+ *
+ * @param {{
+ *   revertPr: {number:number, merged:boolean, title:string},
+ *   getCulpritPr: (n:number) => Promise<{number:number, body:string, merge_commit_sha:string|null}>,
+ *   getIssue: (n:number) => Promise<{number:number, state:string, state_reason:string|null, closedByCommit:string|null}|null>,
+ *   reopenIssue: (n:number, comment:string) => Promise<void>,
+ * }} deps
+ * @returns {Promise<number[]>} the issue numbers reopened
+ */
+export async function runReopenOnRevertMerge({ revertPr, getCulpritPr, getIssue, reopenIssue }) {
+  if (!revertPr?.merged || !isRevertWatchdogPr(revertPr)) return [];
+  const culpritNumber = Number(REVERT_TITLE_CULPRIT_PATTERN.exec(revertPr.title)?.[1]);
+  const culprit = await getCulpritPr(culpritNumber);
+  const candidates = extractClosedIssueNumbers(culprit?.body);
+  const issues = [];
+  for (const n of candidates) {
+    const issue = await getIssue(n);
+    if (issue) issues.push(issue);
+  }
+  const toReopen = planIssueReopens({ issues, culpritMergeSha: culprit?.merge_commit_sha });
+  const comment = buildReopenComment(revertPr.number, culpritNumber);
+  for (const n of toReopen) await reopenIssue(n, comment);
+  return toReopen;
+}
+
 const REVERT_WATCHDOG_TITLE_PATTERN = /^revert: #\d+ \(fixes broken main\)$/;
 
 /** Pure: true for a PR opened by this script's "Propose Revert PR" step.
@@ -1003,6 +1053,56 @@ function revertTarget(args) {
   }
 }
 
+/** REST-only (no GraphQL): reopen issues closed by the reverted culprit PR. */
+async function reopenCulpritIssues(args) {
+  const number = Number(readFlag(args, "--pr"));
+  if (!number) {
+    console.error("Missing --pr <revert-pr-number>");
+    process.exit(1);
+  }
+  const api = (...a) => JSON.parse(execFileSync("gh", ["api", ...a], { encoding: "utf-8" }));
+  const pr = api(`repos/{owner}/{repo}/pulls/${number}`);
+  const reopened = await runReopenOnRevertMerge({
+    revertPr: { number, merged: pr.merged === true, title: pr.title },
+    getCulpritPr: async (n) => api(`repos/{owner}/{repo}/pulls/${n}`),
+    getIssue: async (n) => {
+      try {
+        const issue = api(`repos/{owner}/{repo}/issues/${n}`);
+        const events = api(`repos/{owner}/{repo}/issues/${n}/events`, "--paginate");
+        const closedEvent = [...events].reverse().find((e) => e.event === "closed");
+        return {
+          number: n,
+          state: issue.state,
+          state_reason: issue.state_reason ?? null,
+          closedByCommit: closedEvent?.commit_id ?? null,
+        };
+      } catch {
+        return null;
+      }
+    },
+    reopenIssue: async (n, comment) => {
+      execFileSync(
+        "gh",
+        ["api", "-X", "POST", `repos/{owner}/{repo}/issues/${n}/comments`, "-f", `body=${comment}`],
+        { stdio: "ignore" }
+      );
+      execFileSync(
+        "gh",
+        ["api", "-X", "POST", `repos/{owner}/{repo}/issues/${n}/labels`, "-f", "labels[]=ready"],
+        { stdio: "ignore" }
+      );
+      execFileSync(
+        "gh",
+        ["api", "-X", "PATCH", `repos/{owner}/{repo}/issues/${n}`, "-f", "state=open"],
+        { stdio: "ignore" }
+      );
+    },
+  });
+  process.stdout.write(
+    `[revert-watchdog] reopened ${reopened.map((n) => `#${n}`).join(", ") || "none"}\n`
+  );
+}
+
 /** Prints `{action, reason}` for a finished revert attempt. */
 function classifyRevert(args) {
   const exitCode = Number(readFlag(args, "--exit-code"));
@@ -1028,9 +1128,11 @@ async function main() {
     revertTarget(rest);
   } else if (subcommand === "classify-revert") {
     classifyRevert(rest);
+  } else if (subcommand === "reopen-culprit-issues") {
+    await reopenCulpritIssues(rest);
   } else {
     console.error(
-      "Usage: revert-watchdog.mjs <create-issue|close-recovered|check-baseline|revert-pr-body|close-stale-reverts|revert-target|classify-revert> [...args]"
+      "Usage: revert-watchdog.mjs <create-issue|close-recovered|check-baseline|revert-pr-body|close-stale-reverts|revert-target|classify-revert|reopen-culprit-issues> [...args]"
     );
     process.exit(1);
   }

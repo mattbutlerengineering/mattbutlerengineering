@@ -9,6 +9,10 @@ on:
   # drift-fix.yml's pattern — lets a human/agent run the stale-revert-PR
   # check on demand instead of waiting for the next CI-success event.
   workflow_dispatch:
+  # A merged revert PR puts the issues its culprit closed back in the queue.
+  pull_request:
+    types: [closed]
+    branches: [main]
 
 permissions:
   contents: write
@@ -21,7 +25,7 @@ permissions:
 jobs:
   on-failure:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -206,7 +210,7 @@ jobs:
   # run's head — main has recovered.
   on-success:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -232,7 +236,7 @@ jobs:
   # run on demand rather than only after the next CI success.
   close-stale-reverts:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -255,3 +259,28 @@ jobs:
             SHA=$(git rev-parse HEAD)
           fi
           node scripts/revert-watchdog.mjs close-stale-reverts --sha "$SHA"
+
+  # Reopen the issues a reverted culprit PR had closed (RCA-PR-5949): the
+  # revert undid the work, so the issue must re-enter the queue. Fires only
+  # for a MERGED revert-watchdog PR; a proposed revert closed unmerged
+  # reopens nothing. REST only; no checkout of PR code is executed.
+  reopen-culprit-issues:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged == true && startsWith(github.event.pull_request.title, 'revert:') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          ref: main
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build CLI and its dependencies
+        run: pnpm build --filter @mbe/cli...
+
+      - name: Reopen issues closed by the reverted PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVERT_PR: ${{ github.event.pull_request.number }}
+        run: node scripts/revert-watchdog.mjs reopen-culprit-issues --pr "$REVERT_PR"

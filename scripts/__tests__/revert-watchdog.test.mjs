@@ -21,6 +21,9 @@ import {
   buildRevertPrBody,
   extractBreakageIssueNumber,
   extractClosedIssueNumbers,
+  planIssueReopens,
+  buildReopenComment,
+  runReopenOnRevertMerge,
   isRevertWatchdogPr,
   hasNeedsReviewLabel,
   buildRevertClosedComment,
@@ -1007,6 +1010,91 @@ describe("extractClosedIssueNumbers", () => {
     expect(extractClosedIssueNumbers(null)).toEqual([]);
     expect(extractClosedIssueNumbers(undefined)).toEqual([]);
     expect(extractClosedIssueNumbers("")).toEqual([]);
+  });
+});
+
+describe("planIssueReopens", () => {
+  const MERGE_SHA = "culprit-merge-sha";
+  const closed = (number, overrides = {}) => ({
+    number,
+    state: "closed",
+    state_reason: "completed",
+    closedByCommit: MERGE_SHA,
+    ...overrides,
+  });
+
+  it("reopens a closed-completed issue closed by the culprit's merge commit", () => {
+    expect(planIssueReopens({ issues: [closed(5)], culpritMergeSha: MERGE_SHA })).toEqual([5]);
+  });
+
+  it("skips issues that are already open", () => {
+    const issues = [closed(5, { state: "open" })];
+    expect(planIssueReopens({ issues, culpritMergeSha: MERGE_SHA })).toEqual([]);
+  });
+
+  it("skips issues closed as not_planned", () => {
+    const issues = [closed(5, { state_reason: "not_planned" })];
+    expect(planIssueReopens({ issues, culpritMergeSha: MERGE_SHA })).toEqual([]);
+  });
+
+  it("skips issues closed by some other commit", () => {
+    const issues = [closed(5, { closedByCommit: "other" })];
+    expect(planIssueReopens({ issues, culpritMergeSha: MERGE_SHA })).toEqual([]);
+  });
+
+  it("returns nothing without a culprit merge sha", () => {
+    expect(planIssueReopens({ issues: [closed(5)], culpritMergeSha: null })).toEqual([]);
+  });
+});
+
+describe("runReopenOnRevertMerge", () => {
+  const base = () => ({
+    revertPr: { number: 90, merged: true, title: "revert: #80 (fixes broken main)" },
+    getCulpritPr: vi.fn(async () => ({
+      number: 80,
+      body: "Closes #5\nFixes #6",
+      merge_commit_sha: "msha",
+    })),
+    getIssue: vi.fn(async (n) => ({
+      number: n,
+      state: "closed",
+      state_reason: "completed",
+      closedByCommit: n === 5 ? "msha" : "other",
+    })),
+    reopenIssue: vi.fn(async () => {}),
+  });
+
+  it("reopens only the issues the culprit commit closed, with a comment linking both PRs", async () => {
+    const deps = base();
+    const reopened = await runReopenOnRevertMerge(deps);
+    expect(reopened).toEqual([5]);
+    expect(deps.reopenIssue).toHaveBeenCalledTimes(1);
+    expect(deps.reopenIssue).toHaveBeenCalledWith(5, buildReopenComment(90, 80));
+  });
+
+  it("reopens nothing when the revert PR was closed unmerged", async () => {
+    const deps = base();
+    deps.revertPr.merged = false;
+    expect(await runReopenOnRevertMerge(deps)).toEqual([]);
+    expect(deps.reopenIssue).not.toHaveBeenCalled();
+  });
+
+  it("ignores PRs that are not revert-watchdog reverts", async () => {
+    const deps = base();
+    deps.revertPr.title = "revert: auto-rollback agent commit 9241626";
+    expect(await runReopenOnRevertMerge(deps)).toEqual([]);
+    expect(deps.getCulpritPr).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the culprit PR closed nothing", async () => {
+    const deps = base();
+    deps.getCulpritPr = vi.fn(async () => ({
+      number: 80,
+      body: "no keywords",
+      merge_commit_sha: "msha",
+    }));
+    expect(await runReopenOnRevertMerge(deps)).toEqual([]);
+    expect(deps.reopenIssue).not.toHaveBeenCalled();
   });
 });
 
