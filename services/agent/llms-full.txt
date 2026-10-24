@@ -584,6 +584,13 @@
               },
             ]
           : parsed.messages,
+      // On the armed resend the model re-calls the tool being confirmed; emitting
+      // its action_request again would pop a stale confirm dialog in the client for
+      // a write this request already executes. Other tools' requests still surface.
+      createEventSerializer: (parsed) => (event) =>
+        event.type === "action_request" && event.toolName === parsed.actionConfirm?.toolName
+          ? undefined
+          : event,
       getTools: async (request, parsed) => {
         const authHeader = request.headers.authorization;
         const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;

@@ -390,7 +390,12 @@
           const controller = new AbortController();
           abortControllerRef.current = controller;
     
-          lastRequestRef.current = { body, baseMessages };
+          // Never store actionConfirm for replay: the server's gate re-arms on any
+          // body carrying it, so a retry() after a confirmed resend would execute
+          // the write again. A retry re-asks the model; the gate holds the write
+          // until the user confirms afresh.
+          const { actionConfirm: _confirmed, ...replayBody } = body;
+          lastRequestRef.current = { body: replayBody, baseMessages };
           setIsStreaming(true);
           setError(null);
           setActiveTool(null);
@@ -24147,6 +24152,13 @@
               },
             ]
           : parsed.messages,
+      // On the armed resend the model re-calls the tool being confirmed; emitting
+      // its action_request again would pop a stale confirm dialog in the client for
+      // a write this request already executes. Other tools' requests still surface.
+      createEventSerializer: (parsed) => (event) =>
+        event.type === "action_request" && event.toolName === parsed.actionConfirm?.toolName
+          ? undefined
+          : event,
       getTools: async (request, parsed) => {
         const authHeader = request.headers.authorization;
         const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;

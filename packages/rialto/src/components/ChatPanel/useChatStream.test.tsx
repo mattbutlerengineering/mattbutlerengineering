@@ -220,6 +220,42 @@ describe("useChatStream", () => {
     });
   });
 
+  it("retry after a confirm does not replay actionConfirm", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          {
+            type: "action_request",
+            actionId: "call-3",
+            toolName: "create_reservation",
+            toolInput: { guestName: "Smith" },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Done" }]))
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Retried" }]));
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("book Smith");
+    });
+    await act(async () => {
+      await result.current.confirmAction();
+    });
+    await act(async () => {
+      await result.current.retry();
+    });
+
+    // The server's gate re-arms on any body carrying actionConfirm, so a
+    // replayed confirm would execute the write a second time. A retry must
+    // re-ask the model instead — the gate then holds the write for a fresh,
+    // explicit confirmation.
+    const retryBody = vi.mocked(streamNDJSON).mock.calls[2]![0].body as Record<string, unknown>;
+    expect(retryBody.actionConfirm).toBeUndefined();
+    expect(retryBody.messages).toEqual([{ role: "user", content: "book Smith" }]);
+  });
+
   it("cancel clears pending action and adds cancel message", async () => {
     vi.mocked(streamNDJSON).mockReturnValueOnce(
       mockStream([

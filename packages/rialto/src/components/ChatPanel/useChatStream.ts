@@ -120,7 +120,12 @@ export function useChatStream({
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      lastRequestRef.current = { body, baseMessages };
+      // Never store actionConfirm for replay: the server's gate re-arms on any
+      // body carrying it, so a retry() after a confirmed resend would execute
+      // the write again. A retry re-asks the model; the gate holds the write
+      // until the user confirms afresh.
+      const { actionConfirm: _confirmed, ...replayBody } = body;
+      lastRequestRef.current = { body: replayBody, baseMessages };
       setIsStreaming(true);
       setError(null);
       setActiveTool(null);

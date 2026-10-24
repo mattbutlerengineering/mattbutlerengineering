@@ -407,6 +407,52 @@ describe("POST /api/gen/agent", () => {
     expect(last.content.toLowerCase()).toContain("confirm");
   });
 
+  it("suppresses the action_request for the confirmed tool on the armed resend", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([
+        {
+          type: "tool-call",
+          toolCallId: "call-9",
+          toolName: "cancel_reservation",
+          input: { reservationId: "r1" },
+        },
+        {
+          type: "tool-call",
+          toolCallId: "call-10",
+          toolName: "seat_walk_in",
+          input: { venueId: "v1", partySize: 2 },
+        },
+        { type: "text-delta", text: "Cancelled." },
+      ]),
+      usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gen/agent",
+      payload: {
+        messages: [{ role: "user", content: "cancel the Smith reservation" }],
+        actionConfirm: {
+          actionId: "call-3",
+          toolName: "cancel_reservation",
+          toolInput: { reservationId: "r1" },
+        },
+      },
+    });
+
+    const lines = response.body
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+
+    // The armed resend executes cancel_reservation — re-emitting its
+    // action_request would pop a stale confirm dialog for an already-executed
+    // write. Other write tools' requests must still surface.
+    const actionRequests = lines.filter((l) => l.type === "action_request");
+    expect(actionRequests.map((l) => l.toolName)).toEqual(["seat_walk_in"]);
+  });
+
   it("streams NDJSON text response", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
       fullStream: mockAsyncIterable([
