@@ -137,10 +137,11 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
 
   const handleSubmit = useCallback(() => {
     const trimmed = inputValue.trim();
-    if (!trimmed) return;
+    // Sending mid-stream would abort the reply in flight; Stop is the way to end it.
+    if (!trimmed || isStreaming) return;
     setInputValue("");
     send(trimmed);
-  }, [inputValue, send]);
+  }, [inputValue, isStreaming, send]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {

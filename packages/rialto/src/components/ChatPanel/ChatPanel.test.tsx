@@ -490,4 +490,41 @@ describe("ChatPanel", () => {
     });
     expect(results).toHaveNoViolations();
   });
+
+  it("passes axe with starter suggestions", async () => {
+    const { container } = render(
+      <ChatPanel {...defaultProps} suggestions={["How does tonight look?", "Seat a walk-in"]} />
+    );
+    const results = await axe(container, {
+      rules: { "color-contrast": { enabled: false } },
+    });
+    expect(results).toHaveNoViolations();
+  });
+
+  it("passes axe while streaming (Stop button + typing indicator)", async () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [{ role: "user", content: "hi" }],
+    };
+    const { container } = render(<ChatPanel {...defaultProps} />);
+    const results = await axe(container, {
+      rules: { "color-contrast": { enabled: false } },
+    });
+    expect(results).toHaveNoViolations();
+  });
+
+  it("does not send on Enter while a reply is streaming", async () => {
+    const user = userEvent.setup();
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [{ role: "user", content: "hi" }],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    await user.type(screen.getByRole("textbox"), "another{Enter}");
+
+    expect(mockSend).not.toHaveBeenCalled();
+  });
 });
