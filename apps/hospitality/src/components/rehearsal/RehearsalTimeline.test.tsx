@@ -69,3 +69,47 @@ describe("rehearsal module guard", () => {
     }
   });
 });
+
+describe("RehearsalTimeline curtain call", () => {
+  function reducedMotion() {
+    vi.stubGlobal(
+      "matchMedia",
+      vi
+        .fn()
+        .mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    );
+  }
+  function stepToClose() {
+    for (let i = 0; i < 400; i++) {
+      if (screen.queryByTestId("curtain-call")) return;
+      fireEvent.click(screen.getByRole("button", { name: "Next event" }));
+    }
+  }
+
+  it("appears only when the clock reaches close", () => {
+    reducedMotion();
+    render(<RehearsalTimeline tables={TABLES} date="2026-10-24" />);
+    expect(screen.queryByTestId("curtain-call")).toBeNull();
+    stepToClose();
+    vi.unstubAllGlobals();
+    expect(screen.getByTestId("curtain-call")).toBeInTheDocument();
+  });
+
+  it("Run it again restarts the night and hides the card", () => {
+    reducedMotion();
+    render(<RehearsalTimeline tables={TABLES} date="2026-10-24" />);
+    stepToClose();
+    fireEvent.click(screen.getByRole("button", { name: "Run it again" }));
+    vi.unstubAllGlobals();
+    expect(screen.queryByTestId("curtain-call")).toBeNull();
+  });
+
+  it("Try a weeknight restarts the night on the weeknight profile", () => {
+    reducedMotion();
+    render(<RehearsalTimeline tables={TABLES} date="2026-10-24" />);
+    stepToClose();
+    fireEvent.click(screen.getByRole("button", { name: "Try a weeknight" }));
+    vi.unstubAllGlobals();
+    expect(screen.queryByTestId("curtain-call")).toBeNull();
+  });
+});

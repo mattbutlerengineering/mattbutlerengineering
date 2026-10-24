@@ -1865,6 +1865,17 @@
       "step": "Siguiente evento",
       "speed": "{{speed}}×"
     },
-    "loading": "Cargando tus mesas…"
+    "loading": "Cargando tus mesas…",
+    "curtainCall": {
+      "title": "Cierre de la noche",
+      "covers": "Cubiertos servidos",
+      "turn": "Tiempo promedio por mesa",
+      "peak": "Hora pico",
+      "neverSat": "Mesas que nunca se ocuparon",
+      "wait": "Espera más larga sin reservación",
+      "minutes": "{{minutes}} min",
+      "runAgain": "Repetir",
+      "weeknight": "Probar una noche entre semana"
+    }
   }
 }

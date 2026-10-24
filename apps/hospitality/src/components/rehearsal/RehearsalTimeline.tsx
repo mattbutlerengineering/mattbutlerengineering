@@ -1,16 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Reservation, Table } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { formatLocalTime } from "../../utils/format.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import { TimelineGrid } from "../timeline";
+import { CurtainCall } from "./CurtainCall.js";
 import { RehearsalBanner } from "./RehearsalBanner.js";
 import { simulateService } from "./simulate-service.js";
+import type { RehearsalProfile } from "./types.js";
 import { useRehearsalPlayback } from "./use-rehearsal-playback.js";
 
 const OPEN_HOUR = 17;
 const CLOSE_HOUR = 23;
-const SEED = 1;
 
 export interface RehearsalTimelineProps {
   tables: Table[];
@@ -44,6 +45,38 @@ function toVenueWallClock(reservation: Reservation, timeZone: string | undefined
  * no click or status handlers.
  */
 export function RehearsalTimeline({ tables, date }: RehearsalTimelineProps) {
+  const [run, setRun] = useState<{ seed: number; profile: RehearsalProfile }>({
+    seed: 1,
+    profile: "friday",
+  });
+  // Keyed so a new seed or profile restarts the clock from the first event.
+  return (
+    <RehearsalNight
+      key={`${run.profile}-${run.seed}`}
+      tables={tables}
+      date={date}
+      {...run}
+      onRunAgain={() => setRun((r) => ({ ...r, seed: r.seed + 1 }))}
+      onTryWeeknight={() => setRun((r) => ({ seed: r.seed + 1, profile: "weeknight" }))}
+    />
+  );
+}
+
+interface RehearsalNightProps extends RehearsalTimelineProps {
+  seed: number;
+  profile: RehearsalProfile;
+  onRunAgain: () => void;
+  onTryWeeknight: () => void;
+}
+
+function RehearsalNight({
+  tables,
+  date,
+  seed,
+  profile,
+  onRunAgain,
+  onTryWeeknight,
+}: RehearsalNightProps) {
   const fmt = useVenueFormat();
   const tableIds = useMemo(() => tables.map((table) => table.id), [tables]);
   const events = useMemo(
@@ -52,10 +85,10 @@ export function RehearsalTimeline({ tables, date }: RehearsalTimelineProps) {
         tables,
         openHour: OPEN_HOUR,
         closeHour: CLOSE_HOUR,
-        profile: "friday",
-        seed: SEED,
+        profile,
+        seed,
       }),
-    [tables]
+    [tables, profile, seed]
   );
   const playback = useRehearsalPlayback(events, { date, tableIds });
   const reservations = useMemo(
@@ -88,6 +121,13 @@ export function RehearsalTimeline({ tables, date }: RehearsalTimelineProps) {
         seatedIds={playback.state.seatedIds}
         emptyNight={null}
       />
+      {playback.time >= playback.end && (
+        <CurtainCall
+          metrics={playback.state.metrics}
+          onRunAgain={onRunAgain}
+          onTryWeeknight={onTryWeeknight}
+        />
+      )}
     </>
   );
 }

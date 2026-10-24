@@ -1865,6 +1865,17 @@
       "step": "Événement suivant",
       "speed": "{{speed}}×"
     },
-    "loading": "Chargement de vos tables…"
+    "loading": "Chargement de vos tables…",
+    "curtainCall": {
+      "title": "Salut final",
+      "covers": "Couverts servis",
+      "turn": "Durée moyenne d'occupation",
+      "peak": "Heure de pointe",
+      "neverSat": "Tables jamais occupées",
+      "wait": "Plus longue attente sans réservation",
+      "minutes": "{{minutes}} min",
+      "runAgain": "Recommencer",
+      "weeknight": "Essayer un soir de semaine"
+    }
   }
 }
