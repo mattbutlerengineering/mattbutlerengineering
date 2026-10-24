@@ -13,7 +13,7 @@ The platform serves both public-facing pages (marketing, menu browsing) and auth
 
 ## Decision
 
-Use Auth0 as the OIDC identity provider. On the backend, a custom Fastify plugin (`@mbe/auth`) validates JWTs when present but does not reject unauthenticated requests. Routes opt into protection via a `requireAuth` preHandler. The frontend uses `@auth0/auth0-react` with PKCE and stores tokens in memory (no localStorage).
+Use Auth0 as the OIDC identity provider. On the backend, a custom Fastify plugin (`@mbe/auth`) validates JWTs when present but does not reject unauthenticated requests. Routes opt into protection via a `requireAuth` preHandler. The frontend uses standard OIDC via `react-oidc-context` (with `oidc-client-ts`) and PKCE, wrapped by `@mbe/auth` (`packages/auth/src/react/provider.tsx`), not Auth0's own React SDK. Tokens are persisted through a `WebStorageStateStore` backed by `localStorage` so Playwright's `storageState` can capture the session. See ADR-010 for why Auth0-specific SDKs were rejected.
 
 ## Consequences
 
