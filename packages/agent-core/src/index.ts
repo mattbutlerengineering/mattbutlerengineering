@@ -436,7 +436,7 @@ export type {
 export { calibrate } from "./eval/calibrate.js";
 export type { CalibrationBucket, CalibrationSummary } from "./eval/calibrate.js";
 export { checkCostRegression } from "./eval/cost-regression.js";
-export { taskDidNotRun, suiteDidNotRun } from "./eval/run-detection.js";
+export { taskDidNotRun, suiteDidNotRun, suiteJudgeUnavailable } from "./eval/run-detection.js";
 export { costBasisForAdapter, isWithinBudget } from "./eval/cost-basis.js";
 export type { CostBasis } from "./eval/cost-basis.js";
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { taskDidNotRun, suiteDidNotRun } from "../run-detection.js";
+import { taskDidNotRun, suiteDidNotRun, suiteJudgeUnavailable } from "../run-detection.js";
 import { runEvalSuite } from "../eval-harness.js";
 import type { EvalReport, Task, TaskScore } from "../types.js";
 import type { SessionResult } from "../../types.js";
@@ -123,5 +123,36 @@ describe("errored-with-usage", () => {
     expect(result.aggregate.stuckCount).toBe(0);
     expect(result.nonRunCount).toBe(0);
     expect(suiteDidNotRun(result)).toBe(false);
+  });
+});
+
+describe("suiteJudgeUnavailable", () => {
+  const failedJudge = {
+    passed: false,
+    confidence: 0,
+    reasoning: "x",
+    issues: [],
+    evaluationFailed: true,
+  };
+  const goodJudge = { passed: true, confidence: 1, reasoning: "ok", issues: [] };
+
+  it("is true when every judged task's judge could not run", () => {
+    const r = report([
+      score({ turns: 3, costUsd: 0.1, judgeResult: failedJudge }),
+      score({ taskId: "t2", turns: 3, costUsd: 0.1, judgeResult: failedJudge }),
+    ]);
+    expect(suiteJudgeUnavailable(r)).toBe(true);
+  });
+
+  it("is false when at least one judge produced a verdict", () => {
+    const r = report([
+      score({ turns: 3, costUsd: 0.1, judgeResult: failedJudge }),
+      score({ taskId: "t2", turns: 3, costUsd: 0.1, judgeResult: goodJudge }),
+    ]);
+    expect(suiteJudgeUnavailable(r)).toBe(false);
+  });
+
+  it("is false when no task was judged at all", () => {
+    expect(suiteJudgeUnavailable(report([score({ turns: 3, costUsd: 0.1 })]))).toBe(false);
   });
 });

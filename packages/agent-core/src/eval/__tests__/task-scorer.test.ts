@@ -229,6 +229,22 @@ describe("scoreTask — LLM judge (stubbed via JudgeFunction seam)", () => {
   });
 });
 
+describe("scoreTask — inconclusive judge (#7351)", () => {
+  it("does not count an unavailable judge against the score, but still does not pass", async () => {
+    const task = makeTask({
+      rubric: {
+        testsMustPass: true,
+        typecheckMustPass: true,
+        lintMustPass: false,
+        judgeCriteria: ["fix is correct"],
+      },
+    });
+    const score = await scoreTask(makeRun(ALL_PASS, task));
+    expect(score.passed).toBe(false);
+    expect(score.score).toBe(1);
+  });
+});
+
 // TaskScore.sessionErrors (amendment 2026-09-29): the session's own errors ride
 // on the score only when there are any; `error` keeps its thrown-task meaning.
 describe("scoreTask — sessionErrors", () => {

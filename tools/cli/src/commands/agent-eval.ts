@@ -15,6 +15,7 @@ import {
   resolveSuitePath,
   checkCostRegression,
   suiteDidNotRun,
+  suiteJudgeUnavailable,
   costBasisForAdapter,
   isWithinBudget,
   DEFAULT_SESSION_CONFIG,
@@ -38,6 +39,8 @@ const execFileAsync = promisify(execFile);
 // use (1) — a caller must be able to tell "the suite genuinely regressed"
 // apart from "the agent never ran" (no credentials / missing prerequisite).
 const NO_RUN_EXIT_CODE = 2;
+// The agent ran but the judge could not score any task: also not a measurement.
+const JUDGE_UNAVAILABLE_EXIT_CODE = 3;
 
 // Same backends `mbe agent run --adapter` accepts, resolved through the
 // same agent-core seam (#4199) — see adapter-resolution.ts.
@@ -139,6 +142,16 @@ export const agentEvalCommand = new Command("eval")
         emitReport(report, options.json, costBasis);
         console.error(`\n${noRunMessage(adapterType, report)}`);
         process.exitCode = NO_RUN_EXIT_CODE;
+        return;
+      }
+
+      // Judge never ran on any task: un-measured, not a baseline. Don't persist it (#7351).
+      if (suiteJudgeUnavailable(report)) {
+        emitReport(report, options.json, costBasis);
+        console.error(
+          "\nThe LLM judge could not run on any task, so only the deterministic signals were measured. This run was not persisted and is not a pass-rate measurement."
+        );
+        process.exitCode = JUDGE_UNAVAILABLE_EXIT_CODE;
         return;
       }
 

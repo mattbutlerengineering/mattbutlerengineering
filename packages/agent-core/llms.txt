@@ -271,6 +271,9 @@
     <item priority="high">
       export function suiteDidNotRun(report: EvalReport): boolean { /* ... */ }
     </item>
+    <item priority="high">
+      export function suiteJudgeUnavailable(report: EvalReport): boolean { /* ... */ }
+    </item>
   </file>
   <file path="src/eval/task-scorer.ts">
     <item priority="high">

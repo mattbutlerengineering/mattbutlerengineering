@@ -9,6 +9,9 @@ import type { SkipPolicyInput, SkipReason } from "./evaluation-skip-policy.js";
 
 const execFileAsync = promisify(execFile);
 
+/** Turn cap for the judge query; must leave room for the structured-output turn. */
+const JUDGE_MAX_TURNS = 3;
+
 /** Bound the `git diff` subprocess call so a hang fails fast. */
 const GIT_TIMEOUT_MS = 60_000;
 
@@ -190,7 +193,9 @@ export async function evaluateSuccess(
       prompt,
       options: {
         model: mergedConfig.model,
-        maxTurns: 1,
+        // A json_schema response needs a turn beyond the answer itself: with 1
+        // the SDK returns error_max_turns on every call (#7351).
+        maxTurns: JUDGE_MAX_TURNS,
         maxBudgetUsd: mergedConfig.maxBudgetUsd,
         permissionMode: "plan",
         systemPrompt: "You are a code review evaluator. Respond only with the requested JSON.",

@@ -24,3 +24,15 @@ export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): bool
 export function suiteDidNotRun(report: EvalReport): boolean {
   return report.tasks.length > 0 && report.tasks.every(taskDidNotRun);
 }
+
+/**
+ * True when the report has judged tasks and the LLM judge could not run on
+ * any of them. Such a run measured only the deterministic signals — it is
+ * un-measured, not a baseline, and must not be persisted or read as a pass
+ * rate (#7351). Tasks without `judgeCriteria` carry no `judgeResult` and are
+ * ignored.
+ */
+export function suiteJudgeUnavailable(report: EvalReport): boolean {
+  const judged = report.tasks.filter((t) => t.judgeResult !== undefined);
+  return judged.length > 0 && judged.every((t) => t.judgeResult?.evaluationFailed === true);
+}

@@ -242,7 +242,8 @@ describe("runEvalSuite — judgeCriteria gate the score", () => {
     });
     const t = report.tasks[0]!;
     expect(t.passed).toBe(false);
-    expect(t.score).toBeLessThan(1);
+    // Inconclusive, not a bad verdict: the score covers only the signals that ran (#7351).
+    expect(t.score).toBe(1);
     expect(t.judgeResult?.evaluationFailed).toBe(true);
   });
 
