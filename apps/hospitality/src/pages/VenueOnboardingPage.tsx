@@ -33,6 +33,7 @@ export function VenueOnboardingPage() {
   // is stable across renders, unlike setVenueId from context, so the
   // celebration timer's captured onCelebrationDone callback is never stale.
   const [celebrationDone, setCelebrationDone] = useState(false);
+  const [rehearseAfterLaunch, setRehearseAfterLaunch] = useState(false);
 
   const { step, data, errors, highestStepReached, slugStatus, launch, actions } =
     useOnboardingWizardContext();
@@ -106,6 +107,11 @@ export function VenueOnboardingPage() {
     setCelebrationDone(true);
   };
 
+  const handleRehearse = () => {
+    setRehearseAfterLaunch(true);
+    setCelebrationDone(true);
+  };
+
   // Called by LaunchStep's Retry banner. Retry bypasses LaunchStep's own
   // celebration wrapper (that wrapper only wraps the primary Launch button),
   // so a successful retry never fires onCelebrationDone on its own — the
@@ -143,8 +149,20 @@ export function VenueOnboardingPage() {
   useEffect(() => {
     if (!celebrationDone || launch.floorPlanId === null) return;
     if (selectedVenueId !== launch.venueId) return;
-    navigate(`/floor-plans/${launch.floorPlanId}`, { replace: true });
-  }, [celebrationDone, launch.floorPlanId, launch.venueId, selectedVenueId, navigate]);
+    navigate(
+      rehearseAfterLaunch ? "/timeline?rehearsal=true" : `/floor-plans/${launch.floorPlanId}`,
+      {
+        replace: true,
+      }
+    );
+  }, [
+    celebrationDone,
+    rehearseAfterLaunch,
+    launch.floorPlanId,
+    launch.venueId,
+    selectedVenueId,
+    navigate,
+  ]);
 
   // The floor plan canvas wants more room than the 40rem review card — widen
   // the container on step 5 only.
@@ -242,6 +260,7 @@ export function VenueOnboardingPage() {
               settings={data.settings}
               onLaunch={handleLaunch}
               onCelebrationDone={handleCelebrationDone}
+              onRehearse={handleRehearse}
               floorPlan={data.floorPlan}
               launch={launch}
               onRetry={handleRetry}

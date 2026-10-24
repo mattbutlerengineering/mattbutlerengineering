@@ -282,6 +282,12 @@ function LiveTimelinePage() {
   const handlePreviousDay = () => shiftDay(-1);
   const handleNextDay = () => shiftDay(1);
   const handleToday = () => setParam("date", todayStr);
+  const handleRehearse = () =>
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set(REHEARSAL_PARAM, "true");
+      return next;
+    });
 
   /* ── Load axis ── */
 
@@ -463,6 +469,7 @@ function LiveTimelinePage() {
                 dateLabel: formatServiceDate(selectedDate, fmt.locale),
                 onWalkIn: openWalkInDialog,
                 onToday: handleToday,
+                onRehearse: handleRehearse,
               }
             : null
         }

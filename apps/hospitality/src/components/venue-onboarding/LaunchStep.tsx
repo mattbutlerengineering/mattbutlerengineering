@@ -48,6 +48,8 @@ interface LaunchStepProps {
   floorPlan?: FloorPlanDraft;
   launch?: LaunchProgress;
   onRetry?: () => void;
+  /** Skips the automatic handoff and starts Dress Rehearsal on the new venue. */
+  onRehearse?: () => void;
 }
 
 export function LaunchStep({
@@ -60,6 +62,7 @@ export function LaunchStep({
   floorPlan = EMPTY_FLOOR_PLAN_DRAFT,
   launch = INITIAL_LAUNCH_PROGRESS,
   onRetry,
+  onRehearse,
 }: LaunchStepProps) {
   const { t } = useTranslation();
   const [celebrating, setCelebrating] = useState(false);
@@ -125,6 +128,17 @@ export function LaunchStep({
           </svg>
         </div>
         <Text variant="label">{celebrationCopy}</Text>
+        {onRehearse && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (timeoutRef.current) clearTimeout(timeoutRef.current);
+              onRehearse();
+            }}
+          >
+            {t("rehearsal.entry.cta")}
+          </Button>
+        )}
       </div>
     );
   }

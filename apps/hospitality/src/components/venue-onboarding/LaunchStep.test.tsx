@@ -145,6 +145,24 @@ describe("LaunchStep", () => {
     expect(onCelebrationDone).toHaveBeenCalledOnce();
   });
 
+  it("offers 'Run a Friday night' on the celebration and hands off to it instead of the timer", async () => {
+    vi.useFakeTimers();
+    const onRehearse = vi.fn();
+    const { onCelebrationDone } = renderLaunchStep({ onRehearse });
+
+    expect(screen.queryByRole("button", { name: "Run a Friday night" })).toBeNull();
+    fireEvent.click(screen.getByText("Launch Venue"));
+    await flushMicrotasks();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run a Friday night" }));
+    expect(onRehearse).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(onCelebrationDone).not.toHaveBeenCalled();
+  });
+
   it("skips the long celebration delay under prefers-reduced-motion but still shows the success state", async () => {
     mockMatchMedia(true);
     vi.useFakeTimers();

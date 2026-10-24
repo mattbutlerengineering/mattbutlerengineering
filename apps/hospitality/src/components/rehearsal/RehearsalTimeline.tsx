@@ -45,10 +45,10 @@ function toVenueWallClock(reservation: Reservation, timeZone: string | undefined
  */
 export function RehearsalTimeline({ tables, date }: RehearsalTimelineProps) {
   const [run, setRun] = useState<{ seed: number; profile: RehearsalProfile }>({
-    seed: 1,
+    seed: Math.floor(Math.random() * 2 ** 31),
     profile: "friday",
   });
-  // Keyed so a new seed or profile restarts the clock from the first event.
+  // A fresh seed per start; keyed so a new seed or profile restarts the clock from the first event.
   return (
     <RehearsalNight
       key={`${run.profile}-${run.seed}`}
