@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chatRequestContext } from "./useChatRequestContext.js";
+import { chatRequestContext } from "./copilotContext.js";
 
 describe("chatRequestContext", () => {
   it("sends the selected venue and its time zone", () => {

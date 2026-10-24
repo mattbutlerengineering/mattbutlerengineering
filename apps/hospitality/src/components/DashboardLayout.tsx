@@ -18,9 +18,8 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
-import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
+import { HOSPITALITY_DOMAIN_CONTEXT, useChatRequestContext } from "../constants/copilotContext.js";
 import { getSessionLapseCopy } from "../constants/session-lapse-copy.js";
-import { useChatRequestContext } from "../hooks/useChatRequestContext.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useTheme } from "../hooks/use-theme.js";

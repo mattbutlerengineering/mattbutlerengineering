@@ -7,7 +7,8 @@ vi.mock("@mbe/auth/react", () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock("../hooks/useChatRequestContext.js", () => ({
+vi.mock("../constants/copilotContext.js", () => ({
+  HOSPITALITY_DOMAIN_CONTEXT: { schemas: [] },
   useChatRequestContext: () => ({ venueId: "venue-1", timeZone: "America/Los_Angeles" }),
 }));
 

@@ -810,6 +810,19 @@
         },
       ],
     };
+    interface ChatVenue {
+      readonly id: string;
+      readonly ianaTimezone: string;
+    }
+    export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> {
+      if (!venue) return {};
+      const timeZone = resolveTimeZone(venue.ianaTimezone);
+      return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
+    }
+    export function useChatRequestContext(): Record<string, string> {
+      const { selectedVenue } = useVenue();
+      return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+    }
   </file>
   <file path="src/constants/session-lapse-copy.ts">
     export function getSessionLapseCopy(t: TFunction) {
@@ -3783,21 +3796,6 @@
       );
     
       return { status, error, selectSlot, confirm, abandon };
-    }
-  </file>
-  <file path="src/hooks/useChatRequestContext.ts">
-    interface ChatVenue {
-      readonly id: string;
-      readonly ianaTimezone: string;
-    }
-    export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> {
-      if (!venue) return {};
-      const timeZone = resolveTimeZone(venue.ianaTimezone);
-      return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
-    }
-    export function useChatRequestContext(): Record<string, string> {
-      const { selectedVenue } = useVenue();
-      return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
     }
   </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">

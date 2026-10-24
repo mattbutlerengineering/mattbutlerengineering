@@ -5,8 +5,7 @@ import { useAuth } from "@mbe/auth/react";
 import { ChatPanel } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { PageHeader } from "../components/PageHeader.js";
-import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
-import { useChatRequestContext } from "../hooks/useChatRequestContext.js";
+import { HOSPITALITY_DOMAIN_CONTEXT, useChatRequestContext } from "../constants/copilotContext.js";
 import styles from "./ChatPage.module.css";
 
 // Standalone mode never renders ChatPanel's own close control (that's a

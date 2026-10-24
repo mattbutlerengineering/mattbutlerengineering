@@ -1836,6 +1836,18 @@
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
     </item>
+    <item priority="high">
+      interface ChatVenue {
+        id: string;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="high">
+      export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChatRequestContext(): Record<string, string> { /* ... */ }
+    </item>
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
     <item priority="high">
@@ -4487,20 +4499,6 @@
     </item>
     <item priority="high">
       export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) { /* ... */ }
-    </item>
-  </file>
-  <file path="apps/hospitality/src/hooks/useChatRequestContext.ts">
-    <item priority="high">
-      interface ChatVenue {
-        id: string;
-        ianaTimezone: string;
-      }
-    </item>
-    <item priority="high">
-      export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function useChatRequestContext(): Record<string, string> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
