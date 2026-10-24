@@ -28,6 +28,7 @@ export type GenStreamEvent =
 export interface GenFinishPayload {
   readonly usage: { readonly inputTokens?: number; readonly outputTokens?: number };
   readonly providerMetadata: unknown;
+  readonly finishReason?: string;
 }
 
 export interface GenRunnerConfig {
@@ -108,8 +109,8 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
         stopWhen: stepCountIs(config.maxSteps),
         maxOutputTokens: config.maxOutputTokens,
         onFinish: config.onFinish
-          ? async ({ usage, providerMetadata }) => {
-              await config.onFinish!({ usage, providerMetadata });
+          ? async ({ usage, providerMetadata, finishReason }) => {
+              await config.onFinish!({ usage, providerMetadata, finishReason });
             }
           : undefined,
       });

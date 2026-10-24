@@ -67,6 +67,17 @@ interface GenUsage {
   readonly outputTokens?: number;
 }
 
+/** Per-run timings and output size, logged on the cost line. Zeroed when unmeasurable. */
+export interface GenTelemetry {
+  /** ms from request start to the first emitted event (0 if none was emitted). */
+  readonly ttftMs: number;
+  /** ms from request start to the run finishing or failing. */
+  readonly durationMs: number;
+  readonly elementCount: number;
+  /** The AI SDK's finish reason, or "error" for a failed run. */
+  readonly finishReason: string;
+}
+
 /**
  * Logs token usage + Anthropic cache hit/miss for a gen request. Call from the
  * route's `onFinish` so the AI SDK still infers the callback's own types.
@@ -78,6 +89,7 @@ export function logGenCost(
     readonly usage: GenUsage;
     readonly providerMetadata?: unknown;
     readonly label: string;
+    readonly telemetry?: GenTelemetry;
   }
 ): void {
   const anthropicMeta = (
@@ -90,10 +102,14 @@ export function logGenCost(
     {
       userId: opts.userId,
       modelId: GEN_MODEL_ID,
-      inputTokens: opts.usage.inputTokens,
-      outputTokens: opts.usage.outputTokens,
+      inputTokens: opts.usage.inputTokens ?? 0,
+      outputTokens: opts.usage.outputTokens ?? 0,
       cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
       cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+      ttftMs: opts.telemetry?.ttftMs ?? 0,
+      durationMs: opts.telemetry?.durationMs ?? 0,
+      elementCount: opts.telemetry?.elementCount ?? 0,
+      finishReason: opts.telemetry?.finishReason ?? "unknown",
     },
     opts.label
   );

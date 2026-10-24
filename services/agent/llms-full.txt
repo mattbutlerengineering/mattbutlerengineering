@@ -810,11 +810,33 @@
               }
             }
     
+            const startedAt = Date.now();
+            let firstEventAt: number | undefined;
+            let elementCount = 0;
+            const markEmitted = () => {
+              firstEventAt ??= Date.now();
+              elementCount += 1;
+            };
+            const telemetry = (finishReason: string) => ({
+              ttftMs: firstEventAt === undefined ? 0 : firstEventAt - startedAt,
+              durationMs: Date.now() - startedAt,
+              elementCount,
+              finishReason,
+            });
+    
             const tools = await getTools(request, parsed);
             // A run that errors before onFinish still consumed tokens: charge the worst case.
             let usageReported = false;
             const chargeIfUnreported = async () => {
-              if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+              if (usageReported) return;
+              // onFinish never logged this run, so the cost line is emitted here, zeroed.
+              logGenCost(request.log, {
+                userId: request.user?.id,
+                usage: {},
+                label: costLogLabel,
+                telemetry: telemetry("error"),
+              });
+              await trackGenSpend(failedGenCostMicroUsd(), request.log);
             };
             const runner = createGenRunner({
               systemPrompt,
@@ -823,12 +845,13 @@
               maxSteps,
               toolChoice: config.toolChoice,
               failOnToolError: config.failOnToolError,
-              onFinish: async ({ usage, providerMetadata }) => {
+              onFinish: async ({ usage, providerMetadata, finishReason }) => {
                 logGenCost(request.log, {
                   userId: request.user?.id,
                   usage,
                   providerMetadata,
                   label: costLogLabel,
+                  telemetry: telemetry(finishReason ?? "unknown"),
                 });
                 usageReported = true;
                 await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
@@ -845,6 +868,7 @@
                     await runner.run(messages, tools, async (event) => {
                       if (event.type === "text" && event.content.length > 0) {
                         emitted = true;
+                        markEmitted();
                         controller.enqueue(event.content);
                       }
                     });
@@ -873,6 +897,7 @@
                     const line = serializeEvent(event);
                     if (line === undefined) return;
                     emitted = true;
+                    markEmitted();
                     lines.push(line);
                     controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
                   });
@@ -921,6 +946,7 @@
     export interface GenFinishPayload {
       readonly usage: { readonly inputTokens?: number; readonly outputTokens?: number };
       readonly providerMetadata: unknown;
+      readonly finishReason?: string;
     }
     export interface GenRunnerConfig {
       readonly systemPrompt: string;
@@ -984,8 +1010,8 @@
             stopWhen: stepCountIs(config.maxSteps),
             maxOutputTokens: config.maxOutputTokens,
             onFinish: config.onFinish
-              ? async ({ usage, providerMetadata }) => {
-                  await config.onFinish!({ usage, providerMetadata });
+              ? async ({ usage, providerMetadata, finishReason }) => {
+                  await config.onFinish!({ usage, providerMetadata, finishReason });
                 }
               : undefined,
           });
@@ -1245,6 +1271,15 @@
       readonly inputTokens?: number;
       readonly outputTokens?: number;
     }
+    export interface GenTelemetry {
+      /** ms from request start to the first emitted event (0 if none was emitted). */
+      readonly ttftMs: number;
+      /** ms from request start to the run finishing or failing. */
+      readonly durationMs: number;
+      readonly elementCount: number;
+      /** The AI SDK's finish reason, or "error" for a failed run. */
+      readonly finishReason: string;
+    }
     export function logGenCost(
       log: FastifyBaseLogger,
       opts: {
@@ -1252,6 +1287,7 @@
         readonly usage: GenUsage;
         readonly providerMetadata?: unknown;
         readonly label: string;
+        readonly telemetry?: GenTelemetry;
       }
     ): void {
       const anthropicMeta = (
@@ -1264,10 +1300,14 @@
         {
           userId: opts.userId,
           modelId: GEN_MODEL_ID,
-          inputTokens: opts.usage.inputTokens,
-          outputTokens: opts.usage.outputTokens,
+          inputTokens: opts.usage.inputTokens ?? 0,
+          outputTokens: opts.usage.outputTokens ?? 0,
           cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
           cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+          ttftMs: opts.telemetry?.ttftMs ?? 0,
+          durationMs: opts.telemetry?.durationMs ?? 0,
+          elementCount: opts.telemetry?.elementCount ?? 0,
+          finishReason: opts.telemetry?.finishReason ?? "unknown",
         },
         opts.label
       );

@@ -238,11 +238,33 @@ export function createGenRoute<TSchema extends z.ZodType>(
           }
         }
 
+        const startedAt = Date.now();
+        let firstEventAt: number | undefined;
+        let elementCount = 0;
+        const markEmitted = () => {
+          firstEventAt ??= Date.now();
+          elementCount += 1;
+        };
+        const telemetry = (finishReason: string) => ({
+          ttftMs: firstEventAt === undefined ? 0 : firstEventAt - startedAt,
+          durationMs: Date.now() - startedAt,
+          elementCount,
+          finishReason,
+        });
+
         const tools = await getTools(request, parsed);
         // A run that errors before onFinish still consumed tokens: charge the worst case.
         let usageReported = false;
         const chargeIfUnreported = async () => {
-          if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+          if (usageReported) return;
+          // onFinish never logged this run, so the cost line is emitted here, zeroed.
+          logGenCost(request.log, {
+            userId: request.user?.id,
+            usage: {},
+            label: costLogLabel,
+            telemetry: telemetry("error"),
+          });
+          await trackGenSpend(failedGenCostMicroUsd(), request.log);
         };
         const runner = createGenRunner({
           systemPrompt,
@@ -251,12 +273,13 @@ export function createGenRoute<TSchema extends z.ZodType>(
           maxSteps,
           toolChoice: config.toolChoice,
           failOnToolError: config.failOnToolError,
-          onFinish: async ({ usage, providerMetadata }) => {
+          onFinish: async ({ usage, providerMetadata, finishReason }) => {
             logGenCost(request.log, {
               userId: request.user?.id,
               usage,
               providerMetadata,
               label: costLogLabel,
+              telemetry: telemetry(finishReason ?? "unknown"),
             });
             usageReported = true;
             await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
@@ -273,6 +296,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
                 await runner.run(messages, tools, async (event) => {
                   if (event.type === "text" && event.content.length > 0) {
                     emitted = true;
+                    markEmitted();
                     controller.enqueue(event.content);
                   }
                 });
@@ -301,6 +325,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
                 const line = serializeEvent(event);
                 if (line === undefined) return;
                 emitted = true;
+                markEmitted();
                 lines.push(line);
                 controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
               });
