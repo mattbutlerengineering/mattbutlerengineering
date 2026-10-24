@@ -1,0 +1,16 @@
+{
+  "name": "@mbe/smoke",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@mbe/config": "workspace:*",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

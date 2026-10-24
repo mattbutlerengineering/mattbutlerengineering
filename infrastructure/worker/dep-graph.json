@@ -140,6 +140,11 @@
       "name": "@mbe/scripts",
       "type": "package",
       "path": "scripts"
+    },
+    {
+      "name": "@mbe/smoke",
+      "type": "package",
+      "path": "tests/smoke"
     }
   ],
   "edges": [
@@ -577,6 +582,11 @@
       "from": "@mbe/scripts",
       "to": "@mbe/gh-client",
       "type": "dependency"
+    },
+    {
+      "from": "@mbe/smoke",
+      "to": "@mbe/config",
+      "type": "devDependency"
     }
   ]
 }

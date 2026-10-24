@@ -1,0 +1,10 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "//": "The specs sit at the package root, not under src/, so the root lint inputs (src/**) would hash identically across an edit and replay a cached green lint.",
+  "tasks": {
+    "lint": {
+      "inputs": ["$TURBO_EXTENDS$", "*.ts"]
+    }
+  }
+}
