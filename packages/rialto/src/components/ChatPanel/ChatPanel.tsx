@@ -14,7 +14,9 @@ export type ComponentRegistry = Record<string, React.ComponentType<any>>;
 // ({ element, children, emit, on }); ChatPanel has no action system, so events
 // are accepted and dropped.
 const NOOP_EMIT = () => {};
-const NOOP_ON = () => ({ bound: false, shouldPreventDefault: false });
+// Full json-render EventHandle shape — an adapter calling on("press").emit()
+// must get a function, not undefined.
+const NOOP_ON = () => ({ emit: NOOP_EMIT, bound: false, shouldPreventDefault: false });
 
 function renderElement(
   el: ChatMessageElement,
