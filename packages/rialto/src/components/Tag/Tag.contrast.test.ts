@@ -133,3 +133,25 @@ describe("Tag contrast (axe color-contrast, WCAG AA 4.5:1)", () => {
     }
   }
 });
+
+describe("Tag selected contrast (axe color-contrast, WCAG AA 4.5:1)", () => {
+  for (const [themeName, tokens] of Object.entries(THEMES)) {
+    const states = [
+      { state: "rest", bgRaw: declaration(ruleBody(css, ".selected"), "background") as string },
+      {
+        state: "hover",
+        bgRaw: declaration(ruleBody(css, ".selected:hover"), "background") as string,
+      },
+    ];
+    for (const { state, bgRaw } of states) {
+      it(`selected ${state} meets 4.5:1 in ${themeName}`, () => {
+        const fgRaw = declaration(ruleBody(css, ".selected"), "color") as string;
+        const fg = textColor(tokens, fgRaw);
+        const bg = resolveColor(tokens, bgRaw);
+        expect(
+          ratio(blend(fg, [bg[0], bg[1], bg[2]]), [bg[0], bg[1], bg[2]])
+        ).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+});
