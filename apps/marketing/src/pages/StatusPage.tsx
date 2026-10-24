@@ -2,19 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, Badge, Spinner, Heading, Text } from "@mattbutlerengineering/rialto";
 import { statusColor, statusLabel, overallStatus } from "../utils/formatters.js";
 import type { ServiceStatus } from "../utils/formatters.js";
+import {
+  STATUS_SERVICES as SERVICES,
+  STATUS_SITES as STATIC_SITES,
+} from "../data/status-probes.js";
 import styles from "./StatusPage.module.css";
-
-const SERVICES = [
-  { name: "Users API", url: "/api/v1/users/health" },
-  { name: "Reservations API", url: "/api/v1/reservations/health" },
-  { name: "Agent API", url: "/api/gen/health" },
-] as const;
-
-const STATIC_SITES = [
-  { name: "Marketing", url: "/" },
-  { name: "Hospitality", url: "/hospitality/" },
-  { name: "Rialto", url: "/rialto/" },
-] as const;
 
 const POLL_INTERVAL_MS = 30_000;
 
