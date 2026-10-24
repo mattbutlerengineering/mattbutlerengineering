@@ -809,6 +809,40 @@ describe("createAgentTools", () => {
       expect(result).toEqual({ table: { id: "t-patio", status: "READY" } });
     });
 
+    it("prefers a table's number, and refuses an ambiguous name instead of guessing", async () => {
+      api.tables.list.mockResolvedValue({
+        data: [
+          { id: "a", name: "12", tableNumber: null, status: "DIRTY" },
+          { id: "b", name: "Patio", tableNumber: "12", status: "DIRTY" },
+          { id: "c", name: "Bar", tableNumber: null, status: "DIRTY" },
+          { id: "d", name: "bar", tableNumber: null, status: "DIRTY" },
+        ],
+      });
+      api.tables.updateStatus.mockResolvedValue({ id: "b", status: "READY" });
+
+      const byNumber = createConfirmedTools("update_table_status", {
+        table: "12",
+        status: "READY",
+      });
+      await byNumber.update_table_status!.execute!(
+        { table: "12", status: "READY" as const },
+        toolCtx
+      );
+      expect(api.tables.updateStatus).toHaveBeenCalledWith("b", "READY");
+
+      vi.mocked(api.tables.updateStatus).mockClear();
+      const ambiguous = createConfirmedTools("update_table_status", {
+        table: "BAR",
+        status: "READY",
+      });
+      const result = await ambiguous.update_table_status!.execute!(
+        { table: "BAR", status: "READY" as const },
+        toolCtx
+      );
+      expect(api.tables.updateStatus).not.toHaveBeenCalled();
+      expect(result).toEqual({ error: expect.stringMatching(/ambiguous/i) });
+    });
+
     it("returns error when table not found", async () => {
       api.tables.list.mockResolvedValue({
         data: [],
