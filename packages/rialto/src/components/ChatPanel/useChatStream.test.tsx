@@ -377,6 +377,42 @@ describe("useChatStream", () => {
     ]);
   });
 
+  it("treats sending a new message while a confirm is pending as cancelling it", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          { type: "text", content: "Seat Lee at lml?" },
+          {
+            type: "action_request",
+            actionId: "call-5",
+            toolName: "seat_walk_in",
+            toolInput: { partySize: 2 },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Tables 4 and 5." }]));
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("seat Lee");
+    });
+    await act(async () => {
+      await result.current.send("which tables are free?");
+    });
+
+    expect(result.current.pendingAction).toBeNull();
+    expect(result.current.messages[1]).toMatchObject({
+      content: "Seat Lee at lml?",
+      note: "Cancelled. Nothing was changed.",
+    });
+    expect(result.current.messages[3]).not.toHaveProperty("note");
+    const body = vi.mocked(streamNDJSON).mock.calls[1]![0].body as {
+      messages: Array<{ content: string }>;
+    };
+    expect(body.messages[1]!.content).toBe("Seat Lee at lml?\n\nCancelled. Nothing was changed.");
+  });
+
   it("exposes a human-readable error when the stream fails", async () => {
     vi.mocked(streamNDJSON).mockReturnValueOnce(
       erroringStream(new Error("Request failed: Internal Server Error"))

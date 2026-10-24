@@ -178,6 +178,9 @@
       }
     </item>
     <item priority="medium">
+      function withNoteOnLastReply(messages: ChatMessage[], note: string): ChatMessage[] { /* ... */ }
+    </item>
+    <item priority="medium">
       function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } { /* ... */ }
     </item>
     <item priority="low">
