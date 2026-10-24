@@ -44,6 +44,16 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/don't apologize for or correct/i);
   });
 
+  it("explains the table status lifecycle in staff terms", () => {
+    // Live run 2026-10-24: "I can't tell whether READY tables are free to seat."
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+
+    expect(prompt).toContain("AVAILABLE");
+    expect(prompt).toMatch(/only an AVAILABLE table can be seated/i);
+    expect(prompt).toMatch(/"clean", that means READY/i);
+    expect(prompt).toMatch(/plain words/i);
+  });
+
   it("keeps the catalog's component rules, after the assistant guidance", () => {
     const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
 
