@@ -156,6 +156,26 @@ function SeamFallback({ name }: { name: string }): ReactNode {
 }
 
 /**
+ * Truncate top-level string props that exceed the component's declared
+ * `charLimits`, ending them with "…". Models routinely overshoot these limits;
+ * a slightly shortened title beats dropping the whole element to the fallback.
+ */
+function clampToCharLimits(name: string, props: unknown): unknown {
+  const limits = catalogMeta[name]?.charLimits;
+  if (!limits || props === null || typeof props !== "object") return props;
+  const source = props as Record<string, unknown>;
+  let next: Record<string, unknown> | undefined;
+  for (const [prop, max] of Object.entries(limits)) {
+    const value = source[prop];
+    if (typeof value === "string" && value.length > max) {
+      next ??= { ...source };
+      next[prop] = `${value.slice(0, max - 1).trimEnd()}…`;
+    }
+  }
+  return next ?? props;
+}
+
+/**
  * Wrap every adapter so its alias-normalized props are validated against the
  * matching generated Zod schema before the adapter runs. On success the adapter
  * is invoked unchanged; on failure a per-element {@link SeamFallback} is rendered
@@ -173,8 +193,14 @@ function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T):
       wrapped[name] = adapter;
       continue;
     }
-    wrapped[name] = (context) =>
-      schema.safeParse(context.props).success ? adapter(context) : <SeamFallback name={name} />;
+    wrapped[name] = (context) => {
+      const clamped = { ...context, props: clampToCharLimits(name, context.props) };
+      return schema.safeParse(clamped.props).success ? (
+        adapter(clamped)
+      ) : (
+        <SeamFallback name={name} />
+      );
+    };
   }
   // The structural rebuild erases the literal's per-key types; re-assert the
   // caller's shape so defineRegistry keeps checking each adapter against its
