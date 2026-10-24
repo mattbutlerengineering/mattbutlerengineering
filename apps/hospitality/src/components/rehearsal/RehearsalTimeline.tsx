@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
 import type { Reservation, Table } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { formatLocalTime } from "../../utils/format.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import { TimelineGrid } from "../timeline";
 import { CurtainCall } from "./CurtainCall.js";
-import { RehearsalBanner } from "./RehearsalBanner.js";
+import { RehearsalPlaybackBanner } from "./RehearsalPlaybackBanner.js";
 import { simulateService } from "./simulate-service.js";
 import type { RehearsalProfile } from "./types.js";
 import { useRehearsalPlayback } from "./use-rehearsal-playback.js";
@@ -96,24 +95,9 @@ function RehearsalNight({
     [playback.state.reservations, fmt.timeZone]
   );
 
-  const minute = Math.floor(playback.time);
-  const clock = formatLocalTime(
-    `${Math.floor(minute / 60) % 24}:${String(minute % 60).padStart(2, "0")}`,
-    fmt.locale
-  );
-
   return (
     <>
-      <RehearsalBanner
-        clock={clock}
-        playing={playback.playing}
-        speed={playback.speed}
-        reducedMotion={playback.reducedMotion}
-        onPlay={playback.play}
-        onPause={playback.pause}
-        onStep={playback.step}
-        onSpeedChange={playback.setSpeed}
-      />
+      <RehearsalPlaybackBanner playback={playback} />
       <TimelineGrid
         tables={tables}
         reservations={reservations}

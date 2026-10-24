@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate, useBlocker } from "react-router";
+import { useParams, useNavigate, useBlocker, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest, FloorMaterial, WallLayout } from "@mbe/types";
@@ -15,6 +15,7 @@ import {
   type Point,
   type WallEnd,
 } from "../components/floor-plan/floor-plan-geometry.js";
+import { RehearsalFloorPlan } from "../components/rehearsal/RehearsalFloorPlan.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import {
   useFloorPlan,
@@ -28,10 +29,11 @@ import {
   useUpdateFloorPlanSection,
 } from "../hooks/useFloorPlans.js";
 import { useFloorPlanDraft, type PositionUpdate } from "../hooks/useFloorPlanDraft.js";
+import { REHEARSAL_PARAM } from "../utils/timeline-intent.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
 import styles from "./FloorPlanEditorPage.module.css";
 
-export function FloorPlanEditorPage() {
+function LiveFloorPlanEditorPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -463,5 +465,55 @@ export function FloorPlanEditorPage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Rehearsal mode (`?rehearsal=true`, Dress Rehearsal): the plan is read, then a client-side
+ * simulated service drives its table statuses. None of the editor's mutation hooks mount, so
+ * nothing here can write to the API.
+ */
+function RehearsalFloorPlanPage() {
+  const { t } = useTranslation();
+  const { id } = useParams<{ id: string }>();
+  const { data: floorPlan, isLoading, error, refetch } = useFloorPlan(id);
+
+  if (isLoading) {
+    return (
+      <div className={styles.loadingWrapper} aria-busy="true">
+        <div className={styles.spinner} aria-label={t("floorPlan.editor.loading")} role="status" />
+      </div>
+    );
+  }
+  if (error || !floorPlan) {
+    return (
+      <div className={styles.errorContainer}>
+        <ErrorRetryBanner
+          error={error ? error.message : t("floorPlan.editor.notFound")}
+          onRetry={refetch}
+        />
+      </div>
+    );
+  }
+  return (
+    <div className={styles.root}>
+      <div className={styles.header}>
+        <Heading className={styles.floorPlanTitle}>{floorPlan.name}</Heading>
+      </div>
+      <div className={styles.content}>
+        <div className={styles.canvasArea}>
+          <RehearsalFloorPlan floorPlan={floorPlan} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function FloorPlanEditorPage() {
+  const [searchParams] = useSearchParams();
+  return searchParams.get(REHEARSAL_PARAM) === "true" ? (
+    <RehearsalFloorPlanPage />
+  ) : (
+    <LiveFloorPlanEditorPage />
   );
 }

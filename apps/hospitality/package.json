@@ -40,6 +40,11 @@
       "limit": "9 kB"
     },
     {
+      "name": "Dress Rehearsal (shared by the timeline and floor plan pages)",
+      "path": "dist/assets/use-rehearsal-playback-*.js",
+      "limit": "4 kB"
+    },
+    {
       "name": "Venue Onboarding (lazy chunk)",
       "path": "dist/assets/VenueOnboardingPage-*.js",
       "limit": "7.5 kB"
