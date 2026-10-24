@@ -22,6 +22,7 @@ import {
   secondsUntilNextWindow,
   trackGenSpend,
 } from "../services/gen-spend-ceiling.js";
+import { genSpecCacheKey, getCachedSpec, putCachedSpec } from "../services/gen-spec-cache.js";
 import type { GenToolMap, GenStreamEvent, GenRunnerConfig } from "./gen-runner.js";
 
 // Memoize catalog prompt at module load — avoid re-generating per request
@@ -40,6 +41,11 @@ export interface GenRouteConfig<TSchema extends z.ZodType> {
   readonly systemPrompt?: string;
   readonly toolChoice?: GenRunnerConfig["toolChoice"];
   readonly failOnToolError?: boolean;
+  /**
+   * ndjson only: serve identical requests from the Postgres spec cache. Only
+   * successful runs are stored; a hit replays the exact lines a miss streamed.
+   */
+  readonly cache?: boolean;
   /** Derives the chat messages from the parsed body (default: `parsed.messages`). */
   readonly toMessages?: (parsed: z.infer<TSchema>) => GenMessages;
   /**
@@ -199,6 +205,39 @@ export function createGenRoute<TSchema extends z.ZodType>(
           ? config.toMessages(parsed)
           : (parsed as { messages: GenMessages }).messages;
 
+        const systemPrompt = config.systemPrompt ?? SYSTEM_PROMPT;
+        const cacheKey =
+          config.cache && streamFormat === "ndjson"
+            ? genSpecCacheKey({
+                route: path,
+                messages,
+                modelId: GEN_MODEL_ID,
+                systemPrompt,
+                maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
+              })
+            : undefined;
+
+        if (cacheKey) {
+          // Cache trouble must never fail a request: fall through to the model.
+          const cached = await getCachedSpec(cacheKey).catch((err: unknown) => {
+            request.log.warn({ err }, "gen spec cache read failed");
+            return null;
+          });
+          if (cached) {
+            applyStreamHeaders(reply, contentType);
+            return reply.send(
+              new ReadableStream({
+                start(controller) {
+                  for (const line of cached) {
+                    controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+                  }
+                  controller.close();
+                },
+              })
+            );
+          }
+        }
+
         const tools = await getTools(request, parsed);
         // A run that errors before onFinish still consumed tokens: charge the worst case.
         let usageReported = false;
@@ -206,7 +245,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
           if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
         };
         const runner = createGenRunner({
-          systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
+          systemPrompt,
           modelId: GEN_MODEL_ID,
           maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
           maxSteps,
@@ -256,14 +295,23 @@ export function createGenRoute<TSchema extends z.ZodType>(
         const ndjsonStream = new ReadableStream({
           async start(controller) {
             let emitted = false;
+            const lines: unknown[] = [];
             try {
               await runner.run(messages, tools, async (event) => {
                 const line = serializeEvent(event);
                 if (line === undefined) return;
                 emitted = true;
+                lines.push(line);
                 controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
               });
               if (!emitted) throw emptyOutputError();
+              // Only a run that finished cleanly reaches here: errors and the
+              // maxOutputTokens truncation both throw out of runner.run above.
+              if (cacheKey) {
+                await putCachedSpec(cacheKey, lines).catch((err: unknown) => {
+                  request.log.warn({ err }, "gen spec cache write failed");
+                });
+              }
               controller.close();
             } catch (err) {
               request.log.error({ err }, "gen stream failed");

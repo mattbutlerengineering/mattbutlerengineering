@@ -375,6 +375,29 @@
       export const prisma: unknown;
     </item>
   </file>
+  <file path="src/services/gen-spec-cache.ts">
+    <item priority="high">
+      export const GEN_SPEC_CACHE_TTL_HOURS: unknown;
+    </item>
+    <item priority="low">
+      interface GenSpecCacheKeyInput {
+        route: string;
+        messages: ReadonlyArray<{ readonly role: string; readonly content: ...;
+        modelId: string;
+        systemPrompt: string;
+        maxOutputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function genSpecCacheKey(input: GenSpecCacheKeyInput): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getCachedSpec(key: string): Promise<unknown[] | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function putCachedSpec(key: string, lines: unknown[]): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/gen-spend-ceiling.ts">
     <item priority="high">
       export const GEN_DAILY_CEILING_DEFAULT_USD: unknown;

@@ -115,3 +115,12 @@ model GenSpendWindow {
 
   @@map("gen_spend_windows")
 }
+
+model GenSpecCache {
+  key       String   @id
+  lines     Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("gen_spec_cache")
+}
