@@ -24,6 +24,11 @@ export interface CreateAgentToolsOptions {
   readonly timeZone?: string | undefined;
 }
 
+/** The reservations API's page-size ceiling. */
+const LOOKUP_LIMIT = 100;
+/** Guest profiles a name lookup follows; more than this means the name is too vague. */
+const MAX_GUEST_MATCHES = 5;
+
 const NO_VENUE = {
   error: "No venue is selected. Ask the user to pick a venue in the app, then try again.",
 } as const;
@@ -131,12 +136,34 @@ export function createAgentTools(
       execute: async ({ guestName, date }) => {
         if (!venueId) return NO_VENUE;
         log.info({ date, venueId }, "lookup_reservation tool called");
+        const dateFilter = date ? { date } : {};
         try {
-          const result = await api.reservations.list({ venueId, ...(date ? { date } : {}) });
+          const venueList = await api.reservations.list({
+            venueId,
+            ...dateFilter,
+            limit: LOOKUP_LIMIT,
+          });
           const needle = guestName?.trim().toLowerCase();
-          const reservations = needle
-            ? result.data.filter((r) => r.guestName?.toLowerCase().includes(needle))
-            : result.data;
+          if (!needle) return { reservations: venueList.data };
+          // The list is paginated, so a name filter over it alone misses most
+          // of a busy venue: resolve the guest first, then list their bookings.
+          const guests = await api.guests.search({ venueId, query: guestName! });
+          const byGuest = await Promise.all(
+            guests.data.slice(0, MAX_GUEST_MATCHES).map((guest) =>
+              api.reservations.list({
+                venueId,
+                guestId: guest.id,
+                ...dateFilter,
+                limit: LOOKUP_LIMIT,
+              })
+            )
+          );
+          // Walk-ins can carry a name with no guest profile; match those by name.
+          const byName = venueList.data.filter((r) => r.guestName?.toLowerCase().includes(needle));
+          const merged = [...byGuest.flatMap((page) => page.data), ...byName];
+          const reservations = merged.filter(
+            (r, i) => merged.findIndex((other) => other.id === r.id) === i
+          );
           return { reservations };
         } catch (err) {
           log.error({ err, date, venueId }, "lookup_reservation failed");

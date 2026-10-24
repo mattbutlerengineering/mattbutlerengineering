@@ -98,6 +98,9 @@ export function useChatStream({
   const getAccessTokenRef = useRef(getAccessToken);
   const streamRef = useRef(stream);
   const requestContextRef = useRef(requestContext);
+  // The context of the request that proposed the pending action: a confirm
+  // must run where the action was proposed, even if the host switched venue.
+  const pendingContextRef = useRef<Readonly<Record<string, unknown>> | undefined>(undefined);
   const messagesRef = useRef(messages);
   const pendingActionRef = useRef(pendingAction);
   const lastRequestRef = useRef<{
@@ -128,7 +131,8 @@ export function useChatStream({
   const streamRequest = useCallback(
     async (requestBody: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
       abortControllerRef.current?.abort();
-      const body = { ...requestContextRef.current, ...requestBody };
+      const context = requestContextRef.current;
+      const body = { ...context, ...requestBody };
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
@@ -169,6 +173,7 @@ export function useChatStream({
             if (elements.length > 0) msg.elements = [...elements];
             setMessages([...currentMessages, msg]);
           } else if (line.type === "action_request" && line.actionId && line.toolName) {
+            pendingContextRef.current = context;
             setPendingAction({
               actionId: line.actionId,
               toolName: line.toolName,
@@ -231,6 +236,7 @@ export function useChatStream({
     const currentMsgs = messagesRef.current;
     await streamRequest(
       {
+        ...pendingContextRef.current,
         messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
         // The server executes exactly this toolName + toolInput (its confirmation
         // gate ignores the model's re-derived input), so send what the user saw.

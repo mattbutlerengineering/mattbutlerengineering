@@ -199,6 +199,38 @@ describe("useChatStream", () => {
     });
   });
 
+  it("confirm targets the venue the action was proposed in, even after a venue switch", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          {
+            type: "action_request",
+            actionId: "call-9",
+            toolName: "update_table_status",
+            toolInput: { tableNumber: 5, status: "DIRTY" },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Done" }]));
+
+    const { result, rerender } = renderHook(
+      ({ venueId }: { venueId: string }) =>
+        useChatStream({ ...createMockProps(), requestContext: { venueId } }),
+      { initialProps: { venueId: "venue-a" } }
+    );
+
+    await act(async () => {
+      await result.current.send("table 5 is dirty");
+    });
+    rerender({ venueId: "venue-b" });
+    await act(async () => {
+      await result.current.confirmAction();
+    });
+
+    const confirmBody = vi.mocked(streamNDJSON).mock.calls[1]![0].body as { venueId: string };
+    expect(confirmBody.venueId).toBe("venue-a");
+  });
+
   it("confirm sends action_confirm message and clears pending", async () => {
     vi.mocked(streamNDJSON)
       .mockReturnValueOnce(

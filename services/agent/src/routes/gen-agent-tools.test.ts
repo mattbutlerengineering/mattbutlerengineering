@@ -116,6 +116,7 @@ describe("createAgentTools", () => {
         hasMore: false,
       };
       api.reservations.list.mockResolvedValue(mockRes);
+      api.guests.search.mockResolvedValue({ data: [] });
 
       const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const lookupReservationTool = tools.lookup_reservation;
@@ -128,6 +129,7 @@ describe("createAgentTools", () => {
       expect(api.reservations.list).toHaveBeenCalledWith({
         date: "2026-05-18",
         venueId: "v1",
+        limit: 100,
       });
       expect(result).toEqual({ reservations: mockRes.data });
     });
@@ -690,7 +692,28 @@ describe("createAgentTools", () => {
       expect(api.reservations.list).not.toHaveBeenCalled();
     });
 
-    it("lookup_reservation filters the venue's reservations by guest name", async () => {
+    it("lookup_reservation finds a guest's reservations past the first page", async () => {
+      api.guests.search.mockResolvedValue({ data: [{ id: "g-garcia", name: "Ana Garcia" }] });
+      api.reservations.list.mockImplementation(async (params: { guestId?: string }) =>
+        params.guestId === "g-garcia"
+          ? { data: [{ id: "r-late", guestName: "Ana Garcia" }] }
+          : { data: [{ id: "r1", guestName: "Tom Lee" }] }
+      );
+      const tools = createAgentTools(log, api as never, { venueId: "venue-1" });
+
+      const result = await tools.lookup_reservation!.execute!({ guestName: "garcia" }, toolCtx);
+
+      expect(api.guests.search).toHaveBeenCalledWith({ venueId: "venue-1", query: "garcia" });
+      expect(api.reservations.list).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        guestId: "g-garcia",
+        limit: 100,
+      });
+      expect(result).toEqual({ reservations: [{ id: "r-late", guestName: "Ana Garcia" }] });
+    });
+
+    it("lookup_reservation also matches reservations whose guest has no profile", async () => {
+      api.guests.search.mockResolvedValue({ data: [] });
       api.reservations.list.mockResolvedValue({
         data: [
           { id: "r1", guestName: "Ana Garcia" },
@@ -700,9 +723,16 @@ describe("createAgentTools", () => {
       });
       const tools = createAgentTools(log, api as never, { venueId: "venue-1" });
 
-      const result = await tools.lookup_reservation!.execute!({ guestName: "garcia" }, toolCtx);
+      const result = await tools.lookup_reservation!.execute!(
+        { guestName: "garcia", date: "2026-10-24" },
+        toolCtx
+      );
 
-      expect(api.reservations.list).toHaveBeenCalledWith({ venueId: "venue-1" });
+      expect(api.reservations.list).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        date: "2026-10-24",
+        limit: 100,
+      });
       expect(result).toEqual({ reservations: [{ id: "r1", guestName: "Ana Garcia" }] });
     });
 
