@@ -4,11 +4,84 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 // eslint-disable-next-line no-restricted-imports -- agent tools call reservation API on behalf of user
 import type { createApiClient } from "@mbe/api-client";
+import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 
 type ApiClient = ReturnType<typeof createApiClient>;
 
-export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet {
-  return {
+/** The action the user explicitly confirmed in the client's confirm dialog. */
+export interface ConfirmedAction {
+  /** Echo of the action_request's actionId — traceability only (a resend produces new tool-call ids). */
+  readonly actionId: string;
+  readonly toolName: string;
+  readonly toolInput: Record<string, unknown>;
+}
+
+export interface CreateAgentToolsOptions {
+  readonly confirmedAction?: ConfirmedAction | undefined;
+}
+
+const CONFIRMATION_PENDING = {
+  pendingConfirmation: true,
+  message:
+    "This action requires the user's confirmation before it runs. Tell the user what you prepared and ask them to confirm or cancel.",
+} as const;
+
+/**
+ * Wraps every write tool so its real API call runs only for the action the
+ * user explicitly confirmed — with exactly the confirmed input, at most once
+ * per request. The unconfirmed path still surfaces as an action_request event
+ * (gen-runner), so the client's confirm UI is unchanged; this gate is what
+ * makes it real. The model's re-derived input on the confirmed resend is
+ * ignored: what the user saw in the dialog is what executes.
+ */
+function gateWriteTools(
+  tools: ToolSet,
+  log: FastifyBaseLogger,
+  confirmedAction?: ConfirmedAction
+): ToolSet {
+  let consumed = false;
+  const gated: ToolSet = { ...tools };
+  for (const name of GEN_WRITE_TOOL_NAMES) {
+    const original = gated[name];
+    const originalExecute = original?.execute;
+    if (!original || !originalExecute) continue;
+    gated[name] = {
+      ...original,
+      execute: async (_input: never, ctx: never) => {
+        if (confirmedAction?.toolName !== name) {
+          log.info({ toolName: name }, "write tool call held for user confirmation");
+          return CONFIRMATION_PENDING;
+        }
+        if (consumed) {
+          return { error: "This confirmed action has already been executed." };
+        }
+        const schema = original.inputSchema as z.ZodType;
+        const parsed = schema.safeParse(confirmedAction.toolInput);
+        if (!parsed.success) {
+          log.error(
+            { toolName: name, actionId: confirmedAction.actionId },
+            "confirmed action input invalid, refusing to execute"
+          );
+          return { error: "The confirmed action's parameters are invalid. Please start over." };
+        }
+        consumed = true;
+        log.info(
+          { toolName: name, actionId: confirmedAction.actionId },
+          "executing user-confirmed action"
+        );
+        return originalExecute(parsed.data as never, ctx);
+      },
+    } as ToolSet[string];
+  }
+  return gated;
+}
+
+export function createAgentTools(
+  log: FastifyBaseLogger,
+  api: ApiClient,
+  options: CreateAgentToolsOptions = {}
+): ToolSet {
+  const tools: ToolSet = {
     // ── Read tools (instant, no confirmation) ──────────────
     check_availability: tool({
       description: "Check available time slots for a venue on a specific date",
@@ -277,4 +350,5 @@ export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSe
       },
     }),
   };
+  return gateWriteTools(tools, log, options.confirmedAction);
 }

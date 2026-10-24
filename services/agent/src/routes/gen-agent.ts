@@ -4,6 +4,7 @@ import { createApiClient } from "@mbe/api-client";
 import { z } from "zod";
 import { createAgentTools } from "./gen-agent-tools.js";
 import { createGenRoute } from "./gen-route-factory.js";
+import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 
 const GenAgentBodySchema = z.object({
   messages: z.array(
@@ -13,6 +14,18 @@ const GenAgentBodySchema = z.object({
     })
   ),
   venueId: z.string().optional(),
+  /**
+   * Present on the resend after the user clicks Confirm on an action_request.
+   * Carries the exact toolName + toolInput the user saw: the confirmation gate
+   * (gen-agent-tools.ts) executes that input verbatim, at most once.
+   */
+  actionConfirm: z
+    .object({
+      actionId: z.string(),
+      toolName: z.enum(GEN_WRITE_TOOL_NAMES),
+      toolInput: z.record(z.string(), z.unknown()),
+    })
+    .optional(),
 });
 
 export const genAgentRoutes = createGenRoute({
@@ -25,13 +38,30 @@ export const genAgentRoutes = createGenRoute({
   schema: GenAgentBodySchema,
   streamFormat: "ndjson",
   maxSteps: 5,
-  getTools: async (request) => {
+  toMessages: (parsed) =>
+    parsed.actionConfirm
+      ? [
+          ...parsed.messages,
+          {
+            role: "user" as const,
+            content: `I confirm the pending ${parsed.actionConfirm.toolName} action. Execute it now with the confirmed parameters.`,
+          },
+        ]
+      : parsed.messages,
+  // On the armed resend the model re-calls the tool being confirmed; emitting
+  // its action_request again would pop a stale confirm dialog in the client for
+  // a write this request already executes. Other tools' requests still surface.
+  createEventSerializer: (parsed) => (event) =>
+    event.type === "action_request" && event.toolName === parsed.actionConfirm?.toolName
+      ? undefined
+      : event,
+  getTools: async (request, parsed) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
     const api = createApiClient({
       baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
       getAccessToken: () => token,
     });
-    return createAgentTools(request.log, api);
+    return createAgentTools(request.log, api, { confirmedAction: parsed.actionConfirm });
   },
 });
