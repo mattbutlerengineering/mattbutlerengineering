@@ -168,7 +168,16 @@
       interface GenUsage {
         inputTokens?: number;
         outputTokens?: number;
+        inputTokenDetails?: {
+          readonly cacheReadTokens?: number;
+          readonly cac...;
       }
+    </item>
+    <item priority="high">
+      export function cacheTokens(
+        usage: GenUsage,
+        providerMetadata: unknown
+      ): { readonly read: number; readonly write: number } { /* ... */ }
     </item>
     <item priority="low">
       interface GenTelemetry {
@@ -438,7 +447,7 @@
     </item>
     <item priority="high">
       export function genCostMicroUsd(
-        usage: { readonly inputTokens?: number; readonly outputTokens?: number },
+        usage: Parameters<typeof cacheTokens>[0],
         providerMetadata: unknown
       ): number { /* ... */ }
     </item>

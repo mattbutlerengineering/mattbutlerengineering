@@ -64,6 +64,45 @@ export function genSystemInstructions(systemPrompt: string) {
 interface GenUsage {
   readonly inputTokens?: number;
   readonly outputTokens?: number;
+  readonly inputTokenDetails?: {
+    readonly cacheReadTokens?: number;
+    readonly cacheWriteTokens?: number;
+  };
+}
+
+/**
+ * Anthropic prompt-cache reads/writes for one generation. ai@7 reports them on
+ * `usage.inputTokenDetails`; `providerMetadata.anthropic` carries only the raw
+ * response `usage` (snake_case), never top-level cache counters (#7435). The
+ * legacy top-level fields stay as the last fallback.
+ */
+export function cacheTokens(
+  usage: GenUsage,
+  providerMetadata: unknown
+): { readonly read: number; readonly write: number } {
+  const meta = (
+    providerMetadata as
+      | {
+          anthropic?: {
+            usage?: { cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
+            cacheReadInputTokens?: number;
+            cacheCreationInputTokens?: number;
+          };
+        }
+      | undefined
+  )?.anthropic;
+  return {
+    read:
+      usage.inputTokenDetails?.cacheReadTokens ??
+      meta?.usage?.cache_read_input_tokens ??
+      meta?.cacheReadInputTokens ??
+      0,
+    write:
+      usage.inputTokenDetails?.cacheWriteTokens ??
+      meta?.usage?.cache_creation_input_tokens ??
+      meta?.cacheCreationInputTokens ??
+      0,
+  };
 }
 
 /** Per-run timings and output size, logged on the cost line. Zeroed when unmeasurable. */
@@ -91,11 +130,7 @@ export function logGenCost(
     readonly telemetry?: GenTelemetry;
   }
 ): void {
-  const anthropicMeta = (
-    opts.providerMetadata as
-      | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
-      | undefined
-  )?.anthropic;
+  const cache = cacheTokens(opts.usage, opts.providerMetadata);
 
   log.info(
     {
@@ -103,8 +138,8 @@ export function logGenCost(
       modelId: GEN_MODEL_ID,
       inputTokens: opts.usage.inputTokens ?? 0,
       outputTokens: opts.usage.outputTokens ?? 0,
-      cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-      cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+      cacheReadInputTokens: cache.read,
+      cacheCreationInputTokens: cache.write,
       ttftMs: opts.telemetry?.ttftMs ?? 0,
       durationMs: opts.telemetry?.durationMs ?? 0,
       elementCount: opts.telemetry?.elementCount ?? 0,
