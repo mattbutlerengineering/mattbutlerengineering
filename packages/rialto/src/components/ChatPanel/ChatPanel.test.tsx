@@ -369,6 +369,18 @@ describe("ChatPanel", () => {
     expect(screen.queryByText(/cmti2ghiw/)).toBeNull();
   });
 
+  it("shows the raw fallback title in sentence case, without CSS title-casing", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      pendingAction: { actionId: "a1", toolName: "seat_walk_in", toolInput: {} },
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    // Text, not CSS: "Seat walk in", never "Seat Walk In" (a translated host
+    // title like "Sentar a un cliente" must not become "Sentar A Un Cliente").
+    expect(screen.getByText("Seat walk in")).toBeInTheDocument();
+  });
+
   it("displays tool input details in confirmation prompt", () => {
     mockHookReturn = {
       ...mockHookReturn,

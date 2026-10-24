@@ -78,10 +78,14 @@ export interface ActionDescription {
   details: ReadonlyArray<{ label: string; value: string }>;
 }
 
+function sentenceCase(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** The default: the tool name and its raw input, as the server sent them. */
 function describeRawAction(action: PendingAction): ActionDescription {
   return {
-    title: action.toolName.replace(/_/g, " "),
+    title: sentenceCase(action.toolName.replace(/_/g, " ")),
     details: Object.entries(action.toolInput).map(([label, value]) => ({
       label,
       value: String(value),
