@@ -7739,9 +7739,6 @@
     <item priority="low">
       type RehearsalSpeed = 15 | 60 | 240;
     </item>
-    <item priority="high">
-      export const REHEARSAL_SPEEDS: readonly RehearsalSpeed[];
-    </item>
     <item priority="medium">
       function subscribeReducedMotion(onChange: () => void): () => void { /* ... */ }
     </item>

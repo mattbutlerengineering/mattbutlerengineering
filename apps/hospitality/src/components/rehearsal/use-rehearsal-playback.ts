@@ -5,8 +5,6 @@ import type { RehearsalEvent } from "./types.js";
 
 export type RehearsalSpeed = 15 | 60 | 240;
 
-export const REHEARSAL_SPEEDS: readonly RehearsalSpeed[] = [15, 60, 240];
-
 const DEFAULT_SPEED: RehearsalSpeed = 60;
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 

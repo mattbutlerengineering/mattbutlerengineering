@@ -7064,7 +7064,6 @@
   </file>
   <file path="src/components/rehearsal/use-rehearsal-playback.ts">
     export type RehearsalSpeed = 15 | 60 | 240;
-    export const REHEARSAL_SPEEDS: readonly RehearsalSpeed[] = [15, 60, 240];
     function subscribeReducedMotion(onChange: () => void): () => void {
       if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
       const query = window.matchMedia(REDUCED_MOTION_QUERY);
