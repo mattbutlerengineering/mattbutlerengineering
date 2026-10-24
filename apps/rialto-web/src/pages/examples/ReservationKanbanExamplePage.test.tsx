@@ -130,7 +130,7 @@ describe("ReservationKanbanExamplePage — composition", () => {
     expect(within(preArrivalColumn).getByText(target.guest)).toBeInTheDocument();
 
     const moveButton = within(preArrivalColumn).getByRole("button", {
-      name: `Move ${target.guest} to next stage`,
+      name: `Move to next stage → ${target.guest}`,
     });
     fireEvent.click(moveButton);
 
@@ -139,13 +139,22 @@ describe("ReservationKanbanExamplePage — composition", () => {
     expect(within(inProgressColumn).getByText(target.guest)).toBeInTheDocument();
   });
 
+  it("the move button's accessible name contains its visible text (WCAG 2.5.3)", () => {
+    render(<ReservationKanbanExamplePage />);
+    const target = KANBAN_CARDS.find((c) => c.stage === "pre-arrival")!;
+    const button = within(screen.getByLabelText("Pre-Arrival")).getByRole("button", {
+      name: new RegExp(target.guest),
+    });
+    expect(button.getAttribute("aria-label")).toContain(button.textContent!.trim());
+  });
+
   it("cards already in the last column have no move action", () => {
     render(<ReservationKanbanExamplePage />);
     const checkoutColumn = screen.getByLabelText("Checkout");
     const target = cardsByStage(KANBAN_CARDS, "checkout")[0]!;
     expect(
       within(checkoutColumn).queryByRole("button", {
-        name: `Move ${target.guest} to next stage`,
+        name: `Move to next stage → ${target.guest}`,
       })
     ).not.toBeInTheDocument();
   });
