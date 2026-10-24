@@ -185,6 +185,25 @@
     <item priority="high">
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
+    <item priority="high">
+      type ChatActionKey = (typeof ACTION_TITLES)[keyof t | (typeof ACTION_FIELDS)[keyof t | (typeof TABLE_STATUSES)[keyof ;
+    </item>
+    <item priority="high">
+      type Translate = (key: ChatActionKey) => string;
+    </item>
+    <item priority="medium">
+      function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeChatAction(
+        action: PendingAction,
+        t: Translate,
+        tableName: (id: string) => string | undefined
+      ): ActionDescription { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useDescribeChatAction(): (action: PendingAction) => ActionDescription { /* ... */ }
+    </item>
   </file>
   <file path="src/constants/session-lapse-copy.ts">
     <item priority="high">

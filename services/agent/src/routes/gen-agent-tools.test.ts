@@ -773,19 +773,74 @@ describe("createAgentTools", () => {
 
       const tools = createConfirmedTools("update_table_status", {
         venueId: "v1",
-        tableNumber: 3,
+        table: "3",
         status: "DIRTY",
       });
       const updateTableStatusTool = tools.update_table_status;
       if (!updateTableStatusTool) throw new Error("expected update_table_status tool");
       const result = await updateTableStatusTool.execute!(
-        { venueId: "v1", tableNumber: 3, status: "DIRTY" as const },
+        { venueId: "v1", table: "3", status: "DIRTY" as const },
         toolCtx
       );
 
       expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1" });
       expect(api.tables.updateStatus).toHaveBeenCalledWith("t1", "DIRTY");
       expect(result).toEqual({ table: mockTable });
+    });
+
+    it("finds a table by its name when it has no number", async () => {
+      // Live run 2026-10-24: this venue's tables have names and no numbers, so
+      // "Table 12 is clean" could never resolve by number (F17).
+      api.tables.list.mockResolvedValue({
+        data: [{ id: "t-patio", name: "Patio 2", tableNumber: null, status: "DIRTY" }],
+      });
+      api.tables.updateStatus.mockResolvedValue({ id: "t-patio", status: "READY" });
+
+      const tools = createConfirmedTools("update_table_status", {
+        table: "patio 2",
+        status: "READY",
+      });
+      const result = await tools.update_table_status!.execute!(
+        { table: "patio 2", status: "READY" as const },
+        toolCtx
+      );
+
+      expect(api.tables.updateStatus).toHaveBeenCalledWith("t-patio", "READY");
+      expect(result).toEqual({ table: { id: "t-patio", status: "READY" } });
+    });
+
+    it("prefers a table's number, and refuses an ambiguous name instead of guessing", async () => {
+      api.tables.list.mockResolvedValue({
+        data: [
+          { id: "a", name: "12", tableNumber: null, status: "DIRTY" },
+          { id: "b", name: "Patio", tableNumber: "12", status: "DIRTY" },
+          { id: "c", name: "Bar", tableNumber: null, status: "DIRTY" },
+          { id: "d", name: "bar", tableNumber: null, status: "DIRTY" },
+        ],
+      });
+      api.tables.updateStatus.mockResolvedValue({ id: "b", status: "READY" });
+
+      const byNumber = createConfirmedTools("update_table_status", {
+        table: "12",
+        status: "READY",
+      });
+      await byNumber.update_table_status!.execute!(
+        { table: "12", status: "READY" as const },
+        toolCtx
+      );
+      expect(api.tables.updateStatus).toHaveBeenCalledWith("b", "READY");
+
+      vi.mocked(api.tables.updateStatus).mockClear();
+      const ambiguous = createConfirmedTools("update_table_status", {
+        table: "BAR",
+        status: "READY",
+      });
+      const result = await ambiguous.update_table_status!.execute!(
+        { table: "BAR", status: "READY" as const },
+        toolCtx
+      );
+      expect(api.tables.updateStatus).not.toHaveBeenCalled();
+      expect(result).toEqual({ error: expect.stringMatching(/ambiguous/i) });
     });
 
     it("returns error when table not found", async () => {
@@ -800,13 +855,13 @@ describe("createAgentTools", () => {
 
       const tools = createConfirmedTools("update_table_status", {
         venueId: "v1",
-        tableNumber: 99,
+        table: "99",
         status: "AVAILABLE",
       });
       const updateTableStatusTool = tools.update_table_status;
       if (!updateTableStatusTool) throw new Error("expected update_table_status tool");
       const result = await updateTableStatusTool.execute!(
-        { venueId: "v1", tableNumber: 99, status: "AVAILABLE" as const },
+        { venueId: "v1", table: "99", status: "AVAILABLE" as const },
         toolCtx
       );
 
@@ -818,13 +873,13 @@ describe("createAgentTools", () => {
 
       const tools = createConfirmedTools("update_table_status", {
         venueId: "v1",
-        tableNumber: 1,
+        table: "1",
         status: "READY",
       });
       const updateTableStatusTool = tools.update_table_status;
       if (!updateTableStatusTool) throw new Error("expected update_table_status tool");
       const result = await updateTableStatusTool.execute!(
-        { venueId: "v1", tableNumber: 1, status: "READY" as const },
+        { venueId: "v1", table: "1", status: "READY" as const },
         toolCtx
       );
 

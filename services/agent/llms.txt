@@ -71,6 +71,19 @@
       ): ToolSet { /* ... */ }
     </item>
     <item priority="high">
+      interface NamedTable {
+        id: string;
+        name?: string | null;
+        tableNumber?: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function resolveTable<T extends NamedTable>(
+        tables: readonly T[],
+        tableRef: string
+      ): { table: T } | { error: string } { /* ... */ }
+    </item>
+    <item priority="high">
       export function createAgentTools(
         log: FastifyBaseLogger,
         api: ApiClient,

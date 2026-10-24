@@ -99,6 +99,38 @@ function gateWriteTools(
   return gated;
 }
 
+interface NamedTable {
+  readonly id: string;
+  readonly name?: string | null;
+  readonly tableNumber?: string | null;
+}
+
+/**
+ * Resolve a staff reference ("12", "Patio 2") to one table. Tables may have a
+ * number, a name, or both, so match in order of precision: number, exact
+ * name, then case-insensitive name. More than one match at a step is an
+ * error, never a guess: the user confirmed this reference, not a table id.
+ */
+function resolveTable<T extends NamedTable>(
+  tables: readonly T[],
+  tableRef: string
+): { table: T } | { error: string } {
+  const ref = tableRef.trim();
+  const steps: ReadonlyArray<(t: T) => boolean> = [
+    (t) => t.tableNumber === ref,
+    (t) => t.name === ref,
+    (t) => t.name?.toLowerCase() === ref.toLowerCase(),
+  ];
+  for (const matches of steps) {
+    const found = tables.filter(matches);
+    if (found.length === 1) return { table: found[0]! };
+    if (found.length > 1) {
+      return { error: `Table ${tableRef} is ambiguous in this venue. Ask which table they mean.` };
+    }
+  }
+  return { error: `Table ${tableRef} not found in this venue.` };
+}
+
 export function createAgentTools(
   log: FastifyBaseLogger,
   api: ApiClient,
@@ -374,22 +406,21 @@ export function createAgentTools(
       description:
         "Update a table's status (clean, dirty, occupied, available). Requires confirmation.",
       inputSchema: z.object({
-        tableNumber: z.number().describe("Table number"),
+        table: z.string().describe("The table's name or number, as staff call it"),
         status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
       }),
-      execute: async ({ tableNumber, status: newStatus }) => {
+      execute: async ({ table: tableRef, status: newStatus }) => {
         if (!venueId) return NO_VENUE;
-        log.info({ venueId, tableNumber, newStatus }, "update_table_status tool called");
+        log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
         try {
           const tablesResult = await api.tables.list({ venueId });
-          const table = tablesResult.data.find((t) => t.tableNumber === String(tableNumber));
-          if (!table) {
-            return { error: `Table ${tableNumber} not found in this venue.` };
-          }
+          const resolved = resolveTable(tablesResult.data, tableRef);
+          if ("error" in resolved) return resolved;
+          const { table } = resolved;
           const updated = await api.tables.updateStatus(table.id, newStatus);
           return { table: updated };
         } catch (err) {
-          log.error({ err, venueId, tableNumber }, "update_table_status failed");
+          log.error({ err, venueId, tableRef }, "update_table_status failed");
           return { error: "Failed to update table status. Please try again." };
         }
       },

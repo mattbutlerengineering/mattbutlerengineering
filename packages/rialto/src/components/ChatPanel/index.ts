@@ -1,5 +1,5 @@
 export { ChatPanel } from "./ChatPanel.js";
-export type { ChatPanelProps, ComponentRegistry } from "./ChatPanel.js";
+export type { ActionDescription, ChatPanelProps, ComponentRegistry } from "./ChatPanel.js";
 export type {
   ChatMessage,
   ChatMessageElement,

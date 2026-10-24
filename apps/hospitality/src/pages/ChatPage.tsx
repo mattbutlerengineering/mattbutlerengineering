@@ -9,6 +9,7 @@ import {
   HOSPITALITY_DOMAIN_CONTEXT,
   useChatRequestContext,
   useChatSuggestions,
+  useDescribeChatAction,
 } from "../constants/copilotContext.js";
 import styles from "./ChatPage.module.css";
 
@@ -22,6 +23,7 @@ export function ChatPage() {
   const { t } = useTranslation();
   const requestContext = useChatRequestContext();
   const suggestions = useChatSuggestions();
+  const describeAction = useDescribeChatAction();
 
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
@@ -38,6 +40,7 @@ export function ChatPage() {
         registry={registry}
         requestContext={requestContext}
         suggestions={suggestions}
+        describeAction={describeAction}
       />
     </div>
   );

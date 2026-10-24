@@ -342,6 +342,33 @@ describe("ChatPanel", () => {
     expect(mockCancelAction).toHaveBeenCalledOnce();
   });
 
+  it("renders the host's description of a pending action instead of raw tool input", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      pendingAction: {
+        actionId: "a1",
+        toolName: "seat_walk_in",
+        toolInput: { partySize: 2, tableId: "cmti2ghiw000801b7fbufnw56", guestName: "Lee" },
+      },
+    };
+    render(
+      <ChatPanel
+        {...defaultProps}
+        describeAction={(action) => ({
+          title: "Seat walk-in",
+          details: [
+            { label: "Party size", value: String(action.toolInput.partySize) },
+            { label: "Table", value: "Patio 2" },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.getByText("Seat walk-in")).toBeInTheDocument();
+    expect(screen.getByText(/Patio 2/)).toBeInTheDocument();
+    expect(screen.queryByText(/cmti2ghiw/)).toBeNull();
+  });
+
   it("displays tool input details in confirmation prompt", () => {
     mockHookReturn = {
       ...mockHookReturn,

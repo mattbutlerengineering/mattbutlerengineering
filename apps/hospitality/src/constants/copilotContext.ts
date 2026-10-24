@@ -1,7 +1,12 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { DomainContext } from "@mattbutlerengineering/rialto";
+import type {
+  ActionDescription,
+  DomainContext,
+  PendingAction,
+} from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useTables } from "../hooks/useTables.js";
 import { resolveTimeZone } from "../utils/format.js";
 
 /**
@@ -64,5 +69,84 @@ export function useChatSuggestions(): readonly string[] {
       t("chat.suggestions.walkIn"),
     ],
     [t]
+  );
+}
+
+const ACTION_TITLES = {
+  create_reservation: "chat.actions.create_reservation",
+  modify_reservation: "chat.actions.modify_reservation",
+  cancel_reservation: "chat.actions.cancel_reservation",
+  seat_walk_in: "chat.actions.seat_walk_in",
+  update_table_status: "chat.actions.update_table_status",
+} as const;
+
+const ACTION_FIELDS = {
+  guestName: "chat.actions.fields.guestName",
+  partySize: "chat.actions.fields.partySize",
+  date: "chat.actions.fields.date",
+  startTime: "chat.actions.fields.startTime",
+  endTime: "chat.actions.fields.endTime",
+  tableId: "chat.actions.fields.tableId",
+  table: "chat.actions.fields.table",
+  status: "chat.actions.fields.status",
+  notes: "chat.actions.fields.notes",
+  reservationId: "chat.actions.fields.reservationId",
+} as const;
+
+const TABLE_STATUSES = {
+  AVAILABLE: "floorPlan.tableStatus.available",
+  OCCUPIED: "floorPlan.tableStatus.occupied",
+  DIRTY: "floorPlan.tableStatus.dirty",
+  READY: "floorPlan.tableStatus.ready",
+} as const;
+
+type ChatActionKey =
+  | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
+  | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
+  | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+
+type Translate = (key: ChatActionKey) => string;
+
+function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
+  return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+}
+
+/**
+ * How the chat's confirm bar presents a pending write: a translated title and
+ * labelled values, with a table id shown as the table's name. An id that can't
+ * be resolved stays visible: what the user confirms must be what executes. A
+ * tool or field this map doesn't know shows its raw name rather than a key.
+ */
+export function describeChatAction(
+  action: PendingAction,
+  t: Translate,
+  tableName: (id: string) => string | undefined
+): ActionDescription {
+  const titleKey = lookup(ACTION_TITLES, action.toolName);
+  return {
+    title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+    details: Object.entries(action.toolInput).map(([key, raw]) => {
+      const value = String(raw);
+      const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+      const shown =
+        key === "tableId" ? (tableName(value) ?? value) : statusKey ? t(statusKey) : value;
+      const labelKey = lookup(ACTION_FIELDS, key);
+      return { label: labelKey ? t(labelKey) : key, value: shown };
+    }),
+  };
+}
+
+export function useDescribeChatAction(): (action: PendingAction) => ActionDescription {
+  const { t } = useTranslation();
+  const { selectedVenue } = useVenue();
+  const { data: tables } = useTables({
+    venueId: selectedVenue?.id ?? "",
+    limit: 100,
+    enabled: Boolean(selectedVenue),
+  });
+  return useCallback(
+    (action: PendingAction) =>
+      describeChatAction(action, t, (id) => tables?.find((table) => table.id === id)?.name),
+    [t, tables]
   );
 }
