@@ -12767,7 +12767,11 @@
               return;
             }
     
-            const error = err instanceof Error ? err : new Error(String(err));
+            const raised = err instanceof Error ? err : new Error(String(err));
+            // Swap in limit-specific copy but keep the status fields, so the
+            // result still classifies as a transport failure.
+            const limitCopy = describeLimitError(raised);
+            const error = limitCopy ? Object.assign(new Error(limitCopy), { ...raised }) : raised;
             setError(error);
             setIsStreaming(false);
             onErrorRef.current?.(error);
@@ -20808,9 +20812,35 @@
     export function isTransportError(error: Error): boolean {
       return (
         error instanceof TypeError ||
+        statusOf(error) !== undefined ||
         error.message.startsWith("Request failed:") ||
         error.message === "Response body is not readable"
       );
+    }
+    function statusOf(error: Error): number | undefined {
+      const status = (error as { status?: unknown }).status;
+      return typeof status === "number" ? status : undefined;
+    }
+    function minutesLabel(seconds: number | undefined): string {
+      const minutes = Math.max(1, Math.ceil((seconds ?? 60) / 60));
+      return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+    }
+    export function describeLimitError(error: Error): string | null {
+      const status = statusOf(error);
+      const { problemType, retryAfterSeconds } = error as {
+        problemType?: string;
+        retryAfterSeconds?: number;
+      };
+      if (status === 429) {
+        return `You've sent too many requests. Try again in about ${minutesLabel(retryAfterSeconds)}.`;
+      }
+      if (status === 503 && problemType === CEILING_REACHED) {
+        return "The daily budget for generation has been reached. Come back tomorrow.";
+      }
+      if (status === 503 && problemType === CEILING_UNAVAILABLE) {
+        return "Generation is temporarily unavailable. Please try again shortly.";
+      }
+      return null;
     }
   </file>
   <file path="apps/gen/src/pages/createErrorRecoveryPrompt.ts">
@@ -57846,6 +57876,22 @@
       /** AbortSignal for cancellation */
       signal?: AbortSignal;
     }
+    export class StreamRequestError extends Error {
+      readonly status: number;
+      readonly problemType?: string;
+      readonly retryAfterSeconds?: number;
+    
+      constructor(
+        message: string,
+        fields: { status: number; problemType?: string; retryAfterSeconds?: number }
+      ) {
+        super(message);
+        this.name = "StreamRequestError";
+        this.status = fields.status;
+        this.problemType = fields.problemType;
+        this.retryAfterSeconds = fields.retryAfterSeconds;
+      }
+    }
     export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> {
       const response = await fetch(config.url, {
         method: "POST",
@@ -57859,16 +57905,20 @@
     
       if (!response.ok) {
         let detail = response.statusText || `HTTP ${response.status}`;
+        let problemType: string | undefined;
         try {
-          const body = await response.json();
-          detail =
-            ((body as Record<string, unknown>).detail as string) ??
-            ((body as Record<string, unknown>).message as string) ??
-            detail;
+          const body = (await response.json()) as Record<string, unknown>;
+          detail = (body.detail as string) ?? (body.message as string) ?? detail;
+          if (typeof body.type === "string") problemType = body.type;
         } catch {
           // Response body is not JSON — use status text
         }
-        throw new Error(`Request failed: ${detail}`);
+        const retryAfter = Number(response.headers.get("Retry-After"));
+        throw new StreamRequestError(`Request failed: ${detail}`, {
+          status: response.status,
+          problemType,
+          retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+        });
       }
     
       if (!response.body) {

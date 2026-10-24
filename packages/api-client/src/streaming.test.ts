@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { streamNDJSON } from "./streaming.js";
+import { streamNDJSON, StreamRequestError } from "./streaming.js";
 
 /**
  * Integration tests for the NDJSON streaming utility.
@@ -122,5 +122,33 @@ describe("streamNDJSON integration", () => {
     }
 
     expect(results.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("attaches status, problem type and Retry-After to non-2xx errors", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          type: "urn:mbe:problem:gen-spend-ceiling-reached",
+          detail: "Daily budget reached",
+        }),
+        { status: 503, headers: { "Retry-After": "3600" } }
+      )
+    );
+
+    const err = await (async () => {
+      try {
+        for await (const _ of streamNDJSON({ url: "/test", body: {} })) void _;
+      } catch (e) {
+        return e;
+      }
+      return null;
+    })();
+
+    expect(err).toBeInstanceOf(StreamRequestError);
+    const e = err as StreamRequestError;
+    expect(e.message).toBe("Request failed: Daily budget reached");
+    expect(e.status).toBe(503);
+    expect(e.problemType).toBe("urn:mbe:problem:gen-spend-ceiling-reached");
+    expect(e.retryAfterSeconds).toBe(3600);
   });
 });

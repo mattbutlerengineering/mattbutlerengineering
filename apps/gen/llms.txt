@@ -377,6 +377,15 @@
     <item priority="high">
       export function isTransportError(error: Error): boolean { /* ... */ }
     </item>
+    <item priority="medium">
+      function statusOf(error: Error): number | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function minutesLabel(seconds: number | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeLimitError(error: Error): string | null { /* ... */ }
+    </item>
   </file>
   <file path="src/pages/createErrorRecoveryPrompt.ts">
     <item priority="high">
