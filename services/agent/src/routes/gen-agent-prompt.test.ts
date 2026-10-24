@@ -35,6 +35,15 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/no venue is selected/i);
   });
 
+  it("tells the model its earlier replies were grounded, so it stops 'correcting' them", () => {
+    // Live run 2026-10-24: history carries only reply text, not tool calls, so
+    // every turn opened with "I hadn't checked the system before I answered".
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+
+    expect(prompt).toMatch(/earlier replies .*tool results/i);
+    expect(prompt).toMatch(/don't apologize for or correct/i);
+  });
+
   it("keeps the catalog's component rules, after the assistant guidance", () => {
     const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
 
