@@ -565,6 +565,70 @@ describe("usePlaygroundSession", () => {
       );
     });
 
+    describe("catalog validation of full generations", () => {
+      const completedSpec = { type: "Box", children: [] } as unknown as Spec;
+
+      it("surfaces the validation message and does not select a saved entry", async () => {
+        mockValidateSpec.mockReturnValue({ ok: false, message: "unknown type Nope" });
+        genStreamState = { ...genStreamState, spec: completedSpec };
+        const { result } = renderHook(() => usePlaygroundSession());
+        act(() => result.current.submit("draw a form"));
+
+        await act(async () => {
+          capturedOnComplete?.(completedSpec, ["{line}"]);
+          await Promise.resolve();
+        });
+
+        expect(mockValidateSpec).toHaveBeenCalledWith(completedSpec);
+        expect(result.current.displayError?.message).toContain("unknown type Nope");
+        // The rendered portion stays on screen next to the error affordance.
+        expect(result.current.displaySpec).toBe(completedSpec);
+        expect(result.current.activeSpecId).toBe(null);
+        // Recorded as a failed attempt (not a success), like other generation failures.
+        expect(mockSaveSpec).toHaveBeenCalledTimes(1);
+        expect(mockSaveSpec.mock.calls[0]?.[0]).toMatchObject({
+          prompt: "draw a form",
+          kind: "failed",
+        });
+      });
+
+      it("feeds the catalog-validation errors into Retry with error context", async () => {
+        mockValidateSpec.mockReturnValue({ ok: false, message: "unknown type Nope" });
+        const { result } = renderHook(() => usePlaygroundSession());
+        act(() => result.current.submit("draw a form"));
+        await act(async () => {
+          capturedOnComplete?.(completedSpec, ["{line}"]);
+          await Promise.resolve();
+        });
+
+        act(() => result.current.retry());
+
+        expect(mockSend).toHaveBeenLastCalledWith(
+          createErrorRecoveryPrompt(
+            "draw a form",
+            "The generated UI is not valid Rialto: unknown type Nope"
+          )
+        );
+      });
+
+      it("saves a valid generation exactly as before", async () => {
+        const { result } = renderHook(() => usePlaygroundSession());
+        act(() => result.current.submit("draw a form"));
+        await act(async () => {
+          capturedOnComplete?.(completedSpec, ["{line}"]);
+          await Promise.resolve();
+        });
+
+        expect(result.current.displayError).toBeNull();
+        expect(mockSaveSpec).toHaveBeenCalledWith({
+          prompt: "draw a form",
+          kind: "generate",
+          spec: completedSpec,
+          rawLines: ["{line}"],
+        });
+      });
+    });
+
     it("tags the retried prompt as recovered so a later success is distinguishable in history", async () => {
       const err = new Error("Invalid nested layout");
       genStreamState = { ...genStreamState, error: err, isStreaming: false };

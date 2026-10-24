@@ -194,6 +194,13 @@ describe("PreviewPane", () => {
     expect(screen.getByText("Something went wrong")).toBeDefined();
   });
 
+  it("keeps rendering the spec next to the error alert", () => {
+    render(<PreviewPane {...defaultProps} spec={FLAT_SPEC} error={new Error("Not valid")} />);
+    expect(screen.getByText("Not valid")).toBeDefined();
+    expect(screen.getByText("Retry with error context")).toBeDefined();
+    expect(document.querySelector(".rendererWrapper")).not.toBeNull();
+  });
+
   it("calls onRetry when the retry-with-error-context button is clicked", () => {
     const onRetry = vi.fn();
     const error = new Error("Failed");

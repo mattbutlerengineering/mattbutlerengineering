@@ -251,7 +251,8 @@ export function PreviewPane({
               Retry with error context
             </Button>
           </div>
-        ) : isStreaming && !spec ? (
+        ) : null}
+        {error && !spec ? null : isStreaming && !spec ? (
           <div className={styles.loadingState}>
             <div className={styles.pulse} aria-label="Generating…" role="status" />
           </div>

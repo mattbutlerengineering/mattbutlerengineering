@@ -373,7 +373,10 @@ describe("PlaygroundPage — wiring", () => {
 
   it("shows a completion toast when the generation stream completes", () => {
     render(<PlaygroundPage />);
-    capturedOnComplete?.({}, ["{}"]);
+    capturedOnComplete?.(
+      { root: "t", elements: { t: { type: "Text", props: { text: "Hi" }, children: [] } } },
+      ["{}"]
+    );
     expect(mockToast).toHaveBeenCalledWith({
       title: "Generation complete",
       variant: "success",
