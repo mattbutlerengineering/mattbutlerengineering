@@ -7619,6 +7619,58 @@
   </file>
   </section>
   <section priority="medium" role="rehearsal">
+  <file path="apps/hospitality/src/components/rehearsal/rehearsal-state.ts">
+    <item priority="low">
+      interface RehearsalWaiting {
+        reservationId: string;
+        partySize: number;
+        since: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalMetrics {
+        coversServed: number;
+        averageTurnMinutes: number;
+        peakHour: number | null;
+        tablesNeverSat: number;
+        longestWalkInWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalState {
+        reservations: Reservation[];
+        tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
+        seatedIds: ReadonlySet<string>;
+        waiting: RehearsalWaiting[];
+        metrics: RehearsalMetrics;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalStateOptions {
+        date?: string;
+        tableIds?: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function isoAt(date: string, minutes: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function makeReservation(
+        id: string,
+        date: string,
+        startMinutes: number,
+        partySize: number,
+        tableId: string
+      ): Reservation { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rehearsalStateAt(
+        events: readonly RehearsalEvent[],
+        t: number,
+        { date = DEFAULT_DATE, tableIds }: RehearsalStateOptions = {}
+      ): RehearsalState { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/rehearsal/simulate-service.ts">
     <item priority="high">
       interface ProfileShape {
