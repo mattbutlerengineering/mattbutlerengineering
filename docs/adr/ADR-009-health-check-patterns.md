@@ -24,7 +24,9 @@ Every Fastify service exposes identical health routes:
 | `/health`                  | Internal probe (DO App Platform container health)         |
 | `/api/v1/<service>/health` | Public path through DO ingress (post-deploy verification) |
 
-Both return the same `HealthResponse`:
+**Exception:** `services/agent` has no `/api/v1/agent/health` route. Its public health path is `/api/gen/health`, because the agent service is routed at the edge under `/api/gen` (see ADR-011). Its `/health` is unchanged.
+
+Both routes return the same `HealthResponse`:
 
 ```json
 {
