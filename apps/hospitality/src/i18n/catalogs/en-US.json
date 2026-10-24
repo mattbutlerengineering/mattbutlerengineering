@@ -1838,6 +1838,17 @@
       "step": "Next event",
       "speed": "{{speed}}×"
     },
-    "loading": "Loading your tables…"
+    "loading": "Loading your tables…",
+    "curtainCall": {
+      "title": "Curtain call",
+      "covers": "Covers served",
+      "turn": "Average turn time",
+      "peak": "Peak hour",
+      "neverSat": "Tables that never sat",
+      "wait": "Longest walk-in wait",
+      "minutes": "{{minutes}} min",
+      "runAgain": "Run it again",
+      "weeknight": "Try a weeknight"
+    }
   }
 }
