@@ -602,22 +602,6 @@
       },
     });
   </file>
-  <file path="src/routes/gen-chat.ts">
-    export const genChatRoutes = createGenRoute({
-      path: "/api/gen/chat",
-      costLogLabel: "gen-chat cost log",
-      rateLimit: {
-        max: 50,
-        timeWindow: "1 hour",
-      },
-      schema: GenChatBodySchema,
-      // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
-      streamFormat: "text",
-      // GEN-06: chat doesn't use multi-step tool calls
-      maxSteps: 1,
-      getTools: async () => ({}),
-    });
-  </file>
   <file path="src/routes/gen-route-factory.ts">
     export interface GenRouteConfig<TSchema extends z.ZodType> {
       readonly path: string;
@@ -1366,7 +1350,7 @@
     export const genUiRoutes = createGenRoute({
       path: "/api/gen/ui",
       costLogLabel: "gen-ui cost log",
-      // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
+      // Per-user cap — matches gen-agent's per-route rate limit pattern.
       rateLimit: { max: 20, timeWindow: "1 hour" },
       schema: GenUiBodySchema,
       streamFormat: "ndjson",
@@ -3598,7 +3582,6 @@
       await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
       await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
       await fastify.register(genUiRoutes);
-      await fastify.register(genChatRoutes);
       await fastify.register(genSpecsRoutes);
       await fastify.register(genAgentRoutes);
     

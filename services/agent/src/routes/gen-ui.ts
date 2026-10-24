@@ -125,7 +125,7 @@ function createRenderComponentTool() {
 export const genUiRoutes = createGenRoute({
   path: "/api/gen/ui",
   costLogLabel: "gen-ui cost log",
-  // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
+  // Per-user cap — matches gen-agent's per-route rate limit pattern.
   rateLimit: { max: 20, timeWindow: "1 hour" },
   schema: GenUiBodySchema,
   streamFormat: "ndjson",

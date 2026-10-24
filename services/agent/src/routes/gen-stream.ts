@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger, FastifyReply } from "fastify";
 
 /**
- * Shared infrastructure for the `/api/gen/*` streaming routes (gen-agent, gen-chat).
+ * Shared infrastructure for the `/api/gen/*` streaming routes (gen-ui, gen-agent).
  *
  * Both routes call the Anthropic API via the AI SDK and stream the response.
  * The model id, prompt-cache hints, cost logging, and streaming headers were

@@ -62,11 +62,6 @@
       export const genAgentRoutes: unknown;
     </item>
   </file>
-  <file path="src/routes/gen-chat.ts">
-    <item priority="high">
-      export const genChatRoutes: unknown;
-    </item>
-  </file>
   <file path="src/routes/gen-route-factory.ts">
     <item priority="low">
       interface GenRouteConfig {

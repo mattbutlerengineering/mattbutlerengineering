@@ -1,5 +1,5 @@
 /**
- * Wire-format contract tests for gen-chat and gen-agent routes.
+ * Wire-format contract tests for the gen-agent route.
  *
  * These tests assert byte-identical wire formats: the Content-Type header,
  * exact body bytes, and framing of every event type. They must stay green
@@ -94,9 +94,9 @@ async function* mockStream<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) yield item;
 }
 
-// ── gen-chat wire contract (text/plain) ──────────────────────────────────────
+// ── gen-chat was removed (#7422) ─────────────────────────────────────────────
 
-describe("gen-chat wire contract (text/plain)", () => {
+describe("removed gen-chat route", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
@@ -109,85 +109,14 @@ describe("gen-chat wire contract (text/plain)", () => {
     vi.clearAllMocks();
   });
 
-  it("Content-Type is exactly text/plain; charset=utf-8", async () => {
-    vi.mocked(streamText).mockReturnValueOnce({
-      fullStream: mockStream([{ type: "text-delta", text: "x" }]),
-      usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
-      providerMetadata: Promise.resolve({}),
-    } as never);
-
+  it("POST /api/gen/chat is not registered", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/gen/chat",
       payload: { messages: [{ role: "user", content: "hello" }] },
     });
 
-    expect(res.headers["content-type"]).toBe("text/plain; charset=utf-8");
-  });
-
-  it("shared streaming headers are present", async () => {
-    vi.mocked(streamText).mockReturnValueOnce({
-      fullStream: mockStream([{ type: "text-delta", text: "x" }]),
-      usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
-      providerMetadata: Promise.resolve({}),
-    } as never);
-
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/gen/chat",
-      payload: { messages: [{ role: "user", content: "hello" }] },
-    });
-
-    expect(res.headers["cache-control"]).toBe("no-cache");
-    expect(res.headers["connection"]).toBe("keep-alive");
-    expect(res.headers["x-accel-buffering"]).toBe("no");
-  });
-
-  it("body is concatenated raw text (not JSON, no framing)", async () => {
-    vi.mocked(streamText).mockReturnValueOnce({
-      fullStream: mockStream([
-        { type: "text-delta", text: "Hello" },
-        { type: "text-delta", text: ", " },
-        { type: "text-delta", text: "world" },
-      ]),
-      usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
-      providerMetadata: Promise.resolve({}),
-    } as never);
-
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/gen/chat",
-      payload: { messages: [{ role: "user", content: "say hello" }] },
-    });
-
-    expect(res.statusCode).toBe(200);
-    // Raw concatenated text — no JSON, no newlines between chunks
-    expect(res.body).toBe("Hello, world");
-  });
-
-  it("non-text events (e.g. tool events) are silently dropped from text stream", async () => {
-    vi.mocked(streamText).mockReturnValueOnce({
-      fullStream: mockStream([
-        {
-          type: "tool-call",
-          toolCallId: "c1",
-          toolName: "some_tool",
-          input: {},
-        },
-        { type: "text-delta", text: "Done." },
-      ]),
-      usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
-      providerMetadata: Promise.resolve({}),
-    } as never);
-
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/gen/chat",
-      payload: { messages: [{ role: "user", content: "do something" }] },
-    });
-
-    // Only text events appear in the body
-    expect(res.body).toBe("Done.");
+    expect(res.statusCode).toBe(404);
   });
 });
 
@@ -383,16 +312,6 @@ describe("gen-agent wire contract (application/x-ndjson)", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/gen/agent",
-      payload: {},
-    });
-
-    expect(res.statusCode).toBe(400);
-  });
-
-  it("400 for missing messages field on gen-chat", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/gen/chat",
       payload: {},
     });
 
