@@ -28,14 +28,15 @@ const ALL_CATEGORIES: readonly TemplateCategory[] = [
 // Template catalog
 // ---------------------------------------------------------------------------
 
-const TEMPLATES: readonly Template[] = [
+export const TEMPLATES: readonly Template[] = [
   // Dashboards
   {
     id: "analytics-dashboard",
     title: "Analytics Dashboard",
-    description: "KPI cards, line chart, bar chart, and recent activity table",
+    description: "KPI cards, an odometer-style headline stat, and a recent activity table",
     category: "Dashboards",
-    prompt: "Dashboard with KPI cards, line chart, bar chart, and recent activity table",
+    prompt:
+      "Dashboard with KPI cards in Cards, an Odometer for the headline stat, Badges showing week-over-week change, and a recent activity DataTable",
   },
   {
     id: "admin-dashboard",
@@ -47,9 +48,10 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "sales-dashboard",
     title: "Sales Dashboard",
-    description: "Revenue chart, top products, and conversion funnel",
+    description: "Revenue headline, top products table, and a conversion funnel breakdown",
     category: "Dashboards",
-    prompt: "Sales overview with revenue chart, top products, and conversion funnel",
+    prompt:
+      "Sales overview with an Odometer revenue headline, a top products Table, and a conversion funnel laid out as a DataList of stages with their counts and percentages",
   },
 
   // Forms
@@ -70,9 +72,10 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "survey-form",
     title: "Survey Form",
-    description: "Customer feedback survey with rating scales, text areas, and progress bar",
+    description: "Customer feedback survey with rating selects, comment fields, and step tabs",
     category: "Forms",
-    prompt: "Customer feedback survey with rating scales, text areas, and progress bar",
+    prompt:
+      "Customer feedback survey with Select fields for 1-5 rating scales, Input fields for free-text comments, Checkboxes for multiple-choice questions, and Tabs for the survey steps",
   },
 
   // Data Display
@@ -123,10 +126,10 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "help-center-page",
     title: "Help Center Page",
-    description: "Documentation article with a page header, body content, and inline help tooltips",
+    description: "Documentation article with a page header, body content, and inline callouts",
     category: "Marketing",
     prompt:
-      "Help center article page with a header showing the article title and category, body content with section headings, and small help tooltips next to technical terms explaining what they mean",
+      "Help center article page with a header showing the article title and category, body content with section headings, and Alert callouts next to technical terms explaining what they mean",
   },
 
   // Data Display (continued)
@@ -152,10 +155,10 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "preferences-panel",
     title: "Preferences Panel",
-    description: "Settings screen with toggle switches and a segmented theme switcher",
+    description: "Settings screen with toggle switches and a theme tab switcher",
     category: "Forms",
     prompt:
-      "User preferences screen with a list of toggle switches for feature settings and a segmented control to switch between light, dark, and system theme",
+      "User preferences screen with a list of Toggles for feature settings and Tabs to switch between light, dark, and system theme",
   },
 
   // Feedback
@@ -169,31 +172,29 @@ const TEMPLATES: readonly Template[] = [
   },
   {
     id: "loading-empty-states",
-    title: "Loading & Empty States",
-    description:
-      "Content placeholders that transition into a friendly empty state when there's nothing to show",
+    title: "Empty States",
+    description: "Friendly empty states shown when there's nothing to show",
     category: "Feedback",
     prompt:
-      "Content area showing skeleton loading placeholders while data loads, then a friendly empty state with an icon and message when no results are found",
+      "Content area showing an EmptyState with an icon and message when no results are found, next to an EmptyState for a first-run screen with a call-to-action Button",
   },
 
   // Feedback (continued)
   {
     id: "settings-modal-flow",
     title: "Settings Modal Flow",
-    description:
-      "Confirmation dialog for destructive actions and a slide-out drawer for advanced options",
+    description: "Confirmation dialog for destructive actions and a Dialog for advanced options",
     category: "Feedback",
     prompt:
-      "Settings flow with a confirmation dialog that appears before a destructive action, and a slide-out drawer panel for advanced configuration options",
+      "Settings flow with a confirmation Dialog that appears before a destructive action, and a second Dialog with Toggles and Inputs for advanced configuration options",
   },
   {
     id: "capacity-monitor",
     title: "Capacity Monitor",
-    description: "Storage and quota usage shown as meters alongside their limits",
+    description: "Storage and quota usage as headline counters with status badges",
     category: "Feedback",
     prompt:
-      "System capacity monitor showing storage, memory, and quota usage as meters filling toward their limits, with a warning state when nearing capacity",
+      "System capacity monitor showing storage, memory, and quota usage as Odometer counters beside their limits, with a Badge in a warning state when nearing capacity",
   },
 
   // Data Display (continued)
@@ -210,10 +211,10 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "app-shell",
     title: "App Shell",
-    description: "Full site shell with a global navigation header and an FAQ accordion",
+    description: "Full site shell with a top navigation header and an FAQ accordion",
     category: "Marketing",
     prompt:
-      "Marketing site app shell with a GlobalNav header for primary site navigation across the top of the page, a hero section below it, and an FAQ section built from an Accordion where each question expands to reveal its answer",
+      "Marketing site app shell with an AppBar and NavigationMenu for primary site navigation across the top of the page, a hero section below it, and an FAQ section built from an Accordion where each question expands to reveal its answer",
   },
   {
     id: "docs-wiki-page",
@@ -246,10 +247,10 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "appointment-scheduler",
     title: "Appointment Scheduler",
-    description: "Calendar month grid, a quick date picker field, and a time-slot popover",
+    description: "Day tabs, a date field, and time-slot selection",
     category: "Forms",
     prompt:
-      "Appointment scheduling flow with a full calendar month grid for browsing available days, a compact date picker field for jumping directly to a specific date, and a popover that shows available time slots when a day is selected",
+      "Appointment scheduling flow with Tabs for the available days, an Input for jumping directly to a specific date, and a Select that lists the available time slots for the chosen day",
   },
   {
     id: "compact-toolbar",
@@ -262,20 +263,20 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "secure-verification",
     title: "Secure Verification",
-    description: "Two-factor sign-in step with a 6-digit PIN entry and a resend code link",
+    description: "Two-factor sign-in step with a code entry field and a resend code link",
     category: "Forms",
     prompt:
-      "Two-factor authentication verification screen with a 6-digit PinInput for entering the one-time passcode sent by SMS, plus a resend code link and a countdown timer before it can be clicked again",
+      "Two-factor authentication verification screen with an Input for the 6-digit one-time passcode sent by SMS, plus a resend code Button and a Text countdown before it can be clicked again",
   },
 
   // Data Display (continued)
   {
     id: "restaurant-reservations-board",
     title: "Restaurant Reservations Board",
-    description: "Tape chart of table reservations across the day and a chalkboard specials board",
+    description: "Table reservations across the day and a specials board",
     category: "Data Display",
     prompt:
-      "Restaurant operations board showing a tape chart of table reservations across the day broken out by table and time slot, alongside a chalkboard-style board listing today's specials in a handwritten look",
+      "Restaurant operations board showing a Table of reservations across the day broken out by table and time slot, alongside a Card listing today's specials",
   },
   {
     id: "metrics-ticker",
@@ -290,19 +291,19 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "command-search-palette",
     title: "Command Search Palette",
-    description: "Command palette with hover-card previews and disabled-tooltip explanations",
+    description: "Command search with a combobox and explanations for unavailable commands",
     category: "Feedback",
     prompt:
-      "Command search palette overlay for quickly jumping to actions and pages, with hover cards previewing extra detail on each result, and disabled-state tooltips explaining why an unavailable command can't be run",
+      "Command search Dialog for quickly jumping to actions and pages, with a Combobox of results, a Text description of each result, and a Badge plus note explaining why an unavailable command can't be run",
   },
   {
     id: "delete-confirmation-flow",
     title: "Delete Confirmation Flow",
     description:
-      "Delete button disabled behind an explanatory tooltip until acknowledged, then a confirmation dialog before removal",
+      "Delete button disabled until acknowledged, then a confirmation dialog before removal",
     category: "Feedback",
     prompt:
-      "Delete-item flow where the delete button starts disabled with a tooltip explaining that you must check an acknowledgment checkbox first, and once checked the button becomes enabled and opens a confirmation dialog warning that the action is permanent before the item is actually removed",
+      "Delete-item flow where the delete Button starts disabled with a Text hint explaining that you must check an acknowledgment Checkbox first, and once checked the button becomes enabled and opens a confirmation Dialog warning that the action is permanent before the item is actually removed",
   },
 
   // Data Display (continued)
@@ -319,22 +320,22 @@ const TEMPLATES: readonly Template[] = [
   // Feedback (continued)
   {
     id: "integration-handshake",
-    title: "Integration Handshake",
+    title: "Integration Connection Status",
     description:
-      "Connection status for a multi-party exchange, showing each station and the credential moving between them",
+      "Connection status for a multi-party exchange, showing each station and its result",
     category: "Feedback",
     prompt:
-      "Third-party integration connection screen with a Handshake instrument tracking the exchange between the browser, the identity provider, and the API as named stations with a credential travelling along the active leg, showing a negotiating state while the exchange is in flight and a settled or failed state once it resolves, with a per-station result list underneath",
+      "Third-party integration connection screen listing the browser, the identity provider, and the API as named stations in a DataList, each with a Badge showing negotiating, settled, or failed, and an Alert summarising the overall connection state",
   },
 
   // Data Display (continued)
   {
     id: "row-actions-menu",
     title: "Row Actions Menu",
-    description: "Data table with a per-row overflow button opening a dropdown of row actions",
+    description: "Data table with a per-row actions column of buttons",
     category: "Data Display",
     prompt:
-      'Data table where each row has a trailing "..." overflow button that opens a DropdownMenu listing row actions like Edit, Duplicate, and Delete',
+      "Data table where each row has a trailing actions column of IconButtons for Edit, Duplicate, and Delete",
   },
   {
     id: "live-departures-board",
@@ -361,11 +362,10 @@ const TEMPLATES: readonly Template[] = [
   {
     id: "activity-log-panel",
     title: "Activity Log Panel",
-    description:
-      "Scrollable activity feed inside a fixed-height panel that scrolls independently of the page",
+    description: "Activity feed in a card listing recent events with timestamps",
     category: "Data Display",
     prompt:
-      "Activity log panel showing a long feed of recent events inside a fixed-height ScrollArea, so the feed scrolls independently without scrolling the page itself",
+      "Activity log panel showing a feed of recent events inside a Card, each entry a Text line with a Badge for the event type and a timestamp",
   },
 ] as const;
 
