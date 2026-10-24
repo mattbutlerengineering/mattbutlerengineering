@@ -2531,6 +2531,72 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="rehearsal">
+  <file path="src/components/rehearsal/simulate-service.ts">
+    <item priority="high">
+      interface ProfileShape {
+        turns: number;
+        peakMinutes: number;
+        spreadMinutes: number;
+        walkInShare: number;
+        noShowShare: number;
+      }
+    </item>
+    <item priority="medium">
+      function createRandom(seed: number): () => number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function gaussian(random: () => number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pickPartySize(random: () => number, maxSize: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function turnMinutes(random: () => number, size: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fits(table: RehearsalTable, size: number): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function simulateService({
+        tables,
+        openHour,
+        closeHour,
+        profile,
+        seed,
+      }: SimulateServiceInput): RehearsalEvent[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/types.ts">
+    <item priority="low">
+      interface RehearsalTable {
+        id: string;
+        capacity: number;
+        minCovers: number;
+      }
+    </item>
+    <item priority="low">
+      type RehearsalProfile = "friday" | "weeknight" | "brunch";
+    </item>
+    <item priority="low">
+      type RehearsalTableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    </item>
+    <item priority="low">
+      type RehearsalEvent = {
+            at: number;
+            type | { at: number; type: "seated";  | { at: number; type: "status-ch | { at: number; type: "walk-in-w | { at: number; type: "no-show"; | { at: number; type: "departed";
+    </item>
+    <item priority="low">
+      interface SimulateServiceInput {
+        tables: readonly RehearsalTable[];
+        openHour: number;
+        closeHour: number;
+        profile: RehearsalProfile;
+        seed: number;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/nav-actions.ts">
     <item priority="low">
