@@ -7735,6 +7735,32 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/rehearsal/use-rehearsal-playback.ts">
+    <item priority="low">
+      type RehearsalSpeed = 15 | 60 | 240;
+    </item>
+    <item priority="medium">
+      function subscribeReducedMotion(onChange: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reducedMotionSnapshot(): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RehearsalPlayback {
+        time: number;
+        start: number;
+        end: number;
+        playing: boolean;
+        speed: RehearsalSpeed;
+      }
+    </item>
+    <item priority="high">
+      export function useRehearsalPlayback(
+        events: readonly RehearsalEvent[],
+        options: RehearsalStateOptions = {}
+      ): RehearsalPlayback { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="rialto-web">
   <file path="apps/rialto-web/component-count.config.ts">
