@@ -20,6 +20,7 @@ import {
   parseCheckRunsJsonl,
   buildRevertPrBody,
   extractBreakageIssueNumber,
+  extractClosedIssueNumbers,
   isRevertWatchdogPr,
   hasNeedsReviewLabel,
   buildRevertClosedComment,
@@ -975,6 +976,37 @@ describe("extractBreakageIssueNumber", () => {
     expect(extractBreakageIssueNumber(null)).toBeNull();
     expect(extractBreakageIssueNumber(undefined)).toBeNull();
     expect(extractBreakageIssueNumber("")).toBeNull();
+  });
+});
+
+describe("extractClosedIssueNumbers", () => {
+  it("returns the issue closed by a single keyword", () => {
+    expect(extractClosedIssueNumbers("Closes #12")).toEqual([12]);
+  });
+
+  it("returns many issues deduped and ascending", () => {
+    expect(extractClosedIssueNumbers("Fixes #30, resolves #4.\nCloses #30")).toEqual([4, 30]);
+  });
+
+  it("is case-insensitive and accepts every keyword form", () => {
+    const body =
+      "CLOSE #1 closed #2 FIXED #3 Resolved #4 fix #5 resolve #6 closes #7 fixes #8 resolves #9";
+    expect(extractClosedIssueNumbers(body)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it("ignores non-closing mentions", () => {
+    expect(extractClosedIssueNumbers("See #5, related to #6")).toEqual([]);
+  });
+
+  it("ignores references inside fenced code blocks", () => {
+    const body = "Closes #1\n```\nCloses #2\n```\nFixes #3";
+    expect(extractClosedIssueNumbers(body)).toEqual([1, 3]);
+  });
+
+  it("returns [] for nullish/empty bodies", () => {
+    expect(extractClosedIssueNumbers(null)).toEqual([]);
+    expect(extractClosedIssueNumbers(undefined)).toEqual([]);
+    expect(extractClosedIssueNumbers("")).toEqual([]);
   });
 });
 

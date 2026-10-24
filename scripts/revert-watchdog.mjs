@@ -564,6 +564,18 @@ export function extractBreakageIssueNumber(body) {
   return match ? Number(match[1]) : null;
 }
 
+const CLOSING_KEYWORD_PATTERN = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+
+/** Pure: issue numbers a PR body closes via GitHub closing keywords
+ * (`Closes #N`, `fixes #N`, ...), deduped and ascending. References inside
+ * fenced code blocks do not close anything on GitHub, so they are ignored. */
+export function extractClosedIssueNumbers(body) {
+  const prose = (body ?? "").replace(/```[\s\S]*?```/g, "");
+  const numbers = new Set();
+  for (const match of prose.matchAll(CLOSING_KEYWORD_PATTERN)) numbers.add(Number(match[1]));
+  return [...numbers].sort((a, b) => a - b);
+}
+
 const REVERT_WATCHDOG_TITLE_PATTERN = /^revert: #\d+ \(fixes broken main\)$/;
 
 /** Pure: true for a PR opened by this script's "Propose Revert PR" step.
