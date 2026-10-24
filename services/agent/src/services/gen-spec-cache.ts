@@ -42,7 +42,7 @@ export async function getCachedSpec(key: string): Promise<unknown[] | null> {
   const rows = await prisma.$queryRaw<Array<{ lines: unknown[] }>>`
     SELECT lines FROM gen_spec_cache
     WHERE key = ${key}
-      AND created_at > now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS})`;
+      AND created_at > now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS}::int)`;
   return rows[0]?.lines ?? null;
 }
 
@@ -54,5 +54,5 @@ export async function putCachedSpec(key: string, lines: unknown[]): Promise<void
     ON CONFLICT (key) DO UPDATE SET lines = EXCLUDED.lines, created_at = now()`;
   await prisma.$executeRaw`
     DELETE FROM gen_spec_cache
-    WHERE created_at <= now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS})`;
+    WHERE created_at <= now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS}::int)`;
 }
