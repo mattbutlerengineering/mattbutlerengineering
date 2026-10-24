@@ -13,6 +13,24 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   elements?: ChatMessageElement[];
+  /** A local outcome shown under the message (e.g. a cancelled action). */
+  note?: string;
+}
+
+/**
+ * The text the server sees for a message. A note rides along with its message
+ * so the model learns the outcome (e.g. that the user cancelled), without
+ * inventing a turn the server's strict user/assistant alternation would reject.
+ */
+/** `messages` with `note` on the last reply, if the last message is a reply. */
+function withNoteOnLastReply(messages: ChatMessage[], note: string): ChatMessage[] {
+  const last = messages.at(-1);
+  if (last?.role !== "assistant") return messages;
+  return [...messages.slice(0, -1), { ...last, note }];
+}
+
+function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } {
+  return { role: m.role, content: m.note ? `${m.content}\n\n${m.note}` : m.content };
 }
 
 export interface PendingAction {
@@ -216,15 +234,20 @@ export function useChatStream({
   const send = useCallback(
     async (content: string): Promise<void> => {
       const userMessage: ChatMessage = { role: "user", content };
-      const updatedMessages = [...messagesRef.current, userMessage];
+      // Typing past a pending confirm abandons it: record that on the reply
+      // that proposed it (still the last message), so the bar never outlives
+      // its turn and the model hears the outcome.
+      const pending = pendingActionRef.current !== null;
+      if (pending) setPendingAction(null);
+      const base = pending
+        ? withNoteOnLastReply(messagesRef.current, t.actionCancelled)
+        : messagesRef.current;
+      const updatedMessages = [...base, userMessage];
       setMessages(updatedMessages);
 
-      await streamRequest(
-        { messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })) },
-        updatedMessages
-      );
+      await streamRequest({ messages: updatedMessages.map(toWireMessage) }, updatedMessages);
     },
-    [streamRequest]
+    [streamRequest, t]
   );
 
   const confirmAction = useCallback(async (): Promise<void> => {
@@ -237,7 +260,7 @@ export function useChatStream({
     await streamRequest(
       {
         ...pendingContextRef.current,
-        messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
+        messages: currentMsgs.map(toWireMessage),
         // The server executes exactly this toolName + toolInput (its confirmation
         // gate ignores the model's re-derived input), so send what the user saw.
         actionConfirm: {
@@ -252,7 +275,10 @@ export function useChatStream({
 
   const cancelAction = useCallback(() => {
     setPendingAction(null);
-  }, []);
+    // Mark the proposing reply, so the UI and the next request both say so.
+    // It is the last message: send() abandons a pending confirm before adding a turn.
+    setMessages((prev) => withNoteOnLastReply(prev, t.actionCancelled));
+  }, [t]);
 
   const stop = useCallback(() => {
     abortControllerRef.current?.abort();

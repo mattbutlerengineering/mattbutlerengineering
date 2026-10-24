@@ -188,6 +188,8 @@ export interface RialtoMessages {
   readonly stop: string;
   /** ChatPanel accessible name for the starter-suggestion group. */
   readonly chatSuggestions: string;
+  /** ChatPanel note under a reply whose proposed action the user cancelled. */
+  readonly actionCancelled: string;
   /** ChatPanel drawer title. */
   readonly chat: string;
   /** ChatPanel tool denial, rendered after the bold tool name. */
@@ -321,6 +323,7 @@ export const enUS: RialtoMessages = {
   send: "Send",
   stop: "Stop",
   chatSuggestions: "Suggested questions",
+  actionCancelled: "Cancelled. Nothing was changed.",
   chat: "Chat",
   toolBlocked: (reason) => `was blocked: ${reason}`,
   reservation: "Reservation",

@@ -369,6 +369,19 @@ describe("ChatPanel", () => {
     expect(screen.queryByText(/cmti2ghiw/)).toBeNull();
   });
 
+  it("shows a message's note under it (e.g. a cancelled action)", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        { role: "user", content: "seat Lee" },
+        { role: "assistant", content: "Seat Lee at lml?", note: "Cancelled. Nothing was changed." },
+      ],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.getByText("Cancelled. Nothing was changed.")).toBeInTheDocument();
+  });
+
   it("shows the raw fallback title in sentence case, without CSS title-casing", () => {
     mockHookReturn = {
       ...mockHookReturn,

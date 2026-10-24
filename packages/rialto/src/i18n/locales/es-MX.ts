@@ -73,6 +73,7 @@ export const esMX: RialtoMessages = {
   send: "Enviar",
   stop: "Detener",
   chatSuggestions: "Preguntas sugeridas",
+  actionCancelled: "Cancelado. No se cambió nada.",
   chat: "Conversación",
   toolBlocked: (reason) => `fue bloqueado: ${reason}`,
   reservation: "Reservación",
