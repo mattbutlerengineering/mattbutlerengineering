@@ -7879,6 +7879,9 @@
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
+    <item priority="high">
+      export function agentApiOrigin(apiBaseUrl: string | undefined): string { /* ... */ }
+    </item>
     <item priority="medium">
       function isTimeZone(value: string): boolean { /* ... */ }
     </item>
