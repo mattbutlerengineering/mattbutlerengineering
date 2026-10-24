@@ -91,7 +91,6 @@
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-sm);
   font-weight: 500;
-  text-transform: capitalize;
   color: var(--rialto-text-primary);
 }
 
