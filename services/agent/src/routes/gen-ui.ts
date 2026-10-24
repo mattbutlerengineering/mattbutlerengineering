@@ -138,6 +138,7 @@ export const genUiRoutes = createGenRoute({
   // ai@7 to retry the tool call on, so a tool-error can only ever mean the
   // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
   failOnToolError: true,
+  cache: true,
   toMessages: ({ prompt, context, target }: GenUiBody) => [
     {
       role: "user",
