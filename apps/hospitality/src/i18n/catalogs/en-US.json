@@ -1831,6 +1831,9 @@
     "save": "Save theme"
   },
   "rehearsal": {
+    "entry": {
+      "cta": "Run a Friday night"
+    },
     "banner": {
       "title": "Rehearsal — not real bookings",
       "play": "Play",

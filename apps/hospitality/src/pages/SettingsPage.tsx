@@ -374,6 +374,9 @@ export function SettingsPage() {
                 <Button variant="secondary" onClick={() => navigate("/setup/hours")}>
                   {t("settings.venue.operatingHours")}
                 </Button>
+                <Button variant="secondary" onClick={() => navigate("/timeline?rehearsal=true")}>
+                  {t("rehearsal.entry.cta")}
+                </Button>
               </Stack>
             </Card>
 
