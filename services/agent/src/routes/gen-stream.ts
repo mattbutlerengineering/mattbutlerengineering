@@ -44,22 +44,21 @@ export const GEN_PRICING = (() => {
  */
 export const GEN_MAX_OUTPUT_TOKENS = 2048;
 
-type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
-
 /**
- * Builds the `messages` array for `streamText`: a cache-controlled system
- * message followed by the conversation. Caching must go through the messages
- * array (not top-level `system:`) so `providerOptions` is honored.
+ * The cache-controlled system prompt for `streamText`'s `instructions` option.
+ * ai@7 rejects system-role entries inside `messages` (AI_InvalidPromptError:
+ * "Use the instructions option instead") — caught by the first live prod
+ * generation, invisible to every test that mocks `ai`. `instructions` accepts
+ * a full SystemModelMessage, so the ephemeral cacheControl on the catalog
+ * prompt is preserved. Contract pinned by gen-runner.prompt-contract.test.ts
+ * against the real package.
  */
-export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
-  return [
-    {
-      role: "system" as const,
-      content: systemPrompt,
-      providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-    },
-    ...messages,
-  ];
+export function genSystemInstructions(systemPrompt: string) {
+  return {
+    role: "system" as const,
+    content: systemPrompt,
+    providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
+  };
 }
 
 interface GenUsage {

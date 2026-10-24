@@ -205,14 +205,15 @@ describe("POST /api/gen/agent", () => {
           }),
         }),
         stopWhen: expect.anything(),
+        // ai@7: system prompt rides the instructions option, never messages.
+        instructions: expect.objectContaining({
+          role: "system",
+          content: "mock system prompt",
+          providerOptions: {
+            anthropic: { cacheControl: { type: "ephemeral" } },
+          },
+        }),
         messages: expect.arrayContaining([
-          expect.objectContaining({
-            role: "system",
-            content: "mock system prompt",
-            providerOptions: {
-              anthropic: { cacheControl: { type: "ephemeral" } },
-            },
-          }),
           expect.objectContaining({
             role: "user",
             content: "what is available?",

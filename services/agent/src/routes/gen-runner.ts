@@ -2,6 +2,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, stepCountIs } from "ai";
 // Permission policy sourced from agent-core — not duplicated here (security requirement)
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
+import { genSystemInstructions } from "./gen-stream.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -92,18 +93,12 @@ export interface GenRunner {
 export function createGenRunner(config: GenRunnerConfig): GenRunner {
   return {
     async run(messages, tools, onEvent) {
-      const aiMessages = [
-        {
-          role: "system" as const,
-          content: config.systemPrompt,
-          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-        },
-        ...messages,
-      ];
-
       const result = streamText({
         model: anthropic(config.modelId),
-        messages: aiMessages,
+        // System prompt goes through `instructions` — ai@7 rejects system-role
+        // entries inside `messages` (see genSystemInstructions).
+        instructions: genSystemInstructions(config.systemPrompt),
+        messages: [...messages],
         tools: tools as Parameters<typeof streamText>[0]["tools"],
         toolChoice: config.toolChoice,
         stopWhen: stepCountIs(config.maxSteps),

@@ -473,11 +473,12 @@ describe("createGenRoute factory", () => {
       expect(response.statusCode).toBe(200);
       expect(response.body).toBe(JSON.stringify({ key: "a", type: "Card" }) + "\n");
       const call = vi.mocked(streamText).mock.calls[0]![0] as {
+        instructions: { content: string };
         messages: Array<{ role: string; content: string }>;
         toolChoice: unknown;
       };
-      expect(call.messages[0]!.content).toBe("custom system prompt");
-      expect(call.messages[1]).toEqual({ role: "user", content: "a form" });
+      expect(call.instructions.content).toBe("custom system prompt");
+      expect(call.messages[0]).toEqual({ role: "user", content: "a form" });
       expect(call.toolChoice).toEqual({ type: "tool", toolName: "render_component" });
     });
 
@@ -641,7 +642,7 @@ describe("createGenRoute factory", () => {
       await app.ready();
     });
 
-    it("injects system prompt first with ephemeral cache control", async () => {
+    it("passes the system prompt via instructions with ephemeral cache control", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
         fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
@@ -655,14 +656,16 @@ describe("createGenRoute factory", () => {
       });
 
       const call = vi.mocked(streamText).mock.calls[0]![0] as {
-        messages: Array<{ role: string; content: string; providerOptions?: unknown }>;
+        instructions: { role: string; content: string; providerOptions?: unknown };
+        messages: Array<{ role: string }>;
       };
 
-      expect(call.messages[0]).toMatchObject({
+      expect(call.instructions).toMatchObject({
         role: "system",
         content: "mock system prompt",
         providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       });
+      expect(call.messages.every((m) => m.role !== "system")).toBe(true);
     });
   });
 

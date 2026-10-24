@@ -24604,18 +24604,12 @@
     export function createGenRunner(config: GenRunnerConfig): GenRunner {
       return {
         async run(messages, tools, onEvent) {
-          const aiMessages = [
-            {
-              role: "system" as const,
-              content: config.systemPrompt,
-              providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-            },
-            ...messages,
-          ];
-    
           const result = streamText({
             model: anthropic(config.modelId),
-            messages: aiMessages,
+            // System prompt goes through `instructions` — ai@7 rejects system-role
+            // entries inside `messages` (see genSystemInstructions).
+            instructions: genSystemInstructions(config.systemPrompt),
+            messages: [...messages],
             tools: tools as Parameters<typeof streamText>[0]["tools"],
             toolChoice: config.toolChoice,
             stopWhen: stepCountIs(config.maxSteps),
@@ -24867,16 +24861,12 @@
       return rates;
     })();
     export const GEN_MAX_OUTPUT_TOKENS = 2048;
-    type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
-    export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
-      return [
-        {
-          role: "system" as const,
-          content: systemPrompt,
-          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-        },
-        ...messages,
-      ];
+    export function genSystemInstructions(systemPrompt: string) {
+      return {
+        role: "system" as const,
+        content: systemPrompt,
+        providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
+      };
     }
     interface GenUsage {
       readonly inputTokens?: number;
