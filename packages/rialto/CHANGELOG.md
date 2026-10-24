@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.8.3
+
+### Patch Changes
+
+- [#7417](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7417) [`eee4a17`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/eee4a17189a99a3cf2557b286770a53ad6ff6c50) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel now invokes registry components with json-render's ComponentRenderProps contract ({ element, children, emit, on }) instead of spreading raw props, and nests streamed elements by their children ids (with a cycle guard). Previously every catalog registry component crashed or rendered empty in the chat drawer.
+
+- [#7416](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7416) [`7f76d0e`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7f76d0ed34562187d87b0c7238af10468b3455af) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel's confirm now sends the confirmed action's toolName and toolInput, matching the gen-agent server's new confirmation gate, which executes exactly the input the user approved (at most once) instead of running write tools before confirmation.
+
 ## 0.8.2
 
 ### Patch Changes
