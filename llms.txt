@@ -2303,6 +2303,24 @@
       export function findShippedFeature(slug: string): ShippedFeature | undefined { /* ... */ }
     </item>
   </file>
+  <file path="apps/marketing/src/data/status-probes.ts">
+    <item priority="high">
+      export const STATUS_SERVICES: unknown;
+    </item>
+    <item priority="high">
+      export const STATUS_SITES: unknown;
+    </item>
+    <item priority="low">
+      interface ProbeFixture {
+        status: number;
+        contentType?: string;
+        body: string;
+      }
+    </item>
+    <item priority="high">
+      export function statusProbeFixture(url: string, method: string): ProbeFixture | undefined { /* ... */ }
+    </item>
+  </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">
     <item priority="low">
       interface WeeklyResource {
