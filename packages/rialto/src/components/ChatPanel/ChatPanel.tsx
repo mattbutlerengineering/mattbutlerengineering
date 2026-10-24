@@ -25,20 +25,23 @@ function renderElement(
   seen: ReadonlySet<string>
 ): React.ReactNode {
   const Component = registry?.[el.type];
-  if (!Component) {
-    return (
-      <div key={el.id} className={styles.elementCard} data-element-type={el.type}>
-        {el.props?.title ? String(el.props.title) : el.type}
-      </div>
-    );
-  }
-  const safeProps = sanitizeElementProps(el.props ?? {});
   const nextSeen = new Set(seen).add(el.id);
   const childNodes = (el.children ?? [])
     .filter((childId) => !nextSeen.has(childId))
     .map((childId) => elementsById.get(childId))
     .filter((child): child is ChatMessageElement => child !== undefined)
     .map((child) => renderElement(child, registry, elementsById, nextSeen));
+  if (!Component) {
+    // Unknown type: placeholder — but its known children still render inside
+    // it, so one hallucinated wrapper doesn't swallow real content.
+    return (
+      <div key={el.id} className={styles.elementCard} data-element-type={el.type}>
+        {el.props?.title ? String(el.props.title) : el.type}
+        {childNodes}
+      </div>
+    );
+  }
+  const safeProps = sanitizeElementProps(el.props ?? {});
   return (
     <Component
       key={el.id}

@@ -181,6 +181,30 @@ describe("ChatPanel", () => {
     expect(screen.getAllByTestId("card-child")).toHaveLength(1);
   });
 
+  it("renders an unknown-type parent's known children inside its placeholder", () => {
+    const registry = { Card: ContractCard };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "",
+          elements: [
+            { id: "p", type: "NotInCatalog", props: { title: "Mystery" }, children: ["c"] },
+            { id: "c", type: "Card", props: { title: "Real child" } },
+          ],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    // The child is referenced (not a root), so it must render inside the
+    // unknown parent's placeholder rather than disappearing entirely.
+    expect(screen.getByText("Real child")).toBeInTheDocument();
+  });
+
   it("renders cyclic children references without recursing forever", () => {
     const registry = { Card: ContractCard };
 
