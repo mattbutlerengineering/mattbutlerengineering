@@ -554,6 +554,75 @@ describe("createGenRoute factory", () => {
         expect.objectContaining({ label: "test-chat cost log" })
       );
     });
+
+    it("adds ttft, duration, element count and finishReason to the cost line", async () => {
+      vi.mocked(logGenCost).mockClear();
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockStream([
+          { type: "text-delta", text: "a" },
+          { type: "text-delta", text: "b" },
+        ]),
+      } as never);
+
+      await app.inject({
+        method: "POST",
+        url: TEST_PATH.chat,
+        payload: { messages: [{ role: "user", content: "hello" }] },
+      });
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as {
+        onFinish?: (a: {
+          usage: unknown;
+          providerMetadata: unknown;
+          finishReason: string;
+        }) => Promise<void>;
+      };
+      await call.onFinish!({
+        usage: { inputTokens: 5, outputTokens: 3 },
+        providerMetadata: {},
+        finishReason: "stop",
+      });
+
+      expect(vi.mocked(logGenCost)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          telemetry: {
+            ttftMs: expect.any(Number),
+            durationMs: expect.any(Number),
+            elementCount: 2,
+            finishReason: "stop",
+          },
+        })
+      );
+    });
+
+    it("still logs a zeroed-usage cost line with finishReason error when the run fails", async () => {
+      vi.mocked(logGenCost).mockClear();
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockStream([{ type: "error", error: new Error("boom") }]),
+      } as never);
+
+      await app.inject({
+        method: "POST",
+        url: TEST_PATH.chat,
+        payload: { messages: [{ role: "user", content: "hello" }] },
+      });
+
+      expect(vi.mocked(logGenCost)).toHaveBeenCalledOnce();
+      expect(vi.mocked(logGenCost)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          label: "test-chat cost log",
+          usage: {},
+          telemetry: {
+            ttftMs: 0,
+            durationMs: expect.any(Number),
+            elementCount: 0,
+            finishReason: "error",
+          },
+        })
+      );
+    });
   });
 
   describe("system prompt + prompt caching", () => {

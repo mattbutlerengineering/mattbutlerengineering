@@ -7886,6 +7886,7 @@
       interface GenFinishPayload {
         usage: { readonly inputTokens?: number; readonly outputTokens?: ...;
         providerMetadata: unknown;
+        finishReason?: string;
       }
     </item>
     <item priority="low">
@@ -7960,6 +7961,14 @@
         outputTokens?: number;
       }
     </item>
+    <item priority="low">
+      interface GenTelemetry {
+        ttftMs: number;
+        durationMs: number;
+        elementCount: number;
+        finishReason: string;
+      }
+    </item>
     <item priority="high">
       export function logGenCost(
         log: FastifyBaseLogger,
@@ -7968,6 +7977,7 @@
           readonly usage: GenUsage;
           readonly providerMetadata?: unknown;
           readonly label: string;
+          readonly telemetry?: GenTelemetry;
         }
       ): void { /* ... */ }
     </item>

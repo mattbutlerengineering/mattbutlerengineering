@@ -60,6 +60,48 @@ describe("gen-stream", () => {
       });
     });
 
+    it("logs run telemetry on the same line, leaving the existing fields untouched", () => {
+      const log = fakeLog();
+      logGenCost(log, {
+        userId: "u1",
+        usage: { inputTokens: 10, outputTokens: 5 },
+        providerMetadata: undefined,
+        label: "gen-ui cost log",
+        telemetry: { ttftMs: 420, durationMs: 3100, elementCount: 12, finishReason: "stop" },
+      });
+
+      expect(log.info).toHaveBeenCalledOnce();
+      const [fields, label] = log.info.mock.calls[0]!;
+      expect(label).toBe("gen-ui cost log");
+      expect(fields).toMatchObject({
+        userId: "u1",
+        modelId: GEN_MODEL_ID,
+        inputTokens: 10,
+        outputTokens: 5,
+        ttftMs: 420,
+        durationMs: 3100,
+        elementCount: 12,
+        finishReason: "stop",
+      });
+    });
+
+    it("zeroes token and telemetry fields rather than omitting them", () => {
+      const log = fakeLog();
+      logGenCost(log, { usage: {}, label: "gen-ui cost log" });
+
+      const [fields] = log.info.mock.calls[0]!;
+      expect(fields).toMatchObject({
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+        ttftMs: 0,
+        durationMs: 0,
+        elementCount: 0,
+        finishReason: "unknown",
+      });
+    });
+
     it("defaults cache tokens to 0 when provider metadata is absent", () => {
       const log = fakeLog();
       logGenCost(log, {
