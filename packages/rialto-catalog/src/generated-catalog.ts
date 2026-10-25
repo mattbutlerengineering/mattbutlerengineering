@@ -240,6 +240,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Time field: a read-only trigger input that opens a popover-hosted listbox of interval slots. Controlled via value (24h HH:mm string) and onChange; supports a configurable step (default 15 min), min/max bounds, an isTimeDisabled predicate (authoritative over bounds), and locale-aware display. Focus returns to the trigger on select or Escape.",
   },
+  TimeSlots: {
+    name: "TimeSlots",
+    description:
+      "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times as display text, such as 7:30 PM, in time order). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
+    charLimits: { date: 40 },
+  },
   Timeline: {
     name: "Timeline",
     description:

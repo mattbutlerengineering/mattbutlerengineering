@@ -58,6 +58,7 @@ import {
   Tag,
   Text,
   Timeline,
+  TimeSlots,
   Toggle,
 } from "@mattbutlerengineering/rialto";
 import type {
@@ -611,6 +612,18 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           <ReservationList reservations={reservations} />
         ) : (
           <SeamFallback name="ReservationList" />
+        );
+      },
+
+      // Blank times are dropped and an empty list shows the no-open-times line;
+      // the element falls back only when the date line (date, partySize) is missing.
+      TimeSlots: ({ props }: { props: unknown }) => {
+        const p = props as { date: unknown; partySize: unknown; times: unknown[] };
+        const partySize = toPartySize(p.partySize);
+        return isFilled(p.date) && partySize !== undefined ? (
+          <TimeSlots date={p.date} partySize={partySize} times={p.times.filter(isFilled)} />
+        ) : (
+          <SeamFallback name="TimeSlots" />
         );
       },
 

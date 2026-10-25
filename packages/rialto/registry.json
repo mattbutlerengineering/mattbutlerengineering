@@ -4814,6 +4814,39 @@
       "slots": []
     },
     {
+      "name": "TimeSlots",
+      "description": "Display-only open times for one date and party size: a date line\n(\"{date} · Party of 4\") over the times as static Tag-look labels that wrap.\nWith no times it shows one localized \"No open times\" line, never an empty\nbox. Nothing in it is focusable: it books nothing.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "date",
+          "type": "string",
+          "required": true,
+          "description": "Display text for the day, such as \"Friday, Oct 30\"."
+        },
+        {
+          "name": "partySize",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "times",
+          "type": "string[]",
+          "required": true,
+          "description": "Open times as display text, in time order. Empty shows the no-open-times line."
+        }
+      ],
+      "slots": [
+        "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "date",
+          "max": 40
+        }
+      ]
+    },
+    {
       "name": "Timeline",
       "description": "A vertical event sequence with status-colored nodes and a connecting track line.\nUse for activity logs, process steps, or any ordered event history.",
       "importPath": "@mattbutlerengineering/rialto",

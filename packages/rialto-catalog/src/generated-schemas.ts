@@ -257,6 +257,11 @@ export const generatedSchemas = {
     placeholder: z.string().optional(),
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
   }),
+  TimeSlots: z.object({
+    date: z.string().max(40),
+    partySize: z.union([z.number(), z.string()]),
+    times: z.array(z.string()),
+  }),
   Timeline: z.object({
     events: z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
     compact: z.boolean().optional(),
