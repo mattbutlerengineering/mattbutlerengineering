@@ -1,0 +1,52 @@
+/* ── List ────────────────────────────────────── */
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Row: time | guest + party | status ──────── */
+.row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-sm);
+}
+
+.row + .row {
+  border-block-start: 1px solid var(--rialto-border);
+}
+
+.time {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--rialto-text-primary);
+}
+
+.who {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--rialto-space-sm);
+  min-width: 0;
+}
+
+.guest {
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.party {
+  flex-basis: 100%;
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
+.status {
+  justify-self: end;
+}

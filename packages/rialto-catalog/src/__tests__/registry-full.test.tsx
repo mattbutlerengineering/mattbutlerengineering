@@ -1273,3 +1273,63 @@ it("still falls back for a Tag with child elements and no label (Tag has no slot
   });
   expect(container.querySelector("[data-rialto-seam-fallback]")).not.toBeNull();
 });
+
+// gen-ui-elements-2: a reservation row needs time, partySize and status; one bad
+// row is dropped rather than replacing the whole list with the fallback.
+describe("ReservationList", () => {
+  function renderReservations(reservations: unknown[]) {
+    return renderSpec({
+      root: "r",
+      elements: { r: { type: "ReservationList", props: { reservations } } },
+    });
+  }
+
+  it("renders its rows", () => {
+    const { container } = renderReservations([
+      { time: "6:00 PM", guest: "Lee Family", partySize: 2, status: "CONFIRMED" },
+      { time: "8:15 PM", partySize: 3, status: "PENDING" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    const list = within(container).getByRole("list", { name: "Reservations" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(list.textContent).toContain("Lee Family");
+    expect(list.textContent).toContain("Walk-in");
+  });
+
+  it.each([
+    ["time", { guest: "No time", partySize: 2, status: "CONFIRMED" }],
+    ["partySize", { time: "7:00 PM", guest: "No party", status: "CONFIRMED" }],
+    ["status", { time: "7:00 PM", guest: "No status", partySize: 2 }],
+  ])("drops a row missing %s and keeps the rest", (_field, bad) => {
+    const { container } = renderReservations([
+      bad,
+      { time: "6:00 PM", guest: "Kept", partySize: 2, status: "CONFIRMED" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(container).getByText("Kept")).toBeTruthy();
+  });
+
+  it("coerces a numeric partySize string and drops a non-numeric one", () => {
+    const { container } = renderReservations([
+      { time: "6:00 PM", guest: "Coerced", partySize: "4", status: "CONFIRMED" },
+      { time: "7:00 PM", guest: "Dropped", partySize: "four", status: "CONFIRMED" },
+    ]);
+    expect(within(container).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(container).getByRole("listitem").textContent).toContain("Party of 4");
+    expect(within(container).queryByText("Dropped")).toBeNull();
+  });
+
+  it("falls back only when no row survives", () => {
+    const { container } = renderReservations([{ guest: "Nothing else" }]);
+    expect(container.querySelector('[data-rialto-seam-fallback="ReservationList"]')).not.toBeNull();
+  });
+
+  it("falls back when the reservations array is missing", () => {
+    const { container } = renderSpec({
+      root: "r",
+      elements: { r: { type: "ReservationList", props: {} } },
+    });
+    expect(container.querySelector('[data-rialto-seam-fallback="ReservationList"]')).not.toBeNull();
+  });
+});

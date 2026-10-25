@@ -3420,6 +3420,28 @@
       ]
     },
     {
+      "name": "ReservationList",
+      "description": "Display-only list of bookings as aligned rows: time, guest (or Walk-in),\nparty size in words, and the status word in its Badge tone. Rows render in\nthe order given; nothing in it is focusable.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "reservations",
+          "type": "ReservationListRow[]",
+          "required": true
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
+      "name": "ReservationListRow",
+      "description": "One booking row in a `ReservationList`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "RialtoLocale",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],

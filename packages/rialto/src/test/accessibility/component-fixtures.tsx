@@ -80,6 +80,7 @@ import { Pagination } from "../../components/Pagination/Pagination";
 import { PinInput } from "../../components/PinInput/PinInput";
 import { Popover } from "../../components/Popover/Popover";
 import { Progress, Spinner } from "../../components/Progress/Progress";
+import { ReservationList } from "../../components/ReservationList/ReservationList";
 import { ScrollArea } from "../../components/ScrollArea/ScrollArea";
 import { SegmentedControl } from "../../components/SegmentedControl/SegmentedControl";
 import { Select } from "../../components/Select/Select";
@@ -181,6 +182,7 @@ export type BarrelExportName =
   | "PinInput"
   | "Popover"
   | "Progress"
+  | "ReservationList"
   | "ScrollArea"
   | "SegmentedControl"
   | "Select"
@@ -638,6 +640,18 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Progress: {
     element: <Progress value={45} aria-label="Loading" />,
+  },
+
+  ReservationList: {
+    element: (
+      <ReservationList
+        reservations={[
+          { time: "6:00 PM", guest: "Lee Family", partySize: 2, status: "CONFIRMED" },
+          { time: "7:30 PM", partySize: 4, status: "PENDING" },
+          { time: "8:15 PM", guest: "Ana Ruiz", partySize: 3, status: "Running late" },
+        ]}
+      />
+    ),
   },
 
   ScrollArea: {

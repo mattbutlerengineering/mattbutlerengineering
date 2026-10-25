@@ -278,6 +278,10 @@
       "types": "./dist/lib/components/Progress/index.d.ts",
       "import": "./dist/lib/components/Progress/index.js"
     },
+    "./ReservationList": {
+      "types": "./dist/lib/components/ReservationList/index.d.ts",
+      "import": "./dist/lib/components/ReservationList/index.js"
+    },
     "./ScrollArea": {
       "types": "./dist/lib/components/ScrollArea/index.d.ts",
       "import": "./dist/lib/components/ScrollArea/index.js"
