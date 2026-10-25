@@ -151,7 +151,7 @@ its words in all four locales, and drops a bad row instead of falling back.
     patch changeset present.
   - Blocked by: —
 
-- [ ] **ReservationList element** (PR E, `packages/rialto` +
+- [x] **ReservationList element** (PR E, `packages/rialto` +
       `packages/rialto-catalog`) — new
       `packages/rialto/src/components/ReservationList/` (component, CSS
       module, story, `ReservationList.catalog.ts`, barrel export), and its
@@ -173,7 +173,7 @@ its words in all four locales, and drops a bad row instead of falling back.
     rialto patch changeset present.
   - Blocked by: Locale keys, normalizer and vocabulary drift test
 
-- [ ] **TimeSlots element** (PR F) — new
+- [x] **TimeSlots element** (PR F) — new
       `packages/rialto/src/components/TimeSlots/` (component, CSS module,
       story, `TimeSlots.catalog.ts`, barrel export) and its adapter.
   - Test first: a component test (the date line reads "{date} ·
@@ -189,7 +189,7 @@ its words in all four locales, and drops a bad row instead of falling back.
   - Blocked by: ReservationList element (shared generated files; serial
     merge)
 
-- [ ] **GuestCards element** (PR G) — new
+- [x] **GuestCards element** (PR G) — new
       `packages/rialto/src/components/GuestCards/` (component, CSS module,
       story, `GuestCards.catalog.ts`, barrel export) and its adapter.
   - Test first: a component test (one card per guest; name in the display
@@ -211,7 +211,7 @@ Demonstrable: the agent's system prompt names the fitting element for every
 read tool, pinned by tests, and the hospitality chat registry renders all
 three new elements.
 
-- [ ] **Chat prompt guidance per shape** (PR H, `services/agent` +
+- [x] **Chat prompt guidance per shape** (PR H, `services/agent` +
       `apps/hospitality`) — in
       `services/agent/src/routes/gen-agent-prompt.ts`, replace the single
       "Pick the element…" line with one line per shape: reservations to
@@ -268,3 +268,5 @@ need a runner-side regeneration. Neither needs the Architect.
 - 2026-10-24 — PR C merged as #7468 (`897ef11bc`). Added midnight and unknown-zone cases. The zone is the request's `timeZone`, i.e. the client's, as the AC states.
 - 2026-10-24 — PR D merged as #7466 (`eeb5bfaf9`). `partyOf` has no plural branch, matching the dashboard ("Grupo de N" and "Groupe de N" don't change with N). `seated` is neutral because the dashboard has no tone for it. The es-MX and fr-CA list names and no-open-times line were written for this PR; the dashboard has no source for them.
 - Advisory Visual Regression (hospitality, rialto-web) was red on #7466 and #7469, and on every recent main run before this run. Not caused by these PRs.
+- 2026-10-25 — PR E merged as #7471 (`b2ba512e2`), PR F as #7474 (`8bb548ca7`), PR G as #7475 (`953f3b9e7`; null card and row fields no longer fall back).
+- 2026-10-25 — PR H merged as #7476 (`b94061625`). Reviewer pass 9/10. Catalog prompt at head: 31,401 chars ≈ 7,850 tokens (base 29,853 ≈ 7,463).
