@@ -20,7 +20,7 @@ const RULES_DIR = ".claude/rules";
  * moving it to a path-scoped sibling.
  */
 const BUDGET_BYTES = {
-  "CLAUDE.md": 11_000,
+  "CLAUDE.md": 9_000,
   ".claude/rules/gotchas.md": 22_000,
 };
 

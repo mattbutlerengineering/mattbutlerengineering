@@ -218,3 +218,25 @@ The `.claude/rules/gotchas.md` file is the canonical source for project-specific
 ## Cross-Session Memory
 
 - **claude-mem** (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`): Persistent cross-session memory of code patterns, architecture decisions, debugging outcomes. **Unavailable by default** — not installed in this repo or in fresh checkouts; run `npx claude-mem install` first to make these commands resolve.
+
+## Continuous Improvement Loop
+
+Moved from the root [CLAUDE.md § Continuous Improvement Loop](../CLAUDE.md#continuous-improvement-loop), which keeps the rules (Conductor consent, RemoteTrigger editing, "trust live output").
+
+| Mode                             | How                                       | Pushes to                         | Best for                                 |
+| -------------------------------- | ----------------------------------------- | --------------------------------- | ---------------------------------------- |
+| **Scheduled** (conservative)     | RemoteTriggers on claude.ai               | PRs for review                    | Background maintenance                   |
+| **Implement Queue** (aggressive) | `/loop 30m /idea-to-prod:implement-queue` | Auto-merges green PRs             | Active development sprints               |
+| **Conductor** (Owner-attended)   | `/idea-to-prod:conduct #N...` locally     | Merges only on the Owner's answer | A named batch of issues, priced up front |
+
+- **Conductor** is stamped here as tools only (#6364): `python3 tools/factory/conductor.py <plan|open|next|answer|run|merge|close>`, config in `.github/factory.json` → `conductor` (gate `scripts/conductor-gate.sh`; `standing_consent` off, so every merge needs the Owner's in-session answer). Batch state: `docs/factory/batches/<batch>/ledger.jsonl` on `conductor/<batch>`; resuming a batch is `next` again. Local only.
+- **Conductor upgrades (stamped at idea-to-prod 0.20.0):** `python3 <plugin>/factory_init.py update .`, where `<plugin>` is `~/.claude/plugins/cache/skills/idea-to-prod/<version>`. It refreshes only what `factory/manifest.json` lists (`"install": "tools-only"`) and keeps `.github/factory.json` (ours; reconcile by hand if the payload's changes are wanted). Verify with `python3 tools/factory/gates.py --selftest` and check `gates.py` reports no `E:` line. Never edit `.github/factory.json` or `docs/factory/` as part of an upgrade, and update the version recorded here.
+- **Skills, plugins and subagents:** see [Skills](#skills) and [Subagents](#subagents) above. Generic lifecycle skills come from the `idea-to-prod` plugin (local sessions only — cloud routines and Actions don't load it, #6332). The implement-queue's repo-specific behaviour lives in its profile [`.claude/implement-queue.md`](../.claude/implement-queue.md). `/caveman`, `/tdd`, `/diagnose`, `/reflect` and the other retired user-level skills resolve nowhere; caveman _mode_ in CLAUDE.md's Communication section is a standing instruction, not a skill call.
+
+## MCP Servers & Observability
+
+The Stripe test-mode-only rule stays in the root [CLAUDE.md § MCP Servers & Observability](../CLAUDE.md#mcp-servers--observability).
+
+- **Langfuse:** agent sessions traced when `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` are set; unset = zero overhead.
+- **Semgrep:** CLI only (pre-commit + CI), no MCP server.
+- **Playwright:** shared browser tooling via `.mcp.json` for `/site-audit` and E2E.
