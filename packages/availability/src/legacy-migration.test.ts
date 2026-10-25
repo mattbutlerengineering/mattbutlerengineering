@@ -101,6 +101,38 @@ describe("normalizeLegacyHours", () => {
     ).toMatchObject({ ok: false, reason: "unreadable_time" });
   });
 
+  it("fails a v2 venue whose override date is not YYYY-MM-DD instead of dropping a closure", () => {
+    for (const date of ["2026-12-25T00:00:00Z", "12/25/2026", "2026-13-01", 20261225, undefined]) {
+      const result = normalizeLegacyHours({
+        version: 2,
+        weekly: {},
+        overrides: [{ date, closed: true }],
+      });
+      expect(result, String(date)).toMatchObject({ ok: false, reason: "unreadable_date" });
+    }
+    expect(normalizeLegacyHours({ version: 2, weekly: {}, overrides: "2026-12-25" })).toMatchObject(
+      { ok: false, reason: "unreadable_date" }
+    );
+  });
+
+  it("fails a v2 venue with a malformed day or window instead of reading it as closed", () => {
+    const cases: unknown[] = [
+      { version: 2, weekly: { monday: "11:00-22:00" } },
+      { version: 2, weekly: { monday: [null] } },
+      { version: 2, weekly: { monday: [{ open: "11:00", close: "22:00" }, "x"] } },
+      { version: 2, weekly: {}, overrides: [{ date: "2026-12-25", windows: "all day" }] },
+      { version: 2, weekly: {}, overrides: [{ date: "2026-12-25" }] },
+    ];
+    for (const raw of cases) {
+      expect(normalizeLegacyHours(raw), JSON.stringify(raw)).toMatchObject({
+        ok: false,
+        reason: "unreadable_time",
+      });
+    }
+    // An absent day is still just closed.
+    expect(normalizeLegacyHours({ version: 2, weekly: {} })).toMatchObject({ ok: true });
+  });
+
   it("treats any truthy `closed` as closed, as the legacy code does", () => {
     const result = normalizeLegacyHours({
       monday: { open: "bad", close: "bad", closed: 1 },

@@ -1640,22 +1640,28 @@
       );
       if (plan.kind !== "migrate")
         throw new Error(`Seed hours for ${seed.slug} unreadable: ${plan.reason}`);
-      const venue = await prisma.venue.upsert({
-        where: { venueGroupId_slug: { venueGroupId, slug: seed.slug } },
-        update: {},
-        create: {
-          venueGroupId,
-          name: seed.name,
-          slug: seed.slug,
-          ianaTimezone: seed.ianaTimezone,
-          currencyCode: "USD",
-          operatingHours: plan.projection as unknown as Prisma.InputJsonValue,
-          settings: seed.settings,
-        },
-      });
+      // One transaction, so a failed row write cannot leave a venue that later runs skip.
       // Written as the connection owner like the rest of the seed (no venue context).
-      const hasRows = await prisma.schedule.count({ where: { venueId: venue.id, isRegular: true } });
-      if (hasRows === 0) await writeAvailabilityConfig(prisma, venue.id, plan.config);
+      const venue = await prisma.$transaction(async (tx) => {
+        const upserted = await tx.venue.upsert({
+          where: { venueGroupId_slug: { venueGroupId, slug: seed.slug } },
+          update: {},
+          create: {
+            venueGroupId,
+            name: seed.name,
+            slug: seed.slug,
+            ianaTimezone: seed.ianaTimezone,
+            currencyCode: "USD",
+            operatingHours: plan.projection as unknown as Prisma.InputJsonValue,
+            settings: seed.settings,
+          },
+        });
+        const hasRows = await tx.schedule.count({
+          where: { venueId: upserted.id, isRegular: true },
+        });
+        if (hasRows === 0) await writeAvailabilityConfig(tx, upserted.id, plan.config);
+        return upserted;
+      });
       return venue;
     }
     async function main() {

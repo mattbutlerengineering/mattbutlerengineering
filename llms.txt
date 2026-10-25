@@ -16398,7 +16398,7 @@
       }
     </item>
     <item priority="low">
-      type LegacyHoursFailure = { ok: false; reason: "no_hours | { ok: false; reason: "unknown_ | { ok: false; reason: "unknown_ | { ok: false; reason: "unreadab;
+      type LegacyHoursFailure = { ok: false; reason: "no_hours | { ok: false; reason: "unknown_ | { ok: false; reason: "unknown_ | { ok: false; reason: "unreadab | { ok: false; reason: "unreadab;
     </item>
     <item priority="low">
       type LegacyHoursResult = { ok: true; shape: LegacyShape | LegacyHoursFailure;

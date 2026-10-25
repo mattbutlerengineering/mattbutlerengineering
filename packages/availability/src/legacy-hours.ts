@@ -40,7 +40,9 @@ export type LegacyHoursFailure =
   | { ok: false; reason: "unknown_shape"; detail: string }
   | { ok: false; reason: "unknown_version"; detail: string }
   /** A day the legacy code treated as open has a time this parser cannot read. */
-  | { ok: false; reason: "unreadable_time"; detail: string };
+  | { ok: false; reason: "unreadable_time"; detail: string }
+  /** A v2 override has a date that is not a plain YYYY-MM-DD; dropping it could open a closed date. */
+  | { ok: false; reason: "unreadable_date"; detail: string };
 
 export type LegacyHoursResult =
   { ok: true; shape: LegacyShape; hours: LegacyHours } | LegacyHoursFailure;
@@ -72,8 +74,9 @@ function parseTime(value: unknown): number | null {
   return minutes > MINUTES_PER_DAY ? null : minutes;
 }
 
-/** Collects the open days whose times could not be read; any entry fails the venue. */
+/** Collects what could not be read; any entry fails the venue. Date problems start with `DATE_PROBLEM`. */
 type Problems = string[];
+const DATE_PROBLEM = "date: ";
 
 /**
  * A window, or `null` when it cannot seat anyone (open == close). An open day
@@ -109,9 +112,11 @@ const sortedByOpen = (windows: LegacyWindow[]): LegacyWindow[] =>
   [...windows].sort((a, b) => a.open - b.open);
 
 function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult {
-  return problems.length > 0
-    ? { ok: false, reason: "unreadable_time", detail: problems.join("; ") }
-    : { ok: true, shape, hours };
+  if (problems.length === 0) return { ok: true, shape, hours };
+  const reason = problems.some((p) => p.startsWith(DATE_PROBLEM))
+    ? "unreadable_date"
+    : "unreadable_time";
+  return { ok: false, reason, detail: problems.join("; ") };
 }
 
 function weeklyFrom(
@@ -159,22 +164,41 @@ function fromSeedArray(raw: unknown[]): LegacyHoursResult {
 }
 
 function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter(isObject)
-    .map((w) => toWindow(where, problems, w.open, w.close, w.name))
-    .filter(isWindow);
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    problems.push(`${where}: windows is not an array`);
+    return [];
+  }
+  return raw.flatMap((w, i) => {
+    if (!isObject(w)) {
+      problems.push(`${where}: window ${i} is not an object`);
+      return [];
+    }
+    const window = toWindow(where, problems, w.open, w.close, w.name);
+    return window ? [window] : [];
+  });
 }
 
 function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] {
-  if (!Array.isArray(raw)) return [];
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    problems.push(`${DATE_PROBLEM}overrides is not an array`);
+    return [];
+  }
   const byDate = new Map<string, LegacyOverride>();
   for (const entry of raw) {
-    if (!isObject(entry) || typeof entry.date !== "string" || !ISO_DATE.test(entry.date)) continue;
+    if (!isObject(entry) || typeof entry.date !== "string" || !ISO_DATE.test(entry.date)) {
+      problems.push(
+        `${DATE_PROBLEM}override date ${JSON.stringify(isObject(entry) ? entry.date : entry)}`
+      );
+      continue;
+    }
     if (byDate.has(entry.date)) continue;
-    const windows = entry.closed
-      ? []
-      : sortedByOpen(toWindows(`override ${entry.date}`, problems, entry.windows));
+    const where = `override ${entry.date}`;
+    if (!entry.closed && !Array.isArray(entry.windows)) {
+      problems.push(`${where}: open override has no windows array`);
+    }
+    const windows = entry.closed ? [] : sortedByOpen(toWindows(where, problems, entry.windows));
     byDate.set(entry.date, {
       date: entry.date,
       windows,
