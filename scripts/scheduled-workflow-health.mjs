@@ -198,6 +198,7 @@ export const MAIN_PUSH_WORKFLOW_FILES = [
   "apps-visual.yml",
   "e2e-screenshots.yml",
   "rialto-visual.yml",
+  "rialto-web-e2e.yml",
 ];
 
 /** Mirrors `findDeployWorkflows` for `MAIN_PUSH_WORKFLOW_FILES`. */
