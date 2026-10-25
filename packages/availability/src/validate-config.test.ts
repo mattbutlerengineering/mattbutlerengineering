@@ -334,4 +334,33 @@ describe("validateConfig — review follow-ups", () => {
       { path: "dateRules[1].payload.stop.to", code: "window_ends_before_start" },
     ]);
   });
+
+  it("rejects a booking-target rule that names no booking types", () => {
+    expect(
+      pathsAndCodes(
+        config({
+          dateRules: [
+            { id: "dr-1", kind: "closure", targetKind: "booking", startsOn: "2026-12-26" },
+            {
+              id: "dr-2",
+              kind: "closure",
+              targetKind: "booking",
+              startsOn: "2026-12-26",
+              bookingTypes: [],
+            },
+            {
+              id: "dr-3",
+              kind: "closure",
+              targetKind: "booking",
+              startsOn: "2026-12-26",
+              bookingTypes: ["online"],
+            },
+          ],
+        })
+      )
+    ).toEqual([
+      { path: "dateRules[0].bookingTypes", code: "booking_types_required" },
+      { path: "dateRules[1].bookingTypes", code: "booking_types_required" },
+    ]);
+  });
 });

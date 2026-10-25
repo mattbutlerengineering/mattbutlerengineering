@@ -43,7 +43,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Availability schema migration** — Prisma models and migration for Schedule, VenueService, ScheduleService, ScheduleAssignment, DateRule, DateRuleTable, AvailabilityChange and ClosureOutcome, plus `Venue.availabilityVersion` and `hostEmergencyClose` and `Reservation.overrideReason` and `overrideLimits`. Each table gets ENABLE and FORCE RLS, a policy and grants, following the `20261022000000_add_floor_plan_sections` template. (tracker: #7500)
   - Accept: `rls-force-coverage` passes. The RLS route-sweep fixtures cover the new tables. The `migration-reviewer` subagent finds no destructive operations.
   - Blocked by: Config schemas
-- [ ] **Snapshot loader** — `services/availability-snapshot.ts` loads config, tables, sections, and reservations and holds (±1 day) for a range in a fixed number of queries, parsing jsonb with zod on read. (tracker: #7501)
+- [x] **Snapshot loader** — `services/availability-snapshot.ts` loads config, tables, sections, and reservations and holds (±1 day) for a range in a fixed number of queries, parsing jsonb with zod on read. (tracker: #7501)
   - Accept: an integration test asserts the query count is independent of the range length. A row with an unknown payload version loads as closed, with a warning.
   - Blocked by: Availability schema migration, listSlots and judge
 - [ ] **Legacy data migration and projection** — the prior-art normaliser (with an unknown-version guard) turns both legacy `operatingHours` shapes plus `slotIntervalMinutes` and `lastSeatingBuffer` into rows. The store writes the legacy column as a derived projection. The seed is rewritten to the new model, with `defaultReservationDuration` fixed. (tracker: #7502)

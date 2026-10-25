@@ -78,6 +78,7 @@ flowchart TD
   agent_service --> types
   agent_service --> config
   reservations_service --> auth
+  reservations_service --> availability
   reservations_service --> cancellation_policy
   reservations_service --> database
   reservations_service --> sentry
