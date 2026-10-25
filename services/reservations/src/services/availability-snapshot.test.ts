@@ -319,6 +319,37 @@ describe("loadAvailabilitySnapshot", () => {
       expect(listSlots(snapshot, "2026-11-06", 2, "online", now).length).toBeGreaterThan(0);
     });
 
+    it("closes only an unreadable or implausible day, one warning each, as legacy did", async () => {
+      const { db } = fakeDb(
+        unmigrated({
+          monday: { open: "", close: "22:00" }, // a cleared time input
+          tuesday: { open: "09:00", close: "08:00" }, // 23 hours past midnight
+          wednesday: { open: "17:00:00", close: "22:00:00" },
+          thursday: { open: "17:00", close: "22:00" },
+        })
+      );
+      const logger = { warn: vi.fn() };
+      const { snapshot, source, warnings } = await loadAvailabilitySnapshot(
+        "v1",
+        "2026-11-02",
+        "2026-11-05",
+        now,
+        { db, logger }
+      );
+      expect(source).toBe("legacy");
+      expect(warnings).toEqual([
+        expect.objectContaining({ table: "venues", reason: expect.stringContaining("monday") }),
+        expect.objectContaining({ table: "venues", reason: expect.stringContaining("tuesday") }),
+      ]);
+      expect(logger.warn).toHaveBeenCalledTimes(2);
+      expect(listSlots(snapshot, "2026-11-02", 2, "online", now)).toEqual([]); // Monday
+      expect(listSlots(snapshot, "2026-11-03", 2, "online", now)).toEqual([]); // Tuesday
+      const wednesday = listSlots(snapshot, "2026-11-04", 2, "online", now);
+      const thursday = listSlots(snapshot, "2026-11-05", 2, "online", now);
+      expect(wednesday.map((s) => s.minute)).toEqual(thursday.map((s) => s.minute));
+      expect(thursday.length).toBeGreaterThan(0);
+    });
+
     it("is closed, with a warning, when the legacy shape is unrecognised", async () => {
       const { db } = fakeDb(unmigrated({ version: 9, weekly: {} }));
       const logger = { warn: vi.fn() };

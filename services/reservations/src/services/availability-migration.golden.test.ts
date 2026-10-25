@@ -393,3 +393,73 @@ describe("legacy -> availability rows: slots are identical before and after", ()
     }
   });
 });
+
+/**
+ * Hours the strict backfill refuses (it reports the venue `unrecognised`), but
+ * that the legacy listing read day by day. Listing with no rows must match the
+ * legacy oracle on every date: a bad day is closed, the readable days are kept.
+ * (For a cleared "" time the real legacy loop threw on that one day, a 500; the
+ * oracle and the engine both close it.)
+ */
+describe("legacy hours the backfill refuses: listing matches legacy day by day", () => {
+  const MESSY: { name: string; hours: Record<string, unknown> }[] = [
+    {
+      name: "a cleared time input",
+      hours: {
+        monday: { open: "", close: "22:00" },
+        tuesday: { open: "17:00", close: "22:00" },
+        friday: { open: "17:00", close: "23:00" },
+      },
+    },
+    {
+      name: "HH:MM:SS times",
+      hours: {
+        tuesday: { open: "17:00:00", close: "22:00:00" },
+        saturday: { open: "11:30:00", close: "23:15:00" },
+      },
+    },
+    {
+      name: "an implausible past-midnight span",
+      hours: {
+        monday: { open: "09:00", close: "08:00" },
+        wednesday: { open: "11:00", close: "21:00" },
+      },
+    },
+  ];
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  for (const fixture of MESSY) {
+    it(fixture.name, async () => {
+      const c = CASES[0];
+      const clock = new Date(c.now);
+      vi.setSystemTime(clock);
+      const venue = {
+        id: "v1",
+        name: fixture.name,
+        slug: "v1",
+        ianaTimezone: c.tz,
+        settings: null,
+        operatingHours: fixture.hours,
+      };
+      expect(planVenueMigration(venue, clock).kind).toBe("unrecognised");
+
+      let compared = 0;
+      for (let i = 0; i < DAYS; i += 1) {
+        const date = addDays(c.start, i);
+        for (const partySize of PARTY_SIZES) {
+          const before = legacySlots(venue, date, partySize, clock);
+          const listed = await listedSlots(venue, NO_ROWS, date, partySize);
+          expect(listed, `${date} party ${partySize}`).toEqual(before);
+          compared += before.length;
+        }
+      }
+      expect(compared).toBeGreaterThan(0);
+    });
+  }
+});

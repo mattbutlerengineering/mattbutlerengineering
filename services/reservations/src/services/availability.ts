@@ -5,7 +5,13 @@ import type {
   AvailabilityClosure,
   BookingPaused,
 } from "@mbe/types";
-import { addDays, listSlots, type BookingSnapshot, type Slot } from "@mbe/availability";
+import {
+  addDays,
+  listSlots,
+  serviceDayInstant,
+  type BookingSnapshot,
+  type Slot,
+} from "@mbe/availability";
 import type { Table } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import {
@@ -106,9 +112,29 @@ function toTimeSlot(slot: Slot): TimeSlot {
   };
 }
 
+/**
+ * The snapshot narrowed to bookings that can touch one service day: those starting
+ * from the venue-local start of the day before to the end of the day after. A range
+ * snapshot holds every booking of up to 61 days, and `listSlots` scans all of them
+ * for every seating; the results are the same either way.
+ */
+function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot {
+  const from = serviceDayInstant(addDays(date, -1), 0, snapshot.timezone);
+  const to = serviceDayInstant(addDays(date, 2), 0, snapshot.timezone);
+  // A zone whose clocks skip midnight has no such instant; keep everything.
+  if (!from || !to) return snapshot;
+  const nearby = (b: { startTime: Date }) => b.startTime >= from && b.startTime < to;
+  return {
+    ...snapshot,
+    reservations: snapshot.reservations.filter(nearby),
+    holds: snapshot.holds.filter(nearby),
+  };
+}
+
 /** Every online seating of the date, and those a guest may book now (inside the booking window). */
 function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) {
-  const { snapshot, venueSettings } = loaded;
+  const { venueSettings } = loaded;
+  const snapshot = dayView(loaded.snapshot, date);
   const seatings = listSlots(snapshot, date, partySize, "online", now);
   // No table could ever seat the party: offer no times at all, as before the engine.
   if (filterSuitableTables(snapshot.tables, partySize).length === 0) {

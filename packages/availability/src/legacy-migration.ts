@@ -36,6 +36,12 @@ export interface LegacyMigrationInput {
   /** Venue-local today; dated overrides before it are not migrated. */
   today: ServiceDate;
   newId: () => string;
+  /**
+   * The live listing fallback only: a day whose window spans implausibly far past
+   * midnight is closed (the legacy listing offered nothing for it) instead of
+   * failing the venue. The backfill stays strict.
+   */
+  lenient?: boolean;
 }
 
 /** A window read as running past midnight; listed so a typo can be spotted in the run log. */
@@ -54,6 +60,8 @@ export interface LegacyMigrationNotes {
   droppedWindows: number;
   skippedPastOverrides: number;
   migratedOverrides: number;
+  /** Lenient mode only: days closed because their hours could not be used. */
+  unreadableDays?: string[];
 }
 
 export type LegacyMigrationResult =
@@ -119,11 +127,33 @@ function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] {
   );
 }
 
+const isImplausible = (w: LegacyWindow): boolean =>
+  w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN;
+
+/** Lenient mode: closes each day (or override date) holding an implausible window. */
+function closeImplausibleDays(hours: LegacyHours): { hours: LegacyHours; closed: string[] } {
+  const closed = pastMidnightWindows(hours)
+    .filter((w) => w.span > MAX_PAST_MIDNIGHT_SPAN)
+    .map((w) => `${w.day}: ${w.open}-${w.close} spans ${w.span} minutes`);
+  const keep = (windows: readonly LegacyWindow[]) => (windows.some(isImplausible) ? [] : windows);
+  return {
+    hours: {
+      weekly: Object.fromEntries(
+        WEEKDAYS.map((d) => [d, keep(hours.weekly[d])])
+      ) as unknown as LegacyHours["weekly"],
+      overrides: hours.overrides.map((o) => ({ ...o, windows: keep(o.windows) })),
+    },
+    closed,
+  };
+}
+
 export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult {
   const checked = validIntervalOrBuffer(input);
   if ("ok" in checked) return checked;
   const { interval, buffer } = checked;
-  const { hours, newId, today } = input;
+  const { newId, today } = input;
+  const lenient = input.lenient ? closeImplausibleDays(input.hours) : null;
+  const hours = lenient?.hours ?? input.hours;
 
   const wrapped = pastMidnightWindows(hours);
   const tooLong = wrapped.find((w) => w.span > MAX_PAST_MIDNIGHT_SPAN);
@@ -236,6 +266,7 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
       droppedWindows: dropped,
       skippedPastOverrides: hours.overrides.length - futureOverrides.length,
       migratedOverrides: futureOverrides.length,
+      ...(lenient && lenient.closed.length > 0 ? { unreadableDays: lenient.closed } : {}),
     },
   };
 }

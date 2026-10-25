@@ -39,8 +39,10 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  * Venues the operator backfill has not reached (no unarchived regular schedule
  * row) get their schedules built in memory from the legacy `operatingHours`
  * column, by the same pure `planVenueMigration` the backfill runs, so guests see
- * the same slots before and after it. Date rule rows still apply on top. Legacy
- * hours that cannot be read leave the venue closed, with a warning.
+ * the same slots before and after it. Date rule rows still apply on top. It reads
+ * leniently, as the legacy listing did day by day: a day whose hours cannot be
+ * read is closed, with one warning per day. Hours that cannot be read at all
+ * (unknown shape or version) leave the venue closed, with a warning.
  */
 
 export interface SnapshotWarning {
@@ -212,8 +214,15 @@ function effectiveConfig(
   warnings: SnapshotWarning[]
 ): { config: AvailabilityConfig; source: SnapshotSource } {
   if (hasRegularSchedule(config)) return { config, source: "rows" };
-  const plan = planVenueMigration(venue, now);
+  const plan = planVenueMigration(venue, now, undefined, { lenient: true });
   if (plan.kind === "migrate") {
+    for (const day of plan.notes.unreadableDays ?? []) {
+      warnings.push({
+        table: "venues",
+        id: venueId,
+        reason: `legacy operatingHours, day closed: ${day}`,
+      });
+    }
     return {
       config: { ...plan.config, dateRules: [...plan.config.dateRules, ...config.dateRules] },
       source: "legacy",

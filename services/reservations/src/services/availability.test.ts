@@ -83,7 +83,10 @@ const FIXED_NOW = new Date("2026-05-01T12:00:00Z");
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(FIXED_NOW);
+  // Prisma's findMany always resolves to an array; tests override per case.
   for (const delegate of [
+    prisma.reservation,
+    prisma.reservationHold,
     prisma.schedule,
     prisma.venueService,
     prisma.scheduleService,
@@ -690,6 +693,51 @@ describe("availabilityService.getAvailableDates", () => {
     expect(prisma.reservation.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.reservationHold.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.dateRule.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts each date exactly as that date's own slot list does, with bookings across the range", async () => {
+    // Bookings every day of the range, including late ones whose instant falls on
+    // the next UTC day, so a per-date view that dropped a relevant booking (or kept
+    // a booking from another day) would change some date's count.
+    const tables = [makePrismaTable(), makePrismaTable({ id: "table-2", name: "Table 2" })];
+    const reservations = Array.from({ length: 10 }, (_, i) => {
+      const day = `2026-05-${String(4 + i).padStart(2, "0")}`;
+      return [
+        { id: `early-${i}`, tableId: "table-1", hour: "15:00:00", minutes: 90 },
+        { id: `late-${i}`, tableId: "table-2", hour: "23:30:00", minutes: 180 }, // 19:30 ET
+      ].map((r) => {
+        const startTime = new Date(`${day}T${r.hour}Z`);
+        return {
+          id: r.id,
+          tableId: r.tableId,
+          date: new Date(day),
+          startTime,
+          endTime: new Date(startTime.getTime() + r.minutes * 60_000),
+          partySize: 2,
+        };
+      });
+    }).flat();
+    const stubAll = () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValue(makePrismaVenue() as never);
+      vi.mocked(prisma.table.findMany).mockResolvedValue(tables as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValue(reservations as never);
+      vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([] as never);
+    };
+    stubAll();
+
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-04",
+      "2026-05-13",
+      2
+    );
+
+    for (const day of dates) {
+      stubAll();
+      const slots = await availabilityService.generateTimeSlots(VENUE_ID, day.date, 2);
+      expect(day.slotCount, day.date).toBe(slots.filter((s) => s.available).length);
+    }
+    expect(dates.some((d) => d.slotCount! > 0)).toBe(true);
   });
 
   it("carries a closure message on a closed date only", async () => {

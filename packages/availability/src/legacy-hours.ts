@@ -10,6 +10,12 @@ import { MINUTES_PER_DAY, WEEKDAYS, type ServiceDate, type Weekday } from "./typ
  * - `weekday`: `{ monday: { open, close, closed? }, … }` — what the app writes.
  * - `seed_array`: `[{ dayOfWeek (0 = Sunday), openTime, closeTime, isClosed }]` — what the seed wrote.
  * - `v2`: `{ version: 2, weekly: { monday: [{ name?, open, close }] }, overrides }` — the prior-art shape.
+ *
+ * Strict (the default, for the backfill): one unreadable time fails the venue.
+ * Lenient (the live listing fallback only): the legacy listing read each
+ * weekday on its own, so an unreadable weekday closes that day alone and is
+ * reported in `unreadableDays`, and "HH:MM:SS" reads as "HH:MM" as its
+ * `split(":")` did. Shape, version and override-date problems fail either way.
  */
 
 export type LegacyShape = "weekday" | "seed_array" | "v2";
@@ -44,13 +50,26 @@ export type LegacyHoursFailure =
   /** A v2 override has a date that is not a plain YYYY-MM-DD; dropping it could open a closed date. */
   | { ok: false; reason: "unreadable_date"; detail: string };
 
+export interface LegacyHoursOptions {
+  lenient?: boolean;
+}
+
 export type LegacyHoursResult =
-  { ok: true; shape: LegacyShape; hours: LegacyHours } | LegacyHoursFailure;
+  | {
+      ok: true;
+      shape: LegacyShape;
+      hours: LegacyHours;
+      /** Lenient mode only: weekdays closed because their times could not be read. */
+      unreadableDays?: string[];
+    }
+  | LegacyHoursFailure;
 
 type Loose = Record<string, unknown>;
 
 const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const TIME = /^([01]?\d|2[0-4]):([0-5]\d)$/;
+/** Lenient: trailing seconds are ignored, as the legacy `split(":")` ignored them. */
+const LENIENT_TIME = /^([01]?\d|2[0-4]):([0-5]\d)(?::[0-5]\d)?$/;
 /** Stored weekday index: 0 = Sunday. */
 const SUNDAY_FIRST: readonly Weekday[] = [
   "sunday",
@@ -66,9 +85,9 @@ const isObject = (value: unknown): value is Loose =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** "HH:MM" → minutes; "24:00" is the end of the day. Anything else is `null`. */
-function parseTime(value: unknown): number | null {
+function parseTime(value: unknown, lenient: boolean): number | null {
   if (typeof value !== "string") return null;
-  const match = TIME.exec(value);
+  const match = (lenient ? LENIENT_TIME : TIME).exec(value);
   if (!match) return null;
   const minutes = Number(match[1]) * 60 + Number(match[2]);
   return minutes > MINUTES_PER_DAY ? null : minutes;
@@ -78,6 +97,13 @@ function parseTime(value: unknown): number | null {
 type Problems = string[];
 const DATE_PROBLEM = "date: ";
 
+interface Reader {
+  problems: Problems;
+  lenient: boolean;
+  /** Lenient mode: problems that closed a single weekday instead of failing the venue. */
+  unreadableDays: string[];
+}
+
 /**
  * A window, or `null` when it cannot seat anyone (open == close). An open day
  * whose times cannot be read is recorded in `problems` — it is never read as
@@ -86,12 +112,13 @@ const DATE_PROBLEM = "date: ";
 function toWindow(
   where: string,
   problems: Problems,
+  lenient: boolean,
   open: unknown,
   close: unknown,
   name?: unknown
 ): LegacyWindow | null {
-  const o = parseTime(open);
-  const c = parseTime(close);
+  const o = parseTime(open, lenient);
+  const c = parseTime(close, lenient);
   if (o === null || c === null || o >= MINUTES_PER_DAY) {
     problems.push(`${where}: open ${JSON.stringify(open)}, close ${JSON.stringify(close)}`);
     return null;
@@ -111,39 +138,53 @@ const isWindow = (w: LegacyWindow | null): w is LegacyWindow => w !== null;
 const sortedByOpen = (windows: LegacyWindow[]): LegacyWindow[] =>
   [...windows].sort((a, b) => a.open - b.open);
 
-function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult {
-  if (problems.length === 0) return { ok: true, shape, hours };
+function finish(shape: LegacyShape, reader: Reader, hours: LegacyHours): LegacyHoursResult {
+  const { problems, unreadableDays } = reader;
+  if (problems.length === 0) {
+    return unreadableDays.length > 0
+      ? { ok: true, shape, hours, unreadableDays }
+      : { ok: true, shape, hours };
+  }
   const reason = problems.some((p) => p.startsWith(DATE_PROBLEM))
     ? "unreadable_date"
     : "unreadable_time";
   return { ok: false, reason, detail: problems.join("; ") };
 }
 
+/** Each weekday is read on its own; in lenient mode a day with a problem is closed and reported. */
 function weeklyFrom(
-  windowsFor: (day: Weekday) => LegacyWindow[]
+  reader: Reader,
+  windowsFor: (day: Weekday, problems: Problems) => LegacyWindow[]
 ): Record<Weekday, readonly LegacyWindow[]> {
-  return Object.fromEntries(
-    WEEKDAYS.map((d) => [d, sortedByOpen(windowsFor(d))])
-  ) as unknown as Record<Weekday, readonly LegacyWindow[]>;
+  const read = (day: Weekday): LegacyWindow[] => {
+    const dayProblems: Problems = [];
+    const windows = windowsFor(day, dayProblems);
+    if (dayProblems.length === 0) return sortedByOpen(windows);
+    (reader.lenient ? reader.unreadableDays : reader.problems).push(...dayProblems);
+    return [];
+  };
+  return Object.fromEntries(WEEKDAYS.map((d) => [d, read(d)])) as unknown as Record<
+    Weekday,
+    readonly LegacyWindow[]
+  >;
 }
 
-function fromWeekdayKeyed(raw: Loose): LegacyHoursResult {
+function fromWeekdayKeyed(raw: Loose, reader: Reader): LegacyHoursResult {
   if (!WEEKDAYS.some((day) => day in raw)) {
     return { ok: false, reason: "unknown_shape", detail: "no weekday keys" };
   }
-  const problems: Problems = [];
   // As the legacy code: a missing day, or one flagged `closed` (truthy), is closed.
-  const dayWindows = (day: Weekday): LegacyWindow[] => {
+  const dayWindows = (day: Weekday, problems: Problems): LegacyWindow[] => {
     const value = raw[day];
     if (!isObject(value) || value.closed) return [];
-    const window = toWindow(day, problems, value.open, value.close);
+    const window = toWindow(day, problems, reader.lenient, value.open, value.close);
     return window ? [window] : [];
   };
-  const weekly = weeklyFrom(dayWindows);
-  return finish("weekday", problems, { weekly, overrides: [] });
+  const weekly = weeklyFrom(reader, dayWindows);
+  return finish("weekday", reader, { weekly, overrides: [] });
 }
 
-function fromSeedArray(raw: unknown[]): LegacyHoursResult {
+function fromSeedArray(raw: unknown[], reader: Reader): LegacyHoursResult {
   const rows = raw.filter(isObject);
   const dayIndexOk = (row: Loose) =>
     typeof row.dayOfWeek === "number" &&
@@ -153,17 +194,21 @@ function fromSeedArray(raw: unknown[]): LegacyHoursResult {
   if (rows.length === 0 || rows.length !== raw.length || !rows.every(dayIndexOk)) {
     return { ok: false, reason: "unknown_shape", detail: "array rows lack a 0-6 dayOfWeek" };
   }
-  const problems: Problems = [];
-  const windowsFor = (day: Weekday) =>
+  const windowsFor = (day: Weekday, problems: Problems) =>
     rows
       .filter((row) => !row.isClosed && SUNDAY_FIRST[row.dayOfWeek as number] === day)
-      .map((row) => toWindow(day, problems, row.openTime, row.closeTime))
+      .map((row) => toWindow(day, problems, reader.lenient, row.openTime, row.closeTime))
       .filter(isWindow);
-  const weekly = weeklyFrom(windowsFor);
-  return finish("seed_array", problems, { weekly, overrides: [] });
+  const weekly = weeklyFrom(reader, windowsFor);
+  return finish("seed_array", reader, { weekly, overrides: [] });
 }
 
-function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] {
+function toWindows(
+  where: string,
+  problems: Problems,
+  lenient: boolean,
+  raw: unknown
+): LegacyWindow[] {
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) {
     problems.push(`${where}: windows is not an array`);
@@ -174,12 +219,12 @@ function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindo
       problems.push(`${where}: window ${i} is not an object`);
       return [];
     }
-    const window = toWindow(where, problems, w.open, w.close, w.name);
+    const window = toWindow(where, problems, lenient, w.open, w.close, w.name);
     return window ? [window] : [];
   });
 }
 
-function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] {
+function toOverrides(problems: Problems, lenient: boolean, raw: unknown): LegacyOverride[] {
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) {
     problems.push(`${DATE_PROBLEM}overrides is not an array`);
@@ -198,7 +243,9 @@ function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] {
     if (!entry.closed && !Array.isArray(entry.windows)) {
       problems.push(`${where}: open override has no windows array`);
     }
-    const windows = entry.closed ? [] : sortedByOpen(toWindows(where, problems, entry.windows));
+    const windows = entry.closed
+      ? []
+      : sortedByOpen(toWindows(where, problems, lenient, entry.windows));
     byDate.set(entry.date, {
       date: entry.date,
       windows,
@@ -208,26 +255,34 @@ function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] {
   return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
-function fromV2(raw: Loose): LegacyHoursResult {
+function fromV2(raw: Loose, reader: Reader): LegacyHoursResult {
   if (!isObject(raw.weekly)) {
     return { ok: false, reason: "unknown_shape", detail: "v2 document has no weekly object" };
   }
   const weeklyRaw = raw.weekly;
-  const problems: Problems = [];
-  const weekly = weeklyFrom((day) => toWindows(day, problems, weeklyRaw[day]));
-  return finish("v2", problems, { weekly, overrides: toOverrides(problems, raw.overrides) });
+  const weekly = weeklyFrom(reader, (day, problems) =>
+    toWindows(day, problems, reader.lenient, weeklyRaw[day])
+  );
+  // An override is a dated exception: one that cannot be read fails the venue even
+  // in lenient mode, because dropping it could open a date the venue closed.
+  const overrides = toOverrides(reader.problems, reader.lenient, raw.overrides);
+  return finish("v2", reader, { weekly, overrides });
 }
 
-export function normalizeLegacyHours(raw: unknown): LegacyHoursResult {
+export function normalizeLegacyHours(
+  raw: unknown,
+  options: LegacyHoursOptions = {}
+): LegacyHoursResult {
+  const reader: Reader = { problems: [], lenient: options.lenient ?? false, unreadableDays: [] };
   if (raw === null || raw === undefined) return { ok: false, reason: "no_hours" };
-  if (Array.isArray(raw)) return fromSeedArray(raw);
+  if (Array.isArray(raw)) return fromSeedArray(raw, reader);
   if (!isObject(raw)) {
     return { ok: false, reason: "unknown_shape", detail: `unexpected ${typeof raw} value` };
   }
   if ("version" in raw) {
     return raw.version === 2
-      ? fromV2(raw)
+      ? fromV2(raw, reader)
       : { ok: false, reason: "unknown_version", detail: `version ${JSON.stringify(raw.version)}` };
   }
-  return fromWeekdayKeyed(raw);
+  return fromWeekdayKeyed(raw, reader);
 }

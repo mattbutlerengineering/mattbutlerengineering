@@ -1522,7 +1522,8 @@
       export function planVenueMigration(
         venue: VenueForMigration,
         now: Date,
-        newId: () => string = randomUUID
+        newId: () => string = randomUUID,
+        options: { lenient?: boolean } = {}
       ): VenueMigrationPlan { /* ... */ }
     </item>
     <item priority="high">
@@ -1723,6 +1724,9 @@
     </item>
     <item priority="medium">
       function toTimeSlot(slot: Slot): TimeSlot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot { /* ... */ }
     </item>
     <item priority="medium">
       function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) { /* ... */ }

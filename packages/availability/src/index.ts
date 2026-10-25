@@ -15,6 +15,7 @@ export {
   normalizeLegacyHours,
   type LegacyHours,
   type LegacyHoursFailure,
+  type LegacyHoursOptions,
   type LegacyHoursResult,
   type LegacyOverride,
   type LegacyShape,

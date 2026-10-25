@@ -11326,7 +11326,8 @@
       export function planVenueMigration(
         venue: VenueForMigration,
         now: Date,
-        newId: () => string = randomUUID
+        newId: () => string = randomUUID,
+        options: { lenient?: boolean } = {}
       ): VenueMigrationPlan { /* ... */ }
     </item>
     <item priority="high">
@@ -11527,6 +11528,9 @@
     </item>
     <item priority="medium">
       function toTimeSlot(slot: Slot): TimeSlot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot { /* ... */ }
     </item>
     <item priority="medium">
       function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) { /* ... */ }
@@ -16533,51 +16537,75 @@
       type LegacyHoursFailure = { ok: false; reason: "no_hours | { ok: false; reason: "unknown_ | { ok: false; reason: "unknown_ | { ok: false; reason: "unreadab | { ok: false; reason: "unreadab;
     </item>
     <item priority="low">
-      type LegacyHoursResult = { ok: true; shape: LegacyShape | LegacyHoursFailure;
+      interface LegacyHoursOptions {
+        lenient?: boolean;
+      }
+    </item>
+    <item priority="low">
+      type LegacyHoursResult = {
+            ok: true;
+            shape: | LegacyHoursFailure;
     </item>
     <item priority="high">
       type Loose = Record<string, unknown>;
     </item>
     <item priority="medium">
-      function parseTime(value: unknown): number | null { /* ... */ }
+      function parseTime(value: unknown, lenient: boolean): number | null { /* ... */ }
     </item>
     <item priority="high">
       type Problems = string[];
+    </item>
+    <item priority="high">
+      interface Reader {
+        problems: Problems;
+        lenient: boolean;
+        unreadableDays: string[];
+      }
     </item>
     <item priority="medium">
       function toWindow(
         where: string,
         problems: Problems,
+        lenient: boolean,
         open: unknown,
         close: unknown,
         name?: unknown
       ): LegacyWindow | null { /* ... */ }
     </item>
     <item priority="medium">
-      function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult { /* ... */ }
+      function finish(shape: LegacyShape, reader: Reader, hours: LegacyHours): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="medium">
       function weeklyFrom(
-        windowsFor: (day: Weekday) => LegacyWindow[]
+        reader: Reader,
+        windowsFor: (day: Weekday, problems: Problems) => LegacyWindow[]
       ): Record<Weekday, readonly LegacyWindow[]> { /* ... */ }
     </item>
     <item priority="medium">
-      function fromWeekdayKeyed(raw: Loose): LegacyHoursResult { /* ... */ }
+      function fromWeekdayKeyed(raw: Loose, reader: Reader): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="medium">
-      function fromSeedArray(raw: unknown[]): LegacyHoursResult { /* ... */ }
+      function fromSeedArray(raw: unknown[], reader: Reader): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="medium">
-      function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] { /* ... */ }
+      function toWindows(
+        where: string,
+        problems: Problems,
+        lenient: boolean,
+        raw: unknown
+      ): LegacyWindow[] { /* ... */ }
     </item>
     <item priority="medium">
-      function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] { /* ... */ }
+      function toOverrides(problems: Problems, lenient: boolean, raw: unknown): LegacyOverride[] { /* ... */ }
     </item>
     <item priority="medium">
-      function fromV2(raw: Loose): LegacyHoursResult { /* ... */ }
+      function fromV2(raw: Loose, reader: Reader): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="high">
-      export function normalizeLegacyHours(raw: unknown): LegacyHoursResult { /* ... */ }
+      export function normalizeLegacyHours(
+        raw: unknown,
+        options: LegacyHoursOptions = {}
+      ): LegacyHoursResult { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/legacy-migration.ts">
@@ -16607,6 +16635,7 @@
         droppedWindows: number;
         skippedPastOverrides: number;
         migratedOverrides: number;
+        unreadableDays?: string[];
       }
     </item>
     <item priority="low">
@@ -16640,6 +16669,9 @@
     </item>
     <item priority="medium">
       function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeImplausibleDays(hours: LegacyHours): { hours: LegacyHours; closed: string[] } { /* ... */ }
     </item>
     <item priority="high">
       export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult { /* ... */ }

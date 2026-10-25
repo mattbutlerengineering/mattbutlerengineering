@@ -9310,9 +9310,11 @@
     export function planVenueMigration(
       venue: VenueForMigration,
       now: Date,
-      newId: () => string = randomUUID
+      newId: () => string = randomUUID,
+      options: { lenient?: boolean } = {}
     ): VenueMigrationPlan {
-      const normalised = normalizeLegacyHours(venue.operatingHours);
+      const lenient = options.lenient ?? false;
+      const normalised = normalizeLegacyHours(venue.operatingHours, { lenient });
       if (!normalised.ok) {
         const detail = "detail" in normalised ? normalised.detail : "";
         return { kind: "unrecognised", reason: normalised.reason, detail };
@@ -9324,13 +9326,18 @@
         lastSeatingBuffer: settings.lastSeatingBuffer,
         today: civilDateIn(now, venue.ianaTimezone),
         newId,
+        lenient,
       });
       if (!built.ok) return { kind: "unrecognised", reason: built.reason, detail: built.detail };
+      const unreadableDays = [
+        ...(normalised.unreadableDays ?? []),
+        ...(built.notes.unreadableDays ?? []),
+      ];
       return {
         kind: "migrate",
         shape: normalised.shape,
         config: built.config,
-        notes: built.notes,
+        notes: unreadableDays.length > 0 ? { ...built.notes, unreadableDays } : built.notes,
         projection: projectLegacyOperatingHours(built.config),
       };
     }
@@ -9649,8 +9656,15 @@
       warnings: SnapshotWarning[]
     ): { config: AvailabilityConfig; source: SnapshotSource } {
       if (hasRegularSchedule(config)) return { config, source: "rows" };
-      const plan = planVenueMigration(venue, now);
+      const plan = planVenueMigration(venue, now, undefined, { lenient: true });
       if (plan.kind === "migrate") {
+        for (const day of plan.notes.unreadableDays ?? []) {
+          warnings.push({
+            table: "venues",
+            id: venueId,
+            reason: `legacy operatingHours, day closed: ${day}`,
+          });
+        }
         return {
           config: { ...plan.config, dateRules: [...plan.config.dateRules, ...config.dateRules] },
           source: "legacy",
@@ -9884,8 +9898,21 @@
         tables: tables.length > 0 ? tables : undefined,
       };
     }
+    function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot {
+      const from = serviceDayInstant(addDays(date, -1), 0, snapshot.timezone);
+      const to = serviceDayInstant(addDays(date, 2), 0, snapshot.timezone);
+      // A zone whose clocks skip midnight has no such instant; keep everything.
+      if (!from || !to) return snapshot;
+      const nearby = (b: { startTime: Date }) => b.startTime >= from && b.startTime < to;
+      return {
+        ...snapshot,
+        reservations: snapshot.reservations.filter(nearby),
+        holds: snapshot.holds.filter(nearby),
+      };
+    }
     function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) {
-      const { snapshot, venueSettings } = loaded;
+      const { venueSettings } = loaded;
+      const snapshot = dayView(loaded.snapshot, date);
       const seatings = listSlots(snapshot, date, partySize, "online", now);
       // No table could ever seat the party: offer no times at all, as before the engine.
       if (filterSuitableTables(snapshot.tables, partySize).length === 0) {
