@@ -12,6 +12,7 @@ import {
   activeRules,
   hoursEffect,
   ofKind,
+  seriesLabel,
   targetLabel,
   tonightEffect,
   windowEffect,
@@ -206,8 +207,11 @@ function closeEarly(service: ResolvedService, closeAt: number): ResolvedService[
 function applyTonight(day: ResolvedDaySummary, rule: RuleOf<"tonight">): ResolvedDaySummary {
   const { payload } = rule;
   if ("closeAt" in payload) {
+    // Closing early is about services: a venue rule closes them all, a service
+    // rule closes its own, and booking or table targets have no hours to cut.
+    if (rule.targetKind !== "venue" && rule.targetKind !== "service") return day;
     const targeted = (s: ResolvedService) =>
-      rule.targetKind !== "service" || s.venueServiceId === rule.venueServiceId;
+      rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId;
     return {
       ...day,
       services: day.services.flatMap((s) => (targeted(s) ? closeEarly(s, payload.closeAt) : [s])),
@@ -237,6 +241,10 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
       config.scheduleServices.filter((s) => s.scheduleId === scheduleId),
       venueServices
     );
+  const skippedLabel = (skip: DateRule) => {
+    const series = config.dateRules.find((r) => r.id === skip.seriesId);
+    return series ? `Skipped from: ${seriesLabel(series, serviceName(series))}` : "Skipped date";
+  };
   const scheduleName = (id: string) => schedules.get(id)?.name ?? "Schedule";
 
   const assignment = assignmentFor(config, serviceDate);
@@ -300,7 +308,7 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
     ...ofKind(rules, "skip").map((r) => ({
       kind: "skip" as const,
       id: r.id,
-      label: "Skipped date",
+      label: skippedLabel(r),
       effect: "Bookable as usual",
     })),
     ...closures.map((r) => ({

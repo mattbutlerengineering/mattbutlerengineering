@@ -17,6 +17,8 @@ function covers(rule: DateRule, serviceDate: ServiceDate): boolean {
   // A Tonight rule lives exactly one service day, whatever its stored range
   // says, so its expiry needs no clock and no cleanup job.
   if (rule.kind === "tonight") return rule.startsOn === serviceDate;
+  // So does a skip or a one-date edit of a series: it never outgrows its date.
+  if (rule.seriesId != null) return rule.startsOn === serviceDate;
   return (
     rule.startsOn <= serviceDate &&
     (rule.endsOn == null || serviceDate <= rule.endsOn) &&
@@ -59,6 +61,23 @@ export function targetLabel(rule: DateRule, serviceName: string | undefined): st
     case "tables":
       return "Tables blocked";
   }
+}
+
+const WEEKDAY_NAMES = [
+  "Sundays",
+  "Mondays",
+  "Tuesdays",
+  "Wednesdays",
+  "Thursdays",
+  "Fridays",
+  "Saturdays",
+];
+
+/** "Closed · Mondays · 2027-01-01 – 2027-03-31": a series as "Why this day" names it. */
+export function seriesLabel(rule: DateRule, serviceName: string | undefined): string {
+  const days = rule.repeat?.weekdays.map((d) => WEEKDAY_NAMES[d]).join(", ");
+  const range = `${rule.startsOn} – ${rule.endsOn ?? "until reopened"}`;
+  return [targetLabel(rule, serviceName), days, range].filter(Boolean).join(" · ");
 }
 
 export function windowEffect(rule: DateRule): string {

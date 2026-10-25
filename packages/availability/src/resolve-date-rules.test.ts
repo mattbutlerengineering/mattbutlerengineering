@@ -313,6 +313,60 @@ describe("resolveDay — skip", () => {
   });
 });
 
+describe("resolveDay — review follow-ups", () => {
+  const series: DateRule = {
+    id: "dr-fridays",
+    kind: "closure",
+    targetKind: "venue",
+    startsOn: "2026-11-01",
+    endsOn: "2026-12-31",
+    repeat: { version: 1, weekdays: [5] },
+  };
+
+  it("names the series a skip takes out", () => {
+    const day = resolveDay(
+      withRules(series, {
+        id: "dr-skip",
+        kind: "skip",
+        targetKind: "venue",
+        startsOn: "2026-11-06",
+        seriesId: "dr-fridays",
+      }),
+      "2026-11-06"
+    );
+    expect(day.explanation.find((l) => l.kind === "skip")?.label).toBe(
+      "Skipped from: Closed · Fridays · 2026-11-01 – 2026-12-31"
+    );
+  });
+
+  it("keeps a skip to its own date even without an end date", () => {
+    const s = withRules(series, {
+      id: "dr-skip",
+      kind: "skip",
+      targetKind: "venue",
+      startsOn: "2026-11-06",
+      seriesId: "dr-fridays",
+    });
+    expect(resolveDay(s, "2026-11-06").services).not.toEqual([]);
+    expect(resolveDay(s, "2026-11-13").services).toEqual([]);
+  });
+
+  it("ignores a Tonight close-early aimed at booking types or tables", () => {
+    const day = resolveDay(
+      withRules({
+        id: "dr-tonight",
+        kind: "tonight",
+        targetKind: "booking",
+        bookingTypes: ["online"],
+        startsOn: FRIDAY,
+        payload: { version: 1, closeAt: 960 },
+      }),
+      FRIDAY
+    );
+    expect(ids(day)).toEqual(["regular-lunch", "regular-dinner"]);
+  });
+});
+
 describe("resolveDay — tonight", () => {
   const closeEarly: DateRule = {
     id: "dr-tonight",
