@@ -21,6 +21,9 @@ function createMockApiClient() {
     availability: {
       getTimeSlots: vi.fn(),
     },
+    venues: {
+      get: vi.fn(),
+    },
     reservations: {
       list: vi.fn(),
       get: vi.fn(),
@@ -102,6 +105,70 @@ describe("createAgentTools", () => {
 
       expect(result).toEqual({ error: "Failed to check availability. Please try again." });
       expect(log.error).toHaveBeenCalled();
+    });
+
+    it("says the venue is closed when a day with no slots has no operating hours", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockResolvedValue({
+        operatingHours: { monday: { open: "09:00", close: "22:00" } },
+      });
+
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(api.venues.get).toHaveBeenCalledWith("v1");
+      expect(result).toEqual({
+        slots: [],
+        closed: true,
+        note: "The venue is closed on Thursday: it has no operating hours that day, so nothing can be booked. Say so rather than calling the day fully booked.",
+      });
+    });
+
+    it("treats a day marked closed as closed", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockResolvedValue({
+        operatingHours: { thursday: { open: "17:00", close: "22:00", closed: true } },
+      });
+
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(result).toMatchObject({ slots: [], closed: true });
+    });
+
+    it("returns the empty slots unchanged when the venue is open that day", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockResolvedValue({
+        operatingHours: { thursday: { open: "17:00", close: "22:00" } },
+      });
+
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(result).toEqual({ slots: [] });
+    });
+
+    it("still answers with the empty slots when the venue lookup fails", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockRejectedValue(new Error("boom"));
+
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(result).toEqual({ slots: [] });
+      expect(log.warn).toHaveBeenCalled();
     });
   });
 

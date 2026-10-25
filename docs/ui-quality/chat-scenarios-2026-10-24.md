@@ -30,6 +30,8 @@ Not yet run: 2, 3, 6, 7, 8, 10, 11, 12, 14, 16, 18, 19. All need venue context t
 | F18 | Every agent tool call 404'd in prod: `API_BASE_URL` carries `/api` and api-client paths are absolute, so requests went to `/api/api/v1/...`. Masked until F1 was fixed. Fixed in #7442.                                                                                                   | `curl` 404 vs 401                                                           |
 | F19 | The model didn't know the table status lifecycle ("can't tell whether READY tables are free to seat") and echoed raw enums to staff. Fixed in #7446.                                                                                                                                      | Batch 4                                                                     |
 | F20 | The model told staff "Reply yes to confirm", but since #7448 typing while a confirm is pending cancels it. The prompt now points staff at the Confirm and Cancel buttons.                                                                                                                 | Batch 5                                                                     |
+| F21 | `check_availability` returns `[]` both for a fully booked day and a closed one. This venue has hours only on Monday, so "2 people next Thursday" got "no openings at any time" when the honest answer is "you're closed Thursdays". The tool now says when the day is closed.             | Batch 6; `GET /availability` → `[]`, venue `operatingHours` = `{monday}`    |
+| F22 | The `/chat` page's breadcrumb and document title read "Details" rather than "Chat".                                                                                                                                                                                                       | Batch 6                                                                     |
 
 ## Confirmed live (from the pre-run list)
 
@@ -57,6 +59,7 @@ Not yet run: 2, 3, 6, 7, 8, 10, 11, 12, 14, 16, 18, 19. All need venue context t
 | 2026-10-24 | #7441 ChatPanel UX, #7442 API origin, #7443 clamp                                        | 1, 4, 5, 8 (to confirm), 10 pass; F8 self-corrections on every turn; confirm bar shows raw ids              |
 | 2026-10-24 | #7444 no self-correction, #7445 readable confirm + tables by name, #7446 table lifecycle | no self-corrections over 3 turns; confirm shows table names; statuses in plain words; READY → "reset first" |
 | 2026-10-24 | #7447 confirm title case, #7448 cancel feedback                                          | 1, 4, 5, 8, 9, 10 pass; cancel acknowledged; F20 found                                                      |
+| 2026-10-24 | #7449 Confirm-button wording                                                             | 8 says "Press Confirm"; typed reply cancels cleanly; F21, F22 found                                         |
 
 ## Batch 3 (after #7441, #7442, #7443), 2026-10-24
 
@@ -81,3 +84,14 @@ The empty state shows the four starter questions, auto-scroll holds at the botto
 | 3-turn | Self-correction check          | pass    | None of the three replies retracted an earlier one.                                                                                    |
 
 Every write confirm was cancelled; no data was written to the venue. Remaining open items: F12 (waitlist and menu tools), F11 (drawer and `/chat` don't share a conversation), and confirm dates/times shown raw.
+
+## Batch 6 (after #7449), 2026-10-24
+
+| #   | Scenario                                  | Verdict  | Notes                                                                                                                                          |
+| --- | ----------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 8   | Walk-in for 3 → confirm                   | pass     | "Press Confirm in the chat to seat them, or Cancel to drop it." Offers a second free table. F20 fixed.                                         |
+| 8b  | Type a new request while confirm pending  | pass     | "Cancelled. Nothing was changed." appears and the new request runs.                                                                            |
+| 5b  | "Book the Nguyens, 5, next Thursday 7:30" | degraded | Resolves "next Thursday" to October 29 correctly, then reports no openings without saying why (F21: the venue is closed every day but Monday). |
+| 5c  | "Make it 2 people instead, same time"     | degraded | Keeps the date across turns, same F21 answer.                                                                                                  |
+
+The create-reservation confirm bar (#7450's readable dates) could not be reached live: the venue has no bookable day but Monday. Every write confirm was cancelled.
