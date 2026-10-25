@@ -209,7 +209,7 @@ export const generatedSchemas = {
   Stat: z.object({
     value: z.union([z.string(), z.number()]),
     label: z.string().max(25),
-    delta: z.string().max(10).optional(),
+    delta: z.union([z.string(), z.number()]).optional(),
     trend: z.enum(["down", "neutral", "up"]).optional(),
     size: z.enum(["lg", "md", "sm"]).optional(),
   }),
@@ -253,7 +253,7 @@ export const generatedSchemas = {
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
   }),
   Timeline: z.object({
-    events: z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.enum(["completed", "active", "upcoming", "error"]).optional() })),
+    events: z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
     compact: z.boolean().optional(),
   }),
   Toast: z.object({

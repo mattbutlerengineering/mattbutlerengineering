@@ -71,6 +71,19 @@ import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
 import type { ReactNode } from "react";
 
+const TIMELINE_STATUSES: ReadonlySet<string> = new Set([
+  "completed",
+  "active",
+  "upcoming",
+  "error",
+]);
+
+function isTimelineStatus(
+  status: string
+): status is NonNullable<TimelineProps["events"][number]["status"]> {
+  return TIMELINE_STATUSES.has(status);
+}
+
 // Toast is intentionally omitted from this registry.
 // Toast uses the useToast() hook pattern (a provider, not a rendered element)
 // and cannot be instantiated as a declarative component from a JSON spec.
@@ -484,14 +497,15 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       // generated Zod schemas before the adapter runs, so each cast below narrows
       // a guaranteed shape (mirrors the Odometer renderer, avoiding an `any`).
       Stat: ({ props }: { props: unknown }) => {
-        const p = props as Pick<StatProps, "label" | "delta" | "trend" | "size"> & {
+        const p = props as Pick<StatProps, "label" | "trend" | "size"> & {
           value: string | number;
+          delta?: string | number;
         };
         return (
           <Stat
             value={String(p.value)}
             label={p.label}
-            delta={p.delta}
+            delta={p.delta === undefined ? undefined : String(p.delta)}
             trend={p.trend}
             size={p.size}
           />
@@ -511,8 +525,14 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       },
 
       Timeline: ({ props }: { props: unknown }) => {
-        const p = props as Pick<TimelineProps, "events" | "compact">;
-        return <Timeline events={p.events} compact={p.compact} />;
+        const p = props as {
+          events: (Omit<TimelineProps["events"][number], "status"> & { status?: string })[];
+          compact?: boolean;
+        };
+        const events = p.events.map(({ status, ...event }) =>
+          status && isTimelineStatus(status) ? { ...event, status } : event
+        );
+        return <Timeline events={events} compact={p.compact} />;
       },
 
       Odometer: ({ props }: { props: unknown }) => {

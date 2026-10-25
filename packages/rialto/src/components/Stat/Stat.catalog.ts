@@ -12,6 +12,7 @@ export const statCatalogMeta = {
   // often send counts as numbers, so accept either (the adapter renders it as text).
   propSchemas: {
     value: "z.union([z.string(), z.number()])",
+    delta: "z.union([z.string(), z.number()]).optional()",
   },
   charLimits: {
     label: 25,

@@ -1108,3 +1108,43 @@ describe("hospitality data elements", () => {
     expect(within(container).getByRole("img", { name: "Patio 2: free" })).toBeTruthy();
   });
 });
+
+describe("hospitality data elements tolerate plausible model output", () => {
+  it("keeps a Timeline whose event carries a status outside the component's set", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: {
+          type: "Timeline",
+          props: {
+            events: [{ title: "Garcia, party of 4", timestamp: "6:30 PM", status: "seated" }],
+          },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Garcia, party of 4")).toBeTruthy();
+  });
+
+  it("keeps a Stat whose delta is a number", () => {
+    const { container } = renderSpec({
+      root: "s",
+      elements: {
+        s: { type: "Stat", props: { label: "No-shows", value: 3, delta: -2, trend: "down" } },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("-2")).toBeTruthy();
+  });
+
+  it("clamps an overlong Tag label instead of dropping it", () => {
+    const long = "Allergic to shellfish, tree nuts, and sesame";
+    const { container } = renderSpec({
+      root: "g",
+      elements: { g: { type: "Tag", props: { label: long } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    const shown = within(container).getByText(/^Allergic to shellfish/);
+    expect(shown.textContent!.length).toBeLessThanOrEqual(30);
+  });
+});
