@@ -1,6 +1,6 @@
 ---
 name: ideate
-description: Autonomous feature-ideation cycle. Advances the current ideation batch (honor vetoes, decompose proposals past the veto window, sweep completed tracking issues) and, only when the previous batch is fully complete, generates a new batch of 4-5 feature-proposal issues grounded in PRODUCT.md and repo-committed signals. Invoke with /ideate. Designed to run daily inside the mbe-morning routine.
+description: "Advances the ideation batch (vetoes, decompose past the veto window, completion sweep); once it is complete, files 4-5 new feature proposals grounded in PRODUCT.md. Invoke with /ideate; runs daily in the mbe-morning routine."
 user-invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: local-ci-precheck
-description: "Run the same lint + typecheck + architecture-audit + drift checks CI runs, locally and in parallel. Catches workspace-package issues (missing deps, prop drift, lint rule violations) and stale generated artifacts (dep-graph, llms.txt) before pushing — the failures CI would surface in 5 minutes show up in 30 seconds. Use before opening or pushing to a PR."
+description: "Runs CI's lint, typecheck, architecture-audit and drift checks locally in parallel, catching workspace-package issues and stale generated artifacts (dep-graph, llms.txt) in 30 seconds instead of 5 minutes. Use before opening or pushing to a PR."
 user-invocable: true
 disable-model-invocation: true
 ---

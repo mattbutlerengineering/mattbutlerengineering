@@ -1,6 +1,6 @@
 ---
 name: ship-pr
-description: "Run the full merge boundary on one open PR — build-freshness, CI-gate classification, diff-matched specialist review plus the universal reviewer, then merge. Reuses the implement-queue profile's own hooks (ci-status, fast-path, reviewers, merge-command) end to end for a single PR outside the queue loop. Invoke with /ship-pr <N> [--ready]."
+description: "Runs the full merge boundary on one open PR — build-freshness, CI-gate classification, specialist and universal review, then merge — via the implement-queue profile's hooks, outside the queue loop. Invoke with /ship-pr <N> [--ready]."
 user-invocable: true
 ---
 

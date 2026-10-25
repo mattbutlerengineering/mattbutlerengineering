@@ -1,6 +1,6 @@
 ---
 name: stripe-flow-reviewer
-description: Use this agent when a PR touches payment, webhook, deposit, charge, or refund files — or any file whose name contains "stripe". Reviews the change for the class of semantic payment bugs that CI (lint/typecheck/tests) cannot catch: missing webhook signature verification, dropped idempotency keys, float/integer money handling, and broken refund/deposit/charge state-machine transitions.
+description: 'Reviews payment code for bugs CI cannot catch: missing webhook signature checks, dropped idempotency keys, float money math, broken refund/deposit/charge state transitions. Use when a PR touches payment, webhook, deposit, charge, or refund files — or any file whose name contains "stripe".'
 tools: Read, Grep, Glob, Bash
 ---
 
