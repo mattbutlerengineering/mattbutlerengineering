@@ -557,6 +557,12 @@
           "description": "Predicate deciding whether a date is disabled. When supplied it is\nauthoritative and wins over `min`/`max`; range bounds apply only when no\npredicate is given."
         },
         {
+          "name": "getDateLabel",
+          "type": "((isoDate: string) => string | undefined) | undefined",
+          "required": false,
+          "description": "Optional accessible name for a day (`yyyy-mm-dd` in), e.g. why a date is\nclosed. Returning `undefined` leaves the day with its number as the name.\nA labelled disabled day stays focusable so the label can be reached."
+        },
+        {
           "name": "locale",
           "type": "string | undefined",
           "required": false,

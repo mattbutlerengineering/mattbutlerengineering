@@ -1220,6 +1220,7 @@
       "partySize": "Nombre de personnes",
       "largePartyCall": "Pour les groupes de plus de {{max}} personnes, appelez-nous au <phoneLink>{{phone}}</phoneLink>.",
       "largePartyContact": "Pour les groupes de plus de {{max}} personnes, veuillez communiquer directement avec l’établissement.",
+      "dateClosedLabel": "{{date}}, fermé. {{message}}",
       "findTimes": "Voir les heures disponibles",
       "dateHint": "Choisissez une date à partir d’aujourd’hui pour voir les heures disponibles."
     },
@@ -1228,11 +1229,19 @@
       "noHoursStaffHeading": "Aucune heure d’ouverture définie",
       "noHoursStaffDescription": "Cet établissement n’a pas encore configuré ses heures d’ouverture, donc les clients ne peuvent ni voir les disponibilités ni réserver une table.",
       "setHours": "Définir les heures d’ouverture",
-      "noHoursGuestHeading": "La réservation en ligne n’est pas encore offerte",
+      "noHoursGuestHeading": "Aucune réservation en ligne pour le moment",
       "noHoursGuestDescription": "Cet établissement n’a pas encore configuré la réservation en ligne. Veuillez communiquer directement avec lui pour réserver une table.",
       "noTimesHeading": "Aucune heure disponible",
       "tryDifferent": "Essayez une autre date ou un autre nombre de personnes.",
       "joinWaitlist": "Rejoindre la liste d’attente",
+      "closedHeading": "Fermé le {{date}}",
+      "seeOtherDates": "Voir d’autres dates",
+      "pausedHeading": "La réservation en ligne est suspendue pour l’instant",
+      "pausedCall": "Appelez le {{phone}}",
+      "justClosed": "Cette heure vient d’être fermée",
+      "otherTimes": "Autres heures ce jour-là",
+      "pickAnotherDate": "Choisir une autre date",
+      "noHoursGuestCall": "Appelez le {{phone}} pour réserver une table.",
       "periods": {
         "lunch": "Dîner",
         "dinner": "Souper",
@@ -1241,7 +1250,8 @@
       "periodTimes": {
         "lunch": "Heures disponibles pour le dîner",
         "dinner": "Heures disponibles pour le souper",
-        "late": "Heures disponibles en fin de soirée"
+        "late": "Heures disponibles en fin de soirée",
+        "lateAfterMidnight": "Heures disponibles en fin de soirée, après minuit le {{date}}"
       },
       "selected": "Sélection :",
       "tablesAvailable_one": "{{count}} table disponible",

@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type {
   TimeSlot,
   PublicAvailabilityResponse,
+  PublicClosedDate,
   DateAvailability,
   ReservationHold,
   CreateHoldRequest,
@@ -78,6 +79,21 @@ export class AvailabilityClient {
     return this.client.get<PublicAvailabilityResponse>(publicAvailabilityPath(slug), {
       date: params.date,
       partySize: params.partySize,
+    });
+  }
+
+  /**
+   * The dates in `from`..`to` (at most 60 days) the venue is closed, each with
+   * its guest message, from the public route — so a calendar can disable them
+   * before a guest picks one.
+   */
+  async getClosedDates(
+    slug: string,
+    range: { from: string; to: string }
+  ): Promise<PublicClosedDate[]> {
+    return this.client.getOne<PublicClosedDate[]>(`${publicAvailabilityPath(slug)}/dates`, {
+      from: range.from,
+      to: range.to,
     });
   }
 

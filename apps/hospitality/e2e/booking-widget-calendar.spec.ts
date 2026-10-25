@@ -1,5 +1,7 @@
 import { readFileSync } from "fs";
 import { test, expect } from "./fixtures.js";
+import { pickBookingDate } from "./booking-date.js";
+import { localDay } from "./local-day.js";
 
 // Deterministic — the shared api-mocks.ts fixture for
 // **/public/v1/venues/*/holds/*/confirm always returns
@@ -72,9 +74,7 @@ test.describe("Public booking flow — Add to Calendar", () => {
     await expect(mockedPage.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
 
     // Step 1: Date & Party
-    const bookingDate = new Date();
-    bookingDate.setDate(bookingDate.getDate() + 3);
-    await mockedPage.getByLabel("Date").fill(bookingDate.toISOString().slice(0, 10));
+    await pickBookingDate(mockedPage, localDay(3));
     await mockedPage.getByRole("button", { name: "Find Available Times" }).click();
 
     // Step 2: Time — pick the first available slot.

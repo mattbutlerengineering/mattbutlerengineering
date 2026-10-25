@@ -443,7 +443,19 @@
       export const DateAvailabilitySchema: unknown;
     </item>
     <item priority="high">
+      export const PublicClosedDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesResponseSchema: unknown;
+    </item>
+    <item priority="high">
       export const PublicAvailabilityResponseSchema: unknown;
+    </item>
+    <item priority="low">
+      type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     </item>
     <item priority="low">
       type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
@@ -889,6 +901,12 @@
       export const publicAvailabilityQueryJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const publicAvailabilityDatesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityDatesResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const publicAvailabilityResponseJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -1140,6 +1158,9 @@
     </item>
     <item priority="high">
       export const PublicAvailabilityQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesQuerySchema: unknown;
     </item>
     <item priority="high">
       export const PublicDepositBodySchema: unknown;

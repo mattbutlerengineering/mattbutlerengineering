@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { DatePartySelector } from "./DatePartySelector.js";
 import React from "react";
 
-vi.mock("@mattbutlerengineering/rialto", () => ({
+vi.mock("@mattbutlerengineering/rialto", async (importActual) => ({
+  Calendar: (await importActual<Record<string, React.ComponentType<any>>>()).Calendar,
   Input: (props: any) => {
     const id = props.id || props.label?.replace(/\s+/g, "-").toLowerCase() || "input";
     return (
@@ -26,6 +27,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
 }));
 
+/** Queries scoped to the party-size group, so calendar day numbers never collide. */
+function party() {
+  return within(screen.getByRole("group", { name: /party size/i }));
+}
+
+function dayCell(iso: string): HTMLElement {
+  const el = document.querySelector<HTMLElement>(`[data-date="${iso}"]`);
+  if (!el) throw new Error(`No day cell for ${iso}`);
+  return el;
+}
+
 describe("DatePartySelector", () => {
   const defaultProps = {
     selectedDate: null as string | null,
@@ -37,7 +49,7 @@ describe("DatePartySelector", () => {
 
   it("renders date input and party size options", () => {
     render(<DatePartySelector {...defaultProps} />);
-    expect(screen.getByLabelText("Date")).toBeDefined();
+    expect(screen.getByRole("grid")).toBeDefined();
     expect(screen.getByText("Party Size")).toBeDefined();
   });
 
@@ -49,14 +61,14 @@ describe("DatePartySelector", () => {
   it("renders party size buttons 1-8 by default", () => {
     render(<DatePartySelector {...defaultProps} />);
     for (let i = 1; i <= 8; i++) {
-      expect(screen.getByText(String(i))).toBeDefined();
+      expect(party().getByText(String(i))).toBeDefined();
     }
   });
 
   it("limits party size options to maxPartySize", () => {
     render(<DatePartySelector {...defaultProps} maxPartySize={4} />);
-    expect(screen.getByText("4")).toBeDefined();
-    expect(screen.queryByText("5")).toBeNull();
+    expect(party().getByText("4")).toBeDefined();
+    expect(party().queryByText("5")).toBeNull();
   });
 
   // #4979: the option grid used to be a hardcoded 1-8 array filtered down —
@@ -65,7 +77,7 @@ describe("DatePartySelector", () => {
   it("renders party size buttons beyond 8 when the venue's maxPartySize is higher", () => {
     render(<DatePartySelector {...defaultProps} maxPartySize={12} />);
     for (let i = 1; i <= 12; i++) {
-      expect(screen.getByText(String(i))).toBeDefined();
+      expect(party().getByText(String(i))).toBeDefined();
     }
   });
 
@@ -101,23 +113,31 @@ describe("DatePartySelector", () => {
 
   it("calls onDateChange when date is changed", () => {
     const onDateChange = vi.fn();
-    render(<DatePartySelector {...defaultProps} onDateChange={onDateChange} />);
-    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-05-25" } });
+    render(
+      <DatePartySelector
+        {...defaultProps}
+        selectedDate="2026-05-20"
+        minDate="2026-05-01"
+        maxDate="2026-06-30"
+        onDateChange={onDateChange}
+      />
+    );
+    fireEvent.click(dayCell("2026-05-25"));
     expect(onDateChange).toHaveBeenCalledWith("2026-05-25");
   });
 
   it("calls onPartySizeChange when party size button is clicked", () => {
     const onPartySizeChange = vi.fn();
     render(<DatePartySelector {...defaultProps} onPartySizeChange={onPartySizeChange} />);
-    fireEvent.click(screen.getByText("4"));
+    fireEvent.click(party().getByText("4"));
     expect(onPartySizeChange).toHaveBeenCalledWith(4);
   });
 
   it("marks selected party size with aria-pressed", () => {
     render(<DatePartySelector {...defaultProps} partySize={3} />);
-    const btn3 = screen.getByText("3");
+    const btn3 = party().getByText("3");
     expect(btn3.getAttribute("aria-pressed")).toBe("true");
-    const btn4 = screen.getByText("4");
+    const btn4 = party().getByText("4");
     expect(btn4.getAttribute("aria-pressed")).toBe("false");
   });
 
@@ -226,16 +246,75 @@ describe("DatePartySelector", () => {
   // #4981: "today" for the min-date bound must track the venue's clock, not
   // the guest's device or a UTC midnight boundary.
   describe("venueTimezone", () => {
-    it("computes the date input's min bound from the venue's timezone", () => {
+    it("disables dates before today on the venue's clock", () => {
       vi.useFakeTimers();
       // 2026-01-01T04:30:00Z is still 2025-12-31 in America/Los_Angeles.
       vi.setSystemTime(new Date("2026-01-01T04:30:00Z"));
       try {
         render(<DatePartySelector {...defaultProps} venueTimezone="America/Los_Angeles" />);
-        expect(screen.getByLabelText("Date").getAttribute("min")).toBe("2025-12-31");
+        expect(dayCell("2025-12-30").getAttribute("aria-disabled")).toBe("true");
+        expect(dayCell("2025-12-31").getAttribute("aria-disabled")).toBeNull();
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+  describe("closed dates (ux.md F9.1)", () => {
+    it("clears the guest message once focus leaves the calendar", () => {
+      render(
+        <DatePartySelector
+          {...defaultProps}
+          selectedDate="2026-12-20"
+          minDate="2026-12-01"
+          maxDate="2026-12-31"
+          closedDates={{ "2026-12-24": "Closed for a private event" }}
+        />
+      );
+      fireEvent.focus(dayCell("2026-12-24"));
+      expect(screen.getByRole("status").textContent).toContain("Closed for a private event");
+      fireEvent.blur(dayCell("2026-12-24"), { relatedTarget: null });
+      expect(screen.getByRole("status").textContent).toBe("");
+    });
+
+    it("keeps the message while focus moves between days of the calendar", () => {
+      render(
+        <DatePartySelector
+          {...defaultProps}
+          selectedDate="2026-12-20"
+          minDate="2026-12-01"
+          maxDate="2026-12-31"
+          closedDates={{ "2026-12-24": "Closed for a private event" }}
+        />
+      );
+      fireEvent.focus(dayCell("2026-12-24"));
+      fireEvent.blur(dayCell("2026-12-24"), { relatedTarget: dayCell("2026-12-25") });
+      expect(screen.getByRole("status").textContent).toContain("Closed for a private event");
+    });
+
+    const closedProps = {
+      ...defaultProps,
+      selectedDate: "2026-12-20",
+      minDate: "2026-12-01",
+      maxDate: "2026-12-31",
+      closedDates: { "2026-12-24": "Closed for a private event" },
+    };
+
+    it("disables a closed date and names the reason", () => {
+      const onDateChange = vi.fn();
+      render(<DatePartySelector {...closedProps} onDateChange={onDateChange} />);
+      const closed = dayCell("2026-12-24");
+      expect(closed.getAttribute("aria-disabled")).toBe("true");
+      expect(closed.getAttribute("aria-label")).toMatch(/closed.*Closed for a private event/);
+      fireEvent.click(closed);
+      expect(onDateChange).not.toHaveBeenCalled();
+      expect(dayCell("2026-12-23").getAttribute("aria-label")).toBeNull();
+    });
+
+    it("shows the guest message below the calendar while a closed date is focused", () => {
+      render(<DatePartySelector {...closedProps} />);
+      expect(screen.queryByText("Closed for a private event")).toBeNull();
+      fireEvent.focus(dayCell("2026-12-24"));
+      expect(screen.getByRole("status").textContent).toContain("Closed for a private event");
     });
   });
 });

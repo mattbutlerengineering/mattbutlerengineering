@@ -10,6 +10,7 @@ const venueService = {
 } as unknown as DomainServices["venueService"];
 const availabilityService = {
   getDayAvailability: vi.fn(),
+  getAvailableDates: vi.fn(),
 } as unknown as DomainServices["availabilityService"];
 
 vi.mock("../services/database.js", async () => {
@@ -193,5 +194,57 @@ describe("GET /public/v1/venues/:slug/availability", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().data).toHaveLength(0);
+  });
+
+  describe("GET /:slug/availability/dates", () => {
+    it("lists only the closed dates, with their messages", async () => {
+      vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+      vi.mocked(availabilityService.getAvailableDates).mockResolvedValueOnce([
+        { date: "2026-12-23", hasAvailability: true, slotCount: 8 },
+        {
+          date: "2026-12-24",
+          hasAvailability: false,
+          slotCount: 0,
+          closure: { message: "Closed for a private event" },
+        },
+        { date: "2026-12-25", hasAvailability: false, slotCount: 0 },
+      ]);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/public/v1/venues/the-oak-table/availability/dates?from=2026-12-23&to=2026-12-25",
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: [{ date: "2026-12-24", closure: { message: "Closed for a private event" } }],
+      });
+      expect(availabilityService.getAvailableDates).toHaveBeenCalledWith(
+        "venue_1",
+        "2026-12-23",
+        "2026-12-25",
+        2,
+        expect.objectContaining({ logger: expect.anything() })
+      );
+    });
+
+    it("returns 404 for an unknown venue", async () => {
+      vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+      const response = await app.inject({
+        method: "GET",
+        url: "/public/v1/venues/fake/availability/dates?from=2026-12-23&to=2026-12-25",
+      });
+      expect(response.statusCode).toBe(404);
+    });
+
+    it("rejects a range that ends before it starts with a 400 problem", async () => {
+      vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+      const response = await app.inject({
+        method: "GET",
+        url: "/public/v1/venues/the-oak-table/availability/dates?from=2026-12-25&to=2026-12-23",
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ status: 400 });
+    });
   });
 });

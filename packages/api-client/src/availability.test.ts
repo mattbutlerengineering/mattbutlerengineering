@@ -181,6 +181,25 @@ describe("AvailabilityClient", () => {
     });
   });
 
+  describe("getClosedDates (public, slug-scoped)", () => {
+    it("requests the dates listing for the range and returns the closed dates", async () => {
+      const closed = [{ date: "2026-12-24", closure: { message: "Closed" } }];
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: closed }));
+
+      const result = await new AvailabilityClient(makeApiClient()).getClosedDates("joes-bistro", {
+        from: "2026-12-01",
+        to: "2026-12-31",
+      });
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.pathname).toBe("/public/v1/venues/joes-bistro/availability/dates");
+      expect(parsed.searchParams.get("from")).toBe("2026-12-01");
+      expect(parsed.searchParams.get("to")).toBe("2026-12-31");
+      expect(result).toEqual(closed);
+    });
+  });
+
   describe("getDates", () => {
     it("requests /api/v1/availability/:venueId/dates with params", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeDateAvailability] }));

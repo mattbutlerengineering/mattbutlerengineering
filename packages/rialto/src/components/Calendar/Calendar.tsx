@@ -53,6 +53,12 @@ export interface CalendarProps extends Omit<HTMLAttributes<HTMLDivElement>, "onC
    * predicate is given.
    */
   isDateDisabled?: (isoDate: string) => boolean;
+  /**
+   * Optional accessible name for a day (`yyyy-mm-dd` in), e.g. why a date is
+   * closed. Returning `undefined` leaves the day with its number as the name.
+   * A labelled disabled day stays focusable so the label can be reached.
+   */
+  getDateLabel?: (isoDate: string) => string | undefined;
   /** BCP-47 locale for month/weekday labels. */
   locale?: string;
   /** First day of the week, 0 (Sunday) … 6. Defaults to the locale, then Monday. */
@@ -73,6 +79,7 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
     min,
     max,
     isDateDisabled,
+    getDateLabel,
     locale: localeProp,
     weekStartsOn,
     className,
@@ -249,6 +256,7 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
                   type="button"
                   role="gridcell"
                   data-date={iso}
+                  aria-label={getDateLabel?.(iso)}
                   aria-selected={selected}
                   aria-disabled={disabled || undefined}
                   aria-current={isToday ? "date" : undefined}
