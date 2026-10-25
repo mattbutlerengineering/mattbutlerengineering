@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -555,8 +556,8 @@ enum ClosureRefundStatus {
 
 /// A named weekly (or holiday) pattern of services. Exactly one non-archived
 /// `isRegular` schedule per venue: partial unique index
-/// `schedules_one_regular_per_venue_key`, hand-written in the migration
-/// because Prisma cannot express a partial index.
+/// `schedules_one_regular_per_venue_key`, declared below via the
+/// `partialIndexes` preview feature so `prisma migrate dev` cannot drop it.
 model Schedule {
   id          String       @id @default(cuid())
   venueId     String       @map("venue_id")
@@ -572,6 +573,7 @@ model Schedule {
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
   @@index([venueId])
+  @@unique([venueId], where: raw("\"is_regular\" AND \"archived_at\" IS NULL"), map: "schedules_one_regular_per_venue_key")
   @@map("schedules")
 }
 
@@ -642,7 +644,7 @@ model DateRule {
   kind           DateRuleKind
   targetKind     DateRuleTargetKind @default(venue) @map("target_kind")
   venueServiceId String?            @map("venue_service_id")
-  venueService   VenueService?      @relation(fields: [venueServiceId], references: [id])
+  venueService   VenueService?      @relation(fields: [venueServiceId], references: [id], onDelete: Restrict)
   /// Subset of {online, phone, waitlist}; empty = all channels.
   bookingTypes   String[]           @default([]) @map("booking_types")
   tables         DateRuleTable[]
@@ -656,7 +658,7 @@ model DateRule {
   /// special_hours: services[]; tonight: {pacing|closeAt|stop}.
   payload        Json               @default("{}")
   useScheduleId  String?            @map("use_schedule_id")
-  useSchedule    Schedule?          @relation(fields: [useScheduleId], references: [id])
+  useSchedule    Schedule?          @relation(fields: [useScheduleId], references: [id], onDelete: Restrict)
   /// Skip / edit-one-date rows point at the series root.
   seriesId       String?            @map("series_id")
   series         DateRule?          @relation("DateRuleSeries", fields: [seriesId], references: [id], onDelete: SetNull)

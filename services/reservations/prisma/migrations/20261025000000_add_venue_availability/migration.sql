@@ -244,10 +244,10 @@ ALTER TABLE "schedule_assignments" ADD CONSTRAINT "schedule_assignments_schedule
 ALTER TABLE "date_rules" ADD CONSTRAINT "date_rules_venue_id_fkey" FOREIGN KEY ("venue_id") REFERENCES "venues"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "date_rules" ADD CONSTRAINT "date_rules_venue_service_id_fkey" FOREIGN KEY ("venue_service_id") REFERENCES "venue_services"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "date_rules" ADD CONSTRAINT "date_rules_venue_service_id_fkey" FOREIGN KEY ("venue_service_id") REFERENCES "venue_services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "date_rules" ADD CONSTRAINT "date_rules_use_schedule_id_fkey" FOREIGN KEY ("use_schedule_id") REFERENCES "schedules"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "date_rules" ADD CONSTRAINT "date_rules_use_schedule_id_fkey" FOREIGN KEY ("use_schedule_id") REFERENCES "schedules"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "date_rules" ADD CONSTRAINT "date_rules_series_id_fkey" FOREIGN KEY ("series_id") REFERENCES "date_rules"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -280,8 +280,8 @@ ALTER TABLE "closure_outcomes" ADD CONSTRAINT "closure_outcomes_reservation_id_f
 ALTER TABLE "closure_outcomes" ADD CONSTRAINT "closure_outcomes_rebooked_reservation_id_fkey" FOREIGN KEY ("rebooked_reservation_id") REFERENCES "reservations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Exactly one active regular schedule per venue. Hand-written: Prisma cannot
--- express a partial unique index.
-CREATE UNIQUE INDEX "schedules_one_regular_per_venue_key" ON "schedules"("venue_id") WHERE "is_regular" AND "archived_at" IS NULL;
+-- express a partial unique index without the partialIndexes preview (now enabled; schema.prisma declares it).
+CREATE UNIQUE INDEX "schedules_one_regular_per_venue_key" ON "schedules"("venue_id") WHERE ("is_regular" AND "archived_at" IS NULL);
 
 -- ADR-026 venue-isolation backstop
 ALTER TABLE "schedules" ENABLE ROW LEVEL SECURITY;
