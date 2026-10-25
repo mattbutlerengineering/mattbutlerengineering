@@ -19806,7 +19806,7 @@
       }
     }
     function manageLinkHtml(manageBaseUrl: string, manageToken: string): string {
-      const rawUrl = `${manageBaseUrl}?token=${encodeURIComponent(manageToken)}`;
+      const rawUrl = buildManageUrl(manageBaseUrl, manageToken);
       const safeUrl = sanitizeUrl(rawUrl);
       if (!safeUrl) return "";
       return `<p><a href="${escapeHtml(safeUrl)}">Modify or Cancel</a></p>`;
@@ -19924,6 +19924,14 @@
         .toISOString()
         .replace(/[-:]/g, "")
         .replace(/\.\d{3}/, "");
+    }
+  </file>
+  <file path="services/reservations/src/notifications/manage-url.ts">
+    export const MANAGE_PATH = "/hospitality/reservations/manage";
+    export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string {
+      const origin = baseUrl.replace(/\/+$/, "");
+      const rebookParam = rebook === undefined ? "" : `&rebook=${encodeURIComponent(rebook)}`;
+      return `${origin}${MANAGE_PATH}?token=${encodeURIComponent(token)}${rebookParam}`;
     }
   </file>
   <file path="services/reservations/src/notifications/notification-dispatcher.ts">
@@ -20498,7 +20506,7 @@
         const name = input.guestName ?? "Guest";
         const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
         const dateStr = formatDate(when.date);
-        const manageUrl = `${input.manageBaseUrl}?token=${encodeURIComponent(input.manageToken)}`;
+        const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
     
         await this.sendWithRetry(
           input.guestPhone,
@@ -20515,7 +20523,7 @@
     
         const name = input.guestName ?? "Guest";
         const dateStr = formatDate(input.date);
-        const manageUrl = `${input.manageBaseUrl}?token=${input.manageToken}`;
+        const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
     
         const body = `${name}, you&apos;re on the waitlist at ${input.venueName} for ${dateStr}, party of ${input.partySize}. Check: ${manageUrl}`;
         // Strip HTML entities for SMS
@@ -22657,8 +22665,39 @@
       d.setHours(0, 0, 0, 0);
       return d;
     }
+    async function upsertSeedVenue(venueGroupId: string, seed: SeedVenue) {
+      const plan = planVenueMigration(
+        { operatingHours: seed.hours, settings: seed.settings, ianaTimezone: seed.ianaTimezone },
+        new Date()
+      );
+      if (plan.kind !== "migrate")
+        throw new Error(`Seed hours for ${seed.slug} unreadable: ${plan.reason}`);
+      // One transaction, so a failed row write cannot leave a venue that later runs skip.
+      // Written as the connection owner like the rest of the seed (no venue context).
+      const venue = await prisma.$transaction(async (tx) => {
+        const upserted = await tx.venue.upsert({
+          where: { venueGroupId_slug: { venueGroupId, slug: seed.slug } },
+          update: {},
+          create: {
+            venueGroupId,
+            name: seed.name,
+            slug: seed.slug,
+            ianaTimezone: seed.ianaTimezone,
+            currencyCode: "USD",
+            operatingHours: plan.projection as unknown as Prisma.InputJsonValue,
+            settings: seed.settings,
+          },
+        });
+        const hasRows = await tx.schedule.count({
+          where: { venueId: upserted.id, isRegular: true },
+        });
+        if (hasRows === 0) await writeAvailabilityConfig(tx, upserted.id, plan.config);
+        return upserted;
+      });
+      return venue;
+    }
     async function main() {
-      console.log("Seeding reservations database...");
+      console.info("Seeding reservations database...");
     
       // --- Venue Group ---
       const group = await prisma.venueGroup.upsert({
@@ -22672,49 +22711,10 @@
       });
     
       // --- Venues ---
-      const venueA = await prisma.venue.upsert({
-        where: { venueGroupId_slug: { venueGroupId: group.id, slug: "the-grand-bistro" } },
-        update: {},
-        create: {
-          venueGroupId: group.id,
-          name: "The Grand Bistro",
-          slug: "the-grand-bistro",
-          ianaTimezone: "America/New_York",
-          currencyCode: "USD",
-          operatingHours: [
-            { dayOfWeek: 0, openTime: "10:00", closeTime: "21:00", isClosed: false },
-            { dayOfWeek: 1, openTime: "11:00", closeTime: "22:00", isClosed: false },
-            { dayOfWeek: 2, openTime: "11:00", closeTime: "22:00", isClosed: false },
-            { dayOfWeek: 3, openTime: "11:00", closeTime: "22:00", isClosed: false },
-            { dayOfWeek: 4, openTime: "11:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 5, openTime: "11:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 6, openTime: "10:00", closeTime: "22:00", isClosed: false },
-          ],
-          settings: { defaultDurationMinutes: 90, maxPartySize: 12 },
-        },
-      });
-    
-      const venueB = await prisma.venue.upsert({
-        where: { venueGroupId_slug: { venueGroupId: group.id, slug: "rooftop-lounge" } },
-        update: {},
-        create: {
-          venueGroupId: group.id,
-          name: "Rooftop Lounge",
-          slug: "rooftop-lounge",
-          ianaTimezone: "America/New_York",
-          currencyCode: "USD",
-          operatingHours: [
-            { dayOfWeek: 0, openTime: "16:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 1, openTime: "00:00", closeTime: "00:00", isClosed: true },
-            { dayOfWeek: 2, openTime: "16:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 3, openTime: "16:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 4, openTime: "16:00", closeTime: "00:00", isClosed: false },
-            { dayOfWeek: 5, openTime: "16:00", closeTime: "01:00", isClosed: false },
-            { dayOfWeek: 6, openTime: "14:00", closeTime: "00:00", isClosed: false },
-          ],
-          settings: { defaultDurationMinutes: 120, maxPartySize: 8 },
-        },
-      });
+      const [venueA, venueB] = await Promise.all(
+        SEED_VENUES.map((seed) => upsertSeedVenue(group.id, seed))
+      );
+      if (!venueA || !venueB) throw new Error("Seed venues missing");
     
       // --- Floor Plans ---
       const floorA = await prisma.floorPlan.create({
@@ -22987,7 +22987,7 @@
         reservations.map((r) => prisma.reservation.create({ data: r }))
       );
     
-      console.log("Seeded reservations database:", {
+      console.info("Seeded reservations database:", {
         venueGroup: group.id,
         venues: [venueA.id, venueB.id],
         floorPlans: [floorA.id, floorB.id],
@@ -38231,6 +38231,55 @@
       );
     }
   </file>
+  <file path="services/reservations/src/scripts/backfill-availability.ts">
+    export interface BackfillSummary {
+      apply: boolean;
+      venues: number;
+      counts: Record<string, number>;
+      errors: { venueId: string; message: string }[];
+      unrecognised: { venueId: string; reason: string }[];
+    }
+    type Log = (line: string) => void;
+    export async function runBackfill(
+      prisma: PrismaClient,
+      options: { apply: boolean },
+      log: Log
+    ): Promise<BackfillSummary> {
+      const venueIds = await getAllVenueIds(prisma);
+      const counts: Record<string, number> = {};
+      const errors: BackfillSummary["errors"] = [];
+      const unrecognised: BackfillSummary["unrecognised"] = [];
+    
+      for (const venueId of venueIds) {
+        try {
+          const outcome: VenueMigrationOutcome = await migrateVenue(prisma, venueId, options);
+          counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
+          if (outcome.outcome === "unrecognised") {
+            unrecognised.push({ venueId, reason: outcome.reason });
+          }
+          log(JSON.stringify(outcome));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ venueId, message });
+          log(JSON.stringify({ venueId, outcome: "error", message }));
+        }
+      }
+      return { apply: options.apply, venues: venueIds.length, counts, errors, unrecognised };
+    }
+    async function main(): Promise<void> {
+      const apply = process.argv.includes("--apply");
+      const prisma = db.prisma as unknown as PrismaClient;
+      try {
+        const summary = await runBackfill(prisma, { apply }, (line) =>
+          process.stdout.write(`${line}\n`)
+        );
+        process.stdout.write(`${JSON.stringify({ summary })}\n`);
+        process.exitCode = summary.errors.length > 0 ? 1 : 0;
+      } finally {
+        await prisma.$disconnect();
+      }
+    }
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="services/agent/src/services/database.ts">
@@ -39363,6 +39412,182 @@
     }
     export async function assumeAppRole(tx: AppRoleClient): Promise<void> {
       await tx.$executeRawUnsafe(appRoleSetStatement());
+    }
+  </file>
+  <file path="services/reservations/src/services/availability-migration.ts">
+    export const MIGRATION_ACTOR = "system:availability-legacy-migration";
+    export interface VenueForMigration {
+      operatingHours: unknown;
+      settings: unknown;
+      ianaTimezone: string;
+    }
+    export type VenueMigrationPlan =
+      | {
+          kind: "migrate";
+          shape: LegacyShape;
+          config: AvailabilityConfig;
+          notes: LegacyMigrationNotes;
+          /** The legacy column derived from the rows; the seed writes it, the backfill does not. */
+          projection: LegacyOperatingHours;
+        }
+      | { kind: "unrecognised"; reason: string; detail: string };
+    export function civilDateIn(now: Date, timeZone: string): string {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
+    }
+    export function planVenueMigration(
+      venue: VenueForMigration,
+      now: Date,
+      newId: () => string = randomUUID
+    ): VenueMigrationPlan {
+      const normalised = normalizeLegacyHours(venue.operatingHours);
+      if (!normalised.ok) {
+        const detail = "detail" in normalised ? normalised.detail : "";
+        return { kind: "unrecognised", reason: normalised.reason, detail };
+      }
+      const settings = (venue.settings ?? {}) as VenueSettings;
+      const built = buildLegacyConfig({
+        hours: normalised.hours,
+        slotIntervalMinutes: settings.slotIntervalMinutes,
+        lastSeatingBuffer: settings.lastSeatingBuffer,
+        today: civilDateIn(now, venue.ianaTimezone),
+        newId,
+      });
+      if (!built.ok) return { kind: "unrecognised", reason: built.reason, detail: built.detail };
+      return {
+        kind: "migrate",
+        shape: normalised.shape,
+        config: built.config,
+        notes: built.notes,
+        projection: projectLegacyOperatingHours(built.config),
+      };
+    }
+    interface MigrationSummary {
+      shape: LegacyShape;
+      notes: LegacyMigrationNotes;
+      rows: number;
+    }
+    export type VenueMigrationOutcome =
+      | ({ venueId: string; outcome: "migrated"; operatingHours: unknown } & MigrationSummary)
+      | ({ venueId: string; outcome: "would_migrate"; operatingHours: unknown } & MigrationSummary)
+      | { venueId: string; outcome: "already_migrated"; operatingHours: unknown }
+      | {
+          venueId: string;
+          outcome: "unrecognised";
+          reason: string;
+          detail: string;
+          operatingHours: unknown;
+        }
+      | { venueId: string; outcome: "not_found" };
+    export type AvailabilityRowWriter = Pick<
+      PrismaClient,
+      "schedule" | "venueService" | "scheduleService" | "scheduleAssignment" | "dateRule"
+    >;
+    export async function writeAvailabilityConfig(
+      tx: AvailabilityRowWriter,
+      venueId: string,
+      config: AvailabilityConfig
+    ): Promise<void> {
+      await tx.schedule.createMany({
+        data: config.schedules.map((s) => ({
+          id: s.id,
+          venueId,
+          name: s.name,
+          kind: s.kind,
+          isRegular: s.isRegular,
+        })),
+      });
+      await tx.venueService.createMany({
+        data: config.venueServices.map((s) => ({
+          id: s.id,
+          venueId,
+          name: s.name,
+          position: s.position,
+        })),
+      });
+      await tx.scheduleService.createMany({
+        data: config.scheduleServices.map((s) => ({
+          id: s.id,
+          venueId,
+          scheduleId: s.scheduleId,
+          venueServiceId: s.venueServiceId,
+          opensAt: s.opensAt,
+          lastSeatingAt: s.lastSeatingAt,
+          closesAt: s.closesAt,
+          seating: s.seating,
+          bookingTypes: s.bookingTypes,
+        })),
+      });
+      await tx.scheduleAssignment.createMany({
+        data: config.assignments.map((a) => ({
+          id: a.id,
+          venueId,
+          scheduleId: a.scheduleId,
+          weekdays: a.weekdays,
+          precedence: a.precedence,
+        })),
+      });
+      await tx.dateRule.createMany({
+        data: config.dateRules.map((r) => ({
+          id: r.id,
+          venueId,
+          kind: r.kind,
+          targetKind: r.targetKind,
+          startsOn: toDate(r.startsOn),
+          endsOn: r.endsOn ? toDate(r.endsOn) : null,
+          staffNote: r.staffNote ?? null,
+          ...(r.kind === "special_hours" ? { payload: r.payload } : {}),
+          createdBy: MIGRATION_ACTOR,
+        })),
+      });
+    }
+    export async function migrateVenue(
+      prisma: PrismaClient,
+      venueId: string,
+      options: { apply: boolean; now?: Date }
+    ): Promise<VenueMigrationOutcome> {
+      const now = options.now ?? new Date();
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const venue = await tx.venue.findUnique({
+          where: { id: venueId },
+          select: { operatingHours: true, settings: true, ianaTimezone: true },
+        });
+        if (!venue) return { venueId, outcome: "not_found" as const };
+    
+        const { operatingHours } = venue;
+    
+        const existing = await tx.schedule.count({
+          where: { venueId, isRegular: true, archivedAt: null },
+        });
+        if (existing > 0) return { venueId, outcome: "already_migrated" as const, operatingHours };
+    
+        const plan = planVenueMigration(venue, now);
+        if (plan.kind === "unrecognised") {
+          return {
+            venueId,
+            outcome: "unrecognised" as const,
+            reason: plan.reason,
+            detail: plan.detail,
+            operatingHours,
+          };
+        }
+        const summary = {
+          venueId,
+          operatingHours,
+          shape: plan.shape,
+          notes: plan.notes,
+          rows: countRows(plan.config),
+        };
+        if (!options.apply) return { ...summary, outcome: "would_migrate" as const };
+    
+        await writeAvailabilityConfig(tx, venueId, plan.config);
+        return { ...summary, outcome: "migrated" as const };
+      });
     }
   </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
@@ -59591,6 +59816,410 @@
       };
     }
   </file>
+  <file path="packages/availability/src/legacy-hours.ts">
+    export type LegacyShape = "weekday" | "seed_array" | "v2";
+    export interface LegacyWindow {
+      name?: string;
+      open: number;
+      close: number;
+      /** The stored close was at or before the open, so it was read as past midnight. */
+      wrapped?: true;
+    }
+    export interface LegacyOverride {
+      date: ServiceDate;
+      windows: readonly LegacyWindow[];
+      note?: string;
+    }
+    export interface LegacyHours {
+      weekly: Readonly<Record<Weekday, readonly LegacyWindow[]>>;
+      overrides: readonly LegacyOverride[];
+    }
+    export type LegacyHoursFailure =
+      | { ok: false; reason: "no_hours" }
+      | { ok: false; reason: "unknown_shape"; detail: string }
+      | { ok: false; reason: "unknown_version"; detail: string }
+      /** A day the legacy code treated as open has a time this parser cannot read. */
+      | { ok: false; reason: "unreadable_time"; detail: string }
+      /** A v2 override has a date that is not a plain YYYY-MM-DD; dropping it could open a closed date. */
+      | { ok: false; reason: "unreadable_date"; detail: string };
+    export type LegacyHoursResult =
+      { ok: true; shape: LegacyShape; hours: LegacyHours } | LegacyHoursFailure;
+    type Loose = Record<string, unknown>;
+    function parseTime(value: unknown): number | null {
+      if (typeof value !== "string") return null;
+      const match = TIME.exec(value);
+      if (!match) return null;
+      const minutes = Number(match[1]) * 60 + Number(match[2]);
+      return minutes > MINUTES_PER_DAY ? null : minutes;
+    }
+    type Problems = string[];
+    function toWindow(
+      where: string,
+      problems: Problems,
+      open: unknown,
+      close: unknown,
+      name?: unknown
+    ): LegacyWindow | null {
+      const o = parseTime(open);
+      const c = parseTime(close);
+      if (o === null || c === null || o >= MINUTES_PER_DAY) {
+        problems.push(`${where}: open ${JSON.stringify(open)}, close ${JSON.stringify(close)}`);
+        return null;
+      }
+      if (o === c) return null;
+      const wrapped = c < o;
+      const window = {
+        open: o,
+        close: wrapped ? c + MINUTES_PER_DAY : c,
+        ...(wrapped ? { wrapped: true as const } : {}),
+      };
+      return typeof name === "string" && name.length > 0 ? { name, ...window } : window;
+    }
+    function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult {
+      if (problems.length === 0) return { ok: true, shape, hours };
+      const reason = problems.some((p) => p.startsWith(DATE_PROBLEM))
+        ? "unreadable_date"
+        : "unreadable_time";
+      return { ok: false, reason, detail: problems.join("; ") };
+    }
+    function weeklyFrom(
+      windowsFor: (day: Weekday) => LegacyWindow[]
+    ): Record<Weekday, readonly LegacyWindow[]> {
+      return Object.fromEntries(
+        WEEKDAYS.map((d) => [d, sortedByOpen(windowsFor(d))])
+      ) as unknown as Record<Weekday, readonly LegacyWindow[]>;
+    }
+    function fromWeekdayKeyed(raw: Loose): LegacyHoursResult {
+      if (!WEEKDAYS.some((day) => day in raw)) {
+        return { ok: false, reason: "unknown_shape", detail: "no weekday keys" };
+      }
+      const problems: Problems = [];
+      // As the legacy code: a missing day, or one flagged `closed` (truthy), is closed.
+      const dayWindows = (day: Weekday): LegacyWindow[] => {
+        const value = raw[day];
+        if (!isObject(value) || value.closed) return [];
+        const window = toWindow(day, problems, value.open, value.close);
+        return window ? [window] : [];
+      };
+      const weekly = weeklyFrom(dayWindows);
+      return finish("weekday", problems, { weekly, overrides: [] });
+    }
+    function fromSeedArray(raw: unknown[]): LegacyHoursResult {
+      const rows = raw.filter(isObject);
+      const dayIndexOk = (row: Loose) =>
+        typeof row.dayOfWeek === "number" &&
+        Number.isInteger(row.dayOfWeek) &&
+        row.dayOfWeek >= 0 &&
+        row.dayOfWeek <= 6;
+      if (rows.length === 0 || rows.length !== raw.length || !rows.every(dayIndexOk)) {
+        return { ok: false, reason: "unknown_shape", detail: "array rows lack a 0-6 dayOfWeek" };
+      }
+      const problems: Problems = [];
+      const windowsFor = (day: Weekday) =>
+        rows
+          .filter((row) => !row.isClosed && SUNDAY_FIRST[row.dayOfWeek as number] === day)
+          .map((row) => toWindow(day, problems, row.openTime, row.closeTime))
+          .filter(isWindow);
+      const weekly = weeklyFrom(windowsFor);
+      return finish("seed_array", problems, { weekly, overrides: [] });
+    }
+    function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] {
+      if (raw === undefined) return [];
+      if (!Array.isArray(raw)) {
+        problems.push(`${where}: windows is not an array`);
+        return [];
+      }
+      return raw.flatMap((w, i) => {
+        if (!isObject(w)) {
+          problems.push(`${where}: window ${i} is not an object`);
+          return [];
+        }
+        const window = toWindow(where, problems, w.open, w.close, w.name);
+        return window ? [window] : [];
+      });
+    }
+    function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] {
+      if (raw === undefined) return [];
+      if (!Array.isArray(raw)) {
+        problems.push(`${DATE_PROBLEM}overrides is not an array`);
+        return [];
+      }
+      const byDate = new Map<string, LegacyOverride>();
+      for (const entry of raw) {
+        if (!isObject(entry) || typeof entry.date !== "string" || !ISO_DATE.test(entry.date)) {
+          problems.push(
+            `${DATE_PROBLEM}override date ${JSON.stringify(isObject(entry) ? entry.date : entry)}`
+          );
+          continue;
+        }
+        if (byDate.has(entry.date)) continue;
+        const where = `override ${entry.date}`;
+        if (!entry.closed && !Array.isArray(entry.windows)) {
+          problems.push(`${where}: open override has no windows array`);
+        }
+        const windows = entry.closed ? [] : sortedByOpen(toWindows(where, problems, entry.windows));
+        byDate.set(entry.date, {
+          date: entry.date,
+          windows,
+          ...(typeof entry.note === "string" ? { note: entry.note } : {}),
+        });
+      }
+      return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+    }
+    function fromV2(raw: Loose): LegacyHoursResult {
+      if (!isObject(raw.weekly)) {
+        return { ok: false, reason: "unknown_shape", detail: "v2 document has no weekly object" };
+      }
+      const weeklyRaw = raw.weekly;
+      const problems: Problems = [];
+      const weekly = weeklyFrom((day) => toWindows(day, problems, weeklyRaw[day]));
+      return finish("v2", problems, { weekly, overrides: toOverrides(problems, raw.overrides) });
+    }
+    export function normalizeLegacyHours(raw: unknown): LegacyHoursResult {
+      if (raw === null || raw === undefined) return { ok: false, reason: "no_hours" };
+      if (Array.isArray(raw)) return fromSeedArray(raw);
+      if (!isObject(raw)) {
+        return { ok: false, reason: "unknown_shape", detail: `unexpected ${typeof raw} value` };
+      }
+      if ("version" in raw) {
+        return raw.version === 2
+          ? fromV2(raw)
+          : { ok: false, reason: "unknown_version", detail: `version ${JSON.stringify(raw.version)}` };
+      }
+      return fromWeekdayKeyed(raw);
+    }
+  </file>
+  <file path="packages/availability/src/legacy-migration.ts">
+    export const DEFAULT_LAST_SEATING_BUFFER = 90;
+    export interface LegacyMigrationInput {
+      hours: LegacyHours;
+      /** `settings.slotIntervalMinutes`; absent means the legacy default (15). */
+      slotIntervalMinutes?: number | null;
+      /** `settings.lastSeatingBuffer`; absent means the legacy default (90). */
+      lastSeatingBuffer?: number | null;
+      /** Venue-local today; dated overrides before it are not migrated. */
+      today: ServiceDate;
+      newId: () => string;
+    }
+    export interface PastMidnightWindow {
+      /** A weekday name, or an override's date. */
+      day: string;
+      open: number;
+      /** Minutes past the day's midnight, above 1440. */
+      close: number;
+      span: number;
+    }
+    export interface LegacyMigrationNotes {
+      pastMidnightWindows: PastMidnightWindow[];
+      /** Windows the legacy slot loop could never seat (last seating before opening). */
+      droppedWindows: number;
+      skippedPastOverrides: number;
+      migratedOverrides: number;
+    }
+    export type LegacyMigrationResult =
+      | { ok: true; config: AvailabilityConfig; notes: LegacyMigrationNotes }
+      | {
+          ok: false;
+          reason: "invalid_interval" | "invalid_buffer" | "invalid_config" | "implausible_span";
+          detail: string;
+        };
+    interface SeatedWindow {
+      name?: string;
+      open: number;
+      close: number;
+      last: number;
+    }
+    interface NamedWindow extends SeatedWindow {
+      serviceName: string;
+    }
+    function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] {
+      return windows.map((w) => ({ ...w, last: w.close - buffer })).filter((w) => w.last >= w.open);
+    }
+    function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] {
+      const fallback = (i: number) => (multiple ? `Service ${i + 1}` : "Open hours");
+      const names = windows.map((w, i) => w.name ?? fallback(i));
+      const clash = new Set(names).size < names.length;
+      return windows.map((w, i) => ({ ...w, serviceName: clash ? `Service ${i + 1}` : names[i]! }));
+    }
+    function validIntervalOrBuffer(
+      input: LegacyMigrationInput
+    ): { interval: number; buffer: number } | LegacyMigrationResult {
+      const interval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+      if (!Number.isInteger(interval) || interval < 1 || interval > MAX_INTERVAL) {
+        return { ok: false, reason: "invalid_interval", detail: `slotIntervalMinutes ${interval}` };
+      }
+      const buffer = input.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+      if (!Number.isInteger(buffer) || buffer < 0) {
+        return { ok: false, reason: "invalid_buffer", detail: `lastSeatingBuffer ${buffer}` };
+      }
+      return { interval, buffer };
+    }
+    function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] {
+      const entries = [
+        ...WEEKDAYS.map((day) => ({ day: day as string, windows: hours.weekly[day] })),
+        ...hours.overrides.map((o) => ({ day: o.date, windows: o.windows })),
+      ];
+      return entries.flatMap(({ day, windows }) =>
+        windows
+          .filter((w) => w.wrapped)
+          .map((w) => ({ day, open: w.open, close: w.close, span: w.close - w.open }))
+      );
+    }
+    export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult {
+      const checked = validIntervalOrBuffer(input);
+      if ("ok" in checked) return checked;
+      const { interval, buffer } = checked;
+      const { hours, newId, today } = input;
+    
+      const wrapped = pastMidnightWindows(hours);
+      const tooLong = wrapped.find((w) => w.span > MAX_PAST_MIDNIGHT_SPAN);
+      if (tooLong) {
+        return {
+          ok: false,
+          reason: "implausible_span",
+          detail: `${tooLong.day} ${tooLong.open}-${tooLong.close} spans ${tooLong.span} minutes`,
+        };
+      }
+    
+      const seatedWeek = WEEKDAYS.map((day) => seat(hours.weekly[day], buffer));
+      const dropped = WEEKDAYS.reduce(
+        (n, day, i) => n + hours.weekly[day].length - seatedWeek[i]!.length,
+        0
+      );
+      const multiple =
+        seatedWeek.some((w) => w.length > 1) ||
+        hours.overrides.some((o) => seat(o.windows, buffer).length > 1);
+    
+      const venueServices = new Map<string, { id: string; name: string; position: number }>();
+      const serviceId = (name: string): string => {
+        const existing = venueServices.get(name);
+        if (existing) return existing.id;
+        const created = { id: newId(), name, position: venueServices.size };
+        venueServices.set(name, created);
+        return created.id;
+      };
+    
+      // Group weekdays that share hours; first-seen order keeps the output stable.
+      const groups = new Map<string, { days: number[]; windows: NamedWindow[] }>();
+      seatedWeek.forEach((windows, i) => {
+        if (windows.length === 0) return;
+        const named = nameWindows(windows, multiple);
+        const key = signature(named);
+        const group = groups.get(key) ?? { days: [], windows: named };
+        groups.set(key, { ...group, days: [...group.days, storedIndex(i)] });
+      });
+      const ordered = [...groups.values()].sort((a, b) => b.days.length - a.days.length);
+    
+      const hoursFields = (w: NamedWindow) => ({
+        venueServiceId: serviceId(w.serviceName),
+        opensAt: w.open,
+        lastSeatingAt: w.last,
+        closesAt: w.close,
+        seating: { version: 1 as const, interval },
+        bookingTypes: [...CHANNELS],
+      });
+    
+      const schedules = ordered.length === 0 ? [null] : ordered;
+      const rows = schedules.map((group, index) => {
+        const id = newId();
+        const schedule = {
+          id,
+          name: index === 0 ? "Regular week" : `Alternate week ${index}`,
+          kind: index === 0 ? ("regular" as const) : ("alternate" as const),
+          isRegular: index === 0,
+        };
+        const services: ScheduleService[] = (group?.windows ?? []).map((w) => ({
+          id: newId(),
+          scheduleId: id,
+          ...hoursFields(w),
+        }));
+        const assignments = group
+          ? [{ id: newId(), scheduleId: id, weekdays: [...group.days].sort(), precedence: 0 }]
+          : [];
+        return { schedule, services, assignments };
+      });
+    
+      const futureOverrides = hours.overrides.filter((o) => o.date >= today);
+      const dateRules: DateRule[] = futureOverrides.map((override) => {
+        const seated = nameWindows(seat(override.windows, buffer), multiple);
+        const base = {
+          id: newId(),
+          targetKind: "venue" as const,
+          startsOn: override.date,
+          endsOn: override.date,
+          ...(override.note ? { staffNote: override.note.slice(0, MAX_STAFF_NOTE) } : {}),
+        };
+        return seated.length === 0
+          ? { ...base, kind: "closure" as const }
+          : {
+              ...base,
+              kind: "special_hours" as const,
+              payload: { version: 1 as const, services: seated.map(hoursFields) },
+            };
+      });
+    
+      const config: AvailabilityConfig = {
+        schedules: rows.map((r) => r.schedule),
+        venueServices: [...venueServices.values()],
+        scheduleServices: rows.flatMap((r) => r.services),
+        assignments: rows.flatMap((r) => r.assignments),
+        dateRules,
+      };
+    
+      const issues = validateConfig(config);
+      if (issues.length > 0) {
+        const first = issues
+          .slice(0, 3)
+          .map((i) => `${i.path} ${i.code}`)
+          .join("; ");
+        return { ok: false, reason: "invalid_config", detail: first };
+      }
+      return {
+        ok: true,
+        config,
+        notes: {
+          pastMidnightWindows: wrapped,
+          droppedWindows: dropped,
+          skippedPastOverrides: hours.overrides.length - futureOverrides.length,
+          migratedOverrides: futureOverrides.length,
+        },
+      };
+    }
+  </file>
+  <file path="packages/availability/src/legacy-projection.ts">
+    export type LegacyDayHours = {
+      open: string;
+      close: string;
+      closed?: boolean;
+    };
+    export type LegacyOperatingHours = Record<Weekday, LegacyDayHours>;
+    function clock(minute: number): string {
+      const m = minute % MINUTES_PER_DAY;
+      const hh = String(Math.floor(m / 60)).padStart(2, "0");
+      const mm = String(m % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+    export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyOperatingHours {
+      const regularWeek = config.assignments.filter((a) => !a.startsOn && !a.endsOn);
+      const dayHours = (day: Weekday): LegacyDayHours => {
+        const stored = (WEEKDAYS.indexOf(day) + 1) % 7;
+        const covering = regularWeek
+          .filter((a) => a.weekdays.includes(stored))
+          .reduce<(typeof regularWeek)[number] | null>(
+            (best, a) => (best === null || a.precedence > best.precedence ? a : best),
+            null
+          );
+        const services = covering
+          ? config.scheduleServices.filter((s) => s.scheduleId === covering.scheduleId)
+          : [];
+        if (services.length === 0) return CLOSED_DAY;
+        const open = Math.min(...services.map((s) => s.opensAt));
+        const close = Math.max(...services.map((s) => s.closesAt));
+        return { open: clock(open), close: clock(close) };
+      };
+      return Object.fromEntries(WEEKDAYS.map((day) => [day, dayHours(day)])) as LegacyOperatingHours;
+    }
+  </file>
   <file path="packages/availability/src/rebook.ts">
     export const MAX_REBOOK_OFFERS = 3;
     export const REBOOK_WINDOW_DAYS = 14;
@@ -68126,6 +68755,54 @@
     export const ERROR_UNAUTHORIZED = "Unauthorized";
     export const ERROR_CONFLICT = "Conflict";
     export const ERROR_FORBIDDEN = "Forbidden";
+  </file>
+  <file path="services/reservations/src/test/seed-venues.ts">
+    export interface SeedHoursRow {
+      dayOfWeek: number;
+      openTime: string;
+      closeTime: string;
+      isClosed: boolean;
+    }
+    export interface SeedVenue {
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      hours: SeedHoursRow[];
+      /** `defaultReservationDuration` is the key the engine reads (it was `defaultDurationMinutes`). */
+      settings: { defaultReservationDuration: number; maxPartySize: number };
+    }
+    export const SEED_VENUES: readonly SeedVenue[] = [
+      {
+        name: "The Grand Bistro",
+        slug: "the-grand-bistro",
+        ianaTimezone: "America/New_York",
+        hours: [
+          { dayOfWeek: 0, openTime: "10:00", closeTime: "21:00", isClosed: false },
+          { dayOfWeek: 1, openTime: "11:00", closeTime: "22:00", isClosed: false },
+          { dayOfWeek: 2, openTime: "11:00", closeTime: "22:00", isClosed: false },
+          { dayOfWeek: 3, openTime: "11:00", closeTime: "22:00", isClosed: false },
+          { dayOfWeek: 4, openTime: "11:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 5, openTime: "11:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 6, openTime: "10:00", closeTime: "22:00", isClosed: false },
+        ],
+        settings: { defaultReservationDuration: 90, maxPartySize: 12 },
+      },
+      {
+        name: "Rooftop Lounge",
+        slug: "rooftop-lounge",
+        ianaTimezone: "America/New_York",
+        hours: [
+          { dayOfWeek: 0, openTime: "16:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 1, openTime: "00:00", closeTime: "00:00", isClosed: true },
+          { dayOfWeek: 2, openTime: "16:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 3, openTime: "16:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 4, openTime: "16:00", closeTime: "00:00", isClosed: false },
+          { dayOfWeek: 5, openTime: "16:00", closeTime: "01:00", isClosed: false },
+          { dayOfWeek: 6, openTime: "14:00", closeTime: "00:00", isClosed: false },
+        ],
+        settings: { defaultReservationDuration: 120, maxPartySize: 8 },
+      },
+    ];
   </file>
   <file path="services/reservations/src/test/shared-schema-compilers.ts">
     type RouteSchemaDef = {

@@ -11,6 +11,28 @@ export {
   type ResolvedDaySummary,
   type ResolvedService,
 } from "./resolve-day.js";
+export {
+  normalizeLegacyHours,
+  type LegacyHours,
+  type LegacyHoursFailure,
+  type LegacyHoursResult,
+  type LegacyOverride,
+  type LegacyShape,
+  type LegacyWindow,
+} from "./legacy-hours.js";
+export {
+  DEFAULT_LAST_SEATING_BUFFER,
+  buildLegacyConfig,
+  type LegacyMigrationInput,
+  type LegacyMigrationNotes,
+  type LegacyMigrationResult,
+  type PastMidnightWindow,
+} from "./legacy-migration.js";
+export {
+  projectLegacyOperatingHours,
+  type LegacyDayHours,
+  type LegacyOperatingHours,
+} from "./legacy-projection.js";
 export { MINUTES_PER_DAY, WEEKDAYS, type ServiceDate, type Weekday } from "./types.js";
 export { validateConfig, type ConfigIssue, type ConfigIssueCode } from "./validate-config.js";
 export {

@@ -18,7 +18,7 @@ const defaultInput: BookingNotificationInput = {
   manageToken: "tok_abc123",
 };
 
-const manageBaseUrl = "https://app.mbe.dev/reservations/manage";
+const manageBaseUrl = "https://app.mbe.dev";
 
 describe("buildBookingEmailContent", () => {
   describe("confirmation", () => {
@@ -37,7 +37,9 @@ describe("buildBookingEmailContent", () => {
 
     it("HTML contains manage link with token", () => {
       const result = buildBookingEmailContent(defaultInput, "confirmation", manageBaseUrl);
-      expect(result.html).toContain(`${manageBaseUrl}?token=tok_abc123`);
+      expect(result.html).toContain(
+        `${manageBaseUrl}/hospitality/reservations/manage?token=tok_abc123`
+      );
     });
 
     it("includes iCal with METHOD REQUEST", () => {
@@ -75,7 +77,9 @@ describe("buildBookingEmailContent", () => {
 
     it("HTML contains manage link", () => {
       const result = buildBookingEmailContent(defaultInput, "reminder", manageBaseUrl);
-      expect(result.html).toContain(`${manageBaseUrl}?token=tok_abc123`);
+      expect(result.html).toContain(
+        `${manageBaseUrl}/hospitality/reservations/manage?token=tok_abc123`
+      );
     });
 
     it("iCal is absent (no ical attachment for reminders)", () => {
@@ -106,7 +110,9 @@ describe("buildBookingEmailContent", () => {
 
     it("HTML contains manage link", () => {
       const result = buildBookingEmailContent(defaultInput, "modified", manageBaseUrl);
-      expect(result.html).toContain(`${manageBaseUrl}?token=tok_abc123`);
+      expect(result.html).toContain(
+        `${manageBaseUrl}/hospitality/reservations/manage?token=tok_abc123`
+      );
     });
 
     it("includes iCal with METHOD REQUEST", () => {
