@@ -266,7 +266,7 @@ export function collectSkillDirectories(root = DEFAULT_ROOT) {
  */
 export function collectInstructionFiles(root = DEFAULT_ROOT) {
   const files = [];
-  for (const top of ["CLAUDE.md", "AGENTS.md"]) {
+  for (const top of ["CLAUDE.md", "docs/claude-reference.md", "AGENTS.md"]) {
     if (existsSync(join(root, top))) files.push(top);
   }
   for (const rule of existsSync(join(root, ".claude/rules"))

@@ -37,6 +37,7 @@ import {
 
 export const FILES_TO_CHECK = [
   "CLAUDE.md",
+  "docs/claude-reference.md",
   "AGENTS.md",
   "GEMINI.md",
   "llms.txt",

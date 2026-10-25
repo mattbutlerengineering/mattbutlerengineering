@@ -41,7 +41,7 @@ pnpm clean          # Wipe artifacts and node_modules
 
 ## Development Flow with Metrics & Continuous Improvement
 
-The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. Claude Code loads project skills from `.claude/skills/` (both project automation and general engineering advice). See [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop) for the full skill catalog and scheduling.
+The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. Claude Code loads project skills from `.claude/skills/` (both project automation and general engineering advice). See [docs/claude-reference.md](./docs/claude-reference.md) for the full skill catalog and [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop) for scheduling.
 
 Quick reference:
 
