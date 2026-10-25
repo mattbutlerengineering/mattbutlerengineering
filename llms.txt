@@ -16103,6 +16103,51 @@
       export function weekdayIndexOf(date: ServiceDate): number { /* ... */ }
     </item>
   </file>
+  <file path="packages/availability/src/date-rules.ts">
+    <item priority="low">
+      type RuleOf = Extract<DateRule, { kind: K }>;
+    </item>
+    <item priority="high">
+      export const WHOLE_DAY: unknown;
+    </item>
+    <item priority="medium">
+      function covers(rule: DateRule, serviceDate: ServiceDate): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeRules(rules: readonly DateRule[], serviceDate: ServiceDate): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ofKind<K extends DateRule["kind"]>(
+        rules: readonly DateRule[],
+        kind: K
+      ): RuleOf<K>[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function timeRange(from: number, to: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function targetLabel(rule: DateRule, serviceName: string | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seriesLabel(rule: DateRule, serviceName: string | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function windowEffect(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tonightEffect(rule: RuleOf<"tonight">): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursEffect(
+        services: readonly { name: string; opensAt: number; closesAt: number }[]
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/format-minute.ts">
+    <item priority="high">
+      export function formatMinute(minute: number): string { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/instant.ts">
     <item priority="medium">
       function formatterFor(tz: string): Intl.DateTimeFormat { /* ... */ }
@@ -16142,25 +16187,101 @@
     </item>
     <item priority="low">
       interface ResolvedService {
-        scheduleServiceId: string;
+        scheduleServiceId: string | null;
         name: string;
       }
     </item>
     <item priority="low">
-      interface ResolvedDay {
+      interface ResolvedClosure {
+        ruleId: string;
+        targetKind: DateRule["targetKind"];
+        venueServiceId?: string;
+        tableIds?: string[];
+        bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
+      }
+    </item>
+    <item priority="low">
+      type BookingOpen = Record<"online" | "phone" | "waitlist", boolean>;
+    </item>
+    <item priority="low">
+      type LayerKind = "schedule" | DateRule["kind"];
+    </item>
+    <item priority="low">
+      interface Layer {
+        kind: LayerKind;
+        id: string;
+        label: string;
+        effect: string;
+        removalResult: ResolvedDaySummary;
+      }
+    </item>
+    <item priority="low">
+      interface ResolvedDaySummary {
         serviceDate: ServiceDate;
         scheduleId: string | null;
         services: ResolvedService[];
+        closures: ResolvedClosure[];
+        bookingOpen: BookingOpen;
+      }
+    </item>
+    <item priority="low">
+      interface ResolvedDay {
+        explanation: Layer[];
+      }
+    </item>
+    <item priority="high">
+      type PendingLayer = Omit<Layer, "removalResult">;
+    </item>
+    <item priority="high">
+      interface Resolution {
+        day: ResolvedDaySummary;
+        layers: PendingLayer[];
       }
     </item>
     <item priority="medium">
       function coversDate(assignment: ScheduleAssignment, serviceDate: ServiceDate): boolean { /* ... */ }
     </item>
     <item priority="medium">
-      function scheduleFor(config: AvailabilityConfig, serviceDate: ServiceDate): string | null { /* ... */ }
+      function assignmentFor(
+        config: AvailabilityConfig,
+        serviceDate: ServiceDate
+      ): ScheduleAssignment | null { /* ... */ }
     </item>
     <item priority="medium">
-      function toResolved(service: ScheduleService, venueService: VenueService): ResolvedService { /* ... */ }
+      function toResolved(
+        service: ScheduleService | SpecialHoursService,
+        venueService: VenueService
+      ): ResolvedService { /* ... */ }
+    </item>
+    <item priority="medium">
+      function liveServices(
+        services: readonly (ScheduleService | SpecialHoursService)[],
+        venueServices: ReadonlyMap<string, VenueService>
+      ): ResolvedService[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureOf(rule: DateRule, band: { from: number; to: number }): ResolvedClosure { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeBookingTypes(open: BookingOpen, rule: DateRule): BookingOpen { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyClosure(day: ResolvedDaySummary, rule: RuleOf<"closure">): ResolvedDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeEarly(service: ResolvedService, closeAt: number): ResolvedService[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyTonight(day: ResolvedDaySummary, rule: RuleOf<"tonight">): ResolvedDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withMessage(day: ResolvedDaySummary, rule: DateRule): ResolvedDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Resolution { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withoutRow(config: AvailabilityConfig, id: string): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="high">
       export function resolveDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate): ResolvedDay { /* ... */ }
@@ -16205,9 +16326,6 @@
     </item>
     <item priority="medium">
       function formatPath(segments: readonly PropertyKey[]): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function formatMinute(minute: number): string { /* ... */ }
     </item>
     <item priority="medium">
       function fixedSeatingIssues({ path, hours }: PathedService): ConfigIssue[] { /* ... */ }
