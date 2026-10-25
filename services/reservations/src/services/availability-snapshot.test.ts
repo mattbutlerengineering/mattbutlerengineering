@@ -204,6 +204,32 @@ describe("loadAvailabilitySnapshot", () => {
     });
   });
 
+  it("expands empty booking types on a Tonight stop too", async () => {
+    const { db } = fakeDb({
+      dateRules: [
+        {
+          ...baseRule,
+          id: "r-stop",
+          kind: "tonight",
+          targetKind: "booking",
+          payload: { version: 1, stop: { from: 1140, to: 1200 } },
+        },
+      ],
+    });
+    const { snapshot, warnings } = await loadAvailabilitySnapshot(
+      "v1",
+      "2026-11-05",
+      "2026-11-05",
+      now,
+      { db }
+    );
+    expect(warnings).toEqual([]);
+    expect(snapshot.config.dateRules[0]).toMatchObject({
+      kind: "tonight",
+      bookingTypes: ["online", "phone", "waitlist"],
+    });
+  });
+
   it("throws when the venue is not visible", async () => {
     const { db } = fakeDb();
     (db.venue.findUnique as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);

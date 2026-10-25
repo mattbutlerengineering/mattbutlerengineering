@@ -39460,10 +39460,11 @@
       tables: { tableId: string }[];
     }
     function dateRuleCandidate(row: DateRuleRow): unknown {
-      // The DB stores "no channels listed" as []; for a booking closure that means
-      // every channel, but the engine reads [] as "closes nothing" — so spell it out.
+      // The DB stores "no channels listed" as []; for a booking-target rule that means
+      // every channel, but the engine reads [] as "affects nothing" — so spell it out.
+      // validateConfig rejects the empty form on write; this is the defensive read.
       const bookingTypes =
-        row.kind === "closure" && row.targetKind === "booking" && row.bookingTypes.length === 0
+        row.targetKind === "booking" && row.bookingTypes.length === 0
           ? [...ALL_RULE_CHANNELS]
           : row.bookingTypes;
       return {
@@ -60270,7 +60271,8 @@
       | "precedence_tie"
       | "ends_before_start"
       | "seating_outside_service"
-      | "window_ends_before_start";
+      | "window_ends_before_start"
+      | "booking_types_required";
     export interface ConfigIssue {
       /** e.g. `scheduleServices[1].lastSeatingAt`; `""` is the whole config. */
       path: string;
@@ -60450,6 +60452,19 @@
           : []),
       ]);
     }
+    function bookingTypesIssues(config: AvailabilityConfig): ConfigIssue[] {
+      return config.dateRules.flatMap((rule, i) =>
+        rule.targetKind === "booking" && !rule.bookingTypes?.length
+          ? [
+              issue(
+                `dateRules[${i}].bookingTypes`,
+                "booking_types_required",
+                "Choose which booking types to close."
+              ),
+            ]
+          : []
+      );
+    }
     export function validateConfig(input: unknown): ConfigIssue[] {
       const parsed = AvailabilityConfigSchema.safeParse(input);
       if (!parsed.success) {
@@ -60463,6 +60478,7 @@
         ...rangeIssues(config),
         ...precedenceIssues(config),
         ...windowIssues(config),
+        ...bookingTypesIssues(config),
       ];
     }
   </file>

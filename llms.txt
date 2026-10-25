@@ -16632,7 +16632,7 @@
   </file>
   <file path="packages/availability/src/validate-config.ts">
     <item priority="low">
-      type ConfigIssueCode = "invalid" | "overlap" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start";
+      type ConfigIssueCode = "invalid" | "overlap" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start" | "booking_types_required";
     </item>
     <item priority="low">
       interface ConfigIssue {
@@ -16700,6 +16700,9 @@
     </item>
     <item priority="medium">
       function windowIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingTypesIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
     </item>
     <item priority="high">
       export function validateConfig(input: unknown): ConfigIssue[] { /* ... */ }

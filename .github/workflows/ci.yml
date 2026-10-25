@@ -897,7 +897,7 @@ jobs:
       - name: Build workspace dependencies
         run: pnpm build --filter @mbe/reservations-service...
 
-      # All SIX `DATABASE_URL`-gated suites, listed explicitly rather than
+      # All SEVEN `DATABASE_URL`-gated suites, listed explicitly rather than
       # globbed: a glob fails silently in both directions (quietly picking up
       # or dropping files), and the coverage test below pins this list.
       # rls-app-reservations.integration.test.ts proves SET LOCAL ROLE

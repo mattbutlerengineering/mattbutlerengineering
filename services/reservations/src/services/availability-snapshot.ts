@@ -146,10 +146,11 @@ interface DateRuleRow {
 }
 
 function dateRuleCandidate(row: DateRuleRow): unknown {
-  // The DB stores "no channels listed" as []; for a booking closure that means
-  // every channel, but the engine reads [] as "closes nothing" — so spell it out.
+  // The DB stores "no channels listed" as []; for a booking-target rule that means
+  // every channel, but the engine reads [] as "affects nothing" — so spell it out.
+  // validateConfig rejects the empty form on write; this is the defensive read.
   const bookingTypes =
-    row.kind === "closure" && row.targetKind === "booking" && row.bookingTypes.length === 0
+    row.targetKind === "booking" && row.bookingTypes.length === 0
       ? [...ALL_RULE_CHANNELS]
       : row.bookingTypes;
   return {

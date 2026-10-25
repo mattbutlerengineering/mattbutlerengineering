@@ -24,7 +24,8 @@ export type ConfigIssueCode =
   | "precedence_tie"
   | "ends_before_start"
   | "seating_outside_service"
-  | "window_ends_before_start";
+  | "window_ends_before_start"
+  | "booking_types_required";
 
 export interface ConfigIssue {
   /** e.g. `scheduleServices[1].lastSeatingAt`; `""` is the whole config. */
@@ -227,6 +228,20 @@ function windowIssues(config: AvailabilityConfig): ConfigIssue[] {
   ]);
 }
 
+function bookingTypesIssues(config: AvailabilityConfig): ConfigIssue[] {
+  return config.dateRules.flatMap((rule, i) =>
+    rule.targetKind === "booking" && !rule.bookingTypes?.length
+      ? [
+          issue(
+            `dateRules[${i}].bookingTypes`,
+            "booking_types_required",
+            "Choose which booking types to close."
+          ),
+        ]
+      : []
+  );
+}
+
 export function validateConfig(input: unknown): ConfigIssue[] {
   const parsed = AvailabilityConfigSchema.safeParse(input);
   if (!parsed.success) {
@@ -240,5 +255,6 @@ export function validateConfig(input: unknown): ConfigIssue[] {
     ...rangeIssues(config),
     ...precedenceIssues(config),
     ...windowIssues(config),
+    ...bookingTypesIssues(config),
   ];
 }
