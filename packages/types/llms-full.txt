@@ -41,6 +41,27 @@
           },
         },
       }),
+      closureImpact: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/impact`,
+        params: VenueParamsSchema,
+        body: ClosureImpactBodySchema,
+        responses: {
+          200: {
+            description:
+              "Future bookings the draft rule would affect, grouped by date and kind (read-only)",
+            body: z.object({ data: ClosureImpactSchema }),
+          },
+          400: problem("Date range too long to evaluate"),
+          401: authRequired,
+          403: problem("Caller is not a Manager of this venue"),
+          404: venueNotFound,
+          422: {
+            description: "`invalid-config`: the draft rule does not validate against the config",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
       listDays: defineEndpoint({
         method: "GET",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/days`,
@@ -453,6 +474,42 @@
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
       guestMessage: z.string().optional(),
     });
+    export const ClosureImpactBodySchema = z.object({ rule: DateRuleSchema });
+    export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
+    export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
+    export const ClosureImpactReservationSchema = z.object({
+      id: z.string(),
+      startTime: z.string(),
+      endTime: z.string(),
+      partySize: z.number().int(),
+      guestName: z.string().nullable(),
+      /** The deposit held against this booking, if any. */
+      deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
+      /** Starts before the closure and runs into it. */
+      runsIntoClosure: z.boolean(),
+    });
+    export const ClosureImpactGroupSchema = z.object({
+      /** `<date>:<kind>`; the closure command's decisions are keyed by it. */
+      groupKey: z.string(),
+      date: ServiceDateSchema,
+      kind: ClosureImpactKindSchema,
+      covers: z.number().int(),
+      depositsHeld: z.number().int(),
+      /** Sorted by start time. */
+      reservations: z.array(ClosureImpactReservationSchema),
+    });
+    export const ClosureImpactSchema = z.object({
+      reservations: z.number().int(),
+      covers: z.number().int(),
+      depositsHeld: z.number().int(),
+      /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
+      groups: z.array(ClosureImpactGroupSchema),
+    });
+    export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
+    export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
+    export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
+    export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
+    export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
     export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;

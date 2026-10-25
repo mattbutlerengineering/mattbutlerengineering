@@ -10,6 +10,8 @@ import type {
   AvailabilityConfigState,
   AvailabilityConfigSaveResult,
   AvailabilityDaySummary,
+  ClosureImpact,
+  DateRule,
   PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
 import { availabilityConfigEndpoints } from "@mbe/types";
@@ -110,6 +112,19 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.putConfig, {
       params: { id: venueId },
       body,
+    });
+    return response.data;
+  }
+
+  /**
+   * Read-only preview of which future bookings a draft date rule (closure,
+   * special hours or Tonight change) would affect, grouped by date and kind.
+   * Requires a Manager.
+   */
+  async getClosureImpact(venueId: string, rule: DateRule): Promise<ClosureImpact> {
+    const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
+      params: { id: venueId },
+      body: { rule },
     });
     return response.data;
   }

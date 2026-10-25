@@ -1016,6 +1016,27 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     (venueId) =>
       `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/days?from=2026-10-01&to=2026-10-07`
   ),
+  // Read-only (the draft is never saved), so it may run against the shared
+  // venues. The member leg proves the cross-venue denial; the Manager-role admission
+  // is pinned by `venue-scope-manager.test.ts`.
+  "POST /api/v1/venues/:id/closures/impact": ok(async (ctx) => {
+    const impact = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures/impact`,
+      payload: {
+        rule: {
+          id: "rls-sweep-impact",
+          kind: "closure",
+          targetKind: "venue",
+          startsOn: "2026-12-24",
+          endsOn: "2026-12-24",
+        },
+      },
+    });
+    expectOk(await asAdmin(ctx, impact(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, impact(ctx.venueB.id)), "admin venue B");
+    expectDenied(await asMember(ctx, impact(ctx.venueB.id)), "member venue B");
+  }),
   // The write lands only on a disposable venue: venue A's operating hours feed
   // the hold and availability fixtures, and a save rewrites them. The member
   // leg proves the denial; the Manager-role admission is pinned by

@@ -1,8 +1,34 @@
 import { describe, expect, it } from "vitest";
 import {
   AvailabilityConfigProblemSchema,
+  ClosureImpactBodySchema,
+  ClosureImpactSchema,
   PutAvailabilityConfigBodySchema,
 } from "./availability-config-api.js";
+
+describe("ClosureImpactBodySchema", () => {
+  const closure = { id: "r1", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
+
+  it("parses a draft date rule", () => {
+    expect(ClosureImpactBodySchema.parse({ rule: closure }).rule).toMatchObject(closure);
+  });
+
+  it("requires the rule and a valid shape", () => {
+    expect(ClosureImpactBodySchema.safeParse({}).success).toBe(false);
+    expect(ClosureImpactBodySchema.safeParse({ rule: { ...closure, startsOn: "x" } }).success).toBe(
+      false
+    );
+  });
+});
+
+describe("ClosureImpactSchema", () => {
+  it("accepts an empty impact (a booking-only closure has no groups)", () => {
+    expect(
+      ClosureImpactSchema.safeParse({ reservations: 0, covers: 0, depositsHeld: 0, groups: [] })
+        .success
+    ).toBe(true);
+  });
+});
 
 describe("PutAvailabilityConfigBodySchema", () => {
   it("defaults empty changes and keep for scope conflicts", () => {

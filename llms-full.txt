@@ -10023,6 +10023,27 @@
           },
         },
       }),
+      closureImpact: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/impact`,
+        params: VenueParamsSchema,
+        body: ClosureImpactBodySchema,
+        responses: {
+          200: {
+            description:
+              "Future bookings the draft rule would affect, grouped by date and kind (read-only)",
+            body: z.object({ data: ClosureImpactSchema }),
+          },
+          400: problem("Date range too long to evaluate"),
+          401: authRequired,
+          403: problem("Caller is not a Manager of this venue"),
+          404: venueNotFound,
+          422: {
+            description: "`invalid-config`: the draft rule does not validate against the config",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
       listDays: defineEndpoint({
         method: "GET",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/days`,
@@ -26917,7 +26938,7 @@
       }
     }
     export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
-      const { availabilityConfigService } = fastify.services;
+      const { availabilityConfigService, closureImpactService } = fastify.services;
     
       registerEndpoint(fastify, availabilityConfigEndpoints.getConfig, {
         docs: {
@@ -26991,6 +27012,47 @@
           }
           return { data: days };
         }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.closureImpact, {
+        docs: {
+          summary: "Preview which bookings a closure would affect",
+          operationId: "getClosureImpact",
+          description:
+            "Read-only. Future bookings a draft date rule (closure, special hours or Tonight change) would leave without service, grouped by service date and kind, with covers, held deposits and a runs-into-closure flag. Requires a Manager (owner or manager) membership, or the admin role.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          { ...VENUE_FROM_ID, access: "manager" },
+          async (request, reply, { venueId }) => {
+            const outcome = await closureImpactService.impact(venueId, request.body.rule, new Date());
+            switch (outcome.kind) {
+              case "not_found":
+                return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+              case "too_long":
+                return reply
+                  .code(400)
+                  .send(
+                    createProblemDetails(
+                      400,
+                      "Bad Request",
+                      `A closure's dates can span at most ${SCOPE_CONFLICT_HORIZON_DAYS} days; use "until I reopen" for an open end.`
+                    )
+                  );
+              case "invalid":
+                return reply.code(422).send(
+                  configProblem(422, "Unprocessable Entity", "The closure is not valid.", {
+                    code: "invalid-config",
+                    issues: outcome.issues,
+                  })
+                );
+              case "ok":
+                return { data: outcome.impact };
+            }
+          }
+        ),
       });
     };
   </file>
@@ -34843,6 +34905,42 @@
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
       guestMessage: z.string().optional(),
     });
+    export const ClosureImpactBodySchema = z.object({ rule: DateRuleSchema });
+    export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
+    export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
+    export const ClosureImpactReservationSchema = z.object({
+      id: z.string(),
+      startTime: z.string(),
+      endTime: z.string(),
+      partySize: z.number().int(),
+      guestName: z.string().nullable(),
+      /** The deposit held against this booking, if any. */
+      deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
+      /** Starts before the closure and runs into it. */
+      runsIntoClosure: z.boolean(),
+    });
+    export const ClosureImpactGroupSchema = z.object({
+      /** `<date>:<kind>`; the closure command's decisions are keyed by it. */
+      groupKey: z.string(),
+      date: ServiceDateSchema,
+      kind: ClosureImpactKindSchema,
+      covers: z.number().int(),
+      depositsHeld: z.number().int(),
+      /** Sorted by start time. */
+      reservations: z.array(ClosureImpactReservationSchema),
+    });
+    export const ClosureImpactSchema = z.object({
+      reservations: z.number().int(),
+      covers: z.number().int(),
+      depositsHeld: z.number().int(),
+      /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
+      groups: z.array(ClosureImpactGroupSchema),
+    });
+    export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
+    export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
+    export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
+    export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
+    export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
     export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
@@ -40020,7 +40118,7 @@
       partySize: number;
     }
     type StrandReason = StrandedReservation["reason"];
-    function strandReason(
+    export function strandReason(
       snapshot: AvailabilitySnapshot,
       booking: BookedReservation
     ): StrandReason | null {
@@ -41978,6 +42076,197 @@
     }
     export const briefingService = { getBriefing };
   </file>
+  <file path="services/reservations/src/services/closure-impact-store.ts">
+    type StoreClient = Pick<PrismaClient, "$transaction">;
+    export type ClosureImpactOutcome =
+      | { kind: "ok"; impact: ClosureImpact }
+      | { kind: "not_found" }
+      | { kind: "too_long" }
+      | { kind: "invalid"; issues: { path: string; code: string; message: string }[] };
+    function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
+      return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
+    }
+    function scanRange(rule: DateRule, today: string): { from: string; to: string } | null {
+      const horizon = addDays(rule.startsOn, SCOPE_CONFLICT_HORIZON_DAYS);
+      if (rule.endsOn && rule.endsOn > horizon) return null;
+      const earliest = addDays(today, -1);
+      const from = rule.startsOn > earliest ? rule.startsOn : earliest;
+      return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
+    }
+    export async function getClosureImpact(
+      venueId: string,
+      rule: DateRule,
+      now: Date,
+      client: StoreClient = prisma
+    ): Promise<ClosureImpactOutcome> {
+      return client.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const state = await loadConfigState(tx, venueId, now);
+        if (!state) return { kind: "not_found" as const };
+    
+        const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+        const next = withDraft(state.effective, rule);
+        const issues = [
+          ...validateConfig(next),
+          ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+        ];
+        if (issues.length > 0) return { kind: "invalid" as const, issues };
+    
+        const range = scanRange(rule, civilDateIn(now, state.timezone));
+        if (!range) return { kind: "too_long" as const };
+    
+        const rows = await tx.reservation.findMany({
+          where: {
+            venueId,
+            date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
+            startTime: { gte: now },
+            status: { notIn: [...NOT_BOOKED_STATUSES] },
+          },
+          select: {
+            id: true,
+            tableId: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+            partySize: true,
+            guestName: true,
+            deposit: { select: { amountCents: true, currency: true, status: true } },
+          },
+        });
+        const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
+          ...row,
+          heldDeposit:
+            deposit?.status === "held"
+              ? { amountCents: deposit.amountCents, currency: deposit.currency }
+              : null,
+        }));
+        const impact = computeClosureImpact({
+          timezone: state.timezone,
+          config: state.effective,
+          rule,
+          bookings,
+        });
+        return { kind: "ok" as const, impact };
+      });
+    }
+    export const closureImpactService = { impact: getClosureImpact };
+  </file>
+  <file path="services/reservations/src/services/closure-impact.ts">
+    export interface ImpactBooking {
+      id: string;
+      tableId: string | null;
+      /** The service day (ADR-029). */
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+      guestName: string | null;
+      /** Set only for a deposit in the `held` state. */
+      heldDeposit: { amountCents: number; currency: string } | null;
+    }
+    function kindOf(rule: DateRule): ClosureImpactKind {
+      return rule.kind === "closure" && !rule.window ? "closed" : "shortened";
+    }
+    function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
+      return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
+    }
+    function runsIntoBand(
+      band: ResolvedClosure,
+      startMin: number,
+      endMin: number,
+      servedServiceIds: ReadonlySet<string>
+    ): boolean {
+      const applies =
+        band.targetKind === "venue" ||
+        (band.targetKind === "service" &&
+          band.venueServiceId !== undefined &&
+          servedServiceIds.has(band.venueServiceId));
+      return applies && band.from > startMin && band.from < endMin;
+    }
+    interface Verdicts {
+      strandedAfter: boolean;
+      runsInto: boolean;
+    }
+    function assess(
+      before: AvailabilitySnapshot,
+      after: AvailabilitySnapshot,
+      rule: DateRule,
+      booking: ImpactBooking
+    ): Verdicts | null {
+      if (strandReason(before, booking) !== null) return null; // already unserved: not this change's doing
+      if (strandReason(after, booking) !== null) return { strandedAfter: true, runsInto: false };
+    
+      const date = booking.date.toISOString().slice(0, 10);
+      const midnight = serviceDayInstant(date, 0, after.timezone);
+      if (!midnight) return null;
+      const startMin = minutesBetween(midnight, booking.startTime);
+      const endMin = minutesBetween(midnight, booking.endTime);
+      const served = new Set(
+        resolveDay(before, date)
+          .services.filter((s) => s.opensAt <= startMin && startMin < s.closesAt)
+          .map((s) => s.venueServiceId)
+      );
+      const runsInto = resolveDay(after, date).closures.some(
+        (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, served)
+      );
+      return runsInto ? { strandedAfter: false, runsInto: true } : null;
+    }
+    function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpactReservation {
+      return {
+        id: booking.id,
+        startTime: booking.startTime.toISOString(),
+        endTime: booking.endTime.toISOString(),
+        partySize: booking.partySize,
+        guestName: booking.guestName,
+        deposit: booking.heldDeposit,
+        runsIntoClosure: runsInto,
+      };
+    }
+    function toGroup(
+      date: string,
+      kind: ClosureImpactKind,
+      reservations: ClosureImpactReservation[]
+    ): ClosureImpactGroup {
+      const sorted = [...reservations].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      return {
+        groupKey: `${date}:${kind}`,
+        date,
+        kind,
+        covers: sorted.reduce((n, r) => n + r.partySize, 0),
+        depositsHeld: sorted.filter((r) => r.deposit !== null).length,
+        reservations: sorted,
+      };
+    }
+    export function computeClosureImpact(input: {
+      timezone: string;
+      config: AvailabilityConfig;
+      rule: DateRule;
+      bookings: readonly ImpactBooking[];
+    }): ClosureImpact {
+      const { timezone, config, rule, bookings } = input;
+      const before = { timezone, config };
+      const after = { timezone, config: withDraft(config, rule) };
+      const kind = kindOf(rule);
+    
+      const byDate = new Map<string, ClosureImpactReservation[]>();
+      for (const booking of bookings) {
+        const verdict = assess(before, after, rule, booking);
+        if (!verdict) continue;
+        const date = booking.date.toISOString().slice(0, 10);
+        byDate.set(date, [...(byDate.get(date) ?? []), toReservation(booking, verdict.runsInto)]);
+      }
+    
+      const groups = [...byDate.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, reservations]) => toGroup(date, kind, reservations));
+      return {
+        reservations: groups.reduce((n, g) => n + g.reservations.length, 0),
+        covers: groups.reduce((n, g) => n + g.covers, 0),
+        depositsHeld: groups.reduce((n, g) => n + g.depositsHeld, 0),
+        groups,
+      };
+    }
+  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
       "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
@@ -43340,6 +43629,7 @@
     export interface DomainServices {
       availabilityService: typeof availabilityService;
       availabilityConfigService: typeof availabilityConfigService;
+      closureImpactService: typeof closureImpactService;
       venueService: typeof venueService;
       venueGroupService: typeof venueGroupService;
       tableService: typeof tableService;
@@ -43358,6 +43648,7 @@
     export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
       availabilityConfigService,
+      closureImpactService,
       venueService,
       venueGroupService,
       tableService,
@@ -59224,6 +59515,19 @@
         const response = await this.client.call(availabilityConfigEndpoints.putConfig, {
           params: { id: venueId },
           body,
+        });
+        return response.data;
+      }
+    
+      /**
+       * Read-only preview of which future bookings a draft date rule (closure,
+       * special hours or Tonight change) would affect, grouped by date and kind.
+       * Requires a Manager.
+       */
+      async getClosureImpact(venueId: string, rule: DateRule): Promise<ClosureImpact> {
+        const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
+          params: { id: venueId },
+          body: { rule },
         });
         return response.data;
       }

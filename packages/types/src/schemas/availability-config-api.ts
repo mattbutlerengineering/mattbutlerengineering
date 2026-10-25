@@ -158,6 +158,50 @@ export const AvailabilityDaySummarySchema = z.object({
   guestMessage: z.string().optional(),
 });
 
+/** `POST …/closures/impact`: the draft date rule whose effect on bookings is asked about. */
+export const ClosureImpactBodySchema = z.object({ rule: DateRuleSchema });
+
+/** `closed`: the booking's time is gone; `shortened`: hours or a window changed. */
+export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
+export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
+
+export const ClosureImpactReservationSchema = z.object({
+  id: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  partySize: z.number().int(),
+  guestName: z.string().nullable(),
+  /** The deposit held against this booking, if any. */
+  deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
+  /** Starts before the closure and runs into it. */
+  runsIntoClosure: z.boolean(),
+});
+
+/** Bookings on one service date that the draft affects the same way. */
+export const ClosureImpactGroupSchema = z.object({
+  /** `<date>:<kind>`; the closure command's decisions are keyed by it. */
+  groupKey: z.string(),
+  date: ServiceDateSchema,
+  kind: ClosureImpactKindSchema,
+  covers: z.number().int(),
+  depositsHeld: z.number().int(),
+  /** Sorted by start time. */
+  reservations: z.array(ClosureImpactReservationSchema),
+});
+
+export const ClosureImpactSchema = z.object({
+  reservations: z.number().int(),
+  covers: z.number().int(),
+  depositsHeld: z.number().int(),
+  /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
+  groups: z.array(ClosureImpactGroupSchema),
+});
+
+export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
+export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
+export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
+export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
+export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
 export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
 export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
 export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
