@@ -52,7 +52,6 @@ export function PromptBar({
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<readonly string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Restore the failing prompt into the input so it isn't lost. Render-time
@@ -163,8 +162,6 @@ export function PromptBar({
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
@@ -192,11 +189,11 @@ export function PromptBar({
           </Button>
         )}
       </div>
-      {isFocused && (
-        <div className={styles.hints}>
-          Enter to send &middot; Shift+Enter for new line &middot; &uarr; for history
-        </div>
-      )}
+      {/* Always mounted; CSS shows it on :focus-within so focus changes never
+          resize the bar and move Generate out from under the pointer (F26). */}
+      <div className={styles.hints}>
+        Enter to send &middot; Shift+Enter for new line &middot; &uarr; for history
+      </div>
     </div>
   );
 }
