@@ -1,5 +1,13 @@
 <codebase path="packages/types">
   <section priority="medium" role="endpoints">
+  <file path="src/endpoints/availability-config.ts">
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      export const availabilityConfigEndpoints: unknown;
+    </item>
+  </file>
   <file path="src/endpoints/define.ts">
     <item priority="low">
       type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -145,6 +153,83 @@
   <file path="src/schemas/api.ts">
     <item priority="high">
       export const ProblemDetailsSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/availability-config-api.ts">
+    <item priority="high">
+      export const AvailabilityConfigChangesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SCOPE_CONFLICT_MODES: unknown;
+    </item>
+    <item priority="high">
+      export const ScopeConflictModeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PutAvailabilityConfigBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSourceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigStateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSaveResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangeSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const StrandedReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_PROBLEM_CODES: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigProblemSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_DAYS_MAX_RANGE: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDaysQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDaySummarySchema: unknown;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
+    </item>
+    <item priority="low">
+      type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
+    </item>
+    <item priority="low">
+      type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    </item>
+    <item priority="low">
+      type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
     </item>
   </file>
   <file path="src/schemas/availability-config.ts">

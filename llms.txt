@@ -2855,6 +2855,14 @@
   </file>
   </section>
   <section priority="medium" role="endpoints">
+  <file path="packages/types/src/endpoints/availability-config.ts">
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      export const availabilityConfigEndpoints: unknown;
+    </item>
+  </file>
   <file path="packages/types/src/endpoints/define.ts">
     <item priority="low">
       type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -8417,6 +8425,25 @@
       ): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/availability-config.ts">
+    <item priority="medium">
+      function configProblem(
+        status: 409 | 422,
+        title: string,
+        detail: string,
+        extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
+      ): AvailabilityConfigProblem { /* ... */ }
+    </item>
+    <item priority="high">
+      type ConfigReply = FastifyReply;
+    </item>
+    <item priority="medium">
+      function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const availabilityConfigRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/availability.ts">
     <item priority="high">
       type SlotsRoute = {
@@ -8999,6 +9026,9 @@
     <item priority="medium">
       function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
     </item>
+    <item priority="medium">
+      function sweepConfigChanges() { /* ... */ }
+    </item>
     <item priority="high">
       interface SectionIds {
         sectionId: string;
@@ -9251,6 +9281,83 @@
   <file path="packages/types/src/schemas/api.ts">
     <item priority="high">
       export const ProblemDetailsSchema: unknown;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/availability-config-api.ts">
+    <item priority="high">
+      export const AvailabilityConfigChangesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SCOPE_CONFLICT_MODES: unknown;
+    </item>
+    <item priority="high">
+      export const ScopeConflictModeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PutAvailabilityConfigBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSourceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigStateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSaveResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangeSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const StrandedReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_PROBLEM_CODES: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigProblemSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_DAYS_MAX_RANGE: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDaysQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDaySummarySchema: unknown;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
+    </item>
+    <item priority="low">
+      type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
+    </item>
+    <item priority="low">
+      type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    </item>
+    <item priority="low">
+      type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
     </item>
   </file>
   <file path="packages/types/src/schemas/availability-config.ts">
@@ -11384,6 +11491,313 @@
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/availability-config-checks.ts">
+    <item priority="low">
+      interface BookedReservation {
+        id: string;
+        tableId: string | null;
+        startTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="high">
+      type StrandReason = StrandedReservation["reason"];
+    </item>
+    <item priority="medium">
+      function strandReason(
+        snapshot: AvailabilitySnapshot,
+        booking: BookedReservation
+      ): StrandReason | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findStrandedReservations(
+        before: AvailabilitySnapshot,
+        after: AvailabilitySnapshot,
+        bookings: readonly BookedReservation[]
+      ): StrandedReservation[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config-plan.ts">
+    <item priority="low">
+      type ConfigTable = keyof AvailabilityConfig;
+    </item>
+    <item priority="high">
+      type Row = AvailabilityConfig[T][number];
+    </item>
+    <item priority="high">
+      type RowsByTable = { [T in ConfigTable]: AvailabilityConfig[T] };
+    </item>
+    <item priority="high">
+      type IdsByTable = Record<ConfigTable, string[]>;
+    </item>
+    <item priority="high">
+      export const CONFIG_TABLES: readonly ConfigTable[];
+    </item>
+    <item priority="high">
+      export const SCOPE_CONFLICT_HORIZON_DAYS: unknown;
+    </item>
+    <item priority="medium">
+      function canonical(value: unknown): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyTable<T extends ConfigTable>(
+        table: T,
+        rows: AvailabilityConfig[T],
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): AvailabilityConfig[T] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyChanges(
+        config: AvailabilityConfig,
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sharedDates(a: DateRule, b: DateRule): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      type Skip = { seriesId: string; date: string };
+    </item>
+    <item priority="medium">
+      function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): Set<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleEditSkips(
+        before: AvailabilityConfig,
+        next: AvailabilityConfig,
+        stored: readonly DateRule[],
+        today: string
+      ): Skip[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveScopeConflicts(
+        before: AvailabilityConfig,
+        next: AvailabilityConfig,
+        mode: ScopeConflictMode,
+        newId: () => string,
+        today: string
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ConfigDiff {
+        create: RowsByTable;
+        update: RowsByTable;
+        remove: IdsByTable;
+      }
+    </item>
+    <item priority="medium">
+      function diffTable<T extends ConfigTable>(
+        stored: AvailabilityConfig[T],
+        next: AvailabilityConfig[T]
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function diffConfig(stored: AvailabilityConfig, next: AvailabilityConfig): ConfigDiff { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ConfigInverse {
+        version: 1;
+        restore: RowsByTable;
+        remove: IdsByTable;
+        operatingHours: unknown;
+      }
+    </item>
+    <item priority="high">
+      export function inverseOf(
+        stored: AvailabilityConfig,
+        diff: ConfigDiff,
+        operatingHours: unknown
+      ): ConfigInverse { /* ... */ }
+    </item>
+    <item priority="high">
+      export function affectedRange(
+        stored: AvailabilityConfig,
+        diff: ConfigDiff,
+        today: string
+      ): { from: string | null; to: string | null } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ReferenceIssue {
+        path: string;
+        code: "unknown_reference" | "id_taken" | "duplicate_row";
+        message: string;
+      }
+    </item>
+    <item priority="high">
+      export function referenceIssues(
+        config: AvailabilityConfig,
+        venueTableIds: ReadonlySet<string>
+      ): ReferenceIssue[] { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config-rows.ts">
+    <item priority="low">
+      type ConfigRowDb = Pick<
+        PrismaClient,
+        | "schedule"
+        | "venueService"
+       ...;
+    </item>
+    <item priority="high">
+      export async function readStoredConfig(
+        db: ConfigRowDb,
+        venueId: string
+      ): Promise<{ config: AvailabilityConfig; warnings: SnapshotWarning[] }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      class ConfigRowConflict {
+        
+      }
+    </item>
+    <item priority="medium">
+      function uniqueViolation(error: unknown): { onId: boolean } | null { /* ... */ }
+    </item>
+    <item priority="low">
+      async function guarded(table: ConfigTable, id: string, write: () => Promise<unknown>) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function writeCreates(
+        db: ConfigRowDb,
+        venueId: string,
+        create: ConfigDiff["create"],
+        actorId: string
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function writeConfigDiff(
+        db: ConfigRowDb,
+        venueId: string,
+        diff: ConfigDiff,
+        context: { actorId: string; now: Date }
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config.ts">
+    <item priority="high">
+      type StoreDb = ConfigRowDb &
+        Pick<PrismaClient, "venue" | "reservation...;
+    </item>
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
+    </item>
+    <item priority="low">
+      interface ConfigState {
+        stored: AvailabilityConfig;
+        effective: AvailabilityConfig;
+        source: AvailabilityConfigSource;
+        legacyNotes?: LegacyNotes;
+        legacyProblem?: { reason: string; detail: string };
+      }
+    </item>
+    <item priority="low">
+      interface LegacyNotes {
+        unreadableDays: string[];
+        coercions: string[];
+      }
+    </item>
+    <item priority="medium">
+      function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function legacyIds(venueId: string): () => string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadConfigState(
+        db: StoreDb,
+        venueId: string,
+        now: Date
+      ): Promise<ConfigState | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readState(client: StoreClient, venueId: string, now: Date): Promise<ConfigState | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getAvailabilityConfig(
+        venueId: string,
+        now: Date,
+        client: StoreClient = prisma
+      ): Promise<{
+        config: AvailabilityConfig;
+        version: number;
+        source: AvailabilityConfigSource;
+        legacyNotes?: LegacyNotes;
+        legacyProblem?: { reason: string; detail: string };
+      } | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listAvailabilityDays(
+        venueId: string,
+        from: string,
+        to: string,
+        now: Date,
+        client: StoreClient = prisma
+      ): Promise<AvailabilityDaySummary[] | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      type SavePlan = { kind: "invalid"; issues: (Co | { kind: "stranded"; reservatio | {
+            kind: "write";
+            n;
+    </item>
+    <item priority="medium">
+      function describeDiff(diff: ConfigDiff): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planSave(input: {
+        state: ConfigState;
+        body: PutAvailabilityConfigBody;
+        bookings: readonly BookedReservation[];
+        /** Every table of the venue, active or not: a date rule may only block these. */
+        tableIds: ReadonlySet<string>;
+        now: Date;
+        newId?: () => string;
+      }): SavePlan { /* ... */ }
+    </item>
+    <item priority="low">
+      type SaveOutcome = { kind: "saved"; version: numb | { kind: "version_conflict"; wi | { kind: "not_found" } | Exclude<SavePlan, { kind: "wri;
+    </item>
+    <item priority="medium">
+      class SaveRefused {
+        
+      }
+    </item>
+    <item priority="low">
+      async function futureBookings(
+        db: StoreDb,
+        venueId: string,
+        today: string,
+        now: Date
+      ): Promise<BookedReservation[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function saveAvailabilityConfig(
+        input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
+        client: StoreClient = prisma
+      ): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const availabilityConfigService: unknown;
+    </item>
+  </file>
   <file path="services/reservations/src/services/availability-migration.ts">
     <item priority="high">
       export const MIGRATION_ACTOR: unknown;
@@ -11537,7 +11951,7 @@
     <item priority="medium">
       function failClosedRule(row: DateRuleRow): DateRule { /* ... */ }
     </item>
-    <item priority="high">
+    <item priority="low">
       interface DateRuleRow {
         id: string;
         kind: string;
@@ -11567,6 +11981,18 @@
     </item>
     <item priority="medium">
       function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ConfigRows {
+        schedules: ScheduleRow[];
+        venueServices: VenueServiceRow[];
+        scheduleServices: ScheduleServiceRow[];
+        assignments: ScheduleAssignmentRow[];
+        dateRules: DateRuleRow[];
+      }
+    </item>
+    <item priority="high">
+      export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="high">
       export async function loadAvailabilitySnapshot(
@@ -11913,10 +12339,10 @@
     <item priority="low">
       interface DomainServices {
         availabilityService: typeof availabilityService;
+        availabilityConfigService: typeof availabilityConfigService;
         venueService: typeof venueService;
         venueGroupService: typeof venueGroupService;
         tableService: typeof tableService;
-        reservationService: typeof reservationService;
       }
     </item>
     <item priority="high">
@@ -16113,6 +16539,9 @@
         endDate: string;
         partySize: number;
       }
+    </item>
+    <item priority="low">
+      type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
     </item>
     <item priority="high">
       class AvailabilityClient {

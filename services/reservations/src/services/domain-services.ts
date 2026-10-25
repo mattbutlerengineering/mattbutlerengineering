@@ -1,4 +1,5 @@
 import { availabilityService } from "./availability.js";
+import { availabilityConfigService } from "./availability-config.js";
 import { venueService, venueGroupService } from "./venue.js";
 import { tableService } from "./table.js";
 import { reservationService } from "./reservation.js";
@@ -34,6 +35,7 @@ import { venueTeamService } from "./venue-team.js";
  */
 export interface DomainServices {
   availabilityService: typeof availabilityService;
+  availabilityConfigService: typeof availabilityConfigService;
   venueService: typeof venueService;
   venueGroupService: typeof venueGroupService;
   tableService: typeof tableService;
@@ -57,6 +59,7 @@ export interface DomainServices {
  */
 export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
   availabilityService,
+  availabilityConfigService,
   venueService,
   venueGroupService,
   tableService,

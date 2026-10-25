@@ -346,6 +346,16 @@ Authenticated (staff): requires a JWT and membership of the `:venueId` venue (AD
 | GET    | `/api/v1/availability/:venueId`       | Get available time slots        |
 | GET    | `/api/v1/availability/:venueId/dates` | Get dates with any availability |
 
+### Availability config
+
+Declared in `@mbe/types` (`availabilityConfigEndpoints`); the store is `src/services/availability-config.ts`. Reads need venue membership; the write needs Manager (`access: "manager"`).
+
+| Method | Path                                     | Description                                                                                                                                |
+| ------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/v1/venues/:id/availability/config` | Config rows, `version` and `source` (`rows`, `legacy`-derived, or `empty`)                                                                 |
+| PUT    | `/api/v1/venues/:id/availability/config` | `{expectedVersion, changes, scopeConflicts}`; 409 `version-conflict` (with `winningChange`), 422 `invalid-config`, 409 `stranded-bookings` |
+| GET    | `/api/v1/venues/:id/availability/days`   | `?from&to` (≤62 days): per-date label, closure bands, service count                                                                        |
+
 ### Holds (authenticated — staff)
 
 All four require a JWT (#4487) and membership of the hold's venue (ADR-020):

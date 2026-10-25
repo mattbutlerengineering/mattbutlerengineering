@@ -16,7 +16,13 @@ import type {
 } from "@mbe/types";
 import { activeHoldWindow, addDays } from "@mbe/availability";
 import type { BookingSnapshot, EngineSettings, ServiceDate } from "@mbe/availability";
-import type { PrismaClient } from "../generated/prisma/index.js";
+import type {
+  PrismaClient,
+  Schedule as ScheduleRow,
+  ScheduleAssignment as ScheduleAssignmentRow,
+  ScheduleService as ScheduleServiceRow,
+  VenueService as VenueServiceRow,
+} from "../generated/prisma/index.js";
 import { planVenueMigration } from "./availability-migration.js";
 import { prisma } from "./database.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
@@ -151,7 +157,7 @@ function failClosedRule(row: DateRuleRow): DateRule {
   };
 }
 
-interface DateRuleRow {
+export interface DateRuleRow {
   id: string;
   kind: string;
   targetKind: string;
@@ -259,6 +265,68 @@ function pickEngineSettings(settings: VenueSettings | null): EngineSettings | nu
   };
 }
 
+export interface ConfigRows {
+  schedules: ScheduleRow[];
+  venueServices: VenueServiceRow[];
+  scheduleServices: ScheduleServiceRow[];
+  assignments: ScheduleAssignmentRow[];
+  dateRules: DateRuleRow[];
+}
+
+/** Parses the five config tables' rows with the `@mbe/types` schemas (see the module doc). */
+export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig {
+  const { schedules, venueServices, scheduleServices, assignments, dateRules } = rows;
+  return {
+    schedules: parseRows<Schedule>(
+      "schedules",
+      ScheduleSchema,
+      schedules.map((r) => ({
+        id: r.id,
+        value: { ...r, archivedAt: toIso(r.archivedAt) },
+      })),
+      warnings
+    ),
+    venueServices: parseRows<VenueService>(
+      "venue_services",
+      VenueServiceSchema,
+      venueServices.map((r) => ({
+        id: r.id,
+        value: { ...r, archivedAt: toIso(r.archivedAt) },
+      })),
+      warnings
+    ),
+    scheduleServices: parseRows<ScheduleService>(
+      "schedule_services",
+      ScheduleServiceSchema,
+      scheduleServices.map((r) => ({ id: r.id, value: r })),
+      warnings
+    ),
+    assignments: parseRows<ScheduleAssignment>(
+      "schedule_assignments",
+      ScheduleAssignmentSchema,
+      assignments.map((r) => ({
+        id: r.id,
+        value: {
+          ...r,
+          startsOn: r.startsOn ? toServiceDate(r.startsOn) : null,
+          endsOn: r.endsOn ? toServiceDate(r.endsOn) : null,
+        },
+      })),
+      warnings
+    ),
+    dateRules: parseRows<DateRule>(
+      "date_rules",
+      DateRuleSchema,
+      dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
+      warnings,
+      (id) => {
+        const row = dateRules.find((r) => r.id === id);
+        return row ? failClosedRule(row) : null;
+      }
+    ),
+  };
+}
+
 export async function loadAvailabilitySnapshot(
   venueId: string,
   fromDate: ServiceDate,
@@ -339,55 +407,10 @@ export async function loadAvailabilitySnapshot(
 
   const warnings: SnapshotWarning[] = [];
 
-  const rowConfig = {
-    schedules: parseRows<Schedule>(
-      "schedules",
-      ScheduleSchema,
-      schedules.map((r) => ({
-        id: r.id,
-        value: { ...r, archivedAt: toIso(r.archivedAt) },
-      })),
-      warnings
-    ),
-    venueServices: parseRows<VenueService>(
-      "venue_services",
-      VenueServiceSchema,
-      venueServices.map((r) => ({
-        id: r.id,
-        value: { ...r, archivedAt: toIso(r.archivedAt) },
-      })),
-      warnings
-    ),
-    scheduleServices: parseRows<ScheduleService>(
-      "schedule_services",
-      ScheduleServiceSchema,
-      scheduleServices.map((r) => ({ id: r.id, value: r })),
-      warnings
-    ),
-    assignments: parseRows<ScheduleAssignment>(
-      "schedule_assignments",
-      ScheduleAssignmentSchema,
-      assignments.map((r) => ({
-        id: r.id,
-        value: {
-          ...r,
-          startsOn: r.startsOn ? toServiceDate(r.startsOn) : null,
-          endsOn: r.endsOn ? toServiceDate(r.endsOn) : null,
-        },
-      })),
-      warnings
-    ),
-    dateRules: parseRows<DateRule>(
-      "date_rules",
-      DateRuleSchema,
-      dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
-      warnings,
-      (id) => {
-        const row = dateRules.find((r) => r.id === id);
-        return row ? failClosedRule(row) : null;
-      }
-    ),
-  };
+  const rowConfig = parseConfigRows(
+    { schedules, venueServices, scheduleServices, assignments, dateRules },
+    warnings
+  );
 
   const { config, source } = effectiveConfig(venueId, rowConfig, venue, now, warnings);
 

@@ -29,7 +29,12 @@ function clock(minute: number): string {
 }
 
 export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyOperatingHours {
-  const regularWeek = config.assignments.filter((a) => !a.startsOn && !a.endsOn);
+  // Archived rows stay in the config (others reference them) but no longer run.
+  const liveSchedules = new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
+  const liveServices = new Set(config.venueServices.filter((s) => !s.archivedAt).map((s) => s.id));
+  const regularWeek = config.assignments.filter(
+    (a) => !a.startsOn && !a.endsOn && liveSchedules.has(a.scheduleId)
+  );
   const dayHours = (day: Weekday): LegacyDayHours => {
     const stored = (WEEKDAYS.indexOf(day) + 1) % 7;
     const covering = regularWeek
@@ -39,7 +44,9 @@ export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyO
         null
       );
     const services = covering
-      ? config.scheduleServices.filter((s) => s.scheduleId === covering.scheduleId)
+      ? config.scheduleServices.filter(
+          (s) => s.scheduleId === covering.scheduleId && liveServices.has(s.venueServiceId)
+        )
       : [];
     if (services.length === 0) return CLOSED_DAY;
     const open = Math.min(...services.map((s) => s.opensAt));

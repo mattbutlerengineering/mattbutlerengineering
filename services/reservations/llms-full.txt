@@ -1975,6 +1975,125 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="src/routes/availability-config.ts">
+    function configProblem(
+      status: 409 | 422,
+      title: string,
+      detail: string,
+      extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
+    ): AvailabilityConfigProblem {
+      return { type: "about:blank", title, status, detail, ...extension };
+    }
+    type ConfigReply = FastifyReply;
+    function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) {
+      switch (outcome.kind) {
+        case "not_found":
+          return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+        case "version_conflict":
+          return reply.code(409).send(
+            configProblem(409, "Conflict", "Availability changed since you loaded it.", {
+              code: "version-conflict",
+              winningChange: outcome.winningChange,
+            })
+          );
+        case "invalid":
+          return reply.code(422).send(
+            configProblem(422, "Unprocessable Entity", "The availability config is not valid.", {
+              code: "invalid-config",
+              issues: outcome.issues,
+            })
+          );
+        case "stranded":
+          return reply
+            .code(409)
+            .send(
+              configProblem(
+                409,
+                "Conflict",
+                "This change affects existing bookings; save it through a closure so each one gets a decision.",
+                { code: "stranded-bookings", reservations: outcome.reservations }
+              )
+            );
+      }
+    }
+    export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
+      const { availabilityConfigService } = fastify.services;
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.getConfig, {
+        docs: {
+          summary: "Get a venue's availability config",
+          operationId: "getAvailabilityConfig",
+          description:
+            "Schedules, services, assignments and date rules, with the version a save must send back. A venue with no rows yet is served its config derived from the legacy operating hours (`source: legacy`).",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (_request, reply, { venueId }) => {
+          const state = await availabilityConfigService.get(venueId, new Date());
+          if (!state) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          return { data: state };
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.putConfig, {
+        docs: {
+          summary: "Save availability config changes",
+          operationId: "putAvailabilityConfig",
+          description:
+            "Applies row upserts and removals with an `expectedVersion` compare-and-set. Requires a Manager (owner or manager) membership, or the admin role.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          { ...VENUE_FROM_ID, access: "manager" },
+          async (request, reply, { venueId }) => {
+            const outcome = await availabilityConfigService.save({
+              venueId,
+              actorId: request.user?.id ?? "unknown",
+              body: request.body,
+              now: new Date(),
+            });
+            if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+            return { data: { version: outcome.version, changeId: outcome.changeId } };
+          }
+        ),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.listDays, {
+        docs: {
+          summary: "List resolved availability days",
+          operationId: "listAvailabilityDays",
+          description: `One calendar summary (label, closure bands, service count) per service date from \`from\` to \`to\` inclusive, at most ${AVAILABILITY_DAYS_MAX_RANGE} days.`,
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId }) => {
+          const { from, to } = request.query;
+          if (to < from || addDays(from, AVAILABILITY_DAYS_MAX_RANGE - 1) < to) {
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  `\`to\` must be on or after \`from\`, at most ${AVAILABILITY_DAYS_MAX_RANGE} days in all.`
+                )
+              );
+          }
+          const days = await availabilityConfigService.listDays(venueId, from, to, new Date());
+          if (!days) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          return { data: days };
+        }),
+      });
+    };
+  </file>
   <file path="src/routes/availability.ts">
     type SlotsRoute = {
       Params: { venueId: string };
@@ -7088,6 +7207,32 @@
         );
       });
     }
+    function sweepConfigChanges() {
+      const id = (row: string) => `rls-sweep-${row}-${randomUUID()}`;
+      const [schedule, service] = [id("sch"), id("vs")];
+      return {
+        upsert: {
+          schedules: [{ id: schedule, name: "Regular", kind: "regular", isRegular: true }],
+          venueServices: [{ id: service, name: "Dinner", position: 0 }],
+          scheduleServices: [
+            {
+              id: id("ss"),
+              scheduleId: schedule,
+              venueServiceId: service,
+              opensAt: 1020,
+              lastSeatingAt: 1260,
+              closesAt: 1320,
+              seating: { version: 1, interval: 15 },
+              bookingTypes: ["online", "phone"],
+            },
+          ],
+          assignments: [
+            { id: id("as"), scheduleId: schedule, weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+          ],
+        },
+        remove: {},
+      };
+    }
     interface SectionIds {
       sectionId: string;
       floorPlanId: string;
@@ -9395,6 +9540,834 @@
       await tx.$executeRawUnsafe(appRoleSetStatement());
     }
   </file>
+  <file path="src/services/availability-config-checks.ts">
+    export interface BookedReservation {
+      id: string;
+      tableId: string | null;
+      startTime: Date;
+      partySize: number;
+    }
+    type StrandReason = StrandedReservation["reason"];
+    function strandReason(
+      snapshot: AvailabilitySnapshot,
+      booking: BookedReservation
+    ): StrandReason | null {
+      // No inventory or other bookings: this asks only "is this time still served?",
+      // so a conflict (no free table) is never mistaken for a stranding.
+      const bare: BookingSnapshot = {
+        ...snapshot,
+        tables: [],
+        reservations: [],
+        holds: [],
+        settings: null,
+      };
+      const verdict: Verdict = judge(
+        bare,
+        {
+          start: booking.startTime,
+          partySize: booking.partySize,
+          channel: "phone",
+          ...(booking.tableId ? { tableId: booking.tableId } : {}),
+        },
+        booking.startTime
+      );
+      return verdict.kind === "hard" && STRANDING.has(verdict.reason)
+        ? (verdict.reason as StrandReason)
+        : null;
+    }
+    export function findStrandedReservations(
+      before: AvailabilitySnapshot,
+      after: AvailabilitySnapshot,
+      bookings: readonly BookedReservation[]
+    ): StrandedReservation[] {
+      return bookings.flatMap((booking) => {
+        const reason = strandReason(after, booking);
+        if (reason === null || strandReason(before, booking) !== null) return [];
+        return [
+          {
+            id: booking.id,
+            startTime: booking.startTime.toISOString(),
+            partySize: booking.partySize,
+            reason,
+          },
+        ];
+      });
+    }
+    function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+      const closedAllDay = day.closures.some(
+        (c) => c.targetKind === "venue" && c.from <= 0 && c.to >= WHOLE_DAY_MINUTES
+      );
+      if (closedAllDay || day.services.length === 0) return "Closed";
+      if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
+      return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
+    }
+    export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary {
+      return {
+        serviceDate: day.serviceDate,
+        label: dayLabel(config, day),
+        scheduleId: day.scheduleId,
+        serviceCount: day.services.length,
+        closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+          ruleId,
+          targetKind,
+          from,
+          to,
+        })),
+        bookingOpen: day.bookingOpen,
+        ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
+      };
+    }
+  </file>
+  <file path="src/services/availability-config-plan.ts">
+    export type ConfigTable = keyof AvailabilityConfig;
+    type Row<T extends ConfigTable> = AvailabilityConfig[T][number];
+    type RowsByTable = { [T in ConfigTable]: AvailabilityConfig[T] };
+    type IdsByTable = Record<ConfigTable, string[]>;
+    export const CONFIG_TABLES: readonly ConfigTable[] = [
+      "schedules",
+      "venueServices",
+      "scheduleServices",
+      "assignments",
+      "dateRules",
+    ];
+    export const SCOPE_CONFLICT_HORIZON_DAYS = 366;
+    function canonical(value: unknown): string {
+      if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+      if (value !== null && typeof value === "object") {
+        const entries = Object.entries(value as Record<string, unknown>)
+          .filter(([, v]) => v !== undefined && v !== null)
+          .sort(([a], [b]) => a.localeCompare(b));
+        return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
+      }
+      return JSON.stringify(value);
+    }
+    function applyTable<T extends ConfigTable>(
+      table: T,
+      rows: AvailabilityConfig[T],
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig[T] {
+      const upserts = (changes.upsert[table] ?? []) as Row<T>[];
+      const removed = new Set(changes.remove[table] ?? []);
+      const byId = new Map(upserts.map((r) => [r.id, r]));
+      const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
+        const replaced = byId.get(row.id) ?? row;
+        if (!removed.has(row.id)) return [replaced];
+        return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
+      });
+      const known = new Set((rows as Row<T>[]).map((r) => r.id));
+      const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
+      return [...kept, ...added] as AvailabilityConfig[T];
+    }
+    export function applyChanges(
+      config: AvailabilityConfig,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig {
+      return {
+        schedules: applyTable("schedules", config.schedules, changes, nowIso),
+        venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
+        scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
+        assignments: applyTable("assignments", config.assignments, changes, nowIso),
+        dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
+      };
+    }
+    function coversDate(rule: DateRule, date: string): boolean {
+      return (
+        rule.startsOn <= date &&
+        (rule.endsOn == null || date <= rule.endsOn) &&
+        (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date)))
+      );
+    }
+    function sharedDates(a: DateRule, b: DateRule): string[] {
+      const from = a.startsOn > b.startsOn ? a.startsOn : b.startsOn;
+      const ends = [a.endsOn, b.endsOn, addDays(from, SCOPE_CONFLICT_HORIZON_DAYS - 1)];
+      const to = ends.filter((d): d is string => d != null).sort()[0]!;
+      const dates: string[] = [];
+      for (let d = from; d <= to; d = addDays(d, 1)) {
+        if (coversDate(a, d) && coversDate(b, d)) dates.push(d);
+      }
+      return dates;
+    }
+    type Skip = { seriesId: string; date: string };
+    function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): Set<string> {
+      const touched = new Set<string>();
+      for (const table of ["scheduleServices", "assignments"] as const) {
+        const was = new Map(before[table].map((r) => [r.id, r]));
+        const now = new Map(next[table].map((r) => [r.id, r]));
+        for (const id of new Set([...was.keys(), ...now.keys()])) {
+          const [a, b] = [was.get(id), now.get(id)];
+          if (a && b && sameRow(a, b)) continue;
+          if (a) touched.add(a.scheduleId);
+          if (b) touched.add(b.scheduleId);
+        }
+      }
+      return touched;
+    }
+    function scheduleEditSkips(
+      before: AvailabilityConfig,
+      next: AvailabilityConfig,
+      stored: readonly DateRule[],
+      today: string
+    ): Skip[] {
+      const edited = editedSchedules(before, next);
+      if (edited.size === 0 || stored.length === 0) return [];
+      // The week alone decides which schedule a date runs; date rules are set aside.
+      // Resolved once per date of the window (2 x 366 calls whatever the rule
+      // count): this runs inside the save transaction, with the venue row locked.
+      const weeks = [before, next].map((config) => ({
+        timezone: "UTC",
+        config: { ...config, dateRules: [] },
+      }));
+      const last = addDays(today, SCOPE_CONFLICT_HORIZON_DAYS - 1);
+      const inScope = new Set<string>();
+      for (let d = today; d <= last; d = addDays(d, 1)) {
+        const date = d;
+        const ids = weeks.map((w) => resolveDay(w, date).scheduleId);
+        if (ids.some((id) => id != null && edited.has(id))) inScope.add(date);
+      }
+      return stored.flatMap((rule) => {
+        const from = rule.startsOn > today ? rule.startsOn : today;
+        const to = rule.endsOn != null && rule.endsOn < last ? rule.endsOn : last;
+        const skips: Skip[] = [];
+        for (let d = from; d <= to; d = addDays(d, 1)) {
+          if (inScope.has(d) && coversDate(rule, d)) skips.push({ seriesId: rule.id, date: d });
+        }
+        return skips;
+      });
+    }
+    export function resolveScopeConflicts(
+      before: AvailabilityConfig,
+      next: AvailabilityConfig,
+      mode: ScopeConflictMode,
+      newId: () => string,
+      today: string
+    ): AvailabilityConfig {
+      const stored = new Map(before.dateRules.map((r) => [r.id, r]));
+      const hours = next.dateRules.filter(isHoursRule);
+      const incoming = hours.filter((r) => !stored.has(r.id) || !sameRow(stored.get(r.id), r));
+      const untouched = hours.filter((r) => stored.has(r.id) && sameRow(stored.get(r.id), r));
+      const skipped = new Set(
+        next.dateRules.filter((r) => r.kind === "skip").map((r) => `${r.seriesId}@${r.startsOn}`)
+      );
+    
+      const skips: Skip[] = [
+        ...incoming.flatMap((rule) =>
+          untouched.flatMap((theirs) =>
+            sharedDates(rule, theirs).map((date) => ({
+              seriesId: mode === "keep" ? rule.id : theirs.id,
+              date,
+            }))
+          )
+        ),
+        ...(mode === "replace" ? scheduleEditSkips(before, next, untouched, today) : []),
+      ];
+      const fresh = skips.filter(({ seriesId, date }) => {
+        const key = `${seriesId}@${date}`;
+        if (skipped.has(key)) return false;
+        skipped.add(key);
+        return true;
+      });
+      if (fresh.length === 0) return next;
+      const rows: DateRule[] = fresh.map(({ seriesId, date }) => ({
+        id: newId(),
+        kind: "skip",
+        targetKind: "venue",
+        startsOn: date,
+        endsOn: date,
+        seriesId,
+      }));
+      return { ...next, dateRules: [...next.dateRules, ...rows] };
+    }
+    export interface ConfigDiff {
+      create: RowsByTable;
+      update: RowsByTable;
+      /** Ids no longer in the next config; only schedule services, assignments and date rules. */
+      remove: IdsByTable;
+    }
+    function diffTable<T extends ConfigTable>(
+      stored: AvailabilityConfig[T],
+      next: AvailabilityConfig[T]
+    ) {
+      const before = new Map((stored as Row<T>[]).map((r) => [r.id, r]));
+      const after = new Set((next as Row<T>[]).map((r) => r.id));
+      const nextRows = next as Row<T>[];
+      return {
+        create: nextRows.filter((r) => !before.has(r.id)) as AvailabilityConfig[T],
+        update: nextRows.filter(
+          (r) => before.has(r.id) && !sameRow(before.get(r.id), r)
+        ) as AvailabilityConfig[T],
+        remove: (stored as Row<T>[]).filter((r) => !after.has(r.id)).map((r) => r.id),
+      };
+    }
+    export function diffConfig(stored: AvailabilityConfig, next: AvailabilityConfig): ConfigDiff {
+      const tables = Object.fromEntries(
+        CONFIG_TABLES.map((t) => [t, diffTable(stored[t], next[t])])
+      ) as { [T in ConfigTable]: ReturnType<typeof diffTable<T>> };
+      for (const table of ARCHIVED_ON_REMOVE) {
+        // Invariant: applyChanges archives these instead of dropping them.
+        if (tables[table].remove.length > 0) throw new Error(`${table} rows cannot be dropped`);
+      }
+      const pick = <K extends "create" | "update" | "remove">(k: K) =>
+        Object.fromEntries(CONFIG_TABLES.map((t) => [t, tables[t][k]]));
+      return {
+        create: pick("create") as RowsByTable,
+        update: pick("update") as RowsByTable,
+        remove: pick("remove") as IdsByTable,
+      };
+    }
+    export interface ConfigInverse {
+      version: 1;
+      restore: RowsByTable;
+      remove: IdsByTable;
+      operatingHours: unknown;
+    }
+    export function inverseOf(
+      stored: AvailabilityConfig,
+      diff: ConfigDiff,
+      operatingHours: unknown
+    ): ConfigInverse {
+      const restore = Object.fromEntries(
+        CONFIG_TABLES.map((t) => {
+          const touched = new Set([
+            ...(diff.update[t] as { id: string }[]).map((r) => r.id),
+            ...diff.remove[t],
+          ]);
+          return [t, (stored[t] as { id: string }[]).filter((r) => touched.has(r.id))];
+        })
+      ) as RowsByTable;
+      const remove = Object.fromEntries(
+        CONFIG_TABLES.map((t) => [t, (diff.create[t] as { id: string }[]).map((r) => r.id)])
+      ) as IdsByTable;
+      return { version: 1, restore, remove, operatingHours: operatingHours ?? null };
+    }
+    export function affectedRange(
+      stored: AvailabilityConfig,
+      diff: ConfigDiff,
+      today: string
+    ): { from: string | null; to: string | null } {
+      const weekTouched = CONFIG_TABLES.filter((t) => t !== "dateRules").some(
+        (t) => diff.create[t].length + diff.update[t].length + diff.remove[t].length > 0
+      );
+      if (weekTouched) return { from: today, to: null };
+      const removed = new Set(diff.remove.dateRules);
+      const updated = new Set(diff.update.dateRules.map((r) => r.id));
+      const rules = [
+        ...diff.create.dateRules,
+        ...diff.update.dateRules,
+        ...stored.dateRules.filter((r) => removed.has(r.id) || updated.has(r.id)),
+      ];
+      if (rules.length === 0) return { from: null, to: null };
+      const from = rules.map((r) => r.startsOn).sort()[0]!;
+      const to = rules.some((r) => r.endsOn == null)
+        ? null
+        : rules
+            .map((r) => r.endsOn as string)
+            .sort()
+            .at(-1)!;
+      return { from, to };
+    }
+    export interface ReferenceIssue {
+      path: string;
+      code: "unknown_reference" | "id_taken" | "duplicate_row";
+      message: string;
+    }
+    export function referenceIssues(
+      config: AvailabilityConfig,
+      venueTableIds: ReadonlySet<string>
+    ): ReferenceIssue[] {
+      const schedules = new Set(config.schedules.map((s) => s.id));
+      const services = new Set(config.venueServices.map((s) => s.id));
+      const check = (path: string, id: string, known: ReadonlySet<string>): ReferenceIssue[] =>
+        known.has(id)
+          ? []
+          : [{ path, code: "unknown_reference", message: "Refers to a row this venue does not have." }];
+    
+      return [
+        ...config.scheduleServices.flatMap((s, i) => [
+          ...check(`scheduleServices[${i}].scheduleId`, s.scheduleId, schedules),
+          ...check(`scheduleServices[${i}].venueServiceId`, s.venueServiceId, services),
+        ]),
+        ...config.assignments.flatMap((a, i) =>
+          check(`assignments[${i}].scheduleId`, a.scheduleId, schedules)
+        ),
+        ...config.dateRules.flatMap((r, i) => [
+          ...(r.venueServiceId
+            ? check(`dateRules[${i}].venueServiceId`, r.venueServiceId, services)
+            : []),
+          ...(r.kind === "use_schedule"
+            ? check(`dateRules[${i}].useScheduleId`, r.useScheduleId, schedules)
+            : []),
+          ...(r.kind === "special_hours"
+            ? r.payload.services.flatMap((s, j) =>
+                check(
+                  `dateRules[${i}].payload.services[${j}].venueServiceId`,
+                  s.venueServiceId,
+                  services
+                )
+              )
+            : []),
+          ...(r.tableIds ?? []).flatMap((t, k) =>
+            check(`dateRules[${i}].tableIds[${k}]`, t, venueTableIds)
+          ),
+        ]),
+      ];
+    }
+  </file>
+  <file path="src/services/availability-config-rows.ts">
+    export type ConfigRowDb = Pick<
+      PrismaClient,
+      | "schedule"
+      | "venueService"
+      | "scheduleService"
+      | "scheduleAssignment"
+      | "dateRule"
+      | "dateRuleTable"
+    >;
+    export async function readStoredConfig(
+      db: ConfigRowDb,
+      venueId: string
+    ): Promise<{ config: AvailabilityConfig; warnings: SnapshotWarning[] }> {
+      const [schedules, venueServices, scheduleServices, assignments, dateRules] = await Promise.all([
+        db.schedule.findMany({ where: { venueId } }),
+        db.venueService.findMany({ where: { venueId }, orderBy: { position: "asc" } }),
+        db.scheduleService.findMany({ where: { venueId } }),
+        db.scheduleAssignment.findMany({ where: { venueId } }),
+        db.dateRule.findMany({
+          where: { venueId, deletedAt: null },
+          orderBy: { createdAt: "asc" },
+          include: { tables: { select: { tableId: true } } },
+        }),
+      ]);
+      const warnings: SnapshotWarning[] = [];
+      const config = parseConfigRows(
+        { schedules, venueServices, scheduleServices, assignments, dateRules },
+        warnings
+      );
+      return { config, warnings };
+    }
+    async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule): Promise<void> {
+      const tableIds = rule.tableIds ?? [];
+      if (tableIds.length === 0) return;
+      await db.dateRuleTable.createMany({
+        data: tableIds.map((tableId) => ({ dateRuleId: rule.id, tableId, venueId })),
+      });
+    }
+    export class ConfigRowConflict extends Error {
+      constructor(
+        readonly table: ConfigTable,
+        readonly id: string,
+        /** The primary key collided, rather than another unique index. */
+        readonly onId: boolean
+      ) {
+        super(`${table} ${id}: unique constraint`);
+        this.name = "ConfigRowConflict";
+      }
+    }
+    function uniqueViolation(error: unknown): { onId: boolean } | null {
+      if (typeof error !== "object" || error === null) return null;
+      if ((error as { code?: unknown }).code !== "P2002") return null;
+      const meta = JSON.stringify((error as { meta?: unknown }).meta ?? {});
+      return { onId: /"id"|_pkey/.test(meta) };
+    }
+    async function guarded(table: ConfigTable, id: string, write: () => Promise<unknown>) {
+      try {
+        await write();
+      } catch (error) {
+        const violation = uniqueViolation(error);
+        if (violation) throw new ConfigRowConflict(table, id, violation.onId);
+        throw error;
+      }
+    }
+    async function writeCreates(
+      db: ConfigRowDb,
+      venueId: string,
+      create: ConfigDiff["create"],
+      actorId: string
+    ): Promise<void> {
+      for (const s of create.schedules) {
+        await guarded("schedules", s.id, () =>
+          db.schedule.create({ data: { id: s.id, venueId, ...scheduleData(s) } })
+        );
+      }
+      for (const s of create.venueServices) {
+        await guarded("venueServices", s.id, () =>
+          db.venueService.create({ data: { id: s.id, venueId, ...venueServiceData(s) } })
+        );
+      }
+      for (const s of create.scheduleServices) {
+        await guarded("scheduleServices", s.id, () =>
+          db.scheduleService.create({ data: { id: s.id, venueId, ...scheduleServiceData(s) } })
+        );
+      }
+      for (const a of create.assignments) {
+        await guarded("assignments", a.id, () =>
+          db.scheduleAssignment.create({ data: { id: a.id, venueId, ...assignmentData(a) } })
+        );
+      }
+      for (const r of create.dateRules) {
+        await guarded("dateRules", r.id, () =>
+          db.dateRule.create({ data: { id: r.id, venueId, createdBy: actorId, ...dateRuleData(r) } })
+        );
+        await writeRuleTables(db, venueId, r);
+      }
+    }
+    export async function writeConfigDiff(
+      db: ConfigRowDb,
+      venueId: string,
+      diff: ConfigDiff,
+      context: { actorId: string; now: Date }
+    ): Promise<void> {
+      const { create, update, remove } = diff;
+      const demotionsFirst = [...update.schedules].sort(
+        (a, b) => Number(a.isRegular) - Number(b.isRegular)
+      );
+      for (const s of demotionsFirst) {
+        await guarded("schedules", s.id, () =>
+          db.schedule.update({ where: { id: s.id }, data: scheduleData(s) })
+        );
+      }
+      for (const s of update.venueServices) {
+        await db.venueService.update({ where: { id: s.id }, data: venueServiceData(s) });
+      }
+    
+      const inVenue = (ids: string[]) => ({ venueId, id: { in: ids } });
+      if (remove.scheduleServices.length > 0) {
+        await db.scheduleService.deleteMany({ where: inVenue(remove.scheduleServices) });
+      }
+      if (remove.assignments.length > 0) {
+        await db.scheduleAssignment.deleteMany({ where: inVenue(remove.assignments) });
+      }
+      if (remove.dateRules.length > 0) {
+        await db.dateRule.updateMany({
+          where: inVenue(remove.dateRules),
+          data: { deletedAt: context.now },
+        });
+      }
+    
+      await writeCreates(db, venueId, create, context.actorId);
+    
+      for (const s of update.scheduleServices) {
+        await guarded("scheduleServices", s.id, () =>
+          db.scheduleService.update({ where: { id: s.id }, data: scheduleServiceData(s) })
+        );
+      }
+      for (const a of update.assignments) {
+        await db.scheduleAssignment.update({ where: { id: a.id }, data: assignmentData(a) });
+      }
+      for (const r of update.dateRules) {
+        await db.dateRule.update({ where: { id: r.id }, data: dateRuleData(r) });
+        await db.dateRuleTable.deleteMany({ where: { venueId, dateRuleId: r.id } });
+        await writeRuleTables(db, venueId, r);
+      }
+    }
+  </file>
+  <file path="src/services/availability-config.ts">
+    type StoreDb = ConfigRowDb &
+      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+    type StoreClient = Pick<PrismaClient, "$transaction">;
+    export interface ConfigState {
+      /** The rows as stored (empty for a venue with none). */
+      stored: AvailabilityConfig;
+      /** What the venue runs on: the rows, or the legacy-derived config. */
+      effective: AvailabilityConfig;
+      source: AvailabilityConfigSource;
+      /** `legacy` only: days the lenient reader closed, and values it coerced. */
+      legacyNotes?: LegacyNotes;
+      /** `unreadable` only: why even the lenient reader could not read the hours. */
+      legacyProblem?: { reason: string; detail: string };
+      version: number;
+      timezone: string;
+      operatingHours: unknown;
+    }
+    export interface LegacyNotes {
+      unreadableDays: string[];
+      coercions: string[];
+    }
+    function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
+      return {
+        schedules: [...legacy.schedules, ...stored.schedules],
+        venueServices: [...legacy.venueServices, ...stored.venueServices],
+        scheduleServices: [...legacy.scheduleServices, ...stored.scheduleServices],
+        assignments: [...legacy.assignments, ...stored.assignments],
+        dateRules: [...legacy.dateRules, ...stored.dateRules],
+      };
+    }
+    function legacyIds(venueId: string): () => string {
+      let n = 0;
+      return () => `${venueId}-legacy-${++n}`;
+    }
+    export async function loadConfigState(
+      db: StoreDb,
+      venueId: string,
+      now: Date
+    ): Promise<ConfigState | null> {
+      const [venue, stored] = await Promise.all([
+        db.venue.findUnique({
+          where: { id: venueId },
+          select: {
+            ianaTimezone: true,
+            settings: true,
+            operatingHours: true,
+            availabilityVersion: true,
+          },
+        }),
+        readStoredConfig(db, venueId),
+      ]);
+      if (!venue) return null;
+      const base = {
+        stored: stored.config,
+        version: venue.availabilityVersion,
+        timezone: venue.ianaTimezone,
+        operatingHours: venue.operatingHours,
+      };
+      // The same choice, and the same lenient read, as the live listing's
+      // snapshot loader, so the editor and the stranded check both start from
+      // what guests see.
+      if (hasRegularSchedule(stored.config)) {
+        return { ...base, effective: stored.config, source: "rows" };
+      }
+      const plan = planVenueMigration(venue, now, legacyIds(venueId), { lenient: true });
+      if (plan.kind === "migrate") {
+        const { unreadableDays = [], coercions = [] } = plan.notes;
+        const notes = unreadableDays.length + coercions.length > 0;
+        return {
+          ...base,
+          effective: withStored(plan.config, stored.config),
+          source: "legacy",
+          ...(notes ? { legacyNotes: { unreadableDays, coercions } } : {}),
+        };
+      }
+      if (plan.reason === "no_hours") return { ...base, effective: stored.config, source: "empty" };
+      // Not even the lenient reader can read it, and the listing serves it as
+      // closed too: the editor starts from that, and says why.
+      return {
+        ...base,
+        effective: stored.config,
+        source: "unreadable",
+        legacyProblem: { reason: plan.reason, detail: plan.detail },
+      };
+    }
+    function readState(client: StoreClient, venueId: string, now: Date): Promise<ConfigState | null> {
+      return client.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return loadConfigState(tx, venueId, now);
+      });
+    }
+    export async function getAvailabilityConfig(
+      venueId: string,
+      now: Date,
+      client: StoreClient = prisma
+    ): Promise<{
+      config: AvailabilityConfig;
+      version: number;
+      source: AvailabilityConfigSource;
+      legacyNotes?: LegacyNotes;
+      legacyProblem?: { reason: string; detail: string };
+    } | null> {
+      const state = await readState(client, venueId, now);
+      if (!state) return null;
+      const { effective: config, version, source, legacyNotes, legacyProblem } = state;
+      return {
+        config,
+        version,
+        source,
+        ...(legacyNotes ? { legacyNotes } : {}),
+        ...(legacyProblem ? { legacyProblem } : {}),
+      };
+    }
+    export async function listAvailabilityDays(
+      venueId: string,
+      from: string,
+      to: string,
+      now: Date,
+      client: StoreClient = prisma
+    ): Promise<AvailabilityDaySummary[] | null> {
+      const state = await readState(client, venueId, now);
+      if (!state) return null;
+      const snapshot = { timezone: state.timezone, config: state.effective };
+      const days: AvailabilityDaySummary[] = [];
+      for (let date = from; date <= to; date = addDays(date, 1)) {
+        days.push(summarizeDay(state.effective, resolveDay(snapshot, date)));
+      }
+      return days;
+    }
+    export type SavePlan =
+      | { kind: "invalid"; issues: (ConfigIssue | ReferenceIssue)[] }
+      | { kind: "stranded"; reservations: StrandedReservation[] }
+      | {
+          kind: "write";
+          next: AvailabilityConfig;
+          diff: ConfigDiff;
+          inverse: ConfigInverse;
+          range: { from: string | null; to: string | null };
+          summary: string;
+        };
+    function describeDiff(diff: ConfigDiff): string {
+      const count = (part: Record<string, unknown[]>) =>
+        Object.values(part).reduce((n, rows) => n + rows.length, 0);
+      return `Availability updated: ${count(diff.create)} added, ${count(diff.update)} changed, ${count(diff.remove)} removed`;
+    }
+    export function planSave(input: {
+      state: ConfigState;
+      body: PutAvailabilityConfigBody;
+      bookings: readonly BookedReservation[];
+      /** Every table of the venue, active or not: a date rule may only block these. */
+      tableIds: ReadonlySet<string>;
+      now: Date;
+      newId?: () => string;
+    }): SavePlan {
+      const { state, body, bookings, now } = input;
+      const applied = applyChanges(state.effective, body.changes, now.toISOString());
+      const next = resolveScopeConflicts(
+        state.effective,
+        applied,
+        body.scopeConflicts,
+        input.newId ?? randomUUID,
+        civilDateIn(now, state.timezone)
+      );
+      const issues = [...validateConfig(next), ...referenceIssues(next, input.tableIds)];
+      if (issues.length > 0) return { kind: "invalid", issues };
+    
+      const reservations = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: next },
+        bookings
+      );
+      if (reservations.length > 0) return { kind: "stranded", reservations };
+    
+      const diff = diffConfig(state.stored, next);
+      return {
+        kind: "write",
+        next,
+        diff,
+        inverse: inverseOf(state.stored, diff, state.operatingHours),
+        range: affectedRange(state.stored, diff, civilDateIn(now, state.timezone)),
+        summary: describeDiff(diff),
+      };
+    }
+    export type SaveOutcome =
+      | { kind: "saved"; version: number; changeId: string }
+      | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
+      | { kind: "not_found" }
+      | Exclude<SavePlan, { kind: "write" }>;
+    class SaveRefused extends Error {
+      constructor(readonly outcome: SaveOutcome) {
+        super(outcome.kind);
+      }
+    }
+    async function futureBookings(
+      db: StoreDb,
+      venueId: string,
+      today: string,
+      now: Date
+    ): Promise<BookedReservation[]> {
+      return db.reservation.findMany({
+        where: {
+          venueId,
+          // From yesterday's service day: a service running past midnight is still
+          // yesterday's (ADR-029), and `startTime >= now` keeps the scan to the future.
+          date: { gte: new Date(`${addDays(today, -1)}T00:00:00.000Z`) },
+          startTime: { gte: now },
+          status: { notIn: [...NOT_BOOKED_STATUSES] },
+        },
+        select: { id: true, tableId: true, startTime: true, partySize: true },
+      });
+    }
+    async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
+      const exists = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+      if (!exists) return { kind: "not_found" };
+      const winner = await db.availabilityChange.findFirst({
+        where: { venueId },
+        orderBy: { at: "desc" },
+        select: { id: true, actorId: true, at: true, kind: true, summary: true },
+      });
+      return {
+        kind: "version_conflict",
+        winningChange: winner && { ...winner, at: winner.at.toISOString() },
+      };
+    }
+    function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome {
+      const index = (next[error.table] as { id: string }[]).findIndex((r) => r.id === error.id);
+      return {
+        kind: "invalid",
+        issues: [
+          error.onId
+            ? {
+                path: `${error.table}[${index}].id`,
+                code: "id_taken",
+                message: "This id is already used; choose another.",
+              }
+            : {
+                path: `${error.table}[${index}]`,
+                code: "duplicate_row",
+                message: "Another row already has these values.",
+              },
+        ],
+      };
+    }
+    export async function saveAvailabilityConfig(
+      input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
+      client: StoreClient = prisma
+    ): Promise<SaveOutcome> {
+      const { venueId, actorId, body, now } = input;
+      try {
+        return await client.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          // Compare-and-set first: it takes the venue row lock, so concurrent
+          // saves serialize here and a stale one never reads past this point.
+          const cas = await tx.venue.updateMany({
+            where: { id: venueId, availabilityVersion: body.expectedVersion },
+            data: { availabilityVersion: { increment: 1 } },
+          });
+          if (cas.count === 0) return refuseStale(tx, venueId);
+    
+          const state = await loadConfigState(tx, venueId, now);
+          if (!state) throw new SaveRefused({ kind: "not_found" });
+          const today = civilDateIn(now, state.timezone);
+          const [bookings, tables] = await Promise.all([
+            futureBookings(tx, venueId, today, now),
+            tx.table.findMany({ where: { venueId }, select: { id: true } }),
+          ]);
+          const tableIds = new Set(tables.map((t) => t.id));
+          const plan = planSave({ state, body, bookings, tableIds, now });
+          if (plan.kind !== "write") throw new SaveRefused(plan);
+    
+          await writeConfigDiff(tx, venueId, plan.diff, { actorId, now }).catch((error: unknown) => {
+            throw error instanceof ConfigRowConflict
+              ? new SaveRefused(conflictIssue(error, plan.next))
+              : error;
+          });
+          const change = await tx.availabilityChange.create({
+            data: {
+              venueId,
+              actorId,
+              at: now,
+              kind: "config",
+              summary: plan.summary,
+              affectedFrom: toDbDate(plan.range.from),
+              affectedTo: toDbDate(plan.range.to),
+              inverse: plan.inverse as unknown as Prisma.InputJsonValue,
+            },
+            select: { id: true },
+          });
+          await tx.venue.update({
+            where: { id: venueId },
+            data: { operatingHours: projectLegacyOperatingHours(plan.next) },
+          });
+          return { kind: "saved" as const, version: body.expectedVersion + 1, changeId: change.id };
+        });
+      } catch (error) {
+        if (error instanceof SaveRefused) return error.outcome;
+        throw error;
+      }
+    }
+    export const availabilityConfigService = {
+      get: getAvailabilityConfig,
+      listDays: listAvailabilityDays,
+      save: saveAvailabilityConfig,
+    };
+  </file>
   <file path="src/services/availability-migration.ts">
     export const MIGRATION_ACTOR = "system:availability-legacy-migration";
     export interface VenueForMigration {
@@ -9717,7 +10690,7 @@
         guestMessage: row.guestMessage,
       };
     }
-    interface DateRuleRow {
+    export interface DateRuleRow {
       id: string;
       kind: string;
       targetKind: string;
@@ -9816,6 +10789,65 @@
         maxPartySize,
       };
     }
+    export interface ConfigRows {
+      schedules: ScheduleRow[];
+      venueServices: VenueServiceRow[];
+      scheduleServices: ScheduleServiceRow[];
+      assignments: ScheduleAssignmentRow[];
+      dateRules: DateRuleRow[];
+    }
+    export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig {
+      const { schedules, venueServices, scheduleServices, assignments, dateRules } = rows;
+      return {
+        schedules: parseRows<Schedule>(
+          "schedules",
+          ScheduleSchema,
+          schedules.map((r) => ({
+            id: r.id,
+            value: { ...r, archivedAt: toIso(r.archivedAt) },
+          })),
+          warnings
+        ),
+        venueServices: parseRows<VenueService>(
+          "venue_services",
+          VenueServiceSchema,
+          venueServices.map((r) => ({
+            id: r.id,
+            value: { ...r, archivedAt: toIso(r.archivedAt) },
+          })),
+          warnings
+        ),
+        scheduleServices: parseRows<ScheduleService>(
+          "schedule_services",
+          ScheduleServiceSchema,
+          scheduleServices.map((r) => ({ id: r.id, value: r })),
+          warnings
+        ),
+        assignments: parseRows<ScheduleAssignment>(
+          "schedule_assignments",
+          ScheduleAssignmentSchema,
+          assignments.map((r) => ({
+            id: r.id,
+            value: {
+              ...r,
+              startsOn: r.startsOn ? toServiceDate(r.startsOn) : null,
+              endsOn: r.endsOn ? toServiceDate(r.endsOn) : null,
+            },
+          })),
+          warnings
+        ),
+        dateRules: parseRows<DateRule>(
+          "date_rules",
+          DateRuleSchema,
+          dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
+          warnings,
+          (id) => {
+            const row = dateRules.find((r) => r.id === id);
+            return row ? failClosedRule(row) : null;
+          }
+        ),
+      };
+    }
     export async function loadAvailabilitySnapshot(
       venueId: string,
       fromDate: ServiceDate,
@@ -9896,55 +10928,10 @@
     
       const warnings: SnapshotWarning[] = [];
     
-      const rowConfig = {
-        schedules: parseRows<Schedule>(
-          "schedules",
-          ScheduleSchema,
-          schedules.map((r) => ({
-            id: r.id,
-            value: { ...r, archivedAt: toIso(r.archivedAt) },
-          })),
-          warnings
-        ),
-        venueServices: parseRows<VenueService>(
-          "venue_services",
-          VenueServiceSchema,
-          venueServices.map((r) => ({
-            id: r.id,
-            value: { ...r, archivedAt: toIso(r.archivedAt) },
-          })),
-          warnings
-        ),
-        scheduleServices: parseRows<ScheduleService>(
-          "schedule_services",
-          ScheduleServiceSchema,
-          scheduleServices.map((r) => ({ id: r.id, value: r })),
-          warnings
-        ),
-        assignments: parseRows<ScheduleAssignment>(
-          "schedule_assignments",
-          ScheduleAssignmentSchema,
-          assignments.map((r) => ({
-            id: r.id,
-            value: {
-              ...r,
-              startsOn: r.startsOn ? toServiceDate(r.startsOn) : null,
-              endsOn: r.endsOn ? toServiceDate(r.endsOn) : null,
-            },
-          })),
-          warnings
-        ),
-        dateRules: parseRows<DateRule>(
-          "date_rules",
-          DateRuleSchema,
-          dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
-          warnings,
-          (id) => {
-            const row = dateRules.find((r) => r.id === id);
-            return row ? failClosedRule(row) : null;
-          }
-        ),
-      };
+      const rowConfig = parseConfigRows(
+        { schedules, venueServices, scheduleServices, assignments, dateRules },
+        warnings
+      );
     
       const { config, source } = effectiveConfig(venueId, rowConfig, venue, now, warnings);
     
@@ -11880,6 +12867,7 @@
   <file path="src/services/domain-services.ts">
     export interface DomainServices {
       availabilityService: typeof availabilityService;
+      availabilityConfigService: typeof availabilityConfigService;
       venueService: typeof venueService;
       venueGroupService: typeof venueGroupService;
       tableService: typeof tableService;
@@ -11897,6 +12885,7 @@
     }
     export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
+      availabilityConfigService,
       venueService,
       venueGroupService,
       tableService,
@@ -19366,6 +20355,7 @@
       const venuesPrefix = "/api/v1/venues";
       await fastify.register(venueRoutes, { prefix: venuesPrefix });
       await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
+      await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
       });
