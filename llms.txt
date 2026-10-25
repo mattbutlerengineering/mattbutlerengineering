@@ -16663,9 +16663,21 @@
       function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] { /* ... */ }
     </item>
     <item priority="medium">
-      function validIntervalOrBuffer(
-        input: LegacyMigrationInput
-      ): { interval: number; buffer: number } | LegacyMigrationResult { /* ... */ }
+      function validIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule | LegacyMigrationResult { /* ... */ }
+    </item>
+    <item priority="high">
+      interface SeatingRule {
+        interval: number;
+        fixedStep?: number;
+        buffer: number;
+        coercions: string[];
+      }
+    </item>
+    <item priority="medium">
+      function lenientIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fixedSeatings(open: number, last: number, step: number): number[] { /* ... */ }
     </item>
     <item priority="medium">
       function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] { /* ... */ }

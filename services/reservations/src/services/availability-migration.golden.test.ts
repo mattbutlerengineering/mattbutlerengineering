@@ -402,7 +402,12 @@ describe("legacy -> availability rows: slots are identical before and after", ()
  * oracle and the engine both close it.)
  */
 describe("legacy hours the backfill refuses: listing matches legacy day by day", () => {
-  const MESSY: { name: string; hours: Record<string, unknown> }[] = [
+  const DINNER = { open: "17:00", close: "22:30" };
+  const MESSY: {
+    name: string;
+    hours: Record<string, unknown>;
+    settings?: Record<string, unknown>;
+  }[] = [
     {
       name: "a cleared time input",
       hours: {
@@ -425,6 +430,22 @@ describe("legacy hours the backfill refuses: listing matches legacy day by day",
         wednesday: { open: "11:00", close: "21:00" },
       },
     },
+    {
+      // Above the engine's 240-minute maximum: kept as fixed seating times.
+      name: "a 300-minute interval",
+      hours: { tuesday: { open: "11:00", close: "22:00" }, friday: DINNER },
+      settings: { slotIntervalMinutes: 300 },
+    },
+    {
+      name: "a fractional last-seating buffer",
+      hours: { tuesday: DINNER, saturday: { open: "11:30", close: "23:15" } },
+      settings: { lastSeatingBuffer: 30.5 },
+    },
+    {
+      // parseOperatingHours looked up weekday keys only, so the key was ignored.
+      name: "a stray version 1 key",
+      hours: { version: 1, tuesday: DINNER, thursday: DINNER },
+    },
   ];
 
   beforeEach(() => {
@@ -444,7 +465,7 @@ describe("legacy hours the backfill refuses: listing matches legacy day by day",
         name: fixture.name,
         slug: "v1",
         ianaTimezone: c.tz,
-        settings: null,
+        settings: fixture.settings ?? null,
         operatingHours: fixture.hours,
       };
       expect(planVenueMigration(venue, clock).kind).toBe("unrecognised");

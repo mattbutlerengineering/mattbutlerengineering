@@ -39,7 +39,8 @@ export interface LegacyMigrationInput {
   /**
    * The live listing fallback only: a day whose window spans implausibly far past
    * midnight is closed (the legacy listing offered nothing for it) instead of
-   * failing the venue. The backfill stays strict.
+   * failing the venue, and out-of-range settings are coerced (see
+   * `lenientIntervalOrBuffer`). The backfill stays strict.
    */
   lenient?: boolean;
 }
@@ -62,6 +63,8 @@ export interface LegacyMigrationNotes {
   migratedOverrides: number;
   /** Lenient mode only: days closed because their hours could not be used. */
   unreadableDays?: string[];
+  /** Lenient mode only: settings read the way the legacy loop read them instead of refused. */
+  coercions?: string[];
 }
 
 export type LegacyMigrationResult =
@@ -101,9 +104,7 @@ function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): Named
 const signature = (windows: readonly NamedWindow[]): string =>
   JSON.stringify(windows.map((w) => [w.serviceName, w.open, w.close]));
 
-function validIntervalOrBuffer(
-  input: LegacyMigrationInput
-): { interval: number; buffer: number } | LegacyMigrationResult {
+function validIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule | LegacyMigrationResult {
   const interval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
   if (!Number.isInteger(interval) || interval < 1 || interval > MAX_INTERVAL) {
     return { ok: false, reason: "invalid_interval", detail: `slotIntervalMinutes ${interval}` };
@@ -112,7 +113,49 @@ function validIntervalOrBuffer(
   if (!Number.isInteger(buffer) || buffer < 0) {
     return { ok: false, reason: "invalid_buffer", detail: `lastSeatingBuffer ${buffer}` };
   }
-  return { interval, buffer };
+  return { interval, buffer, coercions: [] };
+}
+
+interface SeatingRule {
+  interval: number;
+  /** Lenient mode: an interval above the engine's maximum, kept as fixed seating times. */
+  fixedStep?: number;
+  buffer: number;
+  coercions: string[];
+}
+
+/**
+ * Lenient mode: settings the strict check refuses are read as close to the legacy
+ * loop (`for m = open; m <= close - buffer; m += interval`) as the engine allows.
+ * - An integer interval above the engine's maximum keeps the same seatings, as
+ *   fixed times. Any other unusable interval (fractional, zero, negative, not a
+ *   number) is the default 15; the legacy loop produced invalid times or never
+ *   ended for those.
+ * - A fractional buffer rounds up: the legacy loop's whole-minute seatings stopped
+ *   at `close - buffer`, i.e. `close - ceil(buffer)`. A negative buffer is 0; the
+ *   legacy loop seated after closing, which the engine never does.
+ */
+function lenientIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule {
+  const coercions: string[] = [];
+  const rawInterval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+  const intervalOk = Number.isInteger(rawInterval) && rawInterval >= 1;
+  const fixedStep = intervalOk && rawInterval > MAX_INTERVAL ? rawInterval : undefined;
+  const interval = intervalOk && !fixedStep ? rawInterval : DEFAULT_SLOT_INTERVAL;
+  if (fixedStep) {
+    coercions.push(`slotIntervalMinutes ${rawInterval} read as fixed seatings`);
+  } else if (!intervalOk) {
+    coercions.push(`slotIntervalMinutes ${rawInterval} read as ${DEFAULT_SLOT_INTERVAL}`);
+  }
+  const rawBuffer = input.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+  const numericBuffer = Number.isFinite(rawBuffer) ? rawBuffer : DEFAULT_LAST_SEATING_BUFFER;
+  const buffer = Math.max(0, Math.ceil(numericBuffer));
+  if (buffer !== rawBuffer) coercions.push(`lastSeatingBuffer ${rawBuffer} read as ${buffer}`);
+  return { interval, ...(fixedStep ? { fixedStep } : {}), buffer, coercions };
+}
+
+/** Seatings from open to last seating, every `step` minutes: the legacy loop's times. */
+function fixedSeatings(open: number, last: number, step: number): number[] {
+  return Array.from({ length: Math.floor((last - open) / step) + 1 }, (_, k) => open + k * step);
 }
 
 function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] {
@@ -148,9 +191,11 @@ function closeImplausibleDays(hours: LegacyHours): { hours: LegacyHours; closed:
 }
 
 export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult {
-  const checked = validIntervalOrBuffer(input);
+  const checked: SeatingRule | LegacyMigrationResult = input.lenient
+    ? lenientIntervalOrBuffer(input)
+    : validIntervalOrBuffer(input);
   if ("ok" in checked) return checked;
-  const { interval, buffer } = checked;
+  const { interval, buffer, fixedStep, coercions } = checked;
   const { newId, today } = input;
   const lenient = input.lenient ? closeImplausibleDays(input.hours) : null;
   const hours = lenient?.hours ?? input.hours;
@@ -199,7 +244,9 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
     opensAt: w.open,
     lastSeatingAt: w.last,
     closesAt: w.close,
-    seating: { version: 1 as const, interval },
+    seating: fixedStep
+      ? { version: 1 as const, fixed: fixedSeatings(w.open, w.last, fixedStep) }
+      : { version: 1 as const, interval },
     bookingTypes: [...CHANNELS],
   });
 
@@ -267,6 +314,7 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
       skippedPastOverrides: hours.overrides.length - futureOverrides.length,
       migratedOverrides: futureOverrides.length,
       ...(lenient && lenient.closed.length > 0 ? { unreadableDays: lenient.closed } : {}),
+      ...(coercions.length > 0 ? { coercions } : {}),
     },
   };
 }

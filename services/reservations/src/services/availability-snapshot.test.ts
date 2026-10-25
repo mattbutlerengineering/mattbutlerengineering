@@ -350,6 +350,36 @@ describe("loadAvailabilitySnapshot", () => {
       expect(thursday.length).toBeGreaterThan(0);
     });
 
+    it("coerces settings the legacy loop read anyway, one warning each", async () => {
+      // 7.5: the legacy loop built invalid times (a 500); -15: it seated after closing.
+      // Neither can be reproduced, so the interval is the default 15 and the buffer 0.
+      const { db } = fakeDb({
+        ...unmigrated({ thursday: { open: "17:00", close: "19:00" } }),
+        venue: {
+          operatingHours: { thursday: { open: "17:00", close: "19:00" } },
+          settings: { slotIntervalMinutes: 7.5, lastSeatingBuffer: -15 },
+        },
+      });
+      const logger = { warn: vi.fn() };
+      const { snapshot, source, warnings } = await loadAvailabilitySnapshot(
+        "v1",
+        "2026-11-05",
+        "2026-11-05",
+        now,
+        { db, logger }
+      );
+      expect(source).toBe("legacy");
+      expect(warnings.map((w) => w.reason)).toEqual([
+        expect.stringContaining("slotIntervalMinutes 7.5 read as 15"),
+        expect.stringContaining("lastSeatingBuffer -15 read as 0"),
+      ]);
+      expect(logger.warn).toHaveBeenCalledTimes(2);
+      // 17:00 to 18:45 every 15 minutes: never at or after the 19:00 close.
+      expect(listSlots(snapshot, "2026-11-05", 2, "online", now).map((s) => s.minute)).toEqual([
+        1020, 1035, 1050, 1065, 1080, 1095, 1110, 1125,
+      ]);
+    });
+
     it("is closed, with a warning, when the legacy shape is unrecognised", async () => {
       const { db } = fakeDb(unmigrated({ version: 9, weekly: {} }));
       const logger = { warn: vi.fn() };

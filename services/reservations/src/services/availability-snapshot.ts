@@ -41,7 +41,9 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  * column, by the same pure `planVenueMigration` the backfill runs, so guests see
  * the same slots before and after it. Date rule rows still apply on top. It reads
  * leniently, as the legacy listing did day by day: a day whose hours cannot be
- * read is closed, with one warning per day. Hours that cannot be read at all
+ * read is closed, with one warning per day, and a setting the legacy loop read
+ * anyway (an interval above the engine's maximum, a fractional buffer, a stray
+ * `version: 1` key) is coerced, with one warning each. Hours that cannot be read at all
  * (unknown shape or version) leave the venue closed, with a warning.
  */
 
@@ -222,6 +224,9 @@ function effectiveConfig(
         id: venueId,
         reason: `legacy operatingHours, day closed: ${day}`,
       });
+    }
+    for (const coercion of plan.notes.coercions ?? []) {
+      warnings.push({ table: "venues", id: venueId, reason: `legacy hours coerced: ${coercion}` });
     }
     return {
       config: { ...plan.config, dateRules: [...plan.config.dateRules, ...config.dateRules] },

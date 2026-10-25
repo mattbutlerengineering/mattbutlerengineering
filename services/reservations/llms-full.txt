@@ -9333,11 +9333,17 @@
         ...(normalised.unreadableDays ?? []),
         ...(built.notes.unreadableDays ?? []),
       ];
+      const coercions = [...(normalised.coercions ?? []), ...(built.notes.coercions ?? [])];
+      const notes = {
+        ...built.notes,
+        ...(unreadableDays.length > 0 ? { unreadableDays } : {}),
+        ...(coercions.length > 0 ? { coercions } : {}),
+      };
       return {
         kind: "migrate",
         shape: normalised.shape,
         config: built.config,
-        notes: unreadableDays.length > 0 ? { ...built.notes, unreadableDays } : built.notes,
+        notes,
         projection: projectLegacyOperatingHours(built.config),
       };
     }
@@ -9664,6 +9670,9 @@
             id: venueId,
             reason: `legacy operatingHours, day closed: ${day}`,
           });
+        }
+        for (const coercion of plan.notes.coercions ?? []) {
+          warnings.push({ table: "venues", id: venueId, reason: `legacy hours coerced: ${coercion}` });
         }
         return {
           config: { ...plan.config, dateRules: [...plan.config.dateRules, ...config.dateRules] },

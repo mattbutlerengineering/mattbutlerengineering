@@ -15,7 +15,9 @@ import { MINUTES_PER_DAY, WEEKDAYS, type ServiceDate, type Weekday } from "./typ
  * Lenient (the live listing fallback only): the legacy listing read each
  * weekday on its own, so an unreadable weekday closes that day alone and is
  * reported in `unreadableDays`, and "HH:MM:SS" reads as "HH:MM" as its
- * `split(":")` did. Shape, version and override-date problems fail either way.
+ * `split(":")` did, and a weekday-keyed object carrying a stray `version: 1`
+ * reads as the weekday shape (the legacy listing looked up weekday keys only).
+ * Other shape, version and override-date problems fail either way.
  */
 
 export type LegacyShape = "weekday" | "seed_array" | "v2";
@@ -61,6 +63,8 @@ export type LegacyHoursResult =
       hours: LegacyHours;
       /** Lenient mode only: weekdays closed because their times could not be read. */
       unreadableDays?: string[];
+      /** Lenient mode only: what was read the legacy listing's way instead of refused. */
+      coercions?: string[];
     }
   | LegacyHoursFailure;
 
@@ -278,6 +282,10 @@ export function normalizeLegacyHours(
   if (Array.isArray(raw)) return fromSeedArray(raw, reader);
   if (!isObject(raw)) {
     return { ok: false, reason: "unknown_shape", detail: `unexpected ${typeof raw} value` };
+  }
+  if ("version" in raw && raw.version === 1 && reader.lenient && WEEKDAYS.some((d) => d in raw)) {
+    const result = fromWeekdayKeyed(raw, reader);
+    return result.ok ? { ...result, coercions: ["version 1 key ignored (weekday shape)"] } : result;
   }
   if ("version" in raw) {
     return raw.version === 2

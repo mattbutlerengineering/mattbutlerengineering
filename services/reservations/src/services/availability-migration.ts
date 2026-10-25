@@ -57,8 +57,9 @@ export function civilDateIn(now: Date, timeZone: string): string {
 /**
  * `lenient` is for the live listing fallback only: an unreadable or implausible
  * day is closed and listed in `notes.unreadableDays` (as the legacy listing
- * closed it), instead of the whole venue being `unrecognised`. The backfill
- * stays strict.
+ * closed it), and settings or keys the legacy listing read anyway are coerced
+ * and listed in `notes.coercions`, instead of the whole venue being
+ * `unrecognised`. The backfill stays strict.
  */
 export function planVenueMigration(
   venue: VenueForMigration,
@@ -86,11 +87,17 @@ export function planVenueMigration(
     ...(normalised.unreadableDays ?? []),
     ...(built.notes.unreadableDays ?? []),
   ];
+  const coercions = [...(normalised.coercions ?? []), ...(built.notes.coercions ?? [])];
+  const notes = {
+    ...built.notes,
+    ...(unreadableDays.length > 0 ? { unreadableDays } : {}),
+    ...(coercions.length > 0 ? { coercions } : {}),
+  };
   return {
     kind: "migrate",
     shape: normalised.shape,
     config: built.config,
-    notes: unreadableDays.length > 0 ? { ...built.notes, unreadableDays } : built.notes,
+    notes,
     projection: projectLegacyOperatingHours(built.config),
   };
 }
