@@ -90,7 +90,7 @@ describe("registry rendering", () => {
         },
         txt1: {
           type: "Text",
-          props: { variant: "body" },
+          props: { children: "Sample words", variant: "body" },
           children: ["textNode"],
         },
         textNode: {
@@ -114,7 +114,7 @@ describe("registry rendering", () => {
       elements: {
         badge1: {
           type: "Badge",
-          props: { variant: "success", dot: true },
+          props: { children: "Sample words", variant: "success", dot: true },
         },
       },
     };
@@ -137,12 +137,12 @@ describe("registry rendering", () => {
         },
         txt1: {
           type: "Text",
-          props: { variant: "body" },
+          props: { children: "Sample words", variant: "body" },
           children: ["innerText"],
         },
         innerText: {
           type: "Text",
-          props: { variant: "label" },
+          props: { children: "Sample words", variant: "label" },
         },
       },
     };

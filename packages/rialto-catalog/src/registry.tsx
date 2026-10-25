@@ -540,11 +540,20 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
 
       Timeline: ({ props }: { props: unknown }) => {
         const p = props as {
-          events: (Omit<TimelineProps["events"][number], "status"> & { status?: string })[];
+          events: (Omit<TimelineProps["events"][number], "title" | "status"> & {
+            title?: string;
+            status?: string;
+          })[];
           compact?: boolean;
         };
-        const events = p.events.map(({ status, ...event }) =>
-          status && isTimelineStatus(status) ? { ...event, status } : event
+        const events = p.events.flatMap(({ title, status, ...event }) =>
+          title === undefined
+            ? []
+            : [
+                status && isTimelineStatus(status)
+                  ? { ...event, title, status }
+                  : { ...event, title },
+              ]
         );
         return <Timeline events={events} compact={p.compact} />;
       },

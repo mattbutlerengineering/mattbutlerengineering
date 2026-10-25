@@ -26,7 +26,13 @@ function stackSpec(wrap: boolean) {
 function textSpec(props: Record<string, unknown>) {
   return {
     root: "t1",
-    elements: { t1: { type: "Text", props: { variant: "body", ...props }, children: [] } },
+    elements: {
+      t1: {
+        type: "Text",
+        props: { children: "Sample words", variant: "body", ...props },
+        children: [],
+      },
+    },
   };
 }
 

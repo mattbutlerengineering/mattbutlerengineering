@@ -34,7 +34,7 @@ export const generatedSchemas = {
     variant: z.enum(["accent", "error", "neutral", "success", "warning"]).optional(),
     size: z.enum(["md", "sm"]).optional(),
     dot: z.boolean().optional(),
-    children: z.string().optional(),
+    children: z.string(),
   }),
   Banner: z.object({
     variant: z.enum(["accent", "error", "info", "warning"]).optional(),
@@ -243,7 +243,7 @@ export const generatedSchemas = {
     align: z.enum(["center", "left", "right"]).optional(),
     mono: z.boolean().optional(),
     truncate: z.boolean().optional(),
-    children: z.string().optional(),
+    children: z.string(),
   }),
   TimePicker: z.object({
     step: z.number().optional(),
@@ -255,7 +255,7 @@ export const generatedSchemas = {
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
   }),
   Timeline: z.object({
-    events: z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
+    events: z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
     compact: z.boolean().optional(),
   }),
   Toast: z.object({

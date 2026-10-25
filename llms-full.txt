@@ -65,11 +65,11 @@
     export const badgeCatalogMeta = {
       name: "Badge",
       description:
-        "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Put the words in label.",
+        "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Its words go in children (required).",
       slots: ["default"],
       // As with Text: a string prop is the only way a spec can give a Badge words (F24).
       propSchemas: {
-        children: "z.string().optional()",
+        children: "z.string()",
       },
       aliases: {
         label: "children",
@@ -1691,7 +1691,7 @@
     export const tagCatalogMeta = {
       name: "Tag",
       description:
-        "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Put its words in label. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+        "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Its words go in children. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
       charLimits: {
         children: 30,
       },
@@ -2187,12 +2187,13 @@
     export const textCatalogMeta = {
       name: "Text",
       description:
-        "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put the words in text.",
+        "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Its words go in children (required).",
       slots: ["default"],
       // A generated spec has no other way to give Text its words: the default slot
-      // holds child elements, not a string (F24).
+      // holds child elements, not a string (F24). Required, because live the model
+      // filled Tag's required words every time and skipped optional ones here.
       propSchemas: {
-        children: "z.string().optional()",
+        children: "z.string()",
       },
       aliases: {
         text: "children",
@@ -2272,10 +2273,11 @@
       // Nested strings carry no .max() and status is any string: the seam validates
       // events as one value and clamps only top-level charLimits, so a long title or
       // a reservation status like "seated" would otherwise drop the whole Timeline
-      // (F13). The adapter shows an unknown status as a plain event.
+      // (F13). The adapter shows an unknown status as a plain event and drops an
+      // event with no title.
       propSchemas: {
         events:
-          "z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() }))",
+          "z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -60767,7 +60769,7 @@
       Badge: {
         name: "Badge",
         description:
-          "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Put the words in label.",
+          "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Its words go in children (required).",
         slots: ["default"],
         aliases: { label: "children" },
       },
@@ -60948,14 +60950,14 @@
       Tag: {
         name: "Tag",
         description:
-          "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Put its words in label. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+          "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Its words go in children. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
         charLimits: { children: 30 },
         aliases: { label: "children" },
       },
       Text: {
         name: "Text",
         description:
-          "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put the words in text.",
+          "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Its words go in children (required).",
         slots: ["default"],
         aliases: { text: "children" },
       },
@@ -61019,7 +61021,7 @@
         variant: z.enum(["accent", "error", "neutral", "success", "warning"]).optional(),
         size: z.enum(["md", "sm"]).optional(),
         dot: z.boolean().optional(),
-        children: z.string().optional(),
+        children: z.string(),
       }),
       Banner: z.object({
         variant: z.enum(["accent", "error", "info", "warning"]).optional(),
@@ -61228,7 +61230,7 @@
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
-        children: z.string().optional(),
+        children: z.string(),
       }),
       TimePicker: z.object({
         step: z.number().optional(),
@@ -61240,7 +61242,7 @@
         placement: z.enum(["bottom", "left", "right", "top"]).optional(),
       }),
       Timeline: z.object({
-        events: z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
+        events: z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
         compact: z.boolean().optional(),
       }),
       Toast: z.object({

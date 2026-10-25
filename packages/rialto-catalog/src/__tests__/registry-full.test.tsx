@@ -57,7 +57,7 @@ describe("AspectRatio", () => {
           props: { ratio: 16 / 9 },
           children: ["txt1"],
         },
-        txt1: { type: "Text", props: { variant: "body" } },
+        txt1: { type: "Text", props: { children: "Sample words", variant: "body" } },
       },
     });
     expect(container.firstChild).not.toBeNull();
@@ -70,7 +70,7 @@ describe("Text", () => {
   it("renders body variant", () => {
     const { container } = renderSpec({
       root: "t1",
-      elements: { t1: { type: "Text", props: { variant: "body" } } },
+      elements: { t1: { type: "Text", props: { children: "Sample words", variant: "body" } } },
     });
     expect(container.firstChild).not.toBeNull();
   });
@@ -81,7 +81,13 @@ describe("Text", () => {
       elements: {
         t1: {
           type: "Text",
-          props: { variant: "display", color: "accent", align: "center", as: "h1" },
+          props: {
+            children: "Sample words",
+            variant: "display",
+            color: "accent",
+            align: "center",
+            as: "h1",
+          },
         },
       },
     });
@@ -91,7 +97,7 @@ describe("Text", () => {
   it("renders caption variant", () => {
     const { container } = renderSpec({
       root: "t1",
-      elements: { t1: { type: "Text", props: { variant: "caption" } } },
+      elements: { t1: { type: "Text", props: { children: "Sample words", variant: "caption" } } },
     });
     expect(container.firstChild).not.toBeNull();
   });
@@ -836,7 +842,7 @@ describe("Button", () => {
         },
         childText: {
           type: "Text",
-          props: { variant: "label" },
+          props: { children: "Sample words", variant: "label" },
         },
       },
     });
@@ -1158,7 +1164,12 @@ describe("text-bearing elements carry their own words", () => {
   it("renders a Text's words from its text prop", () => {
     const { container } = renderSpec({
       root: "t",
-      elements: { t: { type: "Text", props: { variant: "label", text: "Visit history" } } },
+      elements: {
+        t: {
+          type: "Text",
+          props: { variant: "label", text: "Visit history" },
+        },
+      },
     });
     expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
     expect(within(container).getByText("Visit history")).toBeTruthy();
@@ -1167,7 +1178,12 @@ describe("text-bearing elements carry their own words", () => {
   it("renders a Badge's words from its label prop", () => {
     const { container } = renderSpec({
       root: "b",
-      elements: { b: { type: "Badge", props: { variant: "success", label: "Confirmed" } } },
+      elements: {
+        b: {
+          type: "Badge",
+          props: { variant: "success", label: "Confirmed" },
+        },
+      },
     });
     expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
     expect(within(container).getByText("Confirmed")).toBeTruthy();
@@ -1182,5 +1198,30 @@ describe("text-bearing elements carry their own words", () => {
       },
     });
     expect(within(container).getByText("Inner")).toBeTruthy();
+  });
+});
+
+// Live /gen run after #7460: the model filled Tag's required words every time but
+// left Text's and Badge's optional ones out. Words are now required, as on Tag, and
+// a malformed Timeline event is dropped instead of failing the whole Timeline.
+describe("generated words are required where a component needs them", () => {
+  it("rejects a Text with no words, so the model is told it must supply them", () => {
+    expect(generatedSchemas.Text.safeParse({ variant: "label" }).success).toBe(false);
+    expect(generatedSchemas.Badge.safeParse({ variant: "success" }).success).toBe(false);
+    expect(generatedSchemas.Text.safeParse({ children: "Visits" }).success).toBe(true);
+  });
+
+  it("drops a Timeline event with no title and keeps the rest", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: {
+          type: "Timeline",
+          props: { events: [{ title: "Visit 1 - Party of 2" }, { key: "x" }] },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Visit 1 - Party of 2")).toBeTruthy();
   });
 });
