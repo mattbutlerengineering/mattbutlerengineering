@@ -108,7 +108,7 @@ function makeFakeApi() {
       // tests can assert the widget never calls it; anonymous guests get a 401.
       getTimeSlots: vi.fn().mockResolvedValue([]),
       // Public, slug-scoped route (/public/v1/venues/:slug/availability).
-      getTimeSlotsForVenue: vi.fn().mockResolvedValue([]),
+      getPublicAvailability: vi.fn().mockResolvedValue({ data: [] }),
     },
     holds: {
       // Staff surface (/api/v1/holds) — present so tests can assert the widget
@@ -235,14 +235,14 @@ describe("useBookingFlow", () => {
   describe("transition: date-party -> time-slot (slot fetch owned by the hook)", () => {
     it("goToTimeSlot transitions step and fetches slots via the injected api client", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot, mockSlot2]);
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({ data: [mockSlot, mockSlot2] });
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => result.current.actions.goToTimeSlot());
 
       expect(result.current.state).toBe("time-slot");
-      expect(fakeApi.availability.getTimeSlotsForVenue).toHaveBeenCalledWith(DEFAULT_SLUG, {
+      expect(fakeApi.availability.getPublicAvailability).toHaveBeenCalledWith(DEFAULT_SLUG, {
         date: "2026-05-20",
         partySize: 2,
       });
@@ -254,7 +254,7 @@ describe("useBookingFlow", () => {
 
     it("goToTimeSlot sets slotsLoading true while the fetch is pending", () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlotsForVenue.mockReturnValue(new Promise<TimeSlot[]>(() => {}));
+      fakeApi.availability.getPublicAvailability.mockReturnValue(new Promise(() => {}));
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -265,10 +265,9 @@ describe("useBookingFlow", () => {
 
     it("goToTimeSlot filters out unavailable slots", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([
-        mockSlot,
-        { time: "2026-05-20T20:00:00", available: false },
-      ]);
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({
+        data: [mockSlot, { time: "2026-05-20T20:00:00", available: false }],
+      });
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -279,7 +278,7 @@ describe("useBookingFlow", () => {
 
     it("goToTimeSlot sets slotsError when the fetch rejects", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlotsForVenue.mockRejectedValue(
+      fakeApi.availability.getPublicAvailability.mockRejectedValue(
         serverError("GET", `/public/v1/venues/${DEFAULT_SLUG}/availability`)
       );
       const { result } = renderBookingFlow(fakeApi);
@@ -302,7 +301,7 @@ describe("useBookingFlow", () => {
       expect(result.current.data.slotsError).toBe(MISSING_VENUE_SLUG_ERROR);
       expect(result.current.data.slotsLoading).toBe(false);
       expect(fakeApi.availability.getTimeSlots).not.toHaveBeenCalled();
-      expect(fakeApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
+      expect(fakeApi.availability.getPublicAvailability).not.toHaveBeenCalled();
     });
 
     it("goToTimeSlot clears selectedSlot", async () => {
@@ -455,6 +454,122 @@ describe("useBookingFlow", () => {
       expect(result.current.data.confirmError).not.toContain("failed: 500");
       expect(result.current.state).toBe("guest-details");
       expect(result.current.data.confirmLoading).toBe(false);
+    });
+  });
+
+  describe("closure, pause and mid-booking closure notices", () => {
+    function outsideAvailability(detail: string): ApiClientError {
+      return new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Outside Availability",
+          status: 422,
+          detail,
+          code: "outside-availability",
+          reason: "closed",
+        },
+        "POST",
+        "/public/v1/venues/the-oak-table/holds/hold-1/confirm"
+      );
+    }
+
+    it("remembers a closed date and its message from the listing", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({
+        data: [],
+        closure: { message: "Closed for a private event" },
+      });
+      const { result } = renderBookingFlow(fakeApi);
+
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      act(() => result.current.actions.goToTimeSlot());
+      await waitFor(() => expect(result.current.data.slotsLoading).toBe(false));
+
+      expect(result.current.data.closures).toEqual({
+        "2026-05-20": "Closed for a private event",
+      });
+    });
+
+    it("forgets a closure once the date lists no closure", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.availability.getPublicAvailability.mockResolvedValueOnce({
+        data: [],
+        closure: { message: "Closed" },
+      });
+      const { result } = renderBookingFlow(fakeApi);
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      act(() => result.current.actions.goToTimeSlot());
+      await waitFor(() => expect(result.current.data.closures["2026-05-20"]).toBe("Closed"));
+
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({ data: [mockSlot] });
+      act(() => result.current.actions.goToDateParty());
+      act(() => result.current.actions.goToTimeSlot());
+      await waitFor(() => expect(result.current.data.slots).toHaveLength(1));
+
+      expect(result.current.data.closures).toEqual({});
+    });
+
+    it("keeps the paused notice from the listing", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({
+        data: [],
+        bookingPaused: { message: "Back at 9", phone: "(555) 123-4567" },
+      });
+      const { result } = renderBookingFlow(fakeApi);
+
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      act(() => result.current.actions.goToTimeSlot());
+      await waitFor(() => expect(result.current.data.slotsLoading).toBe(false));
+
+      expect(result.current.data.bookingPaused).toEqual({
+        message: "Back at 9",
+        phone: "(555) 123-4567",
+      });
+    });
+
+    it("a closure at confirm releases the hold, returns to the time step with the message and fresh times", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({ data: [mockSlot2] });
+      fakeApi.holds.confirmForVenue.mockRejectedValue(
+        outsideAvailability("Closed for a private event")
+      );
+      const { result } = renderBookingFlow(fakeApi);
+
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+
+      await waitFor(() => expect(result.current.data.slots).toEqual([mockSlot2]));
+      expect(result.current.state).toBe("time-slot");
+      expect(result.current.data.hold).toBeNull();
+      expect(result.current.data.confirmError).toBeNull();
+      expect(result.current.data.closedMidBooking).toEqual({
+        message: "Closed for a private event",
+        lostTime: mockSlot.time,
+      });
+      expect(fakeApi.holds.releaseForVenue).toHaveBeenCalledWith(DEFAULT_SLUG, mockHold.id);
+    });
+
+    it("other confirm failures keep the guest on the details step", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.holds.confirmForVenue.mockRejectedValue(
+        serverError("POST", "/public/v1/venues/the-oak-table/holds/hold-1/confirm")
+      );
+      const { result } = renderBookingFlow(fakeApi);
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+
+      expect(result.current.state).toBe("guest-details");
+      expect(result.current.data.closedMidBooking).toBeNull();
     });
   });
 
@@ -734,7 +849,7 @@ describe("useBookingFlow", () => {
   describe("backward navigation and Hold release (owned by the hook)", () => {
     it("goToDateParty from time-slot clears slot and slots", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot]);
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({ data: [mockSlot] });
       const { result } = renderBookingFlow(fakeApi);
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => result.current.actions.goToTimeSlot());
@@ -796,7 +911,7 @@ describe("useBookingFlow", () => {
       });
       expect(result.current.data.hold).toEqual(soonToExpireHold);
 
-      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot2]);
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({ data: [mockSlot2] });
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(6_000);
@@ -818,7 +933,7 @@ describe("useBookingFlow", () => {
         await vi.advanceTimersByTimeAsync(60_000);
       });
 
-      expect(fakeApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
+      expect(fakeApi.availability.getPublicAvailability).not.toHaveBeenCalled();
       expect(result.current.state).toBe("date-party");
     });
 
@@ -894,7 +1009,7 @@ describe("useBookingFlow", () => {
 
       expect(result.current.state).toBe("confirmation");
       expect(result.current.data.holdError).toBeNull();
-      expect(fakeApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
+      expect(fakeApi.availability.getPublicAvailability).not.toHaveBeenCalled();
     });
 
     it("stays on payment after the original expiresAt passes: the reservation is created before payment", async () => {
@@ -907,7 +1022,7 @@ describe("useBookingFlow", () => {
 
       expect(result.current.state).toBe("payment");
       expect(result.current.data.holdError).toBeNull();
-      expect(fakeApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
+      expect(fakeApi.availability.getPublicAvailability).not.toHaveBeenCalled();
     });
 
     it("tells the embedding page there is no releasable hold once the reservation exists", async () => {
@@ -942,7 +1057,7 @@ describe("useBookingFlow", () => {
   describe("headless orchestration: slots -> Hold -> confirm through the hook (no component render)", () => {
     it("drives the full guest flow via a fake api client injected as a dependency", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot]);
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({ data: [mockSlot] });
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -965,7 +1080,7 @@ describe("useBookingFlow", () => {
 
     it("Waitlist branch: no slot available routes to waitlist-join, still driven headlessly", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([]);
+      fakeApi.availability.getPublicAvailability.mockResolvedValue({ data: [] });
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));

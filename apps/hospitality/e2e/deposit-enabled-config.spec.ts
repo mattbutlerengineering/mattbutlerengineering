@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures.js";
 import { buildDepositEnabledPublicVenueConfigFixture } from "./api-mocks.js";
+import { pickBookingDate } from "./booking-date.js";
 
 // Both surfaces below are gated on `deposit` from GET /public/v1/venues/:slug.
 // The shared mockApi() default (api-mocks.ts) synthesizes a *disabled*
@@ -182,7 +183,7 @@ test.describe("Booking widget deposit step — deposit-enabled venue", () => {
     // Step 1: Date & Party
     const bookingDate = new Date();
     bookingDate.setDate(bookingDate.getDate() + 3);
-    await mockedPage.getByLabel("Date").fill(bookingDate.toISOString().slice(0, 10));
+    await pickBookingDate(mockedPage, bookingDate.toISOString().slice(0, 10));
     await mockedPage.getByRole("button", { name: "Find Available Times" }).click();
 
     // Step 2: Time — pick the first available slot.

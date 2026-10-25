@@ -149,7 +149,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Staff form live check** — `NewReservationDialog` calls the check endpoint, with soft-limit warnings, a required reason, "Book with override", hard blocks, an open-times strip, the waitlist-closed state, and blocked tables greyed out. Adds the Override tag on the timeline. (tracker: #7531)
   - Accept: tests show staff can book past a soft limit only with a reason, the reason is shown on the timeline, and staff can't book inside a closure (SC Staff override, UI half). If the check fails, the form falls back to the server.
   - Blocked by: Staff override and check endpoint, Tonight API
-- [ ] **Widget and rialto date labels** — an optional `getDateLabel(iso)` on rialto `Calendar` (with a changeset). The widget date step moves to `Calendar` with closed dates disabled and labelled. The time step carries closure and pause messages. Adds the nothing-configured state, a closure landing mid-booking at confirm, and Late Night grouping. (tracker: #7532)
+- [x] **Widget and rialto date labels** — an optional `getDateLabel(iso)` on rialto `Calendar` (with a changeset). The widget date step moves to `Calendar` with closed dates disabled and labelled. The time step carries closure and pause messages. Adds the nothing-configured state, a closure landing mid-booking at confirm, and Late Night grouping. (tracker: #7532)
   - Accept: the widget E2E test shows a closed date's message and the paused state. A confirm after a closure shows alternatives. The `rialto-prop-drift-detector` passes. Size-limit stays within budget.
   - Blocked by: Listing on the engine, Booking gate, Rebook offers
 

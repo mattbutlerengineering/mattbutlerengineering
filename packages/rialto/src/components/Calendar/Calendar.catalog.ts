@@ -15,5 +15,5 @@ export const calendarCatalogMeta = {
   name: "Calendar",
   include: false,
   description:
-    "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+    "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, an optional getDateLabel(iso) accessible-name callback, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
 } satisfies CatalogMeta;

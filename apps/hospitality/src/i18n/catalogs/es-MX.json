@@ -1218,6 +1218,7 @@
       "partySize": "Número de personas",
       "largePartyCall": "Para grupos de más de {{max}}, llámanos al <phoneLink>{{phone}}</phoneLink>.",
       "largePartyContact": "Para grupos de más de {{max}}, comunícate directamente con el restaurante.",
+      "dateClosedLabel": "{{date}}, cerrado. {{message}}",
       "findTimes": "Buscar horarios disponibles",
       "dateHint": "Elige una fecha a partir de hoy para ver los horarios disponibles."
     },
@@ -1226,11 +1227,19 @@
       "noHoursStaffHeading": "No hay horario de atención configurado",
       "noHoursStaffDescription": "Este restaurante aún no tiene horario de atención configurado, así que los clientes no pueden ver disponibilidad ni reservar una mesa.",
       "setHours": "Configurar horario de atención",
-      "noHoursGuestHeading": "Las reservas en línea aún no están disponibles",
+      "noHoursGuestHeading": "Aún no aceptamos reservas en línea",
       "noHoursGuestDescription": "Este restaurante aún no ha configurado las reservas en línea. Comunícate directamente con ellos para reservar una mesa.",
       "noTimesHeading": "No hay horarios disponibles",
       "tryDifferent": "Prueba con otra fecha u otro número de personas.",
       "joinWaitlist": "Unirse a la lista de espera",
+      "closedHeading": "Cerrado el {{date}}",
+      "seeOtherDates": "Ver otras fechas",
+      "pausedHeading": "Las reservas en línea están en pausa por ahora",
+      "pausedCall": "Llama al {{phone}}",
+      "justClosed": "Este horario acaba de cerrarse",
+      "otherTimes": "Otros horarios ese día",
+      "pickAnotherDate": "Elegir otra fecha",
+      "noHoursGuestCall": "Llama al {{phone}} para reservar una mesa.",
       "periods": {
         "lunch": "Comida",
         "dinner": "Cena",
@@ -1239,7 +1248,8 @@
       "periodTimes": {
         "lunch": "Horarios disponibles para comida",
         "dinner": "Horarios disponibles para cena",
-        "late": "Horarios disponibles por la noche"
+        "late": "Horarios disponibles por la noche",
+        "lateAfterMidnight": "Horarios disponibles por la noche, después de medianoche del {{date}}"
       },
       "selected": "Seleccionado:",
       "tablesAvailable_one": "{{count}} mesa disponible",

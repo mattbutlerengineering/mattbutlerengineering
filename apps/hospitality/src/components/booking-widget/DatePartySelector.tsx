@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Input, Button } from "@mattbutlerengineering/rialto";
+import { Calendar, Input, Button } from "@mattbutlerengineering/rialto";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays, venueDate } from "../../utils/service-day.js";
 import styles from "./DatePartySelector.module.css";
 
@@ -23,6 +25,11 @@ export interface DatePartySelectorProps {
    * when unknown; falls back to the device clock.
    */
   venueTimezone?: string;
+  /**
+   * Dates the venue is closed, date to the guest message. Shown disabled in
+   * the calendar with the reason as their accessible name (ux.md F9.1).
+   */
+  closedDates?: Readonly<Record<string, string>>;
 }
 
 /** Upper bound on how many numbered buttons the grid ever renders (#4979) — a
@@ -44,8 +51,12 @@ export function DatePartySelector({
   enableDateRange = false,
   phone,
   venueTimezone,
+  closedDates = {},
 }: DatePartySelectorProps) {
   const { t } = useTranslation();
+  const format = useVenueFormat({ ianaTimezone: venueTimezone ?? "", currencyCode: "USD" });
+  const [focusedDate, setFocusedDate] = useState<string | null>(null);
+  const focusedClosure = focusedDate ? closedDates[focusedDate] : undefined;
   const today = venueDate(new Date(), venueTimezone);
   const effectiveMinDate = minDate ?? today;
 
@@ -86,14 +97,28 @@ export function DatePartySelector({
           )}
         </>
       ) : (
-        <Input
-          label={t("bookingWidget.dateParty.date")}
-          type="date"
-          value={selectedDate ?? ""}
-          onChange={(e) => onDateChange(e.target.value)}
-          min={effectiveMinDate}
-          max={effectiveMaxDate}
-        />
+        <div className={styles.field}>
+          <span className={styles.label}>{t("bookingWidget.dateParty.date")}</span>
+          <Calendar
+            value={selectedDate}
+            onChange={(value) => value && onDateChange(value)}
+            isDateDisabled={(iso) =>
+              iso < effectiveMinDate || iso > effectiveMaxDate || iso in closedDates
+            }
+            getDateLabel={(iso) =>
+              iso in closedDates
+                ? t("bookingWidget.dateParty.dateClosedLabel", {
+                    date: format.formatLongDate(iso),
+                    message: closedDates[iso],
+                  })
+                : undefined
+            }
+            onFocus={(e) => setFocusedDate(e.target.getAttribute("data-date"))}
+          />
+          <p role="status" className={styles.closureNote}>
+            {focusedClosure}
+          </p>
+        </div>
       )}
 
       <div className={styles.field}>

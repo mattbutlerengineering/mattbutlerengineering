@@ -7,6 +7,7 @@ import type {
   Reservation,
   DepositConfig,
   PublicVenueConfig,
+  BookingPaused,
 } from "@mbe/types";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import type { GuestDetails } from "./GuestDetailsForm.js";
@@ -33,6 +34,21 @@ export interface WaitlistResult {
   estimatedWaitMinutes: number | null;
 }
 
+/** A closure that landed between choosing a time and confirming it (ux.md F9.5). */
+export interface ClosedMidBooking {
+  /** The venue's guest message for the closure. */
+  message: string;
+  /** The time the guest had chosen, so alternatives can be offered near it. */
+  lostTime: string;
+}
+
+/** One listing: the open times plus the engine's closure and pause notices. */
+export interface SlotListing {
+  slots: TimeSlot[];
+  closure?: { message: string };
+  bookingPaused?: BookingPaused;
+}
+
 export interface BookingFlowData {
   selectedDate: string | null;
   selectedEndDate: string | null;
@@ -41,6 +57,15 @@ export interface BookingFlowData {
   selectedSlot: TimeSlot | null;
   slotsLoading: boolean;
   slotsError: string | null;
+  /**
+   * Closed dates learned from listings, date to guest message. The public
+   * API has no range listing, so the date step only knows a date is closed
+   * after a listing for it has come back.
+   */
+  closures: Record<string, string>;
+  /** Online booking is paused venue-wide; from the latest listing. */
+  bookingPaused: BookingPaused | null;
+  closedMidBooking: ClosedMidBooking | null;
   hold: ReservationHold | null;
   holdLoading: boolean;
   holdError: string | null;
@@ -92,7 +117,8 @@ type BookingFlowAction =
   | { type: "SET_PARTY_SIZE"; size: number }
   | { type: "GO_TO_TIME_SLOT" }
   | { type: "GO_TO_DATE_PARTY" }
-  | { type: "SET_SLOTS"; slots: TimeSlot[] }
+  | { type: "SET_SLOTS"; listing: SlotListing }
+  | { type: "CLOSED_MID_BOOKING"; message: string }
   | { type: "SET_SLOTS_ERROR"; error: string }
   | { type: "HOLD_START"; slot: TimeSlot }
   | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
@@ -118,6 +144,9 @@ const INITIAL_DATA: BookingFlowData = {
   selectedSlot: null,
   slotsLoading: false,
   slotsError: null,
+  closures: {},
+  bookingPaused: null,
+  closedMidBooking: null,
   hold: null,
   holdLoading: false,
   holdError: null,
@@ -172,6 +201,15 @@ export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
   return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
 }
 
+/** The guest message of a gate refusal for a closed time, or null for any other error. */
+function outsideAvailabilityMessage(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("problemDetails" in error)) return null;
+  const problem = (error as { problemDetails: { code?: unknown; detail?: unknown } })
+    .problemDetails;
+  if (problem.code !== "outside-availability") return null;
+  return typeof problem.detail === "string" ? problem.detail : "";
+}
+
 function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
   switch (action.type) {
     case "SET_DATE":
@@ -193,6 +231,7 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
           slotsLoading: true,
           slotsError: null,
           holdError: null,
+          closedMidBooking: null,
         },
       };
 
@@ -204,13 +243,46 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
           selectedSlot: null,
           slots: [],
           hold: null,
+          closedMidBooking: null,
         },
       };
 
-    case "SET_SLOTS":
+    case "SET_SLOTS": {
+      const { listing } = action;
+      const date = state.data.selectedDate;
+      const { [date ?? ""]: _previous, ...otherClosures } = state.data.closures;
+      const closures =
+        date && listing.closure
+          ? { ...otherClosures, [date]: listing.closure.message }
+          : otherClosures;
       return {
         ...state,
-        data: { ...state.data, slots: action.slots, slotsLoading: false, slotsError: null },
+        data: {
+          ...state.data,
+          slots: listing.slots,
+          closures,
+          bookingPaused: listing.bookingPaused ?? null,
+          slotsLoading: false,
+          slotsError: null,
+        },
+      };
+    }
+
+    case "CLOSED_MID_BOOKING":
+      return {
+        step: "time-slot",
+        data: {
+          ...state.data,
+          hold: null,
+          selectedSlot: null,
+          confirmLoading: false,
+          confirmError: null,
+          slotsLoading: true,
+          closedMidBooking: {
+            message: action.message,
+            lostTime: state.data.selectedSlot?.time ?? "",
+          },
+        },
       };
 
     case "SET_SLOTS_ERROR":
@@ -448,13 +520,17 @@ export function useBookingFlow({
   // tokenless, so the staff /api/v1/availability route would 401 every guest.
   // goToTimeSlot reports the missing-slug dead end before calling this, so the
   // slug guard is just for the type.
-  const fetchSlots = useCallback(async (): Promise<TimeSlot[]> => {
-    if (!flowState.data.selectedDate || !venueSlug) return [];
-    const response = await api.availability.getTimeSlotsForVenue(venueSlug, {
+  const fetchSlots = useCallback(async (): Promise<SlotListing> => {
+    if (!flowState.data.selectedDate || !venueSlug) return { slots: [] };
+    const response = await api.availability.getPublicAvailability(venueSlug, {
       date: flowState.data.selectedDate,
       partySize: flowState.data.partySize,
     });
-    return response.filter((slot) => slot.available);
+    return {
+      slots: response.data.filter((slot) => slot.available),
+      closure: response.closure,
+      bookingPaused: response.bookingPaused,
+    };
   }, [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]);
 
   // Release a hold by ID — errors are ignored, the hold expires anyway.
@@ -541,7 +617,7 @@ export function useBookingFlow({
       return;
     }
     fetchSlots()
-      .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+      .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
       .catch((err: unknown) => {
         dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
       });
@@ -636,11 +712,30 @@ export function useBookingFlow({
           });
         }
       } catch (err) {
-        dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+        const closure = outsideAvailabilityMessage(err);
+        if (closure === null) {
+          dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+          return;
+        }
+        // A closure saved after the hold was made (ux.md F9.5): the hold is
+        // dead, so release it and show what is still open that day.
+        void releaseHold(flowState.data.hold.id);
+        dispatch({ type: "CLOSED_MID_BOOKING", message: closure });
+        fetchSlots()
+          .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
+          .catch(() =>
+            dispatch({
+              type: "SET_SLOTS_ERROR",
+              error: i18n.t("bookingWidget.errors.reloadFailed"),
+            })
+          );
       }
     },
     [
       api,
+      releaseHold,
+      fetchSlots,
+      i18n,
       flowState.data.hold,
       flowState.data.depositConfig,
       venueSlug,
@@ -680,7 +775,7 @@ export function useBookingFlow({
       if (new Date() >= new Date(capturedHold.expiresAt)) {
         dispatch({ type: "EXPIRE_HOLD", error: i18n.t("bookingWidget.errors.holdExpired") });
         fetchSlots()
-          .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+          .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
           .catch(() =>
             dispatch({
               type: "SET_SLOTS_ERROR",

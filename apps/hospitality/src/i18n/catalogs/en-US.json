@@ -1197,6 +1197,7 @@
       "partySize": "Party Size",
       "largePartyCall": "For parties larger than {{max}}, call us at <phoneLink>{{phone}}</phoneLink>.",
       "largePartyContact": "For parties larger than {{max}}, please contact the venue directly.",
+      "dateClosedLabel": "{{date}}, closed. {{message}}",
       "findTimes": "Find Available Times",
       "dateHint": "Choose a date from today onward to see available times."
     },
@@ -1205,11 +1206,19 @@
       "noHoursStaffHeading": "No operating hours set",
       "noHoursStaffDescription": "This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table.",
       "setHours": "Set Operating Hours",
-      "noHoursGuestHeading": "Online booking isn't available yet",
+      "noHoursGuestHeading": "Not taking online bookings yet",
       "noHoursGuestDescription": "This venue hasn't set up online reservations yet. Please contact them directly to book a table.",
       "noTimesHeading": "No available times",
       "tryDifferent": "Try a different date or party size.",
       "joinWaitlist": "Join Waitlist",
+      "closedHeading": "Closed on {{date}}",
+      "seeOtherDates": "See other dates",
+      "pausedHeading": "Online booking is paused right now",
+      "pausedCall": "Call {{phone}}",
+      "justClosed": "This time just closed",
+      "otherTimes": "Other times that day",
+      "pickAnotherDate": "Pick another date",
+      "noHoursGuestCall": "Call {{phone}} to book a table.",
       "periods": {
         "lunch": "Lunch",
         "dinner": "Dinner",
@@ -1218,7 +1227,8 @@
       "periodTimes": {
         "lunch": "Available lunch times",
         "dinner": "Available dinner times",
-        "late": "Available late night times"
+        "late": "Available late night times",
+        "lateAfterMidnight": "Available late night times, after midnight on {{date}}"
       },
       "selected": "Selected:",
       "tablesAvailable_one": "{{count}} table available",
