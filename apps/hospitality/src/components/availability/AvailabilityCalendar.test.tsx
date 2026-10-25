@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import type { AvailabilityDaySummary } from "@mbe/types";
@@ -133,6 +133,70 @@ describe("AvailabilityCalendar", () => {
 
   it("has no axe violations", async () => {
     const { container } = renderCalendar();
+    expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
+  });
+});
+
+/** A width-driven `matchMedia` so `useViewport` reports phone or tablet. */
+function setViewportWidth(width: number) {
+  window.matchMedia = vi.fn((query: string) => {
+    const max = /\(max-width:\s*(\d+)px\)/.exec(query);
+    return {
+      media: query,
+      matches: max ? width <= Number(max[1]) : false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+  }) as unknown as typeof window.matchMedia;
+}
+
+describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
+  const MONTH_DAYS = Array.from({ length: 31 }, (_, i) =>
+    day(`2026-10-${String(i + 1).padStart(2, "0")}`)
+  );
+
+  afterEach(() => {
+    Reflect.deleteProperty(window, "matchMedia");
+  });
+
+  it("lists one row per day of the anchor month only, with weekday and date visible", () => {
+    setViewportWidth(1024);
+    renderCalendar({ view: "month", anchor: "2026-10-15", days: MONTH_DAYS });
+    const list = screen.getByRole("list", { name: "Availability calendar" });
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(31);
+    expect(within(rows[0]!).getByText("Thu, Oct 1")).toBeInTheDocument();
+    expect(within(rows[30]!).getByText("Sat, Oct 31")).toBeInTheDocument();
+    expect(within(rows[0]!).getByText("Weeknight")).toBeInTheDocument();
+  });
+
+  it("opens the day drawer from a row and marks today", () => {
+    setViewportWidth(500);
+    const { onOpenDay } = renderCalendar({
+      view: "month",
+      anchor: "2026-10-15",
+      today: "2026-10-28",
+      days: MONTH_DAYS,
+    });
+    expect(screen.getByRole("button", { name: /Wednesday, October 28/ })).toHaveAttribute(
+      "aria-current",
+      "date"
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Friday, October 30/ }));
+    expect(onOpenDay).toHaveBeenCalledWith("2026-10-30");
+  });
+
+  it("shows the closure band in the row", () => {
+    setViewportWidth(500);
+    renderCalendar({ view: "month", anchor: "2026-10-15", days: WEEK });
+    const row = screen.getByRole("button", { name: /Friday, October 30/ });
+    expect(within(row).getByText("Closed 10:00 PM – 11:00 PM")).toBeInTheDocument();
+  });
+
+  it("has no axe violations", async () => {
+    setViewportWidth(500);
+    const { container } = renderCalendar({ view: "month", anchor: "2026-10-15", days: MONTH_DAYS });
     expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
   });
 });
