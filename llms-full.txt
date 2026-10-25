@@ -1363,7 +1363,7 @@
     export const reservationListCatalogMeta = {
       name: "ReservationList",
       description:
-        "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (display text such as 7:30 PM), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+        "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (the tool's localTime copied as is (HH:mm); the element writes it in the locale's clock. Only when the rows span more than one date, write the date and time together instead), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
       // Row fields are nullish and untyped beyond string/number, with no .max():
       // the seam validates the array as one value, so a strict nested rule would
       // drop the whole list over one row (F13). Reservation.guestName is
@@ -2305,7 +2305,7 @@
     export const timeSlotsCatalogMeta = {
       name: "TimeSlots",
       description:
-        "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times as display text, such as 7:30 PM, in time order). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
+        "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times in time order, each the tool's localTime copied as is (HH:mm); the element writes them in the locale's clock). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
       // date is clamped at 40 chars, never dropped. times entries carry no .max():
       // the seam validates the array as one value (F13); the adapter drops blanks.
       charLimits: {
@@ -24280,7 +24280,7 @@
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
         "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
         "Pick the element that fits the data, one shape per line below.",
-        "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out.",
+        "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out. When the rows span more than one date, write each row's date and time together as its time, in the user's language and their usual clock.",
         "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element.",
         "Guests from search_guests: show them as GuestCards, each card with the guest's name, its visitCount as visits, its riskScore copied as is as risk, and its tags; at most five cards, then say in a sentence how many more matched. Never put a guest's email, phone, notes or spend on a card.",
         "A guest's visit history: show it as a Timeline.",
@@ -59019,6 +59019,106 @@
       }
     }
   </file>
+  <file path="packages/availability/src/civil-date.ts">
+    function toUtcMs(date: ServiceDate): number {
+      const y = Number(date.slice(0, 4));
+      const m = Number(date.slice(5, 7));
+      const d = Number(date.slice(8, 10));
+      return Date.UTC(y, m - 1, d);
+    }
+    function fromUtcMs(ms: number): ServiceDate {
+      return new Date(ms).toISOString().slice(0, 10);
+    }
+    export function addDays(date: ServiceDate, n: number): ServiceDate {
+      return fromUtcMs(toUtcMs(date) + n * MS_PER_DAY);
+    }
+    export function weekdayOf(date: ServiceDate): Weekday {
+      const sundayFirst = new Date(toUtcMs(date)).getUTCDay();
+      // getUTCDay is 0..6, so the index is always in range.
+      return WEEKDAYS[(sundayFirst + 6) % 7] as Weekday;
+    }
+  </file>
+  <file path="packages/availability/src/instant.ts">
+    function formatterFor(tz: string): Intl.DateTimeFormat {
+      const cached = formatters.get(tz);
+      if (cached) return cached;
+      const created = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      formatters.set(tz, created);
+      return created;
+    }
+    interface WallFields {
+      year: number;
+      month: number;
+      day: number;
+      hour: number;
+      minute: number;
+    }
+    function wallFieldsOf(instantMs: number, tz: string): WallFields {
+      const parts = formatterFor(tz).formatToParts(new Date(instantMs));
+      const read = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(parts.find((p) => p.type === type)?.value);
+      return {
+        year: read("year"),
+        month: read("month"),
+        day: read("day"),
+        hour: read("hour"),
+        minute: read("minute"),
+      };
+    }
+    function offsetAt(instantMs: number, tz: string): number {
+      const w = wallFieldsOf(instantMs, tz);
+      const wallMs = Date.UTC(w.year, w.month - 1, w.day, w.hour, w.minute);
+      const flooredInstant = Math.floor(instantMs / MS_PER_MINUTE) * MS_PER_MINUTE;
+      return wallMs - flooredInstant;
+    }
+    export function serviceDayInstant(
+      serviceDate: ServiceDate,
+      minute: number,
+      tz: string
+    ): Date | null {
+      const civil = addDays(serviceDate, Math.floor(minute / MINUTES_PER_DAY));
+      const wallMs =
+        Date.UTC(Number(civil.slice(0, 4)), Number(civil.slice(5, 7)) - 1, Number(civil.slice(8, 10))) +
+        (minute % MINUTES_PER_DAY) * MS_PER_MINUTE;
+      // Candidate offsets from either side of the wall time; a candidate is real
+      // only if the zone actually uses that offset at the resulting instant.
+      const offsets = new Set([offsetAt(wallMs - PROBE_MS, tz), offsetAt(wallMs + PROBE_MS, tz)]);
+      const valid = [...offsets]
+        .map((offset) => wallMs - offset)
+        .filter((instantMs) => offsetAt(instantMs, tz) === wallMs - instantMs);
+      return valid.length === 0 ? null : new Date(Math.min(...valid));
+    }
+    export function localDateTimeOf(instant: Date, tz: string): { date: ServiceDate; minute: number } {
+      const w = wallFieldsOf(instant.getTime(), tz);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return {
+        date: `${String(w.year).padStart(4, "0")}-${pad(w.month)}-${pad(w.day)}`,
+        minute: w.hour * 60 + w.minute,
+      };
+    }
+  </file>
+  <file path="packages/availability/src/types.ts">
+    export type ServiceDate = string;
+    export const WEEKDAYS = [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ] as const;
+    export type Weekday = (typeof WEEKDAYS)[number];
+    export const MINUTES_PER_DAY = 1440;
+  </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">
     export interface CancellationPolicy {
       depositAmountCents: number;
@@ -61138,7 +61238,7 @@
       ReservationList: {
         name: "ReservationList",
         description:
-          "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (display text such as 7:30 PM), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+          "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (the tool's localTime copied as is (HH:mm); the element writes it in the locale's clock. Only when the rows span more than one date, write the date and time together instead), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
       },
       Select: {
         name: "Select",
@@ -61204,7 +61304,7 @@
       TimeSlots: {
         name: "TimeSlots",
         description:
-          "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times as display text, such as 7:30 PM, in time order). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
+          "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times in time order, each the tool's localTime copied as is (HH:mm); the element writes them in the locale's clock). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
         charLimits: { date: 40 },
       },
       Timeline: {

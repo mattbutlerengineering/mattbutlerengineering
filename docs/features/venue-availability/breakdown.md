@@ -21,7 +21,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 1: Engine, storage, migration (guests see identical slots)
 
-- [ ] **Engine package scaffold** — create `packages/availability` and port prior-art `civil-date.ts` and `instant.ts` with their tests. Add vitest, a typecheck config that covers the tests, and an entry in `regen-manifest.mjs` if llms files are generated. (tracker: #7495)
+- [x] **Engine package scaffold** — create `packages/availability` and port prior-art `civil-date.ts` and `instant.ts` with their tests. Add vitest, a typecheck config that covers the tests, and an entry in `regen-manifest.mjs` if llms files are generated. (tracker: #7495)
   - Accept: `pnpm --dir packages/availability test` and `typecheck` are green, and the DST table tests pass.
   - Blocked by: Preview spike
 - [ ] **Config schemas** — zod schemas and types in `@mbe/types` for Schedule, VenueService, ScheduleService, ScheduleAssignment and DateRule, plus the versioned payloads (seating, window, special-hours services, Tonight payload); `validateConfig` in the engine. (tracker: #7496)

@@ -36,3 +36,16 @@ describe.each(metas.map((meta) => [meta.name, meta] as const))("%s catalog meta"
     expect(meta.description).not.toContain('"');
   });
 });
+
+// Review of gen-ui-elements-2 (major 2, F34): the element writes a bare HH:mm in
+// the locale's clock, so the model must copy localTime, not restyle it.
+describe.each([
+  ["ReservationList", reservationListCatalogMeta],
+  ["TimeSlots", timeSlotsCatalogMeta],
+] as const)("%s time guidance", (_, meta) => {
+  it("tells the model to copy localTime as is, with no 12-hour example to imitate", () => {
+    expect(meta.description).toMatch(/localTime[^.]*as is \(HH:mm\)/);
+    expect(meta.description).toMatch(/locale's clock/);
+    expect(meta.description).not.toMatch(/such as 7:30 PM/);
+  });
+});

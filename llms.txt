@@ -15988,6 +15988,64 @@
       }
     </item>
   </file>
+  <file path="packages/availability/src/civil-date.ts">
+    <item priority="medium">
+      function toUtcMs(date: ServiceDate): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fromUtcMs(ms: number): ServiceDate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addDays(date: ServiceDate, n: number): ServiceDate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekdayOf(date: ServiceDate): Weekday { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/instant.ts">
+    <item priority="medium">
+      function formatterFor(tz: string): Intl.DateTimeFormat { /* ... */ }
+    </item>
+    <item priority="high">
+      interface WallFields {
+        year: number;
+        month: number;
+        day: number;
+        hour: number;
+        minute: number;
+      }
+    </item>
+    <item priority="medium">
+      function wallFieldsOf(instantMs: number, tz: string): WallFields { /* ... */ }
+    </item>
+    <item priority="medium">
+      function offsetAt(instantMs: number, tz: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceDayInstant(
+        serviceDate: ServiceDate,
+        minute: number,
+        tz: string
+      ): Date | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localDateTimeOf(instant: Date, tz: string): { date: ServiceDate; minute: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/types.ts">
+    <item priority="low">
+      type ServiceDate = string;
+    </item>
+    <item priority="high">
+      export const WEEKDAYS: unknown;
+    </item>
+    <item priority="low">
+      type Weekday = (typeof WEEKDAYS)[number];
+    </item>
+    <item priority="high">
+      export const MINUTES_PER_DAY: unknown;
+    </item>
+  </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">
     <item priority="low">
       interface CancellationPolicy {

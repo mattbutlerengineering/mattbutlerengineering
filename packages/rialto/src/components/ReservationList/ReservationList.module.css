@@ -1,7 +1,11 @@
 /* ── List ────────────────────────────────────── */
+/* The list owns the columns and each row is a subgrid, so the time column fits
+   its widest entry (a dated "Fri Oct 16, 7:30 PM" on one line) and every row
+   stays aligned. Short clock times keep the 4.5rem floor. */
 .list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(4.5rem, max-content) minmax(0, 1fr) auto;
+  column-gap: var(--rialto-space-sm);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -10,9 +14,9 @@
 /* ── Row: time | guest + party | status ──────── */
 .row {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: baseline;
-  column-gap: var(--rialto-space-sm);
   padding-block: var(--rialto-space-sm);
 }
 

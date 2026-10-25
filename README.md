@@ -58,6 +58,7 @@ mattbutlerengineering/
 │   ├── agent-core/           # Agent session runner and worktree management
 │   ├── api-client/           # Typed fetch client for frontend apps
 │   ├── auth/                 # Auth utilities (React hooks + Fastify plugin)
+│   ├── availability/         # Pure availability engine (DST-safe date maths)
 │   ├── cancellation-policy/  # Pure cancellation-fee decision engine
 │   ├── config/               # Shared ESLint, TypeScript, Prettier configs
 │   ├── database/             # Prisma connection-pool wrapper
