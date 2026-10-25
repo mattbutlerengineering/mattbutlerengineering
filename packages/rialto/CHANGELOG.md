@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.8.7
+
+### Patch Changes
+
+- [#7533](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7533) [`464215c`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/464215cad657d1f6774a5386f71d7f694fb77b5f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ReservationList and TimeSlots show a bare 24-hour `HH:mm` time in the active locale's clock ("8:30 PM" in en-US, "20 h 30" in fr-CA). Already-formatted display text is unchanged.
+
 ## 0.8.6
 
 ### Patch Changes
