@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-25T00:18:35.190Z",
+  "generated_at": "2026-10-25T18:06:58.630Z",
   "period": {
     "start": "2026-10-18",
     "end": "2026-10-25"
@@ -9,9 +9,9 @@
       "available": true,
       "level": 5,
       "level_name": "Semi-Automated",
-      "criteria_met": 73,
+      "criteria_met": 72,
       "criteria_total": 84,
-      "last_run": "2026-10-23T09:13:05.052Z",
+      "last_run": "2026-10-25T09:03:05.676Z",
       "capped": false,
       "failing_gates": []
     },
@@ -42,43 +42,43 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.4,
-          "latest": "2026-10-24T14:42:21.505Z",
+          "age_days": 0.13,
+          "latest": "2026-10-25T14:59:19.876Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.42,
-          "latest": "2026-10-24T14:10:33.000Z",
+          "age_days": 0.17,
+          "latest": "2026-10-25T14:07:20.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 1.01,
-          "latest": "2026-10-24T00:00:00.000Z",
+          "age_days": 0.75,
+          "latest": "2026-10-25T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 6.01,
+          "age_days": 6.75,
           "latest": "2026-10-19T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.25,
-          "latest": "2026-10-24T18:13:35.442Z",
+          "age_days": 0.13,
+          "latest": "2026-10-25T15:00:51.636Z",
           "max_age_days": 5
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-10-24T14:42:21.505Z",
+      "collected_at": "2026-10-25T14:59:19.876Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -91,37 +91,41 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 95,
-      "total_merged": 95,
-      "total_closed_without_merge": 0,
+      "total_prs": 99,
+      "total_merged": 98,
+      "total_closed_without_merge": 1,
       "by_category": {
-        "tier:sensitive": {
-          "merged": 25,
+        "tier:trivial": {
+          "merged": 26,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:trivial": {
-          "merged": 36,
+        "tier:sensitive": {
+          "merged": 35,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 30,
+          "merged": 29,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "unlabeled": {
-          "merged": 3,
+          "merged": 7,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:critical": {
+        "priority:critical": {
+          "merged": 0,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0
+        },
+        "meta-improvement": {
           "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         }
-      },
-      "signal_note": "Per-category acceptance split is currently uninformative: 0 PRs were closed-without-merge. Bad PRs appear to be fix-forwarded (pushed-over) rather than rejected outright. The metric will become meaningful once closed-without-merge events are observed."
+      }
     },
     "agentCost": {
       "available": true,
@@ -135,7 +139,7 @@
       "avg_turns_per_session": 0,
       "queue": {
         "sessions_7d": 2,
-        "sessions_without_usage_7d": 89,
+        "sessions_without_usage_7d": 105,
         "tokens_7d": 982008,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
@@ -146,36 +150,36 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 5884523,
-      "output_tokens": 20350,
-      "cache_creation_tokens": 146340,
-      "cache_hit_rate": 0.9757,
+      "cache_read_tokens": 705451,
+      "output_tokens": 1494,
+      "cache_creation_tokens": 46987,
+      "cache_hit_rate": 0.9375,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 68,
-          "output_tokens": 20350,
-          "cache_read_tokens": 5884523,
-          "cache_creation_tokens": 146340
+          "input_tokens": 16,
+          "output_tokens": 1494,
+          "cache_read_tokens": 705451,
+          "cache_creation_tokens": 46987
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 30,
-      "passed": 20,
+      "completed": 27,
+      "passed": 24,
       "failed": 0,
       "phantom": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 40146183605,
+        "databaseId": 40219617367,
         "status": "completed",
-        "conclusion": "success",
-        "createdAt": "2026-10-25T00:18:32Z",
-        "name": "Auto-Merge Policy",
+        "conclusion": "skipped",
+        "createdAt": "2026-10-25T18:05:55Z",
+        "name": "claude",
         "headBranch": "main",
-        "headSha": "cfc91475c462d08cafa8c5d9d3f54df252f5391d"
+        "headSha": "388058ab3ec2098e4d7f23387d1db2e27419c6ef"
       }
     },
     "lighthouse": {
@@ -183,45 +187,45 @@
     },
     "issues": {
       "available": true,
-      "open": 14,
-      "created_7d": 156,
-      "closed_7d": 147,
-      "closure_rate": 94,
-      "queue_depth": 2,
+      "open": 57,
+      "created_7d": 200,
+      "closed_7d": 152,
+      "closure_rate": 76,
+      "queue_depth": 1,
       "agent_failed": 0
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-10-24T18:13:35.442Z",
+      "collected_at": "2026-10-25T15:00:51.636Z",
       "category_count": 6,
       "unhealthy_categories": [],
       "categories": {
-        "feature": {
-          "total": 144,
-          "accepted": 119,
-          "rejected": 7,
-          "wontfix": 18,
-          "rejection_rate": 0.04861111111111111
+        "ci-fix": {
+          "total": 16,
+          "accepted": 11,
+          "rejected": 0,
+          "wontfix": 5,
+          "rejection_rate": 0
         },
         "audit": {
-          "total": 17,
-          "accepted": 17,
+          "total": 18,
+          "accepted": 18,
           "rejected": 0,
           "wontfix": 0,
           "rejection_rate": 0
         },
-        "meta-improvement": {
-          "total": 22,
-          "accepted": 21,
-          "rejected": 0,
-          "wontfix": 1,
-          "rejection_rate": 0
+        "feature": {
+          "total": 137,
+          "accepted": 113,
+          "rejected": 6,
+          "wontfix": 18,
+          "rejection_rate": 0.043795620437956206
         },
-        "ci-fix": {
-          "total": 15,
-          "accepted": 9,
+        "meta-improvement": {
+          "total": 27,
+          "accepted": 25,
           "rejected": 0,
-          "wontfix": 6,
+          "wontfix": 2,
           "rejection_rate": 0
         },
         "agent-failed": {
@@ -260,9 +264,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.001,
-      "total_lines_added_7d": 823610,
-      "lines_churned_7d": 1017,
+      "churn_rate": 0.002,
+      "total_lines_added_7d": 831530,
+      "lines_churned_7d": 1617,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -274,7 +278,7 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 28875,
+      "total_runs": 29468,
       "window_shas": 4
     },
     "e2eStability": {
@@ -282,25 +286,30 @@
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.926,
+      "composite": 0.928,
       "sub_metrics": {
-        "issues_merged": 108,
-        "first_pass_success_rate": 0.889,
+        "issues_merged": 111,
+        "first_pass_success_rate": 0.892,
         "median_time_to_merge_hours": 0.1,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": null,
         "cost_coverage_n": 0,
-        "review_coverage": 0.15,
-        "review_coverage_n": 20
+        "review_coverage": 0.429,
+        "review_coverage_n": 7
       },
       "distribution": {
         "size:s": {
-          "count": 26,
+          "count": 29,
+          "avg_commits": 1.1,
+          "avg_ttm_hours": 0.1
+        },
+        "size:xs": {
+          "count": 35,
           "avg_commits": 1.1,
           "avg_ttm_hours": 0.1
         },
         "size:m": {
-          "count": 16,
+          "count": 17,
           "avg_commits": 1.4,
           "avg_ttm_hours": 0.2
         },
@@ -308,11 +317,6 @@
           "count": 9,
           "avg_commits": 2.1,
           "avg_ttm_hours": 0.3
-        },
-        "size:xs": {
-          "count": 36,
-          "avg_commits": 1.1,
-          "avg_ttm_hours": 0.1
         },
         "size:xl": {
           "count": 21,
