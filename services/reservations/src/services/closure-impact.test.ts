@@ -208,6 +208,25 @@ describe("computeClosureImpact", () => {
     expect(flags(result)).toEqual([true]);
   });
 
+  it("flags a booking that already ran past the old close when the close moves earlier", () => {
+    const tonight = {
+      id: "dr-new",
+      kind: "tonight",
+      targetKind: "venue",
+      startsOn: "2026-11-02",
+      endsOn: "2026-11-02",
+      payload: { version: 1, closeAt: 1350 }, // closes 10:30 PM (was 11:00 PM)
+    } as DateRule;
+
+    // 9:00 - 11:15 PM PST: a large party at last seating, already past the old close
+    const result = impact(tonight, [
+      at("2026-11-02", "2026-11-03T05:00:00Z", "2026-11-03T07:15:00Z"),
+    ]);
+
+    expect(result.reservations).toBe(1);
+    expect(flags(result)).toEqual([true]);
+  });
+
   it("flags a booking that runs past shortened hours, and one now past last seating", () => {
     const shortened = {
       id: "dr-new",

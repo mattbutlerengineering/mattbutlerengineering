@@ -42216,8 +42216,13 @@
         was,
         now: dayAfter.services.find((s) => s.venueServiceId === was.venueServiceId),
       }));
+      // The close moved earlier and the booking now runs past it — including one
+      // that already ran past the old close (a late seating near last seating).
       const endsAfterClose = hours.some(
-        ({ was, now }) => now !== undefined && now.closesAt < endMin && was.closesAt >= endMin
+        ({ was, now }) =>
+          now !== undefined &&
+          now.closesAt < endMin &&
+          (was.closesAt >= endMin || now.closesAt < was.closesAt)
       );
       const pastLastSeating = hours.some(
         ({ was, now }) =>
