@@ -93,4 +93,24 @@ describe("AvailabilityClient config API", () => {
       "https://api.test.com/api/v1/venues/v1/availability/days?from=2026-11-01&to=2026-11-30"
     );
   });
+
+  it("getClosureImpact POSTs the draft rule to /closures/impact", async () => {
+    const impact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: impact }));
+    const rule = {
+      id: "dr-new",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+    } as const;
+
+    const result = await client().getClosureImpact("v1", rule);
+
+    expect(result).toEqual(impact);
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/venues/v1/closures/impact");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ rule });
+  });
 });

@@ -350,11 +350,12 @@ Authenticated (staff): requires a JWT and membership of the `:venueId` venue (AD
 
 Declared in `@mbe/types` (`availabilityConfigEndpoints`); the store is `src/services/availability-config.ts`. Reads need venue membership; the write needs Manager (`access: "manager"`).
 
-| Method | Path                                     | Description                                                                                                                                |
-| ------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/api/v1/venues/:id/availability/config` | Config rows, `version` and `source` (`rows`, `legacy`-derived, or `empty`)                                                                 |
-| PUT    | `/api/v1/venues/:id/availability/config` | `{expectedVersion, changes, scopeConflicts}`; 409 `version-conflict` (with `winningChange`), 422 `invalid-config`, 409 `stranded-bookings` |
-| GET    | `/api/v1/venues/:id/availability/days`   | `?from&to` (≤62 days): per-date label, closure bands, service count                                                                        |
+| Method | Path                                     | Description                                                                                                                                                                                                      |
+| ------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/venues/:id/availability/config` | Config rows, `version` and `source` (`rows`, `legacy`-derived, or `empty`)                                                                                                                                       |
+| PUT    | `/api/v1/venues/:id/availability/config` | `{expectedVersion, changes, scopeConflicts}`; 409 `version-conflict` (with `winningChange`), 422 `invalid-config`, 409 `stranded-bookings`                                                                       |
+| GET    | `/api/v1/venues/:id/availability/days`   | `?from&to` (≤62 days): per-date label, closure bands, service count                                                                                                                                              |
+| POST   | `/api/v1/venues/:id/closures/impact`     | `{rule}` (Manager, read-only): future bookings the draft closure / special hours would affect, grouped by date and kind, with covers, held deposits and `runsIntoClosure`; 422 `invalid-config`, 400 over a year |
 
 ### Holds (authenticated — staff)
 

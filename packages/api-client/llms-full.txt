@@ -156,6 +156,19 @@
         return response.data;
       }
     
+      /**
+       * Read-only preview of which future bookings a draft date rule (closure,
+       * special hours or Tonight change) would affect, grouped by date and kind.
+       * Requires a Manager.
+       */
+      async getClosureImpact(venueId: string, rule: DateRule): Promise<ClosureImpact> {
+        const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
+          params: { id: venueId },
+          body: { rule },
+        });
+        return response.data;
+      }
+    
       /** Calendar summaries for each service date from `from` to `to` inclusive (≤62 days). */
       async listDays(
         venueId: string,

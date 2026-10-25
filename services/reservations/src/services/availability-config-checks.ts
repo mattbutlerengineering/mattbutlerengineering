@@ -27,7 +27,7 @@ const STRANDING: ReadonlySet<string> = new Set<StrandReason>([
 ]);
 
 /** The reason the booking's time is no longer served, or null. Table fit is not re-judged. */
-function strandReason(
+export function strandReason(
   snapshot: AvailabilitySnapshot,
   booking: BookedReservation
 ): StrandReason | null {

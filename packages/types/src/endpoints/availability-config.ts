@@ -12,6 +12,8 @@ import {
   AvailabilityConfigStateSchema,
   AvailabilityDaySummarySchema,
   AvailabilityDaysQuerySchema,
+  ClosureImpactBodySchema,
+  ClosureImpactSchema,
   PutAvailabilityConfigBodySchema,
 } from "../schemas/availability-config-api.js";
 
@@ -59,6 +61,27 @@ export const availabilityConfigEndpoints = {
       },
       422: {
         description: "`invalid-config`, with path-addressed issues",
+        body: AvailabilityConfigProblemSchema,
+      },
+    },
+  }),
+  closureImpact: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/impact`,
+    params: VenueParamsSchema,
+    body: ClosureImpactBodySchema,
+    responses: {
+      200: {
+        description:
+          "Future bookings the draft rule would affect, grouped by date and kind (read-only)",
+        body: z.object({ data: ClosureImpactSchema }),
+      },
+      400: problem("Date range too long to evaluate"),
+      401: authRequired,
+      403: problem("Caller is not a Manager of this venue"),
+      404: venueNotFound,
+      422: {
+        description: "`invalid-config`: the draft rule does not validate against the config",
         body: AvailabilityConfigProblemSchema,
       },
     },

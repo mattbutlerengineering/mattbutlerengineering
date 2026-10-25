@@ -201,6 +201,39 @@
     <item priority="high">
       export const AvailabilityDaySummarySchema: unknown;
     </item>
+    <item priority="high">
+      export const ClosureImpactBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_IMPACT_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactGroupSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    </item>
     <item priority="low">
       type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     </item>

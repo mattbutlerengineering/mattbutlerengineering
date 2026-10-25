@@ -8,6 +8,7 @@ import {
 import { addDays } from "@mbe/availability";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
+import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import type { SaveOutcome } from "../services/availability-config.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -66,7 +67,7 @@ function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "
 }
 
 export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
-  const { availabilityConfigService } = fastify.services;
+  const { availabilityConfigService, closureImpactService } = fastify.services;
 
   registerEndpoint(fastify, availabilityConfigEndpoints.getConfig, {
     docs: {
@@ -140,5 +141,46 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
       }
       return { data: days };
     }),
+  });
+
+  registerEndpoint(fastify, availabilityConfigEndpoints.closureImpact, {
+    docs: {
+      summary: "Preview which bookings a closure would affect",
+      operationId: "getClosureImpact",
+      description:
+        "Read-only. Future bookings a draft date rule (closure, special hours or Tonight change) would leave without service, grouped by service date and kind, with covers, held deposits and a runs-into-closure flag. Requires a Manager (owner or manager) membership, or the admin role.",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      { ...VENUE_FROM_ID, access: "manager" },
+      async (request, reply, { venueId }) => {
+        const outcome = await closureImpactService.impact(venueId, request.body.rule, new Date());
+        switch (outcome.kind) {
+          case "not_found":
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          case "too_long":
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  `A closure's dates can span at most ${SCOPE_CONFLICT_HORIZON_DAYS} days; use "until I reopen" for an open end.`
+                )
+              );
+          case "invalid":
+            return reply.code(422).send(
+              configProblem(422, "Unprocessable Entity", "The closure is not valid.", {
+                code: "invalid-config",
+                issues: outcome.issues,
+              })
+            );
+          case "ok":
+            return { data: outcome.impact };
+        }
+      }
+    ),
   });
 };

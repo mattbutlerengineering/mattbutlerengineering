@@ -7,6 +7,7 @@ import {
   AvailabilityConfigSaveResultSchema,
   AvailabilityConfigStateSchema,
   AvailabilityDaySummarySchema,
+  ClosureImpactSchema,
 } from "@mbe/types";
 import { buildApp } from "../app.js";
 
@@ -40,11 +41,12 @@ const PUT_BODY = {
 };
 
 const svc = { get: vi.fn(), listDays: vi.fn(), save: vi.fn() };
+const impactSvc = { impact: vi.fn() };
 
 async function appWith(options: { venueRoleLookup?: VenueRoleLookup } = {}) {
   const app = await buildApp({
     logger: false,
-    services: { availabilityConfigService: svc as never },
+    services: { availabilityConfigService: svc as never, closureImpactService: impactSvc as never },
     ...options,
   });
   await app.ready();
@@ -228,6 +230,79 @@ describe("availability config routes", () => {
       const res = await app.inject({ method: "GET", url: `${BASE}/days?${query}`, headers: ADMIN });
       expect(res.statusCode).toBe(400);
       expect(svc.listDays).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("POST /closures/impact", () => {
+    const rule = {
+      id: "dr-new",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+    };
+    const post = (target: FastifyInstance, payload: unknown = { rule }, headers = ADMIN) =>
+      target.inject({
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/venue-1/closures/impact`,
+        headers,
+        payload: payload as object,
+      });
+
+    it("returns the affected bookings", async () => {
+      const impact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+      impactSvc.impact.mockResolvedValueOnce({ kind: "ok", impact });
+
+      const res = await post(app);
+
+      expect(res.statusCode).toBe(200);
+      expect(ClosureImpactSchema.parse(res.json().data)).toEqual(impact);
+      expect(impactSvc.impact).toHaveBeenCalledWith(
+        "venue-1",
+        expect.objectContaining(rule),
+        expect.any(Date)
+      );
+    });
+
+    it("answers a draft that does not validate with 422 invalid-config", async () => {
+      const issues = [{ path: "dateRules[0]", code: "unknown_reference", message: "Unknown." }];
+      impactSvc.impact.mockResolvedValueOnce({ kind: "invalid", issues });
+
+      const res = await post(app);
+
+      expect(res.statusCode).toBe(422);
+      expect(res.json()).toMatchObject({ code: "invalid-config", issues });
+    });
+
+    it("400s a range that is too long, 404s an unknown venue", async () => {
+      impactSvc.impact.mockResolvedValueOnce({ kind: "too_long" });
+      expect((await post(app)).statusCode).toBe(400);
+      impactSvc.impact.mockResolvedValueOnce({ kind: "not_found" });
+      expect((await post(app)).statusCode).toBe(404);
+    });
+
+    it("rejects a malformed body before the store", async () => {
+      expect((await post(app, {})).statusCode).toBe(400);
+      expect(impactSvc.impact).not.toHaveBeenCalled();
+    });
+
+    it("refuses a staff (Host) member with 403", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          sub: "auth0|host",
+          iss: "https://test.auth0.com/",
+          aud: "https://api.example.com",
+          permissions: [],
+        },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const scoped = await appWith({ venueRoleLookup: vi.fn(async () => "staff" as const) });
+
+      const res = await post(scoped, { rule }, { authorization: "Bearer host" } as never);
+
+      expect(res.statusCode).toBe(403);
+      expect(impactSvc.impact).not.toHaveBeenCalled();
+      await scoped.close();
     });
   });
 });
