@@ -59600,6 +59600,368 @@
       };
     }
   </file>
+  <file path="packages/availability/src/slot-rules.ts">
+    export const DEFAULT_SLOT_INTERVAL = 15;
+    export type EngineSettings = Pick<
+      VenueSettings,
+      | "durationRules"
+      | "defaultReservationDuration"
+      | "pacingRules"
+      | "slotIntervalMinutes"
+      | "maxPartySize"
+    >;
+    export interface TableFilter {
+      id: string;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      isActive: boolean;
+    }
+    export interface TableCandidate {
+      id: string;
+      capacity: number;
+      priority: number;
+    }
+    export interface ReservationSlim {
+      id: string;
+      tableId: string;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+    }
+    export interface HoldSlim {
+      id: string;
+      tableId: string;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+      expiresAt: Date;
+    }
+    type DateThreshold = { lt: Date } | { gt: Date };
+    function passesThreshold(value: Date, threshold: DateThreshold): boolean {
+      return "lt" in threshold ? value < threshold.lt : value > threshold.gt;
+    }
+    export function estimateDuration(partySize: number, settings?: EngineSettings | null): number {
+      const rules = settings?.durationRules ?? DEFAULT_DURATION_RULES;
+      const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
+    
+      if (rule) return rule.durationMinutes;
+    
+      if (settings?.defaultReservationDuration) {
+        return settings.defaultReservationDuration;
+      }
+    
+      const largestRule = rules.reduce((max, r) => (r.maxPartySize > max.maxPartySize ? r : max));
+      const extraGuests = partySize - largestRule.maxPartySize;
+      const extraTime = Math.ceil(extraGuests / 2) * 15;
+      return largestRule.durationMinutes + extraTime;
+    }
+    export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] {
+      return tables.filter((t) => t.isActive && partyFitsTable(t, partySize));
+    }
+    export function overlapWindow(
+      startTime: Date,
+      endTime: Date
+    ): { startTime: DateThreshold; endTime: DateThreshold } {
+      return {
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
+      };
+    }
+    export function activeHoldWindow(now: Date): DateThreshold {
+      return { gt: now };
+    }
+    export function checkTableConflict(
+      tableId: string,
+      startTime: Date,
+      endTime: Date,
+      reservations: readonly ReservationSlim[],
+      holds: readonly HoldSlim[],
+      now: Date
+    ): boolean {
+      const window = overlapWindow(startTime, endTime);
+    
+      const hasReservationConflict = reservations.some(
+        (r) =>
+          r.tableId === tableId &&
+          passesThreshold(r.startTime, window.startTime) &&
+          passesThreshold(r.endTime, window.endTime)
+      );
+    
+      if (hasReservationConflict) return true;
+    
+      const activeWindow = activeHoldWindow(now);
+      return holds.some(
+        (h) =>
+          h.tableId === tableId &&
+          passesThreshold(h.expiresAt, activeWindow) &&
+          passesThreshold(h.startTime, window.startTime) &&
+          passesThreshold(h.endTime, window.endTime)
+      );
+    }
+    export function checkPacingForSlot(
+      startTime: Date,
+      partySize: number,
+      settings: EngineSettings | null | undefined,
+      reservations: readonly ReservationSlim[],
+      holds: readonly HoldSlim[],
+      now: Date,
+      coverCap?: number
+    ): boolean {
+      const rule = settings?.pacingRules?.[0];
+      const cap = Math.min(rule?.maxCoversPerSlot ?? Infinity, coverCap ?? Infinity);
+      if (cap === Infinity) return true;
+    
+      const windowMinutes =
+        rule?.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+      const windowEnd = new Date(startTime.getTime() + windowMinutes * MS_PER_MINUTE);
+      const inWindow = (s: { startTime: Date }) => s.startTime >= startTime && s.startTime < windowEnd;
+    
+      const reservationCovers = reservations.filter(inWindow).reduce((sum, r) => sum + r.partySize, 0);
+      const holdCovers = holds
+        .filter((h) => h.expiresAt > now && inWindow(h))
+        .reduce((sum, h) => sum + h.partySize, 0);
+    
+      return reservationCovers + holdCovers + partySize <= cap;
+    }
+    export function selectBestTable<T extends TableCandidate>(
+      candidates: readonly T[],
+      startTime: Date,
+      endTime: Date,
+      reservations: readonly ReservationSlim[],
+      holds: readonly HoldSlim[],
+      now: Date
+    ): T | null {
+      return (
+        candidates.find(
+          (table) => !checkTableConflict(table.id, startTime, endTime, reservations, holds, now)
+        ) ?? null
+      );
+    }
+  </file>
+  <file path="packages/availability/src/slots.ts">
+    export type BookingChannel = "online" | "phone";
+    export interface EngineTable extends TableFilter {
+      name: string;
+      priority: number;
+    }
+    export interface BookingSnapshot extends AvailabilitySnapshot {
+      tables: EngineTable[];
+      /** Non-cancelled reservations for the range, ±1 day. */
+      reservations: ReservationSlim[];
+      holds: HoldSlim[];
+      settings: EngineSettings | null;
+    }
+    export interface Slot {
+      start: Date;
+      serviceDate: ServiceDate;
+      /** Minutes past the service day's midnight; may exceed 1440. */
+      minute: number;
+      venueServiceId: string;
+      /** Suitable tables that are free and not blocked, in snapshot order. */
+      tables: EngineTable[];
+      available: boolean;
+      reason?: "no_table" | "pacing";
+    }
+    export type SoftLimit = "after_last_seating" | "pacing" | "party_size";
+    export type HardReason =
+      "closed" | "booking_closed" | "outside_service" | "table_blocked" | "conflict";
+    export type Verdict =
+      | { kind: "ok" }
+      | { kind: "ok_with_override"; limits: SoftLimit[] }
+      | { kind: "soft"; limits: SoftLimit[] }
+      | { kind: "hard"; reason: HardReason; message?: string };
+    export interface BookingRequest {
+      start: Date;
+      partySize: number;
+      channel: BookingChannel;
+      tableId?: string;
+      override?: { reason: string };
+    }
+    function seatingMinutes(service: ResolvedService): number[] {
+      const { opensAt, lastSeatingAt, closesAt, seating } = service;
+      const bookable = (m: number) => m >= opensAt && m <= lastSeatingAt && m < closesAt;
+      if ("interval" in seating) {
+        const count = Math.floor((lastSeatingAt - opensAt) / seating.interval) + 1;
+        return Array.from(
+          { length: Math.max(count, 0) },
+          (_, k) => opensAt + k * seating.interval
+        ).filter(bookable);
+      }
+      return [...new Set(seating.fixed)].filter(bookable).sort((a, b) => a - b);
+    }
+    function inBand(band: ResolvedClosure, minute: number): boolean {
+      return band.from <= minute && minute < band.to;
+    }
+    function closesSeating(
+      band: ResolvedClosure,
+      minute: number,
+      venueServiceId: string,
+      channel: BookingChannel
+    ): boolean {
+      if (!inBand(band, minute)) return false;
+      switch (band.targetKind) {
+        case "venue":
+          return true;
+        case "service":
+          return band.venueServiceId === venueServiceId;
+        case "booking":
+          return (band.bookingTypes ?? []).includes(channel);
+        case "tables":
+          return false;
+      }
+    }
+    function blockedTables(day: ResolvedDaySummary, minute: number): Set<string> {
+      return new Set(
+        day.closures
+          .filter((b) => b.targetKind === "tables" && inBand(b, minute))
+          .flatMap((b) => b.tableIds ?? [])
+      );
+    }
+    function freeTables(
+      snapshot: BookingSnapshot,
+      day: ResolvedDaySummary,
+      minute: number,
+      partySize: number,
+      start: Date,
+      now: Date
+    ): EngineTable[] {
+      const end = new Date(
+        start.getTime() + estimateDuration(partySize, snapshot.settings) * MS_PER_MINUTE
+      );
+      const blocked = blockedTables(day, minute);
+      return filterSuitableTables(snapshot.tables, partySize).filter(
+        (t) =>
+          !blocked.has(t.id) &&
+          !checkTableConflict(t.id, start, end, snapshot.reservations, snapshot.holds, now)
+      );
+    }
+    function pacingOk(
+      snapshot: BookingSnapshot,
+      day: ResolvedDaySummary,
+      start: Date,
+      partySize: number,
+      now: Date
+    ): boolean {
+      return checkPacingForSlot(
+        start,
+        partySize,
+        snapshot.settings,
+        snapshot.reservations,
+        snapshot.holds,
+        now,
+        day.pacingCovers
+      );
+    }
+    export function listSlots(
+      snapshot: BookingSnapshot,
+      serviceDate: ServiceDate,
+      partySize: number,
+      channel: BookingChannel,
+      now: Date
+    ): Slot[] {
+      const day = resolveDay(snapshot, serviceDate);
+      if (!day.bookingOpen[channel]) return [];
+      return day.services
+        .filter((service) => service.bookingTypes.includes(channel))
+        .flatMap((service) =>
+          seatingMinutes(service).flatMap((minute): Slot[] => {
+            if (day.closures.some((b) => closesSeating(b, minute, service.venueServiceId, channel))) {
+              return [];
+            }
+            const start = serviceDayInstant(serviceDate, minute, snapshot.timezone);
+            if (!start) return [];
+            const tables = freeTables(snapshot, day, minute, partySize, start, now);
+            const paced = pacingOk(snapshot, day, start, partySize, now);
+            return [
+              {
+                start,
+                serviceDate,
+                minute,
+                venueServiceId: service.venueServiceId,
+                tables,
+                available: tables.length > 0 && paced,
+                ...(tables.length === 0 ? { reason: "no_table" as const } : {}),
+                ...(tables.length > 0 && !paced ? { reason: "pacing" as const } : {}),
+              },
+            ];
+          })
+        );
+    }
+    function plannedDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate) {
+      const dateRules = snapshot.config.dateRules.filter(
+        (r) => r.kind !== "closure" && r.kind !== "tonight"
+      );
+      return resolveDay({ ...snapshot, config: { ...snapshot.config, dateRules } }, serviceDate);
+    }
+    function owningServiceDay(snapshot: AvailabilitySnapshot, start: Date) {
+      const local = localDateTimeOf(start, snapshot.timezone);
+      const candidates = [
+        { serviceDate: local.date, minute: local.minute },
+        { serviceDate: addDays(local.date, -1), minute: local.minute + MINUTES_PER_DAY },
+      ];
+      return candidates.flatMap(({ serviceDate, minute }) => {
+        const planned = plannedDay(snapshot, serviceDate).services.find(containing(minute));
+        return planned ? [{ serviceDate, minute, planned }] : [];
+      })[0];
+    }
+    function hard(reason: HardReason, message?: string): Verdict {
+      return message ? { kind: "hard", reason, message } : { kind: "hard", reason };
+    }
+    function tableVerdict(
+      snapshot: BookingSnapshot,
+      day: ResolvedDaySummary,
+      minute: number,
+      request: BookingRequest,
+      now: Date
+    ): Verdict | null {
+      const free = freeTables(snapshot, day, minute, request.partySize, request.start, now);
+      if (request.tableId === undefined) return free.length > 0 ? null : hard("conflict");
+      if (blockedTables(day, minute).has(request.tableId)) return hard("table_blocked");
+      return free.some((t) => t.id === request.tableId) ? null : hard("conflict");
+    }
+    function softLimits(
+      snapshot: BookingSnapshot,
+      day: ResolvedDaySummary,
+      service: ResolvedService,
+      minute: number,
+      request: BookingRequest,
+      now: Date
+    ): SoftLimit[] {
+      const maxParty = snapshot.settings?.maxPartySize;
+      return [
+        ...(minute > service.lastSeatingAt ? ["after_last_seating" as const] : []),
+        ...(pacingOk(snapshot, day, request.start, request.partySize, now) ? [] : ["pacing" as const]),
+        ...(maxParty !== undefined && request.partySize > maxParty ? ["party_size" as const] : []),
+      ];
+    }
+    export function judge(snapshot: BookingSnapshot, request: BookingRequest, now: Date): Verdict {
+      const owner = owningServiceDay(snapshot, request.start);
+      if (!owner) return hard("outside_service");
+      const { serviceDate, minute, planned } = owner;
+      const day = resolveDay(snapshot, serviceDate);
+      const message = day.guestMessage;
+    
+      const band = day.closures.find((b) =>
+        closesSeating(b, minute, planned.venueServiceId, request.channel)
+      );
+      if (band) return hard(band.targetKind === "booking" ? "booking_closed" : "closed", message);
+      if (!day.bookingOpen[request.channel]) return hard("booking_closed", message);
+      const service = day.services
+        .filter((s) => s.venueServiceId === planned.venueServiceId)
+        .find(containing(minute));
+      if (!service) return hard("closed", message);
+      if (!service.bookingTypes.includes(request.channel)) return hard("booking_closed", message);
+    
+      const tableIssue = tableVerdict(snapshot, day, minute, request, now);
+      if (tableIssue) return tableIssue;
+    
+      const limits = softLimits(snapshot, day, service, minute, request, now);
+      if (limits.length === 0) return { kind: "ok" };
+      const overridden = request.channel === "phone" && (request.override?.reason.trim() ?? "") !== "";
+      return overridden ? { kind: "ok_with_override", limits } : { kind: "soft", limits };
+    }
+  </file>
   <file path="packages/availability/src/types.ts">
     export type ServiceDate = string;
     export const WEEKDAYS = [

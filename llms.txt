@@ -16317,6 +16317,225 @@
       export function resolveDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate): ResolvedDay { /* ... */ }
     </item>
   </file>
+  <file path="packages/availability/src/slot-rules.ts">
+    <item priority="high">
+      export const DEFAULT_SLOT_INTERVAL: unknown;
+    </item>
+    <item priority="low">
+      type EngineSettings = Pick<
+        VenueSettings,
+        | "durationRules"
+        | "defaultRe...;
+    </item>
+    <item priority="low">
+      interface TableFilter {
+        id: string;
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+        isActive: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface TableCandidate {
+        id: string;
+        capacity: number;
+        priority: number;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationSlim {
+        id: string;
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface HoldSlim {
+        id: string;
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="high">
+      type DateThreshold = { lt: Date } | { gt: Date };
+    </item>
+    <item priority="medium">
+      function passesThreshold(value: Date, threshold: DateThreshold): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateDuration(partySize: number, settings?: EngineSettings | null): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overlapWindow(
+        startTime: Date,
+        endTime: Date
+      ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkTableConflict(
+        tableId: string,
+        startTime: Date,
+        endTime: Date,
+        reservations: readonly ReservationSlim[],
+        holds: readonly HoldSlim[],
+        now: Date
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkPacingForSlot(
+        startTime: Date,
+        partySize: number,
+        settings: EngineSettings | null | undefined,
+        reservations: readonly ReservationSlim[],
+        holds: readonly HoldSlim[],
+        now: Date,
+        coverCap?: number
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectBestTable<T extends TableCandidate>(
+        candidates: readonly T[],
+        startTime: Date,
+        endTime: Date,
+        reservations: readonly ReservationSlim[],
+        holds: readonly HoldSlim[],
+        now: Date
+      ): T | null { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/slots.ts">
+    <item priority="low">
+      type BookingChannel = "online" | "phone";
+    </item>
+    <item priority="low">
+      interface EngineTable {
+        name: string;
+        priority: number;
+      }
+    </item>
+    <item priority="low">
+      interface BookingSnapshot {
+        tables: EngineTable[];
+        reservations: ReservationSlim[];
+        holds: HoldSlim[];
+        settings: EngineSettings | null;
+      }
+    </item>
+    <item priority="low">
+      interface Slot {
+        start: Date;
+        serviceDate: ServiceDate;
+        minute: number;
+        venueServiceId: string;
+        tables: EngineTable[];
+      }
+    </item>
+    <item priority="low">
+      type SoftLimit = "after_last_seating" | "pacing" | "party_size";
+    </item>
+    <item priority="low">
+      type HardReason = "closed" | "booking_closed" | "outside_service" | "table_blocked" | "conflict";
+    </item>
+    <item priority="low">
+      type Verdict = { kind: "ok" } | { kind: "ok_with_override"; li | { kind: "soft"; limits: SoftLi | { kind: "hard"; reason: HardRe;
+    </item>
+    <item priority="low">
+      interface BookingRequest {
+        start: Date;
+        partySize: number;
+        channel: BookingChannel;
+        tableId?: string;
+        override?: { reason: string };
+      }
+    </item>
+    <item priority="medium">
+      function seatingMinutes(service: ResolvedService): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function inBand(band: ResolvedClosure, minute: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closesSeating(
+        band: ResolvedClosure,
+        minute: number,
+        venueServiceId: string,
+        channel: BookingChannel
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function blockedTables(day: ResolvedDaySummary, minute: number): Set<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function freeTables(
+        snapshot: BookingSnapshot,
+        day: ResolvedDaySummary,
+        minute: number,
+        partySize: number,
+        start: Date,
+        now: Date
+      ): EngineTable[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pacingOk(
+        snapshot: BookingSnapshot,
+        day: ResolvedDaySummary,
+        start: Date,
+        partySize: number,
+        now: Date
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function listSlots(
+        snapshot: BookingSnapshot,
+        serviceDate: ServiceDate,
+        partySize: number,
+        channel: BookingChannel,
+        now: Date
+      ): Slot[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function plannedDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function owningServiceDay(snapshot: AvailabilitySnapshot, start: Date) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hard(reason: HardReason, message?: string): Verdict { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tableVerdict(
+        snapshot: BookingSnapshot,
+        day: ResolvedDaySummary,
+        minute: number,
+        request: BookingRequest,
+        now: Date
+      ): Verdict | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function softLimits(
+        snapshot: BookingSnapshot,
+        day: ResolvedDaySummary,
+        service: ResolvedService,
+        minute: number,
+        request: BookingRequest,
+        now: Date
+      ): SoftLimit[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function judge(snapshot: BookingSnapshot, request: BookingRequest, now: Date): Verdict { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/types.ts">
     <item priority="low">
       type ServiceDate = string;
