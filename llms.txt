@@ -1754,6 +1754,32 @@
   </file>
   </section>
   <section priority="medium" role="components">
+  <file path="packages/rialto/src/components/booking-vocabulary.ts">
+    <item priority="low">
+      type VocabularyTone = "neutral" | "success" | "warning" | "error";
+    </item>
+    <item priority="low">
+      type ReservationStatusKey = keyof ReservationStatusMessages;
+    </item>
+    <item priority="low">
+      type GuestRiskKey = keyof GuestRiskMessages;
+    </item>
+    <item priority="low">
+      interface Resolved {
+        key: K | undefined;
+        tone: VocabularyTone;
+      }
+    </item>
+    <item priority="medium">
+      function canonical(raw: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeReservationStatus(raw: string): Resolved<ReservationStatusKey> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/components/catalog-meta.ts">
     <item priority="low">
       type CatalogCharLimits = Readonly<Record<string, number>>;
@@ -5747,6 +5773,22 @@
         arrivalsLabel: string;
         departuresLabel: string;
         inHouseLabel: string;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationStatusMessages {
+        pending: string;
+        confirmed: string;
+        cancelled: string;
+        completed: string;
+        noShow: string;
+      }
+    </item>
+    <item priority="low">
+      interface GuestRiskMessages {
+        trusted: string;
+        standard: string;
+        risky: string;
       }
     </item>
     <item priority="low">

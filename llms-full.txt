@@ -6793,6 +6793,27 @@
   </file>
   </section>
   <section priority="medium" role="components">
+  <file path="packages/rialto/src/components/booking-vocabulary.ts">
+    export type VocabularyTone = "neutral" | "success" | "warning" | "error";
+    export type ReservationStatusKey = keyof ReservationStatusMessages;
+    export type GuestRiskKey = keyof GuestRiskMessages;
+    export interface Resolved<K extends string> {
+      readonly key: K | undefined;
+      readonly tone: VocabularyTone;
+    }
+    function canonical(raw: string): string {
+      return raw
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+    }
+    export function normalizeReservationStatus(raw: string): Resolved<ReservationStatusKey> {
+      return STATUS[canonical(raw)] ?? UNKNOWN;
+    }
+    export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> {
+      return RISK[canonical(raw)] ?? UNKNOWN;
+    }
+  </file>
   <file path="packages/rialto/src/components/catalog-meta.ts">
     export type CatalogCharLimits = Readonly<Record<string, number>>;
     export type CatalogAliases = Readonly<Record<string, string>>;
@@ -17131,6 +17152,19 @@
       /** Block reason in the reservation's accessible name, e.g. "reason: Maintenance". */
       readonly blockedReason: (reason: string) => string;
     }
+    export interface ReservationStatusMessages {
+      readonly pending: string;
+      readonly confirmed: string;
+      readonly cancelled: string;
+      readonly completed: string;
+      readonly noShow: string;
+      readonly seated: string;
+    }
+    export interface GuestRiskMessages {
+      readonly trusted: string;
+      readonly standard: string;
+      readonly risky: string;
+    }
     export interface RialtoMessages {
       /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
       readonly dismiss: string;
@@ -17332,6 +17366,24 @@
       readonly characterCount: (current: number, max: number, over: boolean) => string;
       /** Combobox live-region announcement of `count` (at least 1) visible options. */
       readonly resultsAvailable: (count: number) => string;
+      /** Party size line of a reservation or open-times list, e.g. "Party of 4". */
+      readonly partyOf: (count: number) => string;
+      /** A guest's visit count with its noun; each locale picks its own plural form. */
+      readonly visitCount: (count: number) => string;
+      /** Reservation status words. A copy of the hospitality dashboard's `timeline.status.*`, pinned by its drift test. */
+      readonly reservationStatus: ReservationStatusMessages;
+      /** Guest risk words. A copy of the hospitality dashboard's `crm.risk.*`, pinned by its drift test. */
+      readonly guestRisk: GuestRiskMessages;
+      /** Name shown for a reservation with no guest. A copy of the dashboard's `home.reservations.walkIn`. */
+      readonly walkIn: string;
+      /** TimeSlots line when a day has no open times. */
+      readonly noOpenTimes: string;
+      /** Accessible name of the ReservationList list. */
+      readonly reservations: string;
+      /** Accessible name of the TimeSlots list. */
+      readonly openTimes: string;
+      /** Accessible name of the GuestCards list. */
+      readonly guests: string;
       /** TapeChart default labels; its `strings` prop overrides them. */
       readonly tapeChart: TapeChartMessages;
     }
@@ -17438,6 +17490,22 @@
       characterCount: (current, max, over) =>
         `${current} of ${max} characters${over ? ", over limit" : ""}`,
       resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
+      partyOf: (count) => `Party of ${count}`,
+      visitCount: (count) => (count === 1 ? `${count} visit` : `${count} visits`),
+      reservationStatus: {
+        pending: "Pending",
+        confirmed: "Confirmed",
+        cancelled: "Cancelled",
+        completed: "Completed",
+        noShow: "No Show",
+        seated: "Seated",
+      },
+      guestRisk: { trusted: "Trusted", standard: "Standard", risky: "Risky" },
+      walkIn: "Walk-in",
+      noOpenTimes: "No open times",
+      reservations: "Reservations",
+      openTimes: "Open times",
+      guests: "Guests",
       tapeChart: {
         regionLabel: "Reservations tape chart",
         roomsColumnLabel: "Rooms",
@@ -19183,6 +19251,22 @@
         `${current} de ${max} caracteres${over ? ", límite excedido" : ""}`,
       resultsAvailable: (count) =>
         count === 1 ? `${count} resultado disponible` : `${count} resultados disponibles`,
+      partyOf: (count) => `Grupo de ${count}`,
+      visitCount: (count) => (count === 1 ? `${count} visita` : `${count} visitas`),
+      reservationStatus: {
+        pending: "Pendiente",
+        confirmed: "Confirmada",
+        cancelled: "Cancelada",
+        completed: "Completada",
+        noShow: "No asistió",
+        seated: "Sentados",
+      },
+      guestRisk: { trusted: "Confiable", standard: "Estándar", risky: "Riesgoso" },
+      walkIn: "Sin reservación",
+      noOpenTimes: "No hay horarios disponibles",
+      reservations: "Reservaciones",
+      openTimes: "Horarios disponibles",
+      guests: "Clientes",
       tapeChart: {
         regionLabel: "Cuadro de reservaciones",
         roomsColumnLabel: "Habitaciones",
@@ -19332,6 +19416,22 @@
         `${current} sur ${max} caractères${over ? ", limite dépassée" : ""}`,
       resultsAvailable: (count) =>
         count < 2 ? `${count} résultat disponible` : `${count} résultats disponibles`,
+      partyOf: (count) => `Groupe de ${count}`,
+      visitCount: (count) => (count < 2 ? `${count} visite` : `${count} visites`),
+      reservationStatus: {
+        pending: "En attente",
+        confirmed: "Confirmée",
+        cancelled: "Annulée",
+        completed: "Terminée",
+        noShow: "Absent",
+        seated: "Installés",
+      },
+      guestRisk: { trusted: "Fiable", standard: "Standard", risky: "À risque" },
+      walkIn: "Sans réservation",
+      noOpenTimes: "Aucune heure disponible",
+      reservations: "Réservations",
+      openTimes: "Heures disponibles",
+      guests: "Clients",
       tapeChart: {
         regionLabel: "Tableau des réservations",
         roomsColumnLabel: "Chambres",

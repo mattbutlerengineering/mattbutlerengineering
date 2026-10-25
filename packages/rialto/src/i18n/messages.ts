@@ -38,6 +38,23 @@ export interface TapeChartMessages {
   readonly blockedReason: (reason: string) => string;
 }
 
+/** Reservation status words, keyed by the normalized status (see `booking-vocabulary.ts`). */
+export interface ReservationStatusMessages {
+  readonly pending: string;
+  readonly confirmed: string;
+  readonly cancelled: string;
+  readonly completed: string;
+  readonly noShow: string;
+  readonly seated: string;
+}
+
+/** Guest risk words, keyed by the normalized risk score. */
+export interface GuestRiskMessages {
+  readonly trusted: string;
+  readonly standard: string;
+  readonly risky: string;
+}
+
 /**
  * Every user-visible string Rialto renders by itself, as one typed dictionary
  * (ADR-028). en-US is the inline default; other locales ship as their own
@@ -248,6 +265,24 @@ export interface RialtoMessages {
   readonly characterCount: (current: number, max: number, over: boolean) => string;
   /** Combobox live-region announcement of `count` (at least 1) visible options. */
   readonly resultsAvailable: (count: number) => string;
+  /** Party size line of a reservation or open-times list, e.g. "Party of 4". */
+  readonly partyOf: (count: number) => string;
+  /** A guest's visit count with its noun; each locale picks its own plural form. */
+  readonly visitCount: (count: number) => string;
+  /** Reservation status words. A copy of the hospitality dashboard's `timeline.status.*`, pinned by its drift test. */
+  readonly reservationStatus: ReservationStatusMessages;
+  /** Guest risk words. A copy of the hospitality dashboard's `crm.risk.*`, pinned by its drift test. */
+  readonly guestRisk: GuestRiskMessages;
+  /** Name shown for a reservation with no guest. A copy of the dashboard's `home.reservations.walkIn`. */
+  readonly walkIn: string;
+  /** TimeSlots line when a day has no open times. */
+  readonly noOpenTimes: string;
+  /** Accessible name of the ReservationList list. */
+  readonly reservations: string;
+  /** Accessible name of the TimeSlots list. */
+  readonly openTimes: string;
+  /** Accessible name of the GuestCards list. */
+  readonly guests: string;
   /** TapeChart default labels; its `strings` prop overrides them. */
   readonly tapeChart: TapeChartMessages;
 }
@@ -355,6 +390,22 @@ export const enUS: RialtoMessages = {
   characterCount: (current, max, over) =>
     `${current} of ${max} characters${over ? ", over limit" : ""}`,
   resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
+  partyOf: (count) => `Party of ${count}`,
+  visitCount: (count) => (count === 1 ? `${count} visit` : `${count} visits`),
+  reservationStatus: {
+    pending: "Pending",
+    confirmed: "Confirmed",
+    cancelled: "Cancelled",
+    completed: "Completed",
+    noShow: "No Show",
+    seated: "Seated",
+  },
+  guestRisk: { trusted: "Trusted", standard: "Standard", risky: "Risky" },
+  walkIn: "Walk-in",
+  noOpenTimes: "No open times",
+  reservations: "Reservations",
+  openTimes: "Open times",
+  guests: "Guests",
   tapeChart: {
     regionLabel: "Reservations tape chart",
     roomsColumnLabel: "Rooms",
