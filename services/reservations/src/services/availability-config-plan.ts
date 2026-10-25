@@ -127,7 +127,8 @@ function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): 
 /**
  * `replace` for an edit to a schedule ("everywhere it is used"): stored dated
  * hours on a future date that schedule runs, before or after the change, are
- * skipped so the edited week shows through. Bounded like `sharedDates`.
+ * skipped so the edited week shows through. Settled for the 366 days from
+ * today.
  */
 function scheduleEditSkips(
   before: AvailabilityConfig,
@@ -138,17 +139,25 @@ function scheduleEditSkips(
   const edited = editedSchedules(before, next);
   if (edited.size === 0 || stored.length === 0) return [];
   // The week alone decides which schedule a date runs; date rules are set aside.
-  const weekOf = (config: AvailabilityConfig, date: string) =>
-    resolveDay({ timezone: "UTC", config: { ...config, dateRules: [] } }, date).scheduleId;
-  const inScope = (date: string) =>
-    [weekOf(before, date), weekOf(next, date)].some((id) => id != null && edited.has(id));
+  // Resolved once per date of the window (2 x 366 calls whatever the rule
+  // count): this runs inside the save transaction, with the venue row locked.
+  const weeks = [before, next].map((config) => ({
+    timezone: "UTC",
+    config: { ...config, dateRules: [] },
+  }));
+  const last = addDays(today, SCOPE_CONFLICT_HORIZON_DAYS - 1);
+  const inScope = new Set<string>();
+  for (let d = today; d <= last; d = addDays(d, 1)) {
+    const date = d;
+    const ids = weeks.map((w) => resolveDay(w, date).scheduleId);
+    if (ids.some((id) => id != null && edited.has(id))) inScope.add(date);
+  }
   return stored.flatMap((rule) => {
     const from = rule.startsOn > today ? rule.startsOn : today;
-    const horizon = addDays(from, SCOPE_CONFLICT_HORIZON_DAYS - 1);
-    const to = rule.endsOn != null && rule.endsOn < horizon ? rule.endsOn : horizon;
+    const to = rule.endsOn != null && rule.endsOn < last ? rule.endsOn : last;
     const skips: Skip[] = [];
     for (let d = from; d <= to; d = addDays(d, 1)) {
-      if (coversDate(rule, d) && inScope(d)) skips.push({ seriesId: rule.id, date: d });
+      if (inScope.has(d) && coversDate(rule, d)) skips.push({ seriesId: rule.id, date: d });
     }
     return skips;
   });

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { VenueRoleLookup } from "@mbe/auth/fastify";
 import {
+  AVAILABILITY_CONFIG_PREFIX,
   AvailabilityConfigProblemSchema,
   AvailabilityConfigSaveResultSchema,
   AvailabilityConfigStateSchema,
@@ -21,7 +22,7 @@ vi.mock("jose", () => ({
 
 import { jwtVerify } from "jose";
 
-const BASE = "/api/v1/venues/venue-1/availability";
+const BASE = `${AVAILABILITY_CONFIG_PREFIX}/venue-1/availability`;
 const ADMIN = { "x-auth-bypass": "true" };
 
 const CONFIG = {
