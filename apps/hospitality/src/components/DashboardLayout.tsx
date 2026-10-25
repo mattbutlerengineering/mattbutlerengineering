@@ -63,6 +63,7 @@ const ROUTE_LABEL_KEYS = {
   dashboard: "layout.routes.dashboard",
   setup: "layout.routes.setup",
   hours: "layout.routes.hours",
+  chat: "layout.routes.chat",
 } as const;
 
 function routeLabel(t: TFunction, segment: string): string {

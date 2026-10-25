@@ -356,7 +356,8 @@
       "dashboard": "Panel",
       "setup": "Configuración inicial",
       "hours": "Horario de operación",
-      "menus": "Menús"
+      "menus": "Menús",
+      "chat": "Chat"
     },
     "venuesNotLoaded": "No se cargaron los locales.",
     "searchPlaceholder": "Buscar páginas y acciones...",

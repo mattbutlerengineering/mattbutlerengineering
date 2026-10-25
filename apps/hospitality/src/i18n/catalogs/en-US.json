@@ -349,7 +349,8 @@
       "dashboard": "Dashboard",
       "setup": "Setup",
       "hours": "Operating Hours",
-      "menus": "Menus"
+      "menus": "Menus",
+      "chat": "Chat"
     },
     "venuesNotLoaded": "Venues not loaded.",
     "searchPlaceholder": "Search pages and actions...",
