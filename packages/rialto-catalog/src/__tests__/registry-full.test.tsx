@@ -1105,7 +1105,10 @@ describe("hospitality data elements", () => {
       elements: { l: { type: "StatusLED", props: { variant: "success", label: "Patio 2: free" } } },
     });
     expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
-    expect(within(container).getByRole("img", { name: "Patio 2: free" })).toBeTruthy();
+    // Live batch 7: the label existed only as aria-label, so staff saw a column of
+    // bare dots. It must be visible text, read once (the light itself is decorative).
+    expect(within(container).getByText("Patio 2: free")).toBeTruthy();
+    expect(within(container).queryByRole("img", { name: "Patio 2: free" })).toBeNull();
   });
 });
 

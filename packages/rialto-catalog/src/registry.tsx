@@ -514,7 +514,16 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
 
       StatusLED: ({ props }: { props: unknown }) => {
         const p = props as Pick<StatusLEDProps, "variant" | "pulse" | "label">;
-        return <StatusLED variant={p.variant} pulse={p.pulse} label={p.label} />;
+        // StatusLED's own label is only an aria-label, which in a generated list
+        // left staff a column of unnamed dots (live batch 7). Show the label as
+        // text beside the light, which then stays decorative so it's read once.
+        if (!p.label) return <StatusLED variant={p.variant} pulse={p.pulse} />;
+        return (
+          <Stack direction="row" gap="xs" align="center">
+            <StatusLED variant={p.variant} pulse={p.pulse} />
+            <Text variant="body">{p.label}</Text>
+          </Stack>
+        );
       },
 
       // Tag's dismiss/click/select behaviour needs callbacks a static spec can't
