@@ -131,7 +131,6 @@ Each story is tagged with its phase and traced to the idea.md scenario numbers. 
 56. As a **Guest**, I want to pick a seating area and see its availability, so that I can book the patio. (F60)
 57. As a **Guest** whose party is over the online limit, I want the venue's chosen path (call or request) with a reason, so that I'm not stuck. (H72–73, M117)
 58. As a **Manager** of a one-room venue, I want none of the area settings to appear until I need them, so that setup stays simple. (F62)
-59. As a **Manager**, I want to close one area only, so that a rained-out patio doesn't close the venue. Story 78 belongs to Phase 3; it is numbered last so existing story numbers stay stable. (E42)
 
 ### Phase 4: policies
 
@@ -157,6 +156,10 @@ Each story is tagged with its phase and traced to the idea.md scenario numbers. 
 75. As a **Manager**, I want a partial or full buyout that removes a space or the venue from public availability, with full buyouts handled like closures for existing bookings, so that a buyout never double-sells. (K103–104)
 76. As a **Manager**, I want a tentative hold on a space that expires automatically, so that pending proposals don't block forever. (K106)
 77. As a **Guest**, I want events shown as their own bookable items beside normal times, so that I can find them. (M116)
+
+### Phase 3 addition (numbered last so existing story numbers stay stable)
+
+78. As a **Manager**, I want to close one area only, so that a rained-out patio doesn't close the venue. (E42)
 
 ## Success criteria
 
