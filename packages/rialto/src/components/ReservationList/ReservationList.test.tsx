@@ -68,6 +68,19 @@ describe("ReservationList", () => {
     expect(list).toHaveTextContent(esMX.reservationStatus.confirmed);
   });
 
+  it("shows a 24-hour HH:mm time in the locale's clock", () => {
+    const { rerender } = render(
+      <ReservationList reservations={[{ time: "20:30", partySize: 2, status: "CONFIRMED" }]} />
+    );
+    expect(screen.getByText(/^8:30\sPM$/)).toBeInTheDocument();
+    rerender(
+      <RialtoLocaleProvider locale="fr-CA">
+        <ReservationList reservations={[{ time: "20:30", partySize: 2, status: "CONFIRMED" }]} />
+      </RialtoLocaleProvider>
+    );
+    expect(screen.getByText(/^20\sh\s30$/)).toBeInTheDocument();
+  });
+
   it("has nothing focusable", () => {
     const { container } = render(<ReservationList reservations={rows} />);
     expect(container.querySelectorAll("a, button, input, [tabindex]")).toHaveLength(0);

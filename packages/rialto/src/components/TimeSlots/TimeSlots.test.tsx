@@ -29,6 +29,15 @@ describe("TimeSlots", () => {
     expect(container.querySelectorAll("a, button, input, [tabindex]")).toHaveLength(0);
   });
 
+  it("shows 24-hour HH:mm times in the locale's clock", () => {
+    render(<TimeSlots date="Monday" partySize={2} times={["09:00", "20:30"]} />);
+    const items = within(screen.getByRole("list", { name: "Open times" })).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      expect.stringMatching(/^9:00\sAM$/),
+      expect.stringMatching(/^8:30\sPM$/),
+    ]);
+  });
+
   it("shows the localized no-open-times line for an empty times array, never an empty box", () => {
     render(<TimeSlots date="Saturday, Oct 31" partySize={6} times={[]} />);
     expect(screen.getByText("Saturday, Oct 31 · Party of 6")).toBeInTheDocument();
@@ -44,7 +53,9 @@ describe("TimeSlots", () => {
       </RialtoLocaleProvider>
     );
     expect(screen.getByText(`viernes 30 · ${esMX.partyOf(4)}`)).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: esMX.openTimes })).toHaveTextContent("19:30");
+    expect(screen.getByRole("list", { name: esMX.openTimes })).toHaveTextContent(
+      /^7:30\s?p\.?\s?m\.?$/
+    );
     expect(screen.getByText(esMX.noOpenTimes)).toBeInTheDocument();
   });
 

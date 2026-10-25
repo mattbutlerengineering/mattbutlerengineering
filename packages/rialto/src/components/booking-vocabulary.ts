@@ -52,3 +52,21 @@ export function normalizeReservationStatus(raw: string): Resolved<ReservationSta
 export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> {
   return RISK[canonical(raw)] ?? UNKNOWN;
 }
+
+const CLOCK_TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/**
+ * A bare 24-hour "HH:mm" (the agent's venue-local `localTime`) in the locale's
+ * own clock: "8:30 PM" in en-US, "20 h 30" in fr-CA. Any other display text,
+ * such as an already-formatted "7:30 PM", is returned unchanged.
+ */
+export function displayClockTime(raw: string, locale: string | undefined): string {
+  const match = CLOCK_TIME.exec(raw);
+  if (!match) return raw;
+  const at = Date.UTC(1970, 0, 1, Number(match[1] ?? 0), Number(match[2] ?? 0));
+  return new Intl.DateTimeFormat(locale, {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }).format(at);
+}

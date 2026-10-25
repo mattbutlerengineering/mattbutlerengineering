@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeGuestRisk, normalizeReservationStatus } from "./booking-vocabulary";
+import {
+  displayClockTime,
+  normalizeGuestRisk,
+  normalizeReservationStatus,
+} from "./booking-vocabulary";
 
 describe("normalizeReservationStatus", () => {
   it.each(["No show", "no-show", "NO_SHOW", "  no show  ", "No-Show"])(
@@ -38,5 +42,22 @@ describe("normalizeGuestRisk", () => {
 
   it.each(["", "vip", "high-risk"])("%j is unknown: no key and the neutral tone", (raw) => {
     expect(normalizeGuestRisk(raw)).toEqual({ key: undefined, tone: "neutral" });
+  });
+});
+
+// Live chat batch 8 (F30): the agent's localTime is 24-hour "HH:mm", and the chat
+// showed "09:00" and "20:30" to an en-US host.
+describe("displayClockTime", () => {
+  it("formats a 24-hour HH:mm in the locale's clock", () => {
+    expect(displayClockTime("09:26", "en-US")).toMatch(/^9:26\sAM$/);
+    expect(displayClockTime("20:30", "en-US")).toMatch(/^8:30\sPM$/);
+    expect(displayClockTime("20:30", "es-MX")).toMatch(/^8:30\s?p\.?\s?m\.?$/);
+    expect(displayClockTime("20:30", "fr-CA")).toMatch(/^20\sh\s30$/);
+  });
+
+  it("passes display text that is not a bare HH:mm through unchanged", () => {
+    for (const raw of ["7:30 PM", "24:00", "9:5", "noon", ""]) {
+      expect(displayClockTime(raw, "en-US")).toBe(raw);
+    }
   });
 });

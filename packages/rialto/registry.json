@@ -4855,7 +4855,7 @@
           "name": "times",
           "type": "string[]",
           "required": true,
-          "description": "Open times as display text, in time order. Empty shows the no-open-times line."
+          "description": "Open times as display text, in time order; a bare 24-hour \"19:30\" shows in the locale's clock. Empty shows the no-open-times line."
         }
       ],
       "slots": [

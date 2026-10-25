@@ -2,7 +2,7 @@ import { forwardRef, type HTMLAttributes } from "react";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
 import { Badge } from "../Badge/Badge";
-import { normalizeReservationStatus } from "../booking-vocabulary";
+import { displayClockTime, normalizeReservationStatus } from "../booking-vocabulary";
 import styles from "./ReservationList.module.css";
 
 /**
@@ -17,7 +17,7 @@ import styles from "./ReservationList.module.css";
  * };
  */
 export interface ReservationListRow {
-  /** Display text, such as "7:30 PM". */
+  /** Display text, such as "7:30 PM"; a bare 24-hour "19:30" shows in the locale's clock. */
   time: string;
   /** Guest name. Absent or blank shows the locale's Walk-in word. */
   guest?: string;
@@ -45,7 +45,7 @@ export interface ReservationListProps extends HTMLAttributes<HTMLUListElement> {
 
 export const ReservationList = forwardRef<HTMLUListElement, ReservationListProps>(
   ({ reservations, className, ...props }, ref) => {
-    const { messages } = useRialtoLocale();
+    const { locale, messages } = useRialtoLocale();
 
     return (
       <ul
@@ -59,7 +59,7 @@ export const ReservationList = forwardRef<HTMLUListElement, ReservationListProps
           const guest = row.guest?.trim() ? row.guest : messages.walkIn;
           return (
             <li key={i} className={styles.row}>
-              <span className={styles.time}>{row.time}</span>
+              <span className={styles.time}>{displayClockTime(row.time, locale)}</span>
               <span className={styles.who}>
                 <span className={styles.guest}>{guest}</span>
                 <span className={styles.party}>{messages.partyOf(row.partySize)}</span>
