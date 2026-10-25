@@ -49,6 +49,130 @@
       ): ClosureBandText { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/quick-setup-draft.ts">
+    <item priority="low">
+      interface ServiceDraft {
+        id: string;
+        name: string;
+        opens: string | null;
+        lastSeating: string | null;
+        closes: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface QuickSetupDraft {
+        services: readonly ServiceDraft[];
+        days: readonly number[];
+      }
+    </item>
+    <item priority="high">
+      export const LAST_SEATING_LEAD_MINUTES: unknown;
+    </item>
+    <item priority="high">
+      export const WEEK_DISPLAY_ORDER: readonly number[];
+    </item>
+    <item priority="high">
+      export const WEEKDAY_SHORTCUT: readonly number[];
+    </item>
+    <item priority="high">
+      export const WEEKEND_SHORTCUT: readonly number[];
+    </item>
+    <item priority="high">
+      export const EVERY_DAY_SHORTCUT: readonly number[];
+    </item>
+    <item priority="high">
+      export const SERVICE_PRESETS: unknown;
+    </item>
+    <item priority="low">
+      type ServicePresetId = keyof typeof SERVICE_PRESETS;
+    </item>
+    <item priority="high">
+      export const SERVICE_PRESET_IDS: unknown;
+    </item>
+    <item priority="high">
+      export function emptyService(id: string): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emptyDraft(firstServiceId: string): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toMinutes(hhmm: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toClock(minutes: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function autoLastSeating(closes: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceTime(
+        service: ServiceDraft,
+        field: "opens" | "lastSeating" | "closes",
+        value: string | null
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
+    </item>
+    <item priority="low">
+      type QuickSetupIssueCode = "name_required" | "time_required" | "close_after_open" | "last_seating_after_close" | "last_seating_before_open" | "overlap" | "days_required";
+    </item>
+    <item priority="low">
+      interface QuickSetupIssue {
+        serviceId: string | null;
+        field: QuickSetupField | "days";
+        code: QuickSetupIssueCode;
+      }
+    </item>
+    <item priority="high">
+      interface ServiceMinutes {
+        opensAt: number;
+        lastSeatingAt: number;
+        closesAt: number;
+      }
+    </item>
+    <item priority="medium">
+      function minutesOf(service: ServiceDraft): ServiceMinutes | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function completenessIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftToConfig(
+        draft: QuickSetupDraft,
+        newId: () => string,
+        existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftToChanges(
+        draft: QuickSetupDraft,
+        stored: AvailabilityConfig,
+        newId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): QuickSetupDraft { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -367,8 +491,8 @@
   </section>
   <section priority="medium" role="e2e">
   <file path="e2e/api-mocks.ts">
-    <item priority="medium">
-      function loadFixture(name: string): string { /* ... */ }
+    <item priority="high">
+      export function loadFixture(name: string): string { /* ... */ }
     </item>
     <item priority="medium">
       function loadStaffVenues(): {
@@ -1219,6 +1343,9 @@
     </item>
     <item priority="high">
       export const useAvailabilityConfig: unknown;
+    </item>
+    <item priority="high">
+      export const useSaveAvailabilityConfig: unknown;
     </item>
   </file>
   <file path="src/hooks/useBriefing.ts">

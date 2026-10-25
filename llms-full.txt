@@ -4709,6 +4709,282 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
+    export interface ServiceDraft {
+      readonly id: string;
+      readonly name: string;
+      readonly opens: string | null;
+      readonly lastSeating: string | null;
+      readonly closes: string | null;
+      /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
+      readonly lastSeatingLinked: boolean;
+    }
+    export interface QuickSetupDraft {
+      readonly services: readonly ServiceDraft[];
+      /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
+      readonly days: readonly number[];
+    }
+    export const LAST_SEATING_LEAD_MINUTES = 45;
+    export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
+    export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
+    export const WEEKEND_SHORTCUT: readonly number[] = [6, 0];
+    export const EVERY_DAY_SHORTCUT: readonly number[] = WEEK_DISPLAY_ORDER;
+    export const SERVICE_PRESETS = {
+      lunch: { opens: "11:30", closes: "14:30" },
+      brunch: { opens: "10:00", closes: "14:00" },
+      dinner: { opens: "17:00", closes: "22:00" },
+      late: { opens: "22:00", closes: "01:00" },
+    } as const;
+    export type ServicePresetId = keyof typeof SERVICE_PRESETS;
+    export const SERVICE_PRESET_IDS = Object.keys(SERVICE_PRESETS) as ServicePresetId[];
+    export function emptyService(id: string): ServiceDraft {
+      return { id, name: "", opens: null, lastSeating: null, closes: null, lastSeatingLinked: true };
+    }
+    export function emptyDraft(firstServiceId: string): QuickSetupDraft {
+      return { services: [emptyService(firstServiceId)], days: [] };
+    }
+    function toMinutes(hhmm: string): number {
+      const [h = 0, m = 0] = hhmm.split(":").map(Number);
+      return h * 60 + m;
+    }
+    export function toClock(minutes: number): string {
+      const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+      const mm = String(wrapped % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+    export function autoLastSeating(closes: string): string {
+      return toClock(toMinutes(closes) - LAST_SEATING_LEAD_MINUTES);
+    }
+    export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
+      const { opens, closes } = SERVICE_PRESETS[preset];
+      return {
+        ...service,
+        name,
+        opens,
+        closes,
+        lastSeating: autoLastSeating(closes),
+        lastSeatingLinked: true,
+      };
+    }
+    export function setServiceTime(
+      service: ServiceDraft,
+      field: "opens" | "lastSeating" | "closes",
+      value: string | null
+    ): ServiceDraft {
+      if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
+      if (field === "closes" && service.lastSeatingLinked) {
+        return {
+          ...service,
+          closes: value,
+          lastSeating: value === null ? null : autoLastSeating(value),
+        };
+      }
+      return { ...service, [field]: value };
+    }
+    export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
+      return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
+    }
+    export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft {
+      const days = draft.days.includes(day)
+        ? draft.days.filter((d) => d !== day)
+        : [...draft.days, day];
+      return { ...draft, days };
+    }
+    export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
+    export type QuickSetupIssueCode =
+      | "name_required"
+      | "time_required"
+      | "close_after_open"
+      | "last_seating_after_close"
+      | "last_seating_before_open"
+      | "overlap"
+      | "days_required";
+    export interface QuickSetupIssue {
+      /** `null` for the whole card (days). */
+      readonly serviceId: string | null;
+      readonly field: QuickSetupField | "days";
+      readonly code: QuickSetupIssueCode;
+    }
+    interface ServiceMinutes {
+      readonly opensAt: number;
+      readonly lastSeatingAt: number;
+      readonly closesAt: number;
+    }
+    function minutesOf(service: ServiceDraft): ServiceMinutes | null {
+      if (service.opens === null || service.lastSeating === null || service.closes === null)
+        return null;
+      const opensAt = toMinutes(service.opens);
+      const afterOpen = (hhmm: string, strict: boolean) => {
+        const m = toMinutes(hhmm);
+        return strict
+          ? m <= opensAt
+            ? m + MINUTES_PER_DAY
+            : m
+          : m < opensAt
+            ? m + MINUTES_PER_DAY
+            : m;
+      };
+      return {
+        opensAt,
+        closesAt: afterOpen(service.closes, true),
+        lastSeatingAt: afterOpen(service.lastSeating, false),
+      };
+    }
+    function completenessIssues(service: ServiceDraft): QuickSetupIssue[] {
+      const missing = TIME_FIELDS.filter(([key]) => service[key] === null).map(
+        ([, field]): QuickSetupIssue => ({
+          serviceId: service.id,
+          field,
+          code: "time_required",
+        })
+      );
+      const unnamed: QuickSetupIssue[] =
+        service.name.trim() === ""
+          ? [{ serviceId: service.id, field: "name", code: "name_required" }]
+          : [];
+      return [...unnamed, ...missing];
+    }
+    function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] {
+      const at = (field: QuickSetupField, code: QuickSetupIssueCode): QuickSetupIssue => ({
+        serviceId: service.id,
+        field,
+        code,
+      });
+      if (service.opens === service.closes) return [at("closes", "close_after_open")];
+      return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
+    }
+    export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
+      const perService = draft.services.flatMap((service) => {
+        const missing = completenessIssues(service);
+        const minutes = minutesOf(service);
+        return missing.length > 0 || minutes === null ? missing : orderIssues(service, minutes);
+      });
+      const daysIssue: QuickSetupIssue[] =
+        draft.days.length === 0 ? [{ serviceId: null, field: "days", code: "days_required" }] : [];
+      if (perService.length > 0) return [...perService, ...daysIssue];
+    
+      const config = draftToConfig(draft, () => "check");
+      const overlaps = validateConfig(config)
+        .filter((issue) => issue.code === "overlap")
+        .flatMap((issue): QuickSetupIssue[] => {
+          const index = Number(/scheduleServices\[(\d+)\]/.exec(issue.path)?.[1]);
+          const service = draft.services[index];
+          return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
+        });
+      return [...overlaps, ...daysIssue];
+    }
+    export function draftToConfig(
+      draft: QuickSetupDraft,
+      newId: () => string,
+      existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+    ): AvailabilityConfig {
+      const scheduleId = existing?.regularScheduleId ?? newId();
+      const schedule: Schedule = {
+        id: scheduleId,
+        name: "Regular week",
+        kind: "regular",
+        isRegular: true,
+      };
+      const venueServices: VenueService[] = [];
+      const scheduleServices: ScheduleService[] = [];
+      draft.services.forEach((service, position) => {
+        const m = minutesOf(service);
+        if (m === null) return;
+        const name = service.name.trim();
+        const venueServiceId = existing?.venueServiceIds?.[name.toLowerCase()] ?? newId();
+        venueServices.push({ id: venueServiceId, name, position });
+        scheduleServices.push({
+          id: newId(),
+          scheduleId,
+          venueServiceId,
+          ...m,
+          seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
+          bookingTypes: ["online", "phone"],
+        });
+      });
+      const assignment: ScheduleAssignment = {
+        id: newId(),
+        scheduleId,
+        weekdays: [...draft.days].sort((a, b) => a - b),
+        precedence: 0,
+      };
+      return {
+        schedules: [schedule],
+        venueServices,
+        scheduleServices,
+        assignments: [assignment],
+        dateRules: [],
+      };
+    }
+    export function draftToChanges(
+      draft: QuickSetupDraft,
+      stored: AvailabilityConfig,
+      newId: () => string
+    ): AvailabilityConfigChanges {
+      const regular = stored.schedules.find((s) => s.isRegular);
+      const venueServiceIds = Object.fromEntries(
+        stored.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+      );
+      const next = draftToConfig(draft, newId, {
+        ...(regular ? { regularScheduleId: regular.id } : {}),
+        venueServiceIds,
+      });
+      const scheduleId = next.schedules[0]?.id;
+      const storedServiceIds = new Set(stored.venueServices.map((s) => s.id));
+      return {
+        upsert: {
+          schedules: next.schedules,
+          venueServices: next.venueServices.filter((s) => !storedServiceIds.has(s.id)),
+          scheduleServices: next.scheduleServices,
+          assignments: next.assignments,
+        },
+        remove: {
+          scheduleServices: stored.scheduleServices
+            .filter((s) => s.scheduleId === scheduleId)
+            .map((s) => s.id),
+          assignments: stored.assignments.filter((a) => a.scheduleId === scheduleId).map((a) => a.id),
+        },
+      };
+    }
+    export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours {
+      const projected = projectLegacyOperatingHours(draftToConfig(draft, () => "wizard"));
+      const hours: OperatingHours = {};
+      for (const [day, value] of Object.entries(projected)) {
+        if (!value.closed)
+          hours[day as keyof OperatingHours] = { open: value.open, close: value.close };
+      }
+      return hours;
+    }
+    export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): QuickSetupDraft {
+      const order = [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ] as const;
+      const open = order.flatMap((day, index) => {
+        const value = hours[day];
+        return value && !value.closed ? [{ index, value }] : [];
+      });
+      const first = open[0]?.value;
+      if (!first) return emptyDraft(serviceId);
+      return {
+        services: [
+          {
+            ...emptyService(serviceId),
+            opens: first.open,
+            closes: first.close,
+            lastSeating: autoLastSeating(first.close),
+          },
+        ],
+        days: open.map((o) => o.index),
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -8709,7 +8985,7 @@
     }
   </file>
   <file path="apps/hospitality/e2e/api-mocks.ts">
-    function loadFixture(name: string): string {
+    export function loadFixture(name: string): string {
       return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
     }
     function loadStaffVenues(): {
@@ -14351,6 +14627,15 @@
       fetcher: async (params, api) =>
         params?.venueId ? api.availability.getConfig(params.venueId) : null,
       getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useSaveAvailabilityConfig = createMutationHook<{
+      venueId: string;
+      expectedVersion: number;
+      changes: AvailabilityConfigChanges;
+    }>({
+      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY, VENUES_QUERY_KEY],
+      mutationFn: (api, { venueId, expectedVersion, changes }) =>
+        api.availability.saveConfig(venueId, { expectedVersion, changes }),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
@@ -51963,7 +52248,7 @@
     
       const STEP_PATHS: Record<SetupStep, string> = {
         onboarding: "/onboarding",
-        "operating-hours": "/setup/hours",
+        "operating-hours": "/availability",
         "floor-plan": "/floor-plans",
       };
     

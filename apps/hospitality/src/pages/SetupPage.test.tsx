@@ -119,7 +119,7 @@ describe("SetupPage", () => {
     expect(reviewButton).toBeDefined();
 
     await user.click(reviewButton);
-    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
+    expect(mockNavigate).toHaveBeenCalledWith("/availability");
   });
 
   it("completed step has correct aria label", () => {
@@ -136,7 +136,7 @@ describe("SetupPage", () => {
     expect(ctaButton).toBeDefined();
 
     await user.click(ctaButton);
-    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
+    expect(mockNavigate).toHaveBeenCalledWith("/availability");
   });
 
   it("current step has correct aria label", () => {

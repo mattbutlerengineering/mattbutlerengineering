@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, SegmentedControl, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, SegmentedControl, Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailability.js";
@@ -9,6 +9,7 @@ import { venueDate } from "../utils/service-day.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
+import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
 import { AvailabilityDayDrawer } from "../components/availability/AvailabilityDayDrawer.js";
 import {
   shiftAnchor,
@@ -42,7 +43,7 @@ export function AvailabilityPage() {
     from: dates[0] ?? anchor,
     to: dates.at(-1) ?? anchor,
   });
-  const config = useAvailabilityConfig({ venueId: selectedVenueId, enabled: openDate !== null });
+  const config = useAvailabilityConfig({ venueId: selectedVenueId });
   const { data: team } = useVenueTeam({ venueId: selectedVenueId });
 
   const resolved = useMemo(
@@ -60,6 +61,28 @@ export function AvailabilityPage() {
         <Text variant="body" color="secondary">
           {t("availability.noVenue")}
         </Text>
+      </Stack>
+    );
+  }
+
+  // A venue with no hours sees the quick-setup card instead of an empty calendar (S1).
+  if (config.data?.source === "empty") {
+    return (
+      <Stack gap="md">
+        <PageHeader title={t("availability.title")} description={t("availability.description")} />
+        {team?.viewerRole === "manager" ? (
+          <AvailabilityQuickSetup
+            venueId={selectedVenueId}
+            state={config.data}
+            onStale={() => void config.refetch()}
+          />
+        ) : team?.viewerRole ? (
+          <Text variant="body" color="secondary">
+            {t("availability.quickSetup.hostEmpty")}
+          </Text>
+        ) : (
+          <Skeleton variant="text" lines={3} />
+        )}
       </Stack>
     );
   }

@@ -89,7 +89,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Preview endpoint** — `POST …/availability/preview` built on `applyDraft` and `diffDays`, with a stranded list across every future date in scope, paged after 50, and a 5s timeout that returns 503 `preview-timeout`. (tracker: #7512)
   - Accept: a 30-day draft on the seeded 250-seat venue has p95 ≤1s including the stranded list (SC Preview speed). The stranded list includes bookings beyond the focus window.
   - Blocked by: Config API
-- [ ] **Quick setup and onboarding** — the S1 card, onboarding hours step reuse (F-ONB), and the five entry points repointed from `/setup/hours`. (tracker: #7513)
+- [x] **Quick setup and onboarding** — the S1 card, onboarding hours step reuse (F-ONB), and the five entry points repointed from `/setup/hours`. (tracker: #7513)
   - Accept: component tests cover valid, invalid and server-error states. An E2E test sets up the bistro week from an empty venue, and the setup checklist marks availability as done.
   - Blocked by: Config API
 - [x] **AvailabilityCalendar and day drawer (read)** — an app-local month and week grid with per-day labels and closure bands, and a drawer showing the plain summary plus "Why this day" from `explanation`. Hosts get a view-only drawer (F-HOST). (tracker: #7514)

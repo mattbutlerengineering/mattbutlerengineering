@@ -1488,14 +1488,53 @@
       "removalOpen": "open for {{services}}",
       "removalClosed": "closed",
       "loadError": "Couldn't load why this day looks this way"
+    },
+    "quickSetup": {
+      "title": "Set your regular week",
+      "intro": "Tell guests when you take bookings. You can change any day later.",
+      "serviceN": "Service {{n}}",
+      "presetsLabel": "Service names",
+      "presets": {
+        "lunch": "Lunch",
+        "brunch": "Brunch",
+        "dinner": "Dinner",
+        "late": "Late"
+      },
+      "nameLabel": "Service name",
+      "opens": "Opens",
+      "lastSeating": "Last seating",
+      "closes": "Closes",
+      "lastSeatingHint": "Last seating {{time}}, 45 min before close",
+      "days": "Days",
+      "shortcuts": {
+        "weekdays": "Weekdays",
+        "weekends": "Weekends",
+        "everyDay": "Every day"
+      },
+      "addService": "Add another service",
+      "serviceAdded": "Service {{n}} added",
+      "removeService": "Remove service {{n}}",
+      "previewTitle": "Guest preview",
+      "previewEmpty": "Add a service to see the times guests get.",
+      "previewLine": "{{name}}: first seating {{first}}, last seating {{last}}",
+      "save": "Save and open bookings",
+      "saving": "Saving…",
+      "retry": "Retry",
+      "saveErrorTitle": "Couldn't save your week",
+      "savedToast": "Bookings are open {{days}}",
+      "versionConflict": "Someone else just changed availability. Try saving again to keep your week.",
+      "hostEmpty": "No hours are set yet. A manager sets the regular week here.",
+      "wizardIntro": "Tell guests when you take bookings.",
+      "issues": {
+        "name_required": "Give this service a name.",
+        "time_required": "Choose a time.",
+        "close_after_open": "Closing must be different from opening.",
+        "last_seating_after_close": "Last seating must be before closing.",
+        "last_seating_before_open": "Last seating must be after opening.",
+        "overlap": "This service overlaps another one.",
+        "days_required": "Choose at least one day."
+      }
     }
-  },
-  "setupHours": {
-    "title": "Operating Hours",
-    "description": "Set the days and times your venue is open for reservations.",
-    "cancel": "Cancel",
-    "saving": "Saving...",
-    "save": "Save Hours"
   },
   "setup": {
     "yourVenue": "your venue",

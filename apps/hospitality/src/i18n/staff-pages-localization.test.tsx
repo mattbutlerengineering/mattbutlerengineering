@@ -9,7 +9,6 @@ import { SettingsPage } from "../pages/SettingsPage.js";
 import { AdminPage } from "../pages/AdminPage.js";
 import { BookingWidgetDemoPage } from "../pages/BookingWidgetDemoPage.js";
 import { NotFoundPage } from "../pages/NotFoundPage.js";
-import { SetupHoursPage } from "../pages/SetupHoursPage.js";
 import { evaluateCancellationQuote } from "../hooks/useCancellationQuote.js";
 import { OfflineBanner } from "../components/OfflineBanner.js";
 
@@ -86,7 +85,6 @@ interface Expected {
   readonly widgetTitle: string;
   readonly widgetFeature: string;
   readonly notFoundBack: string;
-  readonly hoursTitle: string;
   readonly offline: string;
   readonly lateFee: string;
 }
@@ -104,7 +102,6 @@ const CASES: readonly Expected[] = [
     widgetTitle: "Widget de reservas",
     widgetFeature: "Confirmación instantánea",
     notFoundBack: "Volver al servicio de esta noche",
-    hoursTitle: "Horario de atención",
     offline: "Mostrando datos en caché de la última sincronización",
     lateFee: "Cargo por cancelación tardía:",
   },
@@ -120,7 +117,6 @@ const CASES: readonly Expected[] = [
     widgetTitle: "Widget de réservation",
     widgetFeature: "Confirmation instantanée",
     notFoundBack: "Retour au service de ce soir",
-    hoursTitle: "Heures d'ouverture",
     offline: "Affichage des données en cache de la dernière synchronisation",
     lateFee: "Frais d'annulation tardive :",
   },
@@ -163,17 +159,15 @@ describe.each(CASES)("staff pages in $tag", (c) => {
     expect(screen.getByText(c.widgetFeature)).toBeInTheDocument();
   });
 
-  it("translates the not-found, operating hours and offline surfaces", async () => {
+  it("translates the not-found and offline surfaces", async () => {
     await useLocale(c.tag, c.catalog);
     render(
       <MemoryRouter>
         <NotFoundPage />
-        <SetupHoursPage />
         <OfflineBanner lastSyncedAt={undefined} />
       </MemoryRouter>
     );
     expect(screen.getByRole("button", { name: c.notFoundBack })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: c.hoursTitle })).toBeInTheDocument();
     expect(screen.getByText(c.offline)).toBeInTheDocument();
   });
 

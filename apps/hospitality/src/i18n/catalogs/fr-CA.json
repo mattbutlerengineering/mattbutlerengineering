@@ -1512,14 +1512,53 @@
       "removalOpen": "ouvert pour {{services}}",
       "removalClosed": "fermé",
       "loadError": "Impossible de charger pourquoi ce jour est ainsi"
+    },
+    "quickSetup": {
+      "title": "Définissez votre semaine habituelle",
+      "intro": "Indiquez aux clients quand vous prenez des réservations. Vous pourrez modifier chaque jour plus tard.",
+      "serviceN": "Service {{n}}",
+      "presetsLabel": "Noms de service",
+      "presets": {
+        "lunch": "Dîner",
+        "brunch": "Brunch",
+        "dinner": "Souper",
+        "late": "Tard le soir"
+      },
+      "nameLabel": "Nom du service",
+      "opens": "Ouverture",
+      "lastSeating": "Dernière table",
+      "closes": "Fermeture",
+      "lastSeatingHint": "Dernière table à {{time}}, 45 min avant la fermeture",
+      "days": "Jours",
+      "shortcuts": {
+        "weekdays": "En semaine",
+        "weekends": "Fins de semaine",
+        "everyDay": "Tous les jours"
+      },
+      "addService": "Ajouter un autre service",
+      "serviceAdded": "Service {{n}} ajouté",
+      "removeService": "Retirer le service {{n}}",
+      "previewTitle": "Aperçu pour les clients",
+      "previewEmpty": "Ajoutez un service pour voir les heures offertes aux clients.",
+      "previewLine": "{{name}} : première table {{first}}, dernière table {{last}}",
+      "save": "Enregistrer et ouvrir les réservations",
+      "saving": "Enregistrement…",
+      "retry": "Réessayer",
+      "saveErrorTitle": "Impossible d'enregistrer votre semaine",
+      "savedToast": "Les réservations sont ouvertes {{days}}",
+      "versionConflict": "Quelqu'un vient de modifier les disponibilités. Réessayez d'enregistrer pour conserver votre semaine.",
+      "hostEmpty": "Aucun horaire n'est défini. Un gestionnaire définit la semaine habituelle ici.",
+      "wizardIntro": "Indiquez aux clients quand vous prenez des réservations.",
+      "issues": {
+        "name_required": "Donnez un nom à ce service.",
+        "time_required": "Choisissez une heure.",
+        "close_after_open": "La fermeture doit être différente de l'ouverture.",
+        "last_seating_after_close": "La dernière table doit précéder la fermeture.",
+        "last_seating_before_open": "La dernière table doit suivre l'ouverture.",
+        "overlap": "Ce service chevauche un autre service.",
+        "days_required": "Choisissez au moins un jour."
+      }
     }
-  },
-  "setupHours": {
-    "title": "Heures d'ouverture",
-    "description": "Définissez les jours et les heures où votre établissement accepte les réservations.",
-    "cancel": "Annuler",
-    "saving": "Enregistrement...",
-    "save": "Enregistrer les heures"
   },
   "setup": {
     "yourVenue": "votre établissement",
