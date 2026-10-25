@@ -8,40 +8,13 @@ Domain model, API routes, SSE events and error handling: [docs/reference.md](./d
 
 ## Integration Points
 
-### Hospitality App
-
-```
-Hospitality UI ──> Reservations API ──> SSE ──> Hospitality UI (updates)
-```
-
-### Booking Widget
-
-```
-Booking Widget ──> GET /public/v1/venues/:slug/availability ──> Time slots
-               ──> POST /public/v1/venues/:slug/holds ──> Hold created (venue default 10 m) + x-session-id
-               ──> POST /public/v1/venues/:slug/holds/:holdId/confirm ──> Reservation created
-               ──> POST /public/v1/venues/:slug/deposits/payment-intent ──> Stripe PaymentIntent (if deposit enabled)
-```
+Hospitality app and booking widget flows, and an example `requireAuth` route: [docs/reference.md § Integration Points](./docs/reference.md#integration-points).
 
 ### Auth Flow
 
 Authenticated routes (require JWT): all `/api/v1/*` routes except `/api/v1/stripe/webhook` (including `/api/v1/availability/*`, which also requires venue membership).
 
 Unauthenticated routes: `/health`, `/ready`, `/api/v1/stripe/webhook`, and all `/public/v1/*` routes (public booking widget, manage/cancel/modify reservation by token, confirm attendance).
-
-```typescript
-// Routes use @mbe/auth plugin
-fastify.get(
-  "/api/v1/reservations",
-  {
-    preHandler: [fastify.requireAuth],
-  },
-  async (request) => {
-    const { venueId, date } = request.query;
-    // Filter by user's accessible venues
-  }
-);
-```
 
 ## Invariants
 
@@ -50,47 +23,7 @@ fastify.get(
 
 ## Testing Patterns
 
-### Mocking Database
-
-```typescript
-vi.mock("../services/database.js", () => ({
-  prisma: {
-    venue: { findMany: vi.fn(), findUnique: vi.fn() },
-    table: { findMany: vi.fn(), update: vi.fn() },
-    reservation: { findMany: vi.fn(), create: vi.fn() },
-  },
-}));
-```
-
-### SSE Event Testing
-
-```typescript
-it("broadcasts reservation:created event", async () => {
-  const app = await buildApp({ logger: false });
-  await app.ready();
-
-  // Track SSE broadcasts
-  const broadcasts: unknown[] = [];
-  app.reservationEvents.on("reservation:created", (data) => {
-    broadcasts.push(data);
-  });
-
-  // Create reservation
-  const response = await app.inject({
-    method: "POST",
-    url: "/api/v1/reservations",
-    headers: { authorization: `Bearer ${token}` },
-    payload: validReservationPayload,
-  });
-
-  expect(response.statusCode).toBe(201);
-  expect(broadcasts).toHaveLength(1);
-  expect(broadcasts[0]).toMatchObject({
-    type: "reservation:created",
-    data: expect.objectContaining({ id: expect.any(String) }),
-  });
-});
-```
+Examples for mocking the database and asserting SSE broadcasts: [docs/reference.md § Testing Patterns](./docs/reference.md#testing-patterns).
 
 ## Postgres Row-Level Security (RLS) Backstop
 
@@ -169,9 +102,7 @@ checks keep that from shipping again:
   instead of passing. Its expectations are derived from the migrations, so it
   keeps working when the migrations declare FORCE.
 
-ADR-026 §3.3 records the route-by-route breakage measured on 2026-09-21, before
-the `SECURITY DEFINER` resolvers and this FORCE migration. That measurement is
-history.
+Pre-FORCE measurement history: [docs/reference.md § RLS history](./docs/reference.md#rls-history).
 
 **If you ever smoke-test the FORCE flip, do NOT do it as a platform admin — the
 damage is a 404, not the 403 the ADR predicts, and an admin sees neither.**
@@ -239,15 +170,7 @@ test-pinned order (resolve once, `admitIdentity`, access decision, then
 `runWithVenueContext(load -> handler)`; a denied request never enters a
 context).
 
-```typescript
-fastify.get<{ Querystring: { venueId: string } }>(
-  "/",
-  { preHandler: requireAuth },
-  venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
-    return { data: await thingService.list(venueId) };
-  })
-);
-```
+Example: [docs/reference.md § Venue scope example](./docs/reference.md#venue-scope-example).
 
 Pick the source (`venue:`) and access (`access:`, default `"member"`):
 
@@ -315,22 +238,7 @@ pnpm db:studio         # Open Prisma Studio
 
 ## Environment Variables
 
-| Variable                   | Required   | Description                                             |
-| -------------------------- | ---------- | ------------------------------------------------------- |
-| `PORT`                     | No         | Service port (default: 3004)                            |
-| `LOG_LEVEL`                | No         | Logging level (default: info)                           |
-| `CORS_ORIGINS`             | No         | Comma-separated allowed origins                         |
-| `AUTH_AUTHORITY`           | Yes (prod) | Auth0 domain                                            |
-| `AUTH_AUDIENCE`            | Yes (prod) | Auth0 API identifier                                    |
-| `DATABASE_URL`             | Yes        | Postgres connection                                     |
-| `MANAGE_TOKEN_SECRET`      | Yes (prod) | HMAC secret for self-service manage/cancel tokens       |
-| `RESEND_API_KEY`           | No         | Resend API key — enables email notifications when set   |
-| `EMAIL_FROM`               | No         | From address for emails (default: reservations@m...com) |
-| `MANAGE_BASE_URL`          | No         | Base URL for manage/cancel links in emails              |
-| `SENTRY_DSN`               | No         | Sentry DSN for error tracking                           |
-| `STRIPE_SECRET_KEY`        | Yes (prod) | Stripe secret key — required when deposits are enabled  |
-| `STRIPE_WEBHOOK_SECRET`    | Yes (prod) | Stripe webhook signing secret for HMAC verification     |
-| `UNSUBSCRIBE_TOKEN_SECRET` | Yes (prod) | HMAC secret for post-visit-email unsubscribe tokens     |
+Required: `DATABASE_URL`. Required in prod: `AUTH_AUTHORITY`, `AUTH_AUDIENCE`, `MANAGE_TOKEN_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `UNSUBSCRIBE_TOKEN_SECRET`. Full table with defaults and the optional variables: [docs/reference.md § Environment Variables](./docs/reference.md#environment-variables).
 
 ## Related Documentation
 
