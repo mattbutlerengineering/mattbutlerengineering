@@ -1,4 +1,6 @@
 export { addDays, weekdayIndexOf, weekdayOf } from "./civil-date.js";
+export { ARCHIVED_ON_REMOVE, applyChanges, applyDraft } from "./apply-draft.js";
+export { diffDays, type DayDiff, type DiffDaysOptions } from "./diff-days.js";
 export { localDateTimeOf, serviceDayInstant } from "./instant.js";
 export {
   resolveDay,

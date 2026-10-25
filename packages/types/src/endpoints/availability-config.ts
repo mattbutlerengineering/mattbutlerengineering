@@ -14,6 +14,8 @@ import {
   AvailabilityDaysQuerySchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
+  PreviewAvailabilityBodySchema,
+  PreviewResultSchema,
   PutAvailabilityConfigBodySchema,
 } from "../schemas/availability-config-api.js";
 
@@ -82,6 +84,30 @@ export const availabilityConfigEndpoints = {
       404: venueNotFound,
       422: {
         description: "`invalid-config`: the draft rule does not validate against the config",
+        body: AvailabilityConfigProblemSchema,
+      },
+    },
+  }),
+  previewAvailability: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/preview`,
+    params: VenueParamsSchema,
+    body: PreviewAvailabilityBodySchema,
+    responses: {
+      200: {
+        description:
+          "The draft's effect: per-date added/removed times, the focus day, and a page of stranded reservations",
+        body: z.object({ data: PreviewResultSchema }),
+      },
+      401: authRequired,
+      403: problem("Caller is not a Manager of this venue"),
+      404: venueNotFound,
+      422: {
+        description: "`invalid-config`, with path-addressed issues",
+        body: AvailabilityConfigProblemSchema,
+      },
+      503: {
+        description: "`preview-timeout`: the preview took longer than 5 seconds; retry is safe",
         body: AvailabilityConfigProblemSchema,
       },
     },

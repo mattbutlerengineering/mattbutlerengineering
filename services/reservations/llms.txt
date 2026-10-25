@@ -602,7 +602,7 @@
   <file path="src/routes/availability-config.ts">
     <item priority="medium">
       function configProblem(
-        status: 409 | 422,
+        status: 409 | 422 | 503,
         title: string,
         detail: string,
         extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
@@ -612,7 +612,10 @@
       type ConfigReply = FastifyReply;
     </item>
     <item priority="medium">
-      function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) { /* ... */ }
+      function sendRefusal(
+        reply: ConfigReply,
+        outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
+      ) { /* ... */ }
     </item>
     <item priority="high">
       export const availabilityConfigRoutes: FastifyPluginAsync;
@@ -1593,6 +1596,7 @@
         tableId: string | null;
         startTime: Date;
         partySize: number;
+        date?: Date;
       }
     </item>
     <item priority="high">
@@ -1639,21 +1643,6 @@
     </item>
     <item priority="medium">
       function canonical(value: unknown): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function applyTable<T extends ConfigTable>(
-        table: T,
-        rows: AvailabilityConfig[T],
-        changes: AvailabilityConfigChanges,
-        nowIso: string
-      ): AvailabilityConfig[T] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function applyChanges(
-        config: AvailabilityConfig,
-        changes: AvailabilityConfigChanges,
-        nowIso: string
-      ): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="medium">
       function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
@@ -1734,6 +1723,17 @@
         config: AvailabilityConfig,
         venueTableIds: ReadonlySet<string>
       ): ReferenceIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function settleDraft(input: {
+        snapshot: { timezone: string; config: AvailabilityConfig };
+        changes: AvailabilityConfigChanges;
+        scopeConflicts: ScopeConflictMode;
+        tableIds: ReadonlySet<string>;
+        now: Date;
+        today: string;
+        newId: () => string;
+      }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } { /* ... */ }
     </item>
   </file>
   <file path="src/services/availability-config-rows.ts">
@@ -1890,6 +1890,23 @@
       ): Promise<SaveOutcome> { /* ... */ }
     </item>
     <item priority="high">
+      export const PREVIEW_TIMEOUT_MS: unknown;
+    </item>
+    <item priority="low">
+      type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
+    </item>
+    <item priority="high">
+      export async function previewAvailabilityConfig(
+        input: {
+          venueId: string;
+          body: PreviewAvailabilityParsed;
+          now: Date;
+          timeoutMs?: number;
+        },
+        client: StoreClient = prisma
+      ): Promise<PreviewOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
       export const availabilityConfigService: unknown;
     </item>
   </file>
@@ -1979,6 +1996,26 @@
         /** Online seatings `listSlots` found for the date, booked or not. */
         seatingCount: number
       ): DayNotices { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/availability-preview.ts">
+    <item priority="low">
+      interface PreviewInput {
+        state: ConfigState;
+        body: PreviewAvailabilityParsed;
+        bookings: readonly BookedReservation[];
+        tableIds: ReadonlySet<string>;
+        now: Date;
+      }
+    </item>
+    <item priority="low">
+      type PreviewPlan = { kind: "invalid"; issues: (Co | { kind: "ok"; result: PreviewR;
+    </item>
+    <item priority="high">
+      export function scopeIncludes(scope: PreviewScope, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planPreview(input: PreviewInput): PreviewPlan { /* ... */ }
     </item>
   </file>
   <file path="src/services/availability-snapshot.ts">

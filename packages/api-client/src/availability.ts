@@ -12,6 +12,8 @@ import type {
   AvailabilityDaySummary,
   ClosureImpact,
   DateRule,
+  PreviewAvailabilityBody,
+  PreviewResult,
   PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
 import { availabilityConfigEndpoints } from "@mbe/types";
@@ -126,6 +128,22 @@ export class AvailabilityClient {
       params: { id: venueId },
       body: { rule },
     });
+    return response.data;
+  }
+
+  /**
+   * What an unsaved draft changes: per-date added/removed times for 30 days
+   * from `focusDate`, the focus day, and a page of the future bookings in
+   * `scope` it would strand. Read-only, so a gateway failure is retried. A
+   * 503 `preview-timeout` rejects with an `ApiClientError`; keep the last
+   * good preview.
+   */
+  async previewConfig(venueId: string, body: PreviewAvailabilityBody): Promise<PreviewResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.previewAvailability,
+      { params: { id: venueId }, body },
+      { idempotentRetry: true }
+    );
     return response.data;
   }
 
