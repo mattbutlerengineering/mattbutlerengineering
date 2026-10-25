@@ -95,12 +95,12 @@ function toPartySize(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** Rows a reservation list can show: time, party size and status present (gen-ui-elements-2). */
 /** A string with something other than whitespace in it — a blank word reads as missing. */
 function isFilled(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
+/** Rows a reservation list can show: time, party size and status present (gen-ui-elements-2). */
 function usableReservations(rows: readonly Record<string, unknown>[]): ReservationListRow[] {
   return rows.flatMap(({ time, guest, partySize, status }) => {
     const size = toPartySize(partySize);
