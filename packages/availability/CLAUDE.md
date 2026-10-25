@@ -16,6 +16,7 @@ src/
 ├── resolve-day.ts      # resolveDay — the layer stack for one service day, with "Why this day"
 ├── slot-rules.ts       # duration, table fit, conflict, pacing — moved from the reservations service
 ├── slots.ts            # listSlots and judge (ok / soft / hard) over a BookingSnapshot
+├── rebook.ts           # rebookOffers — ≤3 open slots in 14 days nearest the original time, else picker
 ├── instant.ts          # serviceDayInstant, localDateTimeOf — the only wall-clock ↔ instant crossing
 └── validate-config.ts  # validateConfig — cross-row invariants over the @mbe/types config schemas
 ```

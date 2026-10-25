@@ -40,3 +40,10 @@ export {
   type SoftLimit,
   type Verdict,
 } from "./slots.js";
+export {
+  MAX_REBOOK_OFFERS,
+  REBOOK_WINDOW_DAYS,
+  rebookOffers,
+  type RebookReservation,
+  type RebookResult,
+} from "./rebook.js";
