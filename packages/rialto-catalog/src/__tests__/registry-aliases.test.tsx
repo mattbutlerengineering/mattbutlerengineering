@@ -88,6 +88,14 @@ const ALIAS_CASES: readonly AliasCase[] = [
     expectText: "Second Panel",
   },
   {
+    component: "Tag",
+    alias: "label",
+    canonical: "children",
+    value: "Parity Tag",
+    base: {},
+    expectText: "Parity Tag",
+  },
+  {
     component: "EmptyState",
     alias: "title",
     canonical: "heading",

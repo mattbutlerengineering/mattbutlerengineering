@@ -41,4 +41,45 @@ describe("ChatPanel with the real catalog registry", () => {
     // A seam fallback would mean the registry rejected the element's props.
     expect(document.querySelector("[data-rialto-seam-fallback]")).toBeNull();
   });
+
+  it("renders the hospitality data elements through the real registry", async () => {
+    const user = userEvent.setup();
+    const elements = [
+      { id: "row", type: "Stack", props: { direction: "row" }, children: ["covers", "free"] },
+      { id: "covers", type: "Stat", props: { label: "Covers tonight", value: 42 } },
+      { id: "free", type: "StatusLED", props: { variant: "success", label: "Patio 2: free" } },
+      {
+        id: "night",
+        type: "Timeline",
+        props: { events: [{ title: "Garcia, party of 4", timestamp: "6:30 PM" }] },
+      },
+      { id: "diet", type: "Tag", props: { label: "Gluten-free" } },
+    ];
+    async function* stream() {
+      for (const element of elements) yield { type: "element", element };
+      yield { type: "text", content: "Here is tonight." };
+    }
+
+    render(
+      <ChatPanel
+        standalone
+        onClose={() => {}}
+        api="/api/gen/agent"
+        stream={stream}
+        domainContext={HOSPITALITY_DOMAIN_CONTEXT}
+        getAccessToken={() => "test-token"}
+        registry={registry}
+      />
+    );
+
+    await user.type(screen.getByRole("textbox", { name: /chat input/i }), "how is tonight{Enter}");
+
+    expect(await screen.findByText("Covers tonight")).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Patio 2: free" })).toBeInTheDocument();
+    expect(screen.getByText("Garcia, party of 4")).toBeInTheDocument();
+    expect(screen.getByText("Gluten-free")).toBeInTheDocument();
+    expect(document.querySelector("[data-element-type]")).toBeNull();
+    expect(document.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+  });
 });

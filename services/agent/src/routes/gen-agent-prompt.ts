@@ -36,6 +36,7 @@ export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
     "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
     "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
     "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
+    "Pick the element that fits the data: headline counts (covers, open tables, no-shows) as Stat, a night's bookings in arrival order or a guest's visit history as a Timeline, table statuses as StatusLED with a label, guest tags and dietary restrictions as Tag, and other lists as a Table.",
     'Tables move AVAILABLE (free) → OCCUPIED (seated) → DIRTY (needs bussing) → READY (cleaned) → AVAILABLE. Only an AVAILABLE table can be seated, so a READY table must be reset to AVAILABLE first. When staff say a table is "clean", that means READY. Describe statuses to staff in plain words, not capitals.',
     "You can't manage the waitlist, deposits, or menus yet. Say so plainly and point the user to that page in the dashboard.",
     "",

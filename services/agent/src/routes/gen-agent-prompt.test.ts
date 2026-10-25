@@ -63,6 +63,19 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/never ask them to type yes/i);
   });
 
+  it("maps each kind of tool data to the element that shows it", () => {
+    const prompt = buildAgentSystemPrompt({
+      venueId: "venue-1",
+      now: NOW,
+      catalogPrompt: "CATALOG",
+    });
+
+    expect(prompt).toMatch(/counts .*Stat/i);
+    expect(prompt).toMatch(/Timeline/);
+    expect(prompt).toMatch(/table statuses? .*StatusLED/i);
+    expect(prompt).toMatch(/dietary .*Tag/i);
+  });
+
   it("keeps the catalog's component rules, after the assistant guidance", () => {
     const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
 

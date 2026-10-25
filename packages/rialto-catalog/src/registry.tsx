@@ -50,12 +50,22 @@ import {
   Select,
   Sidebar,
   Stack,
+  Stat,
+  StatusLED,
   Table,
   Tabs,
+  Tag,
   Text,
+  Timeline,
   Toggle,
 } from "@mattbutlerengineering/rialto";
-import type { DepartureBoardProps } from "@mattbutlerengineering/rialto";
+import type {
+  DepartureBoardProps,
+  StatProps,
+  StatusLEDProps,
+  TagProps,
+  TimelineProps,
+} from "@mattbutlerengineering/rialto";
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
@@ -469,6 +479,41 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       DataList: ({ props }: any) => (
         <DataList items={props.items} orientation={props.orientation} striped={props.striped} />
       ),
+
+      // The registry seam (`withSchemaValidation`) validates these four against the
+      // generated Zod schemas before the adapter runs, so each cast below narrows
+      // a guaranteed shape (mirrors the Odometer renderer, avoiding an `any`).
+      Stat: ({ props }: { props: unknown }) => {
+        const p = props as Pick<StatProps, "label" | "delta" | "trend" | "size"> & {
+          value: string | number;
+        };
+        return (
+          <Stat
+            value={String(p.value)}
+            label={p.label}
+            delta={p.delta}
+            trend={p.trend}
+            size={p.size}
+          />
+        );
+      },
+
+      StatusLED: ({ props }: { props: unknown }) => {
+        const p = props as Pick<StatusLEDProps, "variant" | "pulse" | "label">;
+        return <StatusLED variant={p.variant} pulse={p.pulse} label={p.label} />;
+      },
+
+      // Tag's dismiss/click/select behaviour needs callbacks a static spec can't
+      // carry, so only its text and variant render.
+      Tag: ({ props }: { props: unknown }) => {
+        const p = props as Pick<TagProps, "children" | "variant">;
+        return <Tag variant={p.variant}>{p.children}</Tag>;
+      },
+
+      Timeline: ({ props }: { props: unknown }) => {
+        const p = props as Pick<TimelineProps, "events" | "compact">;
+        return <Timeline events={p.events} compact={p.compact} />;
+      },
 
       Odometer: ({ props }: { props: unknown }) => {
         // The registry seam (`withSchemaValidation`) validates Odometer props

@@ -1051,3 +1051,60 @@ describe("registry seam validation (graceful degradation)", () => {
     expect(within(container).getByText("Valid Tab")).toBeTruthy();
   });
 });
+
+// ── Hospitality data elements ─────────────────────────────────────────────────
+
+describe("hospitality data elements", () => {
+  it("renders a Stat with its label, value, and trend", () => {
+    const { container } = renderSpec({
+      root: "s",
+      elements: {
+        s: {
+          type: "Stat",
+          props: { label: "Covers tonight", value: "42", delta: "+6", trend: "up" },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Covers tonight")).toBeTruthy();
+    expect(within(container).getByText("42")).toBeTruthy();
+  });
+
+  it("renders a Timeline of events", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: {
+          type: "Timeline",
+          props: {
+            events: [
+              { title: "Garcia, party of 4", timestamp: "6:30 PM", status: "completed" },
+              { title: "Lee, party of 2", timestamp: "7:00 PM", status: "upcoming" },
+            ],
+          },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Garcia, party of 4")).toBeTruthy();
+    expect(within(container).getByText("Lee, party of 2")).toBeTruthy();
+  });
+
+  it("renders a Tag from a label prop", () => {
+    const { container } = renderSpec({
+      root: "g",
+      elements: { g: { type: "Tag", props: { label: "Gluten-free" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Gluten-free")).toBeTruthy();
+  });
+
+  it("renders a StatusLED with its label", () => {
+    const { container } = renderSpec({
+      root: "l",
+      elements: { l: { type: "StatusLED", props: { variant: "success", label: "Patio 2: free" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByRole("img", { name: "Patio 2: free" })).toBeTruthy();
+  });
+});

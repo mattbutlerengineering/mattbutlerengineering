@@ -206,6 +206,18 @@ export const generatedSchemas = {
     justify: z.enum(["between", "center", "end", "start"]).optional(),
     wrap: z.boolean().optional(),
   }),
+  Stat: z.object({
+    value: z.union([z.string(), z.number()]),
+    label: z.string().max(25),
+    delta: z.string().max(10).optional(),
+    trend: z.enum(["down", "neutral", "up"]).optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+  }),
+  StatusLED: z.object({
+    variant: z.enum(["accent", "danger", "neutral", "off", "success", "warning"]).optional(),
+    pulse: z.boolean().optional(),
+    label: z.string().max(40).optional(),
+  }),
   Table: z.object({
     columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() })),
     data: z.array(z.record(z.string(), z.unknown())),
@@ -216,6 +228,13 @@ export const generatedSchemas = {
   Tabs: z.object({
     tabs: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() })),
     defaultTab: z.string().optional(),
+  }),
+  Tag: z.object({
+    children: z.string().max(30),
+    variant: z.enum(["accent", "default", "error", "success"]).optional(),
+    dismissible: z.boolean().optional(),
+    selected: z.boolean().optional(),
+    icon: z.string().optional(),
   }),
   Text: z.object({
     variant: z.enum(["body", "caption", "detail", "display", "label"]).optional(),
@@ -232,6 +251,10 @@ export const generatedSchemas = {
     label: z.string().optional(),
     placeholder: z.string().optional(),
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
+  }),
+  Timeline: z.object({
+    events: z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.enum(["completed", "active", "upcoming", "error"]).optional() })),
+    compact: z.boolean().optional(),
   }),
   Toast: z.object({
     title: z.string().max(50),
