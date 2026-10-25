@@ -120,6 +120,84 @@ export function requireVenueAccess(
 }
 
 /**
+ * A member's per-venue role. Mirrors the reservations schema's `VenueRole`
+ * enum; the PRD's actors map onto it as owner/manager → Manager and
+ * staff → Host (docs/features/venue-availability/architecture.md).
+ */
+export type VenueRole = "owner" | "manager" | "staff";
+
+/** Higher rank includes every lower one: owner ⊇ manager ⊇ staff. */
+const VENUE_ROLE_RANK: Readonly<Record<VenueRole, number>> = {
+  staff: 0,
+  manager: 1,
+  owner: 2,
+};
+
+/** True when `role` meets or exceeds `minimum`. A non-member (`null`) never does. */
+export function hasVenueRole(role: VenueRole | null, minimum: VenueRole): boolean {
+  return role !== null && VENUE_ROLE_RANK[role] >= VENUE_ROLE_RANK[minimum];
+}
+
+/**
+ * Injected role lookup: the caller's role in the venue, or `null` when they
+ * hold no membership. A rejection must propagate (it fails the request closed).
+ */
+export type VenueRoleLookup = (userSub: string, venueId: string) => Promise<VenueRole | null>;
+
+/**
+ * PreHandler factory for venue-scoped routes that need a minimum venue role
+ * (e.g. `requireVenueRole("manager", ...)` for configuration writes).
+ *
+ * Same decision order as `requireVenueAccess`, with the role check last:
+ *   - request.user missing → 401
+ *   - platform admin → allow, skip venue resolution + lookup
+ *   - venue undeterminable or caller not a member → 403 (same detail as
+ *     `requireVenueAccess`, so existence never leaks)
+ *   - member below `minimum` → 403 naming the required role
+ */
+export function requireVenueRole(
+  minimum: VenueRole,
+  lookupRole: VenueRoleLookup,
+  resolveVenueId: VenueIdResolver
+) {
+  const roleDetail = `${minimum.charAt(0).toUpperCase()}${minimum.slice(1)} role required for this venue`;
+
+  return async function venueRoleHandler(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
+    const user = request.user;
+
+    if (!user) {
+      reply
+        .code(401)
+        .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
+      return;
+    }
+
+    if (hasPermission(user, "admin")) {
+      return;
+    }
+
+    const venueId = await resolveVenueId(request);
+    const role = venueId ? await lookupRole(user.raw.sub, venueId) : null;
+
+    if (role === null) {
+      reply
+        .code(403)
+        .send(
+          createProblemDetails(403, titleForStatus(403), "You do not have access to this venue")
+        );
+      return;
+    }
+
+    if (!hasVenueRole(role, minimum)) {
+      reply.code(403).send(createProblemDetails(403, titleForStatus(403), roleDetail));
+    }
+  };
+}
+
+/**
  * PreHandler factory for venue CREATION (ADR-020, third case).
  *
  * Venue creation is privileged, with exactly one exception: an authenticated

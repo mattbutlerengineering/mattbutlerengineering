@@ -175,9 +175,11 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
         [venueCId, "RLS Sweep Venue C", venueCSlug]
       );
     });
+    // 'manager' in venue A: PATCH /venues/:id is a Manager-only config write
+    // (#7509), and its member leg must still prove the own-venue write lands.
     await seedClient.query(
       `INSERT INTO venue_memberships (id, user_sub, venue_id, role, updated_at)
-       VALUES ($1, $2, $3, 'staff', now())`,
+       VALUES ($1, $2, $3, 'manager', now())`,
       [`rls-sweep-membership-${randomUUID()}`, MEMBER_SUB, venueAId]
     );
     await seedClient.query(

@@ -206,7 +206,7 @@ describe("venue-scope coverage (no database)", () => {
       "POST /api/v1/floor-plans/tables/:tableId/remove": "entity:table/member",
       "GET /api/v1/venues/:id": "params.id/member",
       "GET /api/v1/venues/:id/table-statuses": "params.id/member",
-      "PATCH /api/v1/venues/:id": "params.id/member",
+      "PATCH /api/v1/venues/:id": "params.id/manager",
       "DELETE /api/v1/venues/:id": "params.id/member",
       "GET /api/v1/tables/:id": "entity:table/member",
       "PATCH /api/v1/tables/:id": "entity:table/member",

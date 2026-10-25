@@ -1,4 +1,9 @@
-import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
+import type {
+  HasAnyVenueMembership,
+  VenueMembershipLookup,
+  VenueRole,
+  VenueRoleLookup,
+} from "@mbe/auth/fastify";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
@@ -13,6 +18,22 @@ export function createVenueMembershipLookup(client: PrismaClient = prisma): Venu
   return async (userSub: string, venueId: string): Promise<boolean> => {
     const count = await client.venueMembership.count({ where: { userSub, venueId } });
     return count > 0;
+  };
+}
+
+/**
+ * Builds the role lookup injected into `requireVenueRole`: the caller's
+ * `VenueMembership.role` for the venue, or `null` when they hold no row. One
+ * read on the `(userSub, venueId)` unique key, queried per request so a
+ * demotion takes effect on the next call. A rejection propagates.
+ */
+export function createVenueRoleLookup(client: PrismaClient = prisma): VenueRoleLookup {
+  return async (userSub: string, venueId: string): Promise<VenueRole | null> => {
+    const membership = await client.venueMembership.findUnique({
+      where: { userSub_venueId: { userSub, venueId } },
+      select: { role: true },
+    });
+    return membership?.role ?? null;
   };
 }
 

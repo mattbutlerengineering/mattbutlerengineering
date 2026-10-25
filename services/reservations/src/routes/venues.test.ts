@@ -137,7 +137,12 @@ import { tableStatusService } from "../services/table-status.js";
 import { jwtVerify } from "jose";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { requireAuth } from "@mbe/auth/fastify";
-import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
+import type {
+  HasAnyVenueMembership,
+  VenueMembershipLookup,
+  VenueRole,
+  VenueRoleLookup,
+} from "@mbe/auth/fastify";
 
 const mockVenueGroup = {
   id: "group-123",
@@ -1064,6 +1069,7 @@ describe("Venue Routes", () => {
           logger: false,
           hasAnyVenueMembership,
           venueMembershipLookup: lookup,
+          venueRoleLookup: vi.fn<VenueRoleLookup>().mockResolvedValue(null),
         });
         await scopedApp.ready();
 
@@ -1497,7 +1503,7 @@ describe("Venue Routes — venueGroupId reassignment is admin-only (#5515)", () 
     process.env = originalEnv;
   });
 
-  /** A non-admin staff caller who IS a member of the venue being edited. */
+  /** A non-admin caller who IS a Manager of the venue being edited (#7509). */
   async function buildAppAsVenueMember(): Promise<FastifyInstance> {
     process.env = {
       ...originalEnv,
@@ -1509,7 +1515,11 @@ describe("Venue Routes — venueGroupId reassignment is admin-only (#5515)", () 
       protectedHeader: { alg: "RS256" },
     } as never);
     const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
-    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    const built = await buildApp({
+      logger: false,
+      venueMembershipLookup: lookup,
+      venueRoleLookup: vi.fn<VenueRoleLookup>().mockResolvedValue("manager"),
+    });
     await built.ready();
     return built;
   }
@@ -1613,7 +1623,17 @@ describe("Venue Routes — venue authorization pins (ADR-020)", () => {
     detail: "Venue not found",
   };
 
-  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+  /** The caller's venue role, as `role` wherever `lookup` says they are a member. */
+  const roleWhereMember =
+    (lookup: VenueMembershipLookup, role: VenueRole): VenueRoleLookup =>
+    async (sub, venueId) =>
+      (await lookup(sub, venueId)) ? role : null;
+
+  async function buildAs(
+    permissions: string[],
+    lookup: VenueMembershipLookup,
+    role: VenueRole = "manager"
+  ) {
     process.env = {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
@@ -1623,12 +1643,74 @@ describe("Venue Routes — venue authorization pins (ADR-020)", () => {
       payload: { ...mockJWTPayload, sub: "auth0|operator", permissions },
       protectedHeader: { alg: "RS256" },
     } as never);
-    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    app = await buildApp({
+      logger: false,
+      venueMembershipLookup: lookup,
+      venueRoleLookup: roleWhereMember(lookup, role),
+    });
     await app.ready();
   }
 
   const memberOf = (venue: string) =>
     vi.fn<VenueMembershipLookup>().mockImplementation(async (_sub, venueId) => venueId === venue);
+
+  // #7509: venue configuration writes need Manager (owner ⊇ manager ⊇ staff);
+  // reads stay open to every member, and platform admins bypass.
+  describe("venue roles (#7509)", () => {
+    const patchVenue = () =>
+      app.inject({
+        method: "PATCH",
+        url: `${VENUES_URL}/venue-1`,
+        headers: { authorization: "Bearer t" },
+        payload: { name: "Renamed" },
+      });
+
+    beforeEach(() => {
+      vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+      vi.mocked(venueService.getById).mockResolvedValue({ ...mockVenue, id: "venue-1" });
+      vi.mocked(venueService.update).mockResolvedValue({ ...mockVenue, name: "Renamed" });
+    });
+
+    it("PATCH /:id: 403 for a staff member, update untouched", async () => {
+      await buildAs(["staff"], memberOf("venue-1"), "staff");
+
+      const response = await patchVenue();
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toEqual({
+        ...FORBIDDEN,
+        detail: "Manager role required for this venue",
+      });
+      expect(venueService.update).not.toHaveBeenCalled();
+    });
+
+    it("GET /:id: 200 for the same staff member", async () => {
+      await buildAs(["staff"], memberOf("venue-1"), "staff");
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${VENUES_URL}/venue-1`,
+        headers: { authorization: "Bearer t" },
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it.each<VenueRole>(["owner", "manager"])("PATCH /:id: 200 for a venue %s", async (role) => {
+      await buildAs(["staff"], memberOf("venue-1"), role);
+
+      const response = await patchVenue();
+
+      expect(response.statusCode).toBe(200);
+      expect(venueService.update).toHaveBeenCalledWith("venue-1", { name: "Renamed" });
+    });
+
+    it("PATCH /:id: 200 for a platform admin holding no membership", async () => {
+      await buildAs(["admin"], memberOf("none"));
+
+      expect((await patchVenue()).statusCode).toBe(200);
+    });
+  });
 
   beforeEach(() => {
     vi.mocked(jwtVerify).mockReset();

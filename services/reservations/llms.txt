@@ -1296,7 +1296,7 @@
             readonly resolve: (req;
     </item>
     <item priority="low">
-      type VenueAccess = "member" | "authenticated" | { readonly owner: (entity: E) ;
+      type VenueAccess = "member" | "manager" | "authenticated" | { readonly owner: (entity: E) ;
     </item>
     <item priority="low">
       interface VenueScope {
@@ -3199,6 +3199,9 @@
   <file path="src/services/venue-membership.ts">
     <item priority="high">
       export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createVenueRoleLookup(client: PrismaClient = prisma): VenueRoleLookup { /* ... */ }
     </item>
     <item priority="high">
       export function createHasAnyVenueMembership(client: PrismaClient = prisma): HasAnyVenueMembership { /* ... */ }
