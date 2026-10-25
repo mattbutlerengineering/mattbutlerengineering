@@ -43,6 +43,37 @@ export function todayIn(timeZone: string | undefined, now: Date = new Date()): s
   }).format(now);
 }
 
+/**
+ * Venue-local 24-hour `HH:mm` for an ISO time in `timeZone` (UTC when absent),
+ * so the model never does time-zone arithmetic. Undefined, never a throw, when
+ * the time or the zone can't be read.
+ */
+export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
+  if (typeof iso !== "string") return undefined;
+  const instant = new Date(iso);
+  if (Number.isNaN(instant.getTime())) return undefined;
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: timeZone ?? "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(instant);
+  } catch {
+    return undefined; // unknown time zone (RangeError)
+  }
+}
+
+/** A copy of `item` with `localTime` from its `field` added, or `item` unchanged when unreadable. */
+function withLocalTime<T extends object>(
+  item: T,
+  field: string,
+  timeZone: string | undefined
+): T | (T & { localTime: string }) {
+  const localTime = localTimeIn((item as Record<string, unknown>)[field], timeZone);
+  return localTime ? { ...item, localTime } : item;
+}
+
 const WEEKDAYS = [
   "sunday",
   "monday",
@@ -166,6 +197,8 @@ export function createAgentTools(
   options: CreateAgentToolsOptions = {}
 ): ToolSet {
   const { venueId, timeZone } = options;
+  const toLocal = <T extends object>(reservation: T) =>
+    withLocalTime(reservation, "startTime", timeZone);
   const tools: ToolSet = {
     // ── Read tools (instant, no confirmation) ──────────────
     // venueId never comes from the model: it is the app's selected venue.
@@ -179,7 +212,9 @@ export function createAgentTools(
         if (!venueId) return NO_VENUE;
         log.info({ venueId, date, partySize }, "check_availability tool called");
         try {
-          const slots = await api.availability.getTimeSlots({ venueId, date, partySize });
+          const slots = (await api.availability.getTimeSlots({ venueId, date, partySize })).map(
+            (slot) => withLocalTime(slot, "time", timeZone)
+          );
           if (slots.length > 0) return { slots };
           // No slots reads as "fully booked" unless the model knows the venue is closed.
           const weekday = await api.venues.get(venueId).then(
@@ -220,7 +255,7 @@ export function createAgentTools(
             limit: LOOKUP_LIMIT,
           });
           const needle = guestName?.trim().toLowerCase();
-          if (!needle) return { reservations: venueList.data };
+          if (!needle) return { reservations: venueList.data.map(toLocal) };
           // The list is paginated, so a name filter over it alone misses most
           // of a busy venue: resolve the guest first, then list their bookings.
           const guests = await api.guests.search({ venueId, query: guestName! });
@@ -240,7 +275,7 @@ export function createAgentTools(
           const reservations = merged.filter(
             (r, i) => merged.findIndex((other) => other.id === r.id) === i
           );
-          return { reservations };
+          return { reservations: reservations.map(toLocal) };
         } catch (err) {
           log.error({ err, date, venueId }, "lookup_reservation failed");
           return { error: "Failed to look up reservations. Please try again." };
@@ -304,7 +339,7 @@ export function createAgentTools(
             limit: 50,
             ...(status ? { status } : {}),
           });
-          return { reservations: result.data };
+          return { reservations: result.data.map(toLocal) };
         } catch (err) {
           log.error({ err, venueId, date }, "list_today_reservations failed");
           return { error: "Failed to list reservations. Please try again." };

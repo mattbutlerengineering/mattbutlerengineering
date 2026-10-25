@@ -953,4 +953,92 @@ describe("createAgentTools", () => {
       expect(result).toEqual({ error: "Failed to update table status. Please try again." });
     });
   });
+
+  describe("localTime on read tools", () => {
+    const LA = "America/Los_Angeles";
+    // 2026-05-19T02:30Z is 19:30 on 2026-05-18 in Los Angeles (PDT, UTC-7).
+    const ACROSS_MIDNIGHT = "2026-05-19T02:30:00.000Z";
+
+    function page<T>(data: T[]) {
+      return { data, total: data.length, page: 1, limit: 50, totalPages: 1, hasMore: false };
+    }
+
+    async function run(name: string, input: Record<string, unknown>, timeZone?: string) {
+      const tools = createAgentTools(log, api as never, { venueId: "v1", timeZone });
+      const t = tools[name];
+      if (!t?.execute) throw new Error(`expected ${name} tool`);
+      return t.execute(input as never, toolCtx);
+    }
+
+    it("check_availability adds the venue-local HH:mm to each slot", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([
+        { time: "2026-05-18T19:30:00.000Z", available: true },
+      ]);
+      const result = await run("check_availability", { date: "2026-05-18", partySize: 2 }, LA);
+      expect(result).toEqual({
+        slots: [{ time: "2026-05-18T19:30:00.000Z", available: true, localTime: "12:30" }],
+      });
+    });
+
+    it("list_today_reservations converts startTime in the venue zone, keeping every field", async () => {
+      const reservation = { id: "r1", status: "CONFIRMED", startTime: "2026-05-18T19:30:00.000Z" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("list_today_reservations", { date: "2026-05-18" }, LA);
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "12:30" }] });
+    });
+
+    it("uses UTC when no time zone is given", async () => {
+      const reservation = { id: "r1", startTime: "2026-05-18T19:30:00.000Z" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("list_today_reservations", { date: "2026-05-18" });
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "19:30" }] });
+    });
+
+    it("gives the venue's clock time across a UTC date boundary", async () => {
+      const reservation = { id: "r1", guestName: "Smith", startTime: ACROSS_MIDNIGHT };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("lookup_reservation", { date: "2026-05-18" }, LA);
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "19:30" }] });
+    });
+
+    it("writes midnight as 00:00, never 24:00", async () => {
+      const reservation = { id: "r1", startTime: "2026-05-18T00:00:00.000Z" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("list_today_reservations", { date: "2026-05-18" });
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "00:00" }] });
+    });
+
+    it("lookup_reservation by guest name adds localTime to the merged rows", async () => {
+      const reservation = { id: "r1", guestName: "Smith", startTime: ACROSS_MIDNIGHT };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      api.guests.search.mockResolvedValue({ data: [{ id: "g1" }] });
+      const result = await run("lookup_reservation", { guestName: "smith" }, LA);
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "19:30" }] });
+    });
+
+    it("omits localTime for an unparseable time without throwing", async () => {
+      const reservation = { id: "r1", startTime: "not a time" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      api.availability.getTimeSlots.mockResolvedValue([{ time: "soon", available: true }]);
+
+      const listed = await run("list_today_reservations", { date: "2026-05-18" }, LA);
+      expect(listed).toEqual({ reservations: [reservation] });
+      expect((listed as { reservations: object[] }).reservations[0]).not.toHaveProperty(
+        "localTime"
+      );
+
+      const slots = await run("check_availability", { date: "2026-05-18", partySize: 2 }, LA);
+      expect((slots as { slots: object[] }).slots[0]).not.toHaveProperty("localTime");
+    });
+
+    it("omits localTime for an unknown time zone without failing the tool", async () => {
+      const reservation = { id: "r1", startTime: "2026-05-18T19:30:00.000Z" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("list_today_reservations", { date: "2026-05-18" }, "Not/AZone");
+      expect(result).toEqual({ reservations: [reservation] });
+      expect((result as { reservations: object[] }).reservations[0]).not.toHaveProperty(
+        "localTime"
+      );
+    });
+  });
 });
