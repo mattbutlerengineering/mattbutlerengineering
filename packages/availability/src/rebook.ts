@@ -15,8 +15,9 @@ import { MINUTES_PER_DAY } from "./types.js";
  * 3. Earlier instant first (an earlier day, then the earlier of two equally
  *    near times).
  * The chosen offers are returned in chronological order. The 14-day window is
- * the 14 service dates starting at `now`'s venue-local date; only slots
- * strictly after `now` count. Advance-booking limits stay with the caller.
+ * the 14 service dates starting at `now`'s venue-local date, plus the day
+ * before it, whose past-midnight seatings may still be ahead (ADR-029); only
+ * slots strictly after `now` count. Advance-booking limits stay with the caller.
  */
 
 export const MAX_REBOOK_OFFERS = 3;
@@ -74,7 +75,7 @@ export function rebookOffers(
     s.start.getTime() > now.getTime() &&
     s.start.getTime() !== reservation.startTime.getTime();
 
-  const chosen = Array.from({ length: REBOOK_WINDOW_DAYS }, (_, i) => addDays(today, i))
+  const chosen = Array.from({ length: REBOOK_WINDOW_DAYS + 1 }, (_, i) => addDays(today, i - 1))
     .flatMap((date) => {
       const open = listSlots(snapshot, date, reservation.partySize, "online", now).filter(isOffer);
       return rankDay(open, originalMinute, timezone);

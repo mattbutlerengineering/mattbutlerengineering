@@ -128,4 +128,21 @@ describe("rebookOffers", () => {
     const big = { startTime: ORIGINAL.startTime, partySize: 6 };
     expect(rebookOffers(snapshot([closed("2026-11-06")]), big, NOW)).toEqual({ kind: "picker" });
   });
+  it("offers a past-midnight seating still ahead from yesterday's service day", () => {
+    const late = {
+      ...CONFIG,
+      scheduleServices: [
+        {
+          ...CONFIG.scheduleServices[0]!,
+          opensAt: 1320, // 22:00
+          lastSeatingAt: 1500, // 01:00 next day
+          closesAt: 1560,
+        },
+      ],
+    };
+    const lateNow = at("2026-11-06", "00:30"); // still Nov 5's service
+    const original = { startTime: at("2026-11-04", "01:00"), partySize: 2 };
+    const result = rebookOffers({ ...snapshot(), config: late }, original, lateNow);
+    expect(starts(result)[0]).toBe(at("2026-11-06", "01:00").toISOString());
+  });
 });
