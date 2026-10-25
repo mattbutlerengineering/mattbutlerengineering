@@ -4322,3 +4322,17 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **queueEfficiency:** composite 0.926 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:26, size:m:16, size:l:9, size:xs:36, size:xl:21
 **Issues filed:** 0
+
+## 2026-10-25 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` source `branch` (`ui-quality/ledger` @ `32f8869`, merged `origin/main` @ `b940616`, no conflicts resolved).
+- **Routes:** 40 due, 40 captured, 40 audited (all `rialto-web`). `marketing` and `hospitality` had nothing planned — hospitality's 20 rows are all `unreachable:auth`, 0 `unreachable:build` (all three app builds succeeded).
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Findings:** 0 mechanical, 0 judged. Every audited route came back judged clean against the rubric's judged tells (rubric v1).
+- **Calibration stamp:** `stale`. `calibration-status` returned exit 3; the single calibrate attempt could not proceed — `rate.mjs pairs --calibration` exited 2 (`docs/ui-quality/calibration.json` has no labelled pairs yet; Matt labels ≥ 10 pairs once at the Verify stage). Logged, not retried. Re-queried status: still `stale`, so rating ran per the exit-3-uncleared path: 6 pairs rated, `rate.mjs record` → rialto-web 1.25.
+- **Filing: STOPPED — `findings.mjs plan` exit 2.** Five `ui-quality`-labelled issues are not referenced by the findings ledger and carry no current finding title to adopt: **#7385, #7386, #7387, #7388, #7389** (the `[Feature] Marketing ui-quality findings [N/5]` set). The plan wrote `findings.escalation.json`, so escalation issue **#7477** was opened (labels `ui-quality`, `needs-review` — verified present on the created issue). Recovery is a human's, per that issue's body: retitle each listed issue to its finding title or remove its `ui-quality` label, then close #7477. No creates, reopens, comments, seeds, fix PR or P1 escalations this fire — all downstream of the stopped plan.
+- **Issues created:** 1 (#7477, the escalation). **Reopened:** 0. **Commented:** 0. **Seeds:** 0.
+- **Fix PR:** none — filing stopped before step (6g), so no action carried `fix_pr_candidate`.
+- **P1 breaches escalated:** 0 (step 6h not reached; the plan's exit 2 routes straight to step 7).
+- **Coverage before this fire:** 100% (provisional, 135/135 covered, 20 `unreachable:auth` on hospitality, 0 uncovered).
+- **Blockers:** none of `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`). No pipeline bug: every script exited as documented.
