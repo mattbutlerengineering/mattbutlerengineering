@@ -49,7 +49,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Legacy data migration and projection** — the prior-art normaliser (with an unknown-version guard) turns both legacy `operatingHours` shapes plus `slotIntervalMinutes` and `lastSeatingBuffer` into rows. The store writes the legacy column as a derived projection. The seed is rewritten to the new model, with `defaultReservationDuration` fixed. (tracker: #7502)
   - Accept: a golden test captures every seeded and fixture venue's slots for a fixed 60-day window before and after migration, identical across both legacy shapes. The seed venue offers bookable slots. This covers SC Migration.
   - Blocked by: Snapshot loader
-- [ ] **Listing on the engine** — `generateTimeSlots` and `getAvailableDates` in `services/availability.ts`, and the public availability routes, compute through the snapshot loader and engine. The public response adds `closure` and `bookingPaused`. (tracker: #7503)
+- [x] **Listing on the engine** — `generateTimeSlots` and `getAvailableDates` in `services/availability.ts`, and the public availability routes, compute through the snapshot loader and engine. The public response adds `closure` and `bookingPaused`. (tracker: #7503)
   - Accept: the golden test still passes, the existing availability route tests pass, and the response schema change is pinned in `@mbe/types`.
   - Blocked by: Legacy data migration and projection
 

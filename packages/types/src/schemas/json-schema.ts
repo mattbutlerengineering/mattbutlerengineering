@@ -54,6 +54,7 @@ import {
 import { WaitlistJoinResultSchema, WaitlistEstimateSchema } from "./waitlist.js";
 import { ProblemDetailsSchema } from "./api.js";
 import { PaginationSchema } from "./common.js";
+import { PublicAvailabilityResponseSchema } from "./availability-response.js";
 import {
   ListReservationsQuerySchema,
   ListMyReservationsQuerySchema,
@@ -442,6 +443,9 @@ export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBo
 export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
 
 export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
+  PublicAvailabilityResponseSchema
+);
 export const publicDepositBodyJsonSchema = toRequestJsonSchema(PublicDepositBodySchema);
 export const publicGuestRecognitionQueryJsonSchema = toRequestJsonSchema(
   PublicGuestRecognitionQuerySchema

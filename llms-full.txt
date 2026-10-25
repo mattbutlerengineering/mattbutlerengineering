@@ -29310,7 +29310,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { date: string; partySize: string };
-        Reply: ApiResponse<TimeSlot[]> | ReturnType<typeof createProblemDetails>;
+        Reply: PublicAvailabilityResponse | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/availability",
         {
@@ -29324,6 +29324,9 @@
               required: ["slug"],
             },
             querystring: publicAvailabilityQueryJsonSchema,
+            // Engine-computed: the slots, plus `closure` for a closed date and
+            // `bookingPaused` while online booking is paused (@mbe/types pins both).
+            response: { 200: publicAvailabilityResponseJsonSchema },
           },
         },
         publicVenueScoped(
@@ -29358,14 +29361,15 @@
                 .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
             }
     
-            const slots = await availabilityService.generateTimeSlots(
+            const { slots, ...notices } = await availabilityService.getDayAvailability(
               venue.id,
               date,
-              partySizeResult.value
+              partySizeResult.value,
+              undefined,
+              { logger: request.log }
             );
-            const availableOnly = slots.filter((s: TimeSlot) => s.available);
     
-            return reply.send({ data: availableOnly });
+            return reply.send({ data: slots.filter((s) => s.available), ...notices });
           }
         )
       );
@@ -34510,6 +34514,41 @@
     export type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
     export type ClosureAction = z.infer<typeof ClosureActionSchema>;
   </file>
+  <file path="packages/types/src/schemas/availability-response.ts">
+    export const AvailableTableSchema = z.object({
+      id: z.string(),
+      name: z.string(),
+      capacity: z.number().int(),
+      minCovers: z.number().int(),
+      maxCovers: z.number().int().nullable(),
+    });
+    export const TimeSlotSchema = z.object({
+      time: z.string(),
+      available: z.boolean(),
+      tables: z.array(AvailableTableSchema).optional(),
+    });
+    export const AvailabilityClosureSchema = z.object({
+      message: z.string().min(1),
+    });
+    export const BookingPausedSchema = z.object({
+      message: z.string().min(1),
+      phone: z.string().optional(),
+    });
+    export const DateAvailabilitySchema = z.object({
+      date: z.string(),
+      hasAvailability: z.boolean(),
+      slotCount: z.number().int().optional(),
+      closure: AvailabilityClosureSchema.optional(),
+    });
+    export const PublicAvailabilityResponseSchema = z.object({
+      data: z.array(TimeSlotSchema),
+      closure: AvailabilityClosureSchema.optional(),
+      bookingPaused: BookingPausedSchema.optional(),
+    });
+    export type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
+    export type BookingPaused = z.infer<typeof BookingPausedSchema>;
+    export type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
+  </file>
   <file path="packages/types/src/schemas/common.ts">
     export const PaginationSchema = z.object({
       page: z.number(),
@@ -34973,6 +35012,9 @@
     export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBodySchema);
     export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
     export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+    export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
+      PublicAvailabilityResponseSchema
+    );
     export const publicDepositBodyJsonSchema = toRequestJsonSchema(PublicDepositBodySchema);
     export const publicGuestRecognitionQueryJsonSchema = toRequestJsonSchema(
       PublicGuestRecognitionQuerySchema
@@ -39502,9 +39544,11 @@
     export function planVenueMigration(
       venue: VenueForMigration,
       now: Date,
-      newId: () => string = randomUUID
+      newId: () => string = randomUUID,
+      options: { lenient?: boolean } = {}
     ): VenueMigrationPlan {
-      const normalised = normalizeLegacyHours(venue.operatingHours);
+      const lenient = options.lenient ?? false;
+      const normalised = normalizeLegacyHours(venue.operatingHours, { lenient });
       if (!normalised.ok) {
         const detail = "detail" in normalised ? normalised.detail : "";
         return { kind: "unrecognised", reason: normalised.reason, detail };
@@ -39516,13 +39560,24 @@
         lastSeatingBuffer: settings.lastSeatingBuffer,
         today: civilDateIn(now, venue.ianaTimezone),
         newId,
+        lenient,
       });
       if (!built.ok) return { kind: "unrecognised", reason: built.reason, detail: built.detail };
+      const unreadableDays = [
+        ...(normalised.unreadableDays ?? []),
+        ...(built.notes.unreadableDays ?? []),
+      ];
+      const coercions = [...(normalised.coercions ?? []), ...(built.notes.coercions ?? [])];
+      const notes = {
+        ...built.notes,
+        ...(unreadableDays.length > 0 ? { unreadableDays } : {}),
+        ...(coercions.length > 0 ? { coercions } : {}),
+      };
       return {
         kind: "migrate",
         shape: normalised.shape,
         config: built.config,
-        notes: built.notes,
+        notes,
         projection: projectLegacyOperatingHours(built.config),
       };
     }
@@ -39650,6 +39705,53 @@
       });
     }
   </file>
+  <file path="services/reservations/src/services/availability-notices.ts">
+    export const DEFAULT_CLOSURE_MESSAGE = "Closed on this date.";
+    export const PAUSED_CALL_MESSAGE = "Online booking is paused right now.";
+    export const PAUSED_MESSAGE = "Not taking reservations right now.";
+    export interface DayNotices {
+      closure?: AvailabilityClosure;
+      bookingPaused?: BookingPaused;
+    }
+    function activePause(snapshot: BookingSnapshot, day: ReturnType<typeof resolveDay>) {
+      const pausedRuleIds = new Set(
+        day.closures
+          .filter((band) => band.targetKind === "booking" && band.bookingTypes?.includes("online"))
+          .map((band) => band.ruleId)
+      );
+      return snapshot.config.dateRules.find(
+        (rule) =>
+          pausedRuleIds.has(rule.id) && rule.kind === "closure" && rule.endsOn == null && !rule.window
+      );
+    }
+    export function dayNotices(
+      snapshot: BookingSnapshot,
+      serviceDate: ServiceDate,
+      phone: string | null,
+      /** Online seatings `listSlots` found for the date, booked or not. */
+      seatingCount: number
+    ): DayNotices {
+      const day = resolveDay(snapshot, serviceDate);
+      const pause = activePause(snapshot, day);
+      if (pause) {
+        const phoneOpen =
+          day.bookingOpen.phone && day.services.some((s) => s.bookingTypes.includes("phone"));
+        const callable = phoneOpen && phone ? phone : undefined;
+        const fallback = callable ? PAUSED_CALL_MESSAGE : PAUSED_MESSAGE;
+        return {
+          bookingPaused: {
+            message: pause.guestMessage ?? fallback,
+            ...(callable ? { phone: callable } : {}),
+          },
+        };
+      }
+      const closedByRule = day.closures.some((band) => band.targetKind !== "tables");
+      if (!closedByRule) return {};
+      // Any seating left on the online channel means the date is open, if shorter.
+      if (seatingCount > 0) return {};
+      return { closure: { message: day.guestMessage ?? DEFAULT_CLOSURE_MESSAGE } };
+    }
+  </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
     export interface SnapshotWarning {
       table: string;
@@ -39677,11 +39779,21 @@
       /** Receives one `availability_snapshot_row_invalid` entry per warning. */
       logger?: SnapshotLogger;
     }
+    export type SnapshotSource = "rows" | "legacy" | "none";
     export interface LoadedSnapshot {
       snapshot: BookingSnapshot;
       /** `Venue.availabilityVersion` at read time. */
       version: number;
       warnings: SnapshotWarning[];
+      source: SnapshotSource;
+      /** The venue's full settings (booking window, phone), beyond the engine's subset. */
+      venueSettings: VenueSettings | null;
+    }
+    export class VenueNotFoundError extends Error {
+      constructor(venueId: string) {
+        super(`Venue ${venueId} not found`);
+        this.name = "VenueNotFoundError";
+      }
     }
     type RowSchema<T> = {
       safeParse(
@@ -39771,6 +39883,43 @@
         expiresAt: toIso(row.expiresAt),
       };
     }
+    interface LegacyVenue {
+      operatingHours: unknown;
+      settings: unknown;
+      ianaTimezone: string;
+    }
+    function effectiveConfig(
+      venueId: string,
+      config: AvailabilityConfig,
+      venue: LegacyVenue,
+      now: Date,
+      warnings: SnapshotWarning[]
+    ): { config: AvailabilityConfig; source: SnapshotSource } {
+      if (hasRegularSchedule(config)) return { config, source: "rows" };
+      const plan = planVenueMigration(venue, now, undefined, { lenient: true });
+      if (plan.kind === "migrate") {
+        for (const day of plan.notes.unreadableDays ?? []) {
+          warnings.push({
+            table: "venues",
+            id: venueId,
+            reason: `legacy operatingHours, day closed: ${day}`,
+          });
+        }
+        for (const coercion of plan.notes.coercions ?? []) {
+          warnings.push({ table: "venues", id: venueId, reason: `legacy hours coerced: ${coercion}` });
+        }
+        return {
+          config: { ...plan.config, dateRules: [...plan.config.dateRules, ...config.dateRules] },
+          source: "legacy",
+        };
+      }
+      // "no_hours" is a venue with nothing configured, not a bad row.
+      if (plan.reason !== "no_hours") {
+        const reason = `legacy operatingHours ${plan.reason}${plan.detail ? `: ${plan.detail}` : ""}`;
+        warnings.push({ table: "venues", id: venueId, reason });
+      }
+      return { config, source: "none" };
+    }
     function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null {
       if (!settings) return null;
       const {
@@ -39814,7 +39963,12 @@
       ] = await Promise.all([
         db.venue.findUnique({
           where: { id: venueId },
-          select: { ianaTimezone: true, settings: true, availabilityVersion: true },
+          select: {
+            ianaTimezone: true,
+            settings: true,
+            availabilityVersion: true,
+            operatingHours: true,
+          },
         }),
         db.schedule.findMany({ where: { venueId } }),
         db.venueService.findMany({ where: { venueId }, orderBy: { position: "asc" } }),
@@ -39859,11 +40013,11 @@
         }),
       ]);
     
-      if (!venue) throw new Error(`Venue ${venueId} not found`);
+      if (!venue) throw new VenueNotFoundError(venueId);
     
       const warnings: SnapshotWarning[] = [];
     
-      const config = {
+      const rowConfig = {
         schedules: parseRows<Schedule>(
           "schedules",
           ScheduleSchema,
@@ -39913,12 +40067,15 @@
         ),
       };
     
+      const { config, source } = effectiveConfig(venueId, rowConfig, venue, now, warnings);
+    
       if (options.logger) {
         for (const warning of warnings) {
           options.logger.warn({ venueId, ...warning }, "availability_snapshot_row_invalid");
         }
       }
     
+      const venueSettings = venue.settings as VenueSettings | null;
       return {
         snapshot: {
           timezone: venue.ianaTimezone,
@@ -39926,268 +40083,137 @@
           tables,
           reservations,
           holds,
-          settings: pickEngineSettings(venue.settings as VenueSettings | null),
+          settings: pickEngineSettings(venueSettings),
         },
         version: venue.availabilityVersion,
         warnings,
+        source,
+        venueSettings,
       };
     }
   </file>
   <file path="services/reservations/src/services/availability.ts">
-    interface VenueWithSettings {
-      id: string;
-      name: string;
-      slug: string;
-      ianaTimezone: string;
-      settings: VenueSettings | null;
-      operatingHours: OperatingHours | null;
+    export interface ListingOptions {
+      /** Receives one warning per configuration row (or legacy column) that could not be read. */
+      logger?: SnapshotLogger;
     }
-    function parseTimeToMinutes(time: string): number {
-      const [hours, minutes] = time.split(":").map(Number);
-      if (hours === undefined || minutes === undefined) {
-        throw new Error(`Invalid time format: ${time}`);
+    export interface DayAvailability {
+      slots: TimeSlot[];
+      closure?: AvailabilityClosure;
+      bookingPaused?: BookingPaused;
+    }
+    async function loadOrNull(
+      venueId: string,
+      fromDate: string,
+      toDate: string,
+      now: Date,
+      options: ListingOptions
+    ): Promise<LoadedSnapshot | null> {
+      try {
+        return await loadAvailabilitySnapshot(venueId, fromDate, toDate, now, {
+          logger: options.logger,
+        });
+      } catch (error) {
+        if (error instanceof VenueNotFoundError) return null;
+        throw error;
       }
-      return hours * 60 + minutes;
+    }
+    function withDuration(
+      snapshot: BookingSnapshot,
+      partySize: number,
+      durationMinutes: number | undefined
+    ): BookingSnapshot {
+      if (durationMinutes === undefined) return snapshot;
+      const rule = { minPartySize: partySize, maxPartySize: partySize, durationMinutes };
+      return { ...snapshot, settings: { ...snapshot.settings, durationRules: [rule] } };
+    }
+    function toTimeSlot(slot: Slot): TimeSlot {
+      const tables: AvailableTable[] = slot.tables.map((t) => ({
+        id: t.id,
+        name: t.name,
+        capacity: t.capacity,
+        minCovers: t.minCovers,
+        maxCovers: t.maxCovers,
+      }));
+      return {
+        time: slot.start.toISOString(),
+        available: slot.available,
+        tables: tables.length > 0 ? tables : undefined,
+      };
+    }
+    function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot {
+      const from = serviceDayInstant(addDays(date, -1), 0, snapshot.timezone);
+      const to = serviceDayInstant(addDays(date, 2), 0, snapshot.timezone);
+      // A zone whose clocks skip midnight has no such instant; keep everything.
+      if (!from || !to) return snapshot;
+      const nearby = (b: { startTime: Date }) => b.startTime >= from && b.startTime < to;
+      return {
+        ...snapshot,
+        reservations: snapshot.reservations.filter(nearby),
+        holds: snapshot.holds.filter(nearby),
+      };
+    }
+    function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) {
+      const { venueSettings } = loaded;
+      const snapshot = dayView(loaded.snapshot, date);
+      const seatings = listSlots(snapshot, date, partySize, "online", now);
+      // No table could ever seat the party: offer no times at all, as before the engine.
+      if (filterSuitableTables(snapshot.tables, partySize).length === 0) {
+        return { seatings, offered: [] };
+      }
+      const window = bookingWindow(venueSettings, now, snapshot.timezone);
+      return { seatings, offered: seatings.filter((s) => isSlotInBookingWindow(s.start, window)) };
+    }
+    function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) {
+      return dayNotices(loaded.snapshot, date, loaded.venueSettings?.phone ?? null, seatingCount);
+    }
+    export async function getDayAvailability(
+      venueId: string,
+      date: string,
+      partySize: number,
+      durationOverride?: number,
+      options: ListingOptions = {}
+    ): Promise<DayAvailability> {
+      const now = new Date();
+      const loaded = await loadOrNull(venueId, date, date, now, options);
+      if (!loaded) return { slots: [] };
+      const timed = { ...loaded, snapshot: withDuration(loaded.snapshot, partySize, durationOverride) };
+      const { seatings, offered } = listDay(timed, date, partySize, now);
+      return { slots: offered.map(toTimeSlot), ...noticesFor(loaded, date, seatings.length) };
     }
     export async function generateTimeSlots(
       venueId: string,
       date: string,
       partySize: number,
-      durationOverride?: number
+      durationOverride?: number,
+      options: ListingOptions = {}
     ): Promise<TimeSlot[]> {
-      const prismaVenue = await prisma.venue.findUnique({
-        where: { id: venueId },
-      });
-    
-      if (!prismaVenue) {
-        return [];
-      }
-    
-      const venue: VenueWithSettings = {
-        id: prismaVenue.id,
-        name: prismaVenue.name,
-        slug: prismaVenue.slug,
-        ianaTimezone: prismaVenue.ianaTimezone,
-        settings: prismaVenue.settings as VenueSettings | null,
-        operatingHours: prismaVenue.operatingHours as OperatingHours | null,
-      };
-    
-      const settings = venue.settings;
-      const schedule = parseOperatingHours(venue.operatingHours, date);
-    
-      if (!schedule) {
-        return [];
-      }
-    
-      const slotInterval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-      const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
-      const duration = durationOverride ?? estimateDuration(partySize, settings);
-    
-      const openMinutes = parseTimeToMinutes(schedule.open);
-      const closeMinutes = parseTimeToMinutes(schedule.close);
-      const lastSeatingMinutes = closeMinutes - lastSeatingBuffer;
-    
-      const suitableTables = await findSuitableTables(venueId, partySize);
-    
-      if (suitableTables.length === 0) {
-        return [];
-      }
-    
-      const { reservations, holds } = await fetchConflictData(venueId, date);
-    
-      const slots: TimeSlot[] = [];
-      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
-    
-      for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
-        const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
-        if (!isSlotInBookingWindow(slotStart, window)) continue;
-        const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
-    
-        // Uses the same pure predicates (checkTableConflict + checkPacingForSlot)
-        // that assertBookable composes on write paths — same rules, no divergence.
-        const availableTables: AvailableTable[] = [];
-    
-        for (const table of suitableTables) {
-          const hasConflict = checkTableConflict(table.id, slotStart, slotEnd, reservations, holds);
-    
-          if (!hasConflict) {
-            availableTables.push({
-              id: table.id,
-              name: table.name,
-              capacity: table.capacity,
-              minCovers: table.minCovers,
-              maxCovers: table.maxCovers,
-            });
-          }
-        }
-    
-        const pacingOk = checkPacingForSlot(slotStart, partySize, settings, reservations, holds);
-    
-        slots.push({
-          time: slotStart.toISOString(),
-          available: availableTables.length > 0 && pacingOk,
-          tables: availableTables.length > 0 ? availableTables : undefined,
-        });
-      }
-    
-      return slots;
+      return (await getDayAvailability(venueId, date, partySize, durationOverride, options)).slots;
+    }
+    function rangeDates(startDate: string, endDate: string): string[] {
+      const span = Math.ceil((Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY);
+      const days = Math.min(span, MAX_RANGE_DAYS);
+      return days >= 0 ? Array.from({ length: days + 1 }, (_, i) => addDays(startDate, i)) : [];
     }
     export async function getAvailableDates(
       venueId: string,
       startDate: string,
       endDate: string,
-      partySize: number
+      partySize: number,
+      options: ListingOptions = {}
     ): Promise<DateAvailability[]> {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      const dates = rangeDates(startDate, endDate);
+      const lastDate = dates.at(-1);
+      const now = new Date();
+      const loaded = lastDate ? await loadOrNull(venueId, startDate, lastDate, now, options) : null;
+      if (!loaded) return dates.map((date) => ({ date, hasAvailability: false, slotCount: 0 }));
     
-      const maxDays = 60;
-      const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      const actualEnd = new Date(start.getTime() + Math.min(daysDiff, maxDays) * 24 * 60 * 60 * 1000);
-    
-      const [prismaVenue, suitableTables] = await Promise.all([
-        prisma.venue.findUnique({ where: { id: venueId } }),
-        findSuitableTables(venueId, partySize),
-      ]);
-    
-      if (!prismaVenue || suitableTables.length === 0) {
-        const results: DateAvailability[] = [];
-        for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
-          results.push({ date: toDateString(d), hasAvailability: false, slotCount: 0 });
-        }
-        return results;
-      }
-    
-      const venue: VenueWithSettings = {
-        id: prismaVenue.id,
-        name: prismaVenue.name,
-        slug: prismaVenue.slug,
-        ianaTimezone: prismaVenue.ianaTimezone,
-        settings: prismaVenue.settings as VenueSettings | null,
-        operatingHours: prismaVenue.operatingHours as OperatingHours | null,
-      };
-    
-      const [allReservations, allHolds] = await Promise.all([
-        prisma.reservation.findMany({
-          where: {
-            venueId,
-            date: { gte: start, lte: actualEnd },
-            status: { notIn: [...NOT_BOOKED_STATUSES] },
-          },
-          select: {
-            id: true,
-            tableId: true,
-            date: true,
-            startTime: true,
-            endTime: true,
-            partySize: true,
-          },
-        }),
-        prisma.reservationHold.findMany({
-          where: {
-            venueId,
-            date: { gte: start, lte: actualEnd },
-            expiresAt: activeHoldWindow(new Date()),
-          },
-          select: {
-            id: true,
-            tableId: true,
-            date: true,
-            startTime: true,
-            endTime: true,
-            partySize: true,
-            expiresAt: true,
-          },
-        }),
-      ]);
-    
-      const settings = venue.settings;
-      const slotInterval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-      const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
-      const duration = estimateDuration(partySize, settings);
-    
-      // Buckets by the venue-local booking date (the `date` column), not by
-      // `startTime` — for any venue west of UTC an evening reservation's
-      // `startTime` instant falls on the next UTC calendar day, which would
-      // silently bleed the conflict into the wrong bucket. `date` is stored as
-      // `new Date(dateStr)` (UTC midnight of the local date string), so
-      // `toDateString` round-trips it back to the same local date string.
-      const reservationsByDate = new Map<string, typeof allReservations>();
-      for (const r of allReservations) {
-        const key = toDateString(r.date);
-        const bucket = reservationsByDate.get(key);
-        if (bucket) {
-          bucket.push(r);
-        } else {
-          reservationsByDate.set(key, [r]);
-        }
-      }
-    
-      const holdsByDate = new Map<string, typeof allHolds>();
-      for (const h of allHolds) {
-        const key = toDateString(h.date);
-        const bucket = holdsByDate.get(key);
-        if (bucket) {
-          bucket.push(h);
-        } else {
-          holdsByDate.set(key, [h]);
-        }
-      }
-    
-      const results: DateAvailability[] = [];
-      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
-    
-      for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
-        const dateStr = toDateString(d);
-        const schedule = parseOperatingHours(venue.operatingHours, dateStr);
-    
-        if (!schedule) {
-          results.push({ date: dateStr, hasAvailability: false, slotCount: 0 });
-          continue;
-        }
-    
-        const dateReservations = reservationsByDate.get(dateStr) ?? [];
-        const dateHolds = holdsByDate.get(dateStr) ?? [];
-    
-        const openMinutes = parseTimeToMinutes(schedule.open);
-        const closeMinutes = parseTimeToMinutes(schedule.close);
-        const lastSeatingMinutes = closeMinutes - lastSeatingBuffer;
-    
-        let availableCount = 0;
-    
-        for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
-          const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
-          if (!isSlotInBookingWindow(slotStart, window)) continue;
-          const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
-    
-          // Applies checkPacingForSlot the same way generateTimeSlots does, so a
-          // date never reads as available here on grounds the slot list would
-          // then reject (#5096 — same divergence class #5000 fixed for UTC-day
-          // bucketing).
-          const hasAvailableTable = suitableTables.some(
-            (table) => !checkTableConflict(table.id, slotStart, slotEnd, dateReservations, dateHolds)
-          );
-          const pacingOk = checkPacingForSlot(
-            slotStart,
-            partySize,
-            settings,
-            dateReservations,
-            dateHolds
-          );
-    
-          if (hasAvailableTable && pacingOk) {
-            availableCount++;
-          }
-        }
-    
-        results.push({
-          date: dateStr,
-          hasAvailability: availableCount > 0,
-          slotCount: availableCount,
-        });
-      }
-    
-      return results;
+      return dates.map((date) => {
+        const { seatings, offered } = listDay(loaded, date, partySize, now);
+        const slotCount = offered.filter((s) => s.available).length;
+        const { closure } = noticesFor(loaded, date, seatings.length);
+        return { date, hasAvailability: slotCount > 0, slotCount, ...(closure ? { closure } : {}) };
+      });
     }
     export async function findBestTable(
       venueId: string,
@@ -40250,38 +40276,9 @@
     
       return { reservations, holds };
     }
-    function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date {
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      const localIso = `${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
-    
-      const utcGuess = new Date(localIso + "Z");
-    
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: timezone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }).formatToParts(utcGuess);
-    
-      const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
-      const tzHour = parseInt(get("hour"), 10);
-      const tzMin = parseInt(get("minute"), 10);
-      const tzTotalMin = tzHour * 60 + tzMin;
-      const utcTotalMin = utcGuess.getUTCHours() * 60 + utcGuess.getUTCMinutes();
-    
-      let offsetMin = tzTotalMin - utcTotalMin;
-      if (offsetMin > 720) offsetMin -= 1440;
-      if (offsetMin < -720) offsetMin += 1440;
-    
-      return new Date(new Date(localIso + "Z").getTime() - offsetMin * 60 * 1000);
-    }
     export const availabilityService = {
       generateTimeSlots,
+      getDayAvailability,
       getAvailableDates,
       findBestTable,
       fetchConflictData,
@@ -59911,26 +59908,45 @@
       | { ok: false; reason: "unreadable_time"; detail: string }
       /** A v2 override has a date that is not a plain YYYY-MM-DD; dropping it could open a closed date. */
       | { ok: false; reason: "unreadable_date"; detail: string };
+    export interface LegacyHoursOptions {
+      lenient?: boolean;
+    }
     export type LegacyHoursResult =
-      { ok: true; shape: LegacyShape; hours: LegacyHours } | LegacyHoursFailure;
+      | {
+          ok: true;
+          shape: LegacyShape;
+          hours: LegacyHours;
+          /** Lenient mode only: weekdays closed because their times could not be read. */
+          unreadableDays?: string[];
+          /** Lenient mode only: what was read the legacy listing's way instead of refused. */
+          coercions?: string[];
+        }
+      | LegacyHoursFailure;
     type Loose = Record<string, unknown>;
-    function parseTime(value: unknown): number | null {
+    function parseTime(value: unknown, lenient: boolean): number | null {
       if (typeof value !== "string") return null;
-      const match = TIME.exec(value);
+      const match = (lenient ? LENIENT_TIME : TIME).exec(value);
       if (!match) return null;
       const minutes = Number(match[1]) * 60 + Number(match[2]);
       return minutes > MINUTES_PER_DAY ? null : minutes;
     }
     type Problems = string[];
+    interface Reader {
+      problems: Problems;
+      lenient: boolean;
+      /** Lenient mode: problems that closed a single weekday instead of failing the venue. */
+      unreadableDays: string[];
+    }
     function toWindow(
       where: string,
       problems: Problems,
+      lenient: boolean,
       open: unknown,
       close: unknown,
       name?: unknown
     ): LegacyWindow | null {
-      const o = parseTime(open);
-      const c = parseTime(close);
+      const o = parseTime(open, lenient);
+      const c = parseTime(close, lenient);
       if (o === null || c === null || o >= MINUTES_PER_DAY) {
         problems.push(`${where}: open ${JSON.stringify(open)}, close ${JSON.stringify(close)}`);
         return null;
@@ -59944,36 +59960,49 @@
       };
       return typeof name === "string" && name.length > 0 ? { name, ...window } : window;
     }
-    function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult {
-      if (problems.length === 0) return { ok: true, shape, hours };
+    function finish(shape: LegacyShape, reader: Reader, hours: LegacyHours): LegacyHoursResult {
+      const { problems, unreadableDays } = reader;
+      if (problems.length === 0) {
+        return unreadableDays.length > 0
+          ? { ok: true, shape, hours, unreadableDays }
+          : { ok: true, shape, hours };
+      }
       const reason = problems.some((p) => p.startsWith(DATE_PROBLEM))
         ? "unreadable_date"
         : "unreadable_time";
       return { ok: false, reason, detail: problems.join("; ") };
     }
     function weeklyFrom(
-      windowsFor: (day: Weekday) => LegacyWindow[]
+      reader: Reader,
+      windowsFor: (day: Weekday, problems: Problems) => LegacyWindow[]
     ): Record<Weekday, readonly LegacyWindow[]> {
-      return Object.fromEntries(
-        WEEKDAYS.map((d) => [d, sortedByOpen(windowsFor(d))])
-      ) as unknown as Record<Weekday, readonly LegacyWindow[]>;
+      const read = (day: Weekday): LegacyWindow[] => {
+        const dayProblems: Problems = [];
+        const windows = windowsFor(day, dayProblems);
+        if (dayProblems.length === 0) return sortedByOpen(windows);
+        (reader.lenient ? reader.unreadableDays : reader.problems).push(...dayProblems);
+        return [];
+      };
+      return Object.fromEntries(WEEKDAYS.map((d) => [d, read(d)])) as unknown as Record<
+        Weekday,
+        readonly LegacyWindow[]
+      >;
     }
-    function fromWeekdayKeyed(raw: Loose): LegacyHoursResult {
+    function fromWeekdayKeyed(raw: Loose, reader: Reader): LegacyHoursResult {
       if (!WEEKDAYS.some((day) => day in raw)) {
         return { ok: false, reason: "unknown_shape", detail: "no weekday keys" };
       }
-      const problems: Problems = [];
       // As the legacy code: a missing day, or one flagged `closed` (truthy), is closed.
-      const dayWindows = (day: Weekday): LegacyWindow[] => {
+      const dayWindows = (day: Weekday, problems: Problems): LegacyWindow[] => {
         const value = raw[day];
         if (!isObject(value) || value.closed) return [];
-        const window = toWindow(day, problems, value.open, value.close);
+        const window = toWindow(day, problems, reader.lenient, value.open, value.close);
         return window ? [window] : [];
       };
-      const weekly = weeklyFrom(dayWindows);
-      return finish("weekday", problems, { weekly, overrides: [] });
+      const weekly = weeklyFrom(reader, dayWindows);
+      return finish("weekday", reader, { weekly, overrides: [] });
     }
-    function fromSeedArray(raw: unknown[]): LegacyHoursResult {
+    function fromSeedArray(raw: unknown[], reader: Reader): LegacyHoursResult {
       const rows = raw.filter(isObject);
       const dayIndexOk = (row: Loose) =>
         typeof row.dayOfWeek === "number" &&
@@ -59983,16 +60012,20 @@
       if (rows.length === 0 || rows.length !== raw.length || !rows.every(dayIndexOk)) {
         return { ok: false, reason: "unknown_shape", detail: "array rows lack a 0-6 dayOfWeek" };
       }
-      const problems: Problems = [];
-      const windowsFor = (day: Weekday) =>
+      const windowsFor = (day: Weekday, problems: Problems) =>
         rows
           .filter((row) => !row.isClosed && SUNDAY_FIRST[row.dayOfWeek as number] === day)
-          .map((row) => toWindow(day, problems, row.openTime, row.closeTime))
+          .map((row) => toWindow(day, problems, reader.lenient, row.openTime, row.closeTime))
           .filter(isWindow);
-      const weekly = weeklyFrom(windowsFor);
-      return finish("seed_array", problems, { weekly, overrides: [] });
+      const weekly = weeklyFrom(reader, windowsFor);
+      return finish("seed_array", reader, { weekly, overrides: [] });
     }
-    function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] {
+    function toWindows(
+      where: string,
+      problems: Problems,
+      lenient: boolean,
+      raw: unknown
+    ): LegacyWindow[] {
       if (raw === undefined) return [];
       if (!Array.isArray(raw)) {
         problems.push(`${where}: windows is not an array`);
@@ -60003,11 +60036,11 @@
           problems.push(`${where}: window ${i} is not an object`);
           return [];
         }
-        const window = toWindow(where, problems, w.open, w.close, w.name);
+        const window = toWindow(where, problems, lenient, w.open, w.close, w.name);
         return window ? [window] : [];
       });
     }
-    function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] {
+    function toOverrides(problems: Problems, lenient: boolean, raw: unknown): LegacyOverride[] {
       if (raw === undefined) return [];
       if (!Array.isArray(raw)) {
         problems.push(`${DATE_PROBLEM}overrides is not an array`);
@@ -60026,7 +60059,9 @@
         if (!entry.closed && !Array.isArray(entry.windows)) {
           problems.push(`${where}: open override has no windows array`);
         }
-        const windows = entry.closed ? [] : sortedByOpen(toWindows(where, problems, entry.windows));
+        const windows = entry.closed
+          ? []
+          : sortedByOpen(toWindows(where, problems, lenient, entry.windows));
         byDate.set(entry.date, {
           date: entry.date,
           windows,
@@ -60035,27 +60070,39 @@
       }
       return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
     }
-    function fromV2(raw: Loose): LegacyHoursResult {
+    function fromV2(raw: Loose, reader: Reader): LegacyHoursResult {
       if (!isObject(raw.weekly)) {
         return { ok: false, reason: "unknown_shape", detail: "v2 document has no weekly object" };
       }
       const weeklyRaw = raw.weekly;
-      const problems: Problems = [];
-      const weekly = weeklyFrom((day) => toWindows(day, problems, weeklyRaw[day]));
-      return finish("v2", problems, { weekly, overrides: toOverrides(problems, raw.overrides) });
+      const weekly = weeklyFrom(reader, (day, problems) =>
+        toWindows(day, problems, reader.lenient, weeklyRaw[day])
+      );
+      // An override is a dated exception: one that cannot be read fails the venue even
+      // in lenient mode, because dropping it could open a date the venue closed.
+      const overrides = toOverrides(reader.problems, reader.lenient, raw.overrides);
+      return finish("v2", reader, { weekly, overrides });
     }
-    export function normalizeLegacyHours(raw: unknown): LegacyHoursResult {
+    export function normalizeLegacyHours(
+      raw: unknown,
+      options: LegacyHoursOptions = {}
+    ): LegacyHoursResult {
+      const reader: Reader = { problems: [], lenient: options.lenient ?? false, unreadableDays: [] };
       if (raw === null || raw === undefined) return { ok: false, reason: "no_hours" };
-      if (Array.isArray(raw)) return fromSeedArray(raw);
+      if (Array.isArray(raw)) return fromSeedArray(raw, reader);
       if (!isObject(raw)) {
         return { ok: false, reason: "unknown_shape", detail: `unexpected ${typeof raw} value` };
       }
+      if ("version" in raw && raw.version === 1 && reader.lenient && WEEKDAYS.some((d) => d in raw)) {
+        const result = fromWeekdayKeyed(raw, reader);
+        return result.ok ? { ...result, coercions: ["version 1 key ignored (weekday shape)"] } : result;
+      }
       if ("version" in raw) {
         return raw.version === 2
-          ? fromV2(raw)
+          ? fromV2(raw, reader)
           : { ok: false, reason: "unknown_version", detail: `version ${JSON.stringify(raw.version)}` };
       }
-      return fromWeekdayKeyed(raw);
+      return fromWeekdayKeyed(raw, reader);
     }
   </file>
   <file path="packages/availability/src/legacy-migration.ts">
@@ -60069,6 +60116,13 @@
       /** Venue-local today; dated overrides before it are not migrated. */
       today: ServiceDate;
       newId: () => string;
+      /**
+       * The live listing fallback only: a day whose window spans implausibly far past
+       * midnight is closed (the legacy listing offered nothing for it) instead of
+       * failing the venue, and out-of-range settings are coerced (see
+       * `lenientIntervalOrBuffer`). The backfill stays strict.
+       */
+      lenient?: boolean;
     }
     export interface PastMidnightWindow {
       /** A weekday name, or an override's date. */
@@ -60084,6 +60138,10 @@
       droppedWindows: number;
       skippedPastOverrides: number;
       migratedOverrides: number;
+      /** Lenient mode only: days closed because their hours could not be used. */
+      unreadableDays?: string[];
+      /** Lenient mode only: settings read the way the legacy loop read them instead of refused. */
+      coercions?: string[];
     }
     export type LegacyMigrationResult =
       | { ok: true; config: AvailabilityConfig; notes: LegacyMigrationNotes }
@@ -60110,9 +60168,7 @@
       const clash = new Set(names).size < names.length;
       return windows.map((w, i) => ({ ...w, serviceName: clash ? `Service ${i + 1}` : names[i]! }));
     }
-    function validIntervalOrBuffer(
-      input: LegacyMigrationInput
-    ): { interval: number; buffer: number } | LegacyMigrationResult {
+    function validIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule | LegacyMigrationResult {
       const interval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
       if (!Number.isInteger(interval) || interval < 1 || interval > MAX_INTERVAL) {
         return { ok: false, reason: "invalid_interval", detail: `slotIntervalMinutes ${interval}` };
@@ -60121,7 +60177,34 @@
       if (!Number.isInteger(buffer) || buffer < 0) {
         return { ok: false, reason: "invalid_buffer", detail: `lastSeatingBuffer ${buffer}` };
       }
-      return { interval, buffer };
+      return { interval, buffer, coercions: [] };
+    }
+    interface SeatingRule {
+      interval: number;
+      /** Lenient mode: an interval above the engine's maximum, kept as fixed seating times. */
+      fixedStep?: number;
+      buffer: number;
+      coercions: string[];
+    }
+    function lenientIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule {
+      const coercions: string[] = [];
+      const rawInterval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+      const intervalOk = Number.isInteger(rawInterval) && rawInterval >= 1;
+      const fixedStep = intervalOk && rawInterval > MAX_INTERVAL ? rawInterval : undefined;
+      const interval = intervalOk && !fixedStep ? rawInterval : DEFAULT_SLOT_INTERVAL;
+      if (fixedStep) {
+        coercions.push(`slotIntervalMinutes ${rawInterval} read as fixed seatings`);
+      } else if (!intervalOk) {
+        coercions.push(`slotIntervalMinutes ${rawInterval} read as ${DEFAULT_SLOT_INTERVAL}`);
+      }
+      const rawBuffer = input.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+      const numericBuffer = Number.isFinite(rawBuffer) ? rawBuffer : DEFAULT_LAST_SEATING_BUFFER;
+      const buffer = Math.max(0, Math.ceil(numericBuffer));
+      if (buffer !== rawBuffer) coercions.push(`lastSeatingBuffer ${rawBuffer} read as ${buffer}`);
+      return { interval, ...(fixedStep ? { fixedStep } : {}), buffer, coercions };
+    }
+    function fixedSeatings(open: number, last: number, step: number): number[] {
+      return Array.from({ length: Math.floor((last - open) / step) + 1 }, (_, k) => open + k * step);
     }
     function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] {
       const entries = [
@@ -60134,11 +60217,30 @@
           .map((w) => ({ day, open: w.open, close: w.close, span: w.close - w.open }))
       );
     }
+    function closeImplausibleDays(hours: LegacyHours): { hours: LegacyHours; closed: string[] } {
+      const closed = pastMidnightWindows(hours)
+        .filter((w) => w.span > MAX_PAST_MIDNIGHT_SPAN)
+        .map((w) => `${w.day}: ${w.open}-${w.close} spans ${w.span} minutes`);
+      const keep = (windows: readonly LegacyWindow[]) => (windows.some(isImplausible) ? [] : windows);
+      return {
+        hours: {
+          weekly: Object.fromEntries(
+            WEEKDAYS.map((d) => [d, keep(hours.weekly[d])])
+          ) as unknown as LegacyHours["weekly"],
+          overrides: hours.overrides.map((o) => ({ ...o, windows: keep(o.windows) })),
+        },
+        closed,
+      };
+    }
     export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult {
-      const checked = validIntervalOrBuffer(input);
+      const checked: SeatingRule | LegacyMigrationResult = input.lenient
+        ? lenientIntervalOrBuffer(input)
+        : validIntervalOrBuffer(input);
       if ("ok" in checked) return checked;
-      const { interval, buffer } = checked;
-      const { hours, newId, today } = input;
+      const { interval, buffer, fixedStep, coercions } = checked;
+      const { newId, today } = input;
+      const lenient = input.lenient ? closeImplausibleDays(input.hours) : null;
+      const hours = lenient?.hours ?? input.hours;
     
       const wrapped = pastMidnightWindows(hours);
       const tooLong = wrapped.find((w) => w.span > MAX_PAST_MIDNIGHT_SPAN);
@@ -60184,7 +60286,9 @@
         opensAt: w.open,
         lastSeatingAt: w.last,
         closesAt: w.close,
-        seating: { version: 1 as const, interval },
+        seating: fixedStep
+          ? { version: 1 as const, fixed: fixedSeatings(w.open, w.last, fixedStep) }
+          : { version: 1 as const, interval },
         bookingTypes: [...CHANNELS],
       });
     
@@ -60251,6 +60355,8 @@
           droppedWindows: dropped,
           skippedPastOverrides: hours.overrides.length - futureOverrides.length,
           migratedOverrides: futureOverrides.length,
+          ...(lenient && lenient.closed.length > 0 ? { unreadableDays: lenient.closed } : {}),
+          ...(coercions.length > 0 ? { coercions } : {}),
         },
       };
     }
@@ -65028,6 +65134,8 @@
       date: string; // YYYY-MM-DD
       hasAvailability: boolean;
       slotCount?: number;
+      /** Present when the date is closed; see `DateAvailabilitySchema`. */
+      closure?: { message: string };
     }
     export interface AvailabilityQuery {
       date: string; // YYYY-MM-DD
@@ -68725,6 +68833,80 @@
           }
         },
       };
+    }
+  </file>
+  <file path="services/reservations/src/test/legacy-slot-oracle.ts">
+    export interface OracleVenue {
+      ianaTimezone: string;
+      settings: VenueSettings | null;
+      operatingHours: OperatingHours | null;
+    }
+    export interface OracleTable extends TableFilter {
+      name: string;
+    }
+    function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      const localIso = `${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
+      const utcGuess = new Date(localIso + "Z");
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).formatToParts(utcGuess);
+      const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+      const tzTotalMin = parseInt(get("hour"), 10) * 60 + parseInt(get("minute"), 10);
+      const utcTotalMin = utcGuess.getUTCHours() * 60 + utcGuess.getUTCMinutes();
+      let offsetMin = tzTotalMin - utcTotalMin;
+      if (offsetMin > 720) offsetMin -= 1440;
+      if (offsetMin < -720) offsetMin += 1440;
+      return new Date(utcGuess.getTime() - offsetMin * 60 * 1000);
+    }
+    export function legacyTimeSlots(
+      venue: OracleVenue,
+      tables: OracleTable[],
+      date: string,
+      partySize: number,
+      now: Date
+    ): TimeSlot[] {
+      const { settings } = venue;
+      const schedule = parseOperatingHours(venue.operatingHours, date);
+      if (!schedule) return [];
+      const interval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+      const buffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+      const duration = estimateDuration(partySize, settings);
+      const lastSeating = toMinutes(schedule.close) - buffer;
+      const suitable = filterSuitableTables(tables, partySize);
+      if (suitable.length === 0) return [];
+      const window = bookingWindow(settings, now, venue.ianaTimezone);
+    
+      const slots: TimeSlot[] = [];
+      for (let minutes = toMinutes(schedule.open); minutes <= lastSeating; minutes += interval) {
+        const start = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
+        if (!isSlotInBookingWindow(start, window)) continue;
+        const end = new Date(start.getTime() + duration * 60 * 1000);
+        const free = suitable
+          .filter((t) => !checkTableConflict(t.id, start, end, [], []))
+          .map((t) => ({
+            id: t.id,
+            name: t.name,
+            capacity: t.capacity,
+            minCovers: t.minCovers,
+            maxCovers: t.maxCovers,
+          }));
+        const pacingOk = checkPacingForSlot(start, partySize, settings, [], []);
+        slots.push({
+          time: start.toISOString(),
+          available: free.length > 0 && pacingOk,
+          tables: free.length > 0 ? free : undefined,
+        });
+      }
+      return slots;
     }
   </file>
   <file path="services/reservations/src/test/mocks.ts">

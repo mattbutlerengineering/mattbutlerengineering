@@ -225,6 +225,26 @@ describe("Availability Routes", () => {
       );
     });
 
+    it("keeps a closed date's closure message in the response", async () => {
+      vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
+      const closed = {
+        date: "2024-02-15",
+        hasAvailability: false,
+        slotCount: 0,
+        closure: { message: "Closed for a private event" },
+      };
+      vi.mocked(availabilityService.getAvailableDates).mockResolvedValue([closed]);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-15&partySize=4",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body).data).toEqual([closed]);
+    });
+
     it("should return 404 for non-existent venue", async () => {
       vi.mocked(venueService.getById).mockResolvedValue(null);
       vi.mocked(availabilityService.getAvailableDates).mockResolvedValue([]);
