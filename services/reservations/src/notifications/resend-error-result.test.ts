@@ -8,7 +8,7 @@ import type { SmsPort } from "./sms-port.js";
 // throwing. The adapter must turn `error` into a rejection, otherwise the
 // dispatcher counts the email channel as delivered and never retries it.
 
-const MANAGE_URL = "https://app.mbe.dev/reservations/manage";
+const MANAGE_URL = "https://app.mbe.dev";
 
 const input: BookingNotificationInput = {
   reservationId: "res_abc123",

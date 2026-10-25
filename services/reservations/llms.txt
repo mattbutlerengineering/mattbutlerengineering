@@ -345,6 +345,14 @@
       function formatIcalDate(date: Date): string { /* ... */ }
     </item>
   </file>
+  <file path="src/notifications/manage-url.ts">
+    <item priority="high">
+      export const MANAGE_PATH: unknown;
+    </item>
+    <item priority="high">
+      export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/notifications/notification-dispatcher.ts">
     <item priority="low">
       interface NotificationDispatcherConfig {

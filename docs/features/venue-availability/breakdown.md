@@ -70,7 +70,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 3: Roles and manage links (prerequisites for the UI and notices)
 
-- [ ] **manageUrl builder** — `notifications/manage-url.ts` builds `${MANAGE_BASE_URL}/hospitality/reservations/manage?token=…` (with an optional `&rebook=`) and replaces the call sites in `email-content.ts:64` and `twilio-sms-adapter.ts:76`. (tracker: #7508)
+- [x] **manageUrl builder** — `notifications/manage-url.ts` builds `${MANAGE_BASE_URL}/hospitality/reservations/manage?token=…` (with an optional `&rebook=`) and replaces the call sites in `email-content.ts:64` and `twilio-sms-adapter.ts:76`. (tracker: #7508)
   - Accept: tests assert that every outbound email and SMS manage link has the manage path. No other `MANAGE_BASE_URL` concatenation remains.
   - Blocked by: —
 - [ ] **Venue roles** — `requireVenueRole("manager")` in `packages/auth/src/fastify/authz.ts`, with the membership lookup returning the role and admins bypassing. The venue PATCH and every availability config write require Manager. (tracker: #7509)
