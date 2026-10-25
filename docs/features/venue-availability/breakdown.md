@@ -15,7 +15,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 0: Preview-speed spike (de-risk before building)
 
-- [ ] **Preview spike** — a throwaway proof of "load once, compute many": an in-memory config plus a snapshot of tables, reservations and holds for a seeded 250-seat venue, with slots computed over 30 days plus a stranded list. (tracker: #7494)
+- [x] **Preview spike** — a throwaway proof of "load once, compute many": an in-memory config plus a snapshot of tables, reservations and holds for a seeded 250-seat venue, with slots computed over 30 days plus a stranded list. (tracker: #7494)
   - Accept: a benchmark script reports p95 ≤1s over 50 runs, including the stranded list, with the numbers recorded in the Notes. On a miss, record it and route back to Architect (preview decision) before M4.
   - Blocked by: —
 
@@ -157,6 +157,13 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 None. If the spike misses its budget, that is a route back to Architect for the preview decision, recorded under Notes.
 
 ## Notes
+
+- 2026-10-25, Preview spike (#7494): **pass, p95 190 ms against 1 s.**
+  - Load: p95 84 ms (5 parallel queries through the venue-scoped `prisma`, RLS path).
+  - Compute: p95 113 ms (30 days × current and draft slots, the diff, and a stranded scan over 14,319 future reservations).
+  - Fixture: 70 tables (296 seats), about 157 bookings a night over 90 days, and 20 holds.
+  - Run on a Mac with Postgres 15 in Docker on the same host. With no network hop, the load figure is optimistic.
+  - The engine stays server-side as designed. Script and full numbers are on #7494; the durable p95 test is the Preview endpoint item.
 
 - Tracker: tracking issue #7493; one issue per item, none labelled `ready` (2026-10-25).
 - Phases 2–5 are separate future runs (Owner decision, 2026-10-25). The legacy `operatingHours` column is dropped in Phase 2's run.
