@@ -7956,6 +7956,9 @@
         catalogPrompt: string;
       }
     </item>
+    <item priority="high">
+      export function chatComponentReference(catalogPrompt: string): string { /* ... */ }
+    </item>
     <item priority="medium">
       function weekdayIn(timeZone: string, now: Date): string { /* ... */ }
     </item>
@@ -8039,6 +8042,12 @@
     </item>
     <item priority="medium">
       function isTimeZone(value: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genAgentSystemPrompt(
+        parsed: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined },
+        catalogPrompt: string
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export const genAgentRoutes: unknown;

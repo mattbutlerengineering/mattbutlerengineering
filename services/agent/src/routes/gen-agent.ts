@@ -2,7 +2,7 @@
 // eslint-disable-next-line no-restricted-imports -- agent tools call reservation API on behalf of authenticated user
 import { createApiClient } from "@mbe/api-client";
 import { z } from "zod";
-import { buildAgentSystemPrompt } from "./gen-agent-prompt.js";
+import { buildAgentSystemPrompt, chatComponentReference } from "./gen-agent-prompt.js";
 import { createAgentTools } from "./gen-agent-tools.js";
 import { createGenRoute } from "./gen-route-factory.js";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
@@ -62,6 +62,19 @@ const GenAgentBodySchema = z.object({
     .optional(),
 });
 
+/** The chat's system prompt: assistant guidance plus the component list only. */
+export function genAgentSystemPrompt(
+  parsed: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined },
+  catalogPrompt: string
+): string {
+  return buildAgentSystemPrompt({
+    venueId: parsed.venueId,
+    timeZone: parsed.timeZone,
+    now: new Date(),
+    catalogPrompt: chatComponentReference(catalogPrompt),
+  });
+}
+
 export const genAgentRoutes = createGenRoute({
   path: "/api/gen/agent",
   costLogLabel: "gen-agent cost log",
@@ -72,13 +85,7 @@ export const genAgentRoutes = createGenRoute({
   schema: GenAgentBodySchema,
   streamFormat: "ndjson",
   maxSteps: 5,
-  getSystemPrompt: (parsed, catalogPrompt) =>
-    buildAgentSystemPrompt({
-      venueId: parsed.venueId,
-      timeZone: parsed.timeZone,
-      now: new Date(),
-      catalogPrompt,
-    }),
+  getSystemPrompt: genAgentSystemPrompt,
   toMessages: (parsed) =>
     parsed.actionConfirm
       ? [

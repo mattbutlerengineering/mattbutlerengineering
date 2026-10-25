@@ -6,8 +6,31 @@ export interface AgentPromptContext {
   /** The venue's IANA time zone; UTC when absent. */
   readonly timeZone?: string | undefined;
   readonly now: Date;
-  /** The rialto catalog's component rules, appended verbatim. */
+  /** The rialto component reference (see chatComponentReference), appended verbatim. */
   readonly catalogPrompt: string;
+}
+
+const COMPONENTS_START = "AVAILABLE COMPONENTS (";
+const COMPONENTS_END = "\n\nAVAILABLE ACTIONS:";
+
+/**
+ * The component list from json-render's catalog prompt, without the rest of it.
+ * That prompt is a /gen generator spec ("Output ONLY JSONL patches", /state,
+ * repeat, sample data); appended whole to the chat, it led the model to write
+ * patch lines as reply text (chat batch 9, F33). The chat renders elements only
+ * through render_component, so it needs just the components and their props.
+ * Throws when the markers are missing, so a json-render upgrade that moves them
+ * fails the tests instead of silently sending the generator spec again.
+ */
+export function chatComponentReference(catalogPrompt: string): string {
+  const start = catalogPrompt.indexOf(COMPONENTS_START);
+  const end = catalogPrompt.indexOf(COMPONENTS_END, start);
+  if (start === -1 || end === -1) {
+    throw new Error(
+      `catalog prompt layout changed: expected "${COMPONENTS_START}" followed by "AVAILABLE ACTIONS:"`
+    );
+  }
+  return catalogPrompt.slice(start, end);
 }
 
 function weekdayIn(timeZone: string, now: Date): string {
@@ -35,6 +58,7 @@ export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
     "A change (booking, walk-in, cancellation, table status) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
     "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
     "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
+    "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
     "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
     "Pick the element that fits the data, one shape per line below.",
     "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out.",
