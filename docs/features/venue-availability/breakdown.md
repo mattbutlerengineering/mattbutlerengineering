@@ -37,7 +37,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
     - a Tonight rule is ignored on any other service date;
     - each layer's `removalResult` equals `resolveDay` with that layer removed.
   - Blocked by: resolveDay: schedules and assignments
-- [ ] **listSlots and judge** — slot generation (interval or fixed), with table fit, conflict and pacing moved from `services/reservations/src/services/slot-rules.ts` into the engine, and the ok, soft or hard verdict. (tracker: #7499)
+- [x] **listSlots and judge** — slot generation (interval or fixed), with table fit, conflict and pacing moved from `services/reservations/src/services/slot-rules.ts` into the engine, and the ok, soft or hard verdict. (tracker: #7499)
   - Accept: the existing `slot-rules` tests pass against the engine. A fast-check property test (new dev dependency) shows that over generated configurations no listed slot falls outside `resolveDay`, and that `judge` returns hard for every instant inside a closure. This covers SC Correctness, engine half.
   - Blocked by: resolveDay: date rules and explanation
 - [x] **Availability schema migration** — Prisma models and migration for Schedule, VenueService, ScheduleService, ScheduleAssignment, DateRule, DateRuleTable, AvailabilityChange and ClosureOutcome, plus `Venue.availabilityVersion` and `hostEmergencyClose` and `Reservation.overrideReason` and `overrideLimits`. Each table gets ENABLE and FORCE RLS, a policy and grants, following the `20261022000000_add_floor_plan_sections` template. (tracker: #7500)
