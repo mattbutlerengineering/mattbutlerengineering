@@ -47,6 +47,27 @@ export const ChatDrawerWidth: Story = {
   },
 };
 
+/** One guest's bookings across dates, as the chat sends them: each time carries its date. */
+export const MultiDate: Story = {
+  args: {
+    reservations: [
+      { time: "Fri Oct 16, 7:30 PM", guest: "Maria Garcia", partySize: 4, status: "COMPLETED" },
+      { time: "Mon Nov 2, 7:30 PM", guest: "Maria Garcia", partySize: 4, status: "CONFIRMED" },
+    ],
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: "300px" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const list = within(canvasElement).getByRole("list", { name: "Reservations" });
+    await expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth);
+  },
+};
+
 export const UnknownStatus: Story = {
   args: {
     reservations: [{ time: "7:00 PM", guest: "Ana Ruiz", partySize: 2, status: "Running late" }],
