@@ -28,15 +28,9 @@ Bias toward **caution over speed** (adapted from [Karpathy's CLAUDE.md](https://
 
 Automated system that audits the live site, finds and fixes issues, builds features, and verifies deploys.
 
-| Mode                             | How                                       | Pushes to                         | Best for                                 |
-| -------------------------------- | ----------------------------------------- | --------------------------------- | ---------------------------------------- |
-| **Scheduled** (conservative)     | RemoteTriggers on claude.ai               | PRs for review                    | Background maintenance                   |
-| **Implement Queue** (aggressive) | `/loop 30m /idea-to-prod:implement-queue` | Auto-merges green PRs             | Active development sprints               |
-| **Conductor** (Owner-attended)   | `/idea-to-prod:conduct #N...` locally     | Merges only on the Owner's answer | A named batch of issues, priced up front |
-
-- **Conductor** is stamped here as tools only (#6364): `python3 tools/factory/conductor.py <plan|open|next|answer|run|merge|close>`, config in `.github/factory.json` → `conductor` (gate `scripts/conductor-gate.sh`; `standing_consent` off, so every merge needs the Owner's in-session answer). Batch state: `docs/factory/batches/<batch>/ledger.jsonl` on `conductor/<batch>`; resuming a batch is `next` again. Local only.
-- **Conductor upgrades (stamped at idea-to-prod 0.20.0):** `python3 <plugin>/factory_init.py update .`, where `<plugin>` is `~/.claude/plugins/cache/skills/idea-to-prod/<version>`. It refreshes only what `factory/manifest.json` lists (`"install": "tools-only"`) and keeps `.github/factory.json` (ours; reconcile by hand if the payload's changes are wanted). Verify with `python3 tools/factory/gates.py --selftest` and check `gates.py` reports no `E:` line. Never edit `.github/factory.json` or `docs/factory/` as part of an upgrade, and update the version recorded here.
-- **Skills, plugins and subagents:** see [docs/claude-reference.md](./docs/claude-reference.md). Generic lifecycle skills come from the `idea-to-prod` plugin (local sessions only — cloud routines and Actions don't load it, #6332). The implement-queue's repo-specific behaviour lives in its profile [`.claude/implement-queue.md`](./.claude/implement-queue.md). `/caveman`, `/tdd`, `/diagnose`, `/reflect` and the other retired user-level skills resolve nowhere; caveman _mode_ above is a standing instruction, not a skill call.
+- **Modes** (Scheduled, Implement Queue, Conductor), Conductor setup and upgrades, and where skills, plugins and subagents come from: [docs/claude-reference.md § Continuous Improvement Loop](./docs/claude-reference.md#continuous-improvement-loop).
+- **Conductor:** `standing_consent` is off, so every merge needs the Owner's in-session answer. Never edit `.github/factory.json` or `docs/factory/` as part of an upgrade.
+- **Plugin skills** (`idea-to-prod`) load in local sessions only — cloud routines and Actions don't (#6332). Retired user-level skills (`/caveman`, `/tdd`, `/diagnose`, `/reflect`) resolve nowhere; caveman _mode_ is a standing instruction, not a skill call.
 - **RemoteTriggers** are managed at https://claude.ai/code/routines ([docs/scheduled-tasks.md](./docs/scheduled-tasks.md)). `docs/routines/<name>.md` is the authoritative prompt of each `mbe-*` routine: merge a docs PR editing it first, then apply it to the live trigger, then `get_trigger` to verify. Never edit a live trigger directly.
 
 **Key principle:** Trust live output. For any actionable decision (which issues to close, what to build next), re-run source-of-truth checks (e.g., `node plugins/acmm/scripts/audit.js`) instead of recalling earlier summaries from conversation history.
@@ -77,9 +71,7 @@ GH Actions runs on this account (verify with `gh run list --limit 5`). To ship w
 
 ## MCP Servers & Observability
 
-- **Langfuse:** agent sessions traced when `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` are set; unset = zero overhead.
-- **Semgrep:** CLI only (pre-commit + CI), no MCP server.
-- **Playwright:** shared browser tooling via `.mcp.json` for `/site-audit` and E2E.
+- **Langfuse, Semgrep, Playwright:** [docs/claude-reference.md § MCP Servers & Observability](./docs/claude-reference.md#mcp-servers--observability).
 - **Stripe:** from the user-level `stripe` plugin. Test-mode keys only (`sk_test_…`, prefer read-only RAKs); **never** `sk_live_…`.
 
 ## Session Learning
