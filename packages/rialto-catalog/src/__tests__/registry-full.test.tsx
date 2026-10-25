@@ -1296,6 +1296,18 @@ describe("ReservationList", () => {
     expect(list.textContent).toContain("Walk-in");
   });
 
+  // Reservation.guestName is `string | null`: a walk-in copied as is must not
+  // fall back the whole list (F13).
+  it("shows Walk-in for a null guest and keeps every row", () => {
+    const { container } = renderReservations([
+      { time: "6:00 PM", guest: null, partySize: 2, status: "SEATED" },
+      { time: "7:00 PM", guest: "Kept", partySize: 4, status: "CONFIRMED" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getAllByRole("listitem")).toHaveLength(2);
+    expect(container.textContent).toContain("Walk-in");
+  });
+
   it.each([
     ["time", { guest: "No time", partySize: 2, status: "CONFIRMED" }],
     ["partySize", { time: "7:00 PM", guest: "No party", status: "CONFIRMED" }],
@@ -1445,6 +1457,31 @@ describe("GuestCards", () => {
     expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
     expect(cards(container)).toHaveLength(1);
     expect(within(container).getByText("Kept")).toBeTruthy();
+  });
+
+  // search_guests returns `tags: null` for an untagged guest; a copied null or a
+  // stray non-array must keep the card, not fall back the whole element (F13).
+  it.each([
+    ["null", null],
+    ["a bare string", "VIP"],
+    ["an array holding null", [null]],
+  ])("keeps every card when tags is %s", (_label, tags) => {
+    const { container } = renderGuests([
+      { name: "Odd tags", visits: 1, risk: "standard", tags },
+      { name: "Kept", visits: 2, risk: "trusted", tags: ["VIP"] },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(2);
+  });
+
+  it("drops a card whose name, visits or risk is null and keeps the rest", () => {
+    const { container } = renderGuests([
+      { name: null, visits: 1, risk: "trusted" },
+      { name: "Kept", visits: null, risk: "trusted" },
+      { name: "Also kept", visits: 3, risk: "trusted" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(1);
   });
 
   it("coerces a numeric visits string", () => {
