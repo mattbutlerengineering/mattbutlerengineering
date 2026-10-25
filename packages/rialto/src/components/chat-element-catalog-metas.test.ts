@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogMeta } from "./catalog-meta";
+import { guestCardsCatalogMeta } from "./GuestCards/GuestCards.catalog";
 import { reservationListCatalogMeta } from "./ReservationList/ReservationList.catalog";
 import { timeSlotsCatalogMeta } from "./TimeSlots/TimeSlots.catalog";
 
@@ -9,7 +10,11 @@ import { timeSlotsCatalogMeta } from "./TimeSlots/TimeSlots.catalog";
  * charLimits, so a nested `.max(` or a strict `z.enum(` would drop the whole
  * element over one long or unexpected value (F13). Add each new element here.
  */
-const metas: readonly CatalogMeta[] = [reservationListCatalogMeta, timeSlotsCatalogMeta];
+const metas: readonly CatalogMeta[] = [
+  reservationListCatalogMeta,
+  timeSlotsCatalogMeta,
+  guestCardsCatalogMeta,
+];
 
 describe.each(metas.map((meta) => [meta.name, meta] as const))("%s catalog meta", (_, meta) => {
   const schemas = Object.entries(meta.propSchemas ?? {});

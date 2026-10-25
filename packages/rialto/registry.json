@@ -2152,6 +2152,28 @@
       "slots": []
     },
     {
+      "name": "GuestCard",
+      "description": "One guest in `GuestCards`. Contact details, notes and spend are not part of\nthe card and are never shown.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "GuestCards",
+      "description": "Display-only stack of guest cards: the name in the display face, the\nlocalized visit count and the risk word in its Badge tone on one line, then\nthe guest's tags in a wrapping row (left out when there are none). Cards are\nseparated by spacing, not boxes; nothing in it is focusable.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "guests",
+          "type": "GuestCard[]",
+          "required": true
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
       "name": "Handshake",
       "description": "Instrument that visualises a handshake between two or more stations —\nan OIDC sign-in, a webhook confirmation, a device pairing. Each station is\na recessed LED; the legs between them are machined grooves, and during\nnegotiation a single gold credential pulse shuttles along the active leg.\nGold is the one jewel accent, so it appears only while something is in\nflight; success and error use their semantic tokens.\n\nRenders as a single `role=\"img\"` — the track is decorative and assistive\ntech hears only the required `aria-label`.",
       "importPath": "@mattbutlerengineering/rialto",

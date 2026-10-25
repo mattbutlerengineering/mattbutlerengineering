@@ -158,6 +158,9 @@ export const generatedSchemas = {
   FormField: z.object({
     name: z.string(),
   }),
+  GuestCards: z.object({
+    guests: z.array(z.object({ name: z.string().optional(), visits: z.union([z.number(), z.string()]).optional(), risk: z.string().optional(), tags: z.array(z.string()).optional() })),
+  }),
   IconButton: z.object({
     icon: z.string().optional(),
     "aria-label": z.string(),

@@ -65,6 +65,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Form",
   "FormField",
   "GlobalNav",
+  "GuestCards",
   "Handshake",
   "Heading",
   "Hero",

@@ -1,0 +1,48 @@
+/* ── List: cards separated by spacing, no boxes ─ */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Card: name / visits · risk / tags ───────── */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-md);
+  color: var(--rialto-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--rialto-space-xs);
+  margin: 0;
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag {
+  display: flex;
+}
