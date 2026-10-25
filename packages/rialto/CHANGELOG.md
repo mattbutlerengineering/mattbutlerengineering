@@ -1,5 +1,19 @@
 # @mattbutlerengineering/rialto
 
+## 0.8.4
+
+### Patch Changes
+
+- [#7448](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7448) [`e8947c2`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e8947c2b7dfc1201cb7d4f33bd2c11028e98d239) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: cancelling a proposed action now marks the proposing reply ("Cancelled. Nothing was changed.") and sends that outcome with the next request, so the model stops re-asking. Adds the `actionCancelled` locale key and an optional `note` on `ChatMessage`.
+
+- [#7447](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7447) [`a3d6e46`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a3d6e468932c881bf83d9b0a0b40f5a52d2d81ae) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: the confirm bar no longer title-cases its label with CSS, which mangled host-supplied and translated titles ("Seat A Walk-In"). The raw fallback title is now sentence case.
+
+- [#7445](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7445) [`a8e0a56`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a8e0a5688e14cf02b59a6590d1cc20a9a2b3c0a5) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: add an optional `describeAction` prop so the host app can present a pending write in the confirm bar (a title and labelled values) instead of the raw tool name and input. Exports the `ActionDescription` type.
+
+- [#7441](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7441) [`0519590`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/05195903bec635014e669e295e49da348d097b0b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: offer starter `suggestions` on an empty conversation, keep the newest message scrolled into view, show the typing indicator on every turn, swap Send for a Stop button while a reply streams, and preserve line breaks in replies. Adds the `stop` and `chatSuggestions` locale keys.
+
+- [#7439](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7439) [`e50ac66`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e50ac6617c1cb444ace0dbffe0b3fc519e6a1ece) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: add an optional `requestContext` prop whose fields are merged into every chat request body, so a host app can send context such as the selected venue and its time zone.
+
 ## 0.8.3
 
 ### Patch Changes
