@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-24T18:06:39.354Z",
+  "generated_at": "2026-10-25T00:18:35.190Z",
   "period": {
-    "start": "2026-10-17",
-    "end": "2026-10-24"
+    "start": "2026-10-18",
+    "end": "2026-10-25"
   },
   "sensors": {
     "acmm": {
@@ -42,36 +42,36 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.14,
+          "age_days": 0.4,
           "latest": "2026-10-24T14:42:21.505Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.16,
+          "age_days": 0.42,
           "latest": "2026-10-24T14:10:33.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 0.75,
+          "age_days": 1.01,
           "latest": "2026-10-24T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 5.75,
+          "age_days": 6.01,
           "latest": "2026-10-19T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.14,
-          "latest": "2026-10-24T14:43:56.921Z",
+          "age_days": 0.25,
+          "latest": "2026-10-24T18:13:35.442Z",
           "max_age_days": 5
         }
       ]
@@ -91,32 +91,32 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 98,
-      "total_merged": 98,
+      "total_prs": 95,
+      "total_merged": 95,
       "total_closed_without_merge": 0,
       "by_category": {
+        "tier:sensitive": {
+          "merged": 25,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
         "tier:trivial": {
-          "merged": 42,
+          "merged": 36,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 40,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:sensitive": {
-          "merged": 10,
+          "merged": 30,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "unlabeled": {
-          "merged": 2,
+          "merged": 3,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 4,
+          "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         }
@@ -135,7 +135,7 @@
       "avg_turns_per_session": 0,
       "queue": {
         "sessions_7d": 2,
-        "sessions_without_usage_7d": 90,
+        "sessions_without_usage_7d": 89,
         "tokens_7d": 982008,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
@@ -146,36 +146,36 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1170453,
-      "output_tokens": 1566,
-      "cache_creation_tokens": 92717,
-      "cache_hit_rate": 0.9266,
+      "cache_read_tokens": 5884523,
+      "output_tokens": 20350,
+      "cache_creation_tokens": 146340,
+      "cache_hit_rate": 0.9757,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 18,
-          "output_tokens": 1566,
-          "cache_read_tokens": 1170453,
-          "cache_creation_tokens": 92717
+          "input_tokens": 68,
+          "output_tokens": 20350,
+          "cache_read_tokens": 5884523,
+          "cache_creation_tokens": 146340
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 23,
-      "passed": 21,
+      "completed": 30,
+      "passed": 20,
       "failed": 0,
       "phantom": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 40119147560,
+        "databaseId": 40146183605,
         "status": "completed",
-        "conclusion": "skipped",
-        "createdAt": "2026-10-24T18:06:05Z",
-        "name": "claude",
+        "conclusion": "success",
+        "createdAt": "2026-10-25T00:18:32Z",
+        "name": "Auto-Merge Policy",
         "headBranch": "main",
-        "headSha": "d389aa5924173a4d461e5d07ee2231c9da04cf5f"
+        "headSha": "cfc91475c462d08cafa8c5d9d3f54df252f5391d"
       }
     },
     "lighthouse": {
@@ -183,45 +183,45 @@
     },
     "issues": {
       "available": true,
-      "open": 15,
-      "created_7d": 200,
-      "closed_7d": 200,
-      "closure_rate": 100,
-      "queue_depth": 1,
-      "agent_failed": 1
+      "open": 14,
+      "created_7d": 156,
+      "closed_7d": 147,
+      "closure_rate": 94,
+      "queue_depth": 2,
+      "agent_failed": 0
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-10-24T14:43:56.921Z",
+      "collected_at": "2026-10-24T18:13:35.442Z",
       "category_count": 6,
       "unhealthy_categories": [],
       "categories": {
         "feature": {
-          "total": 134,
-          "accepted": 110,
-          "rejected": 6,
+          "total": 144,
+          "accepted": 119,
+          "rejected": 7,
           "wontfix": 18,
-          "rejection_rate": 0.04477611940298507
+          "rejection_rate": 0.04861111111111111
         },
         "audit": {
-          "total": 18,
-          "accepted": 18,
+          "total": 17,
+          "accepted": 17,
           "rejected": 0,
           "wontfix": 0,
           "rejection_rate": 0
         },
-        "ci-fix": {
-          "total": 16,
-          "accepted": 10,
+        "meta-improvement": {
+          "total": 22,
+          "accepted": 21,
           "rejected": 0,
-          "wontfix": 6,
+          "wontfix": 1,
           "rejection_rate": 0
         },
-        "meta-improvement": {
-          "total": 30,
-          "accepted": 28,
+        "ci-fix": {
+          "total": 15,
+          "accepted": 9,
           "rejected": 0,
-          "wontfix": 2,
+          "wontfix": 6,
           "rejection_rate": 0
         },
         "agent-failed": {
@@ -261,8 +261,8 @@
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 820156,
-      "lines_churned_7d": 467,
+      "total_lines_added_7d": 823610,
+      "lines_churned_7d": 1017,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -271,45 +271,48 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": false,
-      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
+      "available": true,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 28875,
+      "window_shas": 4
     },
     "e2eStability": {
       "available": false
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.92,
+      "composite": 0.926,
       "sub_metrics": {
-        "issues_merged": 100,
-        "first_pass_success_rate": 0.88,
+        "issues_merged": 108,
+        "first_pass_success_rate": 0.889,
         "median_time_to_merge_hours": 0.1,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": null,
         "cost_coverage_n": 0,
-        "review_coverage": 0.273,
-        "review_coverage_n": 11
+        "review_coverage": 0.15,
+        "review_coverage_n": 20
       },
       "distribution": {
-        "size:xs": {
-          "count": 37,
-          "avg_commits": 1.1,
-          "avg_ttm_hours": 0.1
-        },
         "size:s": {
-          "count": 23,
+          "count": 26,
           "avg_commits": 1.1,
           "avg_ttm_hours": 0.1
         },
         "size:m": {
-          "count": 11,
-          "avg_commits": 1.5,
+          "count": 16,
+          "avg_commits": 1.4,
           "avg_ttm_hours": 0.2
         },
         "size:l": {
-          "count": 8,
+          "count": 9,
           "avg_commits": 2.1,
           "avg_ttm_hours": 0.3
+        },
+        "size:xs": {
+          "count": 36,
+          "avg_commits": 1.1,
+          "avg_ttm_hours": 0.1
         },
         "size:xl": {
           "count": 21,
@@ -333,7 +336,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 13,
+    "sensors_available": 14,
     "sensors_total": 17,
     "regressions_detected": 0,
     "status": "healthy"
