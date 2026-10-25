@@ -590,6 +590,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Stat">
+  <file path="src/components/Stat/Stat.catalog.ts">
+    <item priority="high">
+      export const statCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="StatusLED">
+  <file path="src/components/StatusLED/StatusLED.catalog.ts">
+    <item priority="high">
+      export const statusLEDCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Table">
   <file path="src/components/Table/Table.catalog.ts">
     <item priority="high">
@@ -601,6 +615,13 @@
   <file path="src/components/Tabs/Tabs.catalog.ts">
     <item priority="high">
       export const tabsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Tag">
+  <file path="src/components/Tag/Tag.catalog.ts">
+    <item priority="high">
+      export const tagCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -827,6 +848,13 @@
         value: string,
         { min, max, isTimeDisabled }: TimeBounds
       ): boolean { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Timeline">
+  <file path="src/components/Timeline/Timeline.catalog.ts">
+    <item priority="high">
+      export const timelineCatalogMeta: unknown;
     </item>
   </file>
   </section>

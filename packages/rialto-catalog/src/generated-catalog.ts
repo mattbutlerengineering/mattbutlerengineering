@@ -190,6 +190,18 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Primary layout primitive. Use direction=column for vertical stacking, direction=row for horizontal. Compose with Card, Text, and form elements to build any layout. Use gap to control spacing between children.",
     slots: ["default"],
   },
+  Stat: {
+    name: "Stat",
+    description:
+      "A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text such as 7:30 PM); label says what it counts. Add a delta such as +6 with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.",
+    charLimits: { label: 25, delta: 10 },
+  },
+  StatusLED: {
+    name: "StatusLED",
+    description:
+      "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
+    charLimits: { label: 40 },
+  },
   Table: {
     name: "Table",
     description:
@@ -202,6 +214,13 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Horizontal panel switcher for content organized into distinct sections. Use when users need to switch between 2-6 related views without leaving the page. Provide a tabs array with id, label, and content for each tab.",
     aliases: { items: "tabs", defaultValue: "defaultTab" },
   },
+  Tag: {
+    name: "Tag",
+    description:
+      "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+    charLimits: { children: 30 },
+    aliases: { label: "children" },
+  },
   Text: {
     name: "Text",
     description:
@@ -213,6 +232,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     include: false,
     description:
       "Time field: a read-only trigger input that opens a popover-hosted listbox of interval slots. Controlled via value (24h HH:mm string) and onChange; supports a configurable step (default 15 min), min/max bounds, an isTimeDisabled predicate (authoritative over bounds), and locale-aware display. Focus returns to the trigger on select or Escape.",
+  },
+  Timeline: {
+    name: "Timeline",
+    description:
+      "A time-ordered sequence of events, such as tonight's reservations in arrival order or a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
   },
   Toast: {
     name: "Toast",

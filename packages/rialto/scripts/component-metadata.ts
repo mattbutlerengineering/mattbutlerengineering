@@ -132,36 +132,20 @@ export const characterLimits: CharacterLimit[] = [
     reason: "Collapsible trigger text; single line",
   },
 
-  // ── Components with no co-located *.catalog.ts ──
-  {
-    component: "Tag",
-    prop: "children",
-    max: 30,
-    reason: "Chip label; must fit single line",
-  },
-  {
-    component: "Kbd",
-    prop: "children",
-    max: 10,
-    reason: "Keyboard shortcut text; very compact",
-  },
-  {
-    component: "Stat",
-    prop: "label",
-    max: 25,
-    reason: "Metric label; sits below the value",
-  },
+  // ── Props a flat catalog charLimit can't key (Stat.value accepts a number too) ──
   {
     component: "Stat",
     prop: "value",
     max: 15,
     reason: "Metric value; must be scannable",
   },
+
+  // ── Components with no co-located *.catalog.ts ──
   {
-    component: "Stat",
-    prop: "delta",
+    component: "Kbd",
+    prop: "children",
     max: 10,
-    reason: "Trend delta; short numeric change",
+    reason: "Keyboard shortcut text; very compact",
   },
   {
     component: "Meter",

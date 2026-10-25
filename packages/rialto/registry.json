@@ -4089,13 +4089,11 @@
       "characterLimits": [
         {
           "prop": "delta",
-          "max": 10,
-          "reason": "Trend delta; short numeric change"
+          "max": 10
         },
         {
           "prop": "label",
-          "max": 25,
-          "reason": "Metric label; sits below the value"
+          "max": 25
         },
         {
           "prop": "value",
@@ -4139,7 +4137,13 @@
           "required": false
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
+      ]
     },
     {
       "name": "StepItem",
@@ -4343,8 +4347,7 @@
       "characterLimits": [
         {
           "prop": "children",
-          "max": 30,
-          "reason": "Chip label; must fit single line"
+          "max": 30
         }
       ]
     },

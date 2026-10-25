@@ -1161,6 +1161,18 @@
           "Primary layout primitive. Use direction=column for vertical stacking, direction=row for horizontal. Compose with Card, Text, and form elements to build any layout. Use gap to control spacing between children.",
         slots: ["default"],
       },
+      Stat: {
+        name: "Stat",
+        description:
+          "A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text such as 7:30 PM); label says what it counts. Add a delta such as +6 with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.",
+        charLimits: { label: 25, delta: 10 },
+      },
+      StatusLED: {
+        name: "StatusLED",
+        description:
+          "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
+        charLimits: { label: 40 },
+      },
       Table: {
         name: "Table",
         description:
@@ -1173,6 +1185,13 @@
           "Horizontal panel switcher for content organized into distinct sections. Use when users need to switch between 2-6 related views without leaving the page. Provide a tabs array with id, label, and content for each tab.",
         aliases: { items: "tabs", defaultValue: "defaultTab" },
       },
+      Tag: {
+        name: "Tag",
+        description:
+          "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+        charLimits: { children: 30 },
+        aliases: { label: "children" },
+      },
       Text: {
         name: "Text",
         description:
@@ -1184,6 +1203,11 @@
         include: false,
         description:
           "Time field: a read-only trigger input that opens a popover-hosted listbox of interval slots. Controlled via value (24h HH:mm string) and onChange; supports a configurable step (default 15 min), min/max bounds, an isTimeDisabled predicate (authoritative over bounds), and locale-aware display. Focus returns to the trigger on select or Escape.",
+      },
+      Timeline: {
+        name: "Timeline",
+        description:
+          "A time-ordered sequence of events, such as tonight's reservations in arrival order or a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
       },
       Toast: {
         name: "Toast",
@@ -1406,6 +1430,18 @@
         justify: z.enum(["between", "center", "end", "start"]).optional(),
         wrap: z.boolean().optional(),
       }),
+      Stat: z.object({
+        value: z.union([z.string(), z.number()]),
+        label: z.string().max(25),
+        delta: z.union([z.string(), z.number()]).optional(),
+        trend: z.enum(["down", "neutral", "up"]).optional(),
+        size: z.enum(["lg", "md", "sm"]).optional(),
+      }),
+      StatusLED: z.object({
+        variant: z.enum(["accent", "danger", "neutral", "off", "success", "warning"]).optional(),
+        pulse: z.boolean().optional(),
+        label: z.string().max(40).optional(),
+      }),
       Table: z.object({
         columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() })),
         data: z.array(z.record(z.string(), z.unknown())),
@@ -1416,6 +1452,13 @@
       Tabs: z.object({
         tabs: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() })),
         defaultTab: z.string().optional(),
+      }),
+      Tag: z.object({
+        children: z.string().max(30),
+        variant: z.enum(["accent", "default", "error", "success"]).optional(),
+        dismissible: z.boolean().optional(),
+        selected: z.boolean().optional(),
+        icon: z.string().optional(),
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "detail", "display", "label"]).optional(),
@@ -1432,6 +1475,10 @@
         label: z.string().optional(),
         placeholder: z.string().optional(),
         placement: z.enum(["bottom", "left", "right", "top"]).optional(),
+      }),
+      Timeline: z.object({
+        events: z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
+        compact: z.boolean().optional(),
       }),
       Toast: z.object({
         title: z.string().max(50),

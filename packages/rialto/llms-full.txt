@@ -1516,6 +1516,37 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Stat">
+  <file path="src/components/Stat/Stat.catalog.ts">
+    export const statCatalogMeta = {
+      name: "Stat",
+      description:
+        "A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text such as 7:30 PM); label says what it counts. Add a delta such as +6 with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.",
+      // value is a ReactNode, which the generator maps to an optional string; models
+      // often send counts as numbers, so accept either (the adapter renders it as text).
+      propSchemas: {
+        value: "z.union([z.string(), z.number()])",
+        delta: "z.union([z.string(), z.number()]).optional()",
+      },
+      charLimits: {
+        label: 25,
+        delta: 10,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="StatusLED">
+  <file path="src/components/StatusLED/StatusLED.catalog.ts">
+    export const statusLEDCatalogMeta = {
+      name: "StatusLED",
+      description:
+        "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
+      charLimits: {
+        label: 40,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="Table">
   <file path="src/components/Table/Table.catalog.ts">
     export const tableCatalogMeta = {
@@ -1545,6 +1576,21 @@
       },
       propSchemas: {
         tabs: "z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))",
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Tag">
+  <file path="src/components/Tag/Tag.catalog.ts">
+    export const tagCatalogMeta = {
+      name: "Tag",
+      description:
+        "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+      charLimits: {
+        children: 30,
+      },
+      aliases: {
+        label: "children",
       },
     } satisfies CatalogMeta;
   </file>
@@ -2101,6 +2147,23 @@
       if (max && value > max) return true;
       return false;
     }
+  </file>
+  </section>
+  <section priority="medium" role="Timeline">
+  <file path="src/components/Timeline/Timeline.catalog.ts">
+    export const timelineCatalogMeta = {
+      name: "Timeline",
+      description:
+        "A time-ordered sequence of events, such as tonight's reservations in arrival order or a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
+      // Nested strings carry no .max() and status is any string: the seam validates
+      // events as one value and clamps only top-level charLimits, so a long title or
+      // a reservation status like "seated" would otherwise drop the whole Timeline
+      // (F13). The adapter shows an unknown status as a plain event.
+      propSchemas: {
+        events:
+          "z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() }))",
+      },
+    } satisfies CatalogMeta;
   </file>
   </section>
   <section priority="medium" role="Toast">
@@ -4164,36 +4227,20 @@
         reason: "Collapsible trigger text; single line",
       },
     
-      // ── Components with no co-located *.catalog.ts ──
-      {
-        component: "Tag",
-        prop: "children",
-        max: 30,
-        reason: "Chip label; must fit single line",
-      },
-      {
-        component: "Kbd",
-        prop: "children",
-        max: 10,
-        reason: "Keyboard shortcut text; very compact",
-      },
-      {
-        component: "Stat",
-        prop: "label",
-        max: 25,
-        reason: "Metric label; sits below the value",
-      },
+      // ── Props a flat catalog charLimit can't key (Stat.value accepts a number too) ──
       {
         component: "Stat",
         prop: "value",
         max: 15,
         reason: "Metric value; must be scannable",
       },
+    
+      // ── Components with no co-located *.catalog.ts ──
       {
-        component: "Stat",
-        prop: "delta",
+        component: "Kbd",
+        prop: "children",
         max: 10,
-        reason: "Trend delta; short numeric change",
+        reason: "Keyboard shortcut text; very compact",
       },
       {
         component: "Meter",
