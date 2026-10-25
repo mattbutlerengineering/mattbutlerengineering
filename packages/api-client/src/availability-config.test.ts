@@ -23,6 +23,21 @@ const CONFIG = {
   dateRules: [],
 };
 
+const PREVIEW_RESULT = {
+  version: 2,
+  days: [{ serviceDate: "2026-11-01", added: [1050], removed: [] }],
+  focusDay: {
+    serviceDate: "2026-11-01",
+    label: "Regular",
+    scheduleId: "sch-1",
+    serviceCount: 0,
+    closures: [],
+    bookingOpen: { online: true, phone: true, waitlist: true },
+    services: [],
+  },
+  stranded: { total: 0, offset: 0, items: [] },
+};
+
 describe("AvailabilityClient config API", () => {
   beforeEach(() => mockFetch.mockReset());
 
@@ -112,5 +127,36 @@ describe("AvailabilityClient config API", () => {
     expect(url).toBe("https://api.test.com/api/v1/venues/v1/closures/impact");
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual({ rule });
+  });
+
+  it("previewConfig POSTs the draft and returns the preview", async () => {
+    const result = PREVIEW_RESULT;
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: result }));
+    const body = {
+      draft: { changes: { upsert: {}, remove: {} } },
+      scope: { from: "2026-11-01" },
+      focusDate: "2026-11-01",
+    };
+
+    const preview = await client().previewConfig("v1", body as never);
+
+    expect(preview).toEqual(result);
+    expect(mockFetch.mock.calls[0]?.[0]).toBe(
+      "https://api.test.com/api/v1/venues/v1/availability/preview"
+    );
+    expect(mockFetch.mock.calls[0]?.[1]?.method).toBe("POST");
+  });
+
+  it("previewConfig retries a gateway failure, since a preview writes nothing", async () => {
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse({ title: "Bad Gateway", status: 502 }, 502))
+      .mockResolvedValueOnce(jsonResponse({ data: PREVIEW_RESULT }));
+    const retrying = new AvailabilityClient(
+      new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 1 })
+    );
+
+    await retrying.previewConfig("v1", {} as never);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });

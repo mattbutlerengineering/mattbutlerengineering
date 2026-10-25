@@ -1,4 +1,13 @@
-import { addDays, resolveDay, weekdayIndexOf } from "@mbe/availability";
+import {
+  ARCHIVED_ON_REMOVE,
+  addDays,
+  applyChanges,
+  applyDraft,
+  resolveDay,
+  validateConfig,
+  weekdayIndexOf,
+  type ConfigIssue,
+} from "@mbe/availability";
 import type {
   AvailabilityConfig,
   AvailabilityConfigChanges,
@@ -27,9 +36,6 @@ export const CONFIG_TABLES: readonly ConfigTable[] = [
   "dateRules",
 ];
 
-/** Rows other rows reference: removing one archives it instead of dropping it. */
-const ARCHIVED_ON_REMOVE = new Set<ConfigTable>(["schedules", "venueServices"]);
-
 /** How far past its start an open-ended scope conflict is settled date by date. */
 export const SCOPE_CONFLICT_HORIZON_DAYS = 366;
 
@@ -49,38 +55,7 @@ function canonical(value: unknown): string {
 
 const sameRow = (a: unknown, b: unknown): boolean => canonical(a) === canonical(b);
 
-function applyTable<T extends ConfigTable>(
-  table: T,
-  rows: AvailabilityConfig[T],
-  changes: AvailabilityConfigChanges,
-  nowIso: string
-): AvailabilityConfig[T] {
-  const upserts = (changes.upsert[table] ?? []) as Row<T>[];
-  const removed = new Set(changes.remove[table] ?? []);
-  const byId = new Map(upserts.map((r) => [r.id, r]));
-  const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
-    const replaced = byId.get(row.id) ?? row;
-    if (!removed.has(row.id)) return [replaced];
-    return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
-  });
-  const known = new Set((rows as Row<T>[]).map((r) => r.id));
-  const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
-  return [...kept, ...added] as AvailabilityConfig[T];
-}
-
-export function applyChanges(
-  config: AvailabilityConfig,
-  changes: AvailabilityConfigChanges,
-  nowIso: string
-): AvailabilityConfig {
-  return {
-    schedules: applyTable("schedules", config.schedules, changes, nowIso),
-    venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
-    scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
-    assignments: applyTable("assignments", config.assignments, changes, nowIso),
-    dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
-  };
-}
+export { applyChanges };
 
 // ── Scope conflicts ─────────────────────────────────────────────────────────
 
@@ -376,4 +351,35 @@ export function referenceIssues(
       ),
     ]),
   ];
+}
+
+// ── Settling a draft ────────────────────────────────────────────────────────
+
+/**
+ * A draft as a save and a preview both read it: the rows applied, scope
+ * conflicts settled, and every issue the next config has. One path, so a
+ * preview can never accept what a save would refuse.
+ */
+export function settleDraft(input: {
+  snapshot: { timezone: string; config: AvailabilityConfig };
+  changes: AvailabilityConfigChanges;
+  scopeConflicts: ScopeConflictMode;
+  tableIds: ReadonlySet<string>;
+  now: Date;
+  today: string;
+  newId: () => string;
+}): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } {
+  const { snapshot, now } = input;
+  const applied = applyDraft(snapshot, input.changes, now.toISOString()).config;
+  const next = resolveScopeConflicts(
+    snapshot.config,
+    applied,
+    input.scopeConflicts,
+    input.newId,
+    input.today
+  );
+  return {
+    next,
+    issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
+  };
 }

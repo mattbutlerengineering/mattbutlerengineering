@@ -3,6 +3,7 @@ import {
   AvailabilityConfigProblemSchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
+  PreviewAvailabilityBodySchema,
   PutAvailabilityConfigBodySchema,
 } from "./availability-config-api.js";
 
@@ -67,5 +68,27 @@ describe("AvailabilityConfigProblemSchema", () => {
         winningChange: null,
       }).success
     ).toBe(true);
+  });
+});
+
+describe("PreviewAvailabilityBodySchema", () => {
+  const base = { draft: { changes: {} }, focusDate: "2026-11-01" };
+
+  it("defaults the conflict mode and page offset, and takes a range open at the end", () => {
+    expect(PreviewAvailabilityBodySchema.parse({ ...base, scope: { from: "2026-11-01" } })).toEqual(
+      {
+        draft: { changes: { upsert: {}, remove: {} }, scopeConflicts: "keep" },
+        scope: { from: "2026-11-01" },
+        focusDate: "2026-11-01",
+        strandedOffset: 0,
+      }
+    );
+  });
+
+  it("takes a list of dates but not an empty one", () => {
+    expect(
+      PreviewAvailabilityBodySchema.safeParse({ ...base, scope: ["2026-11-06"] }).success
+    ).toBe(true);
+    expect(PreviewAvailabilityBodySchema.safeParse({ ...base, scope: [] }).success).toBe(false);
   });
 });

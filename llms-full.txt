@@ -10117,6 +10117,30 @@
           },
         },
       }),
+      previewAvailability: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/preview`,
+        params: VenueParamsSchema,
+        body: PreviewAvailabilityBodySchema,
+        responses: {
+          200: {
+            description:
+              "The draft's effect: per-date added/removed times, the focus day, and a page of stranded reservations",
+            body: z.object({ data: PreviewResultSchema }),
+          },
+          401: authRequired,
+          403: problem("Caller is not a Manager of this venue"),
+          404: venueNotFound,
+          422: {
+            description: "`invalid-config`, with path-addressed issues",
+            body: AvailabilityConfigProblemSchema,
+          },
+          503: {
+            description: "`preview-timeout`: the preview took longer than 5 seconds; retry is safe",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
       listDays: defineEndpoint({
         method: "GET",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/days`,
@@ -26995,7 +27019,7 @@
   </file>
   <file path="services/reservations/src/routes/availability-config.ts">
     function configProblem(
-      status: 409 | 422,
+      status: 409 | 422 | 503,
       title: string,
       detail: string,
       extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
@@ -27003,7 +27027,10 @@
       return { type: "about:blank", title, status, detail, ...extension };
     }
     type ConfigReply = FastifyReply;
-    function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) {
+    function sendRefusal(
+      reply: ConfigReply,
+      outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
+    ) {
       switch (outcome.kind) {
         case "not_found":
           return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -27019,6 +27046,12 @@
             configProblem(422, "Unprocessable Entity", "The availability config is not valid.", {
               code: "invalid-config",
               issues: outcome.issues,
+            })
+          );
+        case "timeout":
+          return reply.code(503).send(
+            configProblem(503, "Service Unavailable", "The preview took too long; try again.", {
+              code: "preview-timeout",
             })
           );
         case "stranded":
@@ -27077,6 +27110,30 @@
             });
             if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
             return { data: { version: outcome.version, changeId: outcome.changeId } };
+          }
+        ),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.previewAvailability, {
+        docs: {
+          summary: "Preview an unsaved availability draft",
+          operationId: "previewAvailability",
+          description:
+            "What the draft changes for guests over 30 days from `focusDate`, how the focus date resolves, and the future bookings in `scope` it would strand (a page of 50 from `strandedOffset`). Read-only and safe to retry; answers 503 `preview-timeout` after 5 seconds. Requires a Manager (owner or manager) membership, or the admin role.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          { ...VENUE_FROM_ID, access: "manager" },
+          async (request, reply, { venueId }) => {
+            const outcome = await availabilityConfigService.preview({
+              venueId,
+              body: request.body,
+              now: new Date(),
+            });
+            if (outcome.kind !== "ok") return sendRefusal(reply, outcome);
+            return { data: outcome.result };
           }
         ),
       });
@@ -34998,6 +35055,7 @@
       "version-conflict",
       "invalid-config",
       "stranded-bookings",
+      "preview-timeout",
     ] as const;
     export const AvailabilityConfigProblemSchema = z.object({
       type: z.string(),
@@ -35070,6 +35128,57 @@
     export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
     export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
     export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    export const PREVIEW_WINDOW_DAYS = 30;
+    export const PREVIEW_STRANDED_PAGE_SIZE = 50;
+    export const PREVIEW_SCOPE_MAX_DATES = 366;
+    export const PreviewScopeSchema = z.union([
+      z.array(ServiceDateSchema).min(1).max(PREVIEW_SCOPE_MAX_DATES),
+      z.object({ from: ServiceDateSchema, to: ServiceDateSchema.optional() }),
+    ]);
+    export const PreviewAvailabilityBodySchema = z.object({
+      /** The unsaved edit: the rows a save would send. */
+      draft: z.object({
+        changes: AvailabilityConfigChangesSchema,
+        scopeConflicts: ScopeConflictModeSchema.default("keep"),
+      }),
+      scope: PreviewScopeSchema,
+      /** First date of the per-date window, and the date resolved in full. */
+      focusDate: ServiceDateSchema,
+      /** Index of the first stranded reservation to return (a page is 50). */
+      strandedOffset: z.number().int().min(0).default(0),
+    });
+    export const PreviewDaySchema = z.object({
+      serviceDate: ServiceDateSchema,
+      added: z.array(z.number().int()),
+      removed: z.array(z.number().int()),
+    });
+    export const PreviewResultSchema = z.object({
+      /** `Venue.availabilityVersion` the preview was computed against. */
+      version: z.number().int(),
+      days: z.array(PreviewDaySchema),
+      /** The focus date under the draft: its summary and the services that run. */
+      focusDay: AvailabilityDaySummarySchema.extend({
+        services: z.array(
+          z.object({
+            venueServiceId: z.string(),
+            name: z.string(),
+            opensAt: z.number().int(),
+            lastSeatingAt: z.number().int(),
+            closesAt: z.number().int(),
+          })
+        ),
+      }),
+      /** Future bookings in scope the draft would leave unserved, by start time. */
+      stranded: z.object({
+        total: z.number().int(),
+        offset: z.number().int(),
+        items: z.array(StrandedReservationSchema),
+      }),
+    });
+    export type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    export type PreviewScope = z.infer<typeof PreviewScopeSchema>;
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
     export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
@@ -40399,6 +40508,8 @@
       tableId: string | null;
       startTime: Date;
       partySize: number;
+      /** The service date it belongs to; set where a scope needs it. */
+      date?: Date;
     }
     type StrandReason = StrandedReservation["reason"];
     export function strandReason(
@@ -40493,37 +40604,6 @@
         return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
       }
       return JSON.stringify(value);
-    }
-    function applyTable<T extends ConfigTable>(
-      table: T,
-      rows: AvailabilityConfig[T],
-      changes: AvailabilityConfigChanges,
-      nowIso: string
-    ): AvailabilityConfig[T] {
-      const upserts = (changes.upsert[table] ?? []) as Row<T>[];
-      const removed = new Set(changes.remove[table] ?? []);
-      const byId = new Map(upserts.map((r) => [r.id, r]));
-      const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
-        const replaced = byId.get(row.id) ?? row;
-        if (!removed.has(row.id)) return [replaced];
-        return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
-      });
-      const known = new Set((rows as Row<T>[]).map((r) => r.id));
-      const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
-      return [...kept, ...added] as AvailabilityConfig[T];
-    }
-    export function applyChanges(
-      config: AvailabilityConfig,
-      changes: AvailabilityConfigChanges,
-      nowIso: string
-    ): AvailabilityConfig {
-      return {
-        schedules: applyTable("schedules", config.schedules, changes, nowIso),
-        venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
-        scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
-        assignments: applyTable("assignments", config.assignments, changes, nowIso),
-        dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
-      };
     }
     function coversDate(rule: DateRule, date: string): boolean {
       return (
@@ -40766,6 +40846,29 @@
         ]),
       ];
     }
+    export function settleDraft(input: {
+      snapshot: { timezone: string; config: AvailabilityConfig };
+      changes: AvailabilityConfigChanges;
+      scopeConflicts: ScopeConflictMode;
+      tableIds: ReadonlySet<string>;
+      now: Date;
+      today: string;
+      newId: () => string;
+    }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } {
+      const { snapshot, now } = input;
+      const applied = applyDraft(snapshot, input.changes, now.toISOString()).config;
+      const next = resolveScopeConflicts(
+        snapshot.config,
+        applied,
+        input.scopeConflicts,
+        input.newId,
+        input.today
+      );
+      return {
+        next,
+        issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
+      };
+    }
   </file>
   <file path="services/reservations/src/services/availability-config-rows.ts">
     export type ConfigRowDb = Pick<
@@ -40915,10 +41018,7 @@
       }
     }
   </file>
-  <file path="services/reservations/src/services/availability-config.ts">
-    type StoreDb = ConfigRowDb &
-      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
-    type StoreClient = Pick<PrismaClient, "$transaction">;
+  <file path="services/reservations/src/services/availability-config-state.ts">
     export interface ConfigState {
       /** The rows as stored (empty for a venue with none). */
       stored: AvailabilityConfig;
@@ -40937,6 +41037,11 @@
       unreadableDays: string[];
       coercions: string[];
     }
+  </file>
+  <file path="services/reservations/src/services/availability-config.ts">
+    type StoreDb = ConfigRowDb &
+      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+    type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
       return {
         schedules: [...legacy.schedules, ...stored.schedules],
@@ -41071,15 +41176,15 @@
       newId?: () => string;
     }): SavePlan {
       const { state, body, bookings, now } = input;
-      const applied = applyChanges(state.effective, body.changes, now.toISOString());
-      const next = resolveScopeConflicts(
-        state.effective,
-        applied,
-        body.scopeConflicts,
-        input.newId ?? randomUUID,
-        civilDateIn(now, state.timezone)
-      );
-      const issues = [...validateConfig(next), ...referenceIssues(next, input.tableIds)];
+      const { next, issues } = settleDraft({
+        snapshot: { timezone: state.timezone, config: state.effective },
+        changes: body.changes,
+        scopeConflicts: body.scopeConflicts,
+        tableIds: input.tableIds,
+        now,
+        today: civilDateIn(now, state.timezone),
+        newId: input.newId ?? randomUUID,
+      });
       if (issues.length > 0) return { kind: "invalid", issues };
     
       const reservations = findStrandedReservations(
@@ -41124,7 +41229,7 @@
           startTime: { gte: now },
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
-        select: { id: true, tableId: true, startTime: true, partySize: true },
+        select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
       });
     }
     async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
@@ -41215,10 +41320,51 @@
         throw error;
       }
     }
+    export const PREVIEW_TIMEOUT_MS = 5000;
+    export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
+    export async function previewAvailabilityConfig(
+      input: {
+        venueId: string;
+        body: PreviewAvailabilityParsed;
+        now: Date;
+        timeoutMs?: number;
+      },
+      client: StoreClient = prisma
+    ): Promise<PreviewOutcome> {
+      const { venueId, body, now } = input;
+      const run = client.$transaction(async (tx): Promise<PreviewOutcome> => {
+        await setVenueContext(tx, venueId);
+        const state = await loadConfigState(tx, venueId, now);
+        if (!state) return { kind: "not_found" };
+        const [bookings, tables] = await Promise.all([
+          futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
+          tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        ]);
+        return planPreview({
+          state,
+          body,
+          bookings,
+          tableIds: new Set(tables.map((t) => t.id)),
+          now,
+        });
+      });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<PreviewOutcome>((resolve) => {
+        timer = setTimeout(() => resolve({ kind: "timeout" }), input.timeoutMs ?? PREVIEW_TIMEOUT_MS);
+      });
+      try {
+        return await Promise.race([run, timeout]);
+      } finally {
+        clearTimeout(timer);
+        // A preview that lost the race still settles; its failure has no reader.
+        run.catch(() => undefined);
+      }
+    }
     export const availabilityConfigService = {
       get: getAvailabilityConfig,
       listDays: listAvailabilityDays,
       save: saveAvailabilityConfig,
+      preview: previewAvailabilityConfig,
     };
   </file>
   <file path="services/reservations/src/services/availability-migration.ts">
@@ -41455,6 +41601,78 @@
       // Any seating left on the online channel means the date is open, if shorter.
       if (seatingCount > 0) return {};
       return { closure: { message: day.guestMessage ?? DEFAULT_CLOSURE_MESSAGE } };
+    }
+  </file>
+  <file path="services/reservations/src/services/availability-preview.ts">
+    export interface PreviewInput {
+      state: ConfigState;
+      body: PreviewAvailabilityParsed;
+      /** Future, still-booked reservations, each with its service date. */
+      bookings: readonly BookedReservation[];
+      tableIds: ReadonlySet<string>;
+      now: Date;
+      newId?: () => string;
+    }
+    export type PreviewPlan =
+      | { kind: "invalid"; issues: (ConfigIssue | ReferenceIssue)[] }
+      | { kind: "ok"; result: PreviewResult };
+    export function scopeIncludes(scope: PreviewScope, date: string): boolean {
+      if (Array.isArray(scope)) return scope.includes(date);
+      return scope.from <= date && (scope.to === undefined || date <= scope.to);
+    }
+    export function planPreview(input: PreviewInput): PreviewPlan {
+      const { state, body, now } = input;
+      const { draft, scope, focusDate, strandedOffset } = body;
+      const { next, issues } = settleDraft({
+        snapshot: { timezone: state.timezone, config: state.effective },
+        changes: draft.changes,
+        scopeConflicts: draft.scopeConflicts,
+        tableIds: input.tableIds,
+        now,
+        today: civilDateIn(now, state.timezone),
+        newId: input.newId ?? randomUUID,
+      });
+      if (issues.length > 0) return { kind: "invalid", issues };
+    
+      const before = structural(state.timezone, state.effective);
+      const after = structural(state.timezone, next);
+      const dates = Array.from({ length: PREVIEW_WINDOW_DAYS }, (_, i) => addDays(focusDate, i));
+      const days = diffDays(before, after, dates, {
+        partySize: PREVIEW_PARTY_SIZE,
+        channel: "online",
+        now,
+      });
+    
+      const focus = resolveDay(after, focusDate);
+      const stranded = findStrandedReservations(
+        before,
+        after,
+        input.bookings.filter((b) => b.date && scopeIncludes(scope, toServiceDate(b.date)))
+      ).sort((a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
+    
+      const names = new Map(next.venueServices.map((s) => [s.id, s.name]));
+      return {
+        kind: "ok",
+        result: {
+          version: state.version,
+          days,
+          focusDay: {
+            ...summarizeDay(next, focus),
+            services: focus.services.map((s) => ({
+              venueServiceId: s.venueServiceId,
+              name: names.get(s.venueServiceId) ?? s.name,
+              opensAt: s.opensAt,
+              lastSeatingAt: s.lastSeatingAt,
+              closesAt: s.closesAt,
+            })),
+          },
+          stranded: {
+            total: stranded.length,
+            offset: strandedOffset,
+            items: stranded.slice(strandedOffset, strandedOffset + PREVIEW_STRANDED_PAGE_SIZE),
+          },
+        },
+      };
     }
   </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
@@ -59935,6 +60153,22 @@
         return response.data;
       }
     
+      /**
+       * What an unsaved draft changes: per-date added/removed times for 30 days
+       * from `focusDate`, the focus day, and a page of the future bookings in
+       * `scope` it would strand. Read-only, so a gateway failure is retried. A
+       * 503 `preview-timeout` rejects with an `ApiClientError`; keep the last
+       * good preview.
+       */
+      async previewConfig(venueId: string, body: PreviewAvailabilityBody): Promise<PreviewResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.previewAvailability,
+          { params: { id: venueId }, body },
+          { idempotentRetry: true }
+        );
+        return response.data;
+      }
+    
       /** Calendar summaries for each service date from `from` to `to` inclusive (≤62 days). */
       async listDays(
         venueId: string,
@@ -61952,6 +62186,52 @@
       }
     }
   </file>
+  <file path="packages/availability/src/apply-draft.ts">
+    type ConfigTable = keyof AvailabilityConfig;
+    type Row<T extends ConfigTable> = AvailabilityConfig[T][number];
+    export const ARCHIVED_ON_REMOVE: ReadonlySet<ConfigTable> = new Set<ConfigTable>([
+      "schedules",
+      "venueServices",
+    ]);
+    function applyTable<T extends ConfigTable>(
+      table: T,
+      rows: AvailabilityConfig[T],
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig[T] {
+      const upserts = (changes.upsert[table] ?? []) as Row<T>[];
+      const removed = new Set(changes.remove[table] ?? []);
+      const byId = new Map(upserts.map((r) => [r.id, r]));
+      const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
+        const replaced = byId.get(row.id) ?? row;
+        if (!removed.has(row.id)) return [replaced];
+        return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
+      });
+      const known = new Set((rows as Row<T>[]).map((r) => r.id));
+      const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
+      return [...kept, ...added] as AvailabilityConfig[T];
+    }
+    export function applyChanges(
+      config: AvailabilityConfig,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig {
+      return {
+        schedules: applyTable("schedules", config.schedules, changes, nowIso),
+        venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
+        scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
+        assignments: applyTable("assignments", config.assignments, changes, nowIso),
+        dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
+      };
+    }
+    export function applyDraft<S extends AvailabilitySnapshot>(
+      snapshot: S,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): S {
+      return { ...snapshot, config: applyChanges(snapshot.config, changes, nowIso) };
+    }
+  </file>
   <file path="packages/availability/src/civil-date.ts">
     function toUtcMs(date: ServiceDate): number {
       const y = Number(date.slice(0, 4));
@@ -62037,6 +62317,32 @@
       return services.length === 0
         ? "Closed"
         : services.map((s) => `${s.name} ${timeRange(s.opensAt, s.closesAt)}`).join(", ");
+    }
+  </file>
+  <file path="packages/availability/src/diff-days.ts">
+    export interface DayDiff {
+      serviceDate: ServiceDate;
+      /** Seating minutes (past the service day's midnight) guests gain, ascending. */
+      added: number[];
+      /** Seating minutes guests lose, ascending. */
+      removed: number[];
+    }
+    export interface DiffDaysOptions {
+      partySize: number;
+      channel: BookingChannel;
+      now: Date;
+    }
+    export function diffDays(
+      before: BookingSnapshot,
+      after: BookingSnapshot,
+      dates: readonly ServiceDate[],
+      options: DiffDaysOptions
+    ): DayDiff[] {
+      return dates.map((serviceDate) => {
+        const was = minutesOn(before, serviceDate, options);
+        const now = minutesOn(after, serviceDate, options);
+        return { serviceDate, added: onlyIn(now, was), removed: onlyIn(was, now) };
+      });
     }
   </file>
   <file path="packages/availability/src/format-minute.ts">

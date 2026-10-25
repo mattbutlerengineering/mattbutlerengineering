@@ -114,6 +114,7 @@ export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
   "version-conflict",
   "invalid-config",
   "stranded-bookings",
+  "preview-timeout",
 ] as const;
 
 /** RFC 9457 problem with the config API's extension members. */
@@ -202,6 +203,73 @@ export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
 export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
 export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
 export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+
+// ── Preview ─────────────────────────────────────────────────────────────────
+
+/** Days of per-date added/removed times a preview returns, from `focusDate`. */
+export const PREVIEW_WINDOW_DAYS = 30;
+/** Stranded reservations per page. */
+export const PREVIEW_STRANDED_PAGE_SIZE = 50;
+/** Most dates an explicit scope may list. */
+export const PREVIEW_SCOPE_MAX_DATES = 366;
+
+/** Dates the edit reaches: listed, or a range (`to` omitted means onward). */
+export const PreviewScopeSchema = z.union([
+  z.array(ServiceDateSchema).min(1).max(PREVIEW_SCOPE_MAX_DATES),
+  z.object({ from: ServiceDateSchema, to: ServiceDateSchema.optional() }),
+]);
+
+export const PreviewAvailabilityBodySchema = z.object({
+  /** The unsaved edit: the rows a save would send. */
+  draft: z.object({
+    changes: AvailabilityConfigChangesSchema,
+    scopeConflicts: ScopeConflictModeSchema.default("keep"),
+  }),
+  scope: PreviewScopeSchema,
+  /** First date of the per-date window, and the date resolved in full. */
+  focusDate: ServiceDateSchema,
+  /** Index of the first stranded reservation to return (a page is 50). */
+  strandedOffset: z.number().int().min(0).default(0),
+});
+
+/** What guests gain and lose on one date: seating minutes past the service day's midnight. */
+export const PreviewDaySchema = z.object({
+  serviceDate: ServiceDateSchema,
+  added: z.array(z.number().int()),
+  removed: z.array(z.number().int()),
+});
+
+export const PreviewResultSchema = z.object({
+  /** `Venue.availabilityVersion` the preview was computed against. */
+  version: z.number().int(),
+  days: z.array(PreviewDaySchema),
+  /** The focus date under the draft: its summary and the services that run. */
+  focusDay: AvailabilityDaySummarySchema.extend({
+    services: z.array(
+      z.object({
+        venueServiceId: z.string(),
+        name: z.string(),
+        opensAt: z.number().int(),
+        lastSeatingAt: z.number().int(),
+        closesAt: z.number().int(),
+      })
+    ),
+  }),
+  /** Future bookings in scope the draft would leave unserved, by start time. */
+  stranded: z.object({
+    total: z.number().int(),
+    offset: z.number().int(),
+    items: z.array(StrandedReservationSchema),
+  }),
+});
+
+/** What a client sends (defaults optional). */
+export type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+/** The body once parsed (defaults applied). */
+export type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+export type PreviewResult = z.infer<typeof PreviewResultSchema>;
+export type PreviewScope = z.infer<typeof PreviewScopeSchema>;
+
 export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
 export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
 export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
