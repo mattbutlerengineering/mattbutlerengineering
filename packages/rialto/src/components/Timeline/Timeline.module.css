@@ -1,14 +1,18 @@
 /* ── Timeline container ─────────────────────── */
+/* The container owns the columns and every item adopts them via subgrid, so
+   all timestamps share one column as wide as the longest (capped at a third
+   of the Timeline) and every node sits in one vertical line (F25). */
 .timeline {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: fit-content(33%) auto 1fr;
   position: relative;
 }
 
 /* ── Item ────────────────────────────────────── */
 .item {
   display: grid;
-  grid-template-columns: 64px auto 1fr;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   gap: 0;
   position: relative;
   padding-bottom: var(--rialto-space-lg);
@@ -43,7 +47,8 @@
   text-align: end;
   padding-top: 5px;
   padding-inline-end: var(--rialto-space-sm);
-  white-space: nowrap;
+  min-width: 64px;
+  overflow-wrap: anywhere;
 }
 
 .active .timestamp {
@@ -138,7 +143,6 @@
 
 /* ── Compact variant ─────────────────────────── */
 .compact .item {
-  grid-template-columns: 48px auto 1fr;
   padding-bottom: var(--rialto-space-md);
 }
 
@@ -162,6 +166,7 @@
 
 .compact .timestamp {
   font-size: 10px;
+  min-width: 48px;
 }
 
 .compact .title {

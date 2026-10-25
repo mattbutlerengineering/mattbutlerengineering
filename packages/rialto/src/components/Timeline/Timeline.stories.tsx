@@ -117,3 +117,27 @@ export const MinimalEvents: Story = {
     ],
   },
 };
+
+// Timestamps wider than the 64px (48px compact) minimum column — the F25
+// layout the visual suite's geometry assertion pins: every timestamp ends
+// before its node, and every node sits in one column.
+const visitHistory = [
+  { title: "Dinner, party of 2", timestamp: "March 14, 2025", status: "completed" as const },
+  { title: "Birthday, party of 6", timestamp: "January 27, 2025", status: "completed" as const },
+  { title: "Brunch, party of 4", timestamp: "November 9, 2024", status: "completed" as const },
+  { title: "Seated", timestamp: "7:30 PM", status: "active" as const },
+  { title: "Walk-in", status: "upcoming" as const },
+];
+
+export const LongTimestamps: Story = {
+  args: {
+    events: visitHistory,
+  },
+};
+
+export const LongTimestampsCompact: Story = {
+  args: {
+    events: visitHistory,
+    compact: true,
+  },
+};

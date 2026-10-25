@@ -1209,7 +1209,7 @@
       Timeline: {
         name: "Timeline",
         description:
-          "A time-ordered sequence of events, such as tonight's reservations in arrival order or a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
+          "A time-ordered sequence of events, such as a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
       },
       Toast: {
         name: "Toast",
