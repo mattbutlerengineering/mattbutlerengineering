@@ -110,6 +110,22 @@ export const frCA: RialtoMessages = {
     `${current} sur ${max} caractères${over ? ", limite dépassée" : ""}`,
   resultsAvailable: (count) =>
     count < 2 ? `${count} résultat disponible` : `${count} résultats disponibles`,
+  partyOf: (count) => `Groupe de ${count}`,
+  visitCount: (count) => (count < 2 ? `${count} visite` : `${count} visites`),
+  reservationStatus: {
+    pending: "En attente",
+    confirmed: "Confirmée",
+    cancelled: "Annulée",
+    completed: "Terminée",
+    noShow: "Absent",
+    seated: "Installés",
+  },
+  guestRisk: { trusted: "Fiable", standard: "Standard", risky: "À risque" },
+  walkIn: "Sans réservation",
+  noOpenTimes: "Aucune heure disponible",
+  reservations: "Réservations",
+  openTimes: "Heures disponibles",
+  guests: "Clients",
   tapeChart: {
     regionLabel: "Tableau des réservations",
     roomsColumnLabel: "Chambres",

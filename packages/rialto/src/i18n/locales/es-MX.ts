@@ -108,6 +108,22 @@ export const esMX: RialtoMessages = {
     `${current} de ${max} caracteres${over ? ", límite excedido" : ""}`,
   resultsAvailable: (count) =>
     count === 1 ? `${count} resultado disponible` : `${count} resultados disponibles`,
+  partyOf: (count) => `Grupo de ${count}`,
+  visitCount: (count) => (count === 1 ? `${count} visita` : `${count} visitas`),
+  reservationStatus: {
+    pending: "Pendiente",
+    confirmed: "Confirmada",
+    cancelled: "Cancelada",
+    completed: "Completada",
+    noShow: "No asistió",
+    seated: "Sentados",
+  },
+  guestRisk: { trusted: "Confiable", standard: "Estándar", risky: "Riesgoso" },
+  walkIn: "Sin reservación",
+  noOpenTimes: "No hay horarios disponibles",
+  reservations: "Reservaciones",
+  openTimes: "Horarios disponibles",
+  guests: "Clientes",
   tapeChart: {
     regionLabel: "Cuadro de reservaciones",
     roomsColumnLabel: "Habitaciones",
