@@ -16540,6 +16540,46 @@
       export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyOperatingHours { /* ... */ }
     </item>
   </file>
+  <file path="packages/availability/src/rebook.ts">
+    <item priority="high">
+      export const MAX_REBOOK_OFFERS: unknown;
+    </item>
+    <item priority="high">
+      export const REBOOK_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="low">
+      interface RebookReservation {
+        startTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      type RebookResult = { kind: "offers"; slots: Slot[ | { kind: "picker" };
+    </item>
+    <item priority="medium">
+      function timeOfDayDistance(a: number, b: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Ranked {
+        slot: Slot;
+        distance: number;
+        dayRank: number;
+      }
+    </item>
+    <item priority="medium">
+      function compareRanked(a: Ranked, b: Ranked): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rankDay(slots: Slot[], originalMinute: number, timezone: string): Ranked[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rebookOffers(
+        snapshot: BookingSnapshot,
+        reservation: RebookReservation,
+        now: Date
+      ): RebookResult { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/resolve-day.ts">
     <item priority="low">
       interface AvailabilitySnapshot {

@@ -118,7 +118,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Closure command** — `POST /closures` and `DELETE /closures/:id`. Writes the rule, the outcomes and the transitions (cancel through `cancelReservationWithDeposit` as staff, move, keep) in one transaction, with an `Idempotency-Key` and Host emergency limits. (tracker: #7521)
   - Accept: an invariant test confirms that after any saved closure no active reservation overlaps it unless the outcome is keep, with who and when recorded (SC Closure integrity, data half). A replayed key returns the first result. A Host without the grant gets 403.
   - Blocked by: Closure impact, Venue roles
-- [ ] **Rebook offers** — `rebookOffers` in the engine: up to 3 open slots, same party size, within 14 days, nearest the original time of day. (tracker: #7522)
+- [x] **Rebook offers** — `rebookOffers` in the engine: up to 3 open slots, same party size, within 14 days, nearest the original time of day. (tracker: #7522)
   - Accept: unit tests cover the 3-offer, fewer-offer and none cases (none falls back to a picker link). This covers SC Rebooking offer.
   - Blocked by: listSlots and judge
 - [ ] **Closure notices** — a `CLOSURE_NOTICE` job, email and SMS templates (cancelled, moved, kept, reopened; SMS at most 3 segments), urgent dual-channel delivery within 6 hours, the contact policy, and delivery status on the outcome. (tracker: #7523)
