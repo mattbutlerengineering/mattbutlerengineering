@@ -351,9 +351,7 @@ for (const locale of LOCALES) {
         await expect(page.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
         await sweep(page, locale, "date-party step");
 
-        const bookingDate = new Date();
-        bookingDate.setDate(bookingDate.getDate() + 3);
-        await pickBookingDate(page, bookingDate.toISOString().slice(0, 10));
+        await pickBookingDate(page, localDay(3));
         await page
           .getByRole("button", { name: label(locale, "bookingWidget.dateParty.findTimes") })
           .click();

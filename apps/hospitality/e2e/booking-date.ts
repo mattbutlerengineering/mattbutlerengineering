@@ -1,16 +1,13 @@
+import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
-
-const MAX_MONTH_STEPS = 3;
 
 /**
  * Picks `isoDate` in the booking widget's date step. The step is a rialto
- * `Calendar` grid, so there is no input to fill: find the day's cell,
- * paging forward a month at a time until it is on screen.
+ * `Calendar` grid, so there is no input to fill: wait for the grid, then click
+ * the day's cell. The grid always shows six weeks, so any date within the next
+ * few days is on screen without paging (and paging buttons are localized).
  */
 export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
-  const cell = page.locator(`[role="gridcell"][data-date="${isoDate}"]`);
-  for (let step = 0; step < MAX_MONTH_STEPS && (await cell.count()) === 0; step++) {
-    await page.getByRole("button", { name: "Next month" }).click();
-  }
-  await cell.click();
+  await expect(page.getByRole("grid")).toBeVisible();
+  await page.locator(`[role="gridcell"][data-date="${isoDate}"]`).click();
 }

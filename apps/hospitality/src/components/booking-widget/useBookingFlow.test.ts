@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import type { TimeSlot, ReservationHold, Reservation, PublicVenueConfig } from "@mbe/types";
-import { venueDate } from "../../utils/service-day.js";
+import { addDays, venueDate } from "../../utils/service-day.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import { useBookingFlow, deriveStepKeys, MISSING_VENUE_SLUG_ERROR } from "./useBookingFlow.js";
 import { ApiClientError } from "@mbe/api-client";
@@ -109,6 +109,8 @@ function makeFakeApi() {
       getTimeSlots: vi.fn().mockResolvedValue([]),
       // Public, slug-scoped route (/public/v1/venues/:slug/availability).
       getPublicAvailability: vi.fn().mockResolvedValue({ data: [] }),
+      // Public closed-dates listing — what the calendar disables on first visit.
+      getClosedDates: vi.fn().mockResolvedValue([]),
     },
     holds: {
       // Staff surface (/api/v1/holds) — present so tests can assert the widget
@@ -458,7 +460,7 @@ describe("useBookingFlow", () => {
   });
 
   describe("closure, pause and mid-booking closure notices", () => {
-    function outsideAvailability(detail: string): ApiClientError {
+    function outsideAvailability(detail: string, reason = "closed"): ApiClientError {
       return new ApiClientError(
         {
           type: "about:blank",
@@ -466,12 +468,41 @@ describe("useBookingFlow", () => {
           status: 422,
           detail,
           code: "outside-availability",
-          reason: "closed",
+          reason,
         },
         "POST",
         "/public/v1/venues/the-oak-table/holds/hold-1/confirm"
       );
     }
+
+    it("loads the closed dates for the next 60 days once, so the calendar knows them up front", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.availability.getClosedDates.mockResolvedValue([
+        { date: "2026-12-24", closure: { message: "Closed for a private event" } },
+      ]);
+      const { result } = renderBookingFlow(fakeApi);
+
+      await waitFor(() =>
+        expect(result.current.data.closures).toEqual({
+          "2026-12-24": "Closed for a private event",
+        })
+      );
+      const today = venueDate(new Date());
+      expect(fakeApi.availability.getClosedDates).toHaveBeenCalledTimes(1);
+      expect(fakeApi.availability.getClosedDates).toHaveBeenCalledWith(DEFAULT_SLUG, {
+        from: today,
+        to: addDays(today, 60),
+      });
+    });
+
+    it("keeps working from the lazy path when the closed-dates listing fails", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.availability.getClosedDates.mockRejectedValue(new Error("down"));
+      const { result } = renderBookingFlow(fakeApi);
+
+      await waitFor(() => expect(fakeApi.availability.getClosedDates).toHaveBeenCalled());
+      expect(result.current.data.closures).toEqual({});
+    });
 
     it("remembers a closed date and its message from the listing", async () => {
       const fakeApi = makeFakeApi();
@@ -552,6 +583,25 @@ describe("useBookingFlow", () => {
         lostTime: mockSlot.time,
       });
       expect(fakeApi.holds.releaseForVenue).toHaveBeenCalledWith(DEFAULT_SLUG, mockHold.id);
+    });
+
+    it("a refusal that is not about the venue being closed keeps the guest on the details step", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.holds.confirmForVenue.mockRejectedValue(
+        outsideAvailability("This table is not available at this time.", "table_blocked")
+      );
+      const { result } = renderBookingFlow(fakeApi);
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+
+      expect(result.current.state).toBe("guest-details");
+      expect(result.current.data.closedMidBooking).toBeNull();
+      expect(result.current.data.confirmError).toBe("This table is not available at this time.");
     });
 
     it("other confirm failures keep the guest on the details step", async () => {

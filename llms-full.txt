@@ -4814,6 +4814,7 @@
       | { type: "GO_TO_DATE_PARTY" }
       | { type: "SET_SLOTS"; listing: SlotListing }
       | { type: "CLOSED_MID_BOOKING"; message: string }
+      | { type: "SET_CLOSED_DATES"; closures: Record<string, string> }
       | { type: "SET_SLOTS_ERROR"; error: string }
       | { type: "HOLD_START"; slot: TimeSlot }
       | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
@@ -4849,9 +4850,13 @@
     }
     function outsideAvailabilityMessage(error: unknown): string | null {
       if (typeof error !== "object" || error === null || !("problemDetails" in error)) return null;
-      const problem = (error as { problemDetails: { code?: unknown; detail?: unknown } })
-        .problemDetails;
+      const problem = (
+        error as { problemDetails: { code?: unknown; reason?: unknown; detail?: unknown } }
+      ).problemDetails;
       if (problem.code !== "outside-availability") return null;
+      // Only a closed venue makes "this time just closed" true; a blocked table or
+      // a closed booking type is an ordinary refusal and keeps its own message.
+      if (!CLOSURE_REASONS.has(String(problem.reason))) return null;
       return typeof problem.detail === "string" ? problem.detail : "";
     }
     function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
@@ -4911,6 +4916,13 @@
             },
           };
         }
+    
+        case "SET_CLOSED_DATES":
+          // What a listing already learned about a date wins over the upfront list.
+          return {
+            ...state,
+            data: { ...state.data, closures: { ...action.closures, ...state.data.closures } },
+          };
     
         case "CLOSED_MID_BOOKING":
           return {
@@ -5245,6 +5257,23 @@
     
         fetchDepositConfig();
       }, [venueSlug, stripePublishableKey, api]);
+    
+      // Closed dates for the booking window, fetched once so the calendar can
+      // disable and name them before a guest picks one. A failure is non-fatal:
+      // the per-date listing still reports a closure when a date is opened.
+      useEffect(() => {
+        if (!venueSlug) return;
+        const from = venueDate(new Date(), venueTimezone);
+        api.availability
+          .getClosedDates(venueSlug, { from, to: addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS) })
+          .then((dates) =>
+            dispatch({
+              type: "SET_CLOSED_DATES",
+              closures: Object.fromEntries(dates.map(({ date, closure }) => [date, closure.message])),
+            })
+          )
+          .catch(() => undefined);
+      }, [api, venueSlug, venueTimezone]);
     
       const goToTimeSlot = useCallback(() => {
         const holdId = flowState.data.hold?.id;
@@ -9745,6 +9774,15 @@
       // (the staff route above 401s for guests). The `**/public/v1/venues/*`
       // config glob below never reaches it (`*` never crosses `/`).
       await page.route("**/public/v1/venues/*/availability*", slotsResponse);
+      // Closed dates for the calendar. The glob above never reaches this path
+      // (`*` does not cross `/`); no closures by default.
+      await page.route("**/public/v1/venues/*/availability/dates*", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: [] }),
+        })
+      );
     
       // Holds
       await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -10029,11 +10067,8 @@
   </file>
   <file path="apps/hospitality/e2e/booking-date.ts">
     export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
-      const cell = page.locator(`[role="gridcell"][data-date="${isoDate}"]`);
-      for (let step = 0; step < MAX_MONTH_STEPS && (await cell.count()) === 0; step++) {
-        await page.getByRole("button", { name: "Next month" }).click();
-      }
-      await cell.click();
+      await expect(page.getByRole("grid")).toBeVisible();
+      await page.locator(`[role="gridcell"][data-date="${isoDate}"]`).click();
     }
   </file>
   <file path="apps/hospitality/e2e/fixtures.ts">
@@ -29702,6 +29737,71 @@
           }
         )
       );
+    
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { from: string; to: string };
+        Reply: PublicAvailabilityDatesResponse | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:slug/availability/dates",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "List closed dates in a range (public)",
+            description:
+              "The dates in the range the venue is closed, each with the guest message. Lets the booking calendar disable them before a guest picks one.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" } },
+              required: ["slug"],
+            },
+            querystring: publicAvailabilityDatesQueryJsonSchema,
+            response: { 200: publicAvailabilityDatesResponseJsonSchema },
+          },
+        },
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: (slug) => ({
+              title: "Venue Not Found",
+              detail: `No venue found with slug '${slug}'.`,
+            }),
+          },
+          async (request, reply) => {
+            const { slug } = request.params;
+            const { from, to } = request.query;
+    
+            const venue = await venueService.getBySlug(slug);
+            if (!venue) {
+              return reply
+                .status(404)
+                .send(
+                  createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
+                );
+            }
+    
+            const rangeResult = validateDateRange(from, to, MAX_DATES_RANGE_DAYS);
+            if (!rangeResult.valid) {
+              return reply
+                .status(400)
+                .send(createProblemDetails(400, "Invalid Date Range", rangeResult.error ?? ""));
+            }
+    
+            const dates = await availabilityService.getAvailableDates(
+              venue.id,
+              from,
+              to,
+              DATES_LISTING_PARTY_SIZE,
+              { logger: request.log }
+            );
+    
+            return reply.send({
+              data: dates.flatMap(({ date, closure }) => (closure ? [{ date, closure }] : [])),
+            });
+          }
+        )
+      );
     };
   </file>
   <file path="services/reservations/src/routes/public-deposits.ts">
@@ -35125,11 +35225,20 @@
       slotCount: z.number().int().optional(),
       closure: AvailabilityClosureSchema.optional(),
     });
+    export const PublicClosedDateSchema = z.object({
+      date: z.string(),
+      closure: AvailabilityClosureSchema,
+    });
+    export const PublicAvailabilityDatesResponseSchema = z.object({
+      data: z.array(PublicClosedDateSchema),
+    });
     export const PublicAvailabilityResponseSchema = z.object({
       data: z.array(TimeSlotSchema),
       closure: AvailabilityClosureSchema.optional(),
       bookingPaused: BookingPausedSchema.optional(),
     });
+    export type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    export type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     export type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
     export type BookingPaused = z.infer<typeof BookingPausedSchema>;
     export type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
@@ -35602,6 +35711,12 @@
     export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBodySchema);
     export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
     export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+    export const publicAvailabilityDatesQueryJsonSchema = toRequestJsonSchema(
+      PublicAvailabilityDatesQuerySchema
+    );
+    export const publicAvailabilityDatesResponseJsonSchema = toResponseJsonSchema(
+      PublicAvailabilityDatesResponseSchema
+    );
     export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
       PublicAvailabilityResponseSchema
     );
@@ -36050,6 +36165,10 @@
     export const PublicAvailabilityQuerySchema = z.object({
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       partySize: z.string(),
+    });
+    export const PublicAvailabilityDatesQuerySchema = z.object({
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     });
     export const PublicDepositBodySchema = z.object({
       reservationId: z.string().min(1),
@@ -59566,6 +59685,21 @@
         return this.client.get<PublicAvailabilityResponse>(publicAvailabilityPath(slug), {
           date: params.date,
           partySize: params.partySize,
+        });
+      }
+    
+      /**
+       * The dates in `from`..`to` (at most 60 days) the venue is closed, each with
+       * its guest message, from the public route — so a calendar can disable them
+       * before a guest picks one.
+       */
+      async getClosedDates(
+        slug: string,
+        range: { from: string; to: string }
+      ): Promise<PublicClosedDate[]> {
+        return this.client.getOne<PublicClosedDate[]>(`${publicAvailabilityPath(slug)}/dates`, {
+          from: range.from,
+          to: range.to,
         });
       }
     

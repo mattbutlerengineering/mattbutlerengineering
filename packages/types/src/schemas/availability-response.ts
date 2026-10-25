@@ -39,6 +39,17 @@ export const DateAvailabilitySchema = z.object({
   closure: AvailabilityClosureSchema.optional(),
 });
 
+/** One closed date in the public dates listing. */
+export const PublicClosedDateSchema = z.object({
+  date: z.string(),
+  closure: AvailabilityClosureSchema,
+});
+
+/** `GET /public/v1/venues/:slug/availability/dates`: only the dates that are closed. */
+export const PublicAvailabilityDatesResponseSchema = z.object({
+  data: z.array(PublicClosedDateSchema),
+});
+
 /** `GET /public/v1/venues/:slug/availability`. */
 export const PublicAvailabilityResponseSchema = z.object({
   data: z.array(TimeSlotSchema),
@@ -46,6 +57,8 @@ export const PublicAvailabilityResponseSchema = z.object({
   bookingPaused: BookingPausedSchema.optional(),
 });
 
+export type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+export type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
 export type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
 export type BookingPaused = z.infer<typeof BookingPausedSchema>;
 export type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;

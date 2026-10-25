@@ -17,7 +17,7 @@ import {
   guestRiskMatters,
 } from "./effectiveDepositPolicy.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { venueDate } from "../../utils/service-day.js";
+import { addDays, venueDate } from "../../utils/service-day.js";
 
 export type BookingStep =
   | "date-party"
@@ -119,6 +119,7 @@ type BookingFlowAction =
   | { type: "GO_TO_DATE_PARTY" }
   | { type: "SET_SLOTS"; listing: SlotListing }
   | { type: "CLOSED_MID_BOOKING"; message: string }
+  | { type: "SET_CLOSED_DATES"; closures: Record<string, string> }
   | { type: "SET_SLOTS_ERROR"; error: string }
   | { type: "HOLD_START"; slot: TimeSlot }
   | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
@@ -201,12 +202,22 @@ export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
   return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
 }
 
+/** Gate refusal reasons that mean the venue is not open at the chosen time. */
+const CLOSURE_REASONS: ReadonlySet<string> = new Set(["closed", "outside_service"]);
+
+/** How far ahead the calendar learns about closures up front (the API's own cap). */
+const CLOSED_DATES_LOOKAHEAD_DAYS = 60;
+
 /** The guest message of a gate refusal for a closed time, or null for any other error. */
 function outsideAvailabilityMessage(error: unknown): string | null {
   if (typeof error !== "object" || error === null || !("problemDetails" in error)) return null;
-  const problem = (error as { problemDetails: { code?: unknown; detail?: unknown } })
-    .problemDetails;
+  const problem = (
+    error as { problemDetails: { code?: unknown; reason?: unknown; detail?: unknown } }
+  ).problemDetails;
   if (problem.code !== "outside-availability") return null;
+  // Only a closed venue makes "this time just closed" true; a blocked table or
+  // a closed booking type is an ordinary refusal and keeps its own message.
+  if (!CLOSURE_REASONS.has(String(problem.reason))) return null;
   return typeof problem.detail === "string" ? problem.detail : "";
 }
 
@@ -267,6 +278,13 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         },
       };
     }
+
+    case "SET_CLOSED_DATES":
+      // What a listing already learned about a date wins over the upfront list.
+      return {
+        ...state,
+        data: { ...state.data, closures: { ...action.closures, ...state.data.closures } },
+      };
 
     case "CLOSED_MID_BOOKING":
       return {
@@ -605,6 +623,23 @@ export function useBookingFlow({
 
     fetchDepositConfig();
   }, [venueSlug, stripePublishableKey, api]);
+
+  // Closed dates for the booking window, fetched once so the calendar can
+  // disable and name them before a guest picks one. A failure is non-fatal:
+  // the per-date listing still reports a closure when a date is opened.
+  useEffect(() => {
+    if (!venueSlug) return;
+    const from = venueDate(new Date(), venueTimezone);
+    api.availability
+      .getClosedDates(venueSlug, { from, to: addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS) })
+      .then((dates) =>
+        dispatch({
+          type: "SET_CLOSED_DATES",
+          closures: Object.fromEntries(dates.map(({ date, closure }) => [date, closure.message])),
+        })
+      )
+      .catch(() => undefined);
+  }, [api, venueSlug, venueTimezone]);
 
   const goToTimeSlot = useCallback(() => {
     const holdId = flowState.data.hold?.id;

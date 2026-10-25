@@ -1488,7 +1488,7 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; listing:  | { type: "CLOSED_MID_BOOKING";  | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; listing:  | { type: "CLOSED_MID_BOOKING";  | { type: "SET_CLOSED_DATES"; cl | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
     </item>
     <item priority="medium">
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
@@ -9526,7 +9526,19 @@
       export const DateAvailabilitySchema: unknown;
     </item>
     <item priority="high">
+      export const PublicClosedDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesResponseSchema: unknown;
+    </item>
+    <item priority="high">
       export const PublicAvailabilityResponseSchema: unknown;
+    </item>
+    <item priority="low">
+      type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     </item>
     <item priority="low">
       type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
@@ -9972,6 +9984,12 @@
       export const publicAvailabilityQueryJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const publicAvailabilityDatesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityDatesResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const publicAvailabilityResponseJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -10223,6 +10241,9 @@
     </item>
     <item priority="high">
       export const PublicAvailabilityQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesQuerySchema: unknown;
     </item>
     <item priority="high">
       export const PublicDepositBodySchema: unknown;
@@ -16642,7 +16663,7 @@
         async getTimeSlots(): Promise<unknown>;
         async getTimeSlotsForVenue(): Promise<unknown>;
         async getPublicAvailability(): Promise<unknown>;
-        async getDates(): Promise<unknown>;
+        async getClosedDates(): Promise<unknown>;
       }
     </item>
     <item priority="high">

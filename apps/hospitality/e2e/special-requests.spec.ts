@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { test, expect } from "./fixtures.js";
 import { pickBookingDate } from "./booking-date.js";
+import { localDay } from "./local-day.js";
 
 // Special Requests said back (remembered-on-arrival SC1, SC3, SC9). Guest pages run at a
 // 375 px phone; the host ticket runs on the desktop sidebar and the tablet sheet.
@@ -128,9 +129,7 @@ async function mockGuestPages(page: Page, notes: string): Promise<void> {
 async function bookThroughTheWidget(page: Page, notes: string): Promise<void> {
   await page.goto(`book/${VENUE_SLUG}`);
   await expect(page.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
-  const bookingDate = new Date();
-  bookingDate.setDate(bookingDate.getDate() + 3);
-  await pickBookingDate(page, bookingDate.toISOString().slice(0, 10));
+  await pickBookingDate(page, localDay(3));
   await page.getByRole("button", { name: "Find Available Times" }).click();
   await page.getByRole("option").first().click();
   await page.getByLabel("Name").fill("Requests E2E Guest");

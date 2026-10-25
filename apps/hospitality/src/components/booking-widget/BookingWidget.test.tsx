@@ -159,6 +159,8 @@ describe("BookingWidget", () => {
       getTimeSlots: vi.fn(),
       // Public slug-scoped route — what the widget calls for slots.
       getPublicAvailability: vi.fn().mockResolvedValue({ data: [] }),
+      // Public closed-dates listing — read once on mount for the calendar.
+      getClosedDates: vi.fn(),
     },
     holds: {
       create: vi.fn(),
@@ -186,6 +188,7 @@ describe("BookingWidget", () => {
     // resetAllMocks wipes the "s1" default; PaymentStep needs the booking
     // session as deposit ownership proof (#6304).
     mockApi.holds.getSessionId.mockReturnValue("s1");
+    mockApi.availability.getClosedDates.mockResolvedValue([]);
     vi.mocked(usePublicApiClient).mockReturnValue(
       mockApi as unknown as ReturnType<typeof usePublicApiClient>
     );
@@ -794,6 +797,21 @@ describe("BookingWidget", () => {
       fireEvent.change(screen.getByLabelText("Date"), { target: { value: FUTURE_DATE } });
       fireEvent.click(screen.getByText("Find Available Times"));
     }
+
+    it("disables and names a closed date on the first visit, before any date is opened", async () => {
+      mockApi.availability.getClosedDates.mockResolvedValue([
+        { date: FUTURE_DATE, closure: { message: "Closed for a private event" } },
+      ]);
+      renderWidget();
+
+      await waitFor(() =>
+        expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(true)
+      );
+      expect(screen.getByTestId("probe-day").getAttribute("aria-label")).toMatch(
+        /closed.*Closed for a private event/i
+      );
+      expect(mockApi.availability.getPublicAvailability).not.toHaveBeenCalled();
+    });
 
     it("shows a closed date's message, then disables and names that date in the calendar", async () => {
       mockApi.availability.getPublicAvailability.mockResolvedValue({

@@ -114,6 +114,10 @@ export function DatePartySelector({
                 : undefined
             }
             onFocus={(e) => setFocusedDate(e.target.getAttribute("data-date"))}
+            onBlur={(e) => {
+              // Focus moving to another day keeps the note; the next onFocus replaces it.
+              if (!e.currentTarget.contains(e.relatedTarget)) setFocusedDate(null);
+            }}
           />
           <p role="status" className={styles.closureNote}>
             {focusedClosure}

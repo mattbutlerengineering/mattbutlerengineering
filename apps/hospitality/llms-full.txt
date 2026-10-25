@@ -184,6 +184,7 @@
       | { type: "GO_TO_DATE_PARTY" }
       | { type: "SET_SLOTS"; listing: SlotListing }
       | { type: "CLOSED_MID_BOOKING"; message: string }
+      | { type: "SET_CLOSED_DATES"; closures: Record<string, string> }
       | { type: "SET_SLOTS_ERROR"; error: string }
       | { type: "HOLD_START"; slot: TimeSlot }
       | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
@@ -219,9 +220,13 @@
     }
     function outsideAvailabilityMessage(error: unknown): string | null {
       if (typeof error !== "object" || error === null || !("problemDetails" in error)) return null;
-      const problem = (error as { problemDetails: { code?: unknown; detail?: unknown } })
-        .problemDetails;
+      const problem = (
+        error as { problemDetails: { code?: unknown; reason?: unknown; detail?: unknown } }
+      ).problemDetails;
       if (problem.code !== "outside-availability") return null;
+      // Only a closed venue makes "this time just closed" true; a blocked table or
+      // a closed booking type is an ordinary refusal and keeps its own message.
+      if (!CLOSURE_REASONS.has(String(problem.reason))) return null;
       return typeof problem.detail === "string" ? problem.detail : "";
     }
     function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
@@ -281,6 +286,13 @@
             },
           };
         }
+    
+        case "SET_CLOSED_DATES":
+          // What a listing already learned about a date wins over the upfront list.
+          return {
+            ...state,
+            data: { ...state.data, closures: { ...action.closures, ...state.data.closures } },
+          };
     
         case "CLOSED_MID_BOOKING":
           return {
@@ -615,6 +627,23 @@
     
         fetchDepositConfig();
       }, [venueSlug, stripePublishableKey, api]);
+    
+      // Closed dates for the booking window, fetched once so the calendar can
+      // disable and name them before a guest picks one. A failure is non-fatal:
+      // the per-date listing still reports a closure when a date is opened.
+      useEffect(() => {
+        if (!venueSlug) return;
+        const from = venueDate(new Date(), venueTimezone);
+        api.availability
+          .getClosedDates(venueSlug, { from, to: addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS) })
+          .then((dates) =>
+            dispatch({
+              type: "SET_CLOSED_DATES",
+              closures: Object.fromEntries(dates.map(({ date, closure }) => [date, closure.message])),
+            })
+          )
+          .catch(() => undefined);
+      }, [api, venueSlug, venueTimezone]);
     
       const goToTimeSlot = useCallback(() => {
         const holdId = flowState.data.hold?.id;
@@ -2141,6 +2170,15 @@
       // (the staff route above 401s for guests). The `**/public/v1/venues/*`
       // config glob below never reaches it (`*` never crosses `/`).
       await page.route("**/public/v1/venues/*/availability*", slotsResponse);
+      // Closed dates for the calendar. The glob above never reaches this path
+      // (`*` does not cross `/`); no closures by default.
+      await page.route("**/public/v1/venues/*/availability/dates*", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: [] }),
+        })
+      );
     
       // Holds
       await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -2425,11 +2463,8 @@
   </file>
   <file path="e2e/booking-date.ts">
     export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
-      const cell = page.locator(`[role="gridcell"][data-date="${isoDate}"]`);
-      for (let step = 0; step < MAX_MONTH_STEPS && (await cell.count()) === 0; step++) {
-        await page.getByRole("button", { name: "Next month" }).click();
-      }
-      await cell.click();
+      await expect(page.getByRole("grid")).toBeVisible();
+      await page.locator(`[role="gridcell"][data-date="${isoDate}"]`).click();
     }
   </file>
   <file path="e2e/fixtures.ts">

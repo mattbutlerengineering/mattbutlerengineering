@@ -436,6 +436,11 @@ export const PublicAvailabilityQuerySchema = z.object({
   partySize: z.string(),
 });
 
+export const PublicAvailabilityDatesQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 export const PublicDepositBodySchema = z.object({
   reservationId: z.string().min(1),
   guestEmail: z.string().optional(),

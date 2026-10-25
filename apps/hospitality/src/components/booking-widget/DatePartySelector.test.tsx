@@ -260,6 +260,37 @@ describe("DatePartySelector", () => {
     });
   });
   describe("closed dates (ux.md F9.1)", () => {
+    it("clears the guest message once focus leaves the calendar", () => {
+      render(
+        <DatePartySelector
+          {...defaultProps}
+          selectedDate="2026-12-20"
+          minDate="2026-12-01"
+          maxDate="2026-12-31"
+          closedDates={{ "2026-12-24": "Closed for a private event" }}
+        />
+      );
+      fireEvent.focus(dayCell("2026-12-24"));
+      expect(screen.getByRole("status").textContent).toContain("Closed for a private event");
+      fireEvent.blur(dayCell("2026-12-24"), { relatedTarget: null });
+      expect(screen.getByRole("status").textContent).toBe("");
+    });
+
+    it("keeps the message while focus moves between days of the calendar", () => {
+      render(
+        <DatePartySelector
+          {...defaultProps}
+          selectedDate="2026-12-20"
+          minDate="2026-12-01"
+          maxDate="2026-12-31"
+          closedDates={{ "2026-12-24": "Closed for a private event" }}
+        />
+      );
+      fireEvent.focus(dayCell("2026-12-24"));
+      fireEvent.blur(dayCell("2026-12-24"), { relatedTarget: dayCell("2026-12-25") });
+      expect(screen.getByRole("status").textContent).toContain("Closed for a private event");
+    });
+
     const closedProps = {
       ...defaultProps,
       selectedDate: "2026-12-20",

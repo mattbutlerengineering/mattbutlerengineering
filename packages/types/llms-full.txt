@@ -609,11 +609,20 @@
       slotCount: z.number().int().optional(),
       closure: AvailabilityClosureSchema.optional(),
     });
+    export const PublicClosedDateSchema = z.object({
+      date: z.string(),
+      closure: AvailabilityClosureSchema,
+    });
+    export const PublicAvailabilityDatesResponseSchema = z.object({
+      data: z.array(PublicClosedDateSchema),
+    });
     export const PublicAvailabilityResponseSchema = z.object({
       data: z.array(TimeSlotSchema),
       closure: AvailabilityClosureSchema.optional(),
       bookingPaused: BookingPausedSchema.optional(),
     });
+    export type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    export type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     export type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
     export type BookingPaused = z.infer<typeof BookingPausedSchema>;
     export type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
@@ -1086,6 +1095,12 @@
     export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBodySchema);
     export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
     export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+    export const publicAvailabilityDatesQueryJsonSchema = toRequestJsonSchema(
+      PublicAvailabilityDatesQuerySchema
+    );
+    export const publicAvailabilityDatesResponseJsonSchema = toResponseJsonSchema(
+      PublicAvailabilityDatesResponseSchema
+    );
     export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
       PublicAvailabilityResponseSchema
     );
@@ -1534,6 +1549,10 @@
     export const PublicAvailabilityQuerySchema = z.object({
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       partySize: z.string(),
+    });
+    export const PublicAvailabilityDatesQuerySchema = z.object({
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     });
     export const PublicDepositBodySchema = z.object({
       reservationId: z.string().min(1),
