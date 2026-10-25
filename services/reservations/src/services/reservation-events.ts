@@ -41,6 +41,8 @@ export type EventState = {
   startTime: string;
   endTime: string;
   partySize: number;
+  /** Present when a staff override passed a soft limit to book this slot. */
+  override?: { reason: string; limits: string[] };
 };
 
 /** Deposit status snapshot stored in `from_state` / `to_state` of a `deposit_transition` event. */
@@ -53,6 +55,8 @@ export function toEventState(row: {
   startTime: Date;
   endTime: Date;
   partySize: number;
+  overrideReason?: string | null;
+  overrideLimits?: string[];
 }): EventState {
   return {
     status: row.status,
@@ -61,6 +65,9 @@ export function toEventState(row: {
     startTime: row.startTime.toISOString(),
     endTime: row.endTime.toISOString(),
     partySize: row.partySize,
+    ...(row.overrideReason
+      ? { override: { reason: row.overrideReason, limits: row.overrideLimits ?? [] } }
+      : {}),
   };
 }
 

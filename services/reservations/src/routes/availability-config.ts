@@ -183,4 +183,19 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
       }
     ),
   });
+
+  registerEndpoint(fastify, availabilityConfigEndpoints.check, {
+    docs: {
+      summary: "Check a staff booking against availability",
+      operationId: "checkAvailability",
+      description:
+        "The booking gate's verdict on a phone booking (`ok`, `soft` with the limits and a message, or `hard` with the reason and a message), for the staff form. Read-only; the booking write still passes the gate, where a `soft` limit yields to `override.reason` and a `hard` one never does.",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(VENUE_FROM_ID, async (request, _reply, { venueId }) => ({
+      data: await availabilityConfigService.check(venueId, request.body, new Date()),
+    })),
+  });
 };

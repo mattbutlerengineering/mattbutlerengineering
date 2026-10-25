@@ -32,6 +32,7 @@ import {
   summarizeDay,
   type BookedReservation,
 } from "./availability-config-checks.js";
+import { checkAvailability } from "./availability-check.js";
 import {
   ConfigRowConflict,
   readStoredConfig,
@@ -394,6 +395,7 @@ export async function saveAvailabilityConfig(
 
 /** The store as a domain-service record, for the `buildApp({ services })` seam. */
 export const availabilityConfigService = {
+  check: checkAvailability,
   get: getAvailabilityConfig,
   listDays: listAvailabilityDays,
   save: saveAvailabilityConfig,

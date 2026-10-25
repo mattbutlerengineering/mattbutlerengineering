@@ -180,6 +180,22 @@
         });
         return response.data;
       }
+    
+      /**
+       * Ask the booking gate whether it would take a staff (phone) booking:
+       * `ok`, `soft` (limits a reason can override), or `hard` (closures, never
+       * overridable), each with a human message.
+       */
+      async checkBooking(
+        venueId: string,
+        body: AvailabilityCheckBody
+      ): Promise<AvailabilityCheckResult> {
+        const response = await this.client.call(availabilityConfigEndpoints.check, {
+          params: { id: venueId },
+          body,
+        });
+        return response.data;
+      }
     }
     export class HoldsClient {
       private sessionId: string | null = null;

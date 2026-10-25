@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { VenueRoleLookup } from "@mbe/auth/fastify";
 import {
   AVAILABILITY_CONFIG_PREFIX,
+  AvailabilityCheckResultSchema,
   AvailabilityConfigProblemSchema,
   AvailabilityConfigSaveResultSchema,
   AvailabilityConfigStateSchema,
@@ -40,7 +41,7 @@ const PUT_BODY = {
   scopeConflicts: "keep",
 };
 
-const svc = { get: vi.fn(), listDays: vi.fn(), save: vi.fn() };
+const svc = { get: vi.fn(), listDays: vi.fn(), save: vi.fn(), check: vi.fn() };
 const impactSvc = { impact: vi.fn() };
 
 async function appWith(options: { venueRoleLookup?: VenueRoleLookup } = {}) {
@@ -303,6 +304,44 @@ describe("availability config routes", () => {
       expect(res.statusCode).toBe(403);
       expect(impactSvc.impact).not.toHaveBeenCalled();
       await scoped.close();
+    });
+  });
+
+  describe("POST /check", () => {
+    const CHECK_BODY = { start: "2026-11-06T19:00:00.000Z", partySize: 4, channel: "phone" };
+    const post = (payload: unknown = CHECK_BODY, headers: Record<string, string> = ADMIN) =>
+      app.inject({
+        method: "POST",
+        url: `${BASE}/check`,
+        headers,
+        payload: payload as object,
+      });
+
+    it("returns the booking gate's verdict for the venue", async () => {
+      const verdict = { kind: "soft", limits: ["pacing"], message: "This booking is over." };
+      svc.check.mockResolvedValueOnce(verdict);
+
+      const res = await post({ ...CHECK_BODY, tableId: "t1" });
+
+      expect(res.statusCode).toBe(200);
+      expect(AvailabilityCheckResultSchema.parse(res.json().data)).toEqual(verdict);
+      expect(svc.check).toHaveBeenCalledWith(
+        "venue-1",
+        { ...CHECK_BODY, tableId: "t1" },
+        expect.any(Date)
+      );
+    });
+
+    it("400s for a non-phone channel", async () => {
+      const res = await post({ ...CHECK_BODY, channel: "online" });
+      expect(res.statusCode).toBe(400);
+      expect(svc.check).not.toHaveBeenCalled();
+    });
+
+    it("401s without auth", async () => {
+      const res = await post(CHECK_BODY, {});
+      expect(res.statusCode).toBe(401);
+      expect(svc.check).not.toHaveBeenCalled();
     });
   });
 });

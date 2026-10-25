@@ -113,4 +113,26 @@ describe("AvailabilityClient config API", () => {
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual({ rule });
   });
+
+  it("checkBooking posts the phone booking to the check endpoint and returns the verdict", async () => {
+    const verdict = { kind: "soft", limits: ["pacing"], message: "This booking is over." };
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: verdict }));
+    const body = {
+      start: "2026-11-06T19:00:00.000Z",
+      end: "2026-11-06T20:30:00.000Z",
+      partySize: 4,
+      channel: "phone",
+    } as const;
+
+    const result = await client().checkBooking("v1", body);
+
+    expect(result).toEqual(verdict);
+    expect(mockFetch.mock.calls[0]?.[0]).toBe(
+      "https://api.test.com/api/v1/venues/v1/availability/check"
+    );
+    expect(mockFetch.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  });
 });

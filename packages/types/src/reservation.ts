@@ -88,6 +88,8 @@ export interface CreateReservationRequest {
   guestPhone?: string;
   guestId?: string;
   venueId?: string;
+  /** Staff override of a soft availability limit; stored with the booking. */
+  override?: { reason: string };
 }
 
 export interface UpdateReservationRequest {
@@ -102,6 +104,8 @@ export interface UpdateReservationRequest {
   seatingPreference?: SeatingPreference;
   cancellationReason?: string;
   cancellationNote?: string;
+  /** Staff override of a soft availability limit on a time or table move. */
+  override?: { reason: string };
 }
 
 export interface UpdateTableStatusRequest {

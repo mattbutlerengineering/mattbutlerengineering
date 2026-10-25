@@ -7,6 +7,8 @@
 import { z } from "zod";
 import { defineEndpoint, problem } from "./define.js";
 import {
+  AvailabilityCheckBodySchema,
+  AvailabilityCheckResultSchema,
   AvailabilityConfigProblemSchema,
   AvailabilityConfigSaveResultSchema,
   AvailabilityConfigStateSchema,
@@ -97,6 +99,21 @@ export const availabilityConfigEndpoints = {
         body: z.object({ data: z.array(AvailabilityDaySummarySchema) }),
       },
       400: problem("Invalid or too long date range"),
+      401: authRequired,
+      403: notMember,
+      404: venueNotFound,
+    },
+  }),
+  check: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/check`,
+    params: VenueParamsSchema,
+    body: AvailabilityCheckBodySchema,
+    responses: {
+      200: {
+        description: "The booking gate's verdict on this staff booking, with a human message",
+        body: z.object({ data: AvailabilityCheckResultSchema }),
+      },
       401: authRequired,
       403: notMember,
       404: venueNotFound,

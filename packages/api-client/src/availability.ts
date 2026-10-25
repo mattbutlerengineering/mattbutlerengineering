@@ -12,6 +12,8 @@ import type {
   AvailabilityDaySummary,
   ClosureImpact,
   DateRule,
+  AvailabilityCheckBody,
+  AvailabilityCheckResult,
   PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
 import { availabilityConfigEndpoints } from "@mbe/types";
@@ -137,6 +139,22 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.listDays, {
       params: { id: venueId },
       query: { from: range.from, to: range.to },
+    });
+    return response.data;
+  }
+
+  /**
+   * Ask the booking gate whether it would take a staff (phone) booking:
+   * `ok`, `soft` (limits a reason can override), or `hard` (closures, never
+   * overridable), each with a human message.
+   */
+  async checkBooking(
+    venueId: string,
+    body: AvailabilityCheckBody
+  ): Promise<AvailabilityCheckResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.check, {
+      params: { id: venueId },
+      body,
     });
     return response.data;
   }
