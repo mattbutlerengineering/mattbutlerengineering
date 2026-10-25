@@ -43,6 +43,35 @@ export function todayIn(timeZone: string | undefined, now: Date = new Date()): s
   }).format(now);
 }
 
+const WEEKDAYS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+] as const;
+
+interface DayHours {
+  readonly closed?: boolean | undefined;
+}
+
+/**
+ * The weekday a YYYY-MM-DD date falls on, when the venue's hours leave it
+ * closed — the same rule the availability service uses to return no slots
+ * (no hours at all, no entry for the day, or the day marked closed).
+ */
+export function closedWeekday(
+  operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
+  date: string
+): string | undefined {
+  const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+  if (!weekday) return undefined;
+  const hours = operatingHours?.[weekday];
+  return !hours || hours.closed ? weekday : undefined;
+}
+
 const CONFIRMATION_PENDING = {
   pendingConfirmation: true,
   message:
@@ -151,7 +180,22 @@ export function createAgentTools(
         log.info({ venueId, date, partySize }, "check_availability tool called");
         try {
           const slots = await api.availability.getTimeSlots({ venueId, date, partySize });
-          return { slots };
+          if (slots.length > 0) return { slots };
+          // No slots reads as "fully booked" unless the model knows the venue is closed.
+          const weekday = await api.venues.get(venueId).then(
+            (venue) => closedWeekday(venue.operatingHours, date),
+            (err: unknown) => {
+              log.warn({ err, venueId }, "check_availability: venue hours lookup failed");
+              return undefined;
+            }
+          );
+          if (!weekday) return { slots };
+          const day = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+          return {
+            slots,
+            closed: true,
+            note: `The venue is closed on ${day}: it has no operating hours that day, so nothing can be booked. Say so rather than calling the day fully booked.`,
+          };
         } catch (err) {
           log.error({ err, venueId, date, partySize }, "check_availability failed");
           return { error: "Failed to check availability. Please try again." };

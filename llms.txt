@@ -7889,6 +7889,17 @@
     <item priority="high">
       export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
     </item>
+    <item priority="high">
+      interface DayHours {
+        closed?: boolean | undefined;
+      }
+    </item>
+    <item priority="high">
+      export function closedWeekday(
+        operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
+        date: string
+      ): string | undefined { /* ... */ }
+    </item>
     <item priority="medium">
       function gateWriteTools(
         tools: ToolSet,
