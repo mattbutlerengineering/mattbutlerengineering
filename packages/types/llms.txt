@@ -264,6 +264,42 @@
     <item priority="low">
       type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
     </item>
+    <item priority="high">
+      export const ClosureDecisionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateClosureBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReopenClosureBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureOutcomeCountsSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureUnappliedSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReopenResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
+    </item>
+    <item priority="low">
+      type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureResult = z.infer<typeof ClosureResultSchema>;
+    </item>
+    <item priority="low">
+      type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    </item>
   </file>
   <file path="src/schemas/availability-config.ts">
     <item priority="high">

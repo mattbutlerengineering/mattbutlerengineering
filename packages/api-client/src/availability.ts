@@ -11,7 +11,10 @@ import type {
   AvailabilityConfigSaveResult,
   AvailabilityDaySummary,
   ClosureImpact,
+  ClosureResult,
+  CreateClosureBodySchema,
   DateRule,
+  ReopenResult,
   PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
 import { availabilityConfigEndpoints } from "@mbe/types";
@@ -38,6 +41,9 @@ export interface GetDatesParams {
 
 /** What `saveConfig` sends; `scopeConflicts` defaults to `keep`. */
 export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
+
+/** What `createClosure` sends; `decisions` defaults to none. */
+export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
 
 export class AvailabilityClient {
   constructor(private client: ApiClient) {}
@@ -125,6 +131,39 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
       params: { id: venueId },
       body: { rule },
+    });
+    return response.data;
+  }
+
+  /**
+   * Saves a closure (or special hours / Tonight change) with one decision per
+   * affected group. `idempotencyKey` makes a retry safe: a replay returns the
+   * first result, so the call is retried on a network error. Rejects with a
+   * problem `code` of `version-conflict`, `decision-required`,
+   * `invalid-decision`, `move-unavailable` or `invalid-config`.
+   */
+  async createClosure(
+    venueId: string,
+    body: CreateClosureRequest,
+    idempotencyKey: string
+  ): Promise<ClosureResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.createClosure,
+      { params: { id: venueId }, body },
+      { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
+    );
+    return response.data;
+  }
+
+  /** Reopens a closure; guests it cancelled stay cancelled. */
+  async reopenClosure(
+    venueId: string,
+    ruleId: string,
+    tellCancelledGuests: boolean
+  ): Promise<ReopenResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
+      params: { id: venueId, ruleId },
+      body: { tellCancelledGuests },
     });
     return response.data;
   }

@@ -1037,6 +1037,112 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     expectOk(await asAdmin(ctx, impact(ctx.venueB.id)), "admin venue B");
     expectDenied(await asMember(ctx, impact(ctx.venueB.id)), "member venue B");
   }),
+  // A closure save rewrites the venue's operating hours, so it lands only on a
+  // disposable venue, after a config save gives it a week to close. The empty
+  // venue has no bookings to decide on. The reopen is the same venue's rule.
+  "POST /api/v1/venues/:id/closures": ok(async (ctx) => {
+    const venueId = await createDisposableVenue(ctx);
+    const base = `${AVAILABILITY_CONFIG_PREFIX}/${venueId}`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PUT",
+        url: `${base}/availability/config`,
+        payload: {
+          expectedVersion: 0,
+          changes: sweepConfigChanges(),
+          scopeConflicts: "keep",
+        },
+      }),
+      "admin config"
+    );
+    const closure = {
+      expectedVersion: 1,
+      rule: {
+        id: "rls-sweep-closure",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+      },
+      decisions: [],
+    };
+    const saved = await asAdmin(ctx, {
+      method: "POST",
+      url: `${base}/closures`,
+      headers: { "idempotency-key": "rls-sweep-1" },
+      payload: closure,
+    });
+    expectOk(saved, "admin closure");
+    const replayed = await asAdmin(ctx, {
+      method: "POST",
+      url: `${base}/closures`,
+      headers: { "idempotency-key": "rls-sweep-1" },
+      payload: closure,
+    });
+    expect(JSON.parse(replayed.body), "replay returns the first result").toEqual(
+      JSON.parse(saved.body)
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures`,
+        headers: { "idempotency-key": "rls-sweep-2" },
+        payload: closure,
+      }),
+      "member venue B"
+    );
+  }),
+  "DELETE /api/v1/venues/:id/closures/:ruleId": ok(async (ctx) => {
+    const venueId = await createDisposableVenue(ctx);
+    const base = `${AVAILABILITY_CONFIG_PREFIX}/${venueId}`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PUT",
+        url: `${base}/availability/config`,
+        payload: {
+          expectedVersion: 0,
+          changes: sweepConfigChanges(),
+          scopeConflicts: "keep",
+        },
+      }),
+      "admin config"
+    );
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: `${base}/closures`,
+        headers: { "idempotency-key": "rls-sweep-3" },
+        payload: {
+          expectedVersion: 1,
+          rule: {
+            id: "rls-sweep-reopen",
+            kind: "closure",
+            targetKind: "venue",
+            startsOn: "2026-12-24",
+            endsOn: "2026-12-24",
+          },
+          decisions: [],
+        },
+      }),
+      "admin closure"
+    );
+    expectOk(
+      await asAdmin(ctx, {
+        method: "DELETE",
+        url: `${base}/closures/rls-sweep-reopen`,
+        payload: { tellCancelledGuests: false },
+      }),
+      "admin reopen"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "DELETE",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures/rls-sweep-reopen`,
+        payload: { tellCancelledGuests: false },
+      }),
+      "member venue B"
+    );
+  }),
   // The write lands only on a disposable venue: venue A's operating hours feed
   // the hold and availability fixtures, and a save rewrites them. The member
   // leg proves the denial; the Manager-role admission is pinned by

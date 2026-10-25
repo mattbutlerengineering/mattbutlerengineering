@@ -14,13 +14,26 @@ import {
   AvailabilityDaysQuerySchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
+  ClosureResultSchema,
+  CreateClosureBodySchema,
   PutAvailabilityConfigBodySchema,
+  ReopenClosureBodySchema,
+  ReopenResultSchema,
 } from "../schemas/availability-config-api.js";
 
 /** Mounted under the venues prefix by the reservations service. */
 export const AVAILABILITY_CONFIG_PREFIX = "/api/v1/venues";
 
 const VenueParamsSchema = z.object({ id: z.string().describe("Venue ID") });
+
+const ClosureParamsSchema = z.object({
+  id: z.string().describe("Venue ID"),
+  ruleId: z.string().describe("Date rule ID"),
+});
+
+const notClosureCaller = problem(
+  "Caller is not a Manager, or a Host outside the emergency-close limits (whole venue, tonight, grant on)"
+);
 
 const authRequired = problem("Authentication required");
 const notMember = problem("Caller is not a member of this venue");
@@ -78,12 +91,53 @@ export const availabilityConfigEndpoints = {
       },
       400: problem("Date range too long to evaluate"),
       401: authRequired,
-      403: problem("Caller is not a Manager of this venue"),
+      403: notClosureCaller,
       404: venueNotFound,
       422: {
         description: "`invalid-config`: the draft rule does not validate against the config",
         body: AvailabilityConfigProblemSchema,
       },
+    },
+  }),
+  createClosure: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures`,
+    params: VenueParamsSchema,
+    body: CreateClosureBodySchema,
+    responses: {
+      200: {
+        description:
+          "Saved (or replayed from the same `Idempotency-Key`): the rule, the version and outcome counts",
+        body: z.object({ data: ClosureResultSchema }),
+      },
+      400: problem("Missing `Idempotency-Key` header, or a date range too long to evaluate"),
+      401: authRequired,
+      403: notClosureCaller,
+      404: venueNotFound,
+      409: {
+        description: "`version-conflict`, or `idempotency-key-reused` for a different rule",
+        body: AvailabilityConfigProblemSchema,
+      },
+      422: {
+        description:
+          "`invalid-config`, `decision-required`, `invalid-decision` or `move-unavailable`",
+        body: AvailabilityConfigProblemSchema,
+      },
+    },
+  }),
+  reopenClosure: defineEndpoint({
+    method: "DELETE",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId`,
+    params: ClosureParamsSchema,
+    body: ReopenClosureBodySchema,
+    responses: {
+      200: {
+        description: "Reopened; guests the closure cancelled stay cancelled",
+        body: z.object({ data: ReopenResultSchema }),
+      },
+      401: authRequired,
+      403: notClosureCaller,
+      404: problem("Venue or closure not found"),
     },
   }),
   listDays: defineEndpoint({

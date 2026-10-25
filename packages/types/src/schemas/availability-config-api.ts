@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AvailabilityConfigSchema,
+  ClosureActionSchema,
   DateRuleSchema,
   DateRuleTargetKindSchema,
   ScheduleAssignmentSchema,
@@ -114,6 +115,10 @@ export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
   "version-conflict",
   "invalid-config",
   "stranded-bookings",
+  "decision-required",
+  "invalid-decision",
+  "move-unavailable",
+  "idempotency-key-reused",
 ] as const;
 
 /** RFC 9457 problem with the config API's extension members. */
@@ -129,6 +134,10 @@ export const AvailabilityConfigProblemSchema = z.object({
   issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
   /** stranded-bookings: future reservations the change would leave outside service. */
   reservations: z.array(StrandedReservationSchema).optional(),
+  /** decision-required / invalid-decision: the impact groups at fault. */
+  groupKeys: z.array(z.string()).optional(),
+  /** move-unavailable: bookings with no open time to move to. */
+  reservationIds: z.array(z.string()).optional(),
 });
 
 /** Longest range `GET …/availability/days` resolves in one call. */
@@ -212,3 +221,62 @@ export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummary
 export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
 export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
 export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+
+// ── Closure command ─────────────────────────────────────────────────────────
+
+/**
+ * What the Manager chose for one impact group (architecture.md § Closure
+ * command). `move` is offered only for a `shortened` group; `keep_silent`
+ * needs `acknowledged: true` (the "I understand 14 guests won't be told" box).
+ */
+export const ClosureDecisionSchema = z.object({
+  /** The impact group's `groupKey` (`<date>:<kind>`). */
+  groupKey: z.string().min(1),
+  action: ClosureActionSchema,
+  acknowledged: z.boolean().optional(),
+});
+
+/** `POST …/closures`: the rule, the version the client read, and one decision per impact group. */
+export const CreateClosureBodySchema = z.object({
+  expectedVersion: z.number().int().min(0),
+  rule: DateRuleSchema,
+  decisions: z.array(ClosureDecisionSchema).default([]),
+});
+
+/** `DELETE …/closures/:ruleId`. */
+export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
+
+export const ClosureOutcomeCountsSchema = z.object({
+  cancel: z.number().int(),
+  move: z.number().int(),
+  keep_notify: z.number().int(),
+  keep_silent: z.number().int(),
+});
+
+export const ClosureUnappliedSchema = z.object({
+  reservationId: z.string(),
+  action: z.enum(["cancel", "move"]),
+  reason: z.string(),
+});
+
+export const ClosureResultSchema = z.object({
+  ruleId: z.string(),
+  /** `Venue.availabilityVersion` after the save. */
+  version: z.number().int(),
+  changeId: z.string(),
+  outcomes: ClosureOutcomeCountsSchema,
+  /**
+   * Cancels and moves that did not apply yet (a Stripe or table-conflict
+   * failure). The closure is saved; a retry with the same `Idempotency-Key`
+   * applies them again.
+   */
+  unapplied: z.array(ClosureUnappliedSchema),
+});
+
+export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+
+export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
+export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
+export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+export type ClosureResult = z.infer<typeof ClosureResultSchema>;
+export type ReopenResult = z.infer<typeof ReopenResultSchema>;

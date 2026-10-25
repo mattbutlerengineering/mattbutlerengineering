@@ -61,7 +61,7 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  * and the first save writes the whole derived config as rows.
  */
 
-type StoreDb = ConfigRowDb &
+export type StoreDb = ConfigRowDb &
   Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
 type StoreClient = Pick<PrismaClient, "$transaction">;
 
@@ -298,7 +298,7 @@ async function futureBookings(
   });
 }
 
-async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
+export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
   const exists = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
   if (!exists) return { kind: "not_found" };
   const winner = await db.availabilityChange.findFirst({
@@ -313,7 +313,7 @@ async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
 }
 
 /** A unique-constraint refusal as the 422 a client can act on, addressed into the next config. */
-function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome {
+export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome {
   const index = (next[error.table] as { id: string }[]).findIndex((r) => r.id === error.id);
   return {
     kind: "invalid",
@@ -333,7 +333,8 @@ function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): Save
   };
 }
 
-const toDbDate = (d: string | null): Date | null => (d ? new Date(`${d}T00:00:00.000Z`) : null);
+export const toDbDate = (d: string | null): Date | null =>
+  d ? new Date(`${d}T00:00:00.000Z`) : null;
 
 export async function saveAvailabilityConfig(
   input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
