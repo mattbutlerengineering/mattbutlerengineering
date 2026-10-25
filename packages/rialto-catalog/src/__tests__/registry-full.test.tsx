@@ -1335,3 +1335,73 @@ describe("ReservationList", () => {
     expect(container.querySelector('[data-rialto-seam-fallback="ReservationList"]')).not.toBeNull();
   });
 });
+
+// gen-ui-elements-2: open times for one date and party size. Blank times are
+// dropped; only a missing date line falls back; an empty list is a real state.
+describe("TimeSlots", () => {
+  function renderSlots(props: Record<string, unknown>) {
+    return renderSpec({
+      root: "s",
+      elements: { s: { type: "TimeSlots", props } },
+    });
+  }
+
+  it("renders the date line and the open times", () => {
+    const { container } = renderSlots({
+      date: "Friday, Oct 30",
+      partySize: 4,
+      times: ["6:00 PM", "7:45 PM"],
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Friday, Oct 30 · Party of 4")).toBeTruthy();
+    const list = within(container).getByRole("list", { name: "Open times" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("drops blank times and keeps the rest", () => {
+    const { container } = renderSlots({
+      date: "Friday",
+      partySize: 2,
+      times: ["6:00 PM", "", "   ", "8:00 PM"],
+    });
+    const items = within(container).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual(["6:00 PM", "8:00 PM"]);
+  });
+
+  it("shows the no-open-times line, not the fallback, for an empty times array", () => {
+    const { container } = renderSlots({ date: "Saturday", partySize: 2, times: [] });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("No open times")).toBeTruthy();
+  });
+
+  it("shows the no-open-times line when every time is blank", () => {
+    const { container } = renderSlots({ date: "Saturday", partySize: 2, times: [" "] });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("No open times")).toBeTruthy();
+  });
+
+  it("coerces a numeric partySize string", () => {
+    const { container } = renderSlots({ date: "Friday", partySize: "4", times: ["6:00 PM"] });
+    expect(within(container).getByText("Friday · Party of 4")).toBeTruthy();
+  });
+
+  it.each([
+    ["date missing", { partySize: 2, times: ["6:00 PM"] }],
+    ["date blank", { date: "  ", partySize: 2, times: ["6:00 PM"] }],
+    ["partySize missing", { date: "Friday", times: ["6:00 PM"] }],
+    ["partySize non-numeric", { date: "Friday", partySize: "four", times: ["6:00 PM"] }],
+    ["times missing", { date: "Friday", partySize: 2 }],
+  ])("falls back when the %s", (_case, props) => {
+    const { container } = renderSlots(props);
+    expect(container.querySelector('[data-rialto-seam-fallback="TimeSlots"]')).not.toBeNull();
+  });
+
+  it('clamps an over-long date with "…" at its 40-char limit instead of dropping it', () => {
+    const date = "Friday, October 30th, the evening of the harvest dinner";
+    const { container } = renderSlots({ date, partySize: 2, times: ["6:00 PM"] });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    const clamped = `${date.slice(0, 39).trimEnd()}…`;
+    expect(clamped.length).toBeLessThanOrEqual(40);
+    expect(within(container).getByText(`${clamped} · Party of 2`)).toBeTruthy();
+  });
+});

@@ -1,0 +1,36 @@
+/* ── Root: date line over the times ──────────── */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  min-width: 0;
+}
+
+.header {
+  margin: 0;
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* ── Times: static labels that wrap ──────────── */
+.times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slot {
+  display: flex;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}

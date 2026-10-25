@@ -894,6 +894,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="TimeSlots">
+  <file path="packages/rialto/src/components/TimeSlots/TimeSlots.catalog.ts">
+    <item priority="high">
+      export const timeSlotsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Timeline">
   <file path="packages/rialto/src/components/Timeline/Timeline.catalog.ts">
     <item priority="high">

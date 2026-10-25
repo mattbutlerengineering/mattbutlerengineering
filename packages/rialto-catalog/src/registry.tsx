@@ -58,6 +58,7 @@ import {
   Tag,
   Text,
   Timeline,
+  TimeSlots,
   Toggle,
 } from "@mattbutlerengineering/rialto";
 import type {
@@ -94,12 +95,12 @@ function toPartySize(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** Rows a reservation list can show: time, party size and status present (gen-ui-elements-2). */
 /** A string with something other than whitespace in it — a blank word reads as missing. */
 function isFilled(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
+/** Rows a reservation list can show: time, party size and status present (gen-ui-elements-2). */
 function usableReservations(rows: readonly Record<string, unknown>[]): ReservationListRow[] {
   return rows.flatMap(({ time, guest, partySize, status }) => {
     const size = toPartySize(partySize);
@@ -611,6 +612,18 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           <ReservationList reservations={reservations} />
         ) : (
           <SeamFallback name="ReservationList" />
+        );
+      },
+
+      // Blank times are dropped and an empty list shows the no-open-times line;
+      // the element falls back only when the date line (date, partySize) is missing.
+      TimeSlots: ({ props }: { props: unknown }) => {
+        const p = props as { date: unknown; partySize: unknown; times: unknown[] };
+        const partySize = toPartySize(p.partySize);
+        return isFilled(p.date) && partySize !== undefined ? (
+          <TimeSlots date={p.date} partySize={partySize} times={p.times.filter(isFilled)} />
+        ) : (
+          <SeamFallback name="TimeSlots" />
         );
       },
 

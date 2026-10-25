@@ -366,6 +366,10 @@
       "types": "./dist/lib/components/TimePicker/index.d.ts",
       "import": "./dist/lib/components/TimePicker/index.js"
     },
+    "./TimeSlots": {
+      "types": "./dist/lib/components/TimeSlots/index.d.ts",
+      "import": "./dist/lib/components/TimeSlots/index.js"
+    },
     "./Timeline": {
       "types": "./dist/lib/components/Timeline/index.d.ts",
       "import": "./dist/lib/components/Timeline/index.js"

@@ -858,6 +858,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="TimeSlots">
+  <file path="src/components/TimeSlots/TimeSlots.catalog.ts">
+    <item priority="high">
+      export const timeSlotsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Timeline">
   <file path="src/components/Timeline/Timeline.catalog.ts">
     <item priority="high">

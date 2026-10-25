@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogMeta } from "./catalog-meta";
 import { reservationListCatalogMeta } from "./ReservationList/ReservationList.catalog";
+import { timeSlotsCatalogMeta } from "./TimeSlots/TimeSlots.catalog";
 
 /**
  * Wave-1 schema rules for the chat's booking elements (gen-ui-elements-2): the
@@ -8,7 +9,7 @@ import { reservationListCatalogMeta } from "./ReservationList/ReservationList.ca
  * charLimits, so a nested `.max(` or a strict `z.enum(` would drop the whole
  * element over one long or unexpected value (F13). Add each new element here.
  */
-const metas: readonly CatalogMeta[] = [reservationListCatalogMeta];
+const metas: readonly CatalogMeta[] = [reservationListCatalogMeta, timeSlotsCatalogMeta];
 
 describe.each(metas.map((meta) => [meta.name, meta] as const))("%s catalog meta", (_, meta) => {
   const schemas = Object.entries(meta.propSchemas ?? {});

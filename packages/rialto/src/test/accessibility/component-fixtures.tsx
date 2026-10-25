@@ -103,6 +103,7 @@ import { TextArea } from "../../components/TextArea/TextArea";
 import { ThemeToggle } from "../../components/ThemeToggle/ThemeToggle";
 import { TimePicker } from "../../components/TimePicker/TimePicker";
 import { Timeline } from "../../components/Timeline/Timeline";
+import { TimeSlots } from "../../components/TimeSlots/TimeSlots";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
@@ -206,6 +207,7 @@ export type BarrelExportName =
   | "ThemeToggle"
   | "TimePicker"
   | "Timeline"
+  | "TimeSlots"
   | "Toast"
   | "Toggle"
   | "Tooltip"
@@ -807,6 +809,12 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
           { title: "Updated", timestamp: "2024-01-02" },
         ]}
       />
+    ),
+  },
+
+  TimeSlots: {
+    element: (
+      <TimeSlots date="Friday, Oct 30" partySize={4} times={["6:00 PM", "7:45 PM", "8:30 PM"]} />
     ),
   },
 
