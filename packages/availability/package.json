@@ -25,6 +25,7 @@
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "fast-check": "^4",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

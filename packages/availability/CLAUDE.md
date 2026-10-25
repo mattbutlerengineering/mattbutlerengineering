@@ -14,6 +14,8 @@ src/
 ├── date-rules.ts       # which date rules apply to a day (range, repeat, skips, Tonight) and their labels
 ├── format-minute.ts    # "10:30 PM" for a service-day minute
 ├── resolve-day.ts      # resolveDay — the layer stack for one service day, with "Why this day"
+├── slot-rules.ts       # duration, table fit, conflict, pacing — moved from the reservations service
+├── slots.ts            # listSlots and judge (ok / soft / hard) over a BookingSnapshot
 ├── instant.ts          # serviceDayInstant, localDateTimeOf — the only wall-clock ↔ instant crossing
 └── validate-config.ts  # validateConfig — cross-row invariants over the @mbe/types config schemas
 ```
@@ -34,6 +36,12 @@ src/
   requested service date. A skip or an edited date (any row with `seriesId`)
   takes its series out on its own dates. Each `explanation[].removalResult` is
   `resolveDay` with that row removed, so keep `resolveLayers` side-effect free.
+- `judge` finds the owning service day from the _planned_ day (closures and
+  Tonight stripped), then applies the real one. Otherwise a whole-day closure
+  on D−1 (band 0–2880) would swallow D's early-morning seatings.
+- `slots.property.test.ts` is the SC Correctness guard (fast-check). If you
+  change listing or closure logic and it still passes, check that it can
+  still fail.
 - `serviceDayInstant` takes minutes past the service day's midnight and
   accepts values ≥ 1440 for services that run past midnight (ADR-029). A
   spring-forward gap returns `null`; a fall-back repeat resolves to its first
