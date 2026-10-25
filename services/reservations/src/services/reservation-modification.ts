@@ -9,6 +9,7 @@ import {
   isSlotInBookingWindow,
 } from "./slot-rules.js";
 import type { DepositService } from "./deposit.js";
+import type { GateRejection } from "./assert-bookable.js";
 import type { ReservationEventActor } from "./reservation-events.js";
 
 /** Guest-supplied fields for a modify request; all optional (at least one required). */
@@ -28,7 +29,15 @@ export interface ModifyHold {
 
 export type ModifyReservationResult =
   | { success: true; reservation: Reservation }
-  | { success: false; status: number; title: string; detail: string; code: string };
+  | {
+      success: false;
+      status: number;
+      title: string;
+      detail: string;
+      code: string;
+      /** The availability gate refused the held slot (route answers 422 via `gateProblem`). */
+      rejection?: GateRejection;
+    };
 
 const NO_CHANGES_RESULT: ModifyReservationResult = {
   success: false,
@@ -75,6 +84,7 @@ const MOVE_ERROR_RESULTS = {
   EXPIRED: { status: 410, title: "Hold Expired", code: "HOLD_EXPIRED" },
   CONFLICT: { status: 409, title: "Slot Unavailable", code: "SLOT_UNAVAILABLE" },
   PACING_EXCEEDED: { status: 422, title: "Pacing Exceeded", code: "PACING_EXCEEDED" },
+  NOT_BOOKABLE: { status: 422, title: "Outside Availability", code: "NOT_BOOKABLE" },
 } as const;
 
 const DEPOSIT_HELD_STATUSES = new Set(["pending", "held"]);
@@ -302,7 +312,12 @@ async function modifyViaHold(
     actor,
   });
   if (!moved.success) {
-    return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
+    return {
+      success: false,
+      detail: moved.error,
+      ...MOVE_ERROR_RESULTS[moved.errorCode],
+      ...(moved.rejection && { rejection: moved.rejection }),
+    };
   }
   return { success: true, reservation: moved.reservation };
 }

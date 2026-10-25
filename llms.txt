@@ -11474,6 +11474,66 @@
     <item priority="high">
       export function assertBookable(opts: AssertBookableOptions): BookableError | undefined { /* ... */ }
     </item>
+    <item priority="low">
+      type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits: ;
+    </item>
+    <item priority="low">
+      type GateOutcome = { kind: "ok" } | { kind: "conflict" } | { kind: "rejected"; rejection:;
+    </item>
+    <item priority="low">
+      interface GateRequest {
+        venueId: string;
+        tableId: string;
+        start: Date;
+        partySize: number;
+        channel: BookingChannel;
+      }
+    </item>
+    <item priority="high">
+      type GateDb = NonNullable<LoadSnapshotOptions["db"]>;
+    </item>
+    <item priority="low">
+      async function excludedHoldIds(db: GateDb, request: GateRequest): Promise<Set<string>> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withoutExcluded(
+        snapshot: BookingSnapshot,
+        reservationId: string | undefined,
+        holdIds: Set<string>
+      ): BookingSnapshot { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function judgeBooking(
+        db: GateDb,
+        request: GateRequest,
+        now: Date = new Date(),
+        logger: SnapshotLogger = CONSOLE_LOGGER
+      ): Promise<GateOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outcomeOf(verdict: Verdict): GateOutcome { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outsideAvailability(reason: HardReason, message?: string): GateOutcome { /* ... */ }
+    </item>
+    <item priority="medium">
+      function blockingBand(
+        snapshot: BookingSnapshot,
+        serviceDate: string,
+        minute: number,
+        tableId: string
+      ): { reason: HardReason; message?: string } | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function unsetHoursStaffOutcome(
+        snapshot: BookingSnapshot,
+        request: GateRequest,
+        logger: SnapshotLogger
+      ): GateOutcome { /* ... */ }
+    </item>
+    <item priority="high">
+      export function gateProblem(rejection: GateRejection): ProblemDetails { /* ... */ }
+    </item>
   </file>
   <file path="services/reservations/src/services/assume-app-role.ts">
     <item priority="high">
@@ -11921,7 +11981,7 @@
         version: number;
         warnings: SnapshotWarning[];
         source: SnapshotSource;
-        venueSettings: VenueSettings | null;
+        unconfigured: boolean;
       }
     </item>
     <item priority="high">
@@ -11977,7 +12037,7 @@
         venue: LegacyVenue,
         now: Date,
         warnings: SnapshotWarning[]
-      ): { config: AvailabilityConfig; source: SnapshotSource } { /* ... */ }
+      ): { config: AvailabilityConfig; source: SnapshotSource; unconfigured?: true } { /* ... */ }
     </item>
     <item priority="medium">
       function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null { /* ... */ }
@@ -12102,13 +12162,10 @@
       export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
     </item>
     <item priority="low">
-      type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+      type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
-      interface SlotConflict {
-        code: SlotConflictCode;
-        message: string;
-      }
+      type SlotConflict = { code: Exclude<SlotConflictCo | { code: "NOT_BOOKABLE"; messag;
     </item>
     <item priority="low">
       type SlotWriteResult = { ok: true; value: T } | { ok: false; conflict: SlotCon;
@@ -12124,6 +12181,13 @@
     </item>
     <item priority="high">
       export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteResult<T>> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function availabilityConflict(
+        tx: Prisma.TransactionClient,
+        intent: BookSlotIntent<unknown> & { venueId: string },
+        channel: BookingChannel
+      ): Promise<SlotConflict | undefined> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/booking-metrics.ts">
@@ -12204,7 +12268,7 @@
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     <item priority="high">
-      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
       interface ConfirmHoldInput {
@@ -12216,7 +12280,9 @@
       }
     </item>
     <item priority="low">
-      type ConfirmHoldResult = { success: true; reservation:  | { success: false; error: strin;
+      type ConfirmHoldResult = { success: true; reservation:  | {
+            success: false;
+            ;
     </item>
     <item priority="high">
       export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> { /* ... */ }
@@ -12725,7 +12791,7 @@
   </file>
   <file path="services/reservations/src/services/move-to-hold.ts">
     <item priority="high">
-      type MoveToHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+      type MoveToHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
       interface MoveToHoldInput {
@@ -12737,7 +12803,9 @@
       }
     </item>
     <item priority="low">
-      type MoveToHoldResult = { success: true; reservation:  | { success: false; error: strin;
+      type MoveToHoldResult = { success: true; reservation:  | {
+            success: false;
+            ;
     </item>
     <item priority="high">
       export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
@@ -12959,7 +13027,9 @@
       }
     </item>
     <item priority="low">
-      type ModifyReservationResult = { success: true; reservation:  | { success: false; status: numb;
+      type ModifyReservationResult = { success: true; reservation:  | {
+            success: false;
+            ;
     </item>
     <item priority="medium">
       function hasAnyChange(changes: ReservationChanges): boolean { /* ... */ }
@@ -13113,6 +13183,9 @@
         conflict?: ConflictCheckResult;
         capacityExceeded?: boolean;
       }
+    </item>
+    <item priority="medium">
+      function staffSlotFailure(conflict: SlotConflict) { /* ... */ }
     </item>
     <item priority="medium">
       function compareReservationDateDesc(

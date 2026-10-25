@@ -28703,6 +28703,10 @@
               );
           }
     
+          if (result.rejection) {
+            return reply.code(422).send(gateProblem(result.rejection));
+          }
+    
           if (!result.success) {
             const statusCode = result.error?.includes("not found") ? 404 : 409;
             const title = statusCode === 404 ? "Not Found" : "Conflict";
@@ -28905,6 +28909,10 @@
               },
               { door: "staff-hold" }
             );
+    
+            if (!result.success && result.rejection) {
+              return reply.code(422).send(gateProblem(result.rejection));
+            }
     
             if (!result.success) {
               const statusMap: Record<string, number> = {
@@ -29485,6 +29493,10 @@
               guestActor(preamble.reservation.guestId)
             );
     
+            if (!result.success && result.rejection) {
+              return reply.status(422).send(gateProblem(result.rejection));
+            }
+    
             if (!result.success) {
               return reply.status(result.status).send(
                 createProblemDetails(
@@ -30028,6 +30040,10 @@
               sessionId
             );
     
+            if (result.rejection) {
+              return reply.status(422).send(gateProblem(result.rejection));
+            }
+    
             if (!result.success) {
               return reply
                 .status(409)
@@ -30188,6 +30204,10 @@
                     : undefined,
               }
             );
+    
+            if (!result.success && result.rejection) {
+              return reply.status(422).send(gateProblem(result.rejection));
+            }
     
             if (!result.success) {
               const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;
@@ -31323,6 +31343,10 @@
                 );
             }
     
+            if (result.rejection) {
+              return reply.code(422).send(gateProblem(result.rejection));
+            }
+    
             if (!result.success) {
               const statusCode = result.conflict?.hasConflict ? 409 : 400;
               const title = statusCode === 409 ? "Conflict" : "Bad Request";
@@ -31533,6 +31557,10 @@
                       result.error ?? "Party does not fit this table"
                     )
                   );
+              }
+    
+              if (result.rejection) {
+                return reply.code(422).send(gateProblem(result.rejection));
               }
     
               if (result.conflict?.hasConflict) {
@@ -39996,6 +40024,157 @@
     
       return undefined;
     }
+    export type GateRejection =
+      | { code: "outside-availability"; reason: HardReason; message?: string }
+      | { code: "soft-limit"; limits: SoftLimit[] };
+    export type GateOutcome =
+      { kind: "ok" } | { kind: "conflict" } | { kind: "rejected"; rejection: GateRejection };
+    export interface GateRequest {
+      venueId: string;
+      tableId: string;
+      start: Date;
+      partySize: number;
+      /** Guests book `online`; staff create and update are `phone`. Walk-ins are never gated. */
+      channel: BookingChannel;
+      /** The reservation being moved; it must not conflict or pace against itself. */
+      excludeReservationId?: string;
+      /** The hold being confirmed or moved onto. */
+      excludeHoldId?: string;
+      /** The caller's own session, whose holds a new hold replaces. */
+      excludeSessionId?: string;
+    }
+    type GateDb = NonNullable<LoadSnapshotOptions["db"]>;
+    async function excludedHoldIds(db: GateDb, request: GateRequest): Promise<Set<string>> {
+      const ids = new Set(request.excludeHoldId ? [request.excludeHoldId] : []);
+      if (request.excludeSessionId === undefined) return ids;
+      const own = await db.reservationHold.findMany({
+        where: { venueId: request.venueId, sessionId: request.excludeSessionId },
+        select: { id: true },
+      });
+      return new Set([...ids, ...own.map((h) => h.id)]);
+    }
+    function withoutExcluded(
+      snapshot: BookingSnapshot,
+      reservationId: string | undefined,
+      holdIds: Set<string>
+    ): BookingSnapshot {
+      return {
+        ...snapshot,
+        reservations: snapshot.reservations.filter((r) => r.id !== reservationId),
+        holds: snapshot.holds.filter((h) => !holdIds.has(h.id)),
+      };
+    }
+    export async function judgeBooking(
+      db: GateDb,
+      request: GateRequest,
+      now: Date = new Date(),
+      logger: SnapshotLogger = CONSOLE_LOGGER
+    ): Promise<GateOutcome> {
+      const venue = await db.venue.findUnique({
+        where: { id: request.venueId },
+        select: { ianaTimezone: true },
+      });
+      const day = localDateTimeOf(request.start, venue?.ianaTimezone ?? "UTC").date;
+      const [loaded, holdIds] = await Promise.all([
+        loadAvailabilitySnapshot(request.venueId, addDays(day, -1), day, now, { db }),
+        excludedHoldIds(db, request),
+      ]);
+      const snapshot = withoutExcluded(loaded.snapshot, request.excludeReservationId, holdIds);
+      const verdict = judge(
+        snapshot,
+        {
+          start: request.start,
+          partySize: request.partySize,
+          channel: request.channel,
+          tableId: request.tableId,
+        },
+        now
+      );
+      const staffOnUnsetHours =
+        loaded.unconfigured &&
+        request.channel === "phone" &&
+        verdict.kind === "hard" &&
+        verdict.reason === "outside_service";
+      if (!staffOnUnsetHours) return outcomeOf(verdict);
+      return unsetHoursStaffOutcome(snapshot, request, logger);
+    }
+    function outcomeOf(verdict: Verdict): GateOutcome {
+      switch (verdict.kind) {
+        case "ok":
+        case "ok_with_override":
+          return { kind: "ok" };
+        case "soft":
+          return { kind: "rejected", rejection: { code: "soft-limit", limits: verdict.limits } };
+        case "hard":
+          if (verdict.reason === "conflict") return { kind: "conflict" };
+          return outsideAvailability(verdict.reason, verdict.message);
+      }
+    }
+    function outsideAvailability(reason: HardReason, message?: string): GateOutcome {
+      return {
+        kind: "rejected",
+        rejection: { code: "outside-availability", reason, ...(message ? { message } : {}) },
+      };
+    }
+    function blockingBand(
+      snapshot: BookingSnapshot,
+      serviceDate: string,
+      minute: number,
+      tableId: string
+    ): { reason: HardReason; message?: string } | null {
+      const day = resolveDay(snapshot, serviceDate);
+      const band = day.closures.find(
+        (b) =>
+          b.from <= minute &&
+          minute < b.to &&
+          (b.targetKind === "venue" ||
+            (b.targetKind === "booking" && (b.bookingTypes ?? []).includes("phone")) ||
+            (b.targetKind === "tables" && (b.tableIds ?? []).includes(tableId)))
+      );
+      if (!band) return null;
+      const reason: HardReason =
+        band.targetKind === "venue"
+          ? "closed"
+          : band.targetKind === "booking"
+            ? "booking_closed"
+            : "table_blocked";
+      return { reason, ...(day.guestMessage ? { message: day.guestMessage } : {}) };
+    }
+    function unsetHoursStaffOutcome(
+      snapshot: BookingSnapshot,
+      request: GateRequest,
+      logger: SnapshotLogger
+    ): GateOutcome {
+      const local = localDateTimeOf(request.start, snapshot.timezone);
+      const block =
+        blockingBand(snapshot, local.date, local.minute, request.tableId) ??
+        blockingBand(
+          snapshot,
+          addDays(local.date, -1),
+          local.minute + MINUTES_PER_DAY,
+          request.tableId
+        );
+      if (block) return outsideAvailability(block.reason, block.message);
+      logger.warn(
+        { venueId: request.venueId, tableId: request.tableId, start: request.start.toISOString() },
+        "booking_gate_no_hours_staff_allowed"
+      );
+      return { kind: "ok" };
+    }
+    export function gateProblem(rejection: GateRejection): ProblemDetails {
+      if (rejection.code === "outside-availability") {
+        const detail = rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
+        return createProblemDetails(422, "Outside Availability", detail, "about:blank", undefined, {
+          code: rejection.code,
+          reason: rejection.reason,
+        });
+      }
+      const detail = `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
+      return createProblemDetails(422, "Soft Limit", detail, "about:blank", undefined, {
+        code: rejection.code,
+        limits: rejection.limits,
+      });
+    }
   </file>
   <file path="services/reservations/src/services/assume-app-role.ts">
     export const APP_RESERVATIONS_ROLE = "app_reservations";
@@ -41110,6 +41289,12 @@
       version: number;
       warnings: SnapshotWarning[];
       source: SnapshotSource;
+      /**
+       * The venue never set hours: no regular schedule row and no legacy
+       * `operatingHours`. Distinct from hours that exist but cannot be read, which
+       * are `source: "none"` with a warning. The booking gate lets staff book here.
+       */
+      unconfigured: boolean;
       /** The venue's full settings (booking window, phone), beyond the engine's subset. */
       venueSettings: VenueSettings | null;
     }
@@ -41218,7 +41403,7 @@
       venue: LegacyVenue,
       now: Date,
       warnings: SnapshotWarning[]
-    ): { config: AvailabilityConfig; source: SnapshotSource } {
+    ): { config: AvailabilityConfig; source: SnapshotSource; unconfigured?: true } {
       if (hasRegularSchedule(config)) return { config, source: "rows" };
       const plan = planVenueMigration(venue, now, undefined, { lenient: true });
       if (plan.kind === "migrate") {
@@ -41238,10 +41423,9 @@
         };
       }
       // "no_hours" is a venue with nothing configured, not a bad row.
-      if (plan.reason !== "no_hours") {
-        const reason = `legacy operatingHours ${plan.reason}${plan.detail ? `: ${plan.detail}` : ""}`;
-        warnings.push({ table: "venues", id: venueId, reason });
-      }
+      if (plan.reason === "no_hours") return { config, source: "none", unconfigured: true };
+      const reason = `legacy operatingHours ${plan.reason}${plan.detail ? `: ${plan.detail}` : ""}`;
+      warnings.push({ table: "venues", id: venueId, reason });
       return { config, source: "none" };
     }
     function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null {
@@ -41405,7 +41589,13 @@
         warnings
       );
     
-      const { config, source } = effectiveConfig(venueId, rowConfig, venue, now, warnings);
+      const { config, source, unconfigured } = effectiveConfig(
+        venueId,
+        rowConfig,
+        venue,
+        now,
+        warnings
+      );
     
       if (options.logger) {
         for (const warning of warnings) {
@@ -41426,6 +41616,7 @@
         version: venue.availabilityVersion,
         warnings,
         source,
+        unconfigured: unconfigured ?? false,
         venueSettings,
       };
     }
@@ -41626,11 +41817,10 @@
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
-    export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
-    export interface SlotConflict {
-      code: SlotConflictCode;
-      message: string;
-    }
+    export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
+    export type SlotConflict =
+      | { code: Exclude<SlotConflictCode, "NOT_BOOKABLE">; message: string }
+      | { code: "NOT_BOOKABLE"; message: string; rejection: GateRejection };
     export type SlotWriteResult<T> = { ok: true; value: T } | { ok: false; conflict: SlotConflict };
     export interface BookSlotIntent<T> {
       /** Table whose slot is written; keys the advisory lock and conflict re-check. */
@@ -41653,6 +41843,12 @@
       checkHoldConflict?: boolean;
       /** Re-check pacing under the lock. Requires venueId. */
       checkPacing?: boolean;
+      /**
+       * Judge the slot against the venue's resolved availability under the lock,
+       * reading the committed configuration through this transaction
+       * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
+       */
+      gate?: { channel: BookingChannel };
       /**
        * Runs immediately after the lock, before the conflict re-check. Returning a
        * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -41680,6 +41876,7 @@
         excludeSessionId,
         checkHoldConflict = false,
         checkPacing = false,
+        gate,
         guard,
         onUnbookable,
         write,
@@ -41774,9 +41971,37 @@
           }
         }
     
+        if (gate && venueId) {
+          const gateConflict = await availabilityConflict(tx, { ...intent, venueId }, gate.channel);
+          if (gateConflict) return fail(gateConflict);
+        }
+    
         const value = await write(tx);
         return { ok: true, value };
       });
+    }
+    async function availabilityConflict(
+      tx: Prisma.TransactionClient,
+      intent: BookSlotIntent<unknown> & { venueId: string },
+      channel: BookingChannel
+    ): Promise<SlotConflict | undefined> {
+      const outcome = await judgeBooking(tx, {
+        venueId: intent.venueId,
+        tableId: intent.tableId,
+        start: intent.window.startTime,
+        partySize: intent.partySize,
+        channel,
+        excludeReservationId: intent.excludeReservationId,
+        excludeHoldId: intent.excludeHoldId,
+        excludeSessionId: intent.excludeSessionId,
+      });
+      if (outcome.kind === "conflict") {
+        return { code: "CONFLICT", message: "Table is not available for this time slot" };
+      }
+      if (outcome.kind === "rejected") {
+        return { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection };
+      }
+      return undefined;
     }
   </file>
   <file path="services/reservations/src/services/booking-metrics.ts">
@@ -41980,7 +42205,7 @@
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
-      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
     export interface ConfirmHoldInput {
       holdId: string;
       sessionId?: string;
@@ -41999,7 +42224,13 @@
     }
     export type ConfirmHoldResult =
       | { success: true; reservation: Reservation }
-      | { success: false; error: string; errorCode: ConfirmHoldErrorCode };
+      | {
+          success: false;
+          error: string;
+          errorCode: ConfirmHoldErrorCode;
+          /** Set with `NOT_BOOKABLE`: the availability gate's refusal (route answers 422). */
+          rejection?: GateRejection;
+        };
     export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> {
       const { holdId, sessionId, guestDetails, userId, venueId, actor = SYSTEM_ACTOR } = input;
     
@@ -42071,6 +42302,9 @@
         excludeHoldId: holdId,
         checkHoldConflict: true,
         checkPacing: hold.venueId != null,
+        // Re-judge the slot against the committed availability, so a closure saved
+        // after the hold was created wins over the hold.
+        gate: { channel: "online" },
         // Re-check expiry under the lock so an expired hold never produces a
         // reservation, even if it expired between the lookup and acquiring the lock.
         guard: async () =>
@@ -42123,11 +42357,15 @@
       });
     
       if (!result.ok) {
-        const { code } = result.conflict;
-        if (code === "EXPIRED") {
+        const { conflict } = result;
+        if (conflict.code === "NOT_BOOKABLE") {
+          const { message: error, rejection } = conflict;
+          return { success: false, error, errorCode: "NOT_BOOKABLE", rejection };
+        }
+        if (conflict.code === "EXPIRED") {
           return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
         }
-        if (code === "PACING_EXCEEDED") {
+        if (conflict.code === "PACING_EXCEEDED") {
           return {
             success: false,
             error: "Pacing limit reached for this time slot",
@@ -44747,6 +44985,8 @@
       tableNotInVenue?: boolean;
       /** The party does not fit the caller-named table (route answers 422). */
       partyDoesNotFit?: boolean;
+      /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
+      rejection?: GateRejection;
     }
     export const holdService = {
       /**
@@ -44845,6 +45085,7 @@
           partySize,
           excludeSessionId: sessionId,
           checkHoldConflict: true,
+          gate: { channel: "online" },
           write: async (tx) => {
             // Release any existing holds for this session at this venue, then create.
             await tx.reservationHold.deleteMany({ where: { sessionId, venueId } });
@@ -44864,6 +45105,13 @@
         });
     
         if (!result.ok) {
+          if (result.conflict.code === "NOT_BOOKABLE") {
+            return {
+              success: false,
+              error: result.conflict.message,
+              rejection: result.conflict.rejection,
+            };
+          }
           return { success: false, error: "Table is not available for this time slot" };
         }
     
@@ -45640,7 +45888,7 @@
   </file>
   <file path="services/reservations/src/services/move-to-hold.ts">
     type MoveToHoldErrorCode =
-      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
     export interface MoveToHoldInput {
       /** The existing reservation to move. Its status is never changed. */
       reservation: Reservation;
@@ -45659,7 +45907,13 @@
     }
     export type MoveToHoldResult =
       | { success: true; reservation: Reservation }
-      | { success: false; error: string; errorCode: MoveToHoldErrorCode };
+      | {
+          success: false;
+          error: string;
+          errorCode: MoveToHoldErrorCode;
+          /** Set with `NOT_BOOKABLE`: the availability gate's refusal. */
+          rejection?: GateRejection;
+        };
     export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
       const { reservation, holdId, sessionId, venueId, notes, actor = SYSTEM_ACTOR } = input;
     
@@ -45685,6 +45939,7 @@
         excludeHoldId: holdId,
         checkHoldConflict: true,
         checkPacing: true,
+        gate: { channel: "online" },
         guard: async () =>
           hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
         write: async (tx) => {
@@ -45722,11 +45977,15 @@
       });
     
       if (!result.ok) {
-        const { code } = result.conflict;
-        if (code === "EXPIRED") {
+        const { conflict } = result;
+        if (conflict.code === "NOT_BOOKABLE") {
+          const { message: error, rejection } = conflict;
+          return { success: false, error, errorCode: "NOT_BOOKABLE", rejection };
+        }
+        if (conflict.code === "EXPIRED") {
           return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
         }
-        if (code === "PACING_EXCEEDED") {
+        if (conflict.code === "PACING_EXCEEDED") {
           return {
             success: false,
             error: "Pacing limit reached for this time slot",
@@ -46427,7 +46686,15 @@
     }
     export type ModifyReservationResult =
       | { success: true; reservation: Reservation }
-      | { success: false; status: number; title: string; detail: string; code: string };
+      | {
+          success: false;
+          status: number;
+          title: string;
+          detail: string;
+          code: string;
+          /** The availability gate refused the held slot (route answers 422 via `gateProblem`). */
+          rejection?: GateRejection;
+        };
     function hasAnyChange(changes: ReservationChanges): boolean {
       return (
         changes.date !== undefined ||
@@ -46588,7 +46855,12 @@
         actor,
       });
       if (!moved.success) {
-        return { success: false, detail: moved.error, ...MOVE_ERROR_RESULTS[moved.errorCode] };
+        return {
+          success: false,
+          detail: moved.error,
+          ...MOVE_ERROR_RESULTS[moved.errorCode],
+          ...(moved.rejection && { rejection: moved.rejection }),
+        };
       }
       return { success: true, reservation: moved.reservation };
     }
@@ -47042,6 +47314,8 @@
       tableNotInVenue?: boolean;
       /** The party does not fit the caller-named table (route answers 422). */
       partyDoesNotFit?: boolean;
+      /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
+      rejection?: GateRejection;
     }
     function isSlotMove(data: UpdateReservationRequest): boolean {
       return (
@@ -47059,6 +47333,18 @@
       capacityExceeded?: boolean;
       /** The requested table is missing or belongs to another venue (route answers 403). */
       tableNotInVenue?: boolean;
+      /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
+      rejection?: GateRejection;
+    }
+    function staffSlotFailure(conflict: SlotConflict) {
+      if (conflict.code === "NOT_BOOKABLE") {
+        return { success: false, error: conflict.message, rejection: conflict.rejection } as const;
+      }
+      return {
+        success: false,
+        error: "Time slot has a conflict with an existing reservation or hold",
+        conflict: { hasConflict: true },
+      } as const;
     }
     function compareReservationDateDesc(
       a: { date: Date; startTime: Date },
@@ -47310,6 +47596,7 @@
           window: { startTime, endTime },
           partySize: data.partySize,
           checkHoldConflict: true,
+          gate: { channel: "phone" },
           write: async (tx) => {
             const created = await tx.reservation.create({
               data: {
@@ -47347,13 +47634,7 @@
           },
         });
     
-        if (!result.ok) {
-          return {
-            success: false,
-            error: "Time slot has a conflict with an existing reservation or hold",
-            conflict: { hasConflict: true },
-          };
-        }
+        if (!result.ok) return staffSlotFailure(result.conflict);
     
         return { success: true, reservation: toReservation(result.value) };
       },
@@ -47680,6 +47961,7 @@
           partySize: data.partySize ?? existing.partySize,
           excludeReservationId: id,
           checkHoldConflict: true,
+          gate: { channel: "phone" },
           write: async (tx) => {
             try {
               const moved = await tx.reservation.update({
@@ -47703,13 +47985,7 @@
           },
         });
     
-        if (!result.ok) {
-          return {
-            success: false,
-            error: "Time slot has a conflict with an existing reservation or hold",
-            conflict: { hasConflict: true },
-          };
-        }
+        if (!result.ok) return staffSlotFailure(result.conflict);
     
         if (!result.value) {
           return { success: false, error: "Failed to update reservation" };

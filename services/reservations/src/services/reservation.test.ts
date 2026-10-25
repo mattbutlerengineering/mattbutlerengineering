@@ -42,13 +42,14 @@ vi.mock("./slot-rules.js", async (importOriginal) => {
 
 vi.mock("./assert-bookable.js", () => ({
   assertBookable: vi.fn().mockReturnValue(undefined),
+  judgeBooking: vi.fn().mockResolvedValue({ kind: "ok" }),
 }));
 
 import { reservationService } from "./reservation.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { checkTableConflict, checkPacingForSlot } from "./slot-rules.js";
-import { assertBookable } from "./assert-bookable.js";
+import { assertBookable, judgeBooking, type GateRejection } from "./assert-bookable.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import { getCurrentVenueId } from "./venue-context-store.js";
 
@@ -178,6 +179,7 @@ describe("reservationService", () => {
     vi.mocked(checkPacingForSlot).mockReturnValue(true);
     // assertBookable: slot is bookable by default (returns undefined = no error).
     vi.mocked(assertBookable).mockReturnValue(undefined);
+    vi.mocked(judgeBooking).mockResolvedValue({ kind: "ok" });
     // Default: every table the suite names belongs to venue-1, the venue every
     // fixture books at. The cross-venue suite below overrides this.
     vi.mocked(prisma.table.findUnique).mockResolvedValue({
@@ -666,6 +668,28 @@ describe("reservationService", () => {
       expect(result.success).toBe(true);
       expect(result.reservation).toBeDefined();
       expect(assertBookable).toHaveBeenCalledTimes(1);
+    });
+
+    it("judges the slot on the phone channel and returns the gate's rejection", async () => {
+      const rejection: GateRejection = { code: "soft-limit", limits: ["after_last_seating"] };
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+      const tx = useSlotTxOnce();
+
+      const result = await reservationService.createWithConflictCheck({
+        date: "2026-05-05",
+        startTime: "2026-05-05T18:00:00Z",
+        endTime: "2026-05-05T19:30:00Z",
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(result).toMatchObject({ success: false, rejection });
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ channel: "phone", tableId: "table-1", partySize: 2 })
+      );
+      expect(tx.reservation.create).not.toHaveBeenCalled();
     });
 
     it("returns failure when assertBookable reports CONFLICT", async () => {
@@ -1316,6 +1340,26 @@ describe("reservationService", () => {
       expect(result.success).toBe(true);
       expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
       expect(assertBookable).not.toHaveBeenCalled();
+    });
+
+    it("judges a move on the phone channel, excluding itself, and returns the gate's rejection", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      const rejection = { code: "outside-availability", reason: "closed" } as const;
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+      const tx = useSlotTxOnce();
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        startTime: "2026-05-05T19:00:00Z",
+      });
+
+      expect(result).toMatchObject({ success: false, rejection });
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ channel: "phone", excludeReservationId: "res-1" })
+      );
+      expect(tx.reservation.update).not.toHaveBeenCalled();
     });
 
     it("checks the booking invariant via assertBookable when time changes", async () => {

@@ -8,6 +8,8 @@ import {
   NOT_BOOKED_STATUSES,
 } from "./slot-rules.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import type { BookingChannel } from "@mbe/availability";
+import { judgeBooking, type GateRejection } from "./assert-bookable.js";
 
 /**
  * Builds a transaction-scoped advisory lock statement keyed on the table id.
@@ -28,12 +30,12 @@ export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
 }
 
 /** Why a slot could not be written. */
-export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
 
-export interface SlotConflict {
-  code: SlotConflictCode;
-  message: string;
-}
+/** `NOT_BOOKABLE` is the availability gate's refusal and carries its {@link GateRejection}. */
+export type SlotConflict =
+  | { code: Exclude<SlotConflictCode, "NOT_BOOKABLE">; message: string }
+  | { code: "NOT_BOOKABLE"; message: string; rejection: GateRejection };
 
 /**
  * Outcome of a {@link bookSlot} call: the value produced by the caller's write
@@ -62,6 +64,12 @@ export interface BookSlotIntent<T> {
   checkHoldConflict?: boolean;
   /** Re-check pacing under the lock. Requires venueId. */
   checkPacing?: boolean;
+  /**
+   * Judge the slot against the venue's resolved availability under the lock,
+   * reading the committed configuration through this transaction
+   * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
+   */
+  gate?: { channel: BookingChannel };
   /**
    * Runs immediately after the lock, before the conflict re-check. Returning a
    * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -108,6 +116,7 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     excludeSessionId,
     checkHoldConflict = false,
     checkPacing = false,
+    gate,
     guard,
     onUnbookable,
     write,
@@ -202,7 +211,39 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
       }
     }
 
+    if (gate && venueId) {
+      const gateConflict = await availabilityConflict(tx, { ...intent, venueId }, gate.channel);
+      if (gateConflict) return fail(gateConflict);
+    }
+
     const value = await write(tx);
     return { ok: true, value };
   });
+}
+
+const GATE_MESSAGE = "Requested time is outside the venue's availability";
+
+/** The availability gate's verdict on this intent's slot, as a {@link SlotConflict}. */
+async function availabilityConflict(
+  tx: Prisma.TransactionClient,
+  intent: BookSlotIntent<unknown> & { venueId: string },
+  channel: BookingChannel
+): Promise<SlotConflict | undefined> {
+  const outcome = await judgeBooking(tx, {
+    venueId: intent.venueId,
+    tableId: intent.tableId,
+    start: intent.window.startTime,
+    partySize: intent.partySize,
+    channel,
+    excludeReservationId: intent.excludeReservationId,
+    excludeHoldId: intent.excludeHoldId,
+    excludeSessionId: intent.excludeSessionId,
+  });
+  if (outcome.kind === "conflict") {
+    return { code: "CONFLICT", message: "Table is not available for this time slot" };
+  }
+  if (outcome.kind === "rejected") {
+    return { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection };
+  }
+  return undefined;
 }

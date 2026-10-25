@@ -20,9 +20,9 @@ import { setVenueContext } from "../middleware/venue-context.js";
 import { assumeAppRole } from "./assume-app-role.js";
 import { getCurrentVenueId, runWithVenueContext } from "./venue-context-store.js";
 import { availabilityService } from "./availability.js";
-import { assertBookable } from "./assert-bookable.js";
+import { assertBookable, type GateRejection } from "./assert-bookable.js";
 import { venueLocalDateString } from "./slot-rules.js";
-import { bookSlot } from "./book-slot.js";
+import { bookSlot, type SlotConflict } from "./book-slot.js";
 import { toReservation, toTable } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import { guestService } from "./guest.js";
@@ -72,6 +72,8 @@ export interface CreateReservationResult {
   tableNotInVenue?: boolean;
   /** The party does not fit the caller-named table (route answers 422). */
   partyDoesNotFit?: boolean;
+  /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
+  rejection?: GateRejection;
 }
 
 /** True when the patch moves the reservation's slot (date, time or table). */
@@ -92,6 +94,20 @@ export interface UpdateReservationResult {
   capacityExceeded?: boolean;
   /** The requested table is missing or belongs to another venue (route answers 403). */
   tableNotInVenue?: boolean;
+  /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
+  rejection?: GateRejection;
+}
+
+/** A staff create or move that {@link bookSlot} refused: the gate's verdict, else a conflict. */
+function staffSlotFailure(conflict: SlotConflict) {
+  if (conflict.code === "NOT_BOOKABLE") {
+    return { success: false, error: conflict.message, rejection: conflict.rejection } as const;
+  }
+  return {
+    success: false,
+    error: "Time slot has a conflict with an existing reservation or hold",
+    conflict: { hasConflict: true },
+  } as const;
 }
 
 /**
@@ -350,6 +366,7 @@ export const reservationService = {
       window: { startTime, endTime },
       partySize: data.partySize,
       checkHoldConflict: true,
+      gate: { channel: "phone" },
       write: async (tx) => {
         const created = await tx.reservation.create({
           data: {
@@ -387,13 +404,7 @@ export const reservationService = {
       },
     });
 
-    if (!result.ok) {
-      return {
-        success: false,
-        error: "Time slot has a conflict with an existing reservation or hold",
-        conflict: { hasConflict: true },
-      };
-    }
+    if (!result.ok) return staffSlotFailure(result.conflict);
 
     return { success: true, reservation: toReservation(result.value) };
   },
@@ -720,6 +731,7 @@ export const reservationService = {
       partySize: data.partySize ?? existing.partySize,
       excludeReservationId: id,
       checkHoldConflict: true,
+      gate: { channel: "phone" },
       write: async (tx) => {
         try {
           const moved = await tx.reservation.update({
@@ -743,13 +755,7 @@ export const reservationService = {
       },
     });
 
-    if (!result.ok) {
-      return {
-        success: false,
-        error: "Time slot has a conflict with an existing reservation or hold",
-        conflict: { hasConflict: true },
-      };
-    }
+    if (!result.ok) return staffSlotFailure(result.conflict);
 
     if (!result.value) {
       return { success: false, error: "Failed to update reservation" };

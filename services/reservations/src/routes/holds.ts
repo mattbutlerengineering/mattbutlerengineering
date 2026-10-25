@@ -16,6 +16,7 @@ import {
 import { randomUUID } from "crypto";
 import { requireAuth } from "@mbe/auth/fastify";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
+import { gateProblem } from "../services/assert-bookable.js";
 import type { DomainServices } from "../services/domain-services.js";
 import { venueScoped, type VenueSource } from "./venue-scope.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
@@ -197,6 +198,10 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
           .send(
             createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
           );
+      }
+
+      if (result.rejection) {
+        return reply.code(422).send(gateProblem(result.rejection));
       }
 
       if (!result.success) {
@@ -401,6 +406,10 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
           },
           { door: "staff-hold" }
         );
+
+        if (!result.success && result.rejection) {
+          return reply.code(422).send(gateProblem(result.rejection));
+        }
 
         if (!result.success) {
           const statusMap: Record<string, number> = {

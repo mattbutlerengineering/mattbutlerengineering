@@ -647,6 +647,26 @@ describe("PATCH /public/v1/reservations/manage — hold-required changes", () =>
     expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
   });
 
+  it("answers 422 outside-availability when the gate refuses the held slot", async () => {
+    mockHold();
+    vi.mocked(moveReservationToHold).mockResolvedValueOnce({
+      success: false,
+      error: "Requested time is outside the venue's availability",
+      errorCode: "NOT_BOOKABLE",
+      rejection: { code: "outside-availability", reason: "booking_closed" },
+    });
+
+    const response = await patch({ holdId: "hold_1" }, SESSION_HEADERS);
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      status: 422,
+      title: "Outside Availability",
+      code: "outside-availability",
+      reason: "booking_closed",
+    });
+  });
+
   it("answers 400 STATUS_CHANGE_NOT_ALLOWED for any body carrying status", async () => {
     const response = await patch({ status: "CONFIRMED", specialRequests: "x" });
 

@@ -1,4 +1,23 @@
-import { partyFitsTable, type PartyFitTable, type VenueSettings } from "@mbe/types";
+import {
+  createProblemDetails,
+  partyFitsTable,
+  type PartyFitTable,
+  type ProblemDetails,
+  type VenueSettings,
+} from "@mbe/types";
+import { MINUTES_PER_DAY, addDays, judge, localDateTimeOf, resolveDay } from "@mbe/availability";
+import type {
+  BookingChannel,
+  BookingSnapshot,
+  HardReason,
+  SoftLimit,
+  Verdict,
+} from "@mbe/availability";
+import {
+  loadAvailabilitySnapshot,
+  type LoadSnapshotOptions,
+  type SnapshotLogger,
+} from "./availability-snapshot.js";
 import {
   checkTableConflict,
   checkPacingForSlot,
@@ -105,4 +124,213 @@ export function assertBookable(opts: AssertBookableOptions): BookableError | und
   }
 
   return undefined;
+}
+
+// ── Booking gate: the availability engine's verdict on one booking write ──
+// docs/features/venue-availability/architecture.md § Booking gate (ADR-030).
+
+/** Why the gate refused a booking. Rendered by {@link gateProblem}. */
+export type GateRejection =
+  | { code: "outside-availability"; reason: HardReason; message?: string }
+  | { code: "soft-limit"; limits: SoftLimit[] };
+
+/**
+ * `conflict` is a taken table: callers keep their existing conflict answer
+ * (409) for it, so the gate adds the availability answers without changing
+ * how a double-booking is reported.
+ */
+export type GateOutcome =
+  { kind: "ok" } | { kind: "conflict" } | { kind: "rejected"; rejection: GateRejection };
+
+export interface GateRequest {
+  venueId: string;
+  tableId: string;
+  start: Date;
+  partySize: number;
+  /** Guests book `online`; staff create and update are `phone`. Walk-ins are never gated. */
+  channel: BookingChannel;
+  /** The reservation being moved; it must not conflict or pace against itself. */
+  excludeReservationId?: string;
+  /** The hold being confirmed or moved onto. */
+  excludeHoldId?: string;
+  /** The caller's own session, whose holds a new hold replaces. */
+  excludeSessionId?: string;
+}
+
+type GateDb = NonNullable<LoadSnapshotOptions["db"]>;
+
+async function excludedHoldIds(db: GateDb, request: GateRequest): Promise<Set<string>> {
+  const ids = new Set(request.excludeHoldId ? [request.excludeHoldId] : []);
+  if (request.excludeSessionId === undefined) return ids;
+  const own = await db.reservationHold.findMany({
+    where: { venueId: request.venueId, sessionId: request.excludeSessionId },
+    select: { id: true },
+  });
+  return new Set([...ids, ...own.map((h) => h.id)]);
+}
+
+function withoutExcluded(
+  snapshot: BookingSnapshot,
+  reservationId: string | undefined,
+  holdIds: Set<string>
+): BookingSnapshot {
+  return {
+    ...snapshot,
+    reservations: snapshot.reservations.filter((r) => r.id !== reservationId),
+    holds: snapshot.holds.filter((h) => !holdIds.has(h.id)),
+  };
+}
+
+/**
+ * The single availability check every booking write passes: public hold
+ * create, hold confirm (the re-check, so a closure saved after the hold wins),
+ * staff create and update, and guest modify.
+ *
+ * Pass the booking transaction's client so the committed configuration is read
+ * inside it (READ COMMITTED). The snapshot comes from the same loader listing
+ * uses — including its legacy-hours fallback — so a guest can book exactly what
+ * listing offers. It covers the instant's venue-local date D and D−1, because a
+ * past-midnight seating belongs to the previous service day (ADR-029).
+ */
+export async function judgeBooking(
+  db: GateDb,
+  request: GateRequest,
+  now: Date = new Date(),
+  logger: SnapshotLogger = CONSOLE_LOGGER
+): Promise<GateOutcome> {
+  const venue = await db.venue.findUnique({
+    where: { id: request.venueId },
+    select: { ianaTimezone: true },
+  });
+  const day = localDateTimeOf(request.start, venue?.ianaTimezone ?? "UTC").date;
+  const [loaded, holdIds] = await Promise.all([
+    loadAvailabilitySnapshot(request.venueId, addDays(day, -1), day, now, { db }),
+    excludedHoldIds(db, request),
+  ]);
+  const snapshot = withoutExcluded(loaded.snapshot, request.excludeReservationId, holdIds);
+  const verdict = judge(
+    snapshot,
+    {
+      start: request.start,
+      partySize: request.partySize,
+      channel: request.channel,
+      tableId: request.tableId,
+    },
+    now
+  );
+  const staffOnUnsetHours =
+    loaded.unconfigured &&
+    request.channel === "phone" &&
+    verdict.kind === "hard" &&
+    verdict.reason === "outside_service";
+  if (!staffOnUnsetHours) return outcomeOf(verdict);
+  return unsetHoursStaffOutcome(snapshot, request, logger);
+}
+
+function outcomeOf(verdict: Verdict): GateOutcome {
+  switch (verdict.kind) {
+    case "ok":
+    case "ok_with_override":
+      return { kind: "ok" };
+    case "soft":
+      return { kind: "rejected", rejection: { code: "soft-limit", limits: verdict.limits } };
+    case "hard":
+      if (verdict.reason === "conflict") return { kind: "conflict" };
+      return outsideAvailability(verdict.reason, verdict.message);
+  }
+}
+
+function outsideAvailability(reason: HardReason, message?: string): GateOutcome {
+  return {
+    kind: "rejected",
+    rejection: { code: "outside-availability", reason, ...(message ? { message } : {}) },
+  };
+}
+
+const CONSOLE_LOGGER: SnapshotLogger = {
+  warn: (obj, msg) => console.warn(JSON.stringify({ level: "warn", msg, ...obj })),
+};
+
+/** A dated rule that stops a phone booking at this table at `minute` of `serviceDate`. */
+function blockingBand(
+  snapshot: BookingSnapshot,
+  serviceDate: string,
+  minute: number,
+  tableId: string
+): { reason: HardReason; message?: string } | null {
+  const day = resolveDay(snapshot, serviceDate);
+  const band = day.closures.find(
+    (b) =>
+      b.from <= minute &&
+      minute < b.to &&
+      (b.targetKind === "venue" ||
+        (b.targetKind === "booking" && (b.bookingTypes ?? []).includes("phone")) ||
+        (b.targetKind === "tables" && (b.tableIds ?? []).includes(tableId)))
+  );
+  if (!band) return null;
+  const reason: HardReason =
+    band.targetKind === "venue"
+      ? "closed"
+      : band.targetKind === "booking"
+        ? "booking_closed"
+        : "table_blocked";
+  return { reason, ...(day.guestMessage ? { message: day.guestMessage } : {}) };
+}
+
+/**
+ * A venue that never set hours has no service for the engine to place a
+ * booking in, so listing offers guests nothing. Staff keep taking phone
+ * bookings there as before this gate existed — unless a dated rule (a closure,
+ * a phone-booking stop, a blocked table) covers the time, which always applies.
+ */
+function unsetHoursStaffOutcome(
+  snapshot: BookingSnapshot,
+  request: GateRequest,
+  logger: SnapshotLogger
+): GateOutcome {
+  const local = localDateTimeOf(request.start, snapshot.timezone);
+  const block =
+    blockingBand(snapshot, local.date, local.minute, request.tableId) ??
+    blockingBand(
+      snapshot,
+      addDays(local.date, -1),
+      local.minute + MINUTES_PER_DAY,
+      request.tableId
+    );
+  if (block) return outsideAvailability(block.reason, block.message);
+  logger.warn(
+    { venueId: request.venueId, tableId: request.tableId, start: request.start.toISOString() },
+    "booking_gate_no_hours_staff_allowed"
+  );
+  return { kind: "ok" };
+}
+
+const OUTSIDE_AVAILABILITY_DETAIL: Record<HardReason, string> = {
+  closed: "The venue is closed at this time.",
+  booking_closed: "Bookings are not being taken for this time.",
+  outside_service: "This time is outside the venue's service hours.",
+  table_blocked: "This table is not available at this time.",
+  conflict: "This table is not available at this time.",
+};
+
+const SOFT_LIMIT_DETAIL: Record<SoftLimit, string> = {
+  after_last_seating: "after the last seating",
+  pacing: "over the pacing limit",
+  party_size: "over the maximum party size",
+};
+
+/** The 422 ProblemDetails (ADR-008) a route sends for a {@link GateRejection}. */
+export function gateProblem(rejection: GateRejection): ProblemDetails {
+  if (rejection.code === "outside-availability") {
+    const detail = rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
+    return createProblemDetails(422, "Outside Availability", detail, "about:blank", undefined, {
+      code: rejection.code,
+      reason: rejection.reason,
+    });
+  }
+  const detail = `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
+  return createProblemDetails(422, "Soft Limit", detail, "about:blank", undefined, {
+    code: rejection.code,
+    limits: rejection.limits,
+  });
 }

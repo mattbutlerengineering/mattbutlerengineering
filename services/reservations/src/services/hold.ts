@@ -8,7 +8,7 @@ import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { estimateDuration, bookingWindow, isSlotInBookingWindow } from "./slot-rules.js";
-import { assertBookable } from "./assert-bookable.js";
+import { assertBookable, type GateRejection } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
 import { isTableInVenue, loadTableFit, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
 
@@ -40,6 +40,8 @@ export interface CreateHoldResult {
   tableNotInVenue?: boolean;
   /** The party does not fit the caller-named table (route answers 422). */
   partyDoesNotFit?: boolean;
+  /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
+  rejection?: GateRejection;
 }
 
 export const holdService = {
@@ -139,6 +141,7 @@ export const holdService = {
       partySize,
       excludeSessionId: sessionId,
       checkHoldConflict: true,
+      gate: { channel: "online" },
       write: async (tx) => {
         // Release any existing holds for this session at this venue, then create.
         await tx.reservationHold.deleteMany({ where: { sessionId, venueId } });
@@ -158,6 +161,13 @@ export const holdService = {
     });
 
     if (!result.ok) {
+      if (result.conflict.code === "NOT_BOOKABLE") {
+        return {
+          success: false,
+          error: result.conflict.message,
+          rejection: result.conflict.rejection,
+        };
+      }
       return { success: false, error: "Table is not available for this time slot" };
     }
 

@@ -47,13 +47,14 @@ vi.mock("./slot-rules.js", async (importOriginal) => {
 
 vi.mock("./assert-bookable.js", () => ({
   assertBookable: vi.fn().mockReturnValue(undefined),
+  judgeBooking: vi.fn().mockResolvedValue({ kind: "ok" }),
 }));
 
 import { holdService } from "./hold.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { checkTableConflict, checkPacingForSlot, estimateDuration } from "./slot-rules.js";
-import { assertBookable } from "./assert-bookable.js";
+import { assertBookable, judgeBooking } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
 const TEN_MIN_FROM_NOW = new Date(NOW.getTime() + 10 * 60 * 1000);
@@ -464,6 +465,47 @@ describe("holdService", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("not available");
+    });
+
+    it("refuses a hold the availability gate rejects, judged online inside the transaction", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+        id: "venue-1",
+        settings: null,
+      } as never);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
+      const rejection = { code: "outside-availability", reason: "closed" } as const;
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+      const tx = {
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+        $executeRaw: vi.fn().mockResolvedValue(0),
+        reservation: { findFirst: vi.fn().mockResolvedValue(null) },
+        reservationHold: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          deleteMany: vi.fn(),
+          create: vi.fn(),
+        },
+      };
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (client: never) => Promise<unknown>) => fn(tx as never)
+      );
+
+      const result = await holdService.create(
+        {
+          venueId: "venue-1",
+          date: "2026-05-05",
+          time: "2026-05-05T22:00:00Z",
+          partySize: 2,
+          tableId: "table-1",
+        },
+        "session-abc"
+      );
+
+      expect(result).toMatchObject({ success: false, rejection });
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ channel: "online", excludeSessionId: "session-abc" })
+      );
+      expect(tx.reservationHold.create).not.toHaveBeenCalled();
     });
 
     it("returns error when transaction detects conflicting hold", async () => {
