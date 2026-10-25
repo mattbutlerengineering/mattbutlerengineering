@@ -41,15 +41,26 @@ const venueRow = (operatingHours: unknown, settings: unknown = null) => ({
 });
 
 describe("planVenueMigration", () => {
-  it("leaves a weekday-keyed column alone and rewrites a seed-array column", () => {
-    const weekday = planVenueMigration(venueRow(WEEKDAY_HOURS), NOW);
+  it("derives the legacy projection for either shape without changing the source", () => {
     const seed = planVenueMigration(venueRow(SEED_HOURS), NOW);
-    expect(weekday).toMatchObject({ kind: "migrate", shape: "weekday", projection: null });
     expect(seed).toMatchObject({ kind: "migrate", shape: "seed_array" });
-    expect(seed.kind === "migrate" && seed.projection?.monday).toEqual({
+    expect(seed.kind === "migrate" && seed.projection.monday).toEqual({
       open: "11:00",
       close: "22:00",
     });
+    expect(planVenueMigration(venueRow(WEEKDAY_HOURS), NOW)).toMatchObject({
+      kind: "migrate",
+      shape: "weekday",
+    });
+  });
+
+  it("reports an unreadable time on an open day instead of reading it as closed", () => {
+    const plan = planVenueMigration(
+      venueRow({ monday: { open: "09:00:00", close: "17:00" } }),
+      NOW
+    );
+    expect(plan).toMatchObject({ kind: "unrecognised", reason: "unreadable_time" });
+    expect(plan.kind === "unrecognised" && plan.detail).toContain("09:00:00");
   });
 
   it("reports an unknown shape without producing rows", () => {
@@ -71,7 +82,6 @@ describe("migrateVenue", () => {
     expect(result).toMatchObject({
       outcome: "migrated",
       shape: "weekday",
-      legacyColumnRewritten: false,
     });
     expect(tx.$executeRaw).toHaveBeenCalledTimes(1); // set_config('app.venue_id', …)
     expect(tx.$executeRawUnsafe).toHaveBeenCalledWith('SET LOCAL ROLE "app_reservations"');
@@ -84,16 +94,13 @@ describe("migrateVenue", () => {
     expect(tx.venue.update).not.toHaveBeenCalled();
   });
 
-  it("rewrites the legacy column for a seed-array venue", async () => {
-    const { prisma, tx } = fakePrisma(venueRow(SEED_HOURS));
-    const result = await migrateVenue(prisma, "v1", { apply: true, now: NOW });
-    expect(result).toMatchObject({ outcome: "migrated", legacyColumnRewritten: true });
-    expect(tx.venue.update).toHaveBeenCalledWith({
-      where: { id: "v1" },
-      data: {
-        operatingHours: expect.objectContaining({ monday: { open: "11:00", close: "22:00" } }),
-      },
-    });
+  it("never updates the venue row, whatever the legacy shape, and logs the original column", async () => {
+    for (const hours of [SEED_HOURS, WEEKDAY_HOURS]) {
+      const { prisma, tx } = fakePrisma(venueRow(hours));
+      const result = await migrateVenue(prisma, "v1", { apply: true, now: NOW });
+      expect(result).toMatchObject({ outcome: "migrated", operatingHours: hours });
+      expect(tx.venue.update).not.toHaveBeenCalled();
+    }
   });
 
   it("is idempotent: a venue with a regular schedule is not written again", async () => {
@@ -101,6 +108,7 @@ describe("migrateVenue", () => {
     expect(await migrateVenue(prisma, "v1", { apply: true, now: NOW })).toEqual({
       venueId: "v1",
       outcome: "already_migrated",
+      operatingHours: WEEKDAY_HOURS,
     });
     expect(tx.schedule.createMany).not.toHaveBeenCalled();
   });
@@ -110,6 +118,7 @@ describe("migrateVenue", () => {
     expect(await migrateVenue(prisma, "v1", { apply: true, now: NOW })).toMatchObject({
       outcome: "unrecognised",
       reason: "unknown_shape",
+      operatingHours: { hello: "world" },
     });
     expect(tx.schedule.createMany).not.toHaveBeenCalled();
     expect(tx.venue.update).not.toHaveBeenCalled();
@@ -119,6 +128,8 @@ describe("migrateVenue", () => {
     const { prisma, tx } = fakePrisma(venueRow(SEED_HOURS));
     expect(await migrateVenue(prisma, "v1", { apply: false, now: NOW })).toMatchObject({
       outcome: "would_migrate",
+      operatingHours: SEED_HOURS,
+      notes: { pastMidnightWindows: [] },
     });
     expect(tx.schedule.createMany).not.toHaveBeenCalled();
     expect(tx.venue.update).not.toHaveBeenCalled();

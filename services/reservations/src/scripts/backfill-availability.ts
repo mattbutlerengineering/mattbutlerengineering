@@ -8,10 +8,12 @@ import { migrateVenue, type VenueMigrationOutcome } from "../services/availabili
  * (issue #7502). Run by an operator, once per environment, after the
  * `add_venue_availability` migration is applied:
  *
- *   node dist/scripts/backfill-availability.js            # dry run: reports only
- *   node dist/scripts/backfill-availability.js --apply    # writes
+ *   node --conditions production dist/scripts/backfill-availability.js            # dry run: reports only
+ *   node --conditions production dist/scripts/backfill-availability.js --apply    # writes
+ *   pnpm db:backfill-availability [--apply]                                       # same, via tsx (dev)
  *
- * Safe to re-run: a venue that already has a regular schedule is skipped. Each
+ * Never touches `Venue.operatingHours`; every outcome line carries its original
+ * value, so the log doubles as a backup. Safe to re-run: a venue that already has a regular schedule is skipped. Each
  * venue is its own transaction in its own RLS context; one venue failing does
  * not stop the rest. Venues with an unrecognised shape are left untouched and
  * listed in the summary. Exit code is 1 only if a venue errored.

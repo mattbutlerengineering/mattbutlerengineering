@@ -37,6 +37,12 @@ import { prisma } from "./database.js";
  * Prisma client (no database is available to this suite); the "after" runs
  * `planVenueMigration` + the engine's `listSlots`. Time zones and windows are
  * chosen so each 60-day window crosses a DST transition.
+ *
+ * The "before" of the seed-array shape is synthetic: the legacy slot code reads
+ * only the weekday-keyed shape, so it offers nothing for a seed-array column
+ * (asserted below). That shape's "before" is the weekday-keyed equivalent of the
+ * same hours. Past-midnight days are the one deliberate divergence: legacy offers
+ * nothing, the engine offers the explicit list asserted per day.
  */
 
 type DayHours = readonly [open: string, close: string] | null;
@@ -174,14 +180,14 @@ async function legacySlots(venue: object, date: string, partySize: number): Prom
   }));
 }
 
-function engineSlots(
+function engineSlotList(
   plan: ReturnType<typeof planVenueMigration>,
   tz: string,
   settings: FixtureVenue["settings"],
   date: string,
   partySize: number,
   now: Date
-): SlotView[] {
+) {
   if (plan.kind !== "migrate") throw new Error(`not migrated: ${plan.reason}`);
   const snapshot: BookingSnapshot = {
     timezone: tz,
@@ -191,11 +197,37 @@ function engineSlots(
     holds: [],
     settings,
   };
-  return listSlots(snapshot, date, partySize, "online", now).map((s) => ({
+  return listSlots(snapshot, date, partySize, "online", now);
+}
+
+const toView = (slots: ReturnType<typeof engineSlotList>): SlotView[] =>
+  slots.map((s) => ({
     time: s.start.toISOString(),
     available: s.available,
     tableIds: s.tables.map((t) => t.id),
   }));
+
+function engineSlots(...args: Parameters<typeof engineSlotList>): SlotView[] {
+  return toView(engineSlotList(...args));
+}
+
+const toMinutes = (hhmm: string): number => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h! * 60 + m!;
+};
+
+/** Seating minutes a past-midnight day must offer: open to close - buffer at the venue interval. */
+function expectedOvernightMinutes(
+  hours: NonNullable<DayHours>,
+  settings: FixtureVenue["settings"]
+) {
+  const interval = settings?.slotIntervalMinutes ?? 15;
+  const buffer = settings?.lastSeatingBuffer ?? 90;
+  const open = toMinutes(hours[0]);
+  const last = toMinutes(hours[1]) + 1440 - buffer;
+  const minutes: number[] = [];
+  for (let m = open; m <= last; m += interval) minutes.push(m);
+  return minutes;
 }
 
 describe("legacy -> availability rows: slots are identical before and after", () => {
@@ -229,12 +261,13 @@ describe("legacy -> availability rows: slots are identical before and after", ()
         expect(fromWeekday.kind).toBe("migrate");
 
         let compared = 0;
-        let overnightDays = 0;
         for (let i = 0; i < DAYS; i += 1) {
           const date = addDays(c.start, i);
           const hours = fixture.week[weekdayOf(date)];
           for (const partySize of PARTY_SIZES) {
             const before = await legacySlots(asWeekday, date, partySize);
+            // The legacy code cannot read the seed-array shape at all.
+            expect(await legacySlots(asSeedArray, date, partySize)).toEqual([]);
             const afterWeekday = engineSlots(
               fromWeekday,
               c.tz,
@@ -256,7 +289,19 @@ describe("legacy -> availability rows: slots are identical before and after", ()
               // Documented divergence: the legacy loop offered nothing for a close at or
               // before the open; the migration reads it as past midnight (ADR-029).
               expect(before).toEqual([]);
-              overnightDays += 1;
+              const list = engineSlotList(
+                fromWeekday,
+                c.tz,
+                fixture.settings,
+                date,
+                partySize,
+                clock
+              );
+              expect(
+                list.map((x) => x.minute),
+                `${date} overnight`
+              ).toEqual(expectedOvernightMinutes(hours!, fixture.settings));
+              expect(list.every((x) => x.available)).toBe(true);
               continue;
             }
             expect(afterWeekday, `${date} party ${partySize}`).toEqual(before);
@@ -264,7 +309,7 @@ describe("legacy -> availability rows: slots are identical before and after", ()
           }
         }
         // The comparison must not pass vacuously.
-        if (overnightDays === 0) expect(compared).toBeGreaterThan(0);
+        expect(compared).toBeGreaterThan(0);
       });
     }
   }

@@ -8,20 +8,21 @@ import {
   type LegacyShape,
 } from "@mbe/availability";
 import type { AvailabilityConfig, VenueSettings } from "@mbe/types";
-import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
+import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
 /**
- * Legacy `Venue.operatingHours` → availability rows (docs/features/
+ * Legacy `Venue.operatingHours` -> availability rows (docs/features/
  * venue-availability/architecture.md § Migration). `planVenueMigration` is the
  * pure decision; `migrateVenue` applies it for one venue.
  *
- * Safety: additive only (inserts new rows, never deletes), idempotent (a venue
- * with a regular schedule is skipped), one transaction per venue inside that
- * venue's RLS context, and a venue whose hours cannot be read is left alone.
- * The legacy column is rewritten only when it is in the seed-array shape the
- * legacy slot code cannot read at all; a weekday-keyed value already is the
- * projection of what is written, so it is left byte-for-byte as it was.
+ * Safety: additive only (inserts new rows, never deletes or updates), idempotent
+ * (a venue with a regular schedule is skipped), one transaction per venue inside
+ * that venue's RLS context, and a venue whose hours cannot be read is left alone.
+ * The backfill never touches `Venue.operatingHours`: the derived projection is
+ * written only by the config store (and the seed), because it is lossy
+ * (overrides, service names and gaps between services do not survive it). Every
+ * outcome carries the original column value, so the run log doubles as a backup.
  */
 
 export const MIGRATION_ACTOR = "system:availability-legacy-migration";
@@ -38,8 +39,8 @@ export type VenueMigrationPlan =
       shape: LegacyShape;
       config: AvailabilityConfig;
       notes: LegacyMigrationNotes;
-      /** Set when the legacy column must be rewritten to stay readable. */
-      projection: LegacyOperatingHours | null;
+      /** The legacy column derived from the rows; the seed writes it, the backfill does not. */
+      projection: LegacyOperatingHours;
     }
   | { kind: "unrecognised"; reason: string; detail: string };
 
@@ -77,35 +78,41 @@ export function planVenueMigration(
     shape: normalised.shape,
     config: built.config,
     notes: built.notes,
-    projection: normalised.shape === "weekday" ? null : projectLegacyOperatingHours(built.config),
+    projection: projectLegacyOperatingHours(built.config),
   };
 }
 
+interface MigrationSummary {
+  shape: LegacyShape;
+  notes: LegacyMigrationNotes;
+  rows: number;
+}
+
+/** `operatingHours` is the venue's original column value, logged as a backup. */
 export type VenueMigrationOutcome =
+  | ({ venueId: string; outcome: "migrated"; operatingHours: unknown } & MigrationSummary)
+  | ({ venueId: string; outcome: "would_migrate"; operatingHours: unknown } & MigrationSummary)
+  | { venueId: string; outcome: "already_migrated"; operatingHours: unknown }
   | {
       venueId: string;
-      outcome: "migrated";
-      shape: LegacyShape;
-      notes: LegacyMigrationNotes;
-      rows: number;
-      legacyColumnRewritten: boolean;
+      outcome: "unrecognised";
+      reason: string;
+      detail: string;
+      operatingHours: unknown;
     }
-  | {
-      venueId: string;
-      outcome: "would_migrate";
-      shape: LegacyShape;
-      notes: LegacyMigrationNotes;
-      rows: number;
-      legacyColumnRewritten: boolean;
-    }
-  | { venueId: string; outcome: "already_migrated" }
-  | { venueId: string; outcome: "unrecognised"; reason: string; detail: string }
   | { venueId: string; outcome: "not_found" };
 
 const toDate = (serviceDate: string): Date => new Date(`${serviceDate}T00:00:00.000Z`);
 
-async function writeConfig(
-  tx: Prisma.TransactionClient,
+/** The delegates the row writer needs; a Prisma client or a transaction client. */
+export type AvailabilityRowWriter = Pick<
+  PrismaClient,
+  "schedule" | "venueService" | "scheduleService" | "scheduleAssignment" | "dateRule"
+>;
+
+/** Inserts a built config's rows for a venue. The caller owns the transaction and RLS context. */
+export async function writeAvailabilityConfig(
+  tx: AvailabilityRowWriter,
   venueId: string,
   config: AvailabilityConfig
 ): Promise<void> {
@@ -188,10 +195,12 @@ export async function migrateVenue(
     });
     if (!venue) return { venueId, outcome: "not_found" as const };
 
+    const { operatingHours } = venue;
+
     const existing = await tx.schedule.count({
       where: { venueId, isRegular: true, archivedAt: null },
     });
-    if (existing > 0) return { venueId, outcome: "already_migrated" as const };
+    if (existing > 0) return { venueId, outcome: "already_migrated" as const, operatingHours };
 
     const plan = planVenueMigration(venue, now);
     if (plan.kind === "unrecognised") {
@@ -200,24 +209,19 @@ export async function migrateVenue(
         outcome: "unrecognised" as const,
         reason: plan.reason,
         detail: plan.detail,
+        operatingHours,
       };
     }
     const summary = {
       venueId,
+      operatingHours,
       shape: plan.shape,
       notes: plan.notes,
       rows: countRows(plan.config),
-      legacyColumnRewritten: plan.projection !== null,
     };
     if (!options.apply) return { ...summary, outcome: "would_migrate" as const };
 
-    await writeConfig(tx, venueId, plan.config);
-    if (plan.projection) {
-      await tx.venue.update({
-        where: { id: venueId },
-        data: { operatingHours: plan.projection },
-      });
-    }
+    await writeAvailabilityConfig(tx, venueId, plan.config);
     return { ...summary, outcome: "migrated" as const };
   });
 }

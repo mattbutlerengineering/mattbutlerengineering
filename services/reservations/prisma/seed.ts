@@ -1,6 +1,9 @@
 import type { Prisma } from "../src/generated/prisma/index.js";
 import { PrismaClient } from "../src/generated/prisma/index.js";
-import { migrateVenue, planVenueMigration } from "../src/services/availability-migration.js";
+import {
+  planVenueMigration,
+  writeAvailabilityConfig,
+} from "../src/services/availability-migration.js";
 import { SEED_VENUES, type SeedVenue } from "../src/test/seed-venues.js";
 
 const prisma = new PrismaClient();
@@ -20,7 +23,7 @@ function todayDate(): Date {
 /**
  * Creates a seed venue with the availability rows the engine reads, plus the
  * legacy `operatingHours` column as their derived projection (#7502). The rows
- * come from the same migration production venues go through.
+ * come from the same builder production venues go through.
  */
 async function upsertSeedVenue(venueGroupId: string, seed: SeedVenue) {
   const plan = planVenueMigration(
@@ -38,11 +41,13 @@ async function upsertSeedVenue(venueGroupId: string, seed: SeedVenue) {
       slug: seed.slug,
       ianaTimezone: seed.ianaTimezone,
       currencyCode: "USD",
-      operatingHours: (plan.projection ?? seed.hours) as unknown as Prisma.InputJsonValue,
+      operatingHours: plan.projection as unknown as Prisma.InputJsonValue,
       settings: seed.settings,
     },
   });
-  await migrateVenue(prisma, venue.id, { apply: true });
+  // Written as the connection owner like the rest of the seed (no venue context).
+  const hasRows = await prisma.schedule.count({ where: { venueId: venue.id, isRegular: true } });
+  if (hasRows === 0) await writeAvailabilityConfig(prisma, venue.id, plan.config);
   return venue;
 }
 

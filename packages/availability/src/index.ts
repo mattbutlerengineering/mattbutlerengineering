@@ -26,6 +26,7 @@ export {
   type LegacyMigrationInput,
   type LegacyMigrationNotes,
   type LegacyMigrationResult,
+  type PastMidnightWindow,
 } from "./legacy-migration.js";
 export {
   projectLegacyOperatingHours,

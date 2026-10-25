@@ -1649,11 +1649,13 @@
           slug: seed.slug,
           ianaTimezone: seed.ianaTimezone,
           currencyCode: "USD",
-          operatingHours: (plan.projection ?? seed.hours) as unknown as Prisma.InputJsonValue,
+          operatingHours: plan.projection as unknown as Prisma.InputJsonValue,
           settings: seed.settings,
         },
       });
-      await migrateVenue(prisma, venue.id, { apply: true });
+      // Written as the connection owner like the rest of the seed (no venue context).
+      const hasRows = await prisma.schedule.count({ where: { venueId: venue.id, isRegular: true } });
+      if (hasRows === 0) await writeAvailabilityConfig(prisma, venue.id, plan.config);
       return venue;
     }
     async function main() {
@@ -9270,8 +9272,8 @@
           shape: LegacyShape;
           config: AvailabilityConfig;
           notes: LegacyMigrationNotes;
-          /** Set when the legacy column must be rewritten to stay readable. */
-          projection: LegacyOperatingHours | null;
+          /** The legacy column derived from the rows; the seed writes it, the backfill does not. */
+          projection: LegacyOperatingHours;
         }
       | { kind: "unrecognised"; reason: string; detail: string };
     export function civilDateIn(now: Date, timeZone: string): string {
@@ -9306,31 +9308,32 @@
         shape: normalised.shape,
         config: built.config,
         notes: built.notes,
-        projection: normalised.shape === "weekday" ? null : projectLegacyOperatingHours(built.config),
+        projection: projectLegacyOperatingHours(built.config),
       };
     }
+    interface MigrationSummary {
+      shape: LegacyShape;
+      notes: LegacyMigrationNotes;
+      rows: number;
+    }
     export type VenueMigrationOutcome =
+      | ({ venueId: string; outcome: "migrated"; operatingHours: unknown } & MigrationSummary)
+      | ({ venueId: string; outcome: "would_migrate"; operatingHours: unknown } & MigrationSummary)
+      | { venueId: string; outcome: "already_migrated"; operatingHours: unknown }
       | {
           venueId: string;
-          outcome: "migrated";
-          shape: LegacyShape;
-          notes: LegacyMigrationNotes;
-          rows: number;
-          legacyColumnRewritten: boolean;
+          outcome: "unrecognised";
+          reason: string;
+          detail: string;
+          operatingHours: unknown;
         }
-      | {
-          venueId: string;
-          outcome: "would_migrate";
-          shape: LegacyShape;
-          notes: LegacyMigrationNotes;
-          rows: number;
-          legacyColumnRewritten: boolean;
-        }
-      | { venueId: string; outcome: "already_migrated" }
-      | { venueId: string; outcome: "unrecognised"; reason: string; detail: string }
       | { venueId: string; outcome: "not_found" };
-    async function writeConfig(
-      tx: Prisma.TransactionClient,
+    export type AvailabilityRowWriter = Pick<
+      PrismaClient,
+      "schedule" | "venueService" | "scheduleService" | "scheduleAssignment" | "dateRule"
+    >;
+    export async function writeAvailabilityConfig(
+      tx: AvailabilityRowWriter,
       venueId: string,
       config: AvailabilityConfig
     ): Promise<void> {
@@ -9401,10 +9404,12 @@
         });
         if (!venue) return { venueId, outcome: "not_found" as const };
     
+        const { operatingHours } = venue;
+    
         const existing = await tx.schedule.count({
           where: { venueId, isRegular: true, archivedAt: null },
         });
-        if (existing > 0) return { venueId, outcome: "already_migrated" as const };
+        if (existing > 0) return { venueId, outcome: "already_migrated" as const, operatingHours };
     
         const plan = planVenueMigration(venue, now);
         if (plan.kind === "unrecognised") {
@@ -9413,24 +9418,19 @@
             outcome: "unrecognised" as const,
             reason: plan.reason,
             detail: plan.detail,
+            operatingHours,
           };
         }
         const summary = {
           venueId,
+          operatingHours,
           shape: plan.shape,
           notes: plan.notes,
           rows: countRows(plan.config),
-          legacyColumnRewritten: plan.projection !== null,
         };
         if (!options.apply) return { ...summary, outcome: "would_migrate" as const };
     
-        await writeConfig(tx, venueId, plan.config);
-        if (plan.projection) {
-          await tx.venue.update({
-            where: { id: venueId },
-            data: { operatingHours: plan.projection },
-          });
-        }
+        await writeAvailabilityConfig(tx, venueId, plan.config);
         return { ...summary, outcome: "migrated" as const };
       });
     }

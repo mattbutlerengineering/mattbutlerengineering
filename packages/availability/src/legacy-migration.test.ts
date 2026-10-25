@@ -48,7 +48,7 @@ describe("normalizeLegacyHours", () => {
     if (result.ok) {
       expect(result.hours.weekly.sunday).toEqual([{ open: 960, close: 1380 }]);
       expect(result.hours.weekly.monday).toEqual([]);
-      expect(result.hours.weekly.friday).toEqual([{ open: 960, close: 1500 }]);
+      expect(result.hours.weekly.friday).toEqual([{ open: 960, close: 1500, wrapped: true }]);
     }
   });
 
@@ -84,8 +84,36 @@ describe("normalizeLegacyHours", () => {
     expect(normalizeLegacyHours(null)).toEqual({ ok: false, reason: "no_hours" });
   });
 
-  it("reads an unparseable day as closed, as the legacy slot loop does", () => {
-    const result = normalizeLegacyHours({ monday: { open: "soon", close: "22:00" } });
+  it("fails loud on a time it cannot read for an open day instead of reading it as closed", () => {
+    for (const bad of ["09:00:00", "9:5", "25:00", "soon", undefined]) {
+      const result = normalizeLegacyHours({
+        monday: { open: bad, close: "22:00" },
+        tuesday: { open: "11:00", close: "22:00" },
+      });
+      expect(result, String(bad)).toMatchObject({ ok: false, reason: "unreadable_time" });
+      expect(!result.ok && "detail" in result && result.detail).toContain("monday");
+    }
+    expect(
+      normalizeLegacyHours([{ dayOfWeek: 1, openTime: "9:5", closeTime: "17:00", isClosed: false }])
+    ).toMatchObject({ ok: false, reason: "unreadable_time" });
+    expect(
+      normalizeLegacyHours({ version: 2, weekly: { friday: [{ open: "x", close: "22:00" }] } })
+    ).toMatchObject({ ok: false, reason: "unreadable_time" });
+  });
+
+  it("treats any truthy `closed` as closed, as the legacy code does", () => {
+    const result = normalizeLegacyHours({
+      monday: { open: "bad", close: "bad", closed: 1 },
+      tuesday: { open: "11:00", close: "22:00", closed: "yes" },
+      wednesday: { open: "11:00", close: "22:00", closed: false },
+    });
+    expect(result.ok && result.hours.weekly.monday).toEqual([]);
+    expect(result.ok && result.hours.weekly.tuesday).toEqual([]);
+    expect(result.ok && result.hours.weekly.wednesday).toHaveLength(1);
+  });
+
+  it("reads a missing day as closed, as the legacy code does", () => {
+    const result = normalizeLegacyHours({ tuesday: { open: "11:00", close: "22:00" } });
     expect(result.ok && result.hours.weekly.monday).toEqual([]);
   });
 });
@@ -158,7 +186,7 @@ describe("buildLegacyConfig", () => {
       overrides: [
         { date: "2026-10-01", closed: true },
         { date: "2026-12-25", closed: true, note: "Christmas" },
-        { date: "2026-12-31", windows: [{ name: "Dinner", open: "17:00", close: "26:00" }] },
+        { date: "2026-12-31", windows: [{ name: "Dinner", open: "20:00", close: "21:00" }] },
         { date: "2027-01-01", windows: [{ name: "Dinner", open: "17:00", close: "21:00" }] },
       ],
     });
@@ -167,7 +195,7 @@ describe("buildLegacyConfig", () => {
     const kinds = result.config.dateRules.map((r) => [r.kind, r.startsOn]);
     expect(kinds).toEqual([
       ["closure", "2026-12-25"],
-      ["closure", "2026-12-31"], // the unreadable 26:00 window leaves no seating: closed
+      ["closure", "2026-12-31"], // no seating fits before the 90-minute buffer: closed
       ["special_hours", "2027-01-01"],
     ]);
     const dinner = result.config.venueServices.find((s) => s.name === "Dinner")!;
@@ -175,6 +203,19 @@ describe("buildLegacyConfig", () => {
     expect(special.kind === "special_hours" && special.payload.services[0]?.venueServiceId).toBe(
       dinner.id
     );
+  });
+
+  it("lists past-midnight windows and rejects an implausibly long one", () => {
+    const result = build([{ dayOfWeek: 5, openTime: "16:00", closeTime: "01:00" }]);
+    if (!result.ok) throw new Error(result.detail);
+    expect(result.notes.pastMidnightWindows).toEqual([
+      { day: "friday", open: 960, close: 1500, span: 540 },
+    ]);
+    // 09:00 -> 08:00 is a 23-hour "service": almost certainly a typo.
+    expect(build({ monday: { open: "09:00", close: "08:00" } })).toMatchObject({
+      ok: false,
+      reason: "implausible_span",
+    });
   });
 
   it("reports a bad interval or buffer rather than writing rows", () => {

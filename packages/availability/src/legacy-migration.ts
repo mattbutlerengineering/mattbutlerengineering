@@ -22,6 +22,8 @@ import { validateConfig } from "./validate-config.js";
 export const DEFAULT_LAST_SEATING_BUFFER = 90;
 
 const MAX_INTERVAL = 240;
+/** A longer service is more likely a typo (09:00 -> 08:00) than a real opening. */
+const MAX_PAST_MIDNIGHT_SPAN = 16 * 60;
 const MAX_STAFF_NOTE = 500;
 const CHANNELS = ["online", "phone"] as const;
 
@@ -36,7 +38,18 @@ export interface LegacyMigrationInput {
   newId: () => string;
 }
 
+/** A window read as running past midnight; listed so a typo can be spotted in the run log. */
+export interface PastMidnightWindow {
+  /** A weekday name, or an override's date. */
+  day: string;
+  open: number;
+  /** Minutes past the day's midnight, above 1440. */
+  close: number;
+  span: number;
+}
+
 export interface LegacyMigrationNotes {
+  pastMidnightWindows: PastMidnightWindow[];
   /** Windows the legacy slot loop could never seat (last seating before opening). */
   droppedWindows: number;
   skippedPastOverrides: number;
@@ -47,7 +60,7 @@ export type LegacyMigrationResult =
   | { ok: true; config: AvailabilityConfig; notes: LegacyMigrationNotes }
   | {
       ok: false;
-      reason: "invalid_interval" | "invalid_buffer" | "invalid_config";
+      reason: "invalid_interval" | "invalid_buffer" | "invalid_config" | "implausible_span";
       detail: string;
     };
 
@@ -94,11 +107,33 @@ function validIntervalOrBuffer(
   return { interval, buffer };
 }
 
+function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] {
+  const entries = [
+    ...WEEKDAYS.map((day) => ({ day: day as string, windows: hours.weekly[day] })),
+    ...hours.overrides.map((o) => ({ day: o.date, windows: o.windows })),
+  ];
+  return entries.flatMap(({ day, windows }) =>
+    windows
+      .filter((w) => w.wrapped)
+      .map((w) => ({ day, open: w.open, close: w.close, span: w.close - w.open }))
+  );
+}
+
 export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult {
   const checked = validIntervalOrBuffer(input);
   if ("ok" in checked) return checked;
   const { interval, buffer } = checked;
   const { hours, newId, today } = input;
+
+  const wrapped = pastMidnightWindows(hours);
+  const tooLong = wrapped.find((w) => w.span > MAX_PAST_MIDNIGHT_SPAN);
+  if (tooLong) {
+    return {
+      ok: false,
+      reason: "implausible_span",
+      detail: `${tooLong.day} ${tooLong.open}-${tooLong.close} spans ${tooLong.span} minutes`,
+    };
+  }
 
   const seatedWeek = WEEKDAYS.map((day) => seat(hours.weekly[day], buffer));
   const dropped = WEEKDAYS.reduce(
@@ -197,6 +232,7 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
     ok: true,
     config,
     notes: {
+      pastMidnightWindows: wrapped,
       droppedWindows: dropped,
       skippedPastOverrides: hours.overrides.length - futureOverrides.length,
       migratedOverrides: futureOverrides.length,
