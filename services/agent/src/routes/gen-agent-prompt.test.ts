@@ -109,6 +109,12 @@ describe("buildAgentSystemPrompt", () => {
       expect(line).toMatch(/never .*email, phone, notes or spend/i);
     });
 
+    it("maps a guest row's visitCount and riskScore onto the card's visits and risk", () => {
+      const line = lineFor("GuestCards");
+      expect(line).toMatch(/visitCount as visits/);
+      expect(line).toMatch(/riskScore[^.]*as risk/);
+    });
+
     it("a guest's visit history as Timeline", () => {
       expect(lineFor("Timeline")).toMatch(/visit history/i);
     });

@@ -24261,7 +24261,7 @@
         "Pick the element that fits the data, one shape per line below.",
         "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out.",
         "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element.",
-        "Guests from search_guests: show them as GuestCards, at most five cards, then say in a sentence how many more matched. Never put a guest's email, phone, notes or spend on a card.",
+        "Guests from search_guests: show them as GuestCards, each card with the guest's name, its visitCount as visits, its riskScore copied as is as risk, and its tags; at most five cards, then say in a sentence how many more matched. Never put a guest's email, phone, notes or spend on a card.",
         "A guest's visit history: show it as a Timeline.",
         "Table statuses from get_table_status: show them as StatusLED, one per table with a label.",
         "Headline counts (covers, open tables, no-shows): show them as Stat.",
