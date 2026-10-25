@@ -70,12 +70,16 @@
         partySize: number;
       }
     </item>
+    <item priority="low">
+      type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
+    </item>
     <item priority="high">
       class AvailabilityClient {
         async getTimeSlots(): Promise<unknown>;
         async getTimeSlotsForVenue(): Promise<unknown>;
         async getPublicAvailability(): Promise<unknown>;
         async getDates(): Promise<unknown>;
+        async getConfig(): Promise<unknown>;
       }
     </item>
     <item priority="high">

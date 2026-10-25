@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
+import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
 
 /**
  * #5369 PR 2 — the route-sweep completeness data. Kept out of the `.test.ts`
@@ -1008,7 +1009,75 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     (venueId) =>
       `/api/v1/availability/${venueId}/dates?startDate=2026-10-01&endDate=2026-10-07&partySize=2`
   ),
+  "GET /api/v1/venues/:id/availability/config": okAvailabilityByParam(
+    (venueId) => `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/config`
+  ),
+  "GET /api/v1/venues/:id/availability/days": okAvailabilityByParam(
+    (venueId) =>
+      `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/days?from=2026-10-01&to=2026-10-07`
+  ),
+  // The write lands only on a disposable venue: venue A's operating hours feed
+  // the hold and availability fixtures, and a save rewrites them. The member
+  // leg proves the denial; the Manager-role admission is pinned by
+  // `venue-scope-manager.test.ts`.
+  "PUT /api/v1/venues/:id/availability/config": ok(async (ctx) => {
+    const venueId = await createDisposableVenue(ctx);
+    const url = `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/config`;
+    const saved = await asAdmin(ctx, {
+      method: "PUT",
+      url,
+      payload: { expectedVersion: 0, changes: sweepConfigChanges(), scopeConflicts: "keep" },
+    });
+    expectOk(saved, "admin disposable venue");
+    // The rows, audit row and version bump landed under RLS: the read sees
+    // them, and a second save from the same stale version names the first.
+    const read = await asAdmin(ctx, { method: "GET", url });
+    expect(JSON.parse(read.body).data).toMatchObject({ version: 1, source: "rows" });
+    const stale = await asAdmin(ctx, {
+      method: "PUT",
+      url,
+      payload: { expectedVersion: 0, changes: { upsert: {}, remove: {} }, scopeConflicts: "keep" },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(JSON.parse(stale.body).winningChange.id).toBe(JSON.parse(saved.body).data.changeId);
+    expectDenied(
+      await asMember(ctx, {
+        method: "PUT",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/availability/config`,
+        payload: { expectedVersion: 0, changes: sweepConfigChanges(), scopeConflicts: "keep" },
+      }),
+      "member venue B"
+    );
+  }),
 };
+
+/** A one-schedule, one-service week: the smallest config `validateConfig` accepts. Fresh ids per call (they are table-wide keys). */
+function sweepConfigChanges() {
+  const id = (row: string) => `rls-sweep-${row}-${randomUUID()}`;
+  const [schedule, service] = [id("sch"), id("vs")];
+  return {
+    upsert: {
+      schedules: [{ id: schedule, name: "Regular", kind: "regular", isRegular: true }],
+      venueServices: [{ id: service, name: "Dinner", position: 0 }],
+      scheduleServices: [
+        {
+          id: id("ss"),
+          scheduleId: schedule,
+          venueServiceId: service,
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+          seating: { version: 1, interval: 15 },
+          bookingTypes: ["online", "phone"],
+        },
+      ],
+      assignments: [
+        { id: id("as"), scheduleId: schedule, weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+      ],
+    },
+    remove: {},
+  };
+}
 
 /** A minimal valid `TableShapeMetadata` for the positions/assign fixtures below. */
 const DISPOSABLE_SHAPE = { x: 0, y: 0, width: 80, height: 80, shape: "rectangle" as const };

@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import type {
   TimeSlot,
   PublicAvailabilityResponse,
@@ -6,7 +7,12 @@ import type {
   CreateHoldRequest,
   ConfirmHoldRequest,
   Reservation,
+  AvailabilityConfigState,
+  AvailabilityConfigSaveResult,
+  AvailabilityDaySummary,
+  PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
+import { availabilityConfigEndpoints } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
 
 export interface GetTimeSlotsParams {
@@ -27,6 +33,9 @@ export interface GetDatesParams {
   endDate: string;
   partySize: number;
 }
+
+/** What `saveConfig` sends; `scopeConflicts` defaults to `keep`. */
+export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
 
 export class AvailabilityClient {
   constructor(private client: ApiClient) {}
@@ -77,6 +86,44 @@ export class AvailabilityClient {
       `/api/v1/availability/${venueId}/dates`,
       query as QueryParams
     );
+  }
+
+  /** A venue's availability config and the `version` a save must send back. */
+  async getConfig(venueId: string): Promise<AvailabilityConfigState> {
+    const response = await this.client.call(availabilityConfigEndpoints.getConfig, {
+      params: { id: venueId },
+    });
+    return response.data;
+  }
+
+  /**
+   * Save config changes with a compare-and-set on `expectedVersion`. A stale
+   * version, an invalid config and a change that strands bookings reject with
+   * an `ApiClientError` whose `problemDetails.code` is `version-conflict`
+   * (with `winningChange`), `invalid-config` (with `issues`) or
+   * `stranded-bookings` (with `reservations`).
+   */
+  async saveConfig(
+    venueId: string,
+    body: SaveAvailabilityConfigRequest
+  ): Promise<AvailabilityConfigSaveResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.putConfig, {
+      params: { id: venueId },
+      body,
+    });
+    return response.data;
+  }
+
+  /** Calendar summaries for each service date from `from` to `to` inclusive (≤62 days). */
+  async listDays(
+    venueId: string,
+    range: { from: string; to: string }
+  ): Promise<AvailabilityDaySummary[]> {
+    const response = await this.client.call(availabilityConfigEndpoints.listDays, {
+      params: { id: venueId },
+      query: { from: range.from, to: range.to },
+    });
+    return response.data;
   }
 }
 
