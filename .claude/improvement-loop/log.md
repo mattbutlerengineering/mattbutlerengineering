@@ -4279,3 +4279,40 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **AI issue feedback:** 6 categories updated (90d window) — feature 4.9% rejected, audit/meta-improvement/ci-fix/agent-failed/acmm 0% rejected — all budgets stay at 3
 **Skill proposals:** 0 (Saturday — Friday-only)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm headroom 1.285 → 1.29). False-positive rate (wontfix/not_planned closures on ci-fix/acmm/bug/audit/sentry-labeled issues): 0/9 in a 100-issue REST sample of the last 30d (`gh api search/issues` is blocked in this session — "sessions are bound to their configured repositories" — so this used paginated `repos/.../issues?state=closed&since=...`, which broke after page 1 on a proxy numeric-ID-URL error; single-page sample only, not the full window) — well under the 30% loosen-threshold, no action needed. Literal fix-effectiveness (verified/total verifications, last 30d) is 13/91 ≈ 14.3%, but 75 of those 91 are `confidence: "skip"` (sensor/CI signal unavailable, not a failed fix) — excluding skips, verified/(verified+failed) = 13/16 ≈ 81.3%, which is healthy. Not treating the literal 14.3% as a "fix strategies need review" signal: the gap is verification-coverage (no lighthouse egress, no matching CI runs), not fix quality.
+
+## 2026-10-25 — mbe-evening
+
+### Metrics
+
+| Metric                         | Value                                                                                                                                                                                                                                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Closed (7d, audit+ci-fix)      | 24 (15 audit + 9 ci-fix)                                                                                                                                                                                                                                                                                    |
+| Created/touched (7d)*          | 27 (16 audit + 11 ci-fix)                                                                                                                                                                                                                                                                                   |
+| Closure Rate                   | ~89%                                                                                                                                                                                                                                                                                                        |
+| Time-to-Close                  | not computed — GitHub's issues-API `since` filters by `updated_at`, not `created_at`, so no reliable 7d created-cohort was available via this session's tooling                                                                                                                                             |
+| Agent Success (queue snapshot) | has-pr open: 0, agent-failed open: 0 (was 1, see Patterns)                                                                                                                                                                                                                                                  |
+| CI Pass (main, last 20 runs)   | 14/15 completed = 93.3%, excluding 5 `skipped` + 1 `in_progress` (`Post-Deploy Check`) from the denominator; raw 14/20 = 70%                                                                                                                                                                                |
+| Queue (ready, open)            | 1 (#7219, just re-queued below); #7376 is `ready-for-human`, not agent-eligible                                                                                                                                                                                                                             |
+| Stale (ready > 7d)             | 0                                                                                                                                                                                                                                                                                                           |
+| Blocked (agent-failed)         | 0 (was 1 — #7219 — auto-retried this run)                                                                                                                                                                                                                                                                   |
+| Skipped (agent-skip)           | 0                                                                                                                                                                                                                                                                                                           |
+| Daily / 7d Spend               | unknown, not $0 — `.claude/agent-spend/sessions.jsonl` has had no new rows since 2026-10-16; `metrics/queue-telemetry.jsonl` carries 90 rows in the 7d window totaling 218,308 tokens but `cost_usd` is null on nearly all of them (GitHub-reconciled synthetic backfill rows per #5921 carry no cost data) |
+| Cost/Issue                     | unknown, same reason                                                                                                                                                                                                                                                                                        |
+
+\* "Created/touched" uses the `since` (updated_at) filter as a proxy for created-in-window, since REST's `issues` endpoint has no created-at filter usable from this session without full pagination.
+
+### Patterns
+
+- Today's `/idea-to-prod:implement-queue` iteration (mbe-evening step 1) found **zero** agent-workable `ready` issues: the only `ready`-labeled issue (#7376, Dress Rehearsal E2E spec) also carries `ready-for-human` — a prior attempt (2026-10-24, mbe-feature-drain) established it needs Auth0 E2E credentials this session type doesn't have. No batch was dispatched.
+- #7219 (`ci-fix: routine mbe-daily-issue is dark`) had sat `agent-failed` for 4 days (created 2026-10-21) with no retry. `node scripts/auto-retry-stale.mjs` re-queued it to `ready` this run (1 of the 2/run cap used) — it will be picked up by the next implement-queue iteration, not this one, since this routine's iteration already ran and the circuit says stop after one.
+- `@mbe/gh-client` prints a non-fatal GraphQL-403 warning on every call in this session type even when the call falls back to REST and succeeds — consistent with the documented CCR GraphQL block (gotchas § Claude Code Remote); both the dry-run and live `auto-retry-stale.mjs` invocations logged the warning but completed the label swap + comment via REST.
+- CI on main is healthy once skipped/in-progress runs are excluded from the denominator; the one non-success/non-skip entry is `Post-Deploy Check` still running, not a failure.
+- No merge-train backlog: `has-pr` and `in-progress` both empty going into tonight's run.
+
+### Recommendations
+
+- None rising to a 3-day-consistent pattern yet. An empty-queue evening is itself new (recent entries, e.g. 2026-10-23/24, show an actively draining queue) — re-check tomorrow before treating "queue 0" as a 3-day trend that would call for reducing audit/expanding scope.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
