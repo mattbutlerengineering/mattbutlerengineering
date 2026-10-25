@@ -54,7 +54,7 @@ Demonstrable: one click on /gen's Generate sends a request, and a Timeline
 with long timestamps keeps its dots in one clear column. These two items
 touch nothing else in this run and can merge in either order.
 
-- [ ] **F26: PromptBar first click always sends** (PR A, `apps/gen`) — keep
+- [x] **F26: PromptBar first click always sends** (PR A, `apps/gen`) — keep
       the hints line always mounted and show it through
       `.bar:focus-within .hints`; delete the `isFocused` state and the
       `onFocus`/`onBlur` handlers in `apps/gen/src/components/PromptBar.tsx`.
@@ -77,7 +77,7 @@ touch nothing else in this run and can merge in either order.
     route was taken.
   - Blocked by: —
 
-- [ ] **F25: Timeline shared timestamp column** (PR B, `packages/rialto`) —
+- [x] **F25: Timeline shared timestamp column** (PR B, `packages/rialto`) —
       `.timeline` becomes a grid with columns `fit-content(33%) auto 1fr`;
       each `.item` uses `grid-template-columns: subgrid`; `.timestamp` gets
       `min-width: 64px` (48px compact), drops `white-space: nowrap`, and
@@ -105,7 +105,7 @@ touch nothing else in this run and can merge in either order.
 Demonstrable: the reservation and slot read tools return `localTime` next
 to every ISO time. This is independent of every rialto item.
 
-- [ ] **Read tools add `localTime`** (PR C, `services/agent`) — in
+- [x] **Read tools add `localTime`** (PR C, `services/agent`) — in
       `services/agent/src/routes/gen-agent-tools.ts`, `lookup_reservation`
       and `list_today_reservations` add `localTime` (venue `HH:mm`, from
       `startTime` in the request's `timeZone`, UTC when none) to each
@@ -126,7 +126,7 @@ to every ISO time. This is independent of every rialto item.
 Demonstrable: each element renders in /gen from a hand-written spec, with
 its words in all four locales, and drops a bad row instead of falling back.
 
-- [ ] **Locale keys, normalizer and vocabulary drift test** (PR D,
+- [x] **Locale keys, normalizer and vocabulary drift test** (PR D,
       `packages/rialto` + `apps/hospitality`) — add `partyOf(n)`,
       `visitCount(n)`, `reservationStatus` (pending, confirmed, cancelled,
       completed, noShow, seated), `guestRisk` (trusted, standard, risky),
@@ -263,4 +263,8 @@ need a runner-side regeneration. Neither needs the Architect.
 
 ## Notes
 
-None yet. Implement logs deviations here, dated.
+- 2026-10-24 — PR A merged as #7467 (`380005ca7`). Fix route taken; F26 reproduced (Generate moved ~25px between mousedown and mouseup). Red evidence came from a local throwaway copy of the spec (no local E2E Auth0 credentials). The committed spec first ran in CI's Gen E2E job, which passed 15/15.
+- 2026-10-24 — PR B merged as #7469 (`4150f46c4`). Node alignment compares centres, not left edges (active node is 14px, others 12px). The new stories have only the geometry test, no screenshots. Visual Regression (Storybook), which runs the geometry test, passed.
+- 2026-10-24 — PR C merged as #7468 (`897ef11bc`). Added midnight and unknown-zone cases. The zone is the request's `timeZone`, i.e. the client's, as the AC states.
+- 2026-10-24 — PR D merged as #7466 (`eeb5bfaf9`). `partyOf` has no plural branch, matching the dashboard ("Grupo de N" and "Groupe de N" don't change with N). `seated` is neutral because the dashboard has no tone for it. The es-MX and fr-CA list names and no-open-times line were written for this PR; the dashboard has no source for them.
+- Advisory Visual Regression (hospitality, rialto-web) was red on #7466 and #7469, and on every recent main run before this run. Not caused by these PRs.
