@@ -30,6 +30,21 @@ export const SERVICE_BOOKING_TYPES = ["online", "phone"] as const;
 /** Channels a date rule can close. */
 export const RULE_BOOKING_TYPES = ["online", "phone", "waitlist"] as const;
 
+/** Where a date rule came from. Holiday rules arrive in Phase 2. */
+export const DATE_RULE_SOURCES = ["manual", "holiday", "tonight"] as const;
+/** The Manager's choice for a reservation a closure affects. */
+export const CLOSURE_ACTIONS = ["cancel", "move", "keep_notify", "keep_silent"] as const;
+export const CLOSURE_REFUND_STATUSES = ["none", "pending", "done", "failed"] as const;
+
+// Each stored enum has a same-named schema so scripts/prisma-enum-drift.mjs
+// pairs it with its Prisma enum.
+export const ScheduleKindSchema = z.enum(SCHEDULE_KINDS);
+export const DateRuleKindSchema = z.enum(DATE_RULE_KINDS);
+export const DateRuleTargetKindSchema = z.enum(DATE_RULE_TARGETS);
+export const DateRuleSourceSchema = z.enum(DATE_RULE_SOURCES);
+export const ClosureActionSchema = z.enum(CLOSURE_ACTIONS);
+export const ClosureRefundStatusSchema = z.enum(CLOSURE_REFUND_STATUSES);
+
 /** Longest guest-facing message on a date rule, in characters. */
 export const GUEST_MESSAGE_MAX_LENGTH = 200;
 
@@ -107,7 +122,7 @@ export const TonightPayloadSchema = z.union([
 export const ScheduleSchema = z.object({
   id: IdSchema,
   name: z.string().min(1).max(60),
-  kind: z.enum(SCHEDULE_KINDS),
+  kind: ScheduleKindSchema,
   isRegular: z.boolean(),
   archivedAt: z.string().nullish(),
 });
@@ -139,7 +154,7 @@ export const ScheduleAssignmentSchema = z.object({
 
 const DateRuleBase = z.object({
   id: IdSchema,
-  targetKind: z.enum(DATE_RULE_TARGETS),
+  targetKind: DateRuleTargetKindSchema,
   venueServiceId: IdSchema.nullish(),
   bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
   tableIds: z.array(IdSchema).nullish(),
@@ -190,3 +205,4 @@ export type ScheduleService = z.infer<typeof ScheduleServiceSchema>;
 export type ScheduleAssignment = z.infer<typeof ScheduleAssignmentSchema>;
 export type DateRule = z.infer<typeof DateRuleSchema>;
 export type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
+export type ClosureAction = z.infer<typeof ClosureActionSchema>;

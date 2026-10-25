@@ -9222,6 +9222,33 @@
       export const RULE_BOOKING_TYPES: unknown;
     </item>
     <item priority="high">
+      export const DATE_RULE_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_ACTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_REFUND_STATUSES: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleTargetKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleSourceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureActionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureRefundStatusSchema: unknown;
+    </item>
+    <item priority="high">
       export const GUEST_MESSAGE_MAX_LENGTH: unknown;
     </item>
     <item priority="high">
@@ -9301,6 +9328,9 @@
     </item>
     <item priority="low">
       type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
+    </item>
+    <item priority="low">
+      type ClosureAction = z.infer<typeof ClosureActionSchema>;
     </item>
   </file>
   <file path="packages/types/src/schemas/common.ts">
