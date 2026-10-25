@@ -4,6 +4,8 @@ import {
   type ScheduleAssignment,
   type SpecialHoursService,
 } from "@mbe/types";
+import { addDays, weekdayOf } from "./civil-date.js";
+import { WEEKDAYS } from "./types.js";
 
 /**
  * The invariants the configuration layers must satisfy together (ADR-030).
@@ -20,7 +22,9 @@ export type ConfigIssueCode =
   | "multiple_regular_schedules"
   | "no_regular_schedule"
   | "precedence_tie"
-  | "ends_before_start";
+  | "ends_before_start"
+  | "seating_outside_service"
+  | "window_ends_before_start";
 
 export interface ConfigIssue {
   /** e.g. `scheduleServices[1].lastSeatingAt`; `""` is the whole config. */
@@ -30,7 +34,7 @@ export interface ConfigIssue {
 }
 
 /** The hours fields a schedule service and a special-hours service share. */
-type ServiceHours = Pick<SpecialHoursService, "opensAt" | "lastSeatingAt" | "closesAt">;
+type ServiceHours = Pick<SpecialHoursService, "opensAt" | "lastSeatingAt" | "closesAt" | "seating">;
 
 interface PathedService {
   path: string;
@@ -52,6 +56,21 @@ function formatMinute(minute: number): string {
   const hour24 = Math.floor(m / 60);
   const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
   return `${hour12}:${String(m % 60).padStart(2, "0")} ${hour24 < 12 ? "AM" : "PM"}`;
+}
+
+function fixedSeatingIssues({ path, hours }: PathedService): ConfigIssue[] {
+  if (!("fixed" in hours.seating)) return [];
+  return hours.seating.fixed.flatMap((minute, k) =>
+    minute < hours.opensAt || minute > hours.lastSeatingAt
+      ? [
+          issue(
+            `${path}.seating.fixed[${k}]`,
+            "seating_outside_service",
+            "Seating times must fall between opening and last seating."
+          ),
+        ]
+      : []
+  );
 }
 
 function hoursIssues({ path, hours }: PathedService): ConfigIssue[] {
@@ -77,7 +96,7 @@ function hoursIssues({ path, hours }: PathedService): ConfigIssue[] {
       ),
     ];
   }
-  return [];
+  return fixedSeatingIssues({ path, hours });
 }
 
 /** Services that open and close in order, sorted by opening; each later one overlapping an earlier is reported. */
@@ -161,12 +180,32 @@ function rangeIssues(config: AvailabilityConfig): ConfigIssue[] {
   ];
 }
 
+/** 0 = Sunday … 6 = Saturday, the stored weekday numbering. */
+function weekdayIndexOf(date: string): number {
+  return (WEEKDAYS.indexOf(weekdayOf(date)) + 1) % 7;
+}
+
+function latest(a?: string | null, b?: string | null): string | null {
+  if (a == null) return b ?? null;
+  return b == null || a > b ? a : b;
+}
+
+function earliest(a?: string | null, b?: string | null): string | null {
+  if (a == null) return b ?? null;
+  return b == null || a < b ? a : b;
+}
+
+/** Do the two assignments cover at least one common date? */
 function assignmentsMeet(a: ScheduleAssignment, b: ScheduleAssignment): boolean {
-  const shareWeekday = a.weekdays.some((d) => b.weekdays.includes(d));
+  const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
   // Open ends are unbounded; "YYYY-MM-DD" strings order chronologically.
-  const startsBeforeOtherEnds = (x: ScheduleAssignment, y: ScheduleAssignment) =>
-    x.startsOn == null || y.endsOn == null || x.startsOn <= y.endsOn;
-  return shareWeekday && startsBeforeOtherEnds(a, b) && startsBeforeOtherEnds(b, a);
+  const from = latest(a.startsOn, b.startsOn);
+  const to = earliest(a.endsOn, b.endsOn);
+  if (shared.length === 0 || (from != null && to != null && from > to)) return false;
+  if (from == null || to == null || addDays(from, 6) <= to) return true;
+  // A common range shorter than a week may miss every shared weekday.
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(from, i)).filter((d) => d <= to);
+  return dates.some((d) => shared.includes(weekdayIndexOf(d)));
 }
 
 function precedenceIssues(config: AvailabilityConfig): ConfigIssue[] {
@@ -186,6 +225,20 @@ function precedenceIssues(config: AvailabilityConfig): ConfigIssue[] {
   );
 }
 
+function windowIssues(config: AvailabilityConfig): ConfigIssue[] {
+  const message = "The end time must be after the start time.";
+  return config.dateRules.flatMap((rule, i) => [
+    ...(rule.window && rule.window.to <= rule.window.from
+      ? [issue(`dateRules[${i}].window.to`, "window_ends_before_start", message)]
+      : []),
+    ...(rule.kind === "tonight" &&
+    "stop" in rule.payload &&
+    rule.payload.stop.to <= rule.payload.stop.from
+      ? [issue(`dateRules[${i}].payload.stop.to`, "window_ends_before_start", message)]
+      : []),
+  ]);
+}
+
 export function validateConfig(input: unknown): ConfigIssue[] {
   const parsed = AvailabilityConfigSchema.safeParse(input);
   if (!parsed.success) {
@@ -198,5 +251,6 @@ export function validateConfig(input: unknown): ConfigIssue[] {
     ...specialHoursIssues(config),
     ...rangeIssues(config),
     ...precedenceIssues(config),
+    ...windowIssues(config),
   ];
 }

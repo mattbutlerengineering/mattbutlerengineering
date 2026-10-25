@@ -252,3 +252,86 @@ describe("validateConfig", () => {
     ).toEqual([{ path: "dateRules[0].endsOn", code: "ends_before_start" }]);
   });
 });
+
+describe("validateConfig — review follow-ups", () => {
+  it("allows equal precedence when the common dates miss every shared weekday", () => {
+    const assignments = [
+      {
+        id: "as-1",
+        scheduleId: "sch-regular",
+        weekdays: [1, 2],
+        startsOn: "2026-11-02",
+        endsOn: "2026-11-02",
+        precedence: 0,
+      },
+      {
+        id: "as-2",
+        scheduleId: "sch-regular",
+        weekdays: [2],
+        startsOn: "2026-10-01",
+        endsOn: "2026-11-02",
+        precedence: 0,
+      },
+    ];
+    expect(validateConfig(config({ assignments }))).toEqual([]);
+  });
+
+  it("still flags a short common range that does hit a shared weekday", () => {
+    const assignments = [
+      {
+        id: "as-1",
+        scheduleId: "sch-regular",
+        weekdays: [1, 2],
+        startsOn: "2026-11-02",
+        endsOn: "2026-11-03",
+        precedence: 0,
+      },
+      {
+        id: "as-2",
+        scheduleId: "sch-regular",
+        weekdays: [2],
+        startsOn: "2026-10-01",
+        endsOn: "2026-11-03",
+        precedence: 0,
+      },
+    ];
+    expect(pathsAndCodes(config({ assignments }))).toEqual([
+      { path: "assignments[1].precedence", code: "precedence_tie" },
+    ]);
+  });
+
+  it("rejects fixed seating times outside opening and last seating", () => {
+    const dinner = { ...DINNER, seating: { version: 1, fixed: [1080, 1300] } };
+    expect(pathsAndCodes(config({ scheduleServices: [LUNCH, dinner] }))).toEqual([
+      { path: "scheduleServices[1].seating.fixed[1]", code: "seating_outside_service" },
+    ]);
+  });
+
+  it("rejects a rule window and a Tonight stop that end before they start", () => {
+    expect(
+      pathsAndCodes(
+        config({
+          dateRules: [
+            {
+              id: "dr-1",
+              kind: "closure",
+              targetKind: "venue",
+              startsOn: "2026-12-26",
+              window: { version: 1, from: 900, to: 600 },
+            },
+            {
+              id: "dr-2",
+              kind: "tonight",
+              targetKind: "venue",
+              startsOn: "2026-10-25",
+              payload: { version: 1, stop: { from: 1200, to: 1140 } },
+            },
+          ],
+        })
+      )
+    ).toEqual([
+      { path: "dateRules[0].window.to", code: "window_ends_before_start" },
+      { path: "dateRules[1].payload.stop.to", code: "window_ends_before_start" },
+    ]);
+  });
+});
