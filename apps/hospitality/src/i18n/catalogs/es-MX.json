@@ -1519,6 +1519,14 @@
         "lastSeating": "{{name}}, última mesa a las {{time}}",
         "reopens": "reabre {{from}} – {{to}}",
         "reopensAllDay": "reabre todo el día",
+        "serviceReopens": "{{name}} reabre {{from}} – {{to}}",
+        "channelBackOn": "{{channels}} se reactiva {{from}} – {{to}}",
+        "channel": {
+          "online": "las reservas en línea",
+          "phone": "las reservas por teléfono",
+          "waitlist": "la lista de espera"
+        },
+        "closes": "cerrado {{from}} – {{to}}",
         "bookingOn": {
           "online": "las reservas en línea se reactivan",
           "phone": "las reservas por teléfono se reactivan",

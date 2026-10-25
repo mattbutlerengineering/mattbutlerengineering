@@ -6,7 +6,7 @@ import type {
   ResolvedService,
 } from "@mbe/availability";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { closureBandText, isWholeDay, minuteText } from "./closure-band.js";
+import { isWholeDay, minuteText } from "./closure-band.js";
 
 type Channel = keyof BookingOpen;
 
@@ -17,7 +17,7 @@ export type RemovalChange =
   | { kind: "opensAtChanges"; name: string; minute: number }
   | { kind: "closesAtChanges"; name: string; minute: number; later: boolean }
   | { kind: "lastSeatingChanges"; name: string; minute: number }
-  | { kind: "closureLifted"; closure: ResolvedClosure }
+  | { kind: "closureLifted"; closure: ResolvedClosure; serviceName?: string }
   | { kind: "closureApplies"; closure: ResolvedClosure }
   | { kind: "bookingOn"; channel: Channel }
   | { kind: "bookingOff"; channel: Channel }
@@ -79,14 +79,23 @@ const sameClosure = (a: ResolvedClosure, b: ResolvedClosure) =>
 
 function closureChanges(
   current: readonly ResolvedClosure[],
-  removed: readonly ResolvedClosure[]
+  removed: readonly ResolvedClosure[],
+  services: readonly ResolvedService[]
 ): RemovalChange[] {
+  const nameOf = (c: ResolvedClosure) =>
+    c.targetKind === "service"
+      ? services.find((s) => s.venueServiceId === c.venueServiceId)?.name
+      : undefined;
   // A whole-day closure of services or booking channels already shows up as those changes.
   const worthSaying = (c: ResolvedClosure) => !isWholeDay(c) || c.targetKind === "tables";
   return [
     ...current
       .filter((c) => !removed.some((r) => sameClosure(r, c)) && worthSaying(c))
-      .map((closure): RemovalChange => ({ kind: "closureLifted", closure })),
+      .map((closure): RemovalChange => ({
+        kind: "closureLifted",
+        closure,
+        serviceName: nameOf(closure),
+      })),
     ...removed
       .filter((c) => !current.some((r) => sameClosure(r, c)) && worthSaying(c))
       .map((closure): RemovalChange => ({ kind: "closureApplies", closure })),
@@ -114,10 +123,37 @@ export function diffRemoval(
 ): RemovalChange[] {
   return [
     ...serviceChanges(current.services, removed.services),
-    ...closureChanges(current.closures, removed.closures),
+    ...closureChanges(current.closures, removed.closures, current.services),
     ...bookingChanges(current.bookingOpen, removed.bookingOpen),
     ...pacingChanges(current, removed),
   ];
+}
+
+/** A lifted closure, phrased by what it closed: a channel, a named service, or the venue. */
+function liftedText(
+  change: Extract<RemovalChange, { kind: "closureLifted" }>,
+  t: TFunction,
+  format: VenueFormat
+): string {
+  const { closure } = change;
+  if (isWholeDay(closure)) return t("availability.drawer.removal.reopensAllDay");
+  const range = {
+    from: minuteText(closure.from, t, format),
+    to: minuteText(closure.to, t, format),
+  };
+  if (closure.targetKind === "booking") {
+    const channels = (closure.bookingTypes ?? []).map((c) =>
+      t(`availability.drawer.removal.channel.${c}`)
+    );
+    return t("availability.drawer.removal.channelBackOn", {
+      ...range,
+      channels: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(channels),
+    });
+  }
+  if (closure.targetKind === "service" && change.serviceName) {
+    return t("availability.drawer.removal.serviceReopens", { ...range, name: change.serviceName });
+  }
+  return t("availability.drawer.removal.reopens", range);
 }
 
 /** One change as a short phrase: "reopens 10:00 PM – 11:00 PM", "Dinner back to 11:00 PM". */
@@ -154,14 +190,14 @@ export function removalChangeText(
         time: at(change.minute),
       });
     case "closureLifted":
+      return liftedText(change, t, format);
+    case "closureApplies":
       return isWholeDay(change.closure)
-        ? t("availability.drawer.removal.reopensAllDay")
-        : t("availability.drawer.removal.reopens", {
+        ? t("availability.calendar.closedAllDayName")
+        : t("availability.drawer.removal.closes", {
             from: at(change.closure.from),
             to: at(change.closure.to),
           });
-    case "closureApplies":
-      return closureBandText(change.closure, t, format).text;
     case "bookingOn":
       return t(`availability.drawer.removal.bookingOn.${change.channel}`);
     case "bookingOff":

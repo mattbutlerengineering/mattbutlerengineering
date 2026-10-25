@@ -124,3 +124,50 @@ export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay {
     FIXTURE_DATE
   );
 }
+
+/** Online booking closed 6:00-7:00 PM only; the venue stays open. */
+export const ONLINE_WINDOW: DateRule = {
+  ...ON_DAY,
+  id: "r-online-window",
+  kind: "closure",
+  targetKind: "booking",
+  bookingTypes: ["online"],
+  window: { version: 1, from: 1080, to: 1140 },
+};
+
+/** Lunch closed 12:00-1:00 PM. */
+export const LUNCH_WINDOW: DateRule = {
+  ...ON_DAY,
+  id: "r-lunch-window",
+  kind: "closure",
+  targetKind: "service",
+  venueServiceId: "vs-lunch",
+  window: { version: 1, from: 720, to: 780 },
+};
+
+/** A closure that runs past midnight: 11:00 PM to 1:00 AM. */
+export const LATE_CLOSURE: DateRule = {
+  ...ON_DAY,
+  id: "r-late",
+  kind: "closure",
+  targetKind: "venue",
+  window: { version: 1, from: 1380, to: 1500 },
+};
+
+/** A weekly Friday 10:00-11:00 PM closure series, and a skip of it on the fixture Friday. */
+export const WEEKLY_CLOSURE: DateRule = {
+  id: "r-series",
+  kind: "closure",
+  targetKind: "venue",
+  startsOn: "2026-10-01",
+  endsOn: "2026-12-31",
+  repeat: { version: 1, weekdays: [5] },
+  window: { version: 1, from: 1320, to: 1380 },
+};
+export const SKIP_WEEKLY: DateRule = {
+  ...ON_DAY,
+  id: "r-skip",
+  kind: "skip",
+  targetKind: "venue",
+  seriesId: "r-series",
+};
