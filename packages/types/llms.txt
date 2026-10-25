@@ -234,6 +234,39 @@
     <item priority="low">
       type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
     </item>
+    <item priority="high">
+      export const PREVIEW_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_STRANDED_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_SCOPE_MAX_DATES: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewScopeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewAvailabilityBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewDaySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    </item>
+    <item priority="low">
+      type PreviewScope = z.infer<typeof PreviewScopeSchema>;
+    </item>
     <item priority="low">
       type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     </item>

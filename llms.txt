@@ -8428,7 +8428,7 @@
   <file path="services/reservations/src/routes/availability-config.ts">
     <item priority="medium">
       function configProblem(
-        status: 409 | 422,
+        status: 409 | 422 | 503,
         title: string,
         detail: string,
         extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
@@ -8438,7 +8438,10 @@
       type ConfigReply = FastifyReply;
     </item>
     <item priority="medium">
-      function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) { /* ... */ }
+      function sendRefusal(
+        reply: ConfigReply,
+        outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
+      ) { /* ... */ }
     </item>
     <item priority="high">
       export const availabilityConfigRoutes: FastifyPluginAsync;
@@ -9361,6 +9364,39 @@
     </item>
     <item priority="low">
       type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    </item>
+    <item priority="high">
+      export const PREVIEW_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_STRANDED_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_SCOPE_MAX_DATES: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewScopeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewAvailabilityBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewDaySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    </item>
+    <item priority="low">
+      type PreviewScope = z.infer<typeof PreviewScopeSchema>;
     </item>
     <item priority="low">
       type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
@@ -11591,6 +11627,7 @@
         tableId: string | null;
         startTime: Date;
         partySize: number;
+        date?: Date;
       }
     </item>
     <item priority="high">
@@ -11637,21 +11674,6 @@
     </item>
     <item priority="medium">
       function canonical(value: unknown): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function applyTable<T extends ConfigTable>(
-        table: T,
-        rows: AvailabilityConfig[T],
-        changes: AvailabilityConfigChanges,
-        nowIso: string
-      ): AvailabilityConfig[T] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function applyChanges(
-        config: AvailabilityConfig,
-        changes: AvailabilityConfigChanges,
-        nowIso: string
-      ): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="medium">
       function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
@@ -11732,6 +11754,17 @@
         config: AvailabilityConfig,
         venueTableIds: ReadonlySet<string>
       ): ReferenceIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function settleDraft(input: {
+        snapshot: { timezone: string; config: AvailabilityConfig };
+        changes: AvailabilityConfigChanges;
+        scopeConflicts: ScopeConflictMode;
+        tableIds: ReadonlySet<string>;
+        now: Date;
+        today: string;
+        newId: () => string;
+      }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/availability-config-rows.ts">
@@ -11890,6 +11923,23 @@
       ): Promise<SaveOutcome> { /* ... */ }
     </item>
     <item priority="high">
+      export const PREVIEW_TIMEOUT_MS: unknown;
+    </item>
+    <item priority="low">
+      type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
+    </item>
+    <item priority="high">
+      export async function previewAvailabilityConfig(
+        input: {
+          venueId: string;
+          body: PreviewAvailabilityParsed;
+          now: Date;
+          timeoutMs?: number;
+        },
+        client: StoreClient = prisma
+      ): Promise<PreviewOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
       export const availabilityConfigService: unknown;
     </item>
   </file>
@@ -11979,6 +12029,26 @@
         /** Online seatings `listSlots` found for the date, booked or not. */
         seatingCount: number
       ): DayNotices { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-preview.ts">
+    <item priority="low">
+      interface PreviewInput {
+        state: ConfigState;
+        body: PreviewAvailabilityParsed;
+        bookings: readonly BookedReservation[];
+        tableIds: ReadonlySet<string>;
+        now: Date;
+      }
+    </item>
+    <item priority="low">
+      type PreviewPlan = { kind: "invalid"; issues: (Co | { kind: "ok"; result: PreviewR;
+    </item>
+    <item priority="high">
+      export function scopeIncludes(scope: PreviewScope, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planPreview(input: PreviewInput): PreviewPlan { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
@@ -17161,6 +17231,39 @@
       }
     </item>
   </file>
+  <file path="packages/availability/src/apply-draft.ts">
+    <item priority="high">
+      type ConfigTable = keyof AvailabilityConfig;
+    </item>
+    <item priority="high">
+      type Row = AvailabilityConfig[T][number];
+    </item>
+    <item priority="high">
+      export const ARCHIVED_ON_REMOVE: ReadonlySet<ConfigTable>;
+    </item>
+    <item priority="medium">
+      function applyTable<T extends ConfigTable>(
+        table: T,
+        rows: AvailabilityConfig[T],
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): AvailabilityConfig[T] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyChanges(
+        config: AvailabilityConfig,
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyDraft<S extends AvailabilitySnapshot>(
+        snapshot: S,
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): S { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/civil-date.ts">
     <item priority="medium">
       function toUtcMs(date: ServiceDate): number { /* ... */ }
@@ -17216,6 +17319,30 @@
       export function hoursEffect(
         services: readonly { name: string; opensAt: number; closesAt: number }[]
       ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/diff-days.ts">
+    <item priority="low">
+      interface DayDiff {
+        serviceDate: ServiceDate;
+        added: number[];
+        removed: number[];
+      }
+    </item>
+    <item priority="low">
+      interface DiffDaysOptions {
+        partySize: number;
+        channel: BookingChannel;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function diffDays(
+        before: BookingSnapshot,
+        after: BookingSnapshot,
+        dates: readonly ServiceDate[],
+        options: DiffDaysOptions
+      ): DayDiff[] { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/format-minute.ts">
