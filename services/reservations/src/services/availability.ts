@@ -15,12 +15,8 @@ import {
 import type { Table } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import {
-  checkTableConflict,
-  checkPacingForSlot,
   selectBestTable,
-  estimateDuration,
   filterSuitableTables,
-  parseOperatingHours,
   bookingWindow,
   isSlotInBookingWindow,
   activeHoldWindow,
@@ -38,14 +34,7 @@ import { dayNotices } from "./availability-notices.js";
 
 // Re-export pure types and functions for callers that import them from this module.
 export type { ReservationSlim, HoldSlim };
-export {
-  checkTableConflict,
-  checkPacingForSlot,
-  selectBestTable,
-  estimateDuration,
-  filterSuitableTables,
-  parseOperatingHours,
-};
+export { selectBestTable, filterSuitableTables };
 
 /** `getAvailableDates` never computes more than this many days past the start. */
 const MAX_RANGE_DAYS = 60;
