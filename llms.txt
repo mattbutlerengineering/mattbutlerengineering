@@ -16146,7 +16146,7 @@
   </file>
   <file path="packages/availability/src/validate-config.ts">
     <item priority="low">
-      type ConfigIssueCode = "invalid" | "overlap" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start";
+      type ConfigIssueCode = "invalid" | "overlap" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start";
     </item>
     <item priority="low">
       interface ConfigIssue {
@@ -16172,6 +16172,9 @@
     </item>
     <item priority="medium">
       function formatMinute(minute: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fixedSeatingIssues({ path, hours }: PathedService): ConfigIssue[] { /* ... */ }
     </item>
     <item priority="medium">
       function hoursIssues({ path, hours }: PathedService): ConfigIssue[] { /* ... */ }
@@ -16201,10 +16204,22 @@
       function rangeIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
     </item>
     <item priority="medium">
+      function weekdayIndexOf(date: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function latest(a?: string | null, b?: string | null): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function earliest(a?: string | null, b?: string | null): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
       function assignmentsMeet(a: ScheduleAssignment, b: ScheduleAssignment): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function precedenceIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function windowIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
     </item>
     <item priority="high">
       export function validateConfig(input: unknown): ConfigIssue[] { /* ... */ }
