@@ -39,6 +39,7 @@ export async function checkAvailability(
       venueId,
       tableId: body.tableId,
       start: new Date(body.start),
+      end: body.end === undefined ? undefined : new Date(body.end),
       partySize: body.partySize,
       channel: body.channel,
     },

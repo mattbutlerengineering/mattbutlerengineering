@@ -86,6 +86,13 @@ describe("AvailabilityCheckBodySchema", () => {
     );
   });
 
+  it("accepts an optional end and rejects a malformed one", () => {
+    expect(
+      AvailabilityCheckBodySchema.safeParse({ ...body, end: "2026-11-06T20:30:00.000Z" }).success
+    ).toBe(true);
+    expect(AvailabilityCheckBodySchema.safeParse({ ...body, end: "later" }).success).toBe(false);
+  });
+
   it("requires a positive party size", () => {
     expect(AvailabilityCheckBodySchema.safeParse({ ...body, partySize: 0 }).success).toBe(false);
   });

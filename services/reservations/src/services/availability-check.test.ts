@@ -34,6 +34,17 @@ describe("checkAvailability", () => {
     );
   });
 
+  it("judges over the booking's real end when given, else leaves the estimate to the engine", async () => {
+    vi.mocked(judgeBooking).mockResolvedValue({ kind: "ok" });
+    const end = "2026-11-06T20:30:00.000Z";
+
+    await checkAvailability("v1", { ...body, end }, NOW);
+    expect(vi.mocked(judgeBooking).mock.calls.at(-1)![1]).toMatchObject({ end: new Date(end) });
+
+    await checkAvailability("v1", body, NOW);
+    expect(vi.mocked(judgeBooking).mock.calls.at(-1)![1].end).toBeUndefined();
+  });
+
   it("describes a soft limit with its limits and a human message", async () => {
     vi.mocked(judgeBooking).mockResolvedValueOnce({
       kind: "rejected",

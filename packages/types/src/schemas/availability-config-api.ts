@@ -219,6 +219,10 @@ export const HardReasonSchema = z.enum(HARD_REASONS);
 /** `POST …/availability/check`: would the booking gate take this staff (phone) booking? */
 export const AvailabilityCheckBodySchema = z.object({
   start: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
+  end: z.iso
+    .datetime({ offset: true })
+    .describe("End time (ISO 8601); send the booking's real end, omit to estimate from party size")
+    .optional(),
   partySize: z.number().int().min(1).describe("Number of guests"),
   channel: z.literal("phone").describe("Staff checks are phone bookings"),
   tableId: z.string().describe("Table to check; omit to ask whether any table is free").optional(),
