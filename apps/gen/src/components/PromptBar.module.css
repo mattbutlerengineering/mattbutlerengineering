@@ -77,6 +77,12 @@
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-tertiary);
   padding-inline-start: var(--rialto-space-xs);
+  /* Always takes its space; shown only while the bar holds focus (F26). */
+  visibility: hidden;
+}
+
+.bar:focus-within .hints {
+  visibility: visible;
 }
 
 /* Stop button — override secondary to use error color */

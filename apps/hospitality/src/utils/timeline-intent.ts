@@ -8,6 +8,8 @@
 
 export const WALK_IN_PARAM = "walkin";
 export const SELECTED_PARAM = "selected";
+/** Exactly `rehearsal=true` shows the Dress Rehearsal simulation instead of the live book. */
+export const REHEARSAL_PARAM = "rehearsal";
 
 export interface TimelineIntent {
   /** Exactly `walkin=true` — any other spelling is no intent. */

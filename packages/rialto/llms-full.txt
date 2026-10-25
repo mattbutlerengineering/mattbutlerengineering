@@ -65,8 +65,15 @@
     export const badgeCatalogMeta = {
       name: "Badge",
       description:
-        "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
+        "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Put its words in label (required unless it holds child elements).",
       slots: ["default"],
+      // As with Text: a string prop is the only way a spec can give a Badge words (F24).
+      propSchemas: {
+        children: "z.string()",
+      },
+      aliases: {
+        label: "children",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -296,6 +303,16 @@
       role: "user" | "assistant";
       content: string;
       elements?: ChatMessageElement[];
+      /** A local outcome shown under the message (e.g. a cancelled action). */
+      note?: string;
+    }
+    function withNoteOnLastReply(messages: ChatMessage[], note: string): ChatMessage[] {
+      const last = messages.at(-1);
+      if (last?.role !== "assistant") return messages;
+      return [...messages.slice(0, -1), { ...last, note }];
+    }
+    function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } {
+      return { role: m.role, content: m.note ? `${m.content}\n\n${m.note}` : m.content };
     }
     export interface PendingAction {
       actionId: string;
@@ -329,6 +346,11 @@
       stream: ChatStreamFn;
       domainContext: DomainContext;
       getAccessToken: () => string | null | Promise<string | null>;
+      /**
+       * Extra fields the host app merges into every request body, e.g. the
+       * selected venue and its time zone, so the server knows what "tonight" means.
+       */
+      requestContext?: Readonly<Record<string, unknown>>;
     }
     export interface UseChatStreamReturn {
       messages: ChatMessage[];
@@ -349,6 +371,7 @@
       api,
       stream,
       getAccessToken,
+      requestContext,
     }: UseChatStreamOptions): UseChatStreamReturn {
       const { messages: t } = useRialtoLocale();
       const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -361,6 +384,10 @@
       const abortControllerRef = useRef<AbortController | null>(null);
       const getAccessTokenRef = useRef(getAccessToken);
       const streamRef = useRef(stream);
+      const requestContextRef = useRef(requestContext);
+      // The context of the request that proposed the pending action: a confirm
+      // must run where the action was proposed, even if the host switched venue.
+      const pendingContextRef = useRef<Readonly<Record<string, unknown>> | undefined>(undefined);
       const messagesRef = useRef(messages);
       const pendingActionRef = useRef(pendingAction);
       const lastRequestRef = useRef<{
@@ -377,6 +404,10 @@
       }, [stream]);
     
       useEffect(() => {
+        requestContextRef.current = requestContext;
+      }, [requestContext]);
+    
+      useEffect(() => {
         messagesRef.current = messages;
       }, [messages]);
     
@@ -385,12 +416,19 @@
       }, [pendingAction]);
     
       const streamRequest = useCallback(
-        async (body: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
+        async (requestBody: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
           abortControllerRef.current?.abort();
+          const context = requestContextRef.current;
+          const body = { ...context, ...requestBody };
           const controller = new AbortController();
           abortControllerRef.current = controller;
     
-          lastRequestRef.current = { body, baseMessages };
+          // Never store actionConfirm for replay: the server's gate re-arms on any
+          // body carrying it, so a retry() after a confirmed resend would execute
+          // the write again. A retry re-asks the model; the gate holds the write
+          // until the user confirms afresh.
+          const { actionConfirm: _confirmed, ...replayBody } = body;
+          lastRequestRef.current = { body: replayBody, baseMessages };
           setIsStreaming(true);
           setError(null);
           setActiveTool(null);
@@ -422,6 +460,7 @@
                 if (elements.length > 0) msg.elements = [...elements];
                 setMessages([...currentMessages, msg]);
               } else if (line.type === "action_request" && line.actionId && line.toolName) {
+                pendingContextRef.current = context;
                 setPendingAction({
                   actionId: line.actionId,
                   toolName: line.toolName,
@@ -464,15 +503,20 @@
       const send = useCallback(
         async (content: string): Promise<void> => {
           const userMessage: ChatMessage = { role: "user", content };
-          const updatedMessages = [...messagesRef.current, userMessage];
+          // Typing past a pending confirm abandons it: record that on the reply
+          // that proposed it (still the last message), so the bar never outlives
+          // its turn and the model hears the outcome.
+          const pending = pendingActionRef.current !== null;
+          if (pending) setPendingAction(null);
+          const base = pending
+            ? withNoteOnLastReply(messagesRef.current, t.actionCancelled)
+            : messagesRef.current;
+          const updatedMessages = [...base, userMessage];
           setMessages(updatedMessages);
     
-          await streamRequest(
-            { messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })) },
-            updatedMessages
-          );
+          await streamRequest({ messages: updatedMessages.map(toWireMessage) }, updatedMessages);
         },
-        [streamRequest]
+        [streamRequest, t]
       );
     
       const confirmAction = useCallback(async (): Promise<void> => {
@@ -484,8 +528,15 @@
         const currentMsgs = messagesRef.current;
         await streamRequest(
           {
-            messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
-            actionConfirm: { actionId: action.actionId },
+            ...pendingContextRef.current,
+            messages: currentMsgs.map(toWireMessage),
+            // The server executes exactly this toolName + toolInput (its confirmation
+            // gate ignores the model's re-derived input), so send what the user saw.
+            actionConfirm: {
+              actionId: action.actionId,
+              toolName: action.toolName,
+              toolInput: action.toolInput,
+            },
           },
           currentMsgs
         );
@@ -493,7 +544,10 @@
     
       const cancelAction = useCallback(() => {
         setPendingAction(null);
-      }, []);
+        // Mark the proposing reply, so the UI and the next request both say so.
+        // It is the last message: send() abandons a pending confirm before adding a turn.
+        setMessages((prev) => withNoteOnLastReply(prev, t.actionCancelled));
+      }, [t]);
     
       const stop = useCallback(() => {
         abortControllerRef.current?.abort();
@@ -1110,6 +1164,24 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="GuestCards">
+  <file path="src/components/GuestCards/GuestCards.catalog.ts">
+    export const guestCardsCatalogMeta = {
+      name: "GuestCards",
+      description:
+        "One card per matching guest, stacked: name, visit count, risk and tags. Required: guests, an array of cards, at most five. Each card needs name, visits (a number) and risk (the raw value from the tool, such as trusted, copied as is); tags is the guest's tags, optional. The element writes the visit count and risk in words itself. Never put email, phone, notes or spend on a card. A card missing name, visits or risk is left out.",
+      // Card fields are nullish and untyped beyond string/number, with no .max():
+      // the seam validates the array as one value, so a strict nested rule would
+      // drop every card over one (F13). search_guests returns `tags: null` for an
+      // untagged guest, so tags accepts anything. The adapter drops incomplete
+      // cards and non-string tags.
+      propSchemas: {
+        guests:
+          "z.array(z.object({ name: z.string().nullish(), visits: z.union([z.number(), z.string()]).nullish(), risk: z.string().nullish(), tags: z.unknown().optional() }))",
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="IconButton">
   <file path="src/components/IconButton/IconButton.catalog.ts">
     export const iconButtonCatalogMeta = {
@@ -1184,6 +1256,24 @@
       description:
         "Mechanical rolling-counter that animates a numeric value digit-by-digit by composing SplitFlap. Use for hero metrics, KPIs, and live counters that should feel physical as they update. Reads a real number and formats it with locale grouping (Intl.NumberFormat); pass formatOptions for currency, percentages, or fraction digits. Respects prefers-reduced-motion (snaps, no roll) and announces the whole value to screen readers. Pairs with Stat for dashboard tiles.",
       slots: [],
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="ReservationList">
+  <file path="src/components/ReservationList/ReservationList.catalog.ts">
+    export const reservationListCatalogMeta = {
+      name: "ReservationList",
+      description:
+        "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (display text such as 7:30 PM), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+      // Row fields are nullish and untyped beyond string/number, with no .max():
+      // the seam validates the array as one value, so a strict nested rule would
+      // drop the whole list over one row (F13). Reservation.guestName is
+      // `string | null`, so a walk-in copied as is arrives as null. The adapter
+      // drops incomplete rows.
+      propSchemas: {
+        reservations:
+          "z.array(z.object({ time: z.string().nullish(), guest: z.string().nullish(), partySize: z.union([z.number(), z.string()]).nullish(), status: z.string().nullish() }))",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -1469,6 +1559,37 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Stat">
+  <file path="src/components/Stat/Stat.catalog.ts">
+    export const statCatalogMeta = {
+      name: "Stat",
+      description:
+        "A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text such as 7:30 PM); label says what it counts. Add a delta such as +6 with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.",
+      // value is a ReactNode, which the generator maps to an optional string; models
+      // often send counts as numbers, so accept either (the adapter renders it as text).
+      propSchemas: {
+        value: "z.union([z.string(), z.number()])",
+        delta: "z.union([z.string(), z.number()]).optional()",
+      },
+      charLimits: {
+        label: 25,
+        delta: 10,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="StatusLED">
+  <file path="src/components/StatusLED/StatusLED.catalog.ts">
+    export const statusLEDCatalogMeta = {
+      name: "StatusLED",
+      description:
+        "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
+      charLimits: {
+        label: 40,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="Table">
   <file path="src/components/Table/Table.catalog.ts">
     export const tableCatalogMeta = {
@@ -1498,6 +1619,21 @@
       },
       propSchemas: {
         tabs: "z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))",
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Tag">
+  <file path="src/components/Tag/Tag.catalog.ts">
+    export const tagCatalogMeta = {
+      name: "Tag",
+      description:
+        "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Put its words in label. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+      charLimits: {
+        children: 30,
+      },
+      aliases: {
+        label: "children",
       },
     } satisfies CatalogMeta;
   </file>
@@ -1988,8 +2124,17 @@
     export const textCatalogMeta = {
       name: "Text",
       description:
-        "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata.",
+        "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put its words in text (required unless it holds child elements).",
       slots: ["default"],
+      // A generated spec has no other way to give Text its words: the default slot
+      // holds child elements, not a string (F24). Required, because live the model
+      // filled Tag's required words every time and skipped optional ones here.
+      propSchemas: {
+        children: "z.string()",
+      },
+      aliases: {
+        text: "children",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -2054,6 +2199,42 @@
       if (max && value > max) return true;
       return false;
     }
+  </file>
+  </section>
+  <section priority="medium" role="TimeSlots">
+  <file path="src/components/TimeSlots/TimeSlots.catalog.ts">
+    export const timeSlotsCatalogMeta = {
+      name: "TimeSlots",
+      description:
+        "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times as display text, such as 7:30 PM, in time order). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
+      // date is clamped at 40 chars, never dropped. times entries carry no .max():
+      // the seam validates the array as one value (F13); the adapter drops blanks.
+      charLimits: {
+        date: 40,
+      },
+      propSchemas: {
+        partySize: "z.union([z.number(), z.string()])",
+        times: "z.array(z.string())",
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Timeline">
+  <file path="src/components/Timeline/Timeline.catalog.ts">
+    export const timelineCatalogMeta = {
+      name: "Timeline",
+      description:
+        "A time-ordered sequence of events, such as a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
+      // Nested strings carry no .max() and status is any string: the seam validates
+      // events as one value and clamps only top-level charLimits, so a long title or
+      // a reservation status like "seated" would otherwise drop the whole Timeline
+      // (F13). The adapter shows an unknown status as a plain event and drops an
+      // event with no title.
+      propSchemas: {
+        events:
+          "z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() }))",
+      },
+    } satisfies CatalogMeta;
   </file>
   </section>
   <section priority="medium" role="Toast">
@@ -2155,6 +2336,27 @@
   </file>
   </section>
   <section priority="medium" role="components">
+  <file path="src/components/booking-vocabulary.ts">
+    export type VocabularyTone = "neutral" | "success" | "warning" | "error";
+    export type ReservationStatusKey = keyof ReservationStatusMessages;
+    export type GuestRiskKey = keyof GuestRiskMessages;
+    export interface Resolved<K extends string> {
+      readonly key: K | undefined;
+      readonly tone: VocabularyTone;
+    }
+    function canonical(raw: string): string {
+      return raw
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+    }
+    export function normalizeReservationStatus(raw: string): Resolved<ReservationStatusKey> {
+      return STATUS[canonical(raw)] ?? UNKNOWN;
+    }
+    export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> {
+      return RISK[canonical(raw)] ?? UNKNOWN;
+    }
+  </file>
   <file path="src/components/catalog-meta.ts">
     export type CatalogCharLimits = Readonly<Record<string, number>>;
     export type CatalogAliases = Readonly<Record<string, string>>;
@@ -3089,6 +3291,19 @@
       /** Block reason in the reservation's accessible name, e.g. "reason: Maintenance". */
       readonly blockedReason: (reason: string) => string;
     }
+    export interface ReservationStatusMessages {
+      readonly pending: string;
+      readonly confirmed: string;
+      readonly cancelled: string;
+      readonly completed: string;
+      readonly noShow: string;
+      readonly seated: string;
+    }
+    export interface GuestRiskMessages {
+      readonly trusted: string;
+      readonly standard: string;
+      readonly risky: string;
+    }
     export interface RialtoMessages {
       /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
       readonly dismiss: string;
@@ -3226,6 +3441,12 @@
       readonly chatPlaceholder: string;
       /** ChatPanel send button. */
       readonly send: string;
+      /** ChatPanel button that stops a streaming reply. */
+      readonly stop: string;
+      /** ChatPanel accessible name for the starter-suggestion group. */
+      readonly chatSuggestions: string;
+      /** ChatPanel note under a reply whose proposed action the user cancelled. */
+      readonly actionCancelled: string;
       /** ChatPanel drawer title. */
       readonly chat: string;
       /** ChatPanel tool denial, rendered after the bold tool name. */
@@ -3284,6 +3505,24 @@
       readonly characterCount: (current: number, max: number, over: boolean) => string;
       /** Combobox live-region announcement of `count` (at least 1) visible options. */
       readonly resultsAvailable: (count: number) => string;
+      /** Party size line of a reservation or open-times list, e.g. "Party of 4". */
+      readonly partyOf: (count: number) => string;
+      /** A guest's visit count with its noun; each locale picks its own plural form. */
+      readonly visitCount: (count: number) => string;
+      /** Reservation status words. A copy of the hospitality dashboard's `timeline.status.*`, pinned by its drift test. */
+      readonly reservationStatus: ReservationStatusMessages;
+      /** Guest risk words. A copy of the hospitality dashboard's `crm.risk.*`, pinned by its drift test. */
+      readonly guestRisk: GuestRiskMessages;
+      /** Name shown for a reservation with no guest. A copy of the dashboard's `home.reservations.walkIn`. */
+      readonly walkIn: string;
+      /** TimeSlots line when a day has no open times. */
+      readonly noOpenTimes: string;
+      /** Accessible name of the ReservationList list. */
+      readonly reservations: string;
+      /** Accessible name of the TimeSlots list. */
+      readonly openTimes: string;
+      /** Accessible name of the GuestCards list. */
+      readonly guests: string;
       /** TapeChart default labels; its `strings` prop overrides them. */
       readonly tapeChart: TapeChartMessages;
     }
@@ -3356,6 +3595,9 @@
       chatInput: "Chat input",
       chatPlaceholder: "Ask about availability, reservations...",
       send: "Send",
+      stop: "Stop",
+      chatSuggestions: "Suggested questions",
+      actionCancelled: "Cancelled. Nothing was changed.",
       chat: "Chat",
       toolBlocked: (reason) => `was blocked: ${reason}`,
       reservation: "Reservation",
@@ -3387,6 +3629,22 @@
       characterCount: (current, max, over) =>
         `${current} of ${max} characters${over ? ", over limit" : ""}`,
       resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
+      partyOf: (count) => `Party of ${count}`,
+      visitCount: (count) => (count === 1 ? `${count} visit` : `${count} visits`),
+      reservationStatus: {
+        pending: "Pending",
+        confirmed: "Confirmed",
+        cancelled: "Cancelled",
+        completed: "Completed",
+        noShow: "No Show",
+        seated: "Seated",
+      },
+      guestRisk: { trusted: "Trusted", standard: "Standard", risky: "Risky" },
+      walkIn: "Walk-in",
+      noOpenTimes: "No open times",
+      reservations: "Reservations",
+      openTimes: "Open times",
+      guests: "Guests",
       tapeChart: {
         regionLabel: "Reservations tape chart",
         roomsColumnLabel: "Rooms",
@@ -3554,6 +3812,9 @@
       chatInput: "Entrada del chat",
       chatPlaceholder: "Pregunta sobre disponibilidad, reservaciones...",
       send: "Enviar",
+      stop: "Detener",
+      chatSuggestions: "Preguntas sugeridas",
+      actionCancelled: "Cancelado. No se cambió nada.",
       chat: "Conversación",
       toolBlocked: (reason) => `fue bloqueado: ${reason}`,
       reservation: "Reservación",
@@ -3588,6 +3849,22 @@
         `${current} de ${max} caracteres${over ? ", límite excedido" : ""}`,
       resultsAvailable: (count) =>
         count === 1 ? `${count} resultado disponible` : `${count} resultados disponibles`,
+      partyOf: (count) => `Grupo de ${count}`,
+      visitCount: (count) => (count === 1 ? `${count} visita` : `${count} visitas`),
+      reservationStatus: {
+        pending: "Pendiente",
+        confirmed: "Confirmada",
+        cancelled: "Cancelada",
+        completed: "Completada",
+        noShow: "No asistió",
+        seated: "Sentados",
+      },
+      guestRisk: { trusted: "Confiable", standard: "Estándar", risky: "Riesgoso" },
+      walkIn: "Sin reservación",
+      noOpenTimes: "No hay horarios disponibles",
+      reservations: "Reservaciones",
+      openTimes: "Horarios disponibles",
+      guests: "Clientes",
       tapeChart: {
         regionLabel: "Cuadro de reservaciones",
         roomsColumnLabel: "Habitaciones",
@@ -3698,6 +3975,9 @@
       chatInput: "Saisie du clavardage",
       chatPlaceholder: "Posez une question sur les disponibilités, les réservations...",
       send: "Envoyer",
+      stop: "Arrêter",
+      chatSuggestions: "Questions suggérées",
+      actionCancelled: "Annulé. Rien n’a été modifié.",
       chat: "Clavardage",
       toolBlocked: (reason) => `a été bloqué : ${reason}`,
       reservation: "Réservation",
@@ -3734,6 +4014,22 @@
         `${current} sur ${max} caractères${over ? ", limite dépassée" : ""}`,
       resultsAvailable: (count) =>
         count < 2 ? `${count} résultat disponible` : `${count} résultats disponibles`,
+      partyOf: (count) => `Groupe de ${count}`,
+      visitCount: (count) => (count < 2 ? `${count} visite` : `${count} visites`),
+      reservationStatus: {
+        pending: "En attente",
+        confirmed: "Confirmée",
+        cancelled: "Annulée",
+        completed: "Terminée",
+        noShow: "Absent",
+        seated: "Installés",
+      },
+      guestRisk: { trusted: "Fiable", standard: "Standard", risky: "À risque" },
+      walkIn: "Sans réservation",
+      noOpenTimes: "Aucune heure disponible",
+      reservations: "Réservations",
+      openTimes: "Heures disponibles",
+      guests: "Clients",
       tapeChart: {
         regionLabel: "Tableau des réservations",
         roomsColumnLabel: "Chambres",
@@ -4102,36 +4398,20 @@
         reason: "Collapsible trigger text; single line",
       },
     
-      // ── Components with no co-located *.catalog.ts ──
-      {
-        component: "Tag",
-        prop: "children",
-        max: 30,
-        reason: "Chip label; must fit single line",
-      },
-      {
-        component: "Kbd",
-        prop: "children",
-        max: 10,
-        reason: "Keyboard shortcut text; very compact",
-      },
-      {
-        component: "Stat",
-        prop: "label",
-        max: 25,
-        reason: "Metric label; sits below the value",
-      },
+      // ── Props a flat catalog charLimit can't key (Stat.value accepts a number too) ──
       {
         component: "Stat",
         prop: "value",
         max: 15,
         reason: "Metric value; must be scannable",
       },
+    
+      // ── Components with no co-located *.catalog.ts ──
       {
-        component: "Stat",
-        prop: "delta",
+        component: "Kbd",
+        prop: "children",
         max: 10,
-        reason: "Trend delta; short numeric change",
+        reason: "Keyboard shortcut text; very compact",
       },
       {
         component: "Meter",

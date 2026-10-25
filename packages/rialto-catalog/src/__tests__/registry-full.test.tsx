@@ -57,7 +57,7 @@ describe("AspectRatio", () => {
           props: { ratio: 16 / 9 },
           children: ["txt1"],
         },
-        txt1: { type: "Text", props: { variant: "body" } },
+        txt1: { type: "Text", props: { children: "Sample words", variant: "body" } },
       },
     });
     expect(container.firstChild).not.toBeNull();
@@ -70,7 +70,7 @@ describe("Text", () => {
   it("renders body variant", () => {
     const { container } = renderSpec({
       root: "t1",
-      elements: { t1: { type: "Text", props: { variant: "body" } } },
+      elements: { t1: { type: "Text", props: { children: "Sample words", variant: "body" } } },
     });
     expect(container.firstChild).not.toBeNull();
   });
@@ -81,7 +81,13 @@ describe("Text", () => {
       elements: {
         t1: {
           type: "Text",
-          props: { variant: "display", color: "accent", align: "center", as: "h1" },
+          props: {
+            children: "Sample words",
+            variant: "display",
+            color: "accent",
+            align: "center",
+            as: "h1",
+          },
         },
       },
     });
@@ -91,7 +97,7 @@ describe("Text", () => {
   it("renders caption variant", () => {
     const { container } = renderSpec({
       root: "t1",
-      elements: { t1: { type: "Text", props: { variant: "caption" } } },
+      elements: { t1: { type: "Text", props: { children: "Sample words", variant: "caption" } } },
     });
     expect(container.firstChild).not.toBeNull();
   });
@@ -836,7 +842,7 @@ describe("Button", () => {
         },
         childText: {
           type: "Text",
-          props: { variant: "label" },
+          props: { children: "Sample words", variant: "label" },
         },
       },
     });
@@ -1020,6 +1026,23 @@ describe("registry seam validation (graceful degradation)", () => {
     expect(within(root).getByText("Still Here")).toBeTruthy();
   });
 
+  it("clamps an over-limit string prop instead of dropping the element", () => {
+    // Live chat run 2026-10-24: the model sent an 89-char Alert title against a
+    // 60-char limit and the whole Alert became "Component could not be displayed".
+    const longTitle =
+      "Which venue should I check? Send me the venue ID and I'll pull up tonight's reservations.";
+    expect(longTitle.length).toBeGreaterThan(60);
+    const { container } = renderSpec({
+      root: "alert",
+      elements: { alert: { type: "Alert", props: { variant: "info", title: longTitle } } },
+    });
+
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    const shown = within(container).getByText(/^Which venue should I check\?/);
+    expect(shown.textContent!.length).toBeLessThanOrEqual(60);
+    expect(shown.textContent!.endsWith("…")).toBe(true);
+  });
+
   it("does not render a fallback for a fully valid element", () => {
     const { container } = renderSpec({
       root: "ok",
@@ -1032,5 +1055,466 @@ describe("registry seam validation (graceful degradation)", () => {
     });
     expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
     expect(within(container).getByText("Valid Tab")).toBeTruthy();
+  });
+});
+
+// ── Hospitality data elements ─────────────────────────────────────────────────
+
+describe("hospitality data elements", () => {
+  it("renders a Stat with its label, value, and trend", () => {
+    const { container } = renderSpec({
+      root: "s",
+      elements: {
+        s: {
+          type: "Stat",
+          props: { label: "Covers tonight", value: "42", delta: "+6", trend: "up" },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Covers tonight")).toBeTruthy();
+    expect(within(container).getByText("42")).toBeTruthy();
+  });
+
+  it("renders a Timeline of events", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: {
+          type: "Timeline",
+          props: {
+            events: [
+              { title: "Garcia, party of 4", timestamp: "6:30 PM", status: "completed" },
+              { title: "Lee, party of 2", timestamp: "7:00 PM", status: "upcoming" },
+            ],
+          },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Garcia, party of 4")).toBeTruthy();
+    expect(within(container).getByText("Lee, party of 2")).toBeTruthy();
+  });
+
+  it("renders a Tag from a label prop", () => {
+    const { container } = renderSpec({
+      root: "g",
+      elements: { g: { type: "Tag", props: { label: "Gluten-free" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Gluten-free")).toBeTruthy();
+  });
+
+  it("renders a StatusLED with its label", () => {
+    const { container } = renderSpec({
+      root: "l",
+      elements: { l: { type: "StatusLED", props: { variant: "success", label: "Patio 2: free" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    // Live batch 7: the label existed only as aria-label, so staff saw a column of
+    // bare dots. It must be visible text, read once (the light itself is decorative).
+    expect(within(container).getByText("Patio 2: free")).toBeTruthy();
+    expect(within(container).queryByRole("img", { name: "Patio 2: free" })).toBeNull();
+  });
+});
+
+describe("hospitality data elements tolerate plausible model output", () => {
+  it("keeps a Timeline whose event carries a status outside the component's set", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: {
+          type: "Timeline",
+          props: {
+            events: [{ title: "Garcia, party of 4", timestamp: "6:30 PM", status: "seated" }],
+          },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Garcia, party of 4")).toBeTruthy();
+  });
+
+  it("keeps a Stat whose delta is a number", () => {
+    const { container } = renderSpec({
+      root: "s",
+      elements: {
+        s: { type: "Stat", props: { label: "No-shows", value: 3, delta: -2, trend: "down" } },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("-2")).toBeTruthy();
+  });
+
+  it("clamps an overlong Tag label instead of dropping it", () => {
+    const long = "Allergic to shellfish, tree nuts, and sesame";
+    const { container } = renderSpec({
+      root: "g",
+      elements: { g: { type: "Tag", props: { label: long } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    const shown = within(container).getByText(/^Allergic to shellfish/);
+    expect(shown.textContent!.length).toBeLessThanOrEqual(30);
+  });
+});
+
+// Live /gen run 2026-10-24 (F24): Text and Badge had no prop for their words, and
+// their adapters rendered only child elements, so every generated label was empty.
+describe("text-bearing elements carry their own words", () => {
+  it("renders a Text's words from its text prop", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: {
+          type: "Text",
+          props: { variant: "label", text: "Visit history" },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Visit history")).toBeTruthy();
+  });
+
+  it("renders a Badge's words from its label prop", () => {
+    const { container } = renderSpec({
+      root: "b",
+      elements: {
+        b: {
+          type: "Badge",
+          props: { variant: "success", label: "Confirmed" },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Confirmed")).toBeTruthy();
+  });
+
+  it("still renders a Text's child elements when it has them", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: { type: "Text", props: { text: "ignored" }, children: ["b"] },
+        b: { type: "Badge", props: { label: "Inner" } },
+      },
+    });
+    expect(within(container).getByText("Inner")).toBeTruthy();
+  });
+});
+
+// Live /gen run after #7460: the model filled Tag's required words every time but
+// left Text's and Badge's optional ones out. Words are now required, as on Tag, and
+// a malformed Timeline event is dropped instead of failing the whole Timeline.
+describe("generated words are required where a component needs them", () => {
+  it("rejects a Text with no words, so the model is told it must supply them", () => {
+    expect(generatedSchemas.Text.safeParse({ variant: "label" }).success).toBe(false);
+    expect(generatedSchemas.Badge.safeParse({ variant: "success" }).success).toBe(false);
+    expect(generatedSchemas.Text.safeParse({ children: "Visits" }).success).toBe(true);
+  });
+
+  it("drops a Timeline event with no title and keeps the rest", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: {
+          type: "Timeline",
+          props: { events: [{ title: "Visit 1 - Party of 2" }, { key: "x" }] },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Visit 1 - Party of 2")).toBeTruthy();
+  });
+});
+
+// Review of #7462: requiring the words must not break a Text or Badge that holds
+// only child elements, the shape the model is told every slot accepts.
+describe("slot components with only child elements", () => {
+  it("renders a Text whose content is child elements and no words of its own", () => {
+    const { container } = renderSpec({
+      root: "s",
+      elements: {
+        s: { type: "Stack", props: { direction: "column" }, children: ["t"] },
+        t: { type: "Text", props: { variant: "body" }, children: ["inner"] },
+        inner: { type: "Badge", props: { label: "Hi" } },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Hi")).toBeTruthy();
+  });
+
+  it("renders a Badge whose content is a child element", () => {
+    const { container } = renderSpec({
+      root: "b",
+      elements: {
+        b: { type: "Badge", props: { variant: "success" }, children: ["t"] },
+        t: { type: "Text", props: { text: "Inside" } },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Inside")).toBeTruthy();
+  });
+
+  it("still falls back for a leaf Text with no words", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: { t: { type: "Text", props: { variant: "body" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).not.toBeNull();
+  });
+});
+
+it("still falls back for a Tag with child elements and no label (Tag has no slot)", () => {
+  const { container } = renderSpec({
+    root: "t",
+    elements: {
+      t: { type: "Tag", props: { variant: "accent" }, children: ["x"] },
+      x: { type: "Text", props: { text: "VIP" } },
+    },
+  });
+  expect(container.querySelector("[data-rialto-seam-fallback]")).not.toBeNull();
+});
+
+// gen-ui-elements-2: a reservation row needs time, partySize and status; one bad
+// row is dropped rather than replacing the whole list with the fallback.
+describe("ReservationList", () => {
+  function renderReservations(reservations: unknown[]) {
+    return renderSpec({
+      root: "r",
+      elements: { r: { type: "ReservationList", props: { reservations } } },
+    });
+  }
+
+  it("renders its rows", () => {
+    const { container } = renderReservations([
+      { time: "6:00 PM", guest: "Lee Family", partySize: 2, status: "CONFIRMED" },
+      { time: "8:15 PM", partySize: 3, status: "PENDING" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    const list = within(container).getByRole("list", { name: "Reservations" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(list.textContent).toContain("Lee Family");
+    expect(list.textContent).toContain("Walk-in");
+  });
+
+  // Reservation.guestName is `string | null`: a walk-in copied as is must not
+  // fall back the whole list (F13).
+  it("shows Walk-in for a null guest and keeps every row", () => {
+    const { container } = renderReservations([
+      { time: "6:00 PM", guest: null, partySize: 2, status: "SEATED" },
+      { time: "7:00 PM", guest: "Kept", partySize: 4, status: "CONFIRMED" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getAllByRole("listitem")).toHaveLength(2);
+    expect(container.textContent).toContain("Walk-in");
+  });
+
+  it.each([
+    ["time", { guest: "No time", partySize: 2, status: "CONFIRMED" }],
+    ["partySize", { time: "7:00 PM", guest: "No party", status: "CONFIRMED" }],
+    ["status", { time: "7:00 PM", guest: "No status", partySize: 2 }],
+    ["time (blank)", { time: "  ", guest: "Blank time", partySize: 2, status: "CONFIRMED" }],
+    ["status (blank)", { time: "7:00 PM", guest: "Blank status", partySize: 2, status: "" }],
+  ])("drops a row missing %s and keeps the rest", (_field, bad) => {
+    const { container } = renderReservations([
+      bad,
+      { time: "6:00 PM", guest: "Kept", partySize: 2, status: "CONFIRMED" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(container).getByText("Kept")).toBeTruthy();
+  });
+
+  it("coerces a numeric partySize string and drops a non-numeric one", () => {
+    const { container } = renderReservations([
+      { time: "6:00 PM", guest: "Coerced", partySize: "4", status: "CONFIRMED" },
+      { time: "7:00 PM", guest: "Dropped", partySize: "four", status: "CONFIRMED" },
+    ]);
+    expect(within(container).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(container).getByRole("listitem").textContent).toContain("Party of 4");
+    expect(within(container).queryByText("Dropped")).toBeNull();
+  });
+
+  it("falls back only when no row survives", () => {
+    const { container } = renderReservations([{ guest: "Nothing else" }]);
+    expect(container.querySelector('[data-rialto-seam-fallback="ReservationList"]')).not.toBeNull();
+  });
+
+  it("falls back when the reservations array is missing", () => {
+    const { container } = renderSpec({
+      root: "r",
+      elements: { r: { type: "ReservationList", props: {} } },
+    });
+    expect(container.querySelector('[data-rialto-seam-fallback="ReservationList"]')).not.toBeNull();
+  });
+});
+
+// gen-ui-elements-2: open times for one date and party size. Blank times are
+// dropped; only a missing date line falls back; an empty list is a real state.
+describe("TimeSlots", () => {
+  function renderSlots(props: Record<string, unknown>) {
+    return renderSpec({
+      root: "s",
+      elements: { s: { type: "TimeSlots", props } },
+    });
+  }
+
+  it("renders the date line and the open times", () => {
+    const { container } = renderSlots({
+      date: "Friday, Oct 30",
+      partySize: 4,
+      times: ["6:00 PM", "7:45 PM"],
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Friday, Oct 30 · Party of 4")).toBeTruthy();
+    const list = within(container).getByRole("list", { name: "Open times" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("drops blank times and keeps the rest", () => {
+    const { container } = renderSlots({
+      date: "Friday",
+      partySize: 2,
+      times: ["6:00 PM", "", "   ", "8:00 PM"],
+    });
+    const items = within(container).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual(["6:00 PM", "8:00 PM"]);
+  });
+
+  it("shows the no-open-times line, not the fallback, for an empty times array", () => {
+    const { container } = renderSlots({ date: "Saturday", partySize: 2, times: [] });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("No open times")).toBeTruthy();
+  });
+
+  it("shows the no-open-times line when every time is blank", () => {
+    const { container } = renderSlots({ date: "Saturday", partySize: 2, times: [" "] });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("No open times")).toBeTruthy();
+  });
+
+  it("coerces a numeric partySize string", () => {
+    const { container } = renderSlots({ date: "Friday", partySize: "4", times: ["6:00 PM"] });
+    expect(within(container).getByText("Friday · Party of 4")).toBeTruthy();
+  });
+
+  it.each([
+    ["date missing", { partySize: 2, times: ["6:00 PM"] }],
+    ["date blank", { date: "  ", partySize: 2, times: ["6:00 PM"] }],
+    ["partySize missing", { date: "Friday", times: ["6:00 PM"] }],
+    ["partySize non-numeric", { date: "Friday", partySize: "four", times: ["6:00 PM"] }],
+    ["times missing", { date: "Friday", partySize: 2 }],
+  ])("falls back when the %s", (_case, props) => {
+    const { container } = renderSlots(props);
+    expect(container.querySelector('[data-rialto-seam-fallback="TimeSlots"]')).not.toBeNull();
+  });
+
+  it('clamps an over-long date with "…" at its 40-char limit instead of dropping it', () => {
+    const date = "Friday, October 30th, the evening of the harvest dinner";
+    const { container } = renderSlots({ date, partySize: 2, times: ["6:00 PM"] });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    const clamped = `${date.slice(0, 39).trimEnd()}…`;
+    expect(clamped.length).toBeLessThanOrEqual(40);
+    expect(within(container).getByText(`${clamped} · Party of 2`)).toBeTruthy();
+  });
+});
+
+// gen-ui-elements-2: a guest card needs name, visits and risk; one bad card is
+// dropped rather than replacing every card with the fallback.
+describe("GuestCards", () => {
+  function renderGuests(guests: unknown[]) {
+    return renderSpec({
+      root: "g",
+      elements: { g: { type: "GuestCards", props: { guests } } },
+    });
+  }
+
+  function cards(container: HTMLElement) {
+    return Array.from(
+      within(container).getByRole("list", { name: "Guests" }).querySelectorAll(":scope > li")
+    );
+  }
+
+  it("renders one card per guest", () => {
+    const { container } = renderGuests([
+      { name: "Maria Garcia", visits: 12, risk: "trusted", tags: ["VIP"] },
+      { name: "Tom Nguyen", visits: 1, risk: "standard" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(2);
+    expect(container.textContent).toContain("12 visits");
+    expect(container.textContent).toContain("VIP");
+  });
+
+  it.each([
+    ["name", { visits: 2, risk: "trusted" }],
+    ["visits", { name: "No visits", risk: "trusted" }],
+    ["risk", { name: "No risk", visits: 2 }],
+    ["name (blank)", { name: "  ", visits: 2, risk: "trusted" }],
+    ["risk (blank)", { name: "Blank risk", visits: 2, risk: "" }],
+    ["visits (non-numeric)", { name: "Many", visits: "many", risk: "trusted" }],
+  ])("drops a card missing %s and keeps the rest", (_field, bad) => {
+    const { container } = renderGuests([bad, { name: "Kept", visits: 2, risk: "trusted" }]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(1);
+    expect(within(container).getByText("Kept")).toBeTruthy();
+  });
+
+  // search_guests returns `tags: null` for an untagged guest; a copied null or a
+  // stray non-array must keep the card, not fall back the whole element (F13).
+  it.each([
+    ["null", null],
+    ["a bare string", "VIP"],
+    ["an array holding null", [null]],
+  ])("keeps every card when tags is %s", (_label, tags) => {
+    const { container } = renderGuests([
+      { name: "Odd tags", visits: 1, risk: "standard", tags },
+      { name: "Kept", visits: 2, risk: "trusted", tags: ["VIP"] },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(2);
+  });
+
+  it("drops a card whose name, visits or risk is null and keeps the rest", () => {
+    const { container } = renderGuests([
+      { name: null, visits: 1, risk: "trusted" },
+      { name: "Kept", visits: null, risk: "trusted" },
+      { name: "Also kept", visits: 3, risk: "trusted" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(1);
+  });
+
+  it("coerces a numeric visits string", () => {
+    const { container } = renderGuests([{ name: "Coerced", visits: "4", risk: "trusted" }]);
+    expect(cards(container)[0]?.textContent).toContain("4 visits");
+  });
+
+  it("keeps a card with no tags or only blank tags, and drops blank tags", () => {
+    const { container } = renderGuests([
+      { name: "No tags", visits: 1, risk: "trusted" },
+      { name: "Blank tags", visits: 1, risk: "trusted", tags: ["", "  "] },
+      { name: "Some tags", visits: 1, risk: "trusted", tags: ["VIP", " ", "Regular"] },
+    ]);
+    const [none, blank, some] = cards(container) as HTMLElement[];
+    expect(within(none!).queryByRole("list")).toBeNull();
+    expect(within(blank!).queryByRole("list")).toBeNull();
+    expect(
+      within(within(some!).getByRole("list"))
+        .getAllByRole("listitem")
+        .map((t) => t.textContent)
+    ).toEqual(["VIP", "Regular"]);
+  });
+
+  it("falls back only when no card survives", () => {
+    const { container } = renderGuests([{ name: "Nothing else" }]);
+    expect(container.querySelector('[data-rialto-seam-fallback="GuestCards"]')).not.toBeNull();
+  });
+
+  it("falls back when the guests array is missing", () => {
+    const { container } = renderSpec({
+      root: "g",
+      elements: { g: { type: "GuestCards", props: {} } },
+    });
+    expect(container.querySelector('[data-rialto-seam-fallback="GuestCards"]')).not.toBeNull();
   });
 });

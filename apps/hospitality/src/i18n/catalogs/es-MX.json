@@ -356,7 +356,8 @@
       "dashboard": "Panel",
       "setup": "Configuración inicial",
       "hours": "Horario de operación",
-      "menus": "Menús"
+      "menus": "Menús",
+      "chat": "Chat"
     },
     "venuesNotLoaded": "No se cargaron los locales.",
     "searchPlaceholder": "Buscar páginas y acciones...",
@@ -1441,7 +1442,32 @@
     "back": "Volver al servicio de esta noche"
   },
   "chat": {
-    "title": "Chat"
+    "title": "Chat",
+    "suggestions": {
+      "tonight": "¿Cómo pinta la noche de hoy?",
+      "openTables": "¿Qué mesas están libres ahora?",
+      "availability": "¿Tenemos mesa para 4 a las 7 esta noche?",
+      "walkIn": "Llegaron 2 personas sin reserva. ¿Dónde las siento?"
+    },
+    "actions": {
+      "create_reservation": "Crear una reserva",
+      "modify_reservation": "Cambiar una reserva",
+      "cancel_reservation": "Cancelar una reserva",
+      "seat_walk_in": "Sentar a un cliente sin reserva",
+      "update_table_status": "Actualizar una mesa",
+      "fields": {
+        "guestName": "Cliente",
+        "partySize": "Personas",
+        "date": "Fecha",
+        "startTime": "Inicio",
+        "endTime": "Fin",
+        "tableId": "Mesa",
+        "table": "Mesa",
+        "status": "Estado",
+        "notes": "Notas",
+        "reservationId": "Reserva"
+      }
+    }
   },
   "setupHours": {
     "title": "Horario de atención",
@@ -1856,5 +1882,29 @@
     "previewButton": "Reservar",
     "contrastFailed": "Estos colores no tienen suficiente contraste para leer el texto. Elige un acento más oscuro o más claro.",
     "save": "Guardar tema"
+  },
+  "rehearsal": {
+    "entry": {
+      "cta": "Simular un viernes por la noche"
+    },
+    "banner": {
+      "title": "Ensayo — no son reservaciones reales",
+      "play": "Reproducir",
+      "pause": "Pausar",
+      "step": "Siguiente evento",
+      "speed": "{{speed}}×"
+    },
+    "loading": "Cargando tus mesas…",
+    "curtainCall": {
+      "title": "Cierre de la noche",
+      "covers": "Cubiertos servidos",
+      "turn": "Tiempo promedio por mesa",
+      "peak": "Hora pico",
+      "neverSat": "Mesas que nunca se ocuparon",
+      "wait": "Espera más larga sin reservación",
+      "minutes": "{{minutes}} min",
+      "runAgain": "Repetir",
+      "weeknight": "Probar una noche entre semana"
+    }
   }
 }

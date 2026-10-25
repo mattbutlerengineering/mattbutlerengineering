@@ -335,6 +335,24 @@ describe("runCli (injected gh runner)", () => {
     expect(errs[0]).toMatch(/HTTP 401/);
   });
 
+  it("exits non-zero and writes nothing when the result has zero features", () => {
+    const writes = [];
+    const errs = [];
+    const emptyGh = (args) => {
+      const path = args.at(-1);
+      return JSON.stringify(path.includes("labels=tracking") ? [[]] : routes[path]);
+    };
+    const code = runCli([], {
+      gh: emptyGh,
+      write: (...a) => writes.push(a),
+      log: () => {},
+      err: (m) => errs.push(m),
+    });
+    expect(code).toBe(1);
+    expect(writes).toEqual([]);
+    expect(errs[0]).toMatch(/zero features/);
+  });
+
   it("--dry-run prints and writes nothing", () => {
     const writes = [];
     const logs = [];

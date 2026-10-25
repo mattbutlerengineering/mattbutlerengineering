@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint src/",
+    "lint": "eslint src/ e2e/",
     "typecheck": "tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.e2e.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -38,6 +38,11 @@
       "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks)",
       "path": "dist/assets/floor-plan-*.js",
       "limit": "9 kB"
+    },
+    {
+      "name": "Dress Rehearsal (shared by the timeline and floor plan pages)",
+      "path": "dist/assets/use-rehearsal-playback-*.js",
+      "limit": "4 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",
@@ -78,6 +83,11 @@
       "name": "Sentry Vendor (@sentry/*)",
       "path": "dist/assets/sentry-vendor-*.js",
       "limit": "33 kB"
+    },
+    {
+      "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
+      "path": "dist/assets/copilotContext-*.js",
+      "limit": "11 kB"
     }
   ],
   "dependencies": {

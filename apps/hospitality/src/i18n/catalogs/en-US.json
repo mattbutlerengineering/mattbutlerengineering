@@ -349,7 +349,8 @@
       "dashboard": "Dashboard",
       "setup": "Setup",
       "hours": "Operating Hours",
-      "menus": "Menus"
+      "menus": "Menus",
+      "chat": "Chat"
     },
     "venuesNotLoaded": "Venues not loaded.",
     "searchPlaceholder": "Search pages and actions...",
@@ -1417,7 +1418,32 @@
     "back": "Back to tonight's service"
   },
   "chat": {
-    "title": "Chat"
+    "title": "Chat",
+    "suggestions": {
+      "tonight": "How does tonight look?",
+      "openTables": "Which tables are open right now?",
+      "availability": "Do we have a table for 4 at 7 tonight?",
+      "walkIn": "Party of 2 just walked in. Where can I seat them?"
+    },
+    "actions": {
+      "create_reservation": "Book a reservation",
+      "modify_reservation": "Change a reservation",
+      "cancel_reservation": "Cancel a reservation",
+      "seat_walk_in": "Seat a walk-in",
+      "update_table_status": "Update a table",
+      "fields": {
+        "guestName": "Guest",
+        "partySize": "Party size",
+        "date": "Date",
+        "startTime": "Start",
+        "endTime": "End",
+        "tableId": "Table",
+        "table": "Table",
+        "status": "Status",
+        "notes": "Notes",
+        "reservationId": "Reservation"
+      }
+    }
   },
   "setupHours": {
     "title": "Operating Hours",
@@ -1829,5 +1855,29 @@
     "previewButton": "Reserve",
     "contrastFailed": "These colours don't have enough contrast for readable text. Choose a darker or lighter accent.",
     "save": "Save theme"
+  },
+  "rehearsal": {
+    "entry": {
+      "cta": "Run a Friday night"
+    },
+    "banner": {
+      "title": "Rehearsal — not real bookings",
+      "play": "Play",
+      "pause": "Pause",
+      "step": "Next event",
+      "speed": "{{speed}}×"
+    },
+    "loading": "Loading your tables…",
+    "curtainCall": {
+      "title": "Curtain call",
+      "covers": "Covers served",
+      "turn": "Average turn time",
+      "peak": "Peak hour",
+      "neverSat": "Tables that never sat",
+      "wait": "Longest walk-in wait",
+      "minutes": "{{minutes}} min",
+      "runAgain": "Run it again",
+      "weeknight": "Try a weeknight"
+    }
   }
 }

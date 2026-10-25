@@ -65,8 +65,15 @@
     export const badgeCatalogMeta = {
       name: "Badge",
       description:
-        "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
+        "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Put its words in label (required unless it holds child elements).",
       slots: ["default"],
+      // As with Text: a string prop is the only way a spec can give a Badge words (F24).
+      propSchemas: {
+        children: "z.string()",
+      },
+      aliases: {
+        label: "children",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -296,6 +303,16 @@
       role: "user" | "assistant";
       content: string;
       elements?: ChatMessageElement[];
+      /** A local outcome shown under the message (e.g. a cancelled action). */
+      note?: string;
+    }
+    function withNoteOnLastReply(messages: ChatMessage[], note: string): ChatMessage[] {
+      const last = messages.at(-1);
+      if (last?.role !== "assistant") return messages;
+      return [...messages.slice(0, -1), { ...last, note }];
+    }
+    function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } {
+      return { role: m.role, content: m.note ? `${m.content}\n\n${m.note}` : m.content };
     }
     export interface PendingAction {
       actionId: string;
@@ -329,6 +346,11 @@
       stream: ChatStreamFn;
       domainContext: DomainContext;
       getAccessToken: () => string | null | Promise<string | null>;
+      /**
+       * Extra fields the host app merges into every request body, e.g. the
+       * selected venue and its time zone, so the server knows what "tonight" means.
+       */
+      requestContext?: Readonly<Record<string, unknown>>;
     }
     export interface UseChatStreamReturn {
       messages: ChatMessage[];
@@ -349,6 +371,7 @@
       api,
       stream,
       getAccessToken,
+      requestContext,
     }: UseChatStreamOptions): UseChatStreamReturn {
       const { messages: t } = useRialtoLocale();
       const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -361,6 +384,10 @@
       const abortControllerRef = useRef<AbortController | null>(null);
       const getAccessTokenRef = useRef(getAccessToken);
       const streamRef = useRef(stream);
+      const requestContextRef = useRef(requestContext);
+      // The context of the request that proposed the pending action: a confirm
+      // must run where the action was proposed, even if the host switched venue.
+      const pendingContextRef = useRef<Readonly<Record<string, unknown>> | undefined>(undefined);
       const messagesRef = useRef(messages);
       const pendingActionRef = useRef(pendingAction);
       const lastRequestRef = useRef<{
@@ -377,6 +404,10 @@
       }, [stream]);
     
       useEffect(() => {
+        requestContextRef.current = requestContext;
+      }, [requestContext]);
+    
+      useEffect(() => {
         messagesRef.current = messages;
       }, [messages]);
     
@@ -385,12 +416,19 @@
       }, [pendingAction]);
     
       const streamRequest = useCallback(
-        async (body: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
+        async (requestBody: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
           abortControllerRef.current?.abort();
+          const context = requestContextRef.current;
+          const body = { ...context, ...requestBody };
           const controller = new AbortController();
           abortControllerRef.current = controller;
     
-          lastRequestRef.current = { body, baseMessages };
+          // Never store actionConfirm for replay: the server's gate re-arms on any
+          // body carrying it, so a retry() after a confirmed resend would execute
+          // the write again. A retry re-asks the model; the gate holds the write
+          // until the user confirms afresh.
+          const { actionConfirm: _confirmed, ...replayBody } = body;
+          lastRequestRef.current = { body: replayBody, baseMessages };
           setIsStreaming(true);
           setError(null);
           setActiveTool(null);
@@ -422,6 +460,7 @@
                 if (elements.length > 0) msg.elements = [...elements];
                 setMessages([...currentMessages, msg]);
               } else if (line.type === "action_request" && line.actionId && line.toolName) {
+                pendingContextRef.current = context;
                 setPendingAction({
                   actionId: line.actionId,
                   toolName: line.toolName,
@@ -464,15 +503,20 @@
       const send = useCallback(
         async (content: string): Promise<void> => {
           const userMessage: ChatMessage = { role: "user", content };
-          const updatedMessages = [...messagesRef.current, userMessage];
+          // Typing past a pending confirm abandons it: record that on the reply
+          // that proposed it (still the last message), so the bar never outlives
+          // its turn and the model hears the outcome.
+          const pending = pendingActionRef.current !== null;
+          if (pending) setPendingAction(null);
+          const base = pending
+            ? withNoteOnLastReply(messagesRef.current, t.actionCancelled)
+            : messagesRef.current;
+          const updatedMessages = [...base, userMessage];
           setMessages(updatedMessages);
     
-          await streamRequest(
-            { messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })) },
-            updatedMessages
-          );
+          await streamRequest({ messages: updatedMessages.map(toWireMessage) }, updatedMessages);
         },
-        [streamRequest]
+        [streamRequest, t]
       );
     
       const confirmAction = useCallback(async (): Promise<void> => {
@@ -484,8 +528,15 @@
         const currentMsgs = messagesRef.current;
         await streamRequest(
           {
-            messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
-            actionConfirm: { actionId: action.actionId },
+            ...pendingContextRef.current,
+            messages: currentMsgs.map(toWireMessage),
+            // The server executes exactly this toolName + toolInput (its confirmation
+            // gate ignores the model's re-derived input), so send what the user saw.
+            actionConfirm: {
+              actionId: action.actionId,
+              toolName: action.toolName,
+              toolInput: action.toolInput,
+            },
           },
           currentMsgs
         );
@@ -493,7 +544,10 @@
     
       const cancelAction = useCallback(() => {
         setPendingAction(null);
-      }, []);
+        // Mark the proposing reply, so the UI and the next request both say so.
+        // It is the last message: send() abandons a pending confirm before adding a turn.
+        setMessages((prev) => withNoteOnLastReply(prev, t.actionCancelled));
+      }, [t]);
     
       const stop = useCallback(() => {
         abortControllerRef.current?.abort();
@@ -1201,6 +1255,24 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="GuestCards">
+  <file path="packages/rialto/src/components/GuestCards/GuestCards.catalog.ts">
+    export const guestCardsCatalogMeta = {
+      name: "GuestCards",
+      description:
+        "One card per matching guest, stacked: name, visit count, risk and tags. Required: guests, an array of cards, at most five. Each card needs name, visits (a number) and risk (the raw value from the tool, such as trusted, copied as is); tags is the guest's tags, optional. The element writes the visit count and risk in words itself. Never put email, phone, notes or spend on a card. A card missing name, visits or risk is left out.",
+      // Card fields are nullish and untyped beyond string/number, with no .max():
+      // the seam validates the array as one value, so a strict nested rule would
+      // drop every card over one (F13). search_guests returns `tags: null` for an
+      // untagged guest, so tags accepts anything. The adapter drops incomplete
+      // cards and non-string tags.
+      propSchemas: {
+        guests:
+          "z.array(z.object({ name: z.string().nullish(), visits: z.union([z.number(), z.string()]).nullish(), risk: z.string().nullish(), tags: z.unknown().optional() }))",
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="IconButton">
   <file path="packages/rialto/src/components/IconButton/IconButton.catalog.ts">
     export const iconButtonCatalogMeta = {
@@ -1283,6 +1355,24 @@
       description:
         "Mechanical rolling-counter that animates a numeric value digit-by-digit by composing SplitFlap. Use for hero metrics, KPIs, and live counters that should feel physical as they update. Reads a real number and formats it with locale grouping (Intl.NumberFormat); pass formatOptions for currency, percentages, or fraction digits. Respects prefers-reduced-motion (snaps, no roll) and announces the whole value to screen readers. Pairs with Stat for dashboard tiles.",
       slots: [],
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="ReservationList">
+  <file path="packages/rialto/src/components/ReservationList/ReservationList.catalog.ts">
+    export const reservationListCatalogMeta = {
+      name: "ReservationList",
+      description:
+        "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (display text such as 7:30 PM), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+      // Row fields are nullish and untyped beyond string/number, with no .max():
+      // the seam validates the array as one value, so a strict nested rule would
+      // drop the whole list over one row (F13). Reservation.guestName is
+      // `string | null`, so a walk-in copied as is arrives as null. The adapter
+      // drops incomplete rows.
+      propSchemas: {
+        reservations:
+          "z.array(z.object({ time: z.string().nullish(), guest: z.string().nullish(), partySize: z.union([z.number(), z.string()]).nullish(), status: z.string().nullish() }))",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -1568,6 +1658,37 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Stat">
+  <file path="packages/rialto/src/components/Stat/Stat.catalog.ts">
+    export const statCatalogMeta = {
+      name: "Stat",
+      description:
+        "A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text such as 7:30 PM); label says what it counts. Add a delta such as +6 with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.",
+      // value is a ReactNode, which the generator maps to an optional string; models
+      // often send counts as numbers, so accept either (the adapter renders it as text).
+      propSchemas: {
+        value: "z.union([z.string(), z.number()])",
+        delta: "z.union([z.string(), z.number()]).optional()",
+      },
+      charLimits: {
+        label: 25,
+        delta: 10,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="StatusLED">
+  <file path="packages/rialto/src/components/StatusLED/StatusLED.catalog.ts">
+    export const statusLEDCatalogMeta = {
+      name: "StatusLED",
+      description:
+        "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
+      charLimits: {
+        label: 40,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="Table">
   <file path="packages/rialto/src/components/Table/Table.catalog.ts">
     export const tableCatalogMeta = {
@@ -1597,6 +1718,21 @@
       },
       propSchemas: {
         tabs: "z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))",
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Tag">
+  <file path="packages/rialto/src/components/Tag/Tag.catalog.ts">
+    export const tagCatalogMeta = {
+      name: "Tag",
+      description:
+        "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Put its words in label. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+      charLimits: {
+        children: 30,
+      },
+      aliases: {
+        label: "children",
       },
     } satisfies CatalogMeta;
   </file>
@@ -2087,8 +2223,17 @@
     export const textCatalogMeta = {
       name: "Text",
       description:
-        "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata.",
+        "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put its words in text (required unless it holds child elements).",
       slots: ["default"],
+      // A generated spec has no other way to give Text its words: the default slot
+      // holds child elements, not a string (F24). Required, because live the model
+      // filled Tag's required words every time and skipped optional ones here.
+      propSchemas: {
+        children: "z.string()",
+      },
+      aliases: {
+        text: "children",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -2153,6 +2298,42 @@
       if (max && value > max) return true;
       return false;
     }
+  </file>
+  </section>
+  <section priority="medium" role="TimeSlots">
+  <file path="packages/rialto/src/components/TimeSlots/TimeSlots.catalog.ts">
+    export const timeSlotsCatalogMeta = {
+      name: "TimeSlots",
+      description:
+        "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times as display text, such as 7:30 PM, in time order). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
+      // date is clamped at 40 chars, never dropped. times entries carry no .max():
+      // the seam validates the array as one value (F13); the adapter drops blanks.
+      charLimits: {
+        date: 40,
+      },
+      propSchemas: {
+        partySize: "z.union([z.number(), z.string()])",
+        times: "z.array(z.string())",
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Timeline">
+  <file path="packages/rialto/src/components/Timeline/Timeline.catalog.ts">
+    export const timelineCatalogMeta = {
+      name: "Timeline",
+      description:
+        "A time-ordered sequence of events, such as a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
+      // Nested strings carry no .max() and status is any string: the seam validates
+      // events as one value and clamps only top-level charLimits, so a long title or
+      // a reservation status like "seated" would otherwise drop the whole Timeline
+      // (F13). The adapter shows an unknown status as a plain event and drops an
+      // event with no title.
+      propSchemas: {
+        events:
+          "z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() }))",
+      },
+    } satisfies CatalogMeta;
   </file>
   </section>
   <section priority="medium" role="Toast">
@@ -5624,6 +5805,16 @@
             return;
           }
     
+          // Judge never ran on any task: un-measured, not a baseline. Don't persist it (#7351).
+          if (suiteJudgeUnavailable(report)) {
+            emitReport(report, options.json, costBasis);
+            console.error(
+              "\nThe LLM judge could not run on any task, so only the deterministic signals were measured. This run was not persisted and is not a pass-rate measurement."
+            );
+            process.exitCode = JUDGE_UNAVAILABLE_EXIT_CODE;
+            return;
+          }
+    
           persistReport(report, adapterType, costBasis);
           emitReport(report, options.json, costBasis);
     
@@ -6656,6 +6847,27 @@
   </file>
   </section>
   <section priority="medium" role="components">
+  <file path="packages/rialto/src/components/booking-vocabulary.ts">
+    export type VocabularyTone = "neutral" | "success" | "warning" | "error";
+    export type ReservationStatusKey = keyof ReservationStatusMessages;
+    export type GuestRiskKey = keyof GuestRiskMessages;
+    export interface Resolved<K extends string> {
+      readonly key: K | undefined;
+      readonly tone: VocabularyTone;
+    }
+    function canonical(raw: string): string {
+      return raw
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+    }
+    export function normalizeReservationStatus(raw: string): Resolved<ReservationStatusKey> {
+      return STATUS[canonical(raw)] ?? UNKNOWN;
+    }
+    export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> {
+      return RISK[canonical(raw)] ?? UNKNOWN;
+    }
+  </file>
   <file path="packages/rialto/src/components/catalog-meta.ts">
     export type CatalogCharLimits = Readonly<Record<string, number>>;
     export type CatalogAliases = Readonly<Record<string, string>>;
@@ -6889,6 +7101,88 @@
         },
       ],
     };
+    interface ChatVenue {
+      readonly id: string;
+      readonly ianaTimezone: string;
+    }
+    export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> {
+      if (!venue) return {};
+      const timeZone = resolveTimeZone(venue.ianaTimezone);
+      return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
+    }
+    export function useChatRequestContext(): Record<string, string> {
+      const { selectedVenue } = useVenue();
+      return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+    }
+    export function useChatSuggestions(): readonly string[] {
+      const { t } = useTranslation();
+      return useMemo(
+        () => [
+          t("chat.suggestions.tonight"),
+          t("chat.suggestions.openTables"),
+          t("chat.suggestions.availability"),
+          t("chat.suggestions.walkIn"),
+        ],
+        [t]
+      );
+    }
+    type ChatActionKey =
+      | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
+      | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
+      | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+    type Translate = (key: ChatActionKey) => string;
+    function formatWhen(key: string, value: string, locale?: string): string {
+      if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+        return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
+      }
+      if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
+      return value;
+    }
+    function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
+      return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+    }
+    export function describeChatAction(
+      action: PendingAction,
+      t: Translate,
+      tableName: (id: string) => string | undefined,
+      locale?: string
+    ): ActionDescription {
+      const titleKey = lookup(ACTION_TITLES, action.toolName);
+      return {
+        title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+        details: Object.entries(action.toolInput).map(([key, raw]) => {
+          const value = String(raw);
+          const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+          const shown =
+            key === "tableId"
+              ? (tableName(value) ?? value)
+              : statusKey
+                ? t(statusKey)
+                : formatWhen(key, value, locale);
+          const labelKey = lookup(ACTION_FIELDS, key);
+          return { label: labelKey ? t(labelKey) : key, value: shown };
+        }),
+      };
+    }
+    export function useDescribeChatAction(): (action: PendingAction) => ActionDescription {
+      const { t, i18n } = useTranslation();
+      const { selectedVenue } = useVenue();
+      const { data: tables } = useTables({
+        venueId: selectedVenue?.id ?? "",
+        limit: 100,
+        enabled: Boolean(selectedVenue),
+      });
+      return useCallback(
+        (action: PendingAction) =>
+          describeChatAction(
+            action,
+            t,
+            (id) => tables?.find((table) => table.id === id)?.name,
+            i18n.language
+          ),
+        [t, tables, i18n.language]
+      );
+    }
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
     export function getSessionLapseCopy(t: TFunction) {
@@ -7617,6 +7911,36 @@
     export const SHIPPED_FEATURES: readonly ShippedFeature[] = selectShippedFeatures(committedSnapshot);
     export function findShippedFeature(slug: string): ShippedFeature | undefined {
       return SHIPPED_FEATURES.find((feature) => feature.slug === slug);
+    }
+  </file>
+  <file path="apps/marketing/src/data/status-probes.ts">
+    export const STATUS_SERVICES = [
+      { name: "Users API", url: "/api/v1/users/health" },
+      { name: "Reservations API", url: "/api/v1/reservations/health" },
+      { name: "Agent API", url: "/api/gen/health" },
+    ] as const;
+    export const STATUS_SITES = [
+      { name: "Marketing", url: "/" },
+      { name: "Hospitality", url: "/hospitality/" },
+      { name: "Rialto", url: "/rialto/" },
+    ] as const;
+    export interface ProbeFixture {
+      status: number;
+      contentType?: string;
+      body: string;
+    }
+    export function statusProbeFixture(url: string, method: string): ProbeFixture | undefined {
+      if (method === "GET" && STATUS_SERVICES.some((s) => s.url === url)) {
+        return {
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ status: "ok", version: "capture" }),
+        };
+      }
+      if (method === "HEAD" && STATUS_SITES.some((s) => s.url === url)) {
+        return { status: 200, body: "" };
+      }
+      return undefined;
     }
   </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">
@@ -8451,6 +8775,38 @@
     }
     type StoredSection = MenuSection & { items: MenuItem[] };
     type StoredMenu = Menu & { sections: StoredSection[] };
+    export function buildPublicMenuFixture(): PublicMenuDetail {
+      return {
+        id: "menu_capture_1",
+        name: "Dinner",
+        slug: "dinner",
+        description: null,
+        displayOrder: 0,
+        currencyCode: "USD",
+        sections: [
+          {
+            id: "section_capture_1",
+            name: "Mains",
+            displayOrder: 0,
+            items: [
+              {
+                id: "item_capture_1",
+                name: "Roast chicken",
+                description: null,
+                priceCents: 2400,
+                status: "AVAILABLE",
+                displayOrder: 0,
+              },
+            ],
+          },
+        ],
+      };
+    }
+    export async function mockPublicMenu(page: Page): Promise<void> {
+      await page.route(/\/public\/v1\/venues\/[^/?]+\/menus\/dinner(\?.*)?$/, (route) =>
+        jsonOk(route, buildPublicMenuFixture())
+      );
+    }
     async function mockMenus(page: Page): Promise<void> {
       const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
       const venueId = venues.data[0]?.id ?? "";
@@ -9237,6 +9593,15 @@
           contentType: "application/json",
           body: JSON.stringify({ data: section }),
         });
+      });
+    
+      // Launch assigns each template table to its section with
+      // PUT /floor-plan-sections/:id/tables (exact membership). Unmocked, the
+      // request is proxied to a dead API and the launch fails after the tables
+      // stage, so neither Launch nor Retry could reach the floor plan editor.
+      await page.route(/\/api\/v1\/floor-plan-sections\/[^/?]+\/tables(\?|$)/, (route) => {
+        if (route.request().method() !== "PUT") return route.fallback();
+        return jsonOk(route, []);
       });
     
       // Availability
@@ -10101,6 +10466,10 @@
     export function suiteDidNotRun(report: EvalReport): boolean {
       return report.tasks.length > 0 && report.tasks.every(taskDidNotRun);
     }
+    export function suiteJudgeUnavailable(report: EvalReport): boolean {
+      const judged = report.tasks.filter((t) => t.judgeResult !== undefined);
+      return judged.length > 0 && judged.every((t) => t.judgeResult?.evaluationFailed === true);
+    }
   </file>
   <file path="packages/agent-core/src/eval/task-scorer.ts">
     export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Promise<TaskScore> {
@@ -10116,14 +10485,18 @@
     
       // LLM-judge signals — only when criteria are specified and a judge is injected.
       let judgeResult: TaskScore["judgeResult"];
+      let inconclusiveJudge = false;
       if (rubric.judgeCriteria.length > 0) {
         judgeResult = await runJudge(task.prompt, rubric.judgeCriteria.join("\n"), judge);
-        signals.push(judgeResult.passed);
+        // An unavailable judge is not a verdict: it keeps the task from passing
+        // but must not lower the score as though the work had been judged bad (#7351).
+        if (judgeResult.evaluationFailed) inconclusiveJudge = true;
+        else signals.push(judgeResult.passed);
       }
     
       const satisfied = signals.filter(Boolean).length;
       const score = signals.length === 0 ? 0 : satisfied / signals.length;
-      const passed = signals.every(Boolean);
+      const passed = !inconclusiveJudge && signals.every(Boolean);
     
       return {
         taskId: task.id,
@@ -12678,7 +13051,11 @@
               return;
             }
     
-            const error = err instanceof Error ? err : new Error(String(err));
+            const raised = err instanceof Error ? err : new Error(String(err));
+            // Swap in limit-specific copy but keep the status fields, so the
+            // result still classifies as a transport failure.
+            const limitCopy = describeLimitError(raised);
+            const error = limitCopy ? Object.assign(new Error(limitCopy), { ...raised }) : raised;
             setError(error);
             setIsStreaming(false);
             onErrorRef.current?.(error);
@@ -16829,6 +17206,19 @@
       /** Block reason in the reservation's accessible name, e.g. "reason: Maintenance". */
       readonly blockedReason: (reason: string) => string;
     }
+    export interface ReservationStatusMessages {
+      readonly pending: string;
+      readonly confirmed: string;
+      readonly cancelled: string;
+      readonly completed: string;
+      readonly noShow: string;
+      readonly seated: string;
+    }
+    export interface GuestRiskMessages {
+      readonly trusted: string;
+      readonly standard: string;
+      readonly risky: string;
+    }
     export interface RialtoMessages {
       /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
       readonly dismiss: string;
@@ -16966,6 +17356,12 @@
       readonly chatPlaceholder: string;
       /** ChatPanel send button. */
       readonly send: string;
+      /** ChatPanel button that stops a streaming reply. */
+      readonly stop: string;
+      /** ChatPanel accessible name for the starter-suggestion group. */
+      readonly chatSuggestions: string;
+      /** ChatPanel note under a reply whose proposed action the user cancelled. */
+      readonly actionCancelled: string;
       /** ChatPanel drawer title. */
       readonly chat: string;
       /** ChatPanel tool denial, rendered after the bold tool name. */
@@ -17024,6 +17420,24 @@
       readonly characterCount: (current: number, max: number, over: boolean) => string;
       /** Combobox live-region announcement of `count` (at least 1) visible options. */
       readonly resultsAvailable: (count: number) => string;
+      /** Party size line of a reservation or open-times list, e.g. "Party of 4". */
+      readonly partyOf: (count: number) => string;
+      /** A guest's visit count with its noun; each locale picks its own plural form. */
+      readonly visitCount: (count: number) => string;
+      /** Reservation status words. A copy of the hospitality dashboard's `timeline.status.*`, pinned by its drift test. */
+      readonly reservationStatus: ReservationStatusMessages;
+      /** Guest risk words. A copy of the hospitality dashboard's `crm.risk.*`, pinned by its drift test. */
+      readonly guestRisk: GuestRiskMessages;
+      /** Name shown for a reservation with no guest. A copy of the dashboard's `home.reservations.walkIn`. */
+      readonly walkIn: string;
+      /** TimeSlots line when a day has no open times. */
+      readonly noOpenTimes: string;
+      /** Accessible name of the ReservationList list. */
+      readonly reservations: string;
+      /** Accessible name of the TimeSlots list. */
+      readonly openTimes: string;
+      /** Accessible name of the GuestCards list. */
+      readonly guests: string;
       /** TapeChart default labels; its `strings` prop overrides them. */
       readonly tapeChart: TapeChartMessages;
     }
@@ -17096,6 +17510,9 @@
       chatInput: "Chat input",
       chatPlaceholder: "Ask about availability, reservations...",
       send: "Send",
+      stop: "Stop",
+      chatSuggestions: "Suggested questions",
+      actionCancelled: "Cancelled. Nothing was changed.",
       chat: "Chat",
       toolBlocked: (reason) => `was blocked: ${reason}`,
       reservation: "Reservation",
@@ -17127,6 +17544,22 @@
       characterCount: (current, max, over) =>
         `${current} of ${max} characters${over ? ", over limit" : ""}`,
       resultsAvailable: (count) => `${count} result${count === 1 ? "" : "s"} available`,
+      partyOf: (count) => `Party of ${count}`,
+      visitCount: (count) => (count === 1 ? `${count} visit` : `${count} visits`),
+      reservationStatus: {
+        pending: "Pending",
+        confirmed: "Confirmed",
+        cancelled: "Cancelled",
+        completed: "Completed",
+        noShow: "No Show",
+        seated: "Seated",
+      },
+      guestRisk: { trusted: "Trusted", standard: "Standard", risky: "Risky" },
+      walkIn: "Walk-in",
+      noOpenTimes: "No open times",
+      reservations: "Reservations",
+      openTimes: "Open times",
+      guests: "Guests",
       tapeChart: {
         regionLabel: "Reservations tape chart",
         roomsColumnLabel: "Rooms",
@@ -18835,6 +19268,9 @@
       chatInput: "Entrada del chat",
       chatPlaceholder: "Pregunta sobre disponibilidad, reservaciones...",
       send: "Enviar",
+      stop: "Detener",
+      chatSuggestions: "Preguntas sugeridas",
+      actionCancelled: "Cancelado. No se cambió nada.",
       chat: "Conversación",
       toolBlocked: (reason) => `fue bloqueado: ${reason}`,
       reservation: "Reservación",
@@ -18869,6 +19305,22 @@
         `${current} de ${max} caracteres${over ? ", límite excedido" : ""}`,
       resultsAvailable: (count) =>
         count === 1 ? `${count} resultado disponible` : `${count} resultados disponibles`,
+      partyOf: (count) => `Grupo de ${count}`,
+      visitCount: (count) => (count === 1 ? `${count} visita` : `${count} visitas`),
+      reservationStatus: {
+        pending: "Pendiente",
+        confirmed: "Confirmada",
+        cancelled: "Cancelada",
+        completed: "Completada",
+        noShow: "No asistió",
+        seated: "Sentados",
+      },
+      guestRisk: { trusted: "Confiable", standard: "Estándar", risky: "Riesgoso" },
+      walkIn: "Sin reservación",
+      noOpenTimes: "No hay horarios disponibles",
+      reservations: "Reservaciones",
+      openTimes: "Horarios disponibles",
+      guests: "Clientes",
       tapeChart: {
         regionLabel: "Cuadro de reservaciones",
         roomsColumnLabel: "Habitaciones",
@@ -18979,6 +19431,9 @@
       chatInput: "Saisie du clavardage",
       chatPlaceholder: "Posez une question sur les disponibilités, les réservations...",
       send: "Envoyer",
+      stop: "Arrêter",
+      chatSuggestions: "Questions suggérées",
+      actionCancelled: "Annulé. Rien n’a été modifié.",
       chat: "Clavardage",
       toolBlocked: (reason) => `a été bloqué : ${reason}`,
       reservation: "Réservation",
@@ -19015,6 +19470,22 @@
         `${current} sur ${max} caractères${over ? ", limite dépassée" : ""}`,
       resultsAvailable: (count) =>
         count < 2 ? `${count} résultat disponible` : `${count} résultats disponibles`,
+      partyOf: (count) => `Groupe de ${count}`,
+      visitCount: (count) => (count < 2 ? `${count} visite` : `${count} visites`),
+      reservationStatus: {
+        pending: "En attente",
+        confirmed: "Confirmée",
+        cancelled: "Annulée",
+        completed: "Terminée",
+        noShow: "Absent",
+        seated: "Installés",
+      },
+      guestRisk: { trusted: "Fiable", standard: "Standard", risky: "À risque" },
+      walkIn: "Sans réservation",
+      noOpenTimes: "Aucune heure disponible",
+      reservations: "Réservations",
+      openTimes: "Heures disponibles",
+      guests: "Clients",
       tapeChart: {
         regionLabel: "Tableau des réservations",
         roomsColumnLabel: "Chambres",
@@ -20719,9 +21190,35 @@
     export function isTransportError(error: Error): boolean {
       return (
         error instanceof TypeError ||
+        statusOf(error) !== undefined ||
         error.message.startsWith("Request failed:") ||
         error.message === "Response body is not readable"
       );
+    }
+    function statusOf(error: Error): number | undefined {
+      const status = (error as { status?: unknown }).status;
+      return typeof status === "number" ? status : undefined;
+    }
+    function minutesLabel(seconds: number | undefined): string {
+      const minutes = Math.max(1, Math.ceil((seconds ?? 60) / 60));
+      return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+    }
+    export function describeLimitError(error: Error): string | null {
+      const status = statusOf(error);
+      const { problemType, retryAfterSeconds } = error as {
+        problemType?: string;
+        retryAfterSeconds?: number;
+      };
+      if (status === 429) {
+        return `You've sent too many requests. Try again in about ${minutesLabel(retryAfterSeconds)}.`;
+      }
+      if (status === 503 && problemType === CEILING_REACHED) {
+        return "The daily budget for generation has been reached. Come back tomorrow.";
+      }
+      if (status === 503 && problemType === CEILING_UNAVAILABLE) {
+        return "Generation is temporarily unavailable. Please try again shortly.";
+      }
+      return null;
     }
   </file>
   <file path="apps/gen/src/pages/createErrorRecoveryPrompt.ts">
@@ -20861,6 +21358,8 @@
       // carries the same context into the stream callbacks and into retry().
       const [pinnedSpec, setPinnedSpec] = useState<Spec | null>(null);
       const [refineError, setRefineError] = useState<Error | null>(null);
+      // Catalog-validation failure of a completed full generation (see onComplete).
+      const [validationError, setValidationError] = useState<Error | null>(null);
       const nodeRefineRef = useRef<NodeRefine | null>(null);
       const savePendingRef = useRef(false);
       const diffHistory = useSpecDiffHistory();
@@ -20901,6 +21400,31 @@
             }
             nodeRefineRef.current = null;
             setPinnedSpec(savedSpec);
+          }
+          if (!nodeRefine) {
+            // A full generation is checked with the same validator as a refine.
+            // Off-catalog elements would otherwise render as silent placeholders.
+            // The streamed spec stays on screen (activeId stays null) next to the
+            // error affordance, and the attempt is recorded as "failed" in history,
+            // the same as a stream failure, rather than saved as a success.
+            const validation = validateSpecAgainstCatalog(completedSpec);
+            if (!validation.ok) {
+              setValidationError(
+                new Error(`The generated UI is not valid Rialto: ${validation.message}`)
+              );
+              void saveSpec({
+                prompt: promptRef.current,
+                kind: "failed",
+                spec: EMPTY_SPEC,
+                rawLines: [],
+              }).catch((saveErr: unknown) => {
+                console.error(
+                  "[usePlaygroundSession] Failed to record failed attempt in history:",
+                  saveErr
+                );
+              });
+              return;
+            }
           }
           options?.onGenerationComplete?.();
           // Undo/redo wait for the save: its late .then would otherwise overwrite them.
@@ -20956,7 +21480,7 @@
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
-      const displayError = activeId === null ? (refineError ?? error) : null;
+      const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
       const activeSpecId = !isStreaming && activeId ? activeId : null;
       const failedPrompt = displayError ? rawPrompt : null;
     
@@ -20964,6 +21488,7 @@
         nodeRefineRef.current = null;
         setPinnedSpec(null);
         setRefineError(null);
+        setValidationError(null);
         // A new spec makes the old diffs meaningless: they were made on the previous one.
         clearDiffs();
         setLastChange(null);
@@ -21013,6 +21538,7 @@
           nodeRefineRef.current = { base: displaySpec, key, instruction, parentId: activeId };
           setPinnedSpec(displaySpec);
           setRefineError(null);
+          setValidationError(null);
           setActiveId(null);
           void send(
             createSubtreeRefinementPrompt(subtree, ancestors, instruction),
@@ -21102,7 +21628,7 @@
         }
         const retryPrompt = activeEntry ? resolveEntry(activeEntry).prompt : rawPrompt;
         if (!retryPrompt) return;
-        const recoverableError = error && !isTransportError(error) ? error : null;
+        const recoverableError = validationError ?? (error && !isTransportError(error) ? error : null);
         setRawPrompt(retryPrompt);
         promptRef.current = retryPrompt;
         kindRef.current = recoverableError ? "recover" : "generate";
@@ -21115,7 +21641,7 @@
         } else {
           void send(retryPrompt);
         }
-      }, [activeEntry, error, rawPrompt, resetTo, send, refineNode]);
+      }, [activeEntry, error, validationError, rawPrompt, resetTo, send, refineNode]);
     
       const applyDiff = useCallback(
         (diff: SpecDiff | null) => {
@@ -23184,6 +23710,479 @@
     }
   </file>
   </section>
+  <section priority="medium" role="rehearsal">
+  <file path="apps/hospitality/src/components/rehearsal/rehearsal-state.ts">
+    export interface RehearsalWaiting {
+      reservationId: string;
+      partySize: number;
+      /** Minutes since midnight at which the walk-in started waiting. */
+      since: number;
+    }
+    export interface RehearsalMetrics {
+      coversServed: number;
+      averageTurnMinutes: number;
+      /** Hour of day with the most seatings so far, or null before anyone sat. */
+      peakHour: number | null;
+      /** Of `tableIds` (or every table in the events), those no party has sat at yet. */
+      tablesNeverSat: number;
+      longestWalkInWaitMinutes: number;
+    }
+    export interface RehearsalState {
+      reservations: Reservation[];
+      tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
+      seatedIds: ReadonlySet<string>;
+      waiting: RehearsalWaiting[];
+      metrics: RehearsalMetrics;
+    }
+    export interface RehearsalStateOptions {
+      /** Service day (YYYY-MM-DD) stamped on the synthesized reservations. */
+      date?: string;
+      /** Every table in the room, so `tablesNeverSat` can count tables no event mentions. */
+      tableIds?: readonly string[];
+    }
+    function isoAt(date: string, minutes: number): string {
+      const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
+      const mm = String(minutes % 60).padStart(2, "0");
+      return `${date}T${hh}:${mm}:00.000Z`;
+    }
+    function makeReservation(
+      id: string,
+      date: string,
+      startMinutes: number,
+      partySize: number,
+      tableId: string
+    ): Reservation {
+      return {
+        id,
+        date,
+        startTime: isoAt(date, startMinutes),
+        endTime: isoAt(date, startMinutes + DEFAULT_STAY_MINUTES),
+        partySize,
+        status: "CONFIRMED",
+        notes: null,
+        cancellationReason: null,
+        cancellationNote: null,
+        guestName: null,
+        guestEmail: null,
+        guestPhone: null,
+        guestId: null,
+        userId: null,
+        occasion: null,
+        seatingPreference: null,
+        tableId,
+        venueId: null,
+        createdAt: isoAt(date, startMinutes),
+        updatedAt: isoAt(date, startMinutes),
+      };
+    }
+    export function rehearsalStateAt(
+      events: readonly RehearsalEvent[],
+      t: number,
+      { date = DEFAULT_DATE, tableIds }: RehearsalStateOptions = {}
+    ): RehearsalState {
+      const reservations = new Map<string, Reservation>();
+      const tableBase = new Map<string, TableDisplayStatus>();
+      const pendingArrival = new Map<string, { tableId: string; arrivesAt: number }>();
+      const seatedAt = new Map<string, number>();
+      const seatedIds = new Set<string>();
+      const waitingSince = new Map<string, RehearsalWaiting>();
+      const seatHours = new Map<string, number>();
+      const tablesSat = new Set<string>();
+      const seenTables = new Set<string>();
+      const turns: number[] = [];
+      let coversServed = 0;
+      let longestWait = 0;
+    
+      const setStatus = (id: string, status: Reservation["status"]) => {
+        const r = reservations.get(id);
+        if (r) reservations.set(id, { ...r, status });
+      };
+    
+      for (const e of events) {
+        if (e.at > t) break;
+        if ("tableId" in e) seenTables.add(e.tableId);
+        switch (e.type) {
+          case "booked":
+            reservations.set(
+              e.reservationId,
+              makeReservation(e.reservationId, date, e.arrivesAt, e.partySize, e.tableId)
+            );
+            pendingArrival.set(e.reservationId, { tableId: e.tableId, arrivesAt: e.arrivesAt });
+            break;
+          case "walk-in-waiting":
+            waitingSince.set(e.reservationId, {
+              reservationId: e.reservationId,
+              partySize: e.partySize,
+              since: e.at,
+            });
+            break;
+          case "seated": {
+            const wait = waitingSince.get(e.reservationId);
+            if (wait) longestWait = Math.max(longestWait, e.at - wait.since);
+            waitingSince.delete(e.reservationId);
+            pendingArrival.delete(e.reservationId);
+            if (!reservations.has(e.reservationId)) {
+              reservations.set(
+                e.reservationId,
+                makeReservation(e.reservationId, date, e.at, e.partySize, e.tableId)
+              );
+            }
+            seatedIds.add(e.reservationId);
+            seatedAt.set(e.reservationId, e.at);
+            coversServed += e.partySize;
+            tablesSat.add(e.tableId);
+            const hour = Math.floor(e.at / 60);
+            seatHours.set(String(hour), (seatHours.get(String(hour)) ?? 0) + 1);
+            break;
+          }
+          case "status-change":
+            tableBase.set(e.tableId, STATUS_FOR_TABLE_EVENT[e.status]);
+            break;
+          case "no-show":
+            pendingArrival.delete(e.reservationId);
+            setStatus(e.reservationId, "NO_SHOW");
+            break;
+          case "departed": {
+            seatedIds.delete(e.reservationId);
+            setStatus(e.reservationId, "COMPLETED");
+            const start = seatedAt.get(e.reservationId);
+            if (start !== undefined) turns.push(e.at - start);
+            break;
+          }
+        }
+      }
+    
+      const tableStatuses = new Map(tableBase);
+      for (const { tableId, arrivesAt } of pendingArrival.values()) {
+        const base = tableStatuses.get(tableId);
+        if (
+          (base === undefined || base === "available") &&
+          arrivesAt - t <= RESERVED_SOON_WINDOW_MINUTES
+        ) {
+          tableStatuses.set(tableId, "reserved-soon");
+        }
+      }
+    
+      const waiting = [...waitingSince.values()];
+      for (const w of waiting) longestWait = Math.max(longestWait, t - w.since);
+    
+      let peakHour: number | null = null;
+      let peakCount = 0;
+      for (const [hour, count] of seatHours) {
+        if (count > peakCount) {
+          peakCount = count;
+          peakHour = Number(hour);
+        }
+      }
+    
+      const universe = new Set(tableIds ?? seenTables);
+    
+      return {
+        reservations: [...reservations.values()],
+        tableStatuses,
+        seatedIds,
+        waiting,
+        metrics: {
+          coversServed,
+          averageTurnMinutes: turns.length
+            ? Math.round(turns.reduce((a, b) => a + b, 0) / turns.length)
+            : 0,
+          peakHour,
+          tablesNeverSat: [...universe].filter((id) => !tablesSat.has(id)).length,
+          longestWalkInWaitMinutes: longestWait,
+        },
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/rehearsal/simulate-service.ts">
+    interface ProfileShape {
+      /** Turns of the whole room across the service. */
+      turns: number;
+      /** Peak arrival as minutes since midnight, before clamping into service hours. */
+      peakMinutes: number;
+      spreadMinutes: number;
+      walkInShare: number;
+      noShowShare: number;
+    }
+    function createRandom(seed: number): () => number {
+      let a = seed >>> 0;
+      return () => {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function gaussian(random: () => number): number {
+      const u = Math.max(random(), Number.EPSILON);
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random());
+    }
+    function pickPartySize(random: () => number, maxSize: number): number {
+      const usable = PARTY_SIZE_WEIGHTS.filter(([size]) => size <= maxSize);
+      const total = usable.reduce((sum, [, weight]) => sum + weight, 0);
+      let roll = random() * total;
+      for (const [size, weight] of usable) {
+        roll -= weight;
+        if (roll <= 0) return size;
+      }
+      return usable[usable.length - 1]![0];
+    }
+    function turnMinutes(random: () => number, size: number): number {
+      const base = size <= 2 ? 75 : size <= 4 ? 90 : size <= 6 ? 120 : 135;
+      return base + Math.round((random() * 20 - 10) / 5) * 5;
+    }
+    function fits(table: RehearsalTable, size: number): boolean {
+      return size >= table.minCovers && size <= table.capacity;
+    }
+    export function simulateService({
+      tables,
+      openHour,
+      closeHour,
+      profile,
+      seed,
+    }: SimulateServiceInput): RehearsalEvent[] {
+      const random = createRandom(seed);
+      const shape = PROFILES[profile];
+      const open = openHour * 60;
+      const close = closeHour * 60;
+      const lastArrival = close - LAST_SEATING_BEFORE_CLOSE_MINUTES;
+      if (tables.length === 0 || lastArrival <= open) return [];
+    
+      const maxCapacity = Math.max(...tables.map((t) => t.capacity));
+      const totalSeats = tables.reduce((sum, t) => sum + t.capacity, 0);
+      const partyCount = Math.round((totalSeats / 3) * shape.turns);
+      const peak = Math.min(Math.max(shape.peakMinutes, open + 60), lastArrival);
+    
+      const parties = Array.from({ length: partyCount }, () => {
+        const arrival = peak + gaussian(random) * shape.spreadMinutes;
+        return {
+          arrival: Math.round(Math.min(Math.max(arrival, open), lastArrival) / 5) * 5,
+          size: pickPartySize(random, maxCapacity),
+          walkIn: random() < shape.walkInShare,
+          noShow: random() < shape.noShowShare,
+          turn: 0,
+        };
+      }).sort((a, b) => a.arrival - b.arrival);
+      for (const party of parties) party.turn = turnMinutes(random, party.size);
+    
+      const freeAt = new Map(tables.map((t) => [t.id, open]));
+      const log: RehearsalEvent[] = [];
+      let walkIns = 0;
+      let bookings = 0;
+    
+      for (const party of parties) {
+        const candidates = tables
+          .filter((t) => fits(t, party.size))
+          .sort((a, b) => a.capacity - b.capacity);
+        if (candidates.length === 0) continue;
+    
+        const free = candidates.find((t) => freeAt.get(t.id)! <= party.arrival);
+    
+        if (!party.walkIn) {
+          if (!free || party.arrival + party.turn + RESET_MINUTES + BUS_MINUTES > close) continue;
+          const reservationId = `rehearsal-res-${++bookings}`;
+          log.push({
+            at: Math.max(open, party.arrival - BOOKING_LEAD_MINUTES),
+            type: "booked",
+            reservationId,
+            partySize: party.size,
+            tableId: free.id,
+            arrivesAt: party.arrival,
+          });
+          if (party.noShow) {
+            const releasedAt = party.arrival + NO_SHOW_GRACE_MINUTES;
+            log.push({ at: releasedAt, type: "no-show", reservationId, tableId: free.id });
+            freeAt.set(free.id, releasedAt);
+            continue;
+          }
+          seat(free, reservationId, party.arrival, party.size, party.turn);
+          continue;
+        }
+    
+        const earliest = candidates.reduce((best, t) =>
+          freeAt.get(t.id)! < freeAt.get(best.id)! ? t : best
+        );
+        const table = free ?? earliest;
+        const seatAt = Math.max(party.arrival, freeAt.get(table.id)!);
+        if (seatAt - party.arrival > MAX_WALK_IN_WAIT_MINUTES) continue;
+        if (seatAt + party.turn + RESET_MINUTES + BUS_MINUTES > close) continue;
+        const reservationId = `rehearsal-walk-in-${++walkIns}`;
+        if (seatAt > party.arrival) {
+          log.push({
+            at: party.arrival,
+            type: "walk-in-waiting",
+            reservationId,
+            partySize: party.size,
+          });
+        }
+        seat(table, reservationId, seatAt, party.size, party.turn);
+      }
+    
+      function seat(
+        table: RehearsalTable,
+        reservationId: string,
+        at: number,
+        size: number,
+        turn: number
+      ) {
+        const departAt = at + turn;
+        log.push(
+          { at, type: "seated", reservationId, partySize: size, tableId: table.id },
+          { at, type: "status-change", tableId: table.id, status: "OCCUPIED" },
+          { at: departAt, type: "departed", reservationId, tableId: table.id },
+          { at: departAt, type: "status-change", tableId: table.id, status: "DIRTY" },
+          { at: departAt + BUS_MINUTES, type: "status-change", tableId: table.id, status: "READY" },
+          {
+            at: departAt + BUS_MINUTES + RESET_MINUTES,
+            type: "status-change",
+            tableId: table.id,
+            status: "AVAILABLE",
+          }
+        );
+        freeAt.set(table.id, departAt + BUS_MINUTES + RESET_MINUTES);
+      }
+    
+      return log
+        .map((event, index) => ({ event, index }))
+        .sort((a, b) => a.event.at - b.event.at || a.index - b.index)
+        .map(({ event }) => event);
+    }
+  </file>
+  <file path="apps/hospitality/src/components/rehearsal/types.ts">
+    export interface RehearsalTable {
+      id: string;
+      capacity: number;
+      minCovers: number;
+    }
+    export type RehearsalProfile = "friday" | "weeknight" | "brunch";
+    export type RehearsalTableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    export type RehearsalEvent =
+      | {
+          at: number;
+          type: "booked";
+          reservationId: string;
+          partySize: number;
+          tableId: string;
+          arrivesAt: number;
+        }
+      | { at: number; type: "seated"; reservationId: string; partySize: number; tableId: string }
+      | { at: number; type: "status-change"; tableId: string; status: RehearsalTableStatus }
+      | { at: number; type: "walk-in-waiting"; reservationId: string; partySize: number }
+      | { at: number; type: "no-show"; reservationId: string; tableId: string }
+      | { at: number; type: "departed"; reservationId: string; tableId: string };
+    export interface SimulateServiceInput {
+      tables: readonly RehearsalTable[];
+      openHour: number;
+      closeHour: number;
+      profile: RehearsalProfile;
+      seed: number;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/rehearsal/use-rehearsal-playback.ts">
+    export type RehearsalSpeed = 15 | 60 | 240;
+    function subscribeReducedMotion(onChange: () => void): () => void {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
+      const query = window.matchMedia(REDUCED_MOTION_QUERY);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    }
+    function reducedMotionSnapshot(): boolean {
+      return (
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia(REDUCED_MOTION_QUERY).matches
+      );
+    }
+    export interface RehearsalPlayback {
+      /** Simulated time, minutes since midnight. */
+      time: number;
+      /** First and last event times; the clock never leaves this window. */
+      start: number;
+      end: number;
+      playing: boolean;
+      speed: RehearsalSpeed;
+      /** True under prefers-reduced-motion: `play` is inert, use `step`. */
+      reducedMotion: boolean;
+      state: RehearsalState;
+      play: () => void;
+      pause: () => void;
+      setSpeed: (speed: RehearsalSpeed) => void;
+      scrub: (time: number) => void;
+      /** Jump to the next event time (the only way to move under reduced motion). */
+      step: () => void;
+    }
+    export function useRehearsalPlayback(
+      events: readonly RehearsalEvent[],
+      options: RehearsalStateOptions = {}
+    ): RehearsalPlayback {
+      const start = events.length ? events[0]!.at : 0;
+      const end = events.length ? events[events.length - 1]!.at : 0;
+      const reducedMotion = useSyncExternalStore(
+        subscribeReducedMotion,
+        reducedMotionSnapshot,
+        () => false
+      );
+    
+      const [time, setTime] = useState(start);
+      const [playing, setPlaying] = useState(false);
+      const [speed, setSpeed] = useState<RehearsalSpeed>(DEFAULT_SPEED);
+      const timeRef = useRef(time);
+    
+      const clamp = useCallback((t: number) => Math.min(end, Math.max(start, t)), [start, end]);
+      const moveTo = useCallback(
+        (t: number) => {
+          timeRef.current = clamp(t);
+          setTime(timeRef.current);
+        },
+        [clamp]
+      );
+    
+      const running = playing && !reducedMotion;
+      useEffect(() => {
+        if (!running) return;
+        let last: number | null = null;
+        let frame = requestAnimationFrame(function tick(now) {
+          if (last !== null) moveTo(timeRef.current + ((now - last) / 1000) * (speed / 60));
+          last = now;
+          if (timeRef.current >= end) {
+            setPlaying(false);
+            return;
+          }
+          frame = requestAnimationFrame(tick);
+        });
+        return () => cancelAnimationFrame(frame);
+      }, [running, speed, end, moveTo]);
+    
+      const step = useCallback(() => {
+        const next = events.find((e) => e.at > timeRef.current);
+        moveTo(next ? next.at : end);
+      }, [events, end, moveTo]);
+    
+      const minute = Math.floor(time);
+      const { date, tableIds } = options;
+      const state = useMemo(
+        () => rehearsalStateAt(events, minute, { date, tableIds }),
+        [events, minute, date, tableIds]
+      );
+    
+      return {
+        time,
+        start,
+        end,
+        playing: running,
+        speed,
+        reducedMotion,
+        state,
+        play: useCallback(() => setPlaying(true), []),
+        pause: useCallback(() => setPlaying(false), []),
+        setSpeed,
+        scrub: moveTo,
+        step,
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="rialto-web">
   <file path="apps/rialto-web/component-count.config.ts">
     export function resolveRialtoComponentCount(): number {
@@ -23229,23 +24228,215 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="services/agent/src/routes/gen-agent-prompt.ts">
+    export interface AgentPromptContext {
+      /** The venue selected in the app, when there is one. */
+      readonly venueId?: string | undefined;
+      /** The venue's IANA time zone; UTC when absent. */
+      readonly timeZone?: string | undefined;
+      readonly now: Date;
+      /** The rialto catalog's component rules, appended verbatim. */
+      readonly catalogPrompt: string;
+    }
+    function weekdayIn(timeZone: string, now: Date): string {
+      return new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(now);
+    }
+    export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
+      const timeZone = ctx.timeZone ?? "UTC";
+      const today = `${weekdayIn(timeZone, ctx.now)}, ${todayIn(timeZone, ctx.now)}`;
+      const venueLine = ctx.venueId
+        ? "The user's venue is already selected, and every tool is scoped to it automatically."
+        : "No venue is selected yet. If a request needs venue data, ask the user to pick a venue in the app.";
+    
+      return [
+        "You are the assistant for a restaurant's front-of-house staff, inside their hospitality dashboard.",
+        `Today is ${today} (${timeZone}). Resolve "tonight", "tomorrow", and weekday names against this date, and pass dates to tools as YYYY-MM-DD.`,
+        venueLine,
+        "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
+        "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
+        "A change (booking, walk-in, cancellation, table status) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
+        "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
+        "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
+        "Pick the element that fits the data, one shape per line below.",
+        "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out.",
+        "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element.",
+        "Guests from search_guests: show them as GuestCards, each card with the guest's name, its visitCount as visits, its riskScore copied as is as risk, and its tags; at most five cards, then say in a sentence how many more matched. Never put a guest's email, phone, notes or spend on a card.",
+        "A guest's visit history: show it as a Timeline.",
+        "Table statuses from get_table_status: show them as StatusLED, one per table with a label.",
+        "Headline counts (covers, open tables, no-shows): show them as Stat.",
+        "Guest tags and dietary restrictions: show them as Tag.",
+        "Any other lists: show them as a Table.",
+        'Tables move AVAILABLE (free) → OCCUPIED (seated) → DIRTY (needs bussing) → READY (cleaned) → AVAILABLE. Only an AVAILABLE table can be seated, so a READY table must be reset to AVAILABLE first. When staff say a table is "clean", that means READY. Describe statuses to staff in plain words, not capitals.',
+        "You can't manage the waitlist, deposits, or menus yet. Say so plainly and point the user to that page in the dashboard.",
+        "",
+        ctx.catalogPrompt,
+      ].join("\n");
+    }
+  </file>
   <file path="services/agent/src/routes/gen-agent-tools.ts">
     type ApiClient = ReturnType<typeof createApiClient>;
-    export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet {
-      return {
+    export interface ConfirmedAction {
+      /** Echo of the action_request's actionId — traceability only (a resend produces new tool-call ids). */
+      readonly actionId: string;
+      readonly toolName: string;
+      readonly toolInput: Record<string, unknown>;
+    }
+    export interface CreateAgentToolsOptions {
+      readonly confirmedAction?: ConfirmedAction | undefined;
+      /** The venue the user has selected in the app; every venue-scoped tool is pinned to it. */
+      readonly venueId?: string | undefined;
+      /** The venue's IANA time zone, so "today" means the venue's today rather than UTC's. */
+      readonly timeZone?: string | undefined;
+    }
+    export function todayIn(timeZone: string | undefined, now: Date = new Date()): string {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: timeZone ?? "UTC",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
+    }
+    export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
+      if (typeof iso !== "string") return undefined;
+      const instant = new Date(iso);
+      if (Number.isNaN(instant.getTime())) return undefined;
+      try {
+        return new Intl.DateTimeFormat("en-GB", {
+          timeZone: timeZone ?? "UTC",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).format(instant);
+      } catch {
+        return undefined; // unknown time zone (RangeError)
+      }
+    }
+    function withLocalTime<T extends object>(
+      item: T,
+      field: string,
+      timeZone: string | undefined
+    ): T | (T & { localTime: string }) {
+      const localTime = localTimeIn((item as Record<string, unknown>)[field], timeZone);
+      return localTime ? { ...item, localTime } : item;
+    }
+    interface DayHours {
+      readonly closed?: boolean | undefined;
+    }
+    export function closedWeekday(
+      operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
+      date: string
+    ): string | undefined {
+      const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+      if (!weekday) return undefined;
+      const hours = operatingHours?.[weekday];
+      return !hours || hours.closed ? weekday : undefined;
+    }
+    function gateWriteTools(
+      tools: ToolSet,
+      log: FastifyBaseLogger,
+      confirmedAction?: ConfirmedAction
+    ): ToolSet {
+      let consumed = false;
+      const gated: ToolSet = { ...tools };
+      for (const name of GEN_WRITE_TOOL_NAMES) {
+        const original = gated[name];
+        const originalExecute = original?.execute;
+        if (!original || !originalExecute) continue;
+        gated[name] = {
+          ...original,
+          execute: async (_input: never, ctx: never) => {
+            if (confirmedAction?.toolName !== name) {
+              log.info({ toolName: name }, "write tool call held for user confirmation");
+              return CONFIRMATION_PENDING;
+            }
+            if (consumed) {
+              return { error: "This confirmed action has already been executed." };
+            }
+            const schema = original.inputSchema as z.ZodType;
+            const parsed = schema.safeParse(confirmedAction.toolInput);
+            if (!parsed.success) {
+              log.error(
+                { toolName: name, actionId: confirmedAction.actionId },
+                "confirmed action input invalid, refusing to execute"
+              );
+              return { error: "The confirmed action's parameters are invalid. Please start over." };
+            }
+            consumed = true;
+            log.info(
+              { toolName: name, actionId: confirmedAction.actionId },
+              "executing user-confirmed action"
+            );
+            return originalExecute(parsed.data as never, ctx);
+          },
+        } as ToolSet[string];
+      }
+      return gated;
+    }
+    interface NamedTable {
+      readonly id: string;
+      readonly name?: string | null;
+      readonly tableNumber?: string | null;
+    }
+    function resolveTable<T extends NamedTable>(
+      tables: readonly T[],
+      tableRef: string
+    ): { table: T } | { error: string } {
+      const ref = tableRef.trim();
+      const steps: ReadonlyArray<(t: T) => boolean> = [
+        (t) => t.tableNumber === ref,
+        (t) => t.name === ref,
+        (t) => t.name?.toLowerCase() === ref.toLowerCase(),
+      ];
+      for (const matches of steps) {
+        const found = tables.filter(matches);
+        if (found.length === 1) return { table: found[0]! };
+        if (found.length > 1) {
+          return { error: `Table ${tableRef} is ambiguous in this venue. Ask which table they mean.` };
+        }
+      }
+      return { error: `Table ${tableRef} not found in this venue.` };
+    }
+    export function createAgentTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      options: CreateAgentToolsOptions = {}
+    ): ToolSet {
+      const { venueId, timeZone } = options;
+      const toLocal = <T extends object>(reservation: T) =>
+        withLocalTime(reservation, "startTime", timeZone);
+      const tools: ToolSet = {
         // ── Read tools (instant, no confirmation) ──────────────
+        // venueId never comes from the model: it is the app's selected venue.
         check_availability: tool({
-          description: "Check available time slots for a venue on a specific date",
+          description: "Check available time slots on a specific date",
           inputSchema: z.object({
-            venueId: z.string().describe("The venue ID to check availability for"),
             date: z.string().describe("Date in YYYY-MM-DD format"),
             partySize: z.number().describe("Number of guests"),
           }),
-          execute: async ({ venueId, date, partySize }) => {
+          execute: async ({ date, partySize }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, date, partySize }, "check_availability tool called");
             try {
-              const slots = await api.availability.getTimeSlots({ venueId, date, partySize });
-              return { slots };
+              const slots = (await api.availability.getTimeSlots({ venueId, date, partySize })).map(
+                (slot) => withLocalTime(slot, "time", timeZone)
+              );
+              if (slots.length > 0) return { slots };
+              // No slots reads as "fully booked" unless the model knows the venue is closed.
+              const weekday = await api.venues.get(venueId).then(
+                (venue) => closedWeekday(venue.operatingHours, date),
+                (err: unknown) => {
+                  log.warn({ err, venueId }, "check_availability: venue hours lookup failed");
+                  return undefined;
+                }
+              );
+              if (!weekday) return { slots };
+              const day = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+              return {
+                slots,
+                closed: true,
+                note: `The venue is closed on ${day}: it has no operating hours that day, so nothing can be booked. Say so rather than calling the day fully booked.`,
+              };
             } catch (err) {
               log.error({ err, venueId, date, partySize }, "check_availability failed");
               return { error: "Failed to check availability. Please try again." };
@@ -23254,20 +24445,43 @@
         }),
     
         lookup_reservation: tool({
-          description: "Find reservations by guest name, date, or confirmation number",
+          description: "Find reservations by guest name and/or date",
           inputSchema: z.object({
-            guestName: z.string().optional().describe("Guest name to search"),
+            guestName: z.string().optional().describe("Guest name (or part of it) to search"),
             date: z.string().optional().describe("Date in YYYY-MM-DD format"),
-            venueId: z.string().optional().describe("Venue ID to filter by"),
           }),
-          execute: async ({ date, venueId }) => {
+          execute: async ({ guestName, date }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ date, venueId }, "lookup_reservation tool called");
+            const dateFilter = date ? { date } : {};
             try {
-              const result = await api.reservations.list({
-                ...(date ? { date } : {}),
-                ...(venueId ? { venueId } : {}),
+              const venueList = await api.reservations.list({
+                venueId,
+                ...dateFilter,
+                limit: LOOKUP_LIMIT,
               });
-              return { reservations: result.data };
+              const needle = guestName?.trim().toLowerCase();
+              if (!needle) return { reservations: venueList.data.map(toLocal) };
+              // The list is paginated, so a name filter over it alone misses most
+              // of a busy venue: resolve the guest first, then list their bookings.
+              const guests = await api.guests.search({ venueId, query: guestName! });
+              const byGuest = await Promise.all(
+                guests.data.slice(0, MAX_GUEST_MATCHES).map((guest) =>
+                  api.reservations.list({
+                    venueId,
+                    guestId: guest.id,
+                    ...dateFilter,
+                    limit: LOOKUP_LIMIT,
+                  })
+                )
+              );
+              // Walk-ins can carry a name with no guest profile; match those by name.
+              const byName = venueList.data.filter((r) => r.guestName?.toLowerCase().includes(needle));
+              const merged = [...byGuest.flatMap((page) => page.data), ...byName];
+              const reservations = merged.filter(
+                (r, i) => merged.findIndex((other) => other.id === r.id) === i
+              );
+              return { reservations: reservations.map(toLocal) };
             } catch (err) {
               log.error({ err, date, venueId }, "lookup_reservation failed");
               return { error: "Failed to look up reservations. Please try again." };
@@ -23279,15 +24493,12 @@
           description: "Search guest directory by name, email, or phone",
           inputSchema: z.object({
             query: z.string().describe("Search term (name, email, or phone)"),
-            venueId: z.string().optional().describe("Venue ID to scope search"),
           }),
-          execute: async ({ query, venueId }) => {
+          execute: async ({ query }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ query, venueId }, "search_guests tool called");
             try {
-              const result = await api.guests.search({
-                venueId: venueId ?? "",
-                query,
-              });
+              const result = await api.guests.search({ venueId, query });
               return { guests: result.data };
             } catch (err) {
               log.error({ err, query, venueId }, "search_guests failed");
@@ -23299,10 +24510,10 @@
         get_table_status: tool({
           description: "Check the status of a specific table or all tables",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             tableNumber: z.number().optional().describe("Specific table number to check"),
           }),
-          execute: async ({ venueId }) => {
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId }, "get_table_status tool called");
             try {
               const result = await api.tables.list({ venueId });
@@ -23317,24 +24528,24 @@
         list_today_reservations: tool({
           description: "List all reservations for today or a specified date",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             date: z.string().optional().describe("Date in YYYY-MM-DD format, defaults to today"),
             status: z
               .enum(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"])
               .optional()
               .describe("Filter by reservation status"),
           }),
-          execute: async ({ venueId, date, status }) => {
+          execute: async ({ date, status }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, date, status }, "list_today_reservations tool called");
             try {
-              const queryDate = date ?? new Date().toISOString().split("T")[0];
+              const queryDate = date ?? todayIn(timeZone);
               const result = await api.reservations.list({
                 venueId,
                 date: queryDate,
                 limit: 50,
                 ...(status ? { status } : {}),
               });
-              return { reservations: result.data };
+              return { reservations: result.data.map(toLocal) };
             } catch (err) {
               log.error({ err, venueId, date }, "list_today_reservations failed");
               return { error: "Failed to list reservations. Please try again." };
@@ -23446,7 +24657,6 @@
           description:
             "Create a walk-in reservation and seat guests immediately. Requires confirmation.",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             partySize: z.number().describe("Number of guests"),
             tableId: z
               .string()
@@ -23454,7 +24664,8 @@
               .describe("Specific table to seat at (auto-assigns if omitted)"),
             guestName: z.string().optional().describe("Guest name if provided"),
           }),
-          execute: async ({ venueId, partySize, tableId, guestName }) => {
+          execute: async ({ partySize, tableId, guestName }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
             try {
               if (!tableId) {
@@ -23480,30 +24691,46 @@
           description:
             "Update a table's status (clean, dirty, occupied, available). Requires confirmation.",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
-            tableNumber: z.number().describe("Table number"),
+            table: z.string().describe("The table's name or number, as staff call it"),
             status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
           }),
-          execute: async ({ venueId, tableNumber, status: newStatus }) => {
-            log.info({ venueId, tableNumber, newStatus }, "update_table_status tool called");
+          execute: async ({ table: tableRef, status: newStatus }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
             try {
               const tablesResult = await api.tables.list({ venueId });
-              const table = tablesResult.data.find((t) => t.tableNumber === String(tableNumber));
-              if (!table) {
-                return { error: `Table ${tableNumber} not found in this venue.` };
-              }
+              const resolved = resolveTable(tablesResult.data, tableRef);
+              if ("error" in resolved) return resolved;
+              const { table } = resolved;
               const updated = await api.tables.updateStatus(table.id, newStatus);
               return { table: updated };
             } catch (err) {
-              log.error({ err, venueId, tableNumber }, "update_table_status failed");
+              log.error({ err, venueId, tableRef }, "update_table_status failed");
               return { error: "Failed to update table status. Please try again." };
             }
           },
         }),
       };
+      return gateWriteTools(tools, log, options.confirmedAction);
     }
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
+    export function agentApiOrigin(apiBaseUrl: string | undefined): string {
+      if (!apiBaseUrl) return LOCAL_API_ORIGIN;
+      try {
+        return new URL(apiBaseUrl).origin;
+      } catch {
+        return LOCAL_API_ORIGIN;
+      }
+    }
+    function isTimeZone(value: string): boolean {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: value });
+        return true;
+      } catch {
+        return false;
+      }
+    }
     export const genAgentRoutes = createGenRoute({
       path: "/api/gen/agent",
       costLogLabel: "gen-agent cost log",
@@ -23514,31 +24741,43 @@
       schema: GenAgentBodySchema,
       streamFormat: "ndjson",
       maxSteps: 5,
-      getTools: async (request) => {
+      getSystemPrompt: (parsed, catalogPrompt) =>
+        buildAgentSystemPrompt({
+          venueId: parsed.venueId,
+          timeZone: parsed.timeZone,
+          now: new Date(),
+          catalogPrompt,
+        }),
+      toMessages: (parsed) =>
+        parsed.actionConfirm
+          ? [
+              ...parsed.messages,
+              {
+                role: "user" as const,
+                content: `I confirm the pending ${parsed.actionConfirm.toolName} action. Execute it now with the confirmed parameters.`,
+              },
+            ]
+          : parsed.messages,
+      // On the armed resend the model re-calls the tool being confirmed; emitting
+      // its action_request again would pop a stale confirm dialog in the client for
+      // a write this request already executes. Other tools' requests still surface.
+      createEventSerializer: (parsed) => (event) =>
+        event.type === "action_request" && event.toolName === parsed.actionConfirm?.toolName
+          ? undefined
+          : event,
+      getTools: async (request, parsed) => {
         const authHeader = request.headers.authorization;
         const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
         const api = createApiClient({
-          baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
+          baseUrl: agentApiOrigin(process.env.API_BASE_URL),
           getAccessToken: () => token,
         });
-        return createAgentTools(request.log, api);
+        return createAgentTools(request.log, api, {
+          confirmedAction: parsed.actionConfirm,
+          venueId: parsed.venueId,
+          timeZone: parsed.timeZone,
+        });
       },
-    });
-  </file>
-  <file path="services/agent/src/routes/gen-chat.ts">
-    export const genChatRoutes = createGenRoute({
-      path: "/api/gen/chat",
-      costLogLabel: "gen-chat cost log",
-      rateLimit: {
-        max: 50,
-        timeWindow: "1 hour",
-      },
-      schema: GenChatBodySchema,
-      // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
-      streamFormat: "text",
-      // GEN-06: chat doesn't use multi-step tool calls
-      maxSteps: 1,
-      getTools: async () => ({}),
     });
   </file>
   <file path="services/agent/src/routes/gen-route-factory.ts">
@@ -23553,8 +24792,18 @@
       readonly maxSteps: number;
       /** Overrides the catalog prompt (default: catalog.prompt()). */
       readonly systemPrompt?: string;
+      /**
+       * Per-request system prompt built from the parsed body; receives the catalog
+       * prompt to extend. Takes precedence over `systemPrompt`.
+       */
+      readonly getSystemPrompt?: (parsed: z.infer<TSchema>, catalogPrompt: string) => string;
       readonly toolChoice?: GenRunnerConfig["toolChoice"];
       readonly failOnToolError?: boolean;
+      /**
+       * ndjson only: serve identical requests from the Postgres spec cache. Only
+       * successful runs are stored; a hit replays the exact lines a miss streamed.
+       */
+      readonly cache?: boolean;
       /** Derives the chat messages from the parsed body (default: `parsed.messages`). */
       readonly toMessages?: (parsed: z.infer<TSchema>) => GenMessages;
       /**
@@ -23695,25 +24944,83 @@
               ? config.toMessages(parsed)
               : (parsed as { messages: GenMessages }).messages;
     
+            const systemPrompt = config.getSystemPrompt
+              ? config.getSystemPrompt(parsed, SYSTEM_PROMPT)
+              : (config.systemPrompt ?? SYSTEM_PROMPT);
+            const cacheKey =
+              config.cache && streamFormat === "ndjson"
+                ? genSpecCacheKey({
+                    route: path,
+                    messages,
+                    modelId: GEN_MODEL_ID,
+                    systemPrompt,
+                    maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
+                  })
+                : undefined;
+    
+            if (cacheKey) {
+              // Cache trouble must never fail a request: fall through to the model.
+              const cached = await getCachedSpec(cacheKey).catch((err: unknown) => {
+                request.log.warn({ err }, "gen spec cache read failed");
+                return null;
+              });
+              if (cached) {
+                applyStreamHeaders(reply, contentType);
+                return reply.send(
+                  new ReadableStream({
+                    start(controller) {
+                      for (const line of cached) {
+                        controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+                      }
+                      controller.close();
+                    },
+                  })
+                );
+              }
+            }
+    
+            const startedAt = Date.now();
+            let firstEventAt: number | undefined;
+            let elementCount = 0;
+            const markEmitted = () => {
+              firstEventAt ??= Date.now();
+              elementCount += 1;
+            };
+            const telemetry = (finishReason: string) => ({
+              ttftMs: firstEventAt === undefined ? 0 : firstEventAt - startedAt,
+              durationMs: Date.now() - startedAt,
+              elementCount,
+              finishReason,
+            });
+    
             const tools = await getTools(request, parsed);
             // A run that errors before onFinish still consumed tokens: charge the worst case.
             let usageReported = false;
             const chargeIfUnreported = async () => {
-              if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+              if (usageReported) return;
+              // onFinish never logged this run, so the cost line is emitted here, zeroed.
+              logGenCost(request.log, {
+                userId: request.user?.id,
+                usage: {},
+                label: costLogLabel,
+                telemetry: telemetry("error"),
+              });
+              await trackGenSpend(failedGenCostMicroUsd(), request.log);
             };
             const runner = createGenRunner({
-              systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
+              systemPrompt,
               modelId: GEN_MODEL_ID,
               maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
               maxSteps,
               toolChoice: config.toolChoice,
               failOnToolError: config.failOnToolError,
-              onFinish: async ({ usage, providerMetadata }) => {
+              onFinish: async ({ usage, providerMetadata, finishReason }) => {
                 logGenCost(request.log, {
                   userId: request.user?.id,
                   usage,
                   providerMetadata,
                   label: costLogLabel,
+                  telemetry: telemetry(finishReason ?? "unknown"),
                 });
                 usageReported = true;
                 await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
@@ -23730,6 +25037,7 @@
                     await runner.run(messages, tools, async (event) => {
                       if (event.type === "text" && event.content.length > 0) {
                         emitted = true;
+                        markEmitted();
                         controller.enqueue(event.content);
                       }
                     });
@@ -23752,14 +25060,24 @@
             const ndjsonStream = new ReadableStream({
               async start(controller) {
                 let emitted = false;
+                const lines: unknown[] = [];
                 try {
                   await runner.run(messages, tools, async (event) => {
                     const line = serializeEvent(event);
                     if (line === undefined) return;
                     emitted = true;
+                    markEmitted();
+                    lines.push(line);
                     controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
                   });
                   if (!emitted) throw emptyOutputError();
+                  // Only a run that finished cleanly reaches here: errors and the
+                  // maxOutputTokens truncation both throw out of runner.run above.
+                  if (cacheKey) {
+                    await putCachedSpec(cacheKey, lines).catch((err: unknown) => {
+                      request.log.warn({ err }, "gen spec cache write failed");
+                    });
+                  }
                   controller.close();
                 } catch (err) {
                   request.log.error({ err }, "gen stream failed");
@@ -23797,6 +25115,7 @@
     export interface GenFinishPayload {
       readonly usage: { readonly inputTokens?: number; readonly outputTokens?: number };
       readonly providerMetadata: unknown;
+      readonly finishReason?: string;
     }
     export interface GenRunnerConfig {
       readonly systemPrompt: string;
@@ -23823,13 +25142,14 @@
        */
       readonly failOnToolError?: boolean;
     }
-    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
+    export const GEN_WRITE_TOOL_NAMES = [
       "create_reservation",
       "modify_reservation",
       "cancel_reservation",
       "seat_walk_in",
       "update_table_status",
-    ]);
+    ] as const;
+    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
     export interface GenRunner {
@@ -23842,25 +25162,19 @@
     export function createGenRunner(config: GenRunnerConfig): GenRunner {
       return {
         async run(messages, tools, onEvent) {
-          const aiMessages = [
-            {
-              role: "system" as const,
-              content: config.systemPrompt,
-              providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-            },
-            ...messages,
-          ];
-    
           const result = streamText({
             model: anthropic(config.modelId),
-            messages: aiMessages,
+            // System prompt goes through `instructions` — ai@7 rejects system-role
+            // entries inside `messages` (see genSystemInstructions).
+            instructions: genSystemInstructions(config.systemPrompt),
+            messages: [...messages],
             tools: tools as Parameters<typeof streamText>[0]["tools"],
             toolChoice: config.toolChoice,
             stopWhen: stepCountIs(config.maxSteps),
             maxOutputTokens: config.maxOutputTokens,
             onFinish: config.onFinish
-              ? async ({ usage, providerMetadata }) => {
-                  await config.onFinish!({ usage, providerMetadata });
+              ? async ({ usage, providerMetadata, finishReason }) => {
+                  await config.onFinish!({ usage, providerMetadata, finishReason });
                 }
               : undefined,
           });
@@ -24105,20 +25419,57 @@
       return rates;
     })();
     export const GEN_MAX_OUTPUT_TOKENS = 2048;
-    type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
-    export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
-      return [
-        {
-          role: "system" as const,
-          content: systemPrompt,
-          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-        },
-        ...messages,
-      ];
+    export function genSystemInstructions(systemPrompt: string) {
+      return {
+        role: "system" as const,
+        content: systemPrompt,
+        providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
+      };
     }
     interface GenUsage {
       readonly inputTokens?: number;
       readonly outputTokens?: number;
+      readonly inputTokenDetails?: {
+        readonly cacheReadTokens?: number;
+        readonly cacheWriteTokens?: number;
+      };
+    }
+    export function cacheTokens(
+      usage: GenUsage,
+      providerMetadata: unknown
+    ): { readonly read: number; readonly write: number } {
+      const meta = (
+        providerMetadata as
+          | {
+              anthropic?: {
+                usage?: { cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
+                cacheReadInputTokens?: number;
+                cacheCreationInputTokens?: number;
+              };
+            }
+          | undefined
+      )?.anthropic;
+      return {
+        read:
+          usage.inputTokenDetails?.cacheReadTokens ??
+          meta?.usage?.cache_read_input_tokens ??
+          meta?.cacheReadInputTokens ??
+          0,
+        write:
+          usage.inputTokenDetails?.cacheWriteTokens ??
+          meta?.usage?.cache_creation_input_tokens ??
+          meta?.cacheCreationInputTokens ??
+          0,
+      };
+    }
+    export interface GenTelemetry {
+      /** ms from request start to the first emitted event (0 if none was emitted). */
+      readonly ttftMs: number;
+      /** ms from request start to the run finishing or failing. */
+      readonly durationMs: number;
+      readonly elementCount: number;
+      /** The AI SDK's finish reason, or "error" for a failed run. */
+      readonly finishReason: string;
     }
     export function logGenCost(
       log: FastifyBaseLogger,
@@ -24127,22 +25478,23 @@
         readonly usage: GenUsage;
         readonly providerMetadata?: unknown;
         readonly label: string;
+        readonly telemetry?: GenTelemetry;
       }
     ): void {
-      const anthropicMeta = (
-        opts.providerMetadata as
-          | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
-          | undefined
-      )?.anthropic;
+      const cache = cacheTokens(opts.usage, opts.providerMetadata);
     
       log.info(
         {
           userId: opts.userId,
           modelId: GEN_MODEL_ID,
-          inputTokens: opts.usage.inputTokens,
-          outputTokens: opts.usage.outputTokens,
-          cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-          cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+          inputTokens: opts.usage.inputTokens ?? 0,
+          outputTokens: opts.usage.outputTokens ?? 0,
+          cacheReadInputTokens: cache.read,
+          cacheCreationInputTokens: cache.write,
+          ttftMs: opts.telemetry?.ttftMs ?? 0,
+          durationMs: opts.telemetry?.durationMs ?? 0,
+          elementCount: opts.telemetry?.elementCount ?? 0,
+          finishReason: opts.telemetry?.finishReason ?? "unknown",
         },
         opts.label
       );
@@ -24201,7 +25553,7 @@
     export const genUiRoutes = createGenRoute({
       path: "/api/gen/ui",
       costLogLabel: "gen-ui cost log",
-      // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
+      // Per-user cap — matches gen-agent's per-route rate limit pattern.
       rateLimit: { max: 20, timeWindow: "1 hour" },
       schema: GenUiBodySchema,
       streamFormat: "ndjson",
@@ -24214,6 +25566,7 @@
       // ai@7 to retry the tool call on, so a tool-error can only ever mean the
       // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
       failOnToolError: true,
+      cache: true,
       toMessages: ({ prompt, context, target }: GenUiBody) => [
         {
           role: "user",
@@ -35422,36 +36775,20 @@
         reason: "Collapsible trigger text; single line",
       },
     
-      // ── Components with no co-located *.catalog.ts ──
-      {
-        component: "Tag",
-        prop: "children",
-        max: 30,
-        reason: "Chip label; must fit single line",
-      },
-      {
-        component: "Kbd",
-        prop: "children",
-        max: 10,
-        reason: "Keyboard shortcut text; very compact",
-      },
-      {
-        component: "Stat",
-        prop: "label",
-        max: 25,
-        reason: "Metric label; sits below the value",
-      },
+      // ── Props a flat catalog charLimit can't key (Stat.value accepts a number too) ──
       {
         component: "Stat",
         prop: "value",
         max: 15,
         reason: "Metric value; must be scannable",
       },
+    
+      // ── Components with no co-located *.catalog.ts ──
       {
-        component: "Stat",
-        prop: "delta",
+        component: "Kbd",
+        prop: "children",
         max: 10,
-        reason: "Trend delta; short numeric change",
+        reason: "Keyboard shortcut text; very compact",
       },
       {
         component: "Meter",
@@ -36746,6 +38083,47 @@
     export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
   </file>
+  <file path="services/agent/src/services/gen-spec-cache.ts">
+    export const GEN_SPEC_CACHE_TTL_HOURS = 24;
+    export interface GenSpecCacheKeyInput {
+      readonly route: string;
+      readonly messages: ReadonlyArray<{ readonly role: string; readonly content: string }>;
+      readonly modelId: string;
+      /**
+       * The full system prompt. It embeds `catalog.prompt()`, so it changes whenever
+       * the catalog does — derived from the catalog, never a hand-kept version.
+       */
+      readonly systemPrompt: string;
+      readonly maxOutputTokens: number;
+    }
+    export function genSpecCacheKey(input: GenSpecCacheKeyInput): string {
+      // JSON framing keeps field and message boundaries unambiguous.
+      const payload = JSON.stringify([
+        input.route,
+        input.modelId,
+        createHash("sha256").update(input.systemPrompt).digest("hex"),
+        input.maxOutputTokens,
+        input.messages.map((m) => [m.role, normalize(m.content)]),
+      ]);
+      return createHash("sha256").update(payload).digest("hex");
+    }
+    export async function getCachedSpec(key: string): Promise<unknown[] | null> {
+      const rows = await prisma.$queryRaw<Array<{ lines: unknown[] }>>`
+        SELECT lines FROM gen_spec_cache
+        WHERE key = ${key}
+          AND created_at > now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS}::int)`;
+      return rows[0]?.lines ?? null;
+    }
+    export async function putCachedSpec(key: string, lines: unknown[]): Promise<void> {
+      await prisma.$executeRaw`
+        INSERT INTO gen_spec_cache (key, lines, created_at)
+        VALUES (${key}, ${JSON.stringify(lines)}::jsonb, now())
+        ON CONFLICT (key) DO UPDATE SET lines = EXCLUDED.lines, created_at = now()`;
+      await prisma.$executeRaw`
+        DELETE FROM gen_spec_cache
+        WHERE created_at <= now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS}::int)`;
+    }
+  </file>
   <file path="services/agent/src/services/gen-spend-ceiling.ts">
     export const GEN_DAILY_CEILING_DEFAULT_USD = 0.5;
     export function resolveGenDailyCeilingUsd(raw: string | undefined): number {
@@ -36757,16 +38135,10 @@
       return resolveGenDailyCeilingUsd(process.env.GEN_DAILY_CEILING_USD);
     }
     export function genCostMicroUsd(
-      usage: { readonly inputTokens?: number; readonly outputTokens?: number },
+      usage: Parameters<typeof cacheTokens>[0],
       providerMetadata: unknown
     ): number {
-      const meta = (
-        providerMetadata as
-          | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
-          | undefined
-      )?.anthropic;
-      const read = meta?.cacheReadInputTokens ?? 0;
-      const write = meta?.cacheCreationInputTokens ?? 0;
+      const { read, write } = cacheTokens(usage, providerMetadata);
       const fresh = Math.max(0, (usage.inputTokens ?? 0) - read - write);
       const usd =
         (fresh * GEN_PRICING.input +
@@ -54568,7 +55940,9 @@
           prompt,
           options: {
             model: mergedConfig.model,
-            maxTurns: 1,
+            // A json_schema response needs a turn beyond the answer itself: with 1
+            // the SDK returns error_max_turns on every call (#7351).
+            maxTurns: JUDGE_MAX_TURNS,
             maxBudgetUsd: mergedConfig.maxBudgetUsd,
             permissionMode: "plan",
             systemPrompt: "You are a code review evaluator. Respond only with the requested JSON.",
@@ -57193,6 +58567,22 @@
       /** AbortSignal for cancellation */
       signal?: AbortSignal;
     }
+    export class StreamRequestError extends Error {
+      readonly status: number;
+      readonly problemType?: string;
+      readonly retryAfterSeconds?: number;
+    
+      constructor(
+        message: string,
+        fields: { status: number; problemType?: string; retryAfterSeconds?: number }
+      ) {
+        super(message);
+        this.name = "StreamRequestError";
+        this.status = fields.status;
+        this.problemType = fields.problemType;
+        this.retryAfterSeconds = fields.retryAfterSeconds;
+      }
+    }
     export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> {
       const response = await fetch(config.url, {
         method: "POST",
@@ -57206,16 +58596,20 @@
     
       if (!response.ok) {
         let detail = response.statusText || `HTTP ${response.status}`;
+        let problemType: string | undefined;
         try {
-          const body = await response.json();
-          detail =
-            ((body as Record<string, unknown>).detail as string) ??
-            ((body as Record<string, unknown>).message as string) ??
-            detail;
+          const body = (await response.json()) as Record<string, unknown>;
+          detail = (body.detail as string) ?? (body.message as string) ?? detail;
+          if (typeof body.type === "string") problemType = body.type;
         } catch {
           // Response body is not JSON — use status text
         }
-        throw new Error(`Request failed: ${detail}`);
+        const retryAfter = Number(response.headers.get("Retry-After"));
+        throw new StreamRequestError(`Request failed: ${detail}`, {
+          status: response.status,
+          problemType,
+          retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+        });
       }
     
       if (!response.body) {
@@ -59564,8 +60958,9 @@
       Badge: {
         name: "Badge",
         description:
-          "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
+          "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Put its words in label (required unless it holds child elements).",
         slots: ["default"],
+        aliases: { label: "children" },
       },
       Banner: {
         name: "Banner",
@@ -59678,6 +61073,11 @@
         description:
           "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
       },
+      GuestCards: {
+        name: "GuestCards",
+        description:
+          "One card per matching guest, stacked: name, visit count, risk and tags. Required: guests, an array of cards, at most five. Each card needs name, visits (a number) and risk (the raw value from the tool, such as trusted, copied as is); tags is the guest's tags, optional. The element writes the visit count and risk in words itself. Never put email, phone, notes or spend on a card. A card missing name, visits or risk is left out.",
+      },
       IconButton: {
         name: "IconButton",
         description:
@@ -59700,6 +61100,11 @@
         description:
           "Mechanical rolling-counter that animates a numeric value digit-by-digit by composing SplitFlap. Use for hero metrics, KPIs, and live counters that should feel physical as they update. Reads a real number and formats it with locale grouping (Intl.NumberFormat); pass formatOptions for currency, percentages, or fraction digits. Respects prefers-reduced-motion (snaps, no roll) and announces the whole value to screen readers. Pairs with Stat for dashboard tiles.",
       },
+      ReservationList: {
+        name: "ReservationList",
+        description:
+          "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (display text such as 7:30 PM), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+      },
       Select: {
         name: "Select",
         description:
@@ -59717,6 +61122,18 @@
           "Primary layout primitive. Use direction=column for vertical stacking, direction=row for horizontal. Compose with Card, Text, and form elements to build any layout. Use gap to control spacing between children.",
         slots: ["default"],
       },
+      Stat: {
+        name: "Stat",
+        description:
+          "A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text such as 7:30 PM); label says what it counts. Add a delta such as +6 with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.",
+        charLimits: { label: 25, delta: 10 },
+      },
+      StatusLED: {
+        name: "StatusLED",
+        description:
+          "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
+        charLimits: { label: 40 },
+      },
       Table: {
         name: "Table",
         description:
@@ -59729,17 +61146,36 @@
           "Horizontal panel switcher for content organized into distinct sections. Use when users need to switch between 2-6 related views without leaving the page. Provide a tabs array with id, label, and content for each tab.",
         aliases: { items: "tabs", defaultValue: "defaultTab" },
       },
+      Tag: {
+        name: "Tag",
+        description:
+          "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Put its words in label. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+        charLimits: { children: 30 },
+        aliases: { label: "children" },
+      },
       Text: {
         name: "Text",
         description:
-          "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata.",
+          "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put its words in text (required unless it holds child elements).",
         slots: ["default"],
+        aliases: { text: "children" },
       },
       TimePicker: {
         name: "TimePicker",
         include: false,
         description:
           "Time field: a read-only trigger input that opens a popover-hosted listbox of interval slots. Controlled via value (24h HH:mm string) and onChange; supports a configurable step (default 15 min), min/max bounds, an isTimeDisabled predicate (authoritative over bounds), and locale-aware display. Focus returns to the trigger on select or Escape.",
+      },
+      TimeSlots: {
+        name: "TimeSlots",
+        description:
+          "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times as display text, such as 7:30 PM, in time order). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
+        charLimits: { date: 40 },
+      },
+      Timeline: {
+        name: "Timeline",
+        description:
+          "A time-ordered sequence of events, such as a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
       },
       Toast: {
         name: "Toast",
@@ -59790,6 +61226,7 @@
         variant: z.enum(["accent", "error", "neutral", "success", "warning"]).optional(),
         size: z.enum(["md", "sm"]).optional(),
         dot: z.boolean().optional(),
+        children: z.string(),
       }),
       Banner: z.object({
         variant: z.enum(["accent", "error", "info", "warning"]).optional(),
@@ -59913,6 +61350,9 @@
       FormField: z.object({
         name: z.string(),
       }),
+      GuestCards: z.object({
+        guests: z.array(z.object({ name: z.string().nullish(), visits: z.union([z.number(), z.string()]).nullish(), risk: z.string().nullish(), tags: z.unknown().optional() })),
+      }),
       IconButton: z.object({
         icon: z.string().optional(),
         "aria-label": z.string(),
@@ -59936,6 +61376,9 @@
         size: z.enum(["lg", "md", "sm"]).optional(),
         flipInterval: z.number().optional(),
         cascadeDelay: z.number().optional(),
+      }),
+      ReservationList: z.object({
+        reservations: z.array(z.object({ time: z.string().nullish(), guest: z.string().nullish(), partySize: z.union([z.number(), z.string()]).nullish(), status: z.string().nullish() })),
       }),
       Select: z.object({
         options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
@@ -59962,6 +61405,18 @@
         justify: z.enum(["between", "center", "end", "start"]).optional(),
         wrap: z.boolean().optional(),
       }),
+      Stat: z.object({
+        value: z.union([z.string(), z.number()]),
+        label: z.string().max(25),
+        delta: z.union([z.string(), z.number()]).optional(),
+        trend: z.enum(["down", "neutral", "up"]).optional(),
+        size: z.enum(["lg", "md", "sm"]).optional(),
+      }),
+      StatusLED: z.object({
+        variant: z.enum(["accent", "danger", "neutral", "off", "success", "warning"]).optional(),
+        pulse: z.boolean().optional(),
+        label: z.string().max(40).optional(),
+      }),
       Table: z.object({
         columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() })),
         data: z.array(z.record(z.string(), z.unknown())),
@@ -59973,12 +61428,20 @@
         tabs: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() })),
         defaultTab: z.string().optional(),
       }),
+      Tag: z.object({
+        children: z.string().max(30),
+        variant: z.enum(["accent", "default", "error", "success"]).optional(),
+        dismissible: z.boolean().optional(),
+        selected: z.boolean().optional(),
+        icon: z.string().optional(),
+      }),
       Text: z.object({
         variant: z.enum(["body", "caption", "detail", "display", "label"]).optional(),
         color: z.enum(["accent", "error", "on-accent", "primary", "secondary", "success", "tertiary", "warning"]).optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
+        children: z.string(),
       }),
       TimePicker: z.object({
         step: z.number().optional(),
@@ -59988,6 +61451,15 @@
         label: z.string().optional(),
         placeholder: z.string().optional(),
         placement: z.enum(["bottom", "left", "right", "top"]).optional(),
+      }),
+      TimeSlots: z.object({
+        date: z.string().max(40),
+        partySize: z.union([z.number(), z.string()]),
+        times: z.array(z.string()),
+      }),
+      Timeline: z.object({
+        events: z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
+        compact: z.boolean().optional(),
       }),
       Toast: z.object({
         title: z.string().max(50),
@@ -62451,7 +63923,6 @@
       await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
       await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
       await fastify.register(genUiRoutes);
-      await fastify.register(genChatRoutes);
       await fastify.register(genSpecsRoutes);
       await fastify.register(genAgentRoutes);
     
@@ -67701,6 +69172,7 @@
   <file path="apps/hospitality/src/utils/timeline-intent.ts">
     export const WALK_IN_PARAM = "walkin";
     export const SELECTED_PARAM = "selected";
+    export const REHEARSAL_PARAM = "rehearsal";
     export interface TimelineIntent {
       /** Exactly `walkin=true` — any other spelling is no intent. */
       readonly walkIn: boolean;

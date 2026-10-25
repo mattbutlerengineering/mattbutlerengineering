@@ -25,3 +25,4 @@
 {"timestamp":"2026-10-20T00:00:00.000Z","criterion":"acmm","old_value":1.202,"new_value":1.231,"trigger":"headroom"}
 {"timestamp":"2026-10-21T00:00:00.000Z","criterion":"acmm","old_value":1.231,"new_value":1.261,"trigger":"headroom"}
 {"timestamp":"2026-10-22T00:00:00.000Z","criterion":"acmm","old_value":1.261,"new_value":1.285,"trigger":"headroom"}
+{"timestamp":"2026-10-24T00:00:00.000Z","criterion":"acmm","old_value":1.285,"new_value":1.29,"trigger":"headroom"}

@@ -37,8 +37,9 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Badge: {
     name: "Badge",
     description:
-      "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
+      "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Put its words in label (required unless it holds child elements).",
     slots: ["default"],
+    aliases: { label: "children" },
   },
   Banner: {
     name: "Banner",
@@ -151,6 +152,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
   },
+  GuestCards: {
+    name: "GuestCards",
+    description:
+      "One card per matching guest, stacked: name, visit count, risk and tags. Required: guests, an array of cards, at most five. Each card needs name, visits (a number) and risk (the raw value from the tool, such as trusted, copied as is); tags is the guest's tags, optional. The element writes the visit count and risk in words itself. Never put email, phone, notes or spend on a card. A card missing name, visits or risk is left out.",
+  },
   IconButton: {
     name: "IconButton",
     description:
@@ -173,6 +179,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Mechanical rolling-counter that animates a numeric value digit-by-digit by composing SplitFlap. Use for hero metrics, KPIs, and live counters that should feel physical as they update. Reads a real number and formats it with locale grouping (Intl.NumberFormat); pass formatOptions for currency, percentages, or fraction digits. Respects prefers-reduced-motion (snaps, no roll) and announces the whole value to screen readers. Pairs with Stat for dashboard tiles.",
   },
+  ReservationList: {
+    name: "ReservationList",
+    description:
+      "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (display text such as 7:30 PM), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+  },
   Select: {
     name: "Select",
     description:
@@ -190,6 +201,18 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Primary layout primitive. Use direction=column for vertical stacking, direction=row for horizontal. Compose with Card, Text, and form elements to build any layout. Use gap to control spacing between children.",
     slots: ["default"],
   },
+  Stat: {
+    name: "Stat",
+    description:
+      "A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text such as 7:30 PM); label says what it counts. Add a delta such as +6 with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.",
+    charLimits: { label: 25, delta: 10 },
+  },
+  StatusLED: {
+    name: "StatusLED",
+    description:
+      "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
+    charLimits: { label: 40 },
+  },
   Table: {
     name: "Table",
     description:
@@ -202,17 +225,36 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Horizontal panel switcher for content organized into distinct sections. Use when users need to switch between 2-6 related views without leaving the page. Provide a tabs array with id, label, and content for each tab.",
     aliases: { items: "tabs", defaultValue: "defaultTab" },
   },
+  Tag: {
+    name: "Tag",
+    description:
+      "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Put its words in label. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+    charLimits: { children: 30 },
+    aliases: { label: "children" },
+  },
   Text: {
     name: "Text",
     description:
-      "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata.",
+      "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put its words in text (required unless it holds child elements).",
     slots: ["default"],
+    aliases: { text: "children" },
   },
   TimePicker: {
     name: "TimePicker",
     include: false,
     description:
       "Time field: a read-only trigger input that opens a popover-hosted listbox of interval slots. Controlled via value (24h HH:mm string) and onChange; supports a configurable step (default 15 min), min/max bounds, an isTimeDisabled predicate (authoritative over bounds), and locale-aware display. Focus returns to the trigger on select or Escape.",
+  },
+  TimeSlots: {
+    name: "TimeSlots",
+    description:
+      "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times as display text, such as 7:30 PM, in time order). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
+    charLimits: { date: 40 },
+  },
+  Timeline: {
+    name: "Timeline",
+    description:
+      "A time-ordered sequence of events, such as a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
   },
   Toast: {
     name: "Toast",

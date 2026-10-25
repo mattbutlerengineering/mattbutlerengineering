@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.8.0",
+  "version": "0.8.6",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -190,6 +190,10 @@
       "types": "./dist/lib/components/GlobalNav/index.d.ts",
       "import": "./dist/lib/components/GlobalNav/index.js"
     },
+    "./GuestCards": {
+      "types": "./dist/lib/components/GuestCards/index.d.ts",
+      "import": "./dist/lib/components/GuestCards/index.js"
+    },
     "./Handshake": {
       "types": "./dist/lib/components/Handshake/index.d.ts",
       "import": "./dist/lib/components/Handshake/index.js"
@@ -278,6 +282,10 @@
       "types": "./dist/lib/components/Progress/index.d.ts",
       "import": "./dist/lib/components/Progress/index.js"
     },
+    "./ReservationList": {
+      "types": "./dist/lib/components/ReservationList/index.d.ts",
+      "import": "./dist/lib/components/ReservationList/index.js"
+    },
     "./ScrollArea": {
       "types": "./dist/lib/components/ScrollArea/index.d.ts",
       "import": "./dist/lib/components/ScrollArea/index.js"
@@ -361,6 +369,10 @@
     "./TimePicker": {
       "types": "./dist/lib/components/TimePicker/index.d.ts",
       "import": "./dist/lib/components/TimePicker/index.js"
+    },
+    "./TimeSlots": {
+      "types": "./dist/lib/components/TimeSlots/index.d.ts",
+      "import": "./dist/lib/components/TimeSlots/index.js"
     },
     "./Timeline": {
       "types": "./dist/lib/components/Timeline/index.d.ts",

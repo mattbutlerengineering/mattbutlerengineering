@@ -38,6 +38,16 @@ vi.mock("../services/gen-spend-ceiling.js", async (importActual) => {
   };
 });
 
+// Spec cache storage is Postgres-backed; stub reads/writes, keep the real key function.
+vi.mock("../services/gen-spec-cache.js", async (importActual) => {
+  const actual = await importActual<Record<string, unknown>>();
+  return {
+    ...actual,
+    getCachedSpec: vi.fn(async () => null),
+    putCachedSpec: vi.fn(async () => {}),
+  };
+});
+
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
   catalog: { prompt: vi.fn(() => "mock system prompt") },
 }));
@@ -100,6 +110,7 @@ import rateLimit from "@fastify/rate-limit";
 import { requireAuth } from "@mbe/auth/fastify";
 import { createGenRoute } from "./gen-route-factory.js";
 import { logGenCost } from "./gen-stream.js";
+import { getCachedSpec, putCachedSpec } from "../services/gen-spec-cache.js";
 import {
   getGenSpendToday,
   recordGenSpend,
@@ -462,11 +473,12 @@ describe("createGenRoute factory", () => {
       expect(response.statusCode).toBe(200);
       expect(response.body).toBe(JSON.stringify({ key: "a", type: "Card" }) + "\n");
       const call = vi.mocked(streamText).mock.calls[0]![0] as {
+        instructions: { content: string };
         messages: Array<{ role: string; content: string }>;
         toolChoice: unknown;
       };
-      expect(call.messages[0]!.content).toBe("custom system prompt");
-      expect(call.messages[1]).toEqual({ role: "user", content: "a form" });
+      expect(call.instructions.content).toBe("custom system prompt");
+      expect(call.messages[0]).toEqual({ role: "user", content: "a form" });
       expect(call.toolChoice).toEqual({ type: "tool", toolName: "render_component" });
     });
 
@@ -543,6 +555,75 @@ describe("createGenRoute factory", () => {
         expect.objectContaining({ label: "test-chat cost log" })
       );
     });
+
+    it("adds ttft, duration, element count and finishReason to the cost line", async () => {
+      vi.mocked(logGenCost).mockClear();
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockStream([
+          { type: "text-delta", text: "a" },
+          { type: "text-delta", text: "b" },
+        ]),
+      } as never);
+
+      await app.inject({
+        method: "POST",
+        url: TEST_PATH.chat,
+        payload: { messages: [{ role: "user", content: "hello" }] },
+      });
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as {
+        onFinish?: (a: {
+          usage: unknown;
+          providerMetadata: unknown;
+          finishReason: string;
+        }) => Promise<void>;
+      };
+      await call.onFinish!({
+        usage: { inputTokens: 5, outputTokens: 3 },
+        providerMetadata: {},
+        finishReason: "stop",
+      });
+
+      expect(vi.mocked(logGenCost)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          telemetry: {
+            ttftMs: expect.any(Number),
+            durationMs: expect.any(Number),
+            elementCount: 2,
+            finishReason: "stop",
+          },
+        })
+      );
+    });
+
+    it("still logs a zeroed-usage cost line with finishReason error when the run fails", async () => {
+      vi.mocked(logGenCost).mockClear();
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockStream([{ type: "error", error: new Error("boom") }]),
+      } as never);
+
+      await app.inject({
+        method: "POST",
+        url: TEST_PATH.chat,
+        payload: { messages: [{ role: "user", content: "hello" }] },
+      });
+
+      expect(vi.mocked(logGenCost)).toHaveBeenCalledOnce();
+      expect(vi.mocked(logGenCost)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          label: "test-chat cost log",
+          usage: {},
+          telemetry: {
+            ttftMs: 0,
+            durationMs: expect.any(Number),
+            elementCount: 0,
+            finishReason: "error",
+          },
+        })
+      );
+    });
   });
 
   describe("system prompt + prompt caching", () => {
@@ -561,7 +642,7 @@ describe("createGenRoute factory", () => {
       await app.ready();
     });
 
-    it("injects system prompt first with ephemeral cache control", async () => {
+    it("passes the system prompt via instructions with ephemeral cache control", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
         fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
@@ -575,14 +656,16 @@ describe("createGenRoute factory", () => {
       });
 
       const call = vi.mocked(streamText).mock.calls[0]![0] as {
-        messages: Array<{ role: string; content: string; providerOptions?: unknown }>;
+        instructions: { role: string; content: string; providerOptions?: unknown };
+        messages: Array<{ role: string }>;
       };
 
-      expect(call.messages[0]).toMatchObject({
+      expect(call.instructions).toMatchObject({
         role: "system",
         content: "mock system prompt",
         providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       });
+      expect(call.messages.every((m) => m.role !== "system")).toBe(true);
     });
   });
 
@@ -788,5 +871,116 @@ describe("aggregate spend ceiling", () => {
     await post();
 
     expect(vi.mocked(recordGenSpend)).toHaveBeenCalledWith(failedGenCostMicroUsd());
+  });
+});
+
+describe("spec cache", () => {
+  let app: FastifyInstance;
+  const store = new Map<string, unknown[]>();
+
+  const elementRun = (key: string) =>
+    ({
+      fullStream: mockStream([
+        {
+          type: "tool-call",
+          toolCallId: "t1",
+          toolName: "render_component",
+          input: { elements: [{ key, type: "Text" }] },
+        },
+      ]),
+      usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+      providerMetadata: Promise.resolve({}),
+    }) as never;
+
+  const post = (content: string) =>
+    app.inject({
+      method: "POST",
+      url: TEST_PATH.custom,
+      payload: { messages: [{ role: "user", content }] },
+    });
+
+  beforeEach(async () => {
+    store.clear();
+    vi.mocked(getCachedSpec).mockImplementation(async (key: string) => store.get(key) ?? null);
+    vi.mocked(putCachedSpec).mockImplementation(async (key: string, lines: unknown[]) => {
+      store.set(key, lines);
+    });
+    app = buildTestApp();
+    await app.register(
+      createGenRoute({
+        path: TEST_PATH.custom,
+        costLogLabel: "test-cache cost log",
+        rateLimit: { max: 50, timeWindow: "1 hour" },
+        schema: ChatSchema,
+        streamFormat: "ndjson",
+        maxSteps: 1,
+        cache: true,
+        getTools: async () => ({}),
+      })
+    );
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+  });
+
+  it("serves the second identical request from cache with one model call and identical bytes", async () => {
+    vi.mocked(streamText).mockReturnValueOnce(elementRun("a"));
+    const first = await post("hello");
+    const second = await post("  hello ");
+
+    expect(streamText).toHaveBeenCalledTimes(1);
+    expect(second.statusCode).toBe(200);
+    expect(second.headers["content-type"]).toBe(first.headers["content-type"]);
+    expect(second.body).toBe(first.body);
+    expect(first.body).toBe(
+      `${JSON.stringify({ type: "element", element: { key: "a", type: "Text" } })}\n`
+    );
+  });
+
+  it("does not charge spend for a cache hit", async () => {
+    vi.mocked(streamText).mockReturnValueOnce(elementRun("a"));
+    await post("hello");
+    vi.mocked(recordGenSpend).mockClear();
+    await post("hello");
+    expect(recordGenSpend).not.toHaveBeenCalled();
+  });
+
+  it("does not cache a failed run", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockStream([{ type: "error", error: new Error("529") }]),
+      usage: Promise.resolve({}),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+    await post("hello").catch(() => undefined);
+    expect(putCachedSpec).not.toHaveBeenCalled();
+  });
+
+  it("does not cache a run truncated by the output cap", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockStream([
+        {
+          type: "tool-call",
+          toolCallId: "t1",
+          toolName: "render_component",
+          input: { elements: [{ key: "a", type: "Text" }] },
+        },
+        { type: "finish", finishReason: "length" },
+      ]),
+      usage: Promise.resolve({}),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+    await post("hello").catch(() => undefined);
+    expect(putCachedSpec).not.toHaveBeenCalled();
+  });
+
+  it("falls through to the model when the cache read throws", async () => {
+    vi.mocked(getCachedSpec).mockRejectedValueOnce(new Error("db down"));
+    vi.mocked(streamText).mockReturnValueOnce(elementRun("a"));
+    const res = await post("hello");
+    expect(res.statusCode).toBe(200);
+    expect(streamText).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,31 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import type { FastifyBaseLogger, FastifyReply } from "fastify";
-import { GEN_MODEL_ID, buildGenMessages, logGenCost, applyStreamHeaders } from "./gen-stream.js";
+import {
+  GEN_MODEL_ID,
+  genSystemInstructions,
+  logGenCost,
+  applyStreamHeaders,
+} from "./gen-stream.js";
 
 describe("gen-stream", () => {
-  describe("buildGenMessages", () => {
-    it("prepends a cache-controlled system message before the conversation", () => {
-      const out = buildGenMessages("SYS", [
-        { role: "user", content: "hi" },
-        { role: "assistant", content: "hello" },
-      ]);
-
-      expect(out).toHaveLength(3);
-      expect(out[0]).toEqual({
+  describe("genSystemInstructions", () => {
+    it("builds a cache-controlled system message for streamText's instructions option", () => {
+      // ai@7 forbids system-role entries inside `messages`; the instructions
+      // option accepts a SystemModelMessage so cacheControl is preserved.
+      expect(genSystemInstructions("SYS")).toEqual({
         role: "system",
         content: "SYS",
         providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       });
-      expect(out[1]).toEqual({ role: "user", content: "hi" });
-      expect(out[2]).toEqual({ role: "assistant", content: "hello" });
-    });
-
-    it("handles an empty conversation (system message only)", () => {
-      const out = buildGenMessages("SYS", []);
-      expect(out).toHaveLength(1);
-      const [systemMessage] = out;
-      if (!systemMessage) throw new Error("expected a system message");
-      expect(systemMessage.role).toBe("system");
     });
   });
 
@@ -60,12 +51,90 @@ describe("gen-stream", () => {
       });
     });
 
+    it("reads cache tokens from ai@7 usage.inputTokenDetails (provider metadata carries none, #7435)", () => {
+      const log = fakeLog();
+      logGenCost(log, {
+        usage: {
+          inputTokens: 13389,
+          outputTokens: 5,
+          inputTokenDetails: { cacheReadTokens: 10000, cacheWriteTokens: 0 },
+        },
+        providerMetadata: { anthropic: { usage: { cache_read_input_tokens: 10000 } } },
+        label: "gen-ui cost log",
+      });
+      const infoCall = log.info.mock.calls[0];
+      if (!infoCall) throw new Error("expected a log.info call");
+      expect(infoCall[0]).toMatchObject({
+        cacheReadInputTokens: 10000,
+        cacheCreationInputTokens: 0,
+      });
+    });
+
+    it("falls back to the raw anthropic usage in provider metadata", () => {
+      const log = fakeLog();
+      logGenCost(log, {
+        usage: { inputTokens: 13389 },
+        providerMetadata: {
+          anthropic: { usage: { cache_creation_input_tokens: 10000, cache_read_input_tokens: 0 } },
+        },
+        label: "gen-ui cost log",
+      });
+      const infoCall = log.info.mock.calls[0];
+      if (!infoCall) throw new Error("expected a log.info call");
+      expect(infoCall[0]).toMatchObject({
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 10000,
+      });
+    });
+
+    it("logs run telemetry on the same line, leaving the existing fields untouched", () => {
+      const log = fakeLog();
+      logGenCost(log, {
+        userId: "u1",
+        usage: { inputTokens: 10, outputTokens: 5 },
+        providerMetadata: undefined,
+        label: "gen-ui cost log",
+        telemetry: { ttftMs: 420, durationMs: 3100, elementCount: 12, finishReason: "stop" },
+      });
+
+      expect(log.info).toHaveBeenCalledOnce();
+      const [fields, label] = log.info.mock.calls[0]!;
+      expect(label).toBe("gen-ui cost log");
+      expect(fields).toMatchObject({
+        userId: "u1",
+        modelId: GEN_MODEL_ID,
+        inputTokens: 10,
+        outputTokens: 5,
+        ttftMs: 420,
+        durationMs: 3100,
+        elementCount: 12,
+        finishReason: "stop",
+      });
+    });
+
+    it("zeroes token and telemetry fields rather than omitting them", () => {
+      const log = fakeLog();
+      logGenCost(log, { usage: {}, label: "gen-ui cost log" });
+
+      const [fields] = log.info.mock.calls[0]!;
+      expect(fields).toMatchObject({
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+        ttftMs: 0,
+        durationMs: 0,
+        elementCount: 0,
+        finishReason: "unknown",
+      });
+    });
+
     it("defaults cache tokens to 0 when provider metadata is absent", () => {
       const log = fakeLog();
       logGenCost(log, {
         usage: { inputTokens: 1, outputTokens: 1 },
         providerMetadata: undefined,
-        label: "gen-chat cost log",
+        label: "gen-ui cost log",
       });
 
       const infoCall = log.info.mock.calls[0];

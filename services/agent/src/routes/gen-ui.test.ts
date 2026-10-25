@@ -190,14 +190,15 @@ describe("POST /api/gen/ui", () => {
       expect.objectContaining({
         model: mockAnthropicModel,
         tools: expect.objectContaining({ render_component: expect.anything() }),
+        // ai@7: system prompt rides the instructions option, never messages.
+        instructions: expect.objectContaining({
+          role: "system",
+          content: expect.stringContaining("mock system prompt"),
+          providerOptions: {
+            anthropic: { cacheControl: { type: "ephemeral" } },
+          },
+        }),
         messages: expect.arrayContaining([
-          expect.objectContaining({
-            role: "system",
-            content: expect.stringContaining("mock system prompt"),
-            providerOptions: {
-              anthropic: { cacheControl: { type: "ephemeral" } },
-            },
-          }),
           expect.objectContaining({
             role: "user",
             content: "a booking form",
@@ -205,6 +206,25 @@ describe("POST /api/gen/ui", () => {
         ]),
       })
     );
+  });
+
+  it("forbids only element-level children, and says where an element's words go", async () => {
+    // Review of #7462: "Do not use `children`" also read as "no words", so the model
+    // left Text and Badge empty while their catalog lines asked for words.
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([]),
+      usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    await app.inject({ method: "POST", url: "/api/gen/ui", payload: { prompt: "a badge" } });
+
+    const call = vi.mocked(streamText).mock.calls.at(-1)?.[0] as {
+      instructions: { content: string };
+    };
+    expect(call.instructions.content).toMatch(/Do not give elements a `children` array of keys/);
+    expect(call.instructions.content).toMatch(/own words go in its text or label prop/);
+    expect(call.instructions.content).not.toMatch(/Do not use `children`/);
   });
 
   it("accepts json-render's key/parentKey FlatElement shape and rejects the old id/children shape", async () => {

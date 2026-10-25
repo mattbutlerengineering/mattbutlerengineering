@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger, FastifyReply } from "fastify";
 
 /**
- * Shared infrastructure for the `/api/gen/*` streaming routes (gen-agent, gen-chat).
+ * Shared infrastructure for the `/api/gen/*` streaming routes (gen-ui, gen-agent).
  *
  * Both routes call the Anthropic API via the AI SDK and stream the response.
  * The model id, prompt-cache hints, cost logging, and streaming headers were
@@ -44,27 +44,76 @@ export const GEN_PRICING = (() => {
  */
 export const GEN_MAX_OUTPUT_TOKENS = 2048;
 
-type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
-
 /**
- * Builds the `messages` array for `streamText`: a cache-controlled system
- * message followed by the conversation. Caching must go through the messages
- * array (not top-level `system:`) so `providerOptions` is honored.
+ * The cache-controlled system prompt for `streamText`'s `instructions` option.
+ * ai@7 rejects system-role entries inside `messages` (AI_InvalidPromptError:
+ * "Use the instructions option instead") — caught by the first live prod
+ * generation, invisible to every test that mocks `ai`. `instructions` accepts
+ * a full SystemModelMessage, so the ephemeral cacheControl on the catalog
+ * prompt is preserved. Contract pinned by gen-runner.prompt-contract.test.ts
+ * against the real package.
  */
-export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
-  return [
-    {
-      role: "system" as const,
-      content: systemPrompt,
-      providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-    },
-    ...messages,
-  ];
+export function genSystemInstructions(systemPrompt: string) {
+  return {
+    role: "system" as const,
+    content: systemPrompt,
+    providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
+  };
 }
 
 interface GenUsage {
   readonly inputTokens?: number;
   readonly outputTokens?: number;
+  readonly inputTokenDetails?: {
+    readonly cacheReadTokens?: number;
+    readonly cacheWriteTokens?: number;
+  };
+}
+
+/**
+ * Anthropic prompt-cache reads/writes for one generation. ai@7 reports them on
+ * `usage.inputTokenDetails`; `providerMetadata.anthropic` carries only the raw
+ * response `usage` (snake_case), never top-level cache counters (#7435). The
+ * legacy top-level fields stay as the last fallback.
+ */
+export function cacheTokens(
+  usage: GenUsage,
+  providerMetadata: unknown
+): { readonly read: number; readonly write: number } {
+  const meta = (
+    providerMetadata as
+      | {
+          anthropic?: {
+            usage?: { cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
+            cacheReadInputTokens?: number;
+            cacheCreationInputTokens?: number;
+          };
+        }
+      | undefined
+  )?.anthropic;
+  return {
+    read:
+      usage.inputTokenDetails?.cacheReadTokens ??
+      meta?.usage?.cache_read_input_tokens ??
+      meta?.cacheReadInputTokens ??
+      0,
+    write:
+      usage.inputTokenDetails?.cacheWriteTokens ??
+      meta?.usage?.cache_creation_input_tokens ??
+      meta?.cacheCreationInputTokens ??
+      0,
+  };
+}
+
+/** Per-run timings and output size, logged on the cost line. Zeroed when unmeasurable. */
+export interface GenTelemetry {
+  /** ms from request start to the first emitted event (0 if none was emitted). */
+  readonly ttftMs: number;
+  /** ms from request start to the run finishing or failing. */
+  readonly durationMs: number;
+  readonly elementCount: number;
+  /** The AI SDK's finish reason, or "error" for a failed run. */
+  readonly finishReason: string;
 }
 
 /**
@@ -78,22 +127,23 @@ export function logGenCost(
     readonly usage: GenUsage;
     readonly providerMetadata?: unknown;
     readonly label: string;
+    readonly telemetry?: GenTelemetry;
   }
 ): void {
-  const anthropicMeta = (
-    opts.providerMetadata as
-      | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
-      | undefined
-  )?.anthropic;
+  const cache = cacheTokens(opts.usage, opts.providerMetadata);
 
   log.info(
     {
       userId: opts.userId,
       modelId: GEN_MODEL_ID,
-      inputTokens: opts.usage.inputTokens,
-      outputTokens: opts.usage.outputTokens,
-      cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-      cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+      inputTokens: opts.usage.inputTokens ?? 0,
+      outputTokens: opts.usage.outputTokens ?? 0,
+      cacheReadInputTokens: cache.read,
+      cacheCreationInputTokens: cache.write,
+      ttftMs: opts.telemetry?.ttftMs ?? 0,
+      durationMs: opts.telemetry?.durationMs ?? 0,
+      elementCount: opts.telemetry?.elementCount ?? 0,
+      finishReason: opts.telemetry?.finishReason ?? "unknown",
     },
     opts.label
   );

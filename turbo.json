@@ -45,6 +45,7 @@
       "dependsOn": ["^build", "db:generate"],
       "inputs": [
         "src/**",
+        "e2e/**",
         "package.json",
         "eslint.config.js",
         "$TURBO_ROOT$/eslint.config.js",

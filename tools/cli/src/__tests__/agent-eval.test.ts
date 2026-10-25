@@ -257,6 +257,22 @@ describe("agent eval command", () => {
     });
   });
 
+  describe("judge unavailable on every task (#7351)", () => {
+    it("exits 3, says nothing was measured, and does not persist the run", async () => {
+      mockGetSessionDiff.mockResolvedValue(undefined);
+      mockLoadSuite.mockResolvedValue([
+        { ...task, rubric: { ...task.rubric, judgeCriteria: ["no production code changed"] } },
+      ]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "succeeded" }));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(process.exitCode).toBe(3);
+      expect(mockAppendFileSync).not.toHaveBeenCalled();
+      expect(errSpy.mock.calls.flat().join("\n")).toContain("judge could not run");
+    });
+  });
+
   describe("--adapter selection", () => {
     it.each([["auto"], ["claude"], ["opencode"], ["grok"], ["omp"]] as const)(
       "resolves the %s adapter and passes it to runAgentSession",

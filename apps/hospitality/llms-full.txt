@@ -810,6 +810,88 @@
         },
       ],
     };
+    interface ChatVenue {
+      readonly id: string;
+      readonly ianaTimezone: string;
+    }
+    export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> {
+      if (!venue) return {};
+      const timeZone = resolveTimeZone(venue.ianaTimezone);
+      return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
+    }
+    export function useChatRequestContext(): Record<string, string> {
+      const { selectedVenue } = useVenue();
+      return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+    }
+    export function useChatSuggestions(): readonly string[] {
+      const { t } = useTranslation();
+      return useMemo(
+        () => [
+          t("chat.suggestions.tonight"),
+          t("chat.suggestions.openTables"),
+          t("chat.suggestions.availability"),
+          t("chat.suggestions.walkIn"),
+        ],
+        [t]
+      );
+    }
+    type ChatActionKey =
+      | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
+      | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
+      | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+    type Translate = (key: ChatActionKey) => string;
+    function formatWhen(key: string, value: string, locale?: string): string {
+      if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+        return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
+      }
+      if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
+      return value;
+    }
+    function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
+      return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+    }
+    export function describeChatAction(
+      action: PendingAction,
+      t: Translate,
+      tableName: (id: string) => string | undefined,
+      locale?: string
+    ): ActionDescription {
+      const titleKey = lookup(ACTION_TITLES, action.toolName);
+      return {
+        title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+        details: Object.entries(action.toolInput).map(([key, raw]) => {
+          const value = String(raw);
+          const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+          const shown =
+            key === "tableId"
+              ? (tableName(value) ?? value)
+              : statusKey
+                ? t(statusKey)
+                : formatWhen(key, value, locale);
+          const labelKey = lookup(ACTION_FIELDS, key);
+          return { label: labelKey ? t(labelKey) : key, value: shown };
+        }),
+      };
+    }
+    export function useDescribeChatAction(): (action: PendingAction) => ActionDescription {
+      const { t, i18n } = useTranslation();
+      const { selectedVenue } = useVenue();
+      const { data: tables } = useTables({
+        venueId: selectedVenue?.id ?? "",
+        limit: 100,
+        enabled: Boolean(selectedVenue),
+      });
+      return useCallback(
+        (action: PendingAction) =>
+          describeChatAction(
+            action,
+            t,
+            (id) => tables?.find((table) => table.id === id)?.name,
+            i18n.language
+          ),
+        [t, tables, i18n.language]
+      );
+    }
   </file>
   <file path="src/constants/session-lapse-copy.ts">
     export function getSessionLapseCopy(t: TFunction) {
@@ -1099,6 +1181,38 @@
     }
     type StoredSection = MenuSection & { items: MenuItem[] };
     type StoredMenu = Menu & { sections: StoredSection[] };
+    export function buildPublicMenuFixture(): PublicMenuDetail {
+      return {
+        id: "menu_capture_1",
+        name: "Dinner",
+        slug: "dinner",
+        description: null,
+        displayOrder: 0,
+        currencyCode: "USD",
+        sections: [
+          {
+            id: "section_capture_1",
+            name: "Mains",
+            displayOrder: 0,
+            items: [
+              {
+                id: "item_capture_1",
+                name: "Roast chicken",
+                description: null,
+                priceCents: 2400,
+                status: "AVAILABLE",
+                displayOrder: 0,
+              },
+            ],
+          },
+        ],
+      };
+    }
+    export async function mockPublicMenu(page: Page): Promise<void> {
+      await page.route(/\/public\/v1\/venues\/[^/?]+\/menus\/dinner(\?.*)?$/, (route) =>
+        jsonOk(route, buildPublicMenuFixture())
+      );
+    }
     async function mockMenus(page: Page): Promise<void> {
       const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
       const venueId = venues.data[0]?.id ?? "";
@@ -1885,6 +1999,15 @@
           contentType: "application/json",
           body: JSON.stringify({ data: section }),
         });
+      });
+    
+      // Launch assigns each template table to its section with
+      // PUT /floor-plan-sections/:id/tables (exact membership). Unmocked, the
+      // request is proxied to a dead API and the launch fails after the tables
+      // stage, so neither Launch nor Retry could reach the floor plan editor.
+      await page.route(/\/api\/v1\/floor-plan-sections\/[^/?]+\/tables(\?|$)/, (route) => {
+        if (route.request().method() !== "PUT") return route.fallback();
+        return jsonOk(route, []);
       });
     
       // Availability
@@ -6652,6 +6775,479 @@
     }
   </file>
   </section>
+  <section priority="medium" role="rehearsal">
+  <file path="src/components/rehearsal/rehearsal-state.ts">
+    export interface RehearsalWaiting {
+      reservationId: string;
+      partySize: number;
+      /** Minutes since midnight at which the walk-in started waiting. */
+      since: number;
+    }
+    export interface RehearsalMetrics {
+      coversServed: number;
+      averageTurnMinutes: number;
+      /** Hour of day with the most seatings so far, or null before anyone sat. */
+      peakHour: number | null;
+      /** Of `tableIds` (or every table in the events), those no party has sat at yet. */
+      tablesNeverSat: number;
+      longestWalkInWaitMinutes: number;
+    }
+    export interface RehearsalState {
+      reservations: Reservation[];
+      tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
+      seatedIds: ReadonlySet<string>;
+      waiting: RehearsalWaiting[];
+      metrics: RehearsalMetrics;
+    }
+    export interface RehearsalStateOptions {
+      /** Service day (YYYY-MM-DD) stamped on the synthesized reservations. */
+      date?: string;
+      /** Every table in the room, so `tablesNeverSat` can count tables no event mentions. */
+      tableIds?: readonly string[];
+    }
+    function isoAt(date: string, minutes: number): string {
+      const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
+      const mm = String(minutes % 60).padStart(2, "0");
+      return `${date}T${hh}:${mm}:00.000Z`;
+    }
+    function makeReservation(
+      id: string,
+      date: string,
+      startMinutes: number,
+      partySize: number,
+      tableId: string
+    ): Reservation {
+      return {
+        id,
+        date,
+        startTime: isoAt(date, startMinutes),
+        endTime: isoAt(date, startMinutes + DEFAULT_STAY_MINUTES),
+        partySize,
+        status: "CONFIRMED",
+        notes: null,
+        cancellationReason: null,
+        cancellationNote: null,
+        guestName: null,
+        guestEmail: null,
+        guestPhone: null,
+        guestId: null,
+        userId: null,
+        occasion: null,
+        seatingPreference: null,
+        tableId,
+        venueId: null,
+        createdAt: isoAt(date, startMinutes),
+        updatedAt: isoAt(date, startMinutes),
+      };
+    }
+    export function rehearsalStateAt(
+      events: readonly RehearsalEvent[],
+      t: number,
+      { date = DEFAULT_DATE, tableIds }: RehearsalStateOptions = {}
+    ): RehearsalState {
+      const reservations = new Map<string, Reservation>();
+      const tableBase = new Map<string, TableDisplayStatus>();
+      const pendingArrival = new Map<string, { tableId: string; arrivesAt: number }>();
+      const seatedAt = new Map<string, number>();
+      const seatedIds = new Set<string>();
+      const waitingSince = new Map<string, RehearsalWaiting>();
+      const seatHours = new Map<string, number>();
+      const tablesSat = new Set<string>();
+      const seenTables = new Set<string>();
+      const turns: number[] = [];
+      let coversServed = 0;
+      let longestWait = 0;
+    
+      const setStatus = (id: string, status: Reservation["status"]) => {
+        const r = reservations.get(id);
+        if (r) reservations.set(id, { ...r, status });
+      };
+    
+      for (const e of events) {
+        if (e.at > t) break;
+        if ("tableId" in e) seenTables.add(e.tableId);
+        switch (e.type) {
+          case "booked":
+            reservations.set(
+              e.reservationId,
+              makeReservation(e.reservationId, date, e.arrivesAt, e.partySize, e.tableId)
+            );
+            pendingArrival.set(e.reservationId, { tableId: e.tableId, arrivesAt: e.arrivesAt });
+            break;
+          case "walk-in-waiting":
+            waitingSince.set(e.reservationId, {
+              reservationId: e.reservationId,
+              partySize: e.partySize,
+              since: e.at,
+            });
+            break;
+          case "seated": {
+            const wait = waitingSince.get(e.reservationId);
+            if (wait) longestWait = Math.max(longestWait, e.at - wait.since);
+            waitingSince.delete(e.reservationId);
+            pendingArrival.delete(e.reservationId);
+            if (!reservations.has(e.reservationId)) {
+              reservations.set(
+                e.reservationId,
+                makeReservation(e.reservationId, date, e.at, e.partySize, e.tableId)
+              );
+            }
+            seatedIds.add(e.reservationId);
+            seatedAt.set(e.reservationId, e.at);
+            coversServed += e.partySize;
+            tablesSat.add(e.tableId);
+            const hour = Math.floor(e.at / 60);
+            seatHours.set(String(hour), (seatHours.get(String(hour)) ?? 0) + 1);
+            break;
+          }
+          case "status-change":
+            tableBase.set(e.tableId, STATUS_FOR_TABLE_EVENT[e.status]);
+            break;
+          case "no-show":
+            pendingArrival.delete(e.reservationId);
+            setStatus(e.reservationId, "NO_SHOW");
+            break;
+          case "departed": {
+            seatedIds.delete(e.reservationId);
+            setStatus(e.reservationId, "COMPLETED");
+            const start = seatedAt.get(e.reservationId);
+            if (start !== undefined) turns.push(e.at - start);
+            break;
+          }
+        }
+      }
+    
+      const tableStatuses = new Map(tableBase);
+      for (const { tableId, arrivesAt } of pendingArrival.values()) {
+        const base = tableStatuses.get(tableId);
+        if (
+          (base === undefined || base === "available") &&
+          arrivesAt - t <= RESERVED_SOON_WINDOW_MINUTES
+        ) {
+          tableStatuses.set(tableId, "reserved-soon");
+        }
+      }
+    
+      const waiting = [...waitingSince.values()];
+      for (const w of waiting) longestWait = Math.max(longestWait, t - w.since);
+    
+      let peakHour: number | null = null;
+      let peakCount = 0;
+      for (const [hour, count] of seatHours) {
+        if (count > peakCount) {
+          peakCount = count;
+          peakHour = Number(hour);
+        }
+      }
+    
+      const universe = new Set(tableIds ?? seenTables);
+    
+      return {
+        reservations: [...reservations.values()],
+        tableStatuses,
+        seatedIds,
+        waiting,
+        metrics: {
+          coversServed,
+          averageTurnMinutes: turns.length
+            ? Math.round(turns.reduce((a, b) => a + b, 0) / turns.length)
+            : 0,
+          peakHour,
+          tablesNeverSat: [...universe].filter((id) => !tablesSat.has(id)).length,
+          longestWalkInWaitMinutes: longestWait,
+        },
+      };
+    }
+  </file>
+  <file path="src/components/rehearsal/simulate-service.ts">
+    interface ProfileShape {
+      /** Turns of the whole room across the service. */
+      turns: number;
+      /** Peak arrival as minutes since midnight, before clamping into service hours. */
+      peakMinutes: number;
+      spreadMinutes: number;
+      walkInShare: number;
+      noShowShare: number;
+    }
+    function createRandom(seed: number): () => number {
+      let a = seed >>> 0;
+      return () => {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function gaussian(random: () => number): number {
+      const u = Math.max(random(), Number.EPSILON);
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random());
+    }
+    function pickPartySize(random: () => number, maxSize: number): number {
+      const usable = PARTY_SIZE_WEIGHTS.filter(([size]) => size <= maxSize);
+      const total = usable.reduce((sum, [, weight]) => sum + weight, 0);
+      let roll = random() * total;
+      for (const [size, weight] of usable) {
+        roll -= weight;
+        if (roll <= 0) return size;
+      }
+      return usable[usable.length - 1]![0];
+    }
+    function turnMinutes(random: () => number, size: number): number {
+      const base = size <= 2 ? 75 : size <= 4 ? 90 : size <= 6 ? 120 : 135;
+      return base + Math.round((random() * 20 - 10) / 5) * 5;
+    }
+    function fits(table: RehearsalTable, size: number): boolean {
+      return size >= table.minCovers && size <= table.capacity;
+    }
+    export function simulateService({
+      tables,
+      openHour,
+      closeHour,
+      profile,
+      seed,
+    }: SimulateServiceInput): RehearsalEvent[] {
+      const random = createRandom(seed);
+      const shape = PROFILES[profile];
+      const open = openHour * 60;
+      const close = closeHour * 60;
+      const lastArrival = close - LAST_SEATING_BEFORE_CLOSE_MINUTES;
+      if (tables.length === 0 || lastArrival <= open) return [];
+    
+      const maxCapacity = Math.max(...tables.map((t) => t.capacity));
+      const totalSeats = tables.reduce((sum, t) => sum + t.capacity, 0);
+      const partyCount = Math.round((totalSeats / 3) * shape.turns);
+      const peak = Math.min(Math.max(shape.peakMinutes, open + 60), lastArrival);
+    
+      const parties = Array.from({ length: partyCount }, () => {
+        const arrival = peak + gaussian(random) * shape.spreadMinutes;
+        return {
+          arrival: Math.round(Math.min(Math.max(arrival, open), lastArrival) / 5) * 5,
+          size: pickPartySize(random, maxCapacity),
+          walkIn: random() < shape.walkInShare,
+          noShow: random() < shape.noShowShare,
+          turn: 0,
+        };
+      }).sort((a, b) => a.arrival - b.arrival);
+      for (const party of parties) party.turn = turnMinutes(random, party.size);
+    
+      const freeAt = new Map(tables.map((t) => [t.id, open]));
+      const log: RehearsalEvent[] = [];
+      let walkIns = 0;
+      let bookings = 0;
+    
+      for (const party of parties) {
+        const candidates = tables
+          .filter((t) => fits(t, party.size))
+          .sort((a, b) => a.capacity - b.capacity);
+        if (candidates.length === 0) continue;
+    
+        const free = candidates.find((t) => freeAt.get(t.id)! <= party.arrival);
+    
+        if (!party.walkIn) {
+          if (!free || party.arrival + party.turn + RESET_MINUTES + BUS_MINUTES > close) continue;
+          const reservationId = `rehearsal-res-${++bookings}`;
+          log.push({
+            at: Math.max(open, party.arrival - BOOKING_LEAD_MINUTES),
+            type: "booked",
+            reservationId,
+            partySize: party.size,
+            tableId: free.id,
+            arrivesAt: party.arrival,
+          });
+          if (party.noShow) {
+            const releasedAt = party.arrival + NO_SHOW_GRACE_MINUTES;
+            log.push({ at: releasedAt, type: "no-show", reservationId, tableId: free.id });
+            freeAt.set(free.id, releasedAt);
+            continue;
+          }
+          seat(free, reservationId, party.arrival, party.size, party.turn);
+          continue;
+        }
+    
+        const earliest = candidates.reduce((best, t) =>
+          freeAt.get(t.id)! < freeAt.get(best.id)! ? t : best
+        );
+        const table = free ?? earliest;
+        const seatAt = Math.max(party.arrival, freeAt.get(table.id)!);
+        if (seatAt - party.arrival > MAX_WALK_IN_WAIT_MINUTES) continue;
+        if (seatAt + party.turn + RESET_MINUTES + BUS_MINUTES > close) continue;
+        const reservationId = `rehearsal-walk-in-${++walkIns}`;
+        if (seatAt > party.arrival) {
+          log.push({
+            at: party.arrival,
+            type: "walk-in-waiting",
+            reservationId,
+            partySize: party.size,
+          });
+        }
+        seat(table, reservationId, seatAt, party.size, party.turn);
+      }
+    
+      function seat(
+        table: RehearsalTable,
+        reservationId: string,
+        at: number,
+        size: number,
+        turn: number
+      ) {
+        const departAt = at + turn;
+        log.push(
+          { at, type: "seated", reservationId, partySize: size, tableId: table.id },
+          { at, type: "status-change", tableId: table.id, status: "OCCUPIED" },
+          { at: departAt, type: "departed", reservationId, tableId: table.id },
+          { at: departAt, type: "status-change", tableId: table.id, status: "DIRTY" },
+          { at: departAt + BUS_MINUTES, type: "status-change", tableId: table.id, status: "READY" },
+          {
+            at: departAt + BUS_MINUTES + RESET_MINUTES,
+            type: "status-change",
+            tableId: table.id,
+            status: "AVAILABLE",
+          }
+        );
+        freeAt.set(table.id, departAt + BUS_MINUTES + RESET_MINUTES);
+      }
+    
+      return log
+        .map((event, index) => ({ event, index }))
+        .sort((a, b) => a.event.at - b.event.at || a.index - b.index)
+        .map(({ event }) => event);
+    }
+  </file>
+  <file path="src/components/rehearsal/types.ts">
+    export interface RehearsalTable {
+      id: string;
+      capacity: number;
+      minCovers: number;
+    }
+    export type RehearsalProfile = "friday" | "weeknight" | "brunch";
+    export type RehearsalTableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    export type RehearsalEvent =
+      | {
+          at: number;
+          type: "booked";
+          reservationId: string;
+          partySize: number;
+          tableId: string;
+          arrivesAt: number;
+        }
+      | { at: number; type: "seated"; reservationId: string; partySize: number; tableId: string }
+      | { at: number; type: "status-change"; tableId: string; status: RehearsalTableStatus }
+      | { at: number; type: "walk-in-waiting"; reservationId: string; partySize: number }
+      | { at: number; type: "no-show"; reservationId: string; tableId: string }
+      | { at: number; type: "departed"; reservationId: string; tableId: string };
+    export interface SimulateServiceInput {
+      tables: readonly RehearsalTable[];
+      openHour: number;
+      closeHour: number;
+      profile: RehearsalProfile;
+      seed: number;
+    }
+  </file>
+  <file path="src/components/rehearsal/use-rehearsal-playback.ts">
+    export type RehearsalSpeed = 15 | 60 | 240;
+    function subscribeReducedMotion(onChange: () => void): () => void {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
+      const query = window.matchMedia(REDUCED_MOTION_QUERY);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    }
+    function reducedMotionSnapshot(): boolean {
+      return (
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia(REDUCED_MOTION_QUERY).matches
+      );
+    }
+    export interface RehearsalPlayback {
+      /** Simulated time, minutes since midnight. */
+      time: number;
+      /** First and last event times; the clock never leaves this window. */
+      start: number;
+      end: number;
+      playing: boolean;
+      speed: RehearsalSpeed;
+      /** True under prefers-reduced-motion: `play` is inert, use `step`. */
+      reducedMotion: boolean;
+      state: RehearsalState;
+      play: () => void;
+      pause: () => void;
+      setSpeed: (speed: RehearsalSpeed) => void;
+      scrub: (time: number) => void;
+      /** Jump to the next event time (the only way to move under reduced motion). */
+      step: () => void;
+    }
+    export function useRehearsalPlayback(
+      events: readonly RehearsalEvent[],
+      options: RehearsalStateOptions = {}
+    ): RehearsalPlayback {
+      const start = events.length ? events[0]!.at : 0;
+      const end = events.length ? events[events.length - 1]!.at : 0;
+      const reducedMotion = useSyncExternalStore(
+        subscribeReducedMotion,
+        reducedMotionSnapshot,
+        () => false
+      );
+    
+      const [time, setTime] = useState(start);
+      const [playing, setPlaying] = useState(false);
+      const [speed, setSpeed] = useState<RehearsalSpeed>(DEFAULT_SPEED);
+      const timeRef = useRef(time);
+    
+      const clamp = useCallback((t: number) => Math.min(end, Math.max(start, t)), [start, end]);
+      const moveTo = useCallback(
+        (t: number) => {
+          timeRef.current = clamp(t);
+          setTime(timeRef.current);
+        },
+        [clamp]
+      );
+    
+      const running = playing && !reducedMotion;
+      useEffect(() => {
+        if (!running) return;
+        let last: number | null = null;
+        let frame = requestAnimationFrame(function tick(now) {
+          if (last !== null) moveTo(timeRef.current + ((now - last) / 1000) * (speed / 60));
+          last = now;
+          if (timeRef.current >= end) {
+            setPlaying(false);
+            return;
+          }
+          frame = requestAnimationFrame(tick);
+        });
+        return () => cancelAnimationFrame(frame);
+      }, [running, speed, end, moveTo]);
+    
+      const step = useCallback(() => {
+        const next = events.find((e) => e.at > timeRef.current);
+        moveTo(next ? next.at : end);
+      }, [events, end, moveTo]);
+    
+      const minute = Math.floor(time);
+      const { date, tableIds } = options;
+      const state = useMemo(
+        () => rehearsalStateAt(events, minute, { date, tableIds }),
+        [events, minute, date, tableIds]
+      );
+    
+      return {
+        time,
+        start,
+        end,
+        playing: running,
+        speed,
+        reducedMotion,
+        state,
+        play: useCallback(() => setPlaying(true), []),
+        pause: useCallback(() => setPlaying(false), []),
+        setSpeed,
+        scrub: moveTo,
+        step,
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/nav-actions.ts">
     export type NavAction =
@@ -7663,6 +8259,7 @@
   <file path="src/utils/timeline-intent.ts">
     export const WALK_IN_PARAM = "walkin";
     export const SELECTED_PARAM = "selected";
+    export const REHEARSAL_PARAM = "rehearsal";
     export interface TimelineIntent {
       /** Exactly `walkin=true` — any other spelling is no intent. */
       readonly walkIn: boolean;

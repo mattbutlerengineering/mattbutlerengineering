@@ -1,5 +1,44 @@
 # Template Gallery Coverage Audit
 
+## Catalog reality check (#7421)
+
+Everything below measures prompt **wording** against all 88 rialto components. The
+generator can only use the **30** components in the AI catalog
+(`catalog.componentNames` from `@mbe/rialto-catalog/catalog`): Accordion, Alert, AppBar,
+AspectRatio, Avatar, Badge, Banner, Breadcrumb, Button, Card, Checkbox, Combobox,
+DataList, DataTable, DepartureBoard, Dialog, Divider, EmptyState, Footer, IconButton,
+Input, NavigationMenu, Odometer, Select, Sidebar, Stack, Table, Tabs, Text, Toggle.
+Anything else the model improvises renders as a silent SeamFallback placeholder, so a
+"covered" row below for an off-catalog component (Skeleton, Drawer, Tooltip, Popover,
+PinInput, Handshake, ScrollArea, Calendar, DropdownMenu, charts, ...) is not real coverage.
+
+`src/components/TemplateGallery.catalog.test.tsx` now enforces this: no template
+description or prompt may name an off-catalog rialto component or a plain-language
+equivalent (chart, skeleton, drawer, tooltip, popover, calendar, ...). Adding a
+component to the catalog is a separate decision; do not widen the guard to dodge it.
+
+Templates reworded onto on-catalog equivalents (none deleted, count stays 32):
+
+| Template                      | Was asking for                 | Now uses                         |
+| ----------------------------- | ------------------------------ | -------------------------------- |
+| analytics-dashboard           | line chart, bar chart          | Card, Odometer, Badge, DataTable |
+| sales-dashboard               | revenue chart, funnel          | Odometer, Table, DataList        |
+| survey-form                   | text areas, progress bar       | Select, Input, Checkbox, Tabs    |
+| help-center-page              | help tooltips                  | Alert callouts                   |
+| preferences-panel             | segmented control              | Tabs                             |
+| loading-empty-states          | skeleton placeholders          | EmptyState variants only         |
+| settings-modal-flow           | slide-out drawer               | second Dialog                    |
+| capacity-monitor              | meters                         | Odometer, Badge                  |
+| app-shell                     | GlobalNav                      | AppBar, NavigationMenu           |
+| appointment-scheduler         | calendar, date picker, popover | Tabs, Input, Select              |
+| secure-verification           | PinInput                       | Input, Button, Text              |
+| restaurant-reservations-board | tape chart, chalkboard         | Table, Card                      |
+| command-search-palette        | hover cards, tooltips          | Dialog, Combobox, Badge          |
+| delete-confirmation-flow      | disabled tooltip               | Text hint, Checkbox, Dialog      |
+| integration-handshake         | Handshake instrument           | DataList, Badge, Alert           |
+| row-actions-menu              | DropdownMenu                   | IconButton actions column        |
+| activity-log-panel            | ScrollArea                     | Card, Text, Badge                |
+
 Regenerated for the fifth Template Gallery batch (#5441, this issue #5521 = part 1/5).
 `apps/gen/src/components/TemplateGallery.tsx` now ships **32** templates (verified via
 `grep -c '    id: "' apps/gen/src/components/TemplateGallery.tsx` → 32), up from the 12

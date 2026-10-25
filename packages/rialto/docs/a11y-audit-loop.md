@@ -315,7 +315,13 @@ Notes:
 | demos/signup                 | Clean | Clean | Already clean            |
 | privacy                      | Clean | Clean | #7188 (main landmark)    |
 
-Not covered, still open and deferred to a human above: `examples/reservation-kanban` (card ghost button name mismatch), `examples/reservation-timeline` and `visual-test` (TapeChart bar names, Tag `_selected` contrast). Iteration 7 is done for everything fixable at page level.
+Not covered at the time, deferred to a human above: `examples/reservation-kanban` (card ghost button name mismatch), `examples/reservation-timeline` and `visual-test` (TapeChart bar names, Tag `_selected` contrast). Iteration 8 below closes them.
+
+## Iteration 8: deferred findings resolved, coverage widened (#7405)
+
+The three findings Iteration 7 deferred are fixed (TapeChart bar accessible names #7402, kanban ghost button name #7403, Tag `.selected` contrast #7404). `a11y-pages.spec.ts` now also audits `examples/reservation-kanban`, `examples/reservation-timeline` and `visual-test` in light and dark with the full axe rule set. Writing the spec found one more page-level finding on `visual-test`: four TapeChart regions shared one label (`landmark-unique`); each now passes its own `strings.regionLabel`.
+
+Still open and out of scope here: the avatar page load-state timeout (`a11y-pages.spec.ts:92`).
 
 ---
 
@@ -327,3 +333,4 @@ Not covered, still open and deferred to a human above: `examples/reservation-kan
 - ~~**Iteration 5**: Navigation — Navbar, Sidebar, Breadcrumb, Pagination~~ **Done** (see Iteration 5 above)
 - ~~**Iteration 6**: Verify fixes with axe-core against showcase pages~~ **Done for the 10 component pages** (see Iteration 6 above)
 - ~~**Iteration 7** (#7061): the 14 remaining seed findings on `examples/*`, `demos/*` and standalone pages (`visual-test`, `privacy`), composition-level rather than per-component~~ **Done for the nine fixable pages** (see Iteration 7 above)
+- ~~**Iteration 8** (#7405): the three findings Iteration 7 deferred, plus a11y spec coverage for `examples/reservation-kanban`, `examples/reservation-timeline` and `visual-test`~~ **Done** (see Iteration 8 above). **The queue is empty.**

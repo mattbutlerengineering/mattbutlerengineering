@@ -417,7 +417,7 @@ describe("createGenRunner", () => {
   });
 
   describe("system prompt injection", () => {
-    it("puts system prompt first in messages array with cache control", async () => {
+    it("passes the system prompt via instructions with cache control, never inside messages", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
         fullStream: mockAsyncIterable([]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
@@ -427,13 +427,16 @@ describe("createGenRunner", () => {
       await runner.run([{ role: "user", content: "hi" }], {}, async () => {});
 
       const call = vi.mocked(streamText).mock.calls[0]![0] as {
-        messages: Array<{ role: string; content: string; providerOptions?: unknown }>;
+        instructions: { role: string; content: string; providerOptions?: unknown };
+        messages: Array<{ role: string; content: string }>;
       };
-      expect(call.messages[0]).toMatchObject({
+      expect(call.instructions).toMatchObject({
         role: "system",
         content: "You are a helpful assistant.",
         providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       });
+      // ai@7 throws AI_InvalidPromptError on any system-role entry in messages.
+      expect(call.messages.every((m) => m.role !== "system")).toBe(true);
     });
   });
 });

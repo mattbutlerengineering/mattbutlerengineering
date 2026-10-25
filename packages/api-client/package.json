@@ -54,7 +54,7 @@
     {
       "name": "streaming (subpath)",
       "path": "dist/streaming.js",
-      "limit": "1000 B"
+      "limit": "1300 B"
     }
   ],
   "license": "MIT"

@@ -356,7 +356,8 @@
       "dashboard": "Tableau de bord",
       "setup": "Configuration",
       "hours": "Heures d'ouverture",
-      "menus": "Menus"
+      "menus": "Menus",
+      "chat": "Clavardage"
     },
     "venuesNotLoaded": "Les établissements n'ont pas été chargés.",
     "searchPlaceholder": "Rechercher des pages et des actions...",
@@ -1441,7 +1442,32 @@
     "back": "Retour au service de ce soir"
   },
   "chat": {
-    "title": "Clavardage"
+    "title": "Clavardage",
+    "suggestions": {
+      "tonight": "De quoi a l’air la soirée?",
+      "openTables": "Quelles tables sont libres en ce moment?",
+      "availability": "Avons-nous une table pour 4 à 19 h ce soir?",
+      "walkIn": "Deux personnes viennent d’arriver sans réservation. Où les placer?"
+    },
+    "actions": {
+      "create_reservation": "Créer une réservation",
+      "modify_reservation": "Modifier une réservation",
+      "cancel_reservation": "Annuler une réservation",
+      "seat_walk_in": "Placer un client sans réservation",
+      "update_table_status": "Mettre une table à jour",
+      "fields": {
+        "guestName": "Client",
+        "partySize": "Personnes",
+        "date": "Date",
+        "startTime": "Début",
+        "endTime": "Fin",
+        "tableId": "Table",
+        "table": "Table",
+        "status": "Statut",
+        "notes": "Notes",
+        "reservationId": "Réservation"
+      }
+    }
   },
   "setupHours": {
     "title": "Heures d'ouverture",
@@ -1856,5 +1882,29 @@
     "previewButton": "Réserver",
     "contrastFailed": "Ces couleurs n'offrent pas assez de contraste pour un texte lisible. Choisissez un accent plus foncé ou plus clair.",
     "save": "Enregistrer le thème"
+  },
+  "rehearsal": {
+    "entry": {
+      "cta": "Simuler un vendredi soir"
+    },
+    "banner": {
+      "title": "Répétition — pas de vraies réservations",
+      "play": "Lecture",
+      "pause": "Pause",
+      "step": "Événement suivant",
+      "speed": "{{speed}}×"
+    },
+    "loading": "Chargement de vos tables…",
+    "curtainCall": {
+      "title": "Salut final",
+      "covers": "Couverts servis",
+      "turn": "Durée moyenne d'occupation",
+      "peak": "Heure de pointe",
+      "neverSat": "Tables jamais occupées",
+      "wait": "Plus longue attente sans réservation",
+      "minutes": "{{minutes}} min",
+      "runAgain": "Recommencer",
+      "weeknight": "Essayer un soir de semaine"
+    }
   }
 }

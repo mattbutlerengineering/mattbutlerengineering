@@ -43,23 +43,89 @@ import {
   Divider,
   EmptyState,
   Footer,
+  GuestCards,
   IconButton,
   Input,
   NavigationMenu,
   Odometer,
+  ReservationList,
   Select,
   Sidebar,
   Stack,
+  Stat,
+  StatusLED,
   Table,
   Tabs,
+  Tag,
   Text,
+  Timeline,
+  TimeSlots,
   Toggle,
 } from "@mattbutlerengineering/rialto";
-import type { DepartureBoardProps } from "@mattbutlerengineering/rialto";
+import type {
+  DepartureBoardProps,
+  GuestCard,
+  ReservationListRow,
+  StatProps,
+  StatusLEDProps,
+  TagProps,
+  TimelineProps,
+} from "@mattbutlerengineering/rialto";
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
-import type { ReactNode } from "react";
+import { Children, type ReactNode } from "react";
+
+const TIMELINE_STATUSES: ReadonlySet<string> = new Set([
+  "completed",
+  "active",
+  "upcoming",
+  "error",
+]);
+
+function isTimelineStatus(
+  status: string
+): status is NonNullable<TimelineProps["events"][number]["status"]> {
+  return TIMELINE_STATUSES.has(status);
+}
+
+/** A party size as a number, from a number or a numeric string; undefined otherwise. */
+function toPartySize(value: unknown): number | undefined {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== "string" || value.trim() === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** A string with something other than whitespace in it — a blank word reads as missing. */
+function isFilled(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+/** Rows a reservation list can show: time, party size and status present (gen-ui-elements-2). */
+function usableReservations(rows: readonly Record<string, unknown>[]): ReservationListRow[] {
+  return rows.flatMap(({ time, guest, partySize, status }) => {
+    const size = toPartySize(partySize);
+    return isFilled(time) && isFilled(status) && size !== undefined
+      ? [{ time, guest: typeof guest === "string" ? guest : undefined, partySize: size, status }]
+      : [];
+  });
+}
+
+/** Cards a guest list can show: name, visits and risk present; blank tags dropped (gen-ui-elements-2). */
+function usableGuests(cards: readonly Record<string, unknown>[]): GuestCard[] {
+  return cards.flatMap(({ name, visits, risk, tags }) => {
+    const count = toPartySize(visits);
+    return isFilled(name) && isFilled(risk) && count !== undefined
+      ? [{ name, visits: count, risk, tags: Array.isArray(tags) ? tags.filter(isFilled) : [] }]
+      : [];
+  });
+}
+
+/** A slot's child elements when there are some, else the element's own words (F24). */
+function slotOr(children: ReactNode, words: unknown): ReactNode {
+  return Children.count(children) > 0 ? children : (words as ReactNode);
+}
 
 // Toast is intentionally omitted from this registry.
 // Toast uses the useToast() hook pattern (a provider, not a rendered element)
@@ -156,6 +222,26 @@ function SeamFallback({ name }: { name: string }): ReactNode {
 }
 
 /**
+ * Truncate top-level string props that exceed the component's declared
+ * `charLimits`, ending them with "…". Models routinely overshoot these limits;
+ * a slightly shortened title beats dropping the whole element to the fallback.
+ */
+function clampToCharLimits(name: string, props: unknown): unknown {
+  const limits = catalogMeta[name]?.charLimits;
+  if (!limits || props === null || typeof props !== "object") return props;
+  const source = props as Record<string, unknown>;
+  let next: Record<string, unknown> | undefined;
+  for (const [prop, max] of Object.entries(limits)) {
+    const value = source[prop];
+    if (typeof value === "string" && value.length > max) {
+      next ??= { ...source };
+      next[prop] = `${value.slice(0, max - 1).trimEnd()}…`;
+    }
+  }
+  return next ?? props;
+}
+
+/**
  * Wrap every adapter so its alias-normalized props are validated against the
  * matching generated Zod schema before the adapter runs. On success the adapter
  * is invoked unchanged; on failure a per-element {@link SeamFallback} is rendered
@@ -165,6 +251,15 @@ function SeamFallback({ name }: { name: string }): ReactNode {
  * Compose as `withAliasNormalization(withSchemaValidation(...))` so props are
  * alias-normalized first, then validated, then handed to the adapter.
  */
+/**
+ * The slice of a Zod object schema the seam uses to make a slot's words optional.
+ * `generatedSchemas` is a union of distinct object schemas, on which `.partial(mask)`
+ * does not typecheck; this file deliberately imports no Zod to name the type.
+ */
+interface Masked {
+  partial(mask: { children: true }): { safeParse(value: unknown): { success: boolean } };
+}
+
 function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T): T {
   const wrapped: Record<string, AdapterFn> = {};
   for (const [name, adapter] of Object.entries<AdapterFn>(adapters)) {
@@ -173,8 +268,24 @@ function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T):
       wrapped[name] = adapter;
       continue;
     }
-    wrapped[name] = (context) =>
-      schema.safeParse(context.props).success ? adapter(context) : <SeamFallback name={name} />;
+    // A slot component's words are required only when it has no child elements:
+    // with child elements, those are its content (review of #7462).
+    // Only a slot component renders child elements; anything else (Tag) still
+    // needs its words even when the model nests elements under it.
+    const hasSlot = (catalogMeta[name]?.slots?.length ?? 0) > 0;
+    const withoutWords =
+      hasSlot && "children" in schema.shape
+        ? (schema as unknown as Masked).partial({ children: true })
+        : schema;
+    wrapped[name] = (context) => {
+      const clamped = { ...context, props: clampToCharLimits(name, context.props) };
+      const check = Children.count(context.children) > 0 ? withoutWords : schema;
+      return check.safeParse(clamped.props).success ? (
+        adapter(clamped)
+      ) : (
+        <SeamFallback name={name} />
+      );
+    };
   }
   // The structural rebuild erases the literal's per-key types; re-assert the
   // caller's shape so defineRegistry keeps checking each adapter against its
@@ -225,13 +336,13 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           mono={props.mono}
           truncate={props.truncate}
         >
-          {children}
+          {slotOr(children, props.children)}
         </Text>
       ),
 
       Badge: ({ props, children }: any) => (
         <Badge variant={props.variant} size={props.size} dot={props.dot}>
-          {children}
+          {slotOr(children, props.children)}
         </Badge>
       ),
 
@@ -443,6 +554,102 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       DataList: ({ props }: any) => (
         <DataList items={props.items} orientation={props.orientation} striped={props.striped} />
       ),
+
+      // The registry seam (`withSchemaValidation`) validates these four against the
+      // generated Zod schemas before the adapter runs, so each cast below narrows
+      // a guaranteed shape (mirrors the Odometer renderer, avoiding an `any`).
+      Stat: ({ props }: { props: unknown }) => {
+        const p = props as Pick<StatProps, "label" | "trend" | "size"> & {
+          value: string | number;
+          delta?: string | number;
+        };
+        return (
+          <Stat
+            value={String(p.value)}
+            label={p.label}
+            delta={p.delta === undefined ? undefined : String(p.delta)}
+            trend={p.trend}
+            size={p.size}
+          />
+        );
+      },
+
+      StatusLED: ({ props }: { props: unknown }) => {
+        const p = props as Pick<StatusLEDProps, "variant" | "pulse" | "label">;
+        // StatusLED's own label is only an aria-label, which in a generated list
+        // left staff a column of unnamed dots (live batch 7). Show the label as
+        // text beside the light, which then stays decorative so it's read once.
+        if (!p.label) return <StatusLED variant={p.variant} pulse={p.pulse} />;
+        return (
+          <Stack direction="row" gap="xs" align="center">
+            <StatusLED variant={p.variant} pulse={p.pulse} />
+            <Text variant="body">{p.label}</Text>
+          </Stack>
+        );
+      },
+
+      // Tag's dismiss/click/select behaviour needs callbacks a static spec can't
+      // carry, so only its text and variant render.
+      Tag: ({ props }: { props: unknown }) => {
+        const p = props as Pick<TagProps, "children" | "variant">;
+        return <Tag variant={p.variant}>{p.children}</Tag>;
+      },
+
+      Timeline: ({ props }: { props: unknown }) => {
+        const p = props as {
+          events: (Omit<TimelineProps["events"][number], "title" | "status"> & {
+            title?: string;
+            status?: string;
+          })[];
+          compact?: boolean;
+        };
+        const events = p.events.flatMap(({ title, status, ...event }) =>
+          title === undefined
+            ? []
+            : [
+                status && isTimelineStatus(status)
+                  ? { ...event, title, status }
+                  : { ...event, title },
+              ]
+        );
+        return <Timeline events={events} compact={p.compact} />;
+      },
+
+      // A row missing time, partySize or status is dropped; the whole element
+      // falls back only when no row survives.
+      ReservationList: ({ props }: { props: unknown }) => {
+        const p = props as { reservations: Record<string, unknown>[] };
+        const reservations = usableReservations(p.reservations);
+        return reservations.length > 0 ? (
+          <ReservationList reservations={reservations} />
+        ) : (
+          <SeamFallback name="ReservationList" />
+        );
+      },
+
+      // Blank times are dropped and an empty list shows the no-open-times line;
+      // the element falls back only when the date line (date, partySize) is missing.
+      TimeSlots: ({ props }: { props: unknown }) => {
+        const p = props as { date: unknown; partySize: unknown; times: unknown[] };
+        const partySize = toPartySize(p.partySize);
+        return isFilled(p.date) && partySize !== undefined ? (
+          <TimeSlots date={p.date} partySize={partySize} times={p.times.filter(isFilled)} />
+        ) : (
+          <SeamFallback name="TimeSlots" />
+        );
+      },
+
+      // A card missing name, visits or risk is dropped; the whole element falls
+      // back only when no card survives.
+      GuestCards: ({ props }: { props: unknown }) => {
+        const p = props as { guests: Record<string, unknown>[] };
+        const guests = usableGuests(p.guests);
+        return guests.length > 0 ? (
+          <GuestCards guests={guests} />
+        ) : (
+          <SeamFallback name="GuestCards" />
+        );
+      },
 
       Odometer: ({ props }: { props: unknown }) => {
         // The registry seam (`withSchemaValidation`) validates Odometer props

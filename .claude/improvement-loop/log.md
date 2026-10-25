@@ -4239,3 +4239,86 @@ All three came back carrying `ui-quality`, so filing was not stopped. 4 actions 
 **Coverage:** 98.4% before this fire (131/133, provisional), **100% after (135/135)** — the two formerly build-unreachable hospitality routes and the two formerly tool-error visual-test routes all resolved.
 
 **Blockers / pipeline bugs:** none. Browser resolved (`chromium_headless_shell-1194`). No `blocker: no-browser`, no stopped filing, no script exited 2 except the expected `pairs --calibration`.
+
+## 2026-10-23 — mbe-weekly-improve
+
+**Analysis.** The `improve` / `improve-codebase-architecture` skills are not installed in this checkout (retired from `.claude/skills/` by #3323, per CLAUDE.md), so the equivalent analysis was run directly: `pnpm repo-audit` (35/35 clean on the base commit), `pnpm check:knip` (clean, no dead code), a sweep for `check-*` scripts wired into nothing (all 9 unwired-from-`repo-audit` scripts have real callers in workflows or husky — that whole decorative-gate class is currently clean), and a pass over the "Still uncovered" / "not yet reconciled" admissions `.claude/rules/gotchas.md` carries about itself.
+
+**PR opened: #7345** — `fix(lint): weekly improve 2026-10-23 — lint apps' e2e specs and hash them in turbo`. App `lint` scripts were `eslint src/`, so every Playwright spec under `apps/*/e2e/**` was type-checked but never linted — recorded in gotchas under "Still uncovered". Widening the four scripts was only half of it: measured on `@mbe/hospitality#lint`, appending a line to `e2e/auth.spec.ts` left the task hash byte-identical (`2f35d7e2719d1877`), because `tasks.lint.inputs` listed `src/**` and not `e2e/**` — the new lint would have been replayed over by a cached green result. Both halves pinned by `scripts/__tests__/app-lint-covers-e2e.test.mjs`, which probes the real `turbo --dry-run=json` hash rather than turbo.json's text. Verified RED first (8 failures across all four apps), then green. Also scoped the React rule families off for `**/e2e/**` in `packages/config/eslint/react.js` — a Playwright fixture's second callback parameter is conventionally `use`, which both rules-of-hooks implementations read as React's `use()`; five e2e files already carried hand-written `eslint-disable` pairs for exactly that shape, so the config block replaced ten now-redundant directive lines. Gates: lint, typecheck, repo-audit 35/35, dep-graph drift, `regen --check`, and 727 test files across six packages all green. PR is `tier:sensitive` (T3 via `turbo.json`), so it awaits human review; nothing merged.
+
+One thing measured and **not** changed: an edit to the shared preset `packages/config/eslint/react.js` does move the same lint hash (`31a5324d9fdfae78`), because `@mbe/config` is a declared dependency and turbo hashes a workspace dependency's own files. The hypothesis that lint was also blind to shared-preset edits was wrong and was dropped rather than built on.
+
+**Issues filed (4, plus #7351 from the eval checkpoint below).**
+
+- **#7348** `fix(marketing)` (`ready`) — the week's most consequential find, and it is live on `main`. `e6559ac` (`chore(marketing): refresh shipped-features snapshot (#7139)`, `github-actions[bot]`, 2026-10-22) replaced `apps/marketing/src/data/shipped-features.json` with an empty one: **51 features → 0**, `-4295` lines. `selectShippedFeatures` returns `[]` on an invalid snapshot _by design_, so `FactorySection` renders the "Recently shipped" heading with an empty `<ul>`. Fail-silent on both sides — the workflow has no emptiness guard before committing, and the consumer degrades quietly. This is the single root cause of two red checks (see below).
+- **#7349** `ci-fix` (`ready-for-human`) — `Visual Regression (rialto-web)` red on every run since 2026-10-22 08:08, `main` included; last green `main` 2026-10-21 12:21. Telemetry-HUD baselines stale after the #7266/#7267/#7268 a11y fixes. Labelled `ready-for-human`, not `ready`: the remedy is `gh workflow run visual-baseline-regen.yml`, and `actions: write` is unavailable to CCR sessions — the exact mislabelling that left #7025 unworkable for 54 of 60 runs.
+- **#7346** `fix(tests)` (`ready`) — `tests/smoke/smoke.spec.ts` is type-checked by nothing and linted by nothing: there is no root `tsconfig.json`, `tests/` is not a workspace package, and `pnpm lint` only runs per-package scripts. It is the **production** post-deploy gate (`post-deploy-check.yml:405`, `baseURL` defaulting to the live site), so a type error there surfaces only after a deploy. Sibling of #7345's `e2e` half.
+- **#7347** `docs(gotchas)` (`ready`) — the "`ensureAutoMerge` still calls `gh pr merge --auto` directly … not yet reconciled" claim in gotchas is stale; #3982 routed it through `isAutomationMergeAllowed`, and the script's own header says so. A false "this gate is bypassed" claim invites an agent to re-fix a closed gap or to distrust a sound gate.
+
+**CI on #7345: three red checks, none this PR's.** Diagnosed rather than re-run, and a stand-down comment posted on the PR as required. The diff is lint/test/docs only and is imported by no app source, so it cannot alter a rendered page; the measurements confirmed it. (1) `Marketing E2E` — `navigation.spec.ts:21` `locator.click` timeout waiting for a "Recently shipped" link that no longer exists, reproduced byte-identically on the unrelated branch `fix/issue-7332` (job `120315833432`, 08:23 UTC); root cause #7348. (2) `Visual Regression (marketing)` — `home@1280x720` expected 4764px tall, received **4529px** (and 6166 → 5895 at 375px wide): the page is shorter by exactly the missing list, same root cause, and also red on `main` itself at 08:28:26Z. Worth recording that this _inverts_ #7025, which asks for a regen because the homepage **grew** 230-270px when #6969 added those links — the baselines encode the populated section and the render lost it, so regenerating now would bake the empty section in as correct and retire the signal. #7348 must land before #7025. (3) `Visual Regression (rialto-web)` — #7349. No fix existed to port for any of the three, and since all are deterministic and reproduced elsewhere, the one permitted re-run was not spent.
+
+A note on how close this came to being missed: `Visual Regression (marketing)` reads as green on most runs only because its paths filter **skips** it. Of the last 18 `apps-visual.yml` runs, every run where that job actually executed failed, and every "green" run had it `skipped`. #7345 touched `apps/marketing/e2e/visual.spec.ts`, which is the only reason the job ran at all and the only reason #7348 was found.
+
+**Eval checkpoint: ran, exit 0, scored FAILURE.** `node tools/cli/dist/index.js agent eval --adapter claude-cli` → exit 0, `metrics/eval-reports.jsonl` gained row `eval-2142` (21 → 22), committed unedited on its own branch as **PR #7350** (`chore(metrics): eval baseline 2026-10-23`, labelled `has-pr`). A genuine run, not `suiteDidNotRun`: 5 tasks, `nonRunCount: 0`, 11.8 mean turns, $0.69 mean cost, `costBasis: api-equivalent` (CLI-reported, not billed). Pass rate **0.0%**, mean score 75.0%, with all five tasks carrying the identical line:
+
+```
+judge inconclusive (scored as fail): LLM evaluation threw:
+Claude Code returned an error result: Reached maximum number of turns (1)
+```
+
+Every task lost exactly the judge's quarter of its rubric, hence all five scoring precisely 0.75. Row 21 (2026-10-16) scored `1, 1, 0.667, 1, 1` on the same suite, so this is a regression in the measurement apparatus, not in agent quality — and **the harness still exited 0 on an 80% → 0% collapse**, so nothing alerted. Filed as **#7351**: `success-evaluator.ts:193` hardcodes `maxTurns: 1` and calls the SDK's `query()` directly rather than the selected adapter, so the judge needs `ANTHROPIC_API_KEY`, which this sandbox deliberately lacks (#3571/#3585). The valuable half of that issue is not the key — it is that an unavailable judge and a failing one are currently the same outcome, and that a run nothing could score is being recorded as a baseline.
+
+**Nothing merged.** Two PRs open for review (#7345, #7350) and five issues filed (#7346, #7347, #7348, #7349, #7351).
+
+## 2026-10-24 — mbe-learning-loop
+
+**Sensors:** 13/17 available (lighthouse, mutationScore, flakyTests, e2eStability not available — no live-site egress in this cloud checkout)
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 73/84, CI 100% (21/21), queueEfficiency composite 0.92, codeChurn 0%)
+**Sentry triage:** skipped — stored access token expired (`Authorization Expired` on `find_organizations`), not re-authorized this run
+**Verifications:** 5 checked (issues closed in 48h window: #7363, #7362, #7361, #7357, #7351), 0 verified, 0 failed, 5 skipped (lighthouse/CORS-audit/CI-run signal unavailable for all 5) — 0 reopened
+**AI issue feedback:** 6 categories updated (90d window) — feature 4.9% rejected, audit/meta-improvement/ci-fix/agent-failed/acmm 0% rejected — all budgets stay at 3
+**Skill proposals:** 0 (Saturday — Friday-only)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm headroom 1.285 → 1.29). False-positive rate (wontfix/not_planned closures on ci-fix/acmm/bug/audit/sentry-labeled issues): 0/9 in a 100-issue REST sample of the last 30d (`gh api search/issues` is blocked in this session — "sessions are bound to their configured repositories" — so this used paginated `repos/.../issues?state=closed&since=...`, which broke after page 1 on a proxy numeric-ID-URL error; single-page sample only, not the full window) — well under the 30% loosen-threshold, no action needed. Literal fix-effectiveness (verified/total verifications, last 30d) is 13/91 ≈ 14.3%, but 75 of those 91 are `confidence: "skip"` (sensor/CI signal unavailable, not a failed fix) — excluding skips, verified/(verified+failed) = 13/16 ≈ 81.3%, which is healthy. Not treating the literal 14.3% as a "fix strategies need review" signal: the gap is verification-coverage (no lighthouse egress, no matching CI runs), not fix quality.
+
+## 2026-10-25 — mbe-evening
+
+### Metrics
+
+| Metric                         | Value                                                                                                                                                                                                                                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Closed (7d, audit+ci-fix)      | 24 (15 audit + 9 ci-fix)                                                                                                                                                                                                                                                                                    |
+| Created/touched (7d)*          | 27 (16 audit + 11 ci-fix)                                                                                                                                                                                                                                                                                   |
+| Closure Rate                   | ~89%                                                                                                                                                                                                                                                                                                        |
+| Time-to-Close                  | not computed — GitHub's issues-API `since` filters by `updated_at`, not `created_at`, so no reliable 7d created-cohort was available via this session's tooling                                                                                                                                             |
+| Agent Success (queue snapshot) | has-pr open: 0, agent-failed open: 0 (was 1, see Patterns)                                                                                                                                                                                                                                                  |
+| CI Pass (main, last 20 runs)   | 14/15 completed = 93.3%, excluding 5 `skipped` + 1 `in_progress` (`Post-Deploy Check`) from the denominator; raw 14/20 = 70%                                                                                                                                                                                |
+| Queue (ready, open)            | 1 (#7219, just re-queued below); #7376 is `ready-for-human`, not agent-eligible                                                                                                                                                                                                                             |
+| Stale (ready > 7d)             | 0                                                                                                                                                                                                                                                                                                           |
+| Blocked (agent-failed)         | 0 (was 1 — #7219 — auto-retried this run)                                                                                                                                                                                                                                                                   |
+| Skipped (agent-skip)           | 0                                                                                                                                                                                                                                                                                                           |
+| Daily / 7d Spend               | unknown, not $0 — `.claude/agent-spend/sessions.jsonl` has had no new rows since 2026-10-16; `metrics/queue-telemetry.jsonl` carries 90 rows in the 7d window totaling 218,308 tokens but `cost_usd` is null on nearly all of them (GitHub-reconciled synthetic backfill rows per #5921 carry no cost data) |
+| Cost/Issue                     | unknown, same reason                                                                                                                                                                                                                                                                                        |
+
+\* "Created/touched" uses the `since` (updated_at) filter as a proxy for created-in-window, since REST's `issues` endpoint has no created-at filter usable from this session without full pagination.
+
+### Patterns
+
+- Today's `/idea-to-prod:implement-queue` iteration (mbe-evening step 1) found **zero** agent-workable `ready` issues: the only `ready`-labeled issue (#7376, Dress Rehearsal E2E spec) also carries `ready-for-human` — a prior attempt (2026-10-24, mbe-feature-drain) established it needs Auth0 E2E credentials this session type doesn't have. No batch was dispatched.
+- #7219 (`ci-fix: routine mbe-daily-issue is dark`) had sat `agent-failed` for 4 days (created 2026-10-21) with no retry. `node scripts/auto-retry-stale.mjs` re-queued it to `ready` this run (1 of the 2/run cap used) — it will be picked up by the next implement-queue iteration, not this one, since this routine's iteration already ran and the circuit says stop after one.
+- `@mbe/gh-client` prints a non-fatal GraphQL-403 warning on every call in this session type even when the call falls back to REST and succeeds — consistent with the documented CCR GraphQL block (gotchas § Claude Code Remote); both the dry-run and live `auto-retry-stale.mjs` invocations logged the warning but completed the label swap + comment via REST.
+- CI on main is healthy once skipped/in-progress runs are excluded from the denominator; the one non-success/non-skip entry is `Post-Deploy Check` still running, not a failure.
+- No merge-train backlog: `has-pr` and `in-progress` both empty going into tonight's run.
+
+### Recommendations
+
+- None rising to a 3-day-consistent pattern yet. An empty-queue evening is itself new (recent entries, e.g. 2026-10-23/24, show an actively draining queue) — re-check tomorrow before treating "queue 0" as a 3-day trend that would call for reducing audit/expanding scope.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
+## 2026-10-25
+
+**queueEfficiency:** composite 0.926 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:26, size:m:16, size:l:9, size:xs:36, size:xl:21
+**Issues filed:** 0

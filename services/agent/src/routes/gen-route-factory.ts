@@ -22,6 +22,7 @@ import {
   secondsUntilNextWindow,
   trackGenSpend,
 } from "../services/gen-spend-ceiling.js";
+import { genSpecCacheKey, getCachedSpec, putCachedSpec } from "../services/gen-spec-cache.js";
 import type { GenToolMap, GenStreamEvent, GenRunnerConfig } from "./gen-runner.js";
 
 // Memoize catalog prompt at module load — avoid re-generating per request
@@ -38,8 +39,18 @@ export interface GenRouteConfig<TSchema extends z.ZodType> {
   readonly maxSteps: number;
   /** Overrides the catalog prompt (default: catalog.prompt()). */
   readonly systemPrompt?: string;
+  /**
+   * Per-request system prompt built from the parsed body; receives the catalog
+   * prompt to extend. Takes precedence over `systemPrompt`.
+   */
+  readonly getSystemPrompt?: (parsed: z.infer<TSchema>, catalogPrompt: string) => string;
   readonly toolChoice?: GenRunnerConfig["toolChoice"];
   readonly failOnToolError?: boolean;
+  /**
+   * ndjson only: serve identical requests from the Postgres spec cache. Only
+   * successful runs are stored; a hit replays the exact lines a miss streamed.
+   */
+  readonly cache?: boolean;
   /** Derives the chat messages from the parsed body (default: `parsed.messages`). */
   readonly toMessages?: (parsed: z.infer<TSchema>) => GenMessages;
   /**
@@ -199,25 +210,83 @@ export function createGenRoute<TSchema extends z.ZodType>(
           ? config.toMessages(parsed)
           : (parsed as { messages: GenMessages }).messages;
 
+        const systemPrompt = config.getSystemPrompt
+          ? config.getSystemPrompt(parsed, SYSTEM_PROMPT)
+          : (config.systemPrompt ?? SYSTEM_PROMPT);
+        const cacheKey =
+          config.cache && streamFormat === "ndjson"
+            ? genSpecCacheKey({
+                route: path,
+                messages,
+                modelId: GEN_MODEL_ID,
+                systemPrompt,
+                maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
+              })
+            : undefined;
+
+        if (cacheKey) {
+          // Cache trouble must never fail a request: fall through to the model.
+          const cached = await getCachedSpec(cacheKey).catch((err: unknown) => {
+            request.log.warn({ err }, "gen spec cache read failed");
+            return null;
+          });
+          if (cached) {
+            applyStreamHeaders(reply, contentType);
+            return reply.send(
+              new ReadableStream({
+                start(controller) {
+                  for (const line of cached) {
+                    controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+                  }
+                  controller.close();
+                },
+              })
+            );
+          }
+        }
+
+        const startedAt = Date.now();
+        let firstEventAt: number | undefined;
+        let elementCount = 0;
+        const markEmitted = () => {
+          firstEventAt ??= Date.now();
+          elementCount += 1;
+        };
+        const telemetry = (finishReason: string) => ({
+          ttftMs: firstEventAt === undefined ? 0 : firstEventAt - startedAt,
+          durationMs: Date.now() - startedAt,
+          elementCount,
+          finishReason,
+        });
+
         const tools = await getTools(request, parsed);
         // A run that errors before onFinish still consumed tokens: charge the worst case.
         let usageReported = false;
         const chargeIfUnreported = async () => {
-          if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+          if (usageReported) return;
+          // onFinish never logged this run, so the cost line is emitted here, zeroed.
+          logGenCost(request.log, {
+            userId: request.user?.id,
+            usage: {},
+            label: costLogLabel,
+            telemetry: telemetry("error"),
+          });
+          await trackGenSpend(failedGenCostMicroUsd(), request.log);
         };
         const runner = createGenRunner({
-          systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
+          systemPrompt,
           modelId: GEN_MODEL_ID,
           maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
           maxSteps,
           toolChoice: config.toolChoice,
           failOnToolError: config.failOnToolError,
-          onFinish: async ({ usage, providerMetadata }) => {
+          onFinish: async ({ usage, providerMetadata, finishReason }) => {
             logGenCost(request.log, {
               userId: request.user?.id,
               usage,
               providerMetadata,
               label: costLogLabel,
+              telemetry: telemetry(finishReason ?? "unknown"),
             });
             usageReported = true;
             await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
@@ -234,6 +303,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
                 await runner.run(messages, tools, async (event) => {
                   if (event.type === "text" && event.content.length > 0) {
                     emitted = true;
+                    markEmitted();
                     controller.enqueue(event.content);
                   }
                 });
@@ -256,14 +326,24 @@ export function createGenRoute<TSchema extends z.ZodType>(
         const ndjsonStream = new ReadableStream({
           async start(controller) {
             let emitted = false;
+            const lines: unknown[] = [];
             try {
               await runner.run(messages, tools, async (event) => {
                 const line = serializeEvent(event);
                 if (line === undefined) return;
                 emitted = true;
+                markEmitted();
+                lines.push(line);
                 controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
               });
               if (!emitted) throw emptyOutputError();
+              // Only a run that finished cleanly reaches here: errors and the
+              // maxOutputTokens truncation both throw out of runner.run above.
+              if (cacheKey) {
+                await putCachedSpec(cacheKey, lines).catch((err: unknown) => {
+                  request.log.warn({ err }, "gen spec cache write failed");
+                });
+              }
               controller.close();
             } catch (err) {
               request.log.error({ err }, "gen stream failed");

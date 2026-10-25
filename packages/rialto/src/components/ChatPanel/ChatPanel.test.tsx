@@ -112,11 +112,28 @@ describe("ChatPanel", () => {
     expect(screen.getByText("hi there")).toBeInTheDocument();
   });
 
-  it("renders elements via json-render when registry is provided", () => {
-    const TestCard = ({ title }: { title: string }) => (
-      <div data-testid="rendered-card">{title}</div>
-    );
-    const registry = { Card: TestCard };
+  // Registry components implement json-render's ComponentRenderProps contract:
+  // they read `element.props`, receive `emit`/`on` functions, and nest rendered
+  // `children` — they do NOT take their props spread onto them.
+  const ContractCard = ({
+    element,
+    children,
+    emit,
+    on,
+  }: {
+    element: { key: string; type: string; props: Record<string, unknown> };
+    children?: React.ReactNode;
+    emit: (event: string) => void;
+    on: (event: string) => unknown;
+  }) => (
+    <div data-testid={`card-${element.key}`} data-emit-type={typeof emit} data-on-type={typeof on}>
+      {String(element.props.title ?? "")}
+      {children}
+    </div>
+  );
+
+  it("invokes registry components with json-render's ComponentRenderProps contract", () => {
+    const registry = { Card: ContractCard };
 
     mockHookReturn = {
       ...mockHookReturn,
@@ -131,19 +148,95 @@ describe("ChatPanel", () => {
 
     render(<ChatPanel {...defaultProps} registry={registry} />);
 
-    expect(screen.getByTestId("rendered-card")).toBeInTheDocument();
+    const card = screen.getByTestId("card-el-1");
+    expect(card).toBeInTheDocument();
     expect(screen.getByText("7pm Slot")).toBeInTheDocument();
+    expect(card).toHaveAttribute("data-emit-type", "function");
+    expect(card).toHaveAttribute("data-on-type", "function");
+  });
+
+  it("nests children by id instead of rendering a flat list", () => {
+    const registry = { Card: ContractCard };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "",
+          elements: [
+            { id: "parent", type: "Card", props: { title: "Parent" }, children: ["child"] },
+            { id: "child", type: "Card", props: { title: "Child" } },
+          ],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    const parent = screen.getByTestId("card-parent");
+    const child = screen.getByTestId("card-child");
+    expect(parent).toContainElement(child);
+    // The child renders once, nested — not a second time as a top-level sibling.
+    expect(screen.getAllByTestId("card-child")).toHaveLength(1);
+  });
+
+  it("renders an unknown-type parent's known children inside its placeholder", () => {
+    const registry = { Card: ContractCard };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "",
+          elements: [
+            { id: "p", type: "NotInCatalog", props: { title: "Mystery" }, children: ["c"] },
+            { id: "c", type: "Card", props: { title: "Real child" } },
+          ],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    // The child is referenced (not a root), so it must render inside the
+    // unknown parent's placeholder rather than disappearing entirely.
+    expect(screen.getByText("Real child")).toBeInTheDocument();
+  });
+
+  it("renders cyclic children references without recursing forever", () => {
+    const registry = { Card: ContractCard };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "",
+          elements: [
+            { id: "a", type: "Card", props: { title: "A" }, children: ["b"] },
+            { id: "b", type: "Card", props: { title: "B" }, children: ["a"] },
+          ],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    expect(screen.getAllByText("A").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("B").length).toBeGreaterThanOrEqual(1);
   });
 
   it("strips dangerous props from element specs", () => {
-    const Spy = (props: Record<string, unknown>) => (
+    const Spy = ({ element }: { element: { props: Record<string, unknown> } }) => (
       <div
         data-testid="spy"
-        data-has-dangerous={String("dangerouslySetInnerHTML" in props)}
-        data-has-onclick={String("onClick" in props)}
-        data-has-ref={String("ref" in props)}
+        data-has-dangerous={String("dangerouslySetInnerHTML" in element.props)}
+        data-has-onclick={String("onClick" in element.props)}
+        data-has-ref={String("ref" in element.props)}
       >
-        {String(props.title ?? "")}
+        {String(element.props.title ?? "")}
       </div>
     );
     const registry = { Alert: Spy };
@@ -249,6 +342,58 @@ describe("ChatPanel", () => {
     expect(mockCancelAction).toHaveBeenCalledOnce();
   });
 
+  it("renders the host's description of a pending action instead of raw tool input", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      pendingAction: {
+        actionId: "a1",
+        toolName: "seat_walk_in",
+        toolInput: { partySize: 2, tableId: "cmti2ghiw000801b7fbufnw56", guestName: "Lee" },
+      },
+    };
+    render(
+      <ChatPanel
+        {...defaultProps}
+        describeAction={(action) => ({
+          title: "Seat walk-in",
+          details: [
+            { label: "Party size", value: String(action.toolInput.partySize) },
+            { label: "Table", value: "Patio 2" },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.getByText("Seat walk-in")).toBeInTheDocument();
+    expect(screen.getByText(/Patio 2/)).toBeInTheDocument();
+    expect(screen.queryByText(/cmti2ghiw/)).toBeNull();
+  });
+
+  it("shows a message's note under it (e.g. a cancelled action)", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        { role: "user", content: "seat Lee" },
+        { role: "assistant", content: "Seat Lee at lml?", note: "Cancelled. Nothing was changed." },
+      ],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.getByText("Cancelled. Nothing was changed.")).toBeInTheDocument();
+  });
+
+  it("shows the raw fallback title in sentence case, without CSS title-casing", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      pendingAction: { actionId: "a1", toolName: "seat_walk_in", toolInput: {} },
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    // Text, not CSS: "Seat walk in", never "Seat Walk In" (a translated host
+    // title like "Sentar a un cliente" must not become "Sentar A Un Cliente").
+    expect(screen.getByText("Seat walk in")).toBeInTheDocument();
+  });
+
   it("displays tool input details in confirmation prompt", () => {
     mockHookReturn = {
       ...mockHookReturn,
@@ -322,11 +467,116 @@ describe("ChatPanel", () => {
     expect(input).toBeEnabled();
   });
 
+  it("offers starter suggestions on an empty conversation and sends one on click", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatPanel {...defaultProps} suggestions={["How does tonight look?", "Seat a walk-in"]} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "How does tonight look?" }));
+
+    expect(mockSend).toHaveBeenCalledWith("How does tonight look?");
+  });
+
+  it("hides suggestions once the conversation has started", () => {
+    mockHookReturn = { ...mockHookReturn, messages: [{ role: "user", content: "hi" }] };
+    render(<ChatPanel {...defaultProps} suggestions={["How does tonight look?"]} />);
+
+    expect(screen.queryByRole("button", { name: "How does tonight look?" })).toBeNull();
+  });
+
+  it("shows a typing indicator on every turn while waiting for the reply", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [
+        { role: "user", content: "first" },
+        { role: "assistant", content: "answer" },
+        { role: "user", content: "second" },
+      ],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.getByLabelText("Loading")).toBeInTheDocument();
+  });
+
+  it("replaces Send with Stop while a reply is streaming", async () => {
+    const user = userEvent.setup();
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [{ role: "user", content: "hi" }],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Stop" }));
+
+    expect(mockStop).toHaveBeenCalled();
+  });
+
+  it("scrolls the conversation to the newest message", () => {
+    const scrollTo = vi.fn();
+    const original = HTMLElement.prototype.scrollTo;
+    HTMLElement.prototype.scrollTo = scrollTo;
+    try {
+      mockHookReturn = {
+        ...mockHookReturn,
+        messages: [
+          { role: "user", content: "hi" },
+          { role: "assistant", content: "hello" },
+        ],
+      };
+      render(<ChatPanel {...defaultProps} />);
+
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number) }));
+    } finally {
+      HTMLElement.prototype.scrollTo = original;
+    }
+  });
+
   it("passes axe", async () => {
     const { container } = render(<ChatPanel {...defaultProps} />);
     const results = await axe(container, {
       rules: { "color-contrast": { enabled: false } },
     });
     expect(results).toHaveNoViolations();
+  });
+
+  it("passes axe with starter suggestions", async () => {
+    const { container } = render(
+      <ChatPanel {...defaultProps} suggestions={["How does tonight look?", "Seat a walk-in"]} />
+    );
+    const results = await axe(container, {
+      rules: { "color-contrast": { enabled: false } },
+    });
+    expect(results).toHaveNoViolations();
+  });
+
+  it("passes axe while streaming (Stop button + typing indicator)", async () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [{ role: "user", content: "hi" }],
+    };
+    const { container } = render(<ChatPanel {...defaultProps} />);
+    const results = await axe(container, {
+      rules: { "color-contrast": { enabled: false } },
+    });
+    expect(results).toHaveNoViolations();
+  });
+
+  it("does not send on Enter while a reply is streaming", async () => {
+    const user = userEvent.setup();
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: true,
+      messages: [{ role: "user", content: "hi" }],
+    };
+    render(<ChatPanel {...defaultProps} />);
+
+    await user.type(screen.getByRole("textbox"), "another{Enter}");
+
+    expect(mockSend).not.toHaveBeenCalled();
   });
 });

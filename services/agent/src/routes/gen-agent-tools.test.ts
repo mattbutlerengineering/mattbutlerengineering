@@ -21,6 +21,9 @@ function createMockApiClient() {
     availability: {
       getTimeSlots: vi.fn(),
     },
+    venues: {
+      get: vi.fn(),
+    },
     reservations: {
       list: vi.fn(),
       get: vi.fn(),
@@ -57,6 +60,14 @@ describe("createAgentTools", () => {
     context: undefined as never,
   };
 
+  /** Write tools only execute a user-confirmed action; build tools with that confirmation. */
+  function createConfirmedTools(toolName: string, toolInput: Record<string, unknown>) {
+    return createAgentTools(log, api as never, {
+      venueId: "v1",
+      confirmedAction: { actionId: "call-1", toolName, toolInput },
+    });
+  }
+
   describe("check_availability", () => {
     it("calls api.availability.getTimeSlots with correct params", async () => {
       const mockSlots = [
@@ -65,16 +76,16 @@ describe("createAgentTools", () => {
       ];
       api.availability.getTimeSlots.mockResolvedValue(mockSlots);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const checkAvailabilityTool = tools.check_availability;
       if (!checkAvailabilityTool) throw new Error("expected check_availability tool");
       const result = await checkAvailabilityTool.execute!(
-        { venueId: "venue-1", date: "2026-05-18", partySize: 4 },
+        { venueId: "v1", date: "2026-05-18", partySize: 4 },
         toolCtx
       );
 
       expect(api.availability.getTimeSlots).toHaveBeenCalledWith({
-        venueId: "venue-1",
+        venueId: "v1",
         date: "2026-05-18",
         partySize: 4,
       });
@@ -84,16 +95,80 @@ describe("createAgentTools", () => {
     it("returns error message when API call fails", async () => {
       api.availability.getTimeSlots.mockRejectedValue(new Error("Service unavailable"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const checkAvailabilityTool = tools.check_availability;
       if (!checkAvailabilityTool) throw new Error("expected check_availability tool");
       const result = await checkAvailabilityTool.execute!(
-        { venueId: "venue-1", date: "2026-05-18", partySize: 4 },
+        { venueId: "v1", date: "2026-05-18", partySize: 4 },
         toolCtx
       );
 
       expect(result).toEqual({ error: "Failed to check availability. Please try again." });
       expect(log.error).toHaveBeenCalled();
+    });
+
+    it("says the venue is closed when a day with no slots has no operating hours", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockResolvedValue({
+        operatingHours: { monday: { open: "09:00", close: "22:00" } },
+      });
+
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(api.venues.get).toHaveBeenCalledWith("v1");
+      expect(result).toEqual({
+        slots: [],
+        closed: true,
+        note: "The venue is closed on Thursday: it has no operating hours that day, so nothing can be booked. Say so rather than calling the day fully booked.",
+      });
+    });
+
+    it("treats a day marked closed as closed", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockResolvedValue({
+        operatingHours: { thursday: { open: "17:00", close: "22:00", closed: true } },
+      });
+
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(result).toMatchObject({ slots: [], closed: true });
+    });
+
+    it("returns the empty slots unchanged when the venue is open that day", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockResolvedValue({
+        operatingHours: { thursday: { open: "17:00", close: "22:00" } },
+      });
+
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(result).toEqual({ slots: [] });
+    });
+
+    it("still answers with the empty slots when the venue lookup fails", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockRejectedValue(new Error("boom"));
+
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(result).toEqual({ slots: [] });
+      expect(log.warn).toHaveBeenCalled();
     });
   });
 
@@ -108,8 +183,9 @@ describe("createAgentTools", () => {
         hasMore: false,
       };
       api.reservations.list.mockResolvedValue(mockRes);
+      api.guests.search.mockResolvedValue({ data: [] });
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const lookupReservationTool = tools.lookup_reservation;
       if (!lookupReservationTool) throw new Error("expected lookup_reservation tool");
       const result = await lookupReservationTool.execute!(
@@ -120,6 +196,7 @@ describe("createAgentTools", () => {
       expect(api.reservations.list).toHaveBeenCalledWith({
         date: "2026-05-18",
         venueId: "v1",
+        limit: 100,
       });
       expect(result).toEqual({ reservations: mockRes.data });
     });
@@ -127,7 +204,7 @@ describe("createAgentTools", () => {
     it("returns error on failure", async () => {
       api.reservations.list.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const lookupReservationTool = tools.lookup_reservation;
       if (!lookupReservationTool) throw new Error("expected lookup_reservation tool");
       const result = await lookupReservationTool.execute!({ guestName: "Smith" }, toolCtx);
@@ -148,7 +225,7 @@ describe("createAgentTools", () => {
       };
       api.guests.search.mockResolvedValue(mockGuests);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const searchGuestsTool = tools.search_guests;
       if (!searchGuestsTool) throw new Error("expected search_guests tool");
       const result = await searchGuestsTool.execute!({ query: "Smith", venueId: "v1" }, toolCtx);
@@ -163,7 +240,7 @@ describe("createAgentTools", () => {
     it("returns error on failure", async () => {
       api.guests.search.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const searchGuestsTool = tools.search_guests;
       if (!searchGuestsTool) throw new Error("expected search_guests tool");
       const result = await searchGuestsTool.execute!({ query: "Smith", venueId: "v1" }, toolCtx);
@@ -184,7 +261,7 @@ describe("createAgentTools", () => {
       };
       api.tables.list.mockResolvedValue(mockTables);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const getTableStatusTool = tools.get_table_status;
       if (!getTableStatusTool) throw new Error("expected get_table_status tool");
       const result = await getTableStatusTool.execute!({ venueId: "v1" }, toolCtx);
@@ -207,7 +284,7 @@ describe("createAgentTools", () => {
       };
       api.tables.list.mockResolvedValue(mockTables);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const getTableStatusTool = tools.get_table_status;
       if (!getTableStatusTool) throw new Error("expected get_table_status tool");
       const result = await getTableStatusTool.execute!({ venueId: "v1", tableNumber: 5 }, toolCtx);
@@ -219,7 +296,7 @@ describe("createAgentTools", () => {
     it("returns error on failure", async () => {
       api.tables.list.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const getTableStatusTool = tools.get_table_status;
       if (!getTableStatusTool) throw new Error("expected get_table_status tool");
       const result = await getTableStatusTool.execute!({ venueId: "v1" }, toolCtx);
@@ -240,7 +317,7 @@ describe("createAgentTools", () => {
       };
       api.reservations.list.mockResolvedValue(mockRes);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const listTodayReservationsTool = tools.list_today_reservations;
       if (!listTodayReservationsTool) throw new Error("expected list_today_reservations tool");
       const result = await listTodayReservationsTool.execute!(
@@ -260,7 +337,7 @@ describe("createAgentTools", () => {
       const mockRes = { data: [], total: 0, page: 1, limit: 50, totalPages: 0, hasMore: false };
       api.reservations.list.mockResolvedValue(mockRes);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const listTodayReservationsTool = tools.list_today_reservations;
       if (!listTodayReservationsTool) throw new Error("expected list_today_reservations tool");
       await listTodayReservationsTool.execute!(
@@ -279,7 +356,7 @@ describe("createAgentTools", () => {
     it("returns error on failure", async () => {
       api.reservations.list.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
       const listTodayReservationsTool = tools.list_today_reservations;
       if (!listTodayReservationsTool) throw new Error("expected list_today_reservations tool");
       const result = await listTodayReservationsTool.execute!({ venueId: "v1" }, toolCtx);
@@ -293,7 +370,14 @@ describe("createAgentTools", () => {
       const mockReservation = { id: "r1", guestName: "Smith", status: "CONFIRMED" };
       api.reservations.create.mockResolvedValue(mockReservation);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("create_reservation", {
+        guestName: "Smith",
+        date: "2026-05-18",
+        startTime: "19:00",
+        endTime: "21:00",
+        partySize: 4,
+        tableId: "t1",
+      });
       const createReservationTool = tools.create_reservation;
       if (!createReservationTool) throw new Error("expected create_reservation tool");
       const result = await createReservationTool.execute!(
@@ -322,7 +406,15 @@ describe("createAgentTools", () => {
     it("passes optional notes", async () => {
       api.reservations.create.mockResolvedValue({ id: "r1" });
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("create_reservation", {
+        guestName: "Smith",
+        date: "2026-05-18",
+        startTime: "19:00",
+        endTime: "21:00",
+        partySize: 2,
+        tableId: "t5",
+        notes: "Window seat",
+      });
       const createReservationTool = tools.create_reservation;
       if (!createReservationTool) throw new Error("expected create_reservation tool");
       await createReservationTool.execute!(
@@ -346,7 +438,14 @@ describe("createAgentTools", () => {
     it("returns error on failure", async () => {
       api.reservations.create.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("create_reservation", {
+        guestName: "Smith",
+        date: "2026-05-18",
+        startTime: "19:00",
+        endTime: "21:00",
+        partySize: 4,
+        tableId: "t1",
+      });
       const createReservationTool = tools.create_reservation;
       if (!createReservationTool) throw new Error("expected create_reservation tool");
       const result = await createReservationTool.execute!(
@@ -370,7 +469,11 @@ describe("createAgentTools", () => {
       const mockUpdated = { id: "r1", startTime: "20:00", partySize: 6 };
       api.reservations.update.mockResolvedValue(mockUpdated);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("modify_reservation", {
+        reservationId: "r1",
+        startTime: "20:00",
+        partySize: 6,
+      });
       const modifyReservationTool = tools.modify_reservation;
       if (!modifyReservationTool) throw new Error("expected modify_reservation tool");
       const result = await modifyReservationTool.execute!(
@@ -388,7 +491,10 @@ describe("createAgentTools", () => {
     it("returns error on failure", async () => {
       api.reservations.update.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("modify_reservation", {
+        reservationId: "r1",
+        startTime: "20:00",
+      });
       const modifyReservationTool = tools.modify_reservation;
       if (!modifyReservationTool) throw new Error("expected modify_reservation tool");
       const result = await modifyReservationTool.execute!(
@@ -405,7 +511,7 @@ describe("createAgentTools", () => {
       const mockCancelled = { id: "r1", status: "CANCELLED" };
       api.reservations.cancel.mockResolvedValue(mockCancelled);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("cancel_reservation", { reservationId: "r1" });
       const cancelReservationTool = tools.cancel_reservation;
       if (!cancelReservationTool) throw new Error("expected cancel_reservation tool");
       const result = await cancelReservationTool.execute!({ reservationId: "r1" }, toolCtx);
@@ -417,7 +523,7 @@ describe("createAgentTools", () => {
     it("returns error on failure", async () => {
       api.reservations.cancel.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("cancel_reservation", { reservationId: "r1" });
       const cancelReservationTool = tools.cancel_reservation;
       if (!cancelReservationTool) throw new Error("expected cancel_reservation tool");
       const result = await cancelReservationTool.execute!({ reservationId: "r1" }, toolCtx);
@@ -431,7 +537,12 @@ describe("createAgentTools", () => {
       const mockWalkIn = { id: "r1", status: "CONFIRMED" };
       api.reservations.walkIn.mockResolvedValue(mockWalkIn);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("seat_walk_in", {
+        venueId: "v1",
+        partySize: 3,
+        tableId: "t2",
+        guestName: "Jones",
+      });
       const seatWalkInTool = tools.seat_walk_in;
       if (!seatWalkInTool) throw new Error("expected seat_walk_in tool");
       const result = await seatWalkInTool.execute!(
@@ -449,7 +560,7 @@ describe("createAgentTools", () => {
     });
 
     it("returns error when no tableId provided", async () => {
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("seat_walk_in", { venueId: "v1", partySize: 2 });
       const seatWalkInTool = tools.seat_walk_in;
       if (!seatWalkInTool) throw new Error("expected seat_walk_in tool");
       const result = await seatWalkInTool.execute!({ venueId: "v1", partySize: 2 }, toolCtx);
@@ -462,7 +573,11 @@ describe("createAgentTools", () => {
     it("returns error on API failure", async () => {
       api.reservations.walkIn.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("seat_walk_in", {
+        venueId: "v1",
+        partySize: 2,
+        tableId: "t1",
+      });
       const seatWalkInTool = tools.seat_walk_in;
       if (!seatWalkInTool) throw new Error("expected seat_walk_in tool");
       const result = await seatWalkInTool.execute!(
@@ -471,6 +586,242 @@ describe("createAgentTools", () => {
       );
 
       expect(result).toEqual({ error: "Failed to seat walk-in. Please try again." });
+    });
+  });
+
+  describe("confirmation gate (write tools)", () => {
+    it("does not call the API for a write tool without a confirmed action", async () => {
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const cancelTool = tools.cancel_reservation;
+      if (!cancelTool) throw new Error("expected cancel_reservation tool");
+      const result = await cancelTool.execute!({ reservationId: "r1" }, toolCtx);
+
+      expect(api.reservations.cancel).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        pendingConfirmation: true,
+        message: expect.stringContaining("confirm"),
+      });
+    });
+
+    it("executes the confirmed input, ignoring the model's re-derived input", async () => {
+      const mockCancelled = { id: "r1", status: "CANCELLED" };
+      api.reservations.cancel.mockResolvedValue(mockCancelled);
+
+      const tools = createAgentTools(log, api as never, {
+        confirmedAction: {
+          actionId: "call-1",
+          toolName: "cancel_reservation",
+          toolInput: { reservationId: "r1" },
+        },
+      });
+      const cancelTool = tools.cancel_reservation;
+      if (!cancelTool) throw new Error("expected cancel_reservation tool");
+      const result = await cancelTool.execute!({ reservationId: "other-res" }, toolCtx);
+
+      expect(api.reservations.cancel).toHaveBeenCalledTimes(1);
+      expect(api.reservations.cancel).toHaveBeenCalledWith("r1");
+      expect(result).toEqual({ reservation: mockCancelled });
+    });
+
+    it("executes a confirmed action at most once per request", async () => {
+      api.reservations.cancel.mockResolvedValue({ id: "r1", status: "CANCELLED" });
+
+      const tools = createAgentTools(log, api as never, {
+        confirmedAction: {
+          actionId: "call-1",
+          toolName: "cancel_reservation",
+          toolInput: { reservationId: "r1" },
+        },
+      });
+      const cancelTool = tools.cancel_reservation;
+      if (!cancelTool) throw new Error("expected cancel_reservation tool");
+      await cancelTool.execute!({ reservationId: "r1" }, toolCtx);
+      const second = await cancelTool.execute!({ reservationId: "r1" }, toolCtx);
+
+      expect(api.reservations.cancel).toHaveBeenCalledTimes(1);
+      expect(second).toEqual({ error: expect.stringContaining("already") });
+    });
+
+    it("a confirmed action arms only its own tool", async () => {
+      const tools = createAgentTools(log, api as never, {
+        confirmedAction: {
+          actionId: "call-1",
+          toolName: "cancel_reservation",
+          toolInput: { reservationId: "r1" },
+        },
+      });
+      const createTool = tools.create_reservation;
+      if (!createTool) throw new Error("expected create_reservation tool");
+      const result = await createTool.execute!(
+        {
+          guestName: "Smith",
+          date: "2026-05-18",
+          startTime: "19:00",
+          endTime: "21:00",
+          partySize: 4,
+          tableId: "t1",
+        },
+        toolCtx
+      );
+
+      expect(api.reservations.create).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        pendingConfirmation: true,
+        message: expect.stringContaining("confirm"),
+      });
+    });
+
+    it("rejects a confirmed input that fails the tool's schema without executing", async () => {
+      const tools = createAgentTools(log, api as never, {
+        confirmedAction: {
+          actionId: "call-1",
+          toolName: "create_reservation",
+          toolInput: { date: "2026-05-18" },
+        },
+      });
+      const createTool = tools.create_reservation;
+      if (!createTool) throw new Error("expected create_reservation tool");
+      const result = await createTool.execute!(
+        {
+          guestName: "Smith",
+          date: "2026-05-18",
+          startTime: "19:00",
+          endTime: "21:00",
+          partySize: 4,
+          tableId: "t1",
+        },
+        toolCtx
+      );
+
+      expect(api.reservations.create).not.toHaveBeenCalled();
+      expect(result).toEqual({ error: expect.stringContaining("invalid") });
+    });
+
+    it("read tools are unaffected by the gate", async () => {
+      api.reservations.list.mockResolvedValue({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+        hasMore: false,
+      });
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const lookupTool = tools.lookup_reservation;
+      if (!lookupTool) throw new Error("expected lookup_reservation tool");
+      await lookupTool.execute!({ date: "2026-05-18" }, toolCtx);
+
+      expect(api.reservations.list).toHaveBeenCalled();
+    });
+  });
+
+  describe("session venue + time zone context", () => {
+    const VENUE_TOOLS = [
+      "check_availability",
+      "lookup_reservation",
+      "search_guests",
+      "get_table_status",
+      "list_today_reservations",
+      "seat_walk_in",
+      "update_table_status",
+    ];
+
+    it("never asks the model for a venueId", () => {
+      const tools = createAgentTools(log, api as never, { venueId: "venue-1" });
+      for (const name of VENUE_TOOLS) {
+        const schema = tools[name]?.inputSchema as { shape?: Record<string, unknown> } | undefined;
+        expect(schema?.shape, name).toBeDefined();
+        expect(Object.keys(schema!.shape!), name).not.toContain("venueId");
+      }
+    });
+
+    it("scopes read tools to the session venue", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.guests.search.mockResolvedValue({ data: [] });
+      const tools = createAgentTools(log, api as never, { venueId: "venue-1" });
+
+      await tools.check_availability!.execute!({ date: "2026-05-18", partySize: 4 }, toolCtx);
+      await tools.search_guests!.execute!({ query: "Lopez" }, toolCtx);
+
+      expect(api.availability.getTimeSlots).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        date: "2026-05-18",
+        partySize: 4,
+      });
+      expect(api.guests.search).toHaveBeenCalledWith({ venueId: "venue-1", query: "Lopez" });
+    });
+
+    it("answers a clear error, without calling the API, when no venue is selected", async () => {
+      const tools = createAgentTools(log, api as never);
+      const result = await tools.list_today_reservations!.execute!({}, toolCtx);
+
+      expect(result).toEqual({ error: expect.stringMatching(/no venue/i) });
+      expect(api.reservations.list).not.toHaveBeenCalled();
+    });
+
+    it("lookup_reservation finds a guest's reservations past the first page", async () => {
+      api.guests.search.mockResolvedValue({ data: [{ id: "g-garcia", name: "Ana Garcia" }] });
+      api.reservations.list.mockImplementation(async (params: { guestId?: string }) =>
+        params.guestId === "g-garcia"
+          ? { data: [{ id: "r-late", guestName: "Ana Garcia" }] }
+          : { data: [{ id: "r1", guestName: "Tom Lee" }] }
+      );
+      const tools = createAgentTools(log, api as never, { venueId: "venue-1" });
+
+      const result = await tools.lookup_reservation!.execute!({ guestName: "garcia" }, toolCtx);
+
+      expect(api.guests.search).toHaveBeenCalledWith({ venueId: "venue-1", query: "garcia" });
+      expect(api.reservations.list).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        guestId: "g-garcia",
+        limit: 100,
+      });
+      expect(result).toEqual({ reservations: [{ id: "r-late", guestName: "Ana Garcia" }] });
+    });
+
+    it("lookup_reservation also matches reservations whose guest has no profile", async () => {
+      api.guests.search.mockResolvedValue({ data: [] });
+      api.reservations.list.mockResolvedValue({
+        data: [
+          { id: "r1", guestName: "Ana Garcia" },
+          { id: "r2", guestName: "Tom Lee" },
+          { id: "r3", guestName: null },
+        ],
+      });
+      const tools = createAgentTools(log, api as never, { venueId: "venue-1" });
+
+      const result = await tools.lookup_reservation!.execute!(
+        { guestName: "garcia", date: "2026-10-24" },
+        toolCtx
+      );
+
+      expect(api.reservations.list).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        date: "2026-10-24",
+        limit: 100,
+      });
+      expect(result).toEqual({ reservations: [{ id: "r1", guestName: "Ana Garcia" }] });
+    });
+
+    it("list_today_reservations defaults to today in the venue's time zone, not UTC", async () => {
+      vi.useFakeTimers();
+      // 7pm Pacific on Oct 24 is already Oct 25 in UTC.
+      vi.setSystemTime(new Date("2026-10-25T02:00:00Z"));
+      try {
+        api.reservations.list.mockResolvedValue({ data: [] });
+        const tools = createAgentTools(log, api as never, {
+          venueId: "venue-1",
+          timeZone: "America/Los_Angeles",
+        });
+
+        await tools.list_today_reservations!.execute!({}, toolCtx);
+
+        expect(api.reservations.list).toHaveBeenCalledWith(
+          expect.objectContaining({ venueId: "venue-1", date: "2026-10-24" })
+        );
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
@@ -487,17 +838,76 @@ describe("createAgentTools", () => {
       });
       api.tables.updateStatus.mockResolvedValue(mockTable);
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("update_table_status", {
+        venueId: "v1",
+        table: "3",
+        status: "DIRTY",
+      });
       const updateTableStatusTool = tools.update_table_status;
       if (!updateTableStatusTool) throw new Error("expected update_table_status tool");
       const result = await updateTableStatusTool.execute!(
-        { venueId: "v1", tableNumber: 3, status: "DIRTY" as const },
+        { venueId: "v1", table: "3", status: "DIRTY" as const },
         toolCtx
       );
 
       expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1" });
       expect(api.tables.updateStatus).toHaveBeenCalledWith("t1", "DIRTY");
       expect(result).toEqual({ table: mockTable });
+    });
+
+    it("finds a table by its name when it has no number", async () => {
+      // Live run 2026-10-24: this venue's tables have names and no numbers, so
+      // "Table 12 is clean" could never resolve by number (F17).
+      api.tables.list.mockResolvedValue({
+        data: [{ id: "t-patio", name: "Patio 2", tableNumber: null, status: "DIRTY" }],
+      });
+      api.tables.updateStatus.mockResolvedValue({ id: "t-patio", status: "READY" });
+
+      const tools = createConfirmedTools("update_table_status", {
+        table: "patio 2",
+        status: "READY",
+      });
+      const result = await tools.update_table_status!.execute!(
+        { table: "patio 2", status: "READY" as const },
+        toolCtx
+      );
+
+      expect(api.tables.updateStatus).toHaveBeenCalledWith("t-patio", "READY");
+      expect(result).toEqual({ table: { id: "t-patio", status: "READY" } });
+    });
+
+    it("prefers a table's number, and refuses an ambiguous name instead of guessing", async () => {
+      api.tables.list.mockResolvedValue({
+        data: [
+          { id: "a", name: "12", tableNumber: null, status: "DIRTY" },
+          { id: "b", name: "Patio", tableNumber: "12", status: "DIRTY" },
+          { id: "c", name: "Bar", tableNumber: null, status: "DIRTY" },
+          { id: "d", name: "bar", tableNumber: null, status: "DIRTY" },
+        ],
+      });
+      api.tables.updateStatus.mockResolvedValue({ id: "b", status: "READY" });
+
+      const byNumber = createConfirmedTools("update_table_status", {
+        table: "12",
+        status: "READY",
+      });
+      await byNumber.update_table_status!.execute!(
+        { table: "12", status: "READY" as const },
+        toolCtx
+      );
+      expect(api.tables.updateStatus).toHaveBeenCalledWith("b", "READY");
+
+      vi.mocked(api.tables.updateStatus).mockClear();
+      const ambiguous = createConfirmedTools("update_table_status", {
+        table: "BAR",
+        status: "READY",
+      });
+      const result = await ambiguous.update_table_status!.execute!(
+        { table: "BAR", status: "READY" as const },
+        toolCtx
+      );
+      expect(api.tables.updateStatus).not.toHaveBeenCalled();
+      expect(result).toEqual({ error: expect.stringMatching(/ambiguous/i) });
     });
 
     it("returns error when table not found", async () => {
@@ -510,11 +920,15 @@ describe("createAgentTools", () => {
         hasMore: false,
       });
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("update_table_status", {
+        venueId: "v1",
+        table: "99",
+        status: "AVAILABLE",
+      });
       const updateTableStatusTool = tools.update_table_status;
       if (!updateTableStatusTool) throw new Error("expected update_table_status tool");
       const result = await updateTableStatusTool.execute!(
-        { venueId: "v1", tableNumber: 99, status: "AVAILABLE" as const },
+        { venueId: "v1", table: "99", status: "AVAILABLE" as const },
         toolCtx
       );
 
@@ -524,15 +938,107 @@ describe("createAgentTools", () => {
     it("returns error on API failure", async () => {
       api.tables.list.mockRejectedValue(new Error("fail"));
 
-      const tools = createAgentTools(log, api as never);
+      const tools = createConfirmedTools("update_table_status", {
+        venueId: "v1",
+        table: "1",
+        status: "READY",
+      });
       const updateTableStatusTool = tools.update_table_status;
       if (!updateTableStatusTool) throw new Error("expected update_table_status tool");
       const result = await updateTableStatusTool.execute!(
-        { venueId: "v1", tableNumber: 1, status: "READY" as const },
+        { venueId: "v1", table: "1", status: "READY" as const },
         toolCtx
       );
 
       expect(result).toEqual({ error: "Failed to update table status. Please try again." });
+    });
+  });
+
+  describe("localTime on read tools", () => {
+    const LA = "America/Los_Angeles";
+    // 2026-05-19T02:30Z is 19:30 on 2026-05-18 in Los Angeles (PDT, UTC-7).
+    const ACROSS_MIDNIGHT = "2026-05-19T02:30:00.000Z";
+
+    function page<T>(data: T[]) {
+      return { data, total: data.length, page: 1, limit: 50, totalPages: 1, hasMore: false };
+    }
+
+    async function run(name: string, input: Record<string, unknown>, timeZone?: string) {
+      const tools = createAgentTools(log, api as never, { venueId: "v1", timeZone });
+      const t = tools[name];
+      if (!t?.execute) throw new Error(`expected ${name} tool`);
+      return t.execute(input as never, toolCtx);
+    }
+
+    it("check_availability adds the venue-local HH:mm to each slot", async () => {
+      api.availability.getTimeSlots.mockResolvedValue([
+        { time: "2026-05-18T19:30:00.000Z", available: true },
+      ]);
+      const result = await run("check_availability", { date: "2026-05-18", partySize: 2 }, LA);
+      expect(result).toEqual({
+        slots: [{ time: "2026-05-18T19:30:00.000Z", available: true, localTime: "12:30" }],
+      });
+    });
+
+    it("list_today_reservations converts startTime in the venue zone, keeping every field", async () => {
+      const reservation = { id: "r1", status: "CONFIRMED", startTime: "2026-05-18T19:30:00.000Z" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("list_today_reservations", { date: "2026-05-18" }, LA);
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "12:30" }] });
+    });
+
+    it("uses UTC when no time zone is given", async () => {
+      const reservation = { id: "r1", startTime: "2026-05-18T19:30:00.000Z" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("list_today_reservations", { date: "2026-05-18" });
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "19:30" }] });
+    });
+
+    it("gives the venue's clock time across a UTC date boundary", async () => {
+      const reservation = { id: "r1", guestName: "Smith", startTime: ACROSS_MIDNIGHT };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("lookup_reservation", { date: "2026-05-18" }, LA);
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "19:30" }] });
+    });
+
+    it("writes midnight as 00:00, never 24:00", async () => {
+      const reservation = { id: "r1", startTime: "2026-05-18T00:00:00.000Z" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("list_today_reservations", { date: "2026-05-18" });
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "00:00" }] });
+    });
+
+    it("lookup_reservation by guest name adds localTime to the merged rows", async () => {
+      const reservation = { id: "r1", guestName: "Smith", startTime: ACROSS_MIDNIGHT };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      api.guests.search.mockResolvedValue({ data: [{ id: "g1" }] });
+      const result = await run("lookup_reservation", { guestName: "smith" }, LA);
+      expect(result).toEqual({ reservations: [{ ...reservation, localTime: "19:30" }] });
+    });
+
+    it("omits localTime for an unparseable time without throwing", async () => {
+      const reservation = { id: "r1", startTime: "not a time" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      api.availability.getTimeSlots.mockResolvedValue([{ time: "soon", available: true }]);
+
+      const listed = await run("list_today_reservations", { date: "2026-05-18" }, LA);
+      expect(listed).toEqual({ reservations: [reservation] });
+      expect((listed as { reservations: object[] }).reservations[0]).not.toHaveProperty(
+        "localTime"
+      );
+
+      const slots = await run("check_availability", { date: "2026-05-18", partySize: 2 }, LA);
+      expect((slots as { slots: object[] }).slots[0]).not.toHaveProperty("localTime");
+    });
+
+    it("omits localTime for an unknown time zone without failing the tool", async () => {
+      const reservation = { id: "r1", startTime: "2026-05-18T19:30:00.000Z" };
+      api.reservations.list.mockResolvedValue(page([reservation]));
+      const result = await run("list_today_reservations", { date: "2026-05-18" }, "Not/AZone");
+      expect(result).toEqual({ reservations: [reservation] });
+      expect((result as { reservations: object[] }).reservations[0]).not.toHaveProperty(
+        "localTime"
+      );
     });
   });
 });

@@ -1349,6 +1349,16 @@
             return;
           }
     
+          // Judge never ran on any task: un-measured, not a baseline. Don't persist it (#7351).
+          if (suiteJudgeUnavailable(report)) {
+            emitReport(report, options.json, costBasis);
+            console.error(
+              "\nThe LLM judge could not run on any task, so only the deterministic signals were measured. This run was not persisted and is not a pass-rate measurement."
+            );
+            process.exitCode = JUDGE_UNAVAILABLE_EXIT_CODE;
+            return;
+          }
+    
           persistReport(report, adapterType, costBasis);
           emitReport(report, options.json, costBasis);
     

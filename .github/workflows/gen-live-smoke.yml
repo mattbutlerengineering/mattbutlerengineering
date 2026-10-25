@@ -1,0 +1,104 @@
+# Gen Live Smoke — authenticated synthetic check of the generative UI stack
+# against PRODUCTION.
+#
+# Mints an Auth0 access token with the E2E test user (ROPC — the same grant and
+# client the hospitality E2E suite uses; the client must be the SPA, see
+# gotchas § Auth0), runs ONE real generation on /api/gen/ui and asserts streamed
+# flat elements, then repeats the identical prompt to exercise the spec cache
+# (#7231/#7423): the repeat must replay byte-identical NDJSON on a cache hit.
+#
+# Cost: at most two model calls (the second should be a cache hit = zero model
+# cost), bounded server-side by the per-identity 20/hr limit and the daily
+# spend ceiling. workflow_dispatch only — run it after a deploy that touches
+# services/agent, or whenever live proof of generation is needed.
+#
+# No actions are used (nothing to pin): plain curl + jq on the runner.
+
+name: Gen Live Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: Prompt to generate
+        required: false
+        default: "A status card titled Deploy Smoke with a one-line description and a confirm button"
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Live generation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      API_URL: https://api.mattbutlerengineering.com
+    steps:
+      - name: Mint E2E access token (ROPC)
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # password-realm grant + explicit realm — the exact shape the
+          # hospitality E2E suite uses (apps/hospitality/e2e/auth-helpers.ts);
+          # the plain "password" grant is rejected by this tenant.
+          payload=$(jq -n \
+            --arg u "$E2E_AUTH_EMAIL" --arg p "$E2E_AUTH_PASSWORD" \
+            --arg a "$E2E_AUTH0_AUDIENCE" --arg c "$E2E_AUTH0_CLIENT_ID" \
+            '{grant_type:"http://auth0.com/oauth/grant-type/password-realm", realm:"Username-Password-Authentication", username:$u, password:$p, audience:$a, client_id:$c, scope:"openid profile email"}')
+          token=$(curl -sf --request POST "https://${E2E_AUTH0_DOMAIN}/oauth/token" \
+            --header 'content-type: application/json' \
+            --data "$payload" | jq -r .access_token)
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "::error::Auth0 ROPC login returned no access token"
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "GEN_SMOKE_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: First generation (model call)
+        env:
+          PROMPT: ${{ inputs.prompt }}
+        run: |
+          set -euo pipefail
+          jq -n --arg p "$PROMPT" '{prompt:$p}' > body.json
+          http_code=$(curl -s -o gen1.ndjson -w "%{http_code}" \
+            --request POST "$API_URL/api/gen/ui" \
+            --header "authorization: Bearer $GEN_SMOKE_TOKEN" \
+            --header 'content-type: application/json' \
+            --data @body.json)
+          echo "HTTP $http_code"
+          [ "$http_code" = "200" ]
+          elements=$(wc -l < gen1.ndjson | tr -d ' ')
+          echo "elements streamed: $elements"
+          [ "$elements" -gt 0 ]
+          # Every line must be a flat element carrying a key and a catalog type.
+          jq -es 'all(.[]; (.key | type == "string") and (.type | type == "string"))' gen1.ndjson > /dev/null
+          echo "element types:"
+          jq -r .type gen1.ndjson | sort | uniq -c
+
+      - name: Repeat generation (spec-cache path)
+        run: |
+          set -euo pipefail
+          http_code=$(curl -s -o gen2.ndjson -w "%{http_code}" \
+            --request POST "$API_URL/api/gen/ui" \
+            --header "authorization: Bearer $GEN_SMOKE_TOKEN" \
+            --header 'content-type: application/json' \
+            --data @body.json)
+          echo "HTTP $http_code"
+          [ "$http_code" = "200" ]
+          # The spec cache stores jsonb, which reorders keys, so compare the
+          # normalized (sorted-key, compact) lines rather than raw bytes.
+          jq -cS . gen1.ndjson > gen1.norm.ndjson
+          jq -cS . gen2.ndjson > gen2.norm.ndjson
+          if cmp -s gen1.norm.ndjson gen2.norm.ndjson; then
+            echo "cache HIT: repeat replayed semantically identical NDJSON"
+          else
+            # A miss is not a failure (TTL/instance timing), but say so loudly.
+            echo "::warning::repeat prompt did not replay identical NDJSON — spec cache may have missed"
+          fi

@@ -90,12 +90,7 @@ describe("registry rendering", () => {
         },
         txt1: {
           type: "Text",
-          props: { variant: "body" },
-          children: ["textNode"],
-        },
-        textNode: {
-          type: "text",
-          props: { value: "Hello from Card" },
+          props: { text: "Hello from Card", variant: "body" },
         },
       },
     };
@@ -103,6 +98,7 @@ describe("registry rendering", () => {
     renderSpec(spec);
 
     expect(screen.getByText("Test Card")).toBeDefined();
+    expect(screen.getByText("Hello from Card")).toBeDefined();
   });
 
   it("renders a Badge with a variant class applied", () => {
@@ -114,7 +110,7 @@ describe("registry rendering", () => {
       elements: {
         badge1: {
           type: "Badge",
-          props: { variant: "success", dot: true },
+          props: { label: "Confirmed", variant: "success", dot: true },
         },
       },
     };
@@ -124,6 +120,8 @@ describe("registry rendering", () => {
     // Badge renders as a <span> — verify it exists in the DOM
     const badgeEl = container.querySelector("span");
     expect(badgeEl).not.toBeNull();
+    expect(screen.getByText("Confirmed")).toBeDefined();
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
   });
 
   it("renders a Stack layout container with a Text child", () => {
@@ -142,7 +140,7 @@ describe("registry rendering", () => {
         },
         innerText: {
           type: "Text",
-          props: { variant: "label" },
+          props: { text: "Inner label", variant: "label" },
         },
       },
     };
@@ -152,5 +150,8 @@ describe("registry rendering", () => {
     // Stack renders as a div — verify it exists
     const stackEl = container.querySelector("div");
     expect(stackEl).not.toBeNull();
+    // An outer Text whose only content is a child element renders it (review of #7462).
+    expect(screen.getByText("Inner label")).toBeDefined();
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
   });
 });

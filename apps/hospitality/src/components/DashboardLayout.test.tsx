@@ -434,6 +434,13 @@ describe("DashboardLayout", () => {
       expect(items[1]).toHaveTextContent("Floor Plans");
     });
 
+    it("labels the chat page Chat, not Details", () => {
+      renderLayout("/chat");
+      const items = screen.getAllByTestId(/^breadcrumb-item-/);
+      expect(items).toHaveLength(2);
+      expect(items[1]).toHaveTextContent("Chat");
+    });
+
     it("shows Home > Floor Plans > Details for nested floor-plan route", () => {
       renderLayout("/floor-plans/abc-123");
       const items = screen.getAllByTestId(/^breadcrumb-item-/);

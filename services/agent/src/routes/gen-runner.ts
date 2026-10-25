@@ -2,6 +2,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, stepCountIs } from "ai";
 // Permission policy sourced from agent-core — not duplicated here (security requirement)
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
+import { genSystemInstructions } from "./gen-stream.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ export type GenStreamEvent =
 export interface GenFinishPayload {
   readonly usage: { readonly inputTokens?: number; readonly outputTokens?: number };
   readonly providerMetadata: unknown;
+  readonly finishReason?: string;
 }
 
 export interface GenRunnerConfig {
@@ -57,13 +59,15 @@ export interface GenRunnerConfig {
 }
 
 /** Tool names that require user confirmation before execution. */
-export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
+export const GEN_WRITE_TOOL_NAMES = [
   "create_reservation",
   "modify_reservation",
   "cancel_reservation",
   "seat_walk_in",
   "update_table_status",
-]);
+] as const;
+
+export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
 
 export type GenToolMap = Record<string, unknown>;
 export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
@@ -89,25 +93,19 @@ export interface GenRunner {
 export function createGenRunner(config: GenRunnerConfig): GenRunner {
   return {
     async run(messages, tools, onEvent) {
-      const aiMessages = [
-        {
-          role: "system" as const,
-          content: config.systemPrompt,
-          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-        },
-        ...messages,
-      ];
-
       const result = streamText({
         model: anthropic(config.modelId),
-        messages: aiMessages,
+        // System prompt goes through `instructions` — ai@7 rejects system-role
+        // entries inside `messages` (see genSystemInstructions).
+        instructions: genSystemInstructions(config.systemPrompt),
+        messages: [...messages],
         tools: tools as Parameters<typeof streamText>[0]["tools"],
         toolChoice: config.toolChoice,
         stopWhen: stepCountIs(config.maxSteps),
         maxOutputTokens: config.maxOutputTokens,
         onFinish: config.onFinish
-          ? async ({ usage, providerMetadata }) => {
-              await config.onFinish!({ usage, providerMetadata });
+          ? async ({ usage, providerMetadata, finishReason }) => {
+              await config.onFinish!({ usage, providerMetadata, finishReason });
             }
           : undefined,
       });

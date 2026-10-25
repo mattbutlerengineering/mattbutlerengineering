@@ -27,14 +27,18 @@ export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Prom
 
   // LLM-judge signals — only when criteria are specified and a judge is injected.
   let judgeResult: TaskScore["judgeResult"];
+  let inconclusiveJudge = false;
   if (rubric.judgeCriteria.length > 0) {
     judgeResult = await runJudge(task.prompt, rubric.judgeCriteria.join("\n"), judge);
-    signals.push(judgeResult.passed);
+    // An unavailable judge is not a verdict: it keeps the task from passing
+    // but must not lower the score as though the work had been judged bad (#7351).
+    if (judgeResult.evaluationFailed) inconclusiveJudge = true;
+    else signals.push(judgeResult.passed);
   }
 
   const satisfied = signals.filter(Boolean).length;
   const score = signals.length === 0 ? 0 : satisfied / signals.length;
-  const passed = signals.every(Boolean);
+  const passed = !inconclusiveJudge && signals.every(Boolean);
 
   return {
     taskId: task.id,

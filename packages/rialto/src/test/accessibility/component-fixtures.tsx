@@ -58,6 +58,7 @@ import { Footer } from "../../components/Footer/Footer";
 import { Form } from "../../components/Form/Form";
 import { FormField } from "../../components/FormField/FormField";
 import { GlobalNav } from "../../components/GlobalNav/GlobalNav";
+import { GuestCards } from "../../components/GuestCards/GuestCards";
 import { Handshake } from "../../components/Handshake/Handshake";
 import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
@@ -80,6 +81,7 @@ import { Pagination } from "../../components/Pagination/Pagination";
 import { PinInput } from "../../components/PinInput/PinInput";
 import { Popover } from "../../components/Popover/Popover";
 import { Progress, Spinner } from "../../components/Progress/Progress";
+import { ReservationList } from "../../components/ReservationList/ReservationList";
 import { ScrollArea } from "../../components/ScrollArea/ScrollArea";
 import { SegmentedControl } from "../../components/SegmentedControl/SegmentedControl";
 import { Select } from "../../components/Select/Select";
@@ -102,6 +104,7 @@ import { TextArea } from "../../components/TextArea/TextArea";
 import { ThemeToggle } from "../../components/ThemeToggle/ThemeToggle";
 import { TimePicker } from "../../components/TimePicker/TimePicker";
 import { Timeline } from "../../components/Timeline/Timeline";
+import { TimeSlots } from "../../components/TimeSlots/TimeSlots";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
@@ -159,6 +162,7 @@ export type BarrelExportName =
   | "Form"
   | "FormField"
   | "GlobalNav"
+  | "GuestCards"
   | "Handshake"
   | "Heading"
   | "Hero"
@@ -181,6 +185,7 @@ export type BarrelExportName =
   | "PinInput"
   | "Popover"
   | "Progress"
+  | "ReservationList"
   | "ScrollArea"
   | "SegmentedControl"
   | "Select"
@@ -204,6 +209,7 @@ export type BarrelExportName =
   | "ThemeToggle"
   | "TimePicker"
   | "Timeline"
+  | "TimeSlots"
   | "Toast"
   | "Toggle"
   | "Tooltip"
@@ -509,6 +515,18 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: <GlobalNav currentApp="marketing" />,
   },
 
+  GuestCards: {
+    element: (
+      <GuestCards
+        guests={[
+          { name: "Maria Garcia", visits: 12, risk: "trusted", tags: ["VIP", "Regular"] },
+          { name: "Tom Nguyen", visits: 1, risk: "standard" },
+          { name: "Ana Ruiz", visits: 3, risk: "Watch list" },
+        ]}
+      />
+    ),
+  },
+
   Handshake: {
     element: <Handshake aria-label="Verifying sign-in" stations={["Browser", "Identity"]} />,
   },
@@ -638,6 +656,18 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Progress: {
     element: <Progress value={45} aria-label="Loading" />,
+  },
+
+  ReservationList: {
+    element: (
+      <ReservationList
+        reservations={[
+          { time: "6:00 PM", guest: "Lee Family", partySize: 2, status: "CONFIRMED" },
+          { time: "7:30 PM", partySize: 4, status: "PENDING" },
+          { time: "8:15 PM", guest: "Ana Ruiz", partySize: 3, status: "Running late" },
+        ]}
+      />
+    ),
   },
 
   ScrollArea: {
@@ -793,6 +823,12 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
           { title: "Updated", timestamp: "2024-01-02" },
         ]}
       />
+    ),
+  },
+
+  TimeSlots: {
+    element: (
+      <TimeSlots date="Friday, Oct 30" partySize={4} times={["6:00 PM", "7:45 PM", "8:30 PM"]} />
     ),
   },
 

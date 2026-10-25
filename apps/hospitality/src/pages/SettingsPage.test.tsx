@@ -284,6 +284,16 @@ describe("SettingsPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
   });
 
+  it("links to the Friday-night rehearsal from the venue card", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Venue")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Run a Friday night" }));
+    expect(mockNavigate).toHaveBeenCalledWith("/timeline?rehearsal=true");
+  });
+
   it("renders venue defaults card after loading", async () => {
     renderPage();
     await waitFor(() => {

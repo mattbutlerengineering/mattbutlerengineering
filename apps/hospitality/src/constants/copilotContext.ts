@@ -1,4 +1,13 @@
-import type { DomainContext } from "@mattbutlerengineering/rialto";
+import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import type {
+  ActionDescription,
+  DomainContext,
+  PendingAction,
+} from "@mattbutlerengineering/rialto";
+import { useVenue } from "../contexts/VenueContext.js";
+import { useTables } from "../hooks/useTables.js";
+import { formatCalendarDate, formatLocalTime, resolveTimeZone } from "../utils/format.js";
 
 /**
  * Hardcoded domain context for the hospitality app's Gen Copilot.
@@ -26,3 +35,147 @@ export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
     },
   ],
 };
+
+interface ChatVenue {
+  readonly id: string;
+  readonly ianaTimezone: string;
+}
+
+/**
+ * The fields the chat merges into every agent request: the selected venue (the
+ * server pins every tool to it) and its time zone (so "tonight" is the venue's
+ * tonight). A zone the runtime rejects is dropped rather than sent, because the
+ * server answers an unknown zone with a 400 for the whole message.
+ */
+export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> {
+  if (!venue) return {};
+  const timeZone = resolveTimeZone(venue.ianaTimezone);
+  return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
+}
+
+export function useChatRequestContext(): Record<string, string> {
+  const { selectedVenue } = useVenue();
+  return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+}
+
+/** Starter prompts for an empty chat: the questions the chat can answer well today. */
+export function useChatSuggestions(): readonly string[] {
+  const { t } = useTranslation();
+  return useMemo(
+    () => [
+      t("chat.suggestions.tonight"),
+      t("chat.suggestions.openTables"),
+      t("chat.suggestions.availability"),
+      t("chat.suggestions.walkIn"),
+    ],
+    [t]
+  );
+}
+
+const ACTION_TITLES = {
+  create_reservation: "chat.actions.create_reservation",
+  modify_reservation: "chat.actions.modify_reservation",
+  cancel_reservation: "chat.actions.cancel_reservation",
+  seat_walk_in: "chat.actions.seat_walk_in",
+  update_table_status: "chat.actions.update_table_status",
+} as const;
+
+const ACTION_FIELDS = {
+  guestName: "chat.actions.fields.guestName",
+  partySize: "chat.actions.fields.partySize",
+  date: "chat.actions.fields.date",
+  startTime: "chat.actions.fields.startTime",
+  endTime: "chat.actions.fields.endTime",
+  tableId: "chat.actions.fields.tableId",
+  table: "chat.actions.fields.table",
+  status: "chat.actions.fields.status",
+  notes: "chat.actions.fields.notes",
+  reservationId: "chat.actions.fields.reservationId",
+} as const;
+
+const TABLE_STATUSES = {
+  AVAILABLE: "floorPlan.tableStatus.available",
+  OCCUPIED: "floorPlan.tableStatus.occupied",
+  DIRTY: "floorPlan.tableStatus.dirty",
+  READY: "floorPlan.tableStatus.ready",
+} as const;
+
+type ChatActionKey =
+  | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
+  | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
+  | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+
+type Translate = (key: ChatActionKey) => string;
+
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isRealDate = (value: string): boolean => {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+const WALL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const TIME_FIELDS: ReadonlySet<string> = new Set(["startTime", "endTime"]);
+
+/** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
+function formatWhen(key: string, value: string, locale?: string): string {
+  if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+    return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
+  }
+  if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
+  return value;
+}
+
+function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
+  return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+}
+
+/**
+ * How the chat's confirm bar presents a pending write: a translated title and
+ * labelled values, with a table id shown as the table's name and dates and times
+ * in the user's locale. An id that can't be resolved, or a date or time that isn't
+ * in the tool's format, stays visible as sent: what the user confirms must be what
+ * executes. A
+ * tool or field this map doesn't know shows its raw name rather than a key.
+ */
+export function describeChatAction(
+  action: PendingAction,
+  t: Translate,
+  tableName: (id: string) => string | undefined,
+  locale?: string
+): ActionDescription {
+  const titleKey = lookup(ACTION_TITLES, action.toolName);
+  return {
+    title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+    details: Object.entries(action.toolInput).map(([key, raw]) => {
+      const value = String(raw);
+      const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+      const shown =
+        key === "tableId"
+          ? (tableName(value) ?? value)
+          : statusKey
+            ? t(statusKey)
+            : formatWhen(key, value, locale);
+      const labelKey = lookup(ACTION_FIELDS, key);
+      return { label: labelKey ? t(labelKey) : key, value: shown };
+    }),
+  };
+}
+
+export function useDescribeChatAction(): (action: PendingAction) => ActionDescription {
+  const { t, i18n } = useTranslation();
+  const { selectedVenue } = useVenue();
+  const { data: tables } = useTables({
+    venueId: selectedVenue?.id ?? "",
+    limit: 100,
+    enabled: Boolean(selectedVenue),
+  });
+  return useCallback(
+    (action: PendingAction) =>
+      describeChatAction(
+        action,
+        t,
+        (id) => tables?.find((table) => table.id === id)?.name,
+        i18n.language
+      ),
+    [t, tables, i18n.language]
+  );
+}

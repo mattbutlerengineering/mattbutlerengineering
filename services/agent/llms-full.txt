@@ -234,23 +234,215 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="src/routes/gen-agent-prompt.ts">
+    export interface AgentPromptContext {
+      /** The venue selected in the app, when there is one. */
+      readonly venueId?: string | undefined;
+      /** The venue's IANA time zone; UTC when absent. */
+      readonly timeZone?: string | undefined;
+      readonly now: Date;
+      /** The rialto catalog's component rules, appended verbatim. */
+      readonly catalogPrompt: string;
+    }
+    function weekdayIn(timeZone: string, now: Date): string {
+      return new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(now);
+    }
+    export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
+      const timeZone = ctx.timeZone ?? "UTC";
+      const today = `${weekdayIn(timeZone, ctx.now)}, ${todayIn(timeZone, ctx.now)}`;
+      const venueLine = ctx.venueId
+        ? "The user's venue is already selected, and every tool is scoped to it automatically."
+        : "No venue is selected yet. If a request needs venue data, ask the user to pick a venue in the app.";
+    
+      return [
+        "You are the assistant for a restaurant's front-of-house staff, inside their hospitality dashboard.",
+        `Today is ${today} (${timeZone}). Resolve "tonight", "tomorrow", and weekday names against this date, and pass dates to tools as YYYY-MM-DD.`,
+        venueLine,
+        "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
+        "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
+        "A change (booking, walk-in, cancellation, table status) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
+        "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
+        "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
+        "Pick the element that fits the data, one shape per line below.",
+        "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out.",
+        "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element.",
+        "Guests from search_guests: show them as GuestCards, each card with the guest's name, its visitCount as visits, its riskScore copied as is as risk, and its tags; at most five cards, then say in a sentence how many more matched. Never put a guest's email, phone, notes or spend on a card.",
+        "A guest's visit history: show it as a Timeline.",
+        "Table statuses from get_table_status: show them as StatusLED, one per table with a label.",
+        "Headline counts (covers, open tables, no-shows): show them as Stat.",
+        "Guest tags and dietary restrictions: show them as Tag.",
+        "Any other lists: show them as a Table.",
+        'Tables move AVAILABLE (free) → OCCUPIED (seated) → DIRTY (needs bussing) → READY (cleaned) → AVAILABLE. Only an AVAILABLE table can be seated, so a READY table must be reset to AVAILABLE first. When staff say a table is "clean", that means READY. Describe statuses to staff in plain words, not capitals.',
+        "You can't manage the waitlist, deposits, or menus yet. Say so plainly and point the user to that page in the dashboard.",
+        "",
+        ctx.catalogPrompt,
+      ].join("\n");
+    }
+  </file>
   <file path="src/routes/gen-agent-tools.ts">
     type ApiClient = ReturnType<typeof createApiClient>;
-    export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet {
-      return {
+    export interface ConfirmedAction {
+      /** Echo of the action_request's actionId — traceability only (a resend produces new tool-call ids). */
+      readonly actionId: string;
+      readonly toolName: string;
+      readonly toolInput: Record<string, unknown>;
+    }
+    export interface CreateAgentToolsOptions {
+      readonly confirmedAction?: ConfirmedAction | undefined;
+      /** The venue the user has selected in the app; every venue-scoped tool is pinned to it. */
+      readonly venueId?: string | undefined;
+      /** The venue's IANA time zone, so "today" means the venue's today rather than UTC's. */
+      readonly timeZone?: string | undefined;
+    }
+    export function todayIn(timeZone: string | undefined, now: Date = new Date()): string {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: timeZone ?? "UTC",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
+    }
+    export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
+      if (typeof iso !== "string") return undefined;
+      const instant = new Date(iso);
+      if (Number.isNaN(instant.getTime())) return undefined;
+      try {
+        return new Intl.DateTimeFormat("en-GB", {
+          timeZone: timeZone ?? "UTC",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).format(instant);
+      } catch {
+        return undefined; // unknown time zone (RangeError)
+      }
+    }
+    function withLocalTime<T extends object>(
+      item: T,
+      field: string,
+      timeZone: string | undefined
+    ): T | (T & { localTime: string }) {
+      const localTime = localTimeIn((item as Record<string, unknown>)[field], timeZone);
+      return localTime ? { ...item, localTime } : item;
+    }
+    interface DayHours {
+      readonly closed?: boolean | undefined;
+    }
+    export function closedWeekday(
+      operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
+      date: string
+    ): string | undefined {
+      const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+      if (!weekday) return undefined;
+      const hours = operatingHours?.[weekday];
+      return !hours || hours.closed ? weekday : undefined;
+    }
+    function gateWriteTools(
+      tools: ToolSet,
+      log: FastifyBaseLogger,
+      confirmedAction?: ConfirmedAction
+    ): ToolSet {
+      let consumed = false;
+      const gated: ToolSet = { ...tools };
+      for (const name of GEN_WRITE_TOOL_NAMES) {
+        const original = gated[name];
+        const originalExecute = original?.execute;
+        if (!original || !originalExecute) continue;
+        gated[name] = {
+          ...original,
+          execute: async (_input: never, ctx: never) => {
+            if (confirmedAction?.toolName !== name) {
+              log.info({ toolName: name }, "write tool call held for user confirmation");
+              return CONFIRMATION_PENDING;
+            }
+            if (consumed) {
+              return { error: "This confirmed action has already been executed." };
+            }
+            const schema = original.inputSchema as z.ZodType;
+            const parsed = schema.safeParse(confirmedAction.toolInput);
+            if (!parsed.success) {
+              log.error(
+                { toolName: name, actionId: confirmedAction.actionId },
+                "confirmed action input invalid, refusing to execute"
+              );
+              return { error: "The confirmed action's parameters are invalid. Please start over." };
+            }
+            consumed = true;
+            log.info(
+              { toolName: name, actionId: confirmedAction.actionId },
+              "executing user-confirmed action"
+            );
+            return originalExecute(parsed.data as never, ctx);
+          },
+        } as ToolSet[string];
+      }
+      return gated;
+    }
+    interface NamedTable {
+      readonly id: string;
+      readonly name?: string | null;
+      readonly tableNumber?: string | null;
+    }
+    function resolveTable<T extends NamedTable>(
+      tables: readonly T[],
+      tableRef: string
+    ): { table: T } | { error: string } {
+      const ref = tableRef.trim();
+      const steps: ReadonlyArray<(t: T) => boolean> = [
+        (t) => t.tableNumber === ref,
+        (t) => t.name === ref,
+        (t) => t.name?.toLowerCase() === ref.toLowerCase(),
+      ];
+      for (const matches of steps) {
+        const found = tables.filter(matches);
+        if (found.length === 1) return { table: found[0]! };
+        if (found.length > 1) {
+          return { error: `Table ${tableRef} is ambiguous in this venue. Ask which table they mean.` };
+        }
+      }
+      return { error: `Table ${tableRef} not found in this venue.` };
+    }
+    export function createAgentTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      options: CreateAgentToolsOptions = {}
+    ): ToolSet {
+      const { venueId, timeZone } = options;
+      const toLocal = <T extends object>(reservation: T) =>
+        withLocalTime(reservation, "startTime", timeZone);
+      const tools: ToolSet = {
         // ── Read tools (instant, no confirmation) ──────────────
+        // venueId never comes from the model: it is the app's selected venue.
         check_availability: tool({
-          description: "Check available time slots for a venue on a specific date",
+          description: "Check available time slots on a specific date",
           inputSchema: z.object({
-            venueId: z.string().describe("The venue ID to check availability for"),
             date: z.string().describe("Date in YYYY-MM-DD format"),
             partySize: z.number().describe("Number of guests"),
           }),
-          execute: async ({ venueId, date, partySize }) => {
+          execute: async ({ date, partySize }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, date, partySize }, "check_availability tool called");
             try {
-              const slots = await api.availability.getTimeSlots({ venueId, date, partySize });
-              return { slots };
+              const slots = (await api.availability.getTimeSlots({ venueId, date, partySize })).map(
+                (slot) => withLocalTime(slot, "time", timeZone)
+              );
+              if (slots.length > 0) return { slots };
+              // No slots reads as "fully booked" unless the model knows the venue is closed.
+              const weekday = await api.venues.get(venueId).then(
+                (venue) => closedWeekday(venue.operatingHours, date),
+                (err: unknown) => {
+                  log.warn({ err, venueId }, "check_availability: venue hours lookup failed");
+                  return undefined;
+                }
+              );
+              if (!weekday) return { slots };
+              const day = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+              return {
+                slots,
+                closed: true,
+                note: `The venue is closed on ${day}: it has no operating hours that day, so nothing can be booked. Say so rather than calling the day fully booked.`,
+              };
             } catch (err) {
               log.error({ err, venueId, date, partySize }, "check_availability failed");
               return { error: "Failed to check availability. Please try again." };
@@ -259,20 +451,43 @@
         }),
     
         lookup_reservation: tool({
-          description: "Find reservations by guest name, date, or confirmation number",
+          description: "Find reservations by guest name and/or date",
           inputSchema: z.object({
-            guestName: z.string().optional().describe("Guest name to search"),
+            guestName: z.string().optional().describe("Guest name (or part of it) to search"),
             date: z.string().optional().describe("Date in YYYY-MM-DD format"),
-            venueId: z.string().optional().describe("Venue ID to filter by"),
           }),
-          execute: async ({ date, venueId }) => {
+          execute: async ({ guestName, date }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ date, venueId }, "lookup_reservation tool called");
+            const dateFilter = date ? { date } : {};
             try {
-              const result = await api.reservations.list({
-                ...(date ? { date } : {}),
-                ...(venueId ? { venueId } : {}),
+              const venueList = await api.reservations.list({
+                venueId,
+                ...dateFilter,
+                limit: LOOKUP_LIMIT,
               });
-              return { reservations: result.data };
+              const needle = guestName?.trim().toLowerCase();
+              if (!needle) return { reservations: venueList.data.map(toLocal) };
+              // The list is paginated, so a name filter over it alone misses most
+              // of a busy venue: resolve the guest first, then list their bookings.
+              const guests = await api.guests.search({ venueId, query: guestName! });
+              const byGuest = await Promise.all(
+                guests.data.slice(0, MAX_GUEST_MATCHES).map((guest) =>
+                  api.reservations.list({
+                    venueId,
+                    guestId: guest.id,
+                    ...dateFilter,
+                    limit: LOOKUP_LIMIT,
+                  })
+                )
+              );
+              // Walk-ins can carry a name with no guest profile; match those by name.
+              const byName = venueList.data.filter((r) => r.guestName?.toLowerCase().includes(needle));
+              const merged = [...byGuest.flatMap((page) => page.data), ...byName];
+              const reservations = merged.filter(
+                (r, i) => merged.findIndex((other) => other.id === r.id) === i
+              );
+              return { reservations: reservations.map(toLocal) };
             } catch (err) {
               log.error({ err, date, venueId }, "lookup_reservation failed");
               return { error: "Failed to look up reservations. Please try again." };
@@ -284,15 +499,12 @@
           description: "Search guest directory by name, email, or phone",
           inputSchema: z.object({
             query: z.string().describe("Search term (name, email, or phone)"),
-            venueId: z.string().optional().describe("Venue ID to scope search"),
           }),
-          execute: async ({ query, venueId }) => {
+          execute: async ({ query }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ query, venueId }, "search_guests tool called");
             try {
-              const result = await api.guests.search({
-                venueId: venueId ?? "",
-                query,
-              });
+              const result = await api.guests.search({ venueId, query });
               return { guests: result.data };
             } catch (err) {
               log.error({ err, query, venueId }, "search_guests failed");
@@ -304,10 +516,10 @@
         get_table_status: tool({
           description: "Check the status of a specific table or all tables",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             tableNumber: z.number().optional().describe("Specific table number to check"),
           }),
-          execute: async ({ venueId }) => {
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId }, "get_table_status tool called");
             try {
               const result = await api.tables.list({ venueId });
@@ -322,24 +534,24 @@
         list_today_reservations: tool({
           description: "List all reservations for today or a specified date",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             date: z.string().optional().describe("Date in YYYY-MM-DD format, defaults to today"),
             status: z
               .enum(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"])
               .optional()
               .describe("Filter by reservation status"),
           }),
-          execute: async ({ venueId, date, status }) => {
+          execute: async ({ date, status }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, date, status }, "list_today_reservations tool called");
             try {
-              const queryDate = date ?? new Date().toISOString().split("T")[0];
+              const queryDate = date ?? todayIn(timeZone);
               const result = await api.reservations.list({
                 venueId,
                 date: queryDate,
                 limit: 50,
                 ...(status ? { status } : {}),
               });
-              return { reservations: result.data };
+              return { reservations: result.data.map(toLocal) };
             } catch (err) {
               log.error({ err, venueId, date }, "list_today_reservations failed");
               return { error: "Failed to list reservations. Please try again." };
@@ -451,7 +663,6 @@
           description:
             "Create a walk-in reservation and seat guests immediately. Requires confirmation.",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
             partySize: z.number().describe("Number of guests"),
             tableId: z
               .string()
@@ -459,7 +670,8 @@
               .describe("Specific table to seat at (auto-assigns if omitted)"),
             guestName: z.string().optional().describe("Guest name if provided"),
           }),
-          execute: async ({ venueId, partySize, tableId, guestName }) => {
+          execute: async ({ partySize, tableId, guestName }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
             try {
               if (!tableId) {
@@ -485,30 +697,46 @@
           description:
             "Update a table's status (clean, dirty, occupied, available). Requires confirmation.",
           inputSchema: z.object({
-            venueId: z.string().describe("Venue ID"),
-            tableNumber: z.number().describe("Table number"),
+            table: z.string().describe("The table's name or number, as staff call it"),
             status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
           }),
-          execute: async ({ venueId, tableNumber, status: newStatus }) => {
-            log.info({ venueId, tableNumber, newStatus }, "update_table_status tool called");
+          execute: async ({ table: tableRef, status: newStatus }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
             try {
               const tablesResult = await api.tables.list({ venueId });
-              const table = tablesResult.data.find((t) => t.tableNumber === String(tableNumber));
-              if (!table) {
-                return { error: `Table ${tableNumber} not found in this venue.` };
-              }
+              const resolved = resolveTable(tablesResult.data, tableRef);
+              if ("error" in resolved) return resolved;
+              const { table } = resolved;
               const updated = await api.tables.updateStatus(table.id, newStatus);
               return { table: updated };
             } catch (err) {
-              log.error({ err, venueId, tableNumber }, "update_table_status failed");
+              log.error({ err, venueId, tableRef }, "update_table_status failed");
               return { error: "Failed to update table status. Please try again." };
             }
           },
         }),
       };
+      return gateWriteTools(tools, log, options.confirmedAction);
     }
   </file>
   <file path="src/routes/gen-agent.ts">
+    export function agentApiOrigin(apiBaseUrl: string | undefined): string {
+      if (!apiBaseUrl) return LOCAL_API_ORIGIN;
+      try {
+        return new URL(apiBaseUrl).origin;
+      } catch {
+        return LOCAL_API_ORIGIN;
+      }
+    }
+    function isTimeZone(value: string): boolean {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: value });
+        return true;
+      } catch {
+        return false;
+      }
+    }
     export const genAgentRoutes = createGenRoute({
       path: "/api/gen/agent",
       costLogLabel: "gen-agent cost log",
@@ -519,31 +747,43 @@
       schema: GenAgentBodySchema,
       streamFormat: "ndjson",
       maxSteps: 5,
-      getTools: async (request) => {
+      getSystemPrompt: (parsed, catalogPrompt) =>
+        buildAgentSystemPrompt({
+          venueId: parsed.venueId,
+          timeZone: parsed.timeZone,
+          now: new Date(),
+          catalogPrompt,
+        }),
+      toMessages: (parsed) =>
+        parsed.actionConfirm
+          ? [
+              ...parsed.messages,
+              {
+                role: "user" as const,
+                content: `I confirm the pending ${parsed.actionConfirm.toolName} action. Execute it now with the confirmed parameters.`,
+              },
+            ]
+          : parsed.messages,
+      // On the armed resend the model re-calls the tool being confirmed; emitting
+      // its action_request again would pop a stale confirm dialog in the client for
+      // a write this request already executes. Other tools' requests still surface.
+      createEventSerializer: (parsed) => (event) =>
+        event.type === "action_request" && event.toolName === parsed.actionConfirm?.toolName
+          ? undefined
+          : event,
+      getTools: async (request, parsed) => {
         const authHeader = request.headers.authorization;
         const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
         const api = createApiClient({
-          baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
+          baseUrl: agentApiOrigin(process.env.API_BASE_URL),
           getAccessToken: () => token,
         });
-        return createAgentTools(request.log, api);
+        return createAgentTools(request.log, api, {
+          confirmedAction: parsed.actionConfirm,
+          venueId: parsed.venueId,
+          timeZone: parsed.timeZone,
+        });
       },
-    });
-  </file>
-  <file path="src/routes/gen-chat.ts">
-    export const genChatRoutes = createGenRoute({
-      path: "/api/gen/chat",
-      costLogLabel: "gen-chat cost log",
-      rateLimit: {
-        max: 50,
-        timeWindow: "1 hour",
-      },
-      schema: GenChatBodySchema,
-      // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
-      streamFormat: "text",
-      // GEN-06: chat doesn't use multi-step tool calls
-      maxSteps: 1,
-      getTools: async () => ({}),
     });
   </file>
   <file path="src/routes/gen-route-factory.ts">
@@ -558,8 +798,18 @@
       readonly maxSteps: number;
       /** Overrides the catalog prompt (default: catalog.prompt()). */
       readonly systemPrompt?: string;
+      /**
+       * Per-request system prompt built from the parsed body; receives the catalog
+       * prompt to extend. Takes precedence over `systemPrompt`.
+       */
+      readonly getSystemPrompt?: (parsed: z.infer<TSchema>, catalogPrompt: string) => string;
       readonly toolChoice?: GenRunnerConfig["toolChoice"];
       readonly failOnToolError?: boolean;
+      /**
+       * ndjson only: serve identical requests from the Postgres spec cache. Only
+       * successful runs are stored; a hit replays the exact lines a miss streamed.
+       */
+      readonly cache?: boolean;
       /** Derives the chat messages from the parsed body (default: `parsed.messages`). */
       readonly toMessages?: (parsed: z.infer<TSchema>) => GenMessages;
       /**
@@ -700,25 +950,83 @@
               ? config.toMessages(parsed)
               : (parsed as { messages: GenMessages }).messages;
     
+            const systemPrompt = config.getSystemPrompt
+              ? config.getSystemPrompt(parsed, SYSTEM_PROMPT)
+              : (config.systemPrompt ?? SYSTEM_PROMPT);
+            const cacheKey =
+              config.cache && streamFormat === "ndjson"
+                ? genSpecCacheKey({
+                    route: path,
+                    messages,
+                    modelId: GEN_MODEL_ID,
+                    systemPrompt,
+                    maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
+                  })
+                : undefined;
+    
+            if (cacheKey) {
+              // Cache trouble must never fail a request: fall through to the model.
+              const cached = await getCachedSpec(cacheKey).catch((err: unknown) => {
+                request.log.warn({ err }, "gen spec cache read failed");
+                return null;
+              });
+              if (cached) {
+                applyStreamHeaders(reply, contentType);
+                return reply.send(
+                  new ReadableStream({
+                    start(controller) {
+                      for (const line of cached) {
+                        controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+                      }
+                      controller.close();
+                    },
+                  })
+                );
+              }
+            }
+    
+            const startedAt = Date.now();
+            let firstEventAt: number | undefined;
+            let elementCount = 0;
+            const markEmitted = () => {
+              firstEventAt ??= Date.now();
+              elementCount += 1;
+            };
+            const telemetry = (finishReason: string) => ({
+              ttftMs: firstEventAt === undefined ? 0 : firstEventAt - startedAt,
+              durationMs: Date.now() - startedAt,
+              elementCount,
+              finishReason,
+            });
+    
             const tools = await getTools(request, parsed);
             // A run that errors before onFinish still consumed tokens: charge the worst case.
             let usageReported = false;
             const chargeIfUnreported = async () => {
-              if (!usageReported) await trackGenSpend(failedGenCostMicroUsd(), request.log);
+              if (usageReported) return;
+              // onFinish never logged this run, so the cost line is emitted here, zeroed.
+              logGenCost(request.log, {
+                userId: request.user?.id,
+                usage: {},
+                label: costLogLabel,
+                telemetry: telemetry("error"),
+              });
+              await trackGenSpend(failedGenCostMicroUsd(), request.log);
             };
             const runner = createGenRunner({
-              systemPrompt: config.systemPrompt ?? SYSTEM_PROMPT,
+              systemPrompt,
               modelId: GEN_MODEL_ID,
               maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
               maxSteps,
               toolChoice: config.toolChoice,
               failOnToolError: config.failOnToolError,
-              onFinish: async ({ usage, providerMetadata }) => {
+              onFinish: async ({ usage, providerMetadata, finishReason }) => {
                 logGenCost(request.log, {
                   userId: request.user?.id,
                   usage,
                   providerMetadata,
                   label: costLogLabel,
+                  telemetry: telemetry(finishReason ?? "unknown"),
                 });
                 usageReported = true;
                 await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
@@ -735,6 +1043,7 @@
                     await runner.run(messages, tools, async (event) => {
                       if (event.type === "text" && event.content.length > 0) {
                         emitted = true;
+                        markEmitted();
                         controller.enqueue(event.content);
                       }
                     });
@@ -757,14 +1066,24 @@
             const ndjsonStream = new ReadableStream({
               async start(controller) {
                 let emitted = false;
+                const lines: unknown[] = [];
                 try {
                   await runner.run(messages, tools, async (event) => {
                     const line = serializeEvent(event);
                     if (line === undefined) return;
                     emitted = true;
+                    markEmitted();
+                    lines.push(line);
                     controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
                   });
                   if (!emitted) throw emptyOutputError();
+                  // Only a run that finished cleanly reaches here: errors and the
+                  // maxOutputTokens truncation both throw out of runner.run above.
+                  if (cacheKey) {
+                    await putCachedSpec(cacheKey, lines).catch((err: unknown) => {
+                      request.log.warn({ err }, "gen spec cache write failed");
+                    });
+                  }
                   controller.close();
                 } catch (err) {
                   request.log.error({ err }, "gen stream failed");
@@ -802,6 +1121,7 @@
     export interface GenFinishPayload {
       readonly usage: { readonly inputTokens?: number; readonly outputTokens?: number };
       readonly providerMetadata: unknown;
+      readonly finishReason?: string;
     }
     export interface GenRunnerConfig {
       readonly systemPrompt: string;
@@ -828,13 +1148,14 @@
        */
       readonly failOnToolError?: boolean;
     }
-    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
+    export const GEN_WRITE_TOOL_NAMES = [
       "create_reservation",
       "modify_reservation",
       "cancel_reservation",
       "seat_walk_in",
       "update_table_status",
-    ]);
+    ] as const;
+    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
     export interface GenRunner {
@@ -847,25 +1168,19 @@
     export function createGenRunner(config: GenRunnerConfig): GenRunner {
       return {
         async run(messages, tools, onEvent) {
-          const aiMessages = [
-            {
-              role: "system" as const,
-              content: config.systemPrompt,
-              providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-            },
-            ...messages,
-          ];
-    
           const result = streamText({
             model: anthropic(config.modelId),
-            messages: aiMessages,
+            // System prompt goes through `instructions` — ai@7 rejects system-role
+            // entries inside `messages` (see genSystemInstructions).
+            instructions: genSystemInstructions(config.systemPrompt),
+            messages: [...messages],
             tools: tools as Parameters<typeof streamText>[0]["tools"],
             toolChoice: config.toolChoice,
             stopWhen: stepCountIs(config.maxSteps),
             maxOutputTokens: config.maxOutputTokens,
             onFinish: config.onFinish
-              ? async ({ usage, providerMetadata }) => {
-                  await config.onFinish!({ usage, providerMetadata });
+              ? async ({ usage, providerMetadata, finishReason }) => {
+                  await config.onFinish!({ usage, providerMetadata, finishReason });
                 }
               : undefined,
           });
@@ -1110,20 +1425,57 @@
       return rates;
     })();
     export const GEN_MAX_OUTPUT_TOKENS = 2048;
-    type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
-    export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
-      return [
-        {
-          role: "system" as const,
-          content: systemPrompt,
-          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
-        },
-        ...messages,
-      ];
+    export function genSystemInstructions(systemPrompt: string) {
+      return {
+        role: "system" as const,
+        content: systemPrompt,
+        providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
+      };
     }
     interface GenUsage {
       readonly inputTokens?: number;
       readonly outputTokens?: number;
+      readonly inputTokenDetails?: {
+        readonly cacheReadTokens?: number;
+        readonly cacheWriteTokens?: number;
+      };
+    }
+    export function cacheTokens(
+      usage: GenUsage,
+      providerMetadata: unknown
+    ): { readonly read: number; readonly write: number } {
+      const meta = (
+        providerMetadata as
+          | {
+              anthropic?: {
+                usage?: { cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
+                cacheReadInputTokens?: number;
+                cacheCreationInputTokens?: number;
+              };
+            }
+          | undefined
+      )?.anthropic;
+      return {
+        read:
+          usage.inputTokenDetails?.cacheReadTokens ??
+          meta?.usage?.cache_read_input_tokens ??
+          meta?.cacheReadInputTokens ??
+          0,
+        write:
+          usage.inputTokenDetails?.cacheWriteTokens ??
+          meta?.usage?.cache_creation_input_tokens ??
+          meta?.cacheCreationInputTokens ??
+          0,
+      };
+    }
+    export interface GenTelemetry {
+      /** ms from request start to the first emitted event (0 if none was emitted). */
+      readonly ttftMs: number;
+      /** ms from request start to the run finishing or failing. */
+      readonly durationMs: number;
+      readonly elementCount: number;
+      /** The AI SDK's finish reason, or "error" for a failed run. */
+      readonly finishReason: string;
     }
     export function logGenCost(
       log: FastifyBaseLogger,
@@ -1132,22 +1484,23 @@
         readonly usage: GenUsage;
         readonly providerMetadata?: unknown;
         readonly label: string;
+        readonly telemetry?: GenTelemetry;
       }
     ): void {
-      const anthropicMeta = (
-        opts.providerMetadata as
-          | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
-          | undefined
-      )?.anthropic;
+      const cache = cacheTokens(opts.usage, opts.providerMetadata);
     
       log.info(
         {
           userId: opts.userId,
           modelId: GEN_MODEL_ID,
-          inputTokens: opts.usage.inputTokens,
-          outputTokens: opts.usage.outputTokens,
-          cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-          cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+          inputTokens: opts.usage.inputTokens ?? 0,
+          outputTokens: opts.usage.outputTokens ?? 0,
+          cacheReadInputTokens: cache.read,
+          cacheCreationInputTokens: cache.write,
+          ttftMs: opts.telemetry?.ttftMs ?? 0,
+          durationMs: opts.telemetry?.durationMs ?? 0,
+          elementCount: opts.telemetry?.elementCount ?? 0,
+          finishReason: opts.telemetry?.finishReason ?? "unknown",
         },
         opts.label
       );
@@ -1206,7 +1559,7 @@
     export const genUiRoutes = createGenRoute({
       path: "/api/gen/ui",
       costLogLabel: "gen-ui cost log",
-      // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
+      // Per-user cap — matches gen-agent's per-route rate limit pattern.
       rateLimit: { max: 20, timeWindow: "1 hour" },
       schema: GenUiBodySchema,
       streamFormat: "ndjson",
@@ -1219,6 +1572,7 @@
       // ai@7 to retry the tool call on, so a tool-error can only ever mean the
       // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
       failOnToolError: true,
+      cache: true,
       toMessages: ({ prompt, context, target }: GenUiBody) => [
         {
           role: "user",
@@ -2376,6 +2730,47 @@
     export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
   </file>
+  <file path="src/services/gen-spec-cache.ts">
+    export const GEN_SPEC_CACHE_TTL_HOURS = 24;
+    export interface GenSpecCacheKeyInput {
+      readonly route: string;
+      readonly messages: ReadonlyArray<{ readonly role: string; readonly content: string }>;
+      readonly modelId: string;
+      /**
+       * The full system prompt. It embeds `catalog.prompt()`, so it changes whenever
+       * the catalog does — derived from the catalog, never a hand-kept version.
+       */
+      readonly systemPrompt: string;
+      readonly maxOutputTokens: number;
+    }
+    export function genSpecCacheKey(input: GenSpecCacheKeyInput): string {
+      // JSON framing keeps field and message boundaries unambiguous.
+      const payload = JSON.stringify([
+        input.route,
+        input.modelId,
+        createHash("sha256").update(input.systemPrompt).digest("hex"),
+        input.maxOutputTokens,
+        input.messages.map((m) => [m.role, normalize(m.content)]),
+      ]);
+      return createHash("sha256").update(payload).digest("hex");
+    }
+    export async function getCachedSpec(key: string): Promise<unknown[] | null> {
+      const rows = await prisma.$queryRaw<Array<{ lines: unknown[] }>>`
+        SELECT lines FROM gen_spec_cache
+        WHERE key = ${key}
+          AND created_at > now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS}::int)`;
+      return rows[0]?.lines ?? null;
+    }
+    export async function putCachedSpec(key: string, lines: unknown[]): Promise<void> {
+      await prisma.$executeRaw`
+        INSERT INTO gen_spec_cache (key, lines, created_at)
+        VALUES (${key}, ${JSON.stringify(lines)}::jsonb, now())
+        ON CONFLICT (key) DO UPDATE SET lines = EXCLUDED.lines, created_at = now()`;
+      await prisma.$executeRaw`
+        DELETE FROM gen_spec_cache
+        WHERE created_at <= now() - make_interval(hours => ${GEN_SPEC_CACHE_TTL_HOURS}::int)`;
+    }
+  </file>
   <file path="src/services/gen-spend-ceiling.ts">
     export const GEN_DAILY_CEILING_DEFAULT_USD = 0.5;
     export function resolveGenDailyCeilingUsd(raw: string | undefined): number {
@@ -2387,16 +2782,10 @@
       return resolveGenDailyCeilingUsd(process.env.GEN_DAILY_CEILING_USD);
     }
     export function genCostMicroUsd(
-      usage: { readonly inputTokens?: number; readonly outputTokens?: number },
+      usage: Parameters<typeof cacheTokens>[0],
       providerMetadata: unknown
     ): number {
-      const meta = (
-        providerMetadata as
-          | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
-          | undefined
-      )?.anthropic;
-      const read = meta?.cacheReadInputTokens ?? 0;
-      const write = meta?.cacheCreationInputTokens ?? 0;
+      const { read, write } = cacheTokens(usage, providerMetadata);
       const fresh = Math.max(0, (usage.inputTokens ?? 0) - read - write);
       const usd =
         (fresh * GEN_PRICING.input +
@@ -3396,7 +3785,6 @@
       await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
       await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
       await fastify.register(genUiRoutes);
-      await fastify.register(genChatRoutes);
       await fastify.register(genSpecsRoutes);
       await fastify.register(genAgentRoutes);
     

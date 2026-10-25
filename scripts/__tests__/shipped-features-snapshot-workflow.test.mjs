@@ -78,6 +78,14 @@ describe("shipped-features-snapshot collector step", () => {
     expect(step.env.GH_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
   });
 
+  it("fails the job when the collector fails, so an empty snapshot never reaches the PR step", () => {
+    const step = job.steps.find((s) =>
+      (s.run ?? "").includes("node scripts/collect-shipped-features.mjs")
+    );
+    expect(step["continue-on-error"]).toBeUndefined();
+    expect(step.run).not.toMatch(/\|\||;\s*true|--allow-empty/);
+  });
+
   it("is the only step that touches GitHub data for the snapshot", () => {
     // The site reads the committed file; nothing in this workflow edits it by hand.
     const writers = job.steps.filter((s) => (s.run ?? "").includes(SNAPSHOT));

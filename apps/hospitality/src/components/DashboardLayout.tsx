@@ -18,7 +18,12 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
-import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
+import {
+  HOSPITALITY_DOMAIN_CONTEXT,
+  useChatRequestContext,
+  useChatSuggestions,
+  useDescribeChatAction,
+} from "../constants/copilotContext.js";
 import { getSessionLapseCopy } from "../constants/session-lapse-copy.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
@@ -58,6 +63,7 @@ const ROUTE_LABEL_KEYS = {
   dashboard: "layout.routes.dashboard",
   setup: "layout.routes.setup",
   hours: "layout.routes.hours",
+  chat: "layout.routes.chat",
 } as const;
 
 function routeLabel(t: TFunction, segment: string): string {
@@ -88,6 +94,9 @@ function DashboardLayoutInner() {
   const readiness = useVenueReadiness();
   const isAdmin = useIsAdmin();
   const { selectedVenue, venuesError, refetchVenues } = useVenue();
+  const chatRequestContext = useChatRequestContext();
+  const chatSuggestions = useChatSuggestions();
+  const describeChatAction = useDescribeChatAction();
   useSSESync();
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -426,6 +435,9 @@ function DashboardLayoutInner() {
             domainContext={HOSPITALITY_DOMAIN_CONTEXT}
             getAccessToken={getAccessToken}
             registry={registry}
+            requestContext={chatRequestContext}
+            suggestions={chatSuggestions}
+            describeAction={describeChatAction}
           />
         </div>
       )}

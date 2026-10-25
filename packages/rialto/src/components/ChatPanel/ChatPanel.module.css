@@ -37,6 +37,47 @@
   max-width: 80%;
 }
 
+.messageText {
+  white-space: pre-wrap;
+}
+
+.messageNote {
+  display: block;
+  margin-block-start: var(--rialto-space-xs);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-xs);
+  margin-block-start: auto;
+}
+
+.suggestion {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-round);
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  cursor: pointer;
+  text-align: start;
+  transition: border-color var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.suggestion:hover {
+  border-color: var(--rialto-border-strong);
+}
+
+.suggestion:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 .loading {
   align-self: flex-start;
   color: var(--rialto-text-tertiary);
@@ -57,7 +98,6 @@
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-sm);
   font-weight: 500;
-  text-transform: capitalize;
   color: var(--rialto-text-primary);
 }
 

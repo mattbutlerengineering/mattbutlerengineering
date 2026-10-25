@@ -174,7 +174,14 @@
         role: "user" | "assistant";
         content: string;
         elements?: ChatMessageElement[];
+        note?: string;
       }
+    </item>
+    <item priority="medium">
+      function withNoteOnLastReply(messages: ChatMessage[], note: string): ChatMessage[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } { /* ... */ }
     </item>
     <item priority="low">
       interface PendingAction {
@@ -215,6 +222,7 @@
         stream: ChatStreamFn;
         domainContext: DomainContext;
         getAccessToken: () => string | null | Promise<string | null>;
+        requestContext?: Readonly<Record<string, unknown>>;
       }
     </item>
     <item priority="low">
@@ -231,6 +239,7 @@
         api,
         stream,
         getAccessToken,
+        requestContext,
       }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
     </item>
   </file>
@@ -454,6 +463,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="GuestCards">
+  <file path="packages/rialto/src/components/GuestCards/GuestCards.catalog.ts">
+    <item priority="high">
+      export const guestCardsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="IconButton">
   <file path="packages/rialto/src/components/IconButton/IconButton.catalog.ts">
     <item priority="high">
@@ -512,6 +528,13 @@
   <file path="packages/rialto/src/components/Odometer/Odometer.catalog.ts">
     <item priority="high">
       export const odometerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="ReservationList">
+  <file path="packages/rialto/src/components/ReservationList/ReservationList.catalog.ts">
+    <item priority="high">
+      export const reservationListCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -617,6 +640,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Stat">
+  <file path="packages/rialto/src/components/Stat/Stat.catalog.ts">
+    <item priority="high">
+      export const statCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="StatusLED">
+  <file path="packages/rialto/src/components/StatusLED/StatusLED.catalog.ts">
+    <item priority="high">
+      export const statusLEDCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Table">
   <file path="packages/rialto/src/components/Table/Table.catalog.ts">
     <item priority="high">
@@ -628,6 +665,13 @@
   <file path="packages/rialto/src/components/Tabs/Tabs.catalog.ts">
     <item priority="high">
       export const tabsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Tag">
+  <file path="packages/rialto/src/components/Tag/Tag.catalog.ts">
+    <item priority="high">
+      export const tagCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -854,6 +898,20 @@
         value: string,
         { min, max, isTimeDisabled }: TimeBounds
       ): boolean { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="TimeSlots">
+  <file path="packages/rialto/src/components/TimeSlots/TimeSlots.catalog.ts">
+    <item priority="high">
+      export const timeSlotsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Timeline">
+  <file path="packages/rialto/src/components/Timeline/Timeline.catalog.ts">
+    <item priority="high">
+      export const timelineCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -1717,6 +1775,32 @@
   </file>
   </section>
   <section priority="medium" role="components">
+  <file path="packages/rialto/src/components/booking-vocabulary.ts">
+    <item priority="low">
+      type VocabularyTone = "neutral" | "success" | "warning" | "error";
+    </item>
+    <item priority="low">
+      type ReservationStatusKey = keyof ReservationStatusMessages;
+    </item>
+    <item priority="low">
+      type GuestRiskKey = keyof GuestRiskMessages;
+    </item>
+    <item priority="low">
+      interface Resolved {
+        key: K | undefined;
+        tone: VocabularyTone;
+      }
+    </item>
+    <item priority="medium">
+      function canonical(raw: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeReservationStatus(raw: string): Resolved<ReservationStatusKey> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/components/catalog-meta.ts">
     <item priority="low">
       type CatalogCharLimits = Readonly<Record<string, number>>;
@@ -1833,6 +1917,44 @@
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
+    </item>
+    <item priority="high">
+      interface ChatVenue {
+        id: string;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="high">
+      export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChatRequestContext(): Record<string, string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChatSuggestions(): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      type ChatActionKey = (typeof ACTION_TITLES)[keyof t | (typeof ACTION_FIELDS)[keyof t | (typeof TABLE_STATUSES)[keyof ;
+    </item>
+    <item priority="high">
+      type Translate = (key: ChatActionKey) => string;
+    </item>
+    <item priority="medium">
+      function formatWhen(key: string, value: string, locale?: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeChatAction(
+        action: PendingAction,
+        t: Translate,
+        tableName: (id: string) => string | undefined,
+        locale?: string
+      ): ActionDescription { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useDescribeChatAction(): (action: PendingAction) => ActionDescription { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
@@ -2303,6 +2425,24 @@
       export function findShippedFeature(slug: string): ShippedFeature | undefined { /* ... */ }
     </item>
   </file>
+  <file path="apps/marketing/src/data/status-probes.ts">
+    <item priority="high">
+      export const STATUS_SERVICES: unknown;
+    </item>
+    <item priority="high">
+      export const STATUS_SITES: unknown;
+    </item>
+    <item priority="low">
+      interface ProbeFixture {
+        status: number;
+        contentType?: string;
+        body: string;
+      }
+    </item>
+    <item priority="high">
+      export function statusProbeFixture(url: string, method: string): ProbeFixture | undefined { /* ... */ }
+    </item>
+  </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">
     <item priority="low">
       interface WeeklyResource {
@@ -2613,6 +2753,12 @@
     </item>
     <item priority="high">
       type StoredMenu = Menu & { sections: StoredSection[] };
+    </item>
+    <item priority="high">
+      export function buildPublicMenuFixture(): PublicMenuDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockPublicMenu(page: Page): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function mockMenus(page: Page): Promise<void> { /* ... */ }
@@ -2950,6 +3096,9 @@
     </item>
     <item priority="high">
       export function suiteDidNotRun(report: EvalReport): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function suiteJudgeUnavailable(report: EvalReport): boolean { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/eval/task-scorer.ts">
@@ -5648,6 +5797,22 @@
       }
     </item>
     <item priority="low">
+      interface ReservationStatusMessages {
+        pending: string;
+        confirmed: string;
+        cancelled: string;
+        completed: string;
+        noShow: string;
+      }
+    </item>
+    <item priority="low">
+      interface GuestRiskMessages {
+        trusted: string;
+        standard: string;
+        risky: string;
+      }
+    </item>
+    <item priority="low">
       interface RialtoMessages {
         dismiss: string;
         close: string;
@@ -6978,6 +7143,15 @@
     <item priority="high">
       export function isTransportError(error: Error): boolean { /* ... */ }
     </item>
+    <item priority="medium">
+      function statusOf(error: Error): number | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function minutesLabel(seconds: number | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeLimitError(error: Error): string | null { /* ... */ }
+    </item>
   </file>
   <file path="apps/gen/src/pages/createErrorRecoveryPrompt.ts">
     <item priority="high">
@@ -7609,6 +7783,150 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="rehearsal">
+  <file path="apps/hospitality/src/components/rehearsal/rehearsal-state.ts">
+    <item priority="low">
+      interface RehearsalWaiting {
+        reservationId: string;
+        partySize: number;
+        since: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalMetrics {
+        coversServed: number;
+        averageTurnMinutes: number;
+        peakHour: number | null;
+        tablesNeverSat: number;
+        longestWalkInWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalState {
+        reservations: Reservation[];
+        tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
+        seatedIds: ReadonlySet<string>;
+        waiting: RehearsalWaiting[];
+        metrics: RehearsalMetrics;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalStateOptions {
+        date?: string;
+        tableIds?: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function isoAt(date: string, minutes: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function makeReservation(
+        id: string,
+        date: string,
+        startMinutes: number,
+        partySize: number,
+        tableId: string
+      ): Reservation { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rehearsalStateAt(
+        events: readonly RehearsalEvent[],
+        t: number,
+        { date = DEFAULT_DATE, tableIds }: RehearsalStateOptions = {}
+      ): RehearsalState { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/rehearsal/simulate-service.ts">
+    <item priority="high">
+      interface ProfileShape {
+        turns: number;
+        peakMinutes: number;
+        spreadMinutes: number;
+        walkInShare: number;
+        noShowShare: number;
+      }
+    </item>
+    <item priority="medium">
+      function createRandom(seed: number): () => number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function gaussian(random: () => number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pickPartySize(random: () => number, maxSize: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function turnMinutes(random: () => number, size: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fits(table: RehearsalTable, size: number): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function simulateService({
+        tables,
+        openHour,
+        closeHour,
+        profile,
+        seed,
+      }: SimulateServiceInput): RehearsalEvent[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/rehearsal/types.ts">
+    <item priority="low">
+      interface RehearsalTable {
+        id: string;
+        capacity: number;
+        minCovers: number;
+      }
+    </item>
+    <item priority="low">
+      type RehearsalProfile = "friday" | "weeknight" | "brunch";
+    </item>
+    <item priority="low">
+      type RehearsalTableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    </item>
+    <item priority="low">
+      type RehearsalEvent = {
+            at: number;
+            type | { at: number; type: "seated";  | { at: number; type: "status-ch | { at: number; type: "walk-in-w | { at: number; type: "no-show"; | { at: number; type: "departed";
+    </item>
+    <item priority="low">
+      interface SimulateServiceInput {
+        tables: readonly RehearsalTable[];
+        openHour: number;
+        closeHour: number;
+        profile: RehearsalProfile;
+        seed: number;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/rehearsal/use-rehearsal-playback.ts">
+    <item priority="low">
+      type RehearsalSpeed = 15 | 60 | 240;
+    </item>
+    <item priority="medium">
+      function subscribeReducedMotion(onChange: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reducedMotionSnapshot(): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RehearsalPlayback {
+        time: number;
+        start: number;
+        end: number;
+        playing: boolean;
+        speed: RehearsalSpeed;
+      }
+    </item>
+    <item priority="high">
+      export function useRehearsalPlayback(
+        events: readonly RehearsalEvent[],
+        options: RehearsalStateOptions = {}
+      ): RehearsalPlayback { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="rialto-web">
   <file path="apps/rialto-web/component-count.config.ts">
     <item priority="high">
@@ -7629,22 +7947,101 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="services/agent/src/routes/gen-agent-prompt.ts">
+    <item priority="low">
+      interface AgentPromptContext {
+        venueId?: string | undefined;
+        timeZone?: string | undefined;
+        now: Date;
+        catalogPrompt: string;
+      }
+    </item>
+    <item priority="medium">
+      function weekdayIn(timeZone: string, now: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildAgentSystemPrompt(ctx: AgentPromptContext): string { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/routes/gen-agent-tools.ts">
     <item priority="high">
       type ApiClient = ReturnType<typeof createApiClient>;
     </item>
+    <item priority="low">
+      interface ConfirmedAction {
+        actionId: string;
+        toolName: string;
+        toolInput: Record<string, unknown>;
+      }
+    </item>
+    <item priority="low">
+      interface CreateAgentToolsOptions {
+        confirmedAction?: ConfirmedAction | undefined;
+        venueId?: string | undefined;
+        timeZone?: string | undefined;
+      }
+    </item>
     <item priority="high">
-      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet { /* ... */ }
+      export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withLocalTime<T extends object>(
+        item: T,
+        field: string,
+        timeZone: string | undefined
+      ): T | (T & { localTime: string }) { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DayHours {
+        closed?: boolean | undefined;
+      }
+    </item>
+    <item priority="high">
+      export function closedWeekday(
+        operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
+        date: string
+      ): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function gateWriteTools(
+        tools: ToolSet,
+        log: FastifyBaseLogger,
+        confirmedAction?: ConfirmedAction
+      ): ToolSet { /* ... */ }
+    </item>
+    <item priority="high">
+      interface NamedTable {
+        id: string;
+        name?: string | null;
+        tableNumber?: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function resolveTable<T extends NamedTable>(
+        tables: readonly T[],
+        tableRef: string
+      ): { table: T } | { error: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createAgentTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        options: CreateAgentToolsOptions = {}
+      ): ToolSet { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
     <item priority="high">
-      export const genAgentRoutes: unknown;
+      export function agentApiOrigin(apiBaseUrl: string | undefined): string { /* ... */ }
     </item>
-  </file>
-  <file path="services/agent/src/routes/gen-chat.ts">
+    <item priority="medium">
+      function isTimeZone(value: string): boolean { /* ... */ }
+    </item>
     <item priority="high">
-      export const genChatRoutes: unknown;
+      export const genAgentRoutes: unknown;
     </item>
   </file>
   <file path="services/agent/src/routes/gen-route-factory.ts">
@@ -7683,6 +8080,7 @@
       interface GenFinishPayload {
         usage: { readonly inputTokens?: number; readonly outputTokens?: ...;
         providerMetadata: unknown;
+        finishReason?: string;
       }
     </item>
     <item priority="low">
@@ -7693,6 +8091,9 @@
         maxSteps: number;
         onFinish?: (payload: GenFinishPayload) => Promise<void>;
       }
+    </item>
+    <item priority="high">
+      export const GEN_WRITE_TOOL_NAMES: unknown;
     </item>
     <item priority="high">
       export const GEN_WRITE_TOOLS: ReadonlySet<string>;
@@ -7743,15 +8144,29 @@
       export const GEN_MAX_OUTPUT_TOKENS: unknown;
     </item>
     <item priority="high">
-      type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: ...;
-    </item>
-    <item priority="high">
-      export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) { /* ... */ }
+      export function genSystemInstructions(systemPrompt: string) { /* ... */ }
     </item>
     <item priority="high">
       interface GenUsage {
         inputTokens?: number;
         outputTokens?: number;
+        inputTokenDetails?: {
+          readonly cacheReadTokens?: number;
+          readonly cac...;
+      }
+    </item>
+    <item priority="high">
+      export function cacheTokens(
+        usage: GenUsage,
+        providerMetadata: unknown
+      ): { readonly read: number; readonly write: number } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface GenTelemetry {
+        ttftMs: number;
+        durationMs: number;
+        elementCount: number;
+        finishReason: string;
       }
     </item>
     <item priority="high">
@@ -7762,6 +8177,7 @@
           readonly usage: GenUsage;
           readonly providerMetadata?: unknown;
           readonly label: string;
+          readonly telemetry?: GenTelemetry;
         }
       ): void { /* ... */ }
     </item>
@@ -10326,6 +10742,29 @@
       export const prisma: unknown;
     </item>
   </file>
+  <file path="services/agent/src/services/gen-spec-cache.ts">
+    <item priority="high">
+      export const GEN_SPEC_CACHE_TTL_HOURS: unknown;
+    </item>
+    <item priority="low">
+      interface GenSpecCacheKeyInput {
+        route: string;
+        messages: ReadonlyArray<{ readonly role: string; readonly content: ...;
+        modelId: string;
+        systemPrompt: string;
+        maxOutputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function genSpecCacheKey(input: GenSpecCacheKeyInput): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getCachedSpec(key: string): Promise<unknown[] | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function putCachedSpec(key: string, lines: unknown[]): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/services/gen-spend-ceiling.ts">
     <item priority="high">
       export const GEN_DAILY_CEILING_DEFAULT_USD: unknown;
@@ -10338,7 +10777,7 @@
     </item>
     <item priority="high">
       export function genCostMicroUsd(
-        usage: { readonly inputTokens?: number; readonly outputTokens?: number },
+        usage: Parameters<typeof cacheTokens>[0],
         providerMetadata: unknown
       ): number { /* ... */ }
     </item>
@@ -15471,6 +15910,13 @@
       }
     </item>
     <item priority="high">
+      class StreamRequestError {
+        status: number;
+        problemType: string;
+        retryAfterSeconds: number;
+      }
+    </item>
+    <item priority="high">
       export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> { /* ... */ }
     </item>
   </file>
@@ -19787,6 +20233,9 @@
     </item>
     <item priority="high">
       export const SELECTED_PARAM: unknown;
+    </item>
+    <item priority="high">
+      export const REHEARSAL_PARAM: unknown;
     </item>
     <item priority="low">
       interface TimelineIntent {

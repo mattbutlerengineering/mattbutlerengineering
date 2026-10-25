@@ -26,22 +26,101 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="src/routes/gen-agent-prompt.ts">
+    <item priority="low">
+      interface AgentPromptContext {
+        venueId?: string | undefined;
+        timeZone?: string | undefined;
+        now: Date;
+        catalogPrompt: string;
+      }
+    </item>
+    <item priority="medium">
+      function weekdayIn(timeZone: string, now: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildAgentSystemPrompt(ctx: AgentPromptContext): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/gen-agent-tools.ts">
     <item priority="high">
       type ApiClient = ReturnType<typeof createApiClient>;
     </item>
+    <item priority="low">
+      interface ConfirmedAction {
+        actionId: string;
+        toolName: string;
+        toolInput: Record<string, unknown>;
+      }
+    </item>
+    <item priority="low">
+      interface CreateAgentToolsOptions {
+        confirmedAction?: ConfirmedAction | undefined;
+        venueId?: string | undefined;
+        timeZone?: string | undefined;
+      }
+    </item>
     <item priority="high">
-      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet { /* ... */ }
+      export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withLocalTime<T extends object>(
+        item: T,
+        field: string,
+        timeZone: string | undefined
+      ): T | (T & { localTime: string }) { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DayHours {
+        closed?: boolean | undefined;
+      }
+    </item>
+    <item priority="high">
+      export function closedWeekday(
+        operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
+        date: string
+      ): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function gateWriteTools(
+        tools: ToolSet,
+        log: FastifyBaseLogger,
+        confirmedAction?: ConfirmedAction
+      ): ToolSet { /* ... */ }
+    </item>
+    <item priority="high">
+      interface NamedTable {
+        id: string;
+        name?: string | null;
+        tableNumber?: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function resolveTable<T extends NamedTable>(
+        tables: readonly T[],
+        tableRef: string
+      ): { table: T } | { error: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createAgentTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        options: CreateAgentToolsOptions = {}
+      ): ToolSet { /* ... */ }
     </item>
   </file>
   <file path="src/routes/gen-agent.ts">
     <item priority="high">
-      export const genAgentRoutes: unknown;
+      export function agentApiOrigin(apiBaseUrl: string | undefined): string { /* ... */ }
     </item>
-  </file>
-  <file path="src/routes/gen-chat.ts">
+    <item priority="medium">
+      function isTimeZone(value: string): boolean { /* ... */ }
+    </item>
     <item priority="high">
-      export const genChatRoutes: unknown;
+      export const genAgentRoutes: unknown;
     </item>
   </file>
   <file path="src/routes/gen-route-factory.ts">
@@ -80,6 +159,7 @@
       interface GenFinishPayload {
         usage: { readonly inputTokens?: number; readonly outputTokens?: ...;
         providerMetadata: unknown;
+        finishReason?: string;
       }
     </item>
     <item priority="low">
@@ -90,6 +170,9 @@
         maxSteps: number;
         onFinish?: (payload: GenFinishPayload) => Promise<void>;
       }
+    </item>
+    <item priority="high">
+      export const GEN_WRITE_TOOL_NAMES: unknown;
     </item>
     <item priority="high">
       export const GEN_WRITE_TOOLS: ReadonlySet<string>;
@@ -140,15 +223,29 @@
       export const GEN_MAX_OUTPUT_TOKENS: unknown;
     </item>
     <item priority="high">
-      type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: ...;
-    </item>
-    <item priority="high">
-      export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) { /* ... */ }
+      export function genSystemInstructions(systemPrompt: string) { /* ... */ }
     </item>
     <item priority="high">
       interface GenUsage {
         inputTokens?: number;
         outputTokens?: number;
+        inputTokenDetails?: {
+          readonly cacheReadTokens?: number;
+          readonly cac...;
+      }
+    </item>
+    <item priority="high">
+      export function cacheTokens(
+        usage: GenUsage,
+        providerMetadata: unknown
+      ): { readonly read: number; readonly write: number } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface GenTelemetry {
+        ttftMs: number;
+        durationMs: number;
+        elementCount: number;
+        finishReason: string;
       }
     </item>
     <item priority="high">
@@ -159,6 +256,7 @@
           readonly usage: GenUsage;
           readonly providerMetadata?: unknown;
           readonly label: string;
+          readonly telemetry?: GenTelemetry;
         }
       ): void { /* ... */ }
     </item>
@@ -375,6 +473,29 @@
       export const prisma: unknown;
     </item>
   </file>
+  <file path="src/services/gen-spec-cache.ts">
+    <item priority="high">
+      export const GEN_SPEC_CACHE_TTL_HOURS: unknown;
+    </item>
+    <item priority="low">
+      interface GenSpecCacheKeyInput {
+        route: string;
+        messages: ReadonlyArray<{ readonly role: string; readonly content: ...;
+        modelId: string;
+        systemPrompt: string;
+        maxOutputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function genSpecCacheKey(input: GenSpecCacheKeyInput): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getCachedSpec(key: string): Promise<unknown[] | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function putCachedSpec(key: string, lines: unknown[]): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/gen-spend-ceiling.ts">
     <item priority="high">
       export const GEN_DAILY_CEILING_DEFAULT_USD: unknown;
@@ -387,7 +508,7 @@
     </item>
     <item priority="high">
       export function genCostMicroUsd(
-        usage: { readonly inputTokens?: number; readonly outputTokens?: number },
+        usage: Parameters<typeof cacheTokens>[0],
         providerMetadata: unknown
       ): number { /* ... */ }
     </item>

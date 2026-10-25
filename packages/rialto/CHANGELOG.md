@@ -1,5 +1,65 @@
 # @mattbutlerengineering/rialto
 
+## 0.8.6
+
+### Patch Changes
+
+- [#7466](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7466) [`eeb5bfa`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/eeb5bfaf9010a7354e4f93d4844498899cae68a4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add the locale words the upcoming reservation, open-times and guest chat elements render — `partyOf`, `visitCount`, `reservationStatus`, `guestRisk`, `walkIn`, `noOpenTimes` and the list names `reservations`, `openTimes`, `guests` — in every locale, plus an internal status and risk normalizer.
+
+- [#7475](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7475) [`953f3b9`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/953f3b9e7839612b003f5f0fdbe227bce436eaf1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add GuestCards, a display-only stack of guest cards (name in the display face, localized visit count and risk word in its tone, tags in a wrapping row; never contact details, notes or spend), with a catalog meta for generative UI.
+
+- [#7471](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7471) [`b2ba512`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b2ba512e281b4783d90995c1a8a6f53e8cc64630) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add ReservationList, a display-only list of bookings (time, guest or Walk-in, party size and status word in its tone), with a catalog meta for generative UI.
+
+- [#7474](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7474) [`8bb548c`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/8bb548ca7bfeb8cc5ef7ad2b8c4b7bd329abf721) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add TimeSlots, a display-only list of open times for one date and party size (a date line over static Tag-look labels that wrap, or a localized "No open times" line), with a catalog meta for generative UI.
+
+- [#7469](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7469) [`4150f46`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4150f46c4085354805add0c707c7f3e1318d5cf5) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Timeline: timestamps now share one column as wide as the longest of them (capped at a third of the Timeline, wrapping past that), so a long timestamp such as "March 14, 2025" no longer runs under its event dot. Short timestamps keep today's 64px (48px compact) column. The catalog description now names only a guest's visit history.
+
+## 0.8.5
+
+### Patch Changes
+
+- [#7456](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7456) [`85b7783`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/85b77836f02a2f357d14af95cd8f5e3eff413521) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add catalog metadata for Stat, Timeline, Tag and StatusLED so generative UI can offer them.
+
+- [#7460](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7460) [`ce18386`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ce18386e8c02235455f8bb252b48a264f161afd3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Text and Badge catalog metadata declare a string `text`/`label` prop so generated UI can give them words.
+
+- [#7462](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7462) [`1b7ad23`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1b7ad23fbcd9a485b0d9a3c230a9eb79b1e338d4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Text and Badge catalog metadata require their words; Timeline events tolerate a missing title.
+
+## 0.8.4
+
+### Patch Changes
+
+- [#7448](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7448) [`e8947c2`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e8947c2b7dfc1201cb7d4f33bd2c11028e98d239) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: cancelling a proposed action now marks the proposing reply ("Cancelled. Nothing was changed.") and sends that outcome with the next request, so the model stops re-asking. Adds the `actionCancelled` locale key and an optional `note` on `ChatMessage`.
+
+- [#7447](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7447) [`a3d6e46`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a3d6e468932c881bf83d9b0a0b40f5a52d2d81ae) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: the confirm bar no longer title-cases its label with CSS, which mangled host-supplied and translated titles ("Seat A Walk-In"). The raw fallback title is now sentence case.
+
+- [#7445](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7445) [`a8e0a56`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a8e0a5688e14cf02b59a6590d1cc20a9a2b3c0a5) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: add an optional `describeAction` prop so the host app can present a pending write in the confirm bar (a title and labelled values) instead of the raw tool name and input. Exports the `ActionDescription` type.
+
+- [#7441](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7441) [`0519590`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/05195903bec635014e669e295e49da348d097b0b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: offer starter `suggestions` on an empty conversation, keep the newest message scrolled into view, show the typing indicator on every turn, swap Send for a Stop button while a reply streams, and preserve line breaks in replies. Adds the `stop` and `chatSuggestions` locale keys.
+
+- [#7439](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7439) [`e50ac66`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e50ac6617c1cb444ace0dbffe0b3fc519e6a1ece) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel: add an optional `requestContext` prop whose fields are merged into every chat request body, so a host app can send context such as the selected venue and its time zone.
+
+## 0.8.3
+
+### Patch Changes
+
+- [#7417](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7417) [`eee4a17`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/eee4a17189a99a3cf2557b286770a53ad6ff6c50) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel now invokes registry components with json-render's ComponentRenderProps contract ({ element, children, emit, on }) instead of spreading raw props, and nests streamed elements by their children ids (with a cycle guard). Previously every catalog registry component crashed or rendered empty in the chat drawer.
+
+- [#7416](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7416) [`7f76d0e`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7f76d0ed34562187d87b0c7238af10468b3455af) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel's confirm now sends the confirmed action's toolName and toolInput, matching the gen-agent server's new confirmation gate, which executes exactly the input the user approved (at most once) instead of running write tools before confirmation.
+
+## 0.8.2
+
+### Patch Changes
+
+- [#7411](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7411) [`996a9ab`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/996a9ab681b474138020f58754f222652a22d51d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tag: selected state uses `--rialto-text-on-accent` text so it meets WCAG AA 4.5:1 contrast in light and dark themes.
+
+- [#7407](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7407) [`c67f643`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c67f64308d20e8f029901ebe0be210a0fc64a64f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart: a bar's accessible name now always contains its visible text (title and price), fixing the axe `label-content-name-mismatch` finding (WCAG 2.5.3).
+
+## 0.8.1
+
+### Patch Changes
+
+- [#7335](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7335) [`3585ad6`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3585ad6a9bdc68a7925fd303d0d09d8fefb49afe) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - MasterOverride: the safety cover button's accessible name now starts with its visible text, fixing the axe `label-content-name-mismatch` violation.
+
 ## 0.8.0
 
 ### Minor Changes

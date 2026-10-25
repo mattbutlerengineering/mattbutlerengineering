@@ -79,4 +79,3 @@ DigitalOcean App Platform — component name: `agent-service`
 | GET    | `/v1/sessions/:id/events` | Stream session events (SSE)  |
 | POST   | `/v1/orchestrate`         | Create orchestration session |
 | POST   | `/api/gen/ui`             | Stream UI generation (JSONL) |
-| POST   | `/api/gen/chat`           | Stream chat responses (SSE)  |

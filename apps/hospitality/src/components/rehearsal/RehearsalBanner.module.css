@@ -1,0 +1,28 @@
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  margin-block-end: var(--rialto-space-xs);
+  border: 2px dashed var(--rialto-warning);
+  border-radius: var(--rialto-radius-default);
+  background: color-mix(in srgb, var(--rialto-warning) 12%, var(--rialto-surface));
+}
+
+.title {
+  font-weight: 600;
+}
+
+.clock {
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  margin-inline-start: auto;
+}

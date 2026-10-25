@@ -109,8 +109,8 @@ for (const scheme of ["light", "dark"] as const) {
 
 // Iteration 7 (#7190): example and standalone pages whose seed findings are
 // fixed (or no longer reproduce). Full rule set, both themes, any impact fails.
-// Not listed: reservation-kanban, reservation-timeline and visual-test, which
-// still carry the human-deferred TapeChart/ghost-button/Tag findings.
+// Iteration 8 (#7405) added reservation-kanban, reservation-timeline and
+// visual-test once their deferred TapeChart/ghost-button/Tag findings landed.
 const ITERATION_7_PAGES = [
   "examples/checkout",
   "examples/form",
@@ -118,9 +118,12 @@ const ITERATION_7_PAGES = [
   "examples/onboarding",
   "examples/pricing-table",
   "examples/reservations",
+  "examples/reservation-kanban",
+  "examples/reservation-timeline",
   "examples/settings",
   "demos/signup",
   "privacy",
+  "visual-test",
 ];
 
 for (const scheme of ["light", "dark"] as const) {

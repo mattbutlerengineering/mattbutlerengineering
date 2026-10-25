@@ -9,8 +9,10 @@ computes the fee owed and the deposit action to take.
 ```
 src/
 ├── index.ts                    # Barrel export
-├── cancellation-policy.ts      # evaluateCancellationFee, formatCancellationTerms
-└── cancellation-policy.test.ts
+├── cancellation-policy.ts      # evaluateCancellationFee, formatCancellationTerms, describeCancellationPolicy
+├── cancellation-policy.test.ts
+├── deposit-quote.ts            # quoteDeposit — per-person vs flat deposit total
+└── deposit-quote.test.ts
 ```
 
 ## Decision Tree
@@ -25,7 +27,7 @@ cents; fractional cents are floored, never rounded.
 ## Consumers
 
 - `services/reservations` (`src/services/cancellation-policy.ts`) — server-side fee calculation when a guest cancels
-- `apps/hospitality` (`src/utils/cancellation-fee.ts`) — client-side display of cancellation terms in the booking widget
+- `apps/hospitality` (`src/hooks/useCancellationQuote.ts`) — client-side fee quote on cancel; (`src/components/booking-widget/formatDepositCancellationTerms.ts`) — display of cancellation terms in the booking widget, via `describeCancellationPolicy` + `quoteDeposit`
 
 ## Gotchas
 

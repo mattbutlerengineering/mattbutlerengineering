@@ -1,5 +1,5 @@
 {
-  "version": "0.8.0",
+  "version": "0.8.6",
   "components": [
     {
       "name": "Accordion",
@@ -46,6 +46,13 @@
     {
       "name": "AccordionItem",
       "description": "Descriptor for a single panel within an \n{@link \nAccordion \n}\n.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "ActionDescription",
+      "description": "How the confirm bar presents a pending write: a title and labelled values.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
@@ -751,6 +758,24 @@
           "name": "registry",
           "type": "ComponentRegistry | undefined",
           "required": false
+        },
+        {
+          "name": "requestContext",
+          "type": "Readonly<Record<string, unknown>> | undefined",
+          "required": false,
+          "description": "Extra fields merged into every request body (e.g. the selected venue)."
+        },
+        {
+          "name": "suggestions",
+          "type": "readonly string[] | undefined",
+          "required": false,
+          "description": "Starter prompts offered on an empty conversation; clicking one sends it."
+        },
+        {
+          "name": "describeAction",
+          "type": "((action: PendingAction) => ActionDescription) | undefined",
+          "required": false,
+          "description": "Presents a pending write in the confirm bar (e.g. a table's name instead of\nits id). Defaults to the tool name and raw input."
         }
       ],
       "slots": []
@@ -2127,6 +2152,28 @@
       "slots": []
     },
     {
+      "name": "GuestCard",
+      "description": "One guest in `GuestCards`. Contact details, notes and spend are not part of\nthe card and are never shown.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "GuestCards",
+      "description": "Display-only stack of guest cards: the name in the display face, the\nlocalized visit count and the risk word in its Badge tone on one line, then\nthe guest's tags in a wrapping row (left out when there are none). Cards are\nseparated by spacing, not boxes; nothing in it is focusable.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "guests",
+          "type": "GuestCard[]",
+          "required": true
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
       "name": "Handshake",
       "description": "Instrument that visualises a handshake between two or more stations —\nan OIDC sign-in, a webhook confirmation, a device pairing. Each station is\na recessed LED; the legs between them are machined grooves, and during\nnegotiation a single gold credential pulse shuttles along the active leg.\nGold is the one jewel accent, so it appears only while something is in\nflight; success and error use their semantic tokens.\n\nRenders as a single `role=\"img\"` — the track is decorative and assistive\ntech hears only the required `aria-label`.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -3395,6 +3442,28 @@
       ]
     },
     {
+      "name": "ReservationList",
+      "description": "Display-only list of bookings as aligned rows: time, guest (or Walk-in),\nparty size in words, and the status word in its Badge tone. Rows render in\nthe order given; nothing in it is focusable.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "reservations",
+          "type": "ReservationListRow[]",
+          "required": true
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
+      "name": "ReservationListRow",
+      "description": "One booking row in a `ReservationList`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "RialtoLocale",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
@@ -4064,13 +4133,11 @@
       "characterLimits": [
         {
           "prop": "delta",
-          "max": 10,
-          "reason": "Trend delta; short numeric change"
+          "max": 10
         },
         {
           "prop": "label",
-          "max": 25,
-          "reason": "Metric label; sits below the value"
+          "max": 25
         },
         {
           "prop": "value",
@@ -4114,7 +4181,13 @@
           "required": false
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
+      ]
     },
     {
       "name": "StepItem",
@@ -4318,8 +4391,7 @@
       "characterLimits": [
         {
           "prop": "children",
-          "max": 30,
-          "reason": "Chip label; must fit single line"
+          "max": 30
         }
       ]
     },
@@ -4762,6 +4834,39 @@
         }
       ],
       "slots": []
+    },
+    {
+      "name": "TimeSlots",
+      "description": "Display-only open times for one date and party size: a date line\n(\"{date} · Party of 4\") over the times as static Tag-look labels that wrap.\nWith no times it shows one localized \"No open times\" line, never an empty\nbox. Nothing in it is focusable: it books nothing.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "date",
+          "type": "string",
+          "required": true,
+          "description": "Display text for the day, such as \"Friday, Oct 30\"."
+        },
+        {
+          "name": "partySize",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "times",
+          "type": "string[]",
+          "required": true,
+          "description": "Open times as display text, in time order. Empty shows the no-open-times line."
+        }
+      ],
+      "slots": [
+        "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "date",
+          "max": 40
+        }
+      ]
     },
     {
       "name": "Timeline",

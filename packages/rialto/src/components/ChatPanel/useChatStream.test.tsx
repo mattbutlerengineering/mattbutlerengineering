@@ -62,6 +62,26 @@ describe("useChatStream", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("merges requestContext into every request body", async () => {
+    vi.mocked(streamNDJSON).mockReturnValueOnce(mockStream([{ type: "text", content: "ok" }]));
+    const { result } = renderHook(() =>
+      useChatStream({
+        ...createMockProps(),
+        requestContext: { venueId: "venue-1", timeZone: "America/Los_Angeles" },
+      })
+    );
+
+    await act(async () => {
+      await result.current.send("how does tonight look?");
+    });
+
+    expect(vi.mocked(streamNDJSON).mock.calls[0]![0].body).toEqual({
+      venueId: "venue-1",
+      timeZone: "America/Los_Angeles",
+      messages: [{ role: "user", content: "how does tonight look?" }],
+    });
+  });
+
   it("sends a message and accumulates response from NDJSON stream", async () => {
     vi.mocked(streamNDJSON).mockReturnValueOnce(
       mockStream([
@@ -179,6 +199,38 @@ describe("useChatStream", () => {
     });
   });
 
+  it("confirm targets the venue the action was proposed in, even after a venue switch", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          {
+            type: "action_request",
+            actionId: "call-9",
+            toolName: "update_table_status",
+            toolInput: { tableNumber: 5, status: "DIRTY" },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Done" }]));
+
+    const { result, rerender } = renderHook(
+      ({ venueId }: { venueId: string }) =>
+        useChatStream({ ...createMockProps(), requestContext: { venueId } }),
+      { initialProps: { venueId: "venue-a" } }
+    );
+
+    await act(async () => {
+      await result.current.send("table 5 is dirty");
+    });
+    rerender({ venueId: "venue-b" });
+    await act(async () => {
+      await result.current.confirmAction();
+    });
+
+    const confirmBody = vi.mocked(streamNDJSON).mock.calls[1]![0].body as { venueId: string };
+    expect(confirmBody.venueId).toBe("venue-a");
+  });
+
   it("confirm sends action_confirm message and clears pending", async () => {
     vi.mocked(streamNDJSON)
       .mockReturnValueOnce(
@@ -208,8 +260,52 @@ describe("useChatStream", () => {
     expect(result.current.pendingAction).toBeNull();
 
     const lastCall = vi.mocked(streamNDJSON).mock.calls[1]![0];
-    const body = lastCall.body as { actionConfirm: { actionId: string } };
-    expect(body.actionConfirm).toEqual({ actionId: "call-3" });
+    const body = lastCall.body as {
+      actionConfirm: { actionId: string; toolName: string; toolInput: Record<string, unknown> };
+    };
+    // The server's confirmation gate executes exactly this toolName + toolInput,
+    // so the confirm resend must carry what the user saw — not just the id.
+    expect(body.actionConfirm).toEqual({
+      actionId: "call-3",
+      toolName: "create_reservation",
+      toolInput: { guestName: "Smith" },
+    });
+  });
+
+  it("retry after a confirm does not replay actionConfirm", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          {
+            type: "action_request",
+            actionId: "call-3",
+            toolName: "create_reservation",
+            toolInput: { guestName: "Smith" },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Done" }]))
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Retried" }]));
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("book Smith");
+    });
+    await act(async () => {
+      await result.current.confirmAction();
+    });
+    await act(async () => {
+      await result.current.retry();
+    });
+
+    // The server's gate re-arms on any body carrying actionConfirm, so a
+    // replayed confirm would execute the write a second time. A retry must
+    // re-ask the model instead — the gate then holds the write for a fresh,
+    // explicit confirmation.
+    const retryBody = vi.mocked(streamNDJSON).mock.calls[2]![0].body as Record<string, unknown>;
+    expect(retryBody.actionConfirm).toBeUndefined();
+    expect(retryBody.messages).toEqual([{ role: "user", content: "book Smith" }]);
   });
 
   it("cancel clears pending action and adds cancel message", async () => {
@@ -235,6 +331,86 @@ describe("useChatStream", () => {
     });
 
     expect(result.current.pendingAction).toBeNull();
+  });
+
+  it("tells the model about a cancel on the next turn, so it doesn't re-ask", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          { type: "text", content: "Seat Lee at lml?" },
+          {
+            type: "action_request",
+            actionId: "call-4",
+            toolName: "seat_walk_in",
+            toolInput: { partySize: 2 },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Okay." }]));
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("seat Lee");
+    });
+    act(() => {
+      result.current.cancelAction();
+    });
+
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "Seat Lee at lml?",
+      note: "Cancelled. Nothing was changed.",
+    });
+
+    await act(async () => {
+      await result.current.send("thanks");
+    });
+
+    const body = vi.mocked(streamNDJSON).mock.calls[1]![0].body as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(body.messages).toEqual([
+      { role: "user", content: "seat Lee" },
+      { role: "assistant", content: "Seat Lee at lml?\n\nCancelled. Nothing was changed." },
+      { role: "user", content: "thanks" },
+    ]);
+  });
+
+  it("treats sending a new message while a confirm is pending as cancelling it", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(
+        mockStream([
+          { type: "text", content: "Seat Lee at lml?" },
+          {
+            type: "action_request",
+            actionId: "call-5",
+            toolName: "seat_walk_in",
+            toolInput: { partySize: 2 },
+          },
+        ])
+      )
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Tables 4 and 5." }]));
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("seat Lee");
+    });
+    await act(async () => {
+      await result.current.send("which tables are free?");
+    });
+
+    expect(result.current.pendingAction).toBeNull();
+    expect(result.current.messages[1]).toMatchObject({
+      content: "Seat Lee at lml?",
+      note: "Cancelled. Nothing was changed.",
+    });
+    expect(result.current.messages[3]).not.toHaveProperty("note");
+    const body = vi.mocked(streamNDJSON).mock.calls[1]![0].body as {
+      messages: Array<{ content: string }>;
+    };
+    expect(body.messages[1]!.content).toBe("Seat Lee at lml?\n\nCancelled. Nothing was changed.");
   });
 
   it("exposes a human-readable error when the stream fails", async () => {

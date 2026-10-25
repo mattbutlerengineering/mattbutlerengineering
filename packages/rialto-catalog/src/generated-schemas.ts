@@ -34,6 +34,7 @@ export const generatedSchemas = {
     variant: z.enum(["accent", "error", "neutral", "success", "warning"]).optional(),
     size: z.enum(["md", "sm"]).optional(),
     dot: z.boolean().optional(),
+    children: z.string(),
   }),
   Banner: z.object({
     variant: z.enum(["accent", "error", "info", "warning"]).optional(),
@@ -157,6 +158,9 @@ export const generatedSchemas = {
   FormField: z.object({
     name: z.string(),
   }),
+  GuestCards: z.object({
+    guests: z.array(z.object({ name: z.string().nullish(), visits: z.union([z.number(), z.string()]).nullish(), risk: z.string().nullish(), tags: z.unknown().optional() })),
+  }),
   IconButton: z.object({
     icon: z.string().optional(),
     "aria-label": z.string(),
@@ -180,6 +184,9 @@ export const generatedSchemas = {
     size: z.enum(["lg", "md", "sm"]).optional(),
     flipInterval: z.number().optional(),
     cascadeDelay: z.number().optional(),
+  }),
+  ReservationList: z.object({
+    reservations: z.array(z.object({ time: z.string().nullish(), guest: z.string().nullish(), partySize: z.union([z.number(), z.string()]).nullish(), status: z.string().nullish() })),
   }),
   Select: z.object({
     options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
@@ -206,6 +213,18 @@ export const generatedSchemas = {
     justify: z.enum(["between", "center", "end", "start"]).optional(),
     wrap: z.boolean().optional(),
   }),
+  Stat: z.object({
+    value: z.union([z.string(), z.number()]),
+    label: z.string().max(25),
+    delta: z.union([z.string(), z.number()]).optional(),
+    trend: z.enum(["down", "neutral", "up"]).optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+  }),
+  StatusLED: z.object({
+    variant: z.enum(["accent", "danger", "neutral", "off", "success", "warning"]).optional(),
+    pulse: z.boolean().optional(),
+    label: z.string().max(40).optional(),
+  }),
   Table: z.object({
     columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() })),
     data: z.array(z.record(z.string(), z.unknown())),
@@ -217,12 +236,20 @@ export const generatedSchemas = {
     tabs: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() })),
     defaultTab: z.string().optional(),
   }),
+  Tag: z.object({
+    children: z.string().max(30),
+    variant: z.enum(["accent", "default", "error", "success"]).optional(),
+    dismissible: z.boolean().optional(),
+    selected: z.boolean().optional(),
+    icon: z.string().optional(),
+  }),
   Text: z.object({
     variant: z.enum(["body", "caption", "detail", "display", "label"]).optional(),
     color: z.enum(["accent", "error", "on-accent", "primary", "secondary", "success", "tertiary", "warning"]).optional(),
     align: z.enum(["center", "left", "right"]).optional(),
     mono: z.boolean().optional(),
     truncate: z.boolean().optional(),
+    children: z.string(),
   }),
   TimePicker: z.object({
     step: z.number().optional(),
@@ -232,6 +259,15 @@ export const generatedSchemas = {
     label: z.string().optional(),
     placeholder: z.string().optional(),
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
+  }),
+  TimeSlots: z.object({
+    date: z.string().max(40),
+    partySize: z.union([z.number(), z.string()]),
+    times: z.array(z.string()),
+  }),
+  Timeline: z.object({
+    events: z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() })),
+    compact: z.boolean().optional(),
   }),
   Toast: z.object({
     title: z.string().max(50),

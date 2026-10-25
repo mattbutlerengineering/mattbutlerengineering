@@ -18,8 +18,9 @@ const RENDER_TOOL_INSTRUCTIONS =
   "request, call the render_component tool exactly once with the complete " +
   "list of elements. Each element needs a unique `key` (not `id`) and, for " +
   "every element except the root, a `parentKey` set to its parent's `key` " +
-  "(omit `parentKey` on the root element). Do not use `children` — the tree " +
-  "is assembled purely from `parentKey` links.";
+  "(omit `parentKey` on the root element). Do not give elements a `children` " +
+  "array of keys — the tree is assembled purely from `parentKey` links. An " +
+  "element's own words go in its text or label prop.";
 
 // Memoize catalog prompt at module load — avoid re-generating per request
 const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${RENDER_TOOL_INSTRUCTIONS}`;
@@ -125,7 +126,7 @@ function createRenderComponentTool() {
 export const genUiRoutes = createGenRoute({
   path: "/api/gen/ui",
   costLogLabel: "gen-ui cost log",
-  // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
+  // Per-user cap — matches gen-agent's per-route rate limit pattern.
   rateLimit: { max: 20, timeWindow: "1 hour" },
   schema: GenUiBodySchema,
   streamFormat: "ndjson",
@@ -138,6 +139,7 @@ export const genUiRoutes = createGenRoute({
   // ai@7 to retry the tool call on, so a tool-error can only ever mean the
   // generation failed outright. gen-agent (maxSteps 5) must NOT set this.
   failOnToolError: true,
+  cache: true,
   toMessages: ({ prompt, context, target }: GenUiBody) => [
     {
       role: "user",

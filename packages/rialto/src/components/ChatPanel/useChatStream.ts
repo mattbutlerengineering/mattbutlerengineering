@@ -13,6 +13,24 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   elements?: ChatMessageElement[];
+  /** A local outcome shown under the message (e.g. a cancelled action). */
+  note?: string;
+}
+
+/**
+ * The text the server sees for a message. A note rides along with its message
+ * so the model learns the outcome (e.g. that the user cancelled), without
+ * inventing a turn the server's strict user/assistant alternation would reject.
+ */
+/** `messages` with `note` on the last reply, if the last message is a reply. */
+function withNoteOnLastReply(messages: ChatMessage[], note: string): ChatMessage[] {
+  const last = messages.at(-1);
+  if (last?.role !== "assistant") return messages;
+  return [...messages.slice(0, -1), { ...last, note }];
+}
+
+function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } {
+  return { role: m.role, content: m.note ? `${m.content}\n\n${m.note}` : m.content };
 }
 
 export interface PendingAction {
@@ -57,6 +75,11 @@ export interface UseChatStreamOptions {
   stream: ChatStreamFn;
   domainContext: DomainContext;
   getAccessToken: () => string | null | Promise<string | null>;
+  /**
+   * Extra fields the host app merges into every request body, e.g. the
+   * selected venue and its time zone, so the server knows what "tonight" means.
+   */
+  requestContext?: Readonly<Record<string, unknown>>;
 }
 
 export interface UseChatStreamReturn {
@@ -79,6 +102,7 @@ export function useChatStream({
   api,
   stream,
   getAccessToken,
+  requestContext,
 }: UseChatStreamOptions): UseChatStreamReturn {
   const { messages: t } = useRialtoLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -91,6 +115,10 @@ export function useChatStream({
   const abortControllerRef = useRef<AbortController | null>(null);
   const getAccessTokenRef = useRef(getAccessToken);
   const streamRef = useRef(stream);
+  const requestContextRef = useRef(requestContext);
+  // The context of the request that proposed the pending action: a confirm
+  // must run where the action was proposed, even if the host switched venue.
+  const pendingContextRef = useRef<Readonly<Record<string, unknown>> | undefined>(undefined);
   const messagesRef = useRef(messages);
   const pendingActionRef = useRef(pendingAction);
   const lastRequestRef = useRef<{
@@ -107,6 +135,10 @@ export function useChatStream({
   }, [stream]);
 
   useEffect(() => {
+    requestContextRef.current = requestContext;
+  }, [requestContext]);
+
+  useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
@@ -115,12 +147,19 @@ export function useChatStream({
   }, [pendingAction]);
 
   const streamRequest = useCallback(
-    async (body: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
+    async (requestBody: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
       abortControllerRef.current?.abort();
+      const context = requestContextRef.current;
+      const body = { ...context, ...requestBody };
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      lastRequestRef.current = { body, baseMessages };
+      // Never store actionConfirm for replay: the server's gate re-arms on any
+      // body carrying it, so a retry() after a confirmed resend would execute
+      // the write again. A retry re-asks the model; the gate holds the write
+      // until the user confirms afresh.
+      const { actionConfirm: _confirmed, ...replayBody } = body;
+      lastRequestRef.current = { body: replayBody, baseMessages };
       setIsStreaming(true);
       setError(null);
       setActiveTool(null);
@@ -152,6 +191,7 @@ export function useChatStream({
             if (elements.length > 0) msg.elements = [...elements];
             setMessages([...currentMessages, msg]);
           } else if (line.type === "action_request" && line.actionId && line.toolName) {
+            pendingContextRef.current = context;
             setPendingAction({
               actionId: line.actionId,
               toolName: line.toolName,
@@ -194,15 +234,20 @@ export function useChatStream({
   const send = useCallback(
     async (content: string): Promise<void> => {
       const userMessage: ChatMessage = { role: "user", content };
-      const updatedMessages = [...messagesRef.current, userMessage];
+      // Typing past a pending confirm abandons it: record that on the reply
+      // that proposed it (still the last message), so the bar never outlives
+      // its turn and the model hears the outcome.
+      const pending = pendingActionRef.current !== null;
+      if (pending) setPendingAction(null);
+      const base = pending
+        ? withNoteOnLastReply(messagesRef.current, t.actionCancelled)
+        : messagesRef.current;
+      const updatedMessages = [...base, userMessage];
       setMessages(updatedMessages);
 
-      await streamRequest(
-        { messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })) },
-        updatedMessages
-      );
+      await streamRequest({ messages: updatedMessages.map(toWireMessage) }, updatedMessages);
     },
-    [streamRequest]
+    [streamRequest, t]
   );
 
   const confirmAction = useCallback(async (): Promise<void> => {
@@ -214,8 +259,15 @@ export function useChatStream({
     const currentMsgs = messagesRef.current;
     await streamRequest(
       {
-        messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
-        actionConfirm: { actionId: action.actionId },
+        ...pendingContextRef.current,
+        messages: currentMsgs.map(toWireMessage),
+        // The server executes exactly this toolName + toolInput (its confirmation
+        // gate ignores the model's re-derived input), so send what the user saw.
+        actionConfirm: {
+          actionId: action.actionId,
+          toolName: action.toolName,
+          toolInput: action.toolInput,
+        },
       },
       currentMsgs
     );
@@ -223,7 +275,10 @@ export function useChatStream({
 
   const cancelAction = useCallback(() => {
     setPendingAction(null);
-  }, []);
+    // Mark the proposing reply, so the UI and the next request both say so.
+    // It is the last message: send() abandons a pending confirm before adding a turn.
+    setMessages((prev) => withNoteOnLastReply(prev, t.actionCancelled));
+  }, [t]);
 
   const stop = useCallback(() => {
     abortControllerRef.current?.abort();

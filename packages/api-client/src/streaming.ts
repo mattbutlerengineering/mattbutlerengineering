@@ -18,6 +18,28 @@ export interface StreamConfig {
 }
 
 /**
+ * Thrown for any non-2xx response. The message keeps the historical
+ * "Request failed: <detail>" form; the structured fields let callers classify
+ * by HTTP status / RFC 7807 problem type instead of sniffing message text.
+ */
+export class StreamRequestError extends Error {
+  readonly status: number;
+  readonly problemType?: string;
+  readonly retryAfterSeconds?: number;
+
+  constructor(
+    message: string,
+    fields: { status: number; problemType?: string; retryAfterSeconds?: number }
+  ) {
+    super(message);
+    this.name = "StreamRequestError";
+    this.status = fields.status;
+    this.problemType = fields.problemType;
+    this.retryAfterSeconds = fields.retryAfterSeconds;
+  }
+}
+
+/**
  * Stream NDJSON from a POST endpoint, yielding one parsed object per line.
  *
  * Callers are responsible for:
@@ -45,16 +67,20 @@ export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> 
 
   if (!response.ok) {
     let detail = response.statusText || `HTTP ${response.status}`;
+    let problemType: string | undefined;
     try {
-      const body = await response.json();
-      detail =
-        ((body as Record<string, unknown>).detail as string) ??
-        ((body as Record<string, unknown>).message as string) ??
-        detail;
+      const body = (await response.json()) as Record<string, unknown>;
+      detail = (body.detail as string) ?? (body.message as string) ?? detail;
+      if (typeof body.type === "string") problemType = body.type;
     } catch {
       // Response body is not JSON — use status text
     }
-    throw new Error(`Request failed: ${detail}`);
+    const retryAfter = Number(response.headers.get("Retry-After"));
+    throw new StreamRequestError(`Request failed: ${detail}`, {
+      status: response.status,
+      problemType,
+      retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+    });
   }
 
   if (!response.body) {

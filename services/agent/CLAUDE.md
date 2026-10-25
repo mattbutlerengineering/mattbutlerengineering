@@ -77,7 +77,6 @@ src/
 │   ├── webhooks.ts     # GitHub webhook handlers      → /v1/webhooks/github
 │   ├── remediation.ts  # Alert-based auto-remediation → /v1/webhooks/remediation
 │   ├── gen-ui.ts       # Gen playground UI streaming  → /api/gen/ui
-│   ├── gen-chat.ts     # Gen chat streaming           → /api/gen/chat
 │   ├── gen-specs.ts    # Gen specs CRUD + streaming   → /api/gen/specs
 │   ├── gen-agent.ts    # Gen agent streaming (tools)  → /api/gen/agent
 │   ├── gen-stream.ts   # Shared gen streaming infra (not a route)
@@ -119,7 +118,6 @@ src/
 | Method | Path                          | Description                                                                                                              |
 | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | POST   | `/api/gen/ui`                 | Stream UI generation (JSONL); optional `target: {key, type}` regenerates one subtree (root keeps `target.key`, else 502) |
-| POST   | `/api/gen/chat`               | Stream chat responses (SSE)                                                                                              |
 | POST   | `/api/gen/agent`              | Stream agent responses (SSE)                                                                                             |
 | POST   | `/api/gen/specs`              | Create and persist a spec                                                                                                |
 | GET    | `/api/gen/specs`              | List user's specs                                                                                                        |

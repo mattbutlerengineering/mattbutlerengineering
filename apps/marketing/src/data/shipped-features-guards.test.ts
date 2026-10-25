@@ -15,6 +15,12 @@ describe("shipped features snapshot", () => {
     expect(isShippedFeaturesSnapshot(snapshot)).toBe(true);
   });
 
+  it("is non-empty, so an automated refresh cannot silently wipe the homepage section (#7348)", () => {
+    expect(SHIPPED_FEATURES.length).toBeGreaterThan(0);
+    const newest = Math.max(...SHIPPED_FEATURES.map((f) => Date.parse(f.lastMergedAt)));
+    expect(Number.isNaN(newest)).toBe(false);
+  });
+
   it("has unique slugs", () => {
     const slugs = SHIPPED_FEATURES.map((feature) => feature.slug);
     expect(new Set(slugs).size).toBe(slugs.length);

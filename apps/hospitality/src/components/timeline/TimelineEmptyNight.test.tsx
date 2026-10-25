@@ -71,3 +71,34 @@ describe("TimelineEmptyNight (A7.1 / A7.2 leaf half)", () => {
     expect(coarseBlock?.[1]).toMatch(/\.card button\s*\{[^}]*min-block-size:\s*44px/);
   });
 });
+
+describe("TimelineEmptyNight rehearsal entry point", () => {
+  function renderWith(variant: TimelineEmptyNightProps["variant"], onRehearse?: () => void) {
+    render(
+      <TimelineEmptyNight
+        variant={variant}
+        dateLabel="Wednesday, Sep 4"
+        onWalkIn={vi.fn()}
+        onToday={vi.fn()}
+        onRehearse={onRehearse}
+      />
+    );
+  }
+
+  it("tonight: offers 'Run a Friday night' as a real button that starts the rehearsal", () => {
+    const onRehearse = vi.fn();
+    renderWith("today", onRehearse);
+    fireEvent.click(screen.getByRole("button", { name: "Run a Friday night" }));
+    expect(onRehearse).toHaveBeenCalledOnce();
+  });
+
+  it("another date: no rehearsal CTA", () => {
+    renderWith("otherDate", vi.fn());
+    expect(screen.queryByRole("button", { name: "Run a Friday night" })).toBeNull();
+  });
+
+  it("no handler, no CTA", () => {
+    renderWith("today");
+    expect(screen.queryByRole("button", { name: "Run a Friday night" })).toBeNull();
+  });
+});

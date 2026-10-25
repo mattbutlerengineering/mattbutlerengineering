@@ -170,6 +170,44 @@
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
     </item>
+    <item priority="high">
+      interface ChatVenue {
+        id: string;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="high">
+      export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChatRequestContext(): Record<string, string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChatSuggestions(): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      type ChatActionKey = (typeof ACTION_TITLES)[keyof t | (typeof ACTION_FIELDS)[keyof t | (typeof TABLE_STATUSES)[keyof ;
+    </item>
+    <item priority="high">
+      type Translate = (key: ChatActionKey) => string;
+    </item>
+    <item priority="medium">
+      function formatWhen(key: string, value: string, locale?: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeChatAction(
+        action: PendingAction,
+        t: Translate,
+        tableName: (id: string) => string | undefined,
+        locale?: string
+      ): ActionDescription { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useDescribeChatAction(): (action: PendingAction) => ActionDescription { /* ... */ }
+    </item>
   </file>
   <file path="src/constants/session-lapse-copy.ts">
     <item priority="high">
@@ -332,6 +370,12 @@
     </item>
     <item priority="high">
       type StoredMenu = Menu & { sections: StoredSection[] };
+    </item>
+    <item priority="high">
+      export function buildPublicMenuFixture(): PublicMenuDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockPublicMenu(page: Page): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function mockMenus(page: Page): Promise<void> { /* ... */ }
@@ -2525,6 +2569,150 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="rehearsal">
+  <file path="src/components/rehearsal/rehearsal-state.ts">
+    <item priority="low">
+      interface RehearsalWaiting {
+        reservationId: string;
+        partySize: number;
+        since: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalMetrics {
+        coversServed: number;
+        averageTurnMinutes: number;
+        peakHour: number | null;
+        tablesNeverSat: number;
+        longestWalkInWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalState {
+        reservations: Reservation[];
+        tableStatuses: ReadonlyMap<string, TableDisplayStatus>;
+        seatedIds: ReadonlySet<string>;
+        waiting: RehearsalWaiting[];
+        metrics: RehearsalMetrics;
+      }
+    </item>
+    <item priority="low">
+      interface RehearsalStateOptions {
+        date?: string;
+        tableIds?: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function isoAt(date: string, minutes: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function makeReservation(
+        id: string,
+        date: string,
+        startMinutes: number,
+        partySize: number,
+        tableId: string
+      ): Reservation { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rehearsalStateAt(
+        events: readonly RehearsalEvent[],
+        t: number,
+        { date = DEFAULT_DATE, tableIds }: RehearsalStateOptions = {}
+      ): RehearsalState { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/simulate-service.ts">
+    <item priority="high">
+      interface ProfileShape {
+        turns: number;
+        peakMinutes: number;
+        spreadMinutes: number;
+        walkInShare: number;
+        noShowShare: number;
+      }
+    </item>
+    <item priority="medium">
+      function createRandom(seed: number): () => number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function gaussian(random: () => number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pickPartySize(random: () => number, maxSize: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function turnMinutes(random: () => number, size: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fits(table: RehearsalTable, size: number): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function simulateService({
+        tables,
+        openHour,
+        closeHour,
+        profile,
+        seed,
+      }: SimulateServiceInput): RehearsalEvent[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/types.ts">
+    <item priority="low">
+      interface RehearsalTable {
+        id: string;
+        capacity: number;
+        minCovers: number;
+      }
+    </item>
+    <item priority="low">
+      type RehearsalProfile = "friday" | "weeknight" | "brunch";
+    </item>
+    <item priority="low">
+      type RehearsalTableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    </item>
+    <item priority="low">
+      type RehearsalEvent = {
+            at: number;
+            type | { at: number; type: "seated";  | { at: number; type: "status-ch | { at: number; type: "walk-in-w | { at: number; type: "no-show"; | { at: number; type: "departed";
+    </item>
+    <item priority="low">
+      interface SimulateServiceInput {
+        tables: readonly RehearsalTable[];
+        openHour: number;
+        closeHour: number;
+        profile: RehearsalProfile;
+        seed: number;
+      }
+    </item>
+  </file>
+  <file path="src/components/rehearsal/use-rehearsal-playback.ts">
+    <item priority="low">
+      type RehearsalSpeed = 15 | 60 | 240;
+    </item>
+    <item priority="medium">
+      function subscribeReducedMotion(onChange: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reducedMotionSnapshot(): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RehearsalPlayback {
+        time: number;
+        start: number;
+        end: number;
+        playing: boolean;
+        speed: RehearsalSpeed;
+      }
+    </item>
+    <item priority="high">
+      export function useRehearsalPlayback(
+        events: readonly RehearsalEvent[],
+        options: RehearsalStateOptions = {}
+      ): RehearsalPlayback { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/nav-actions.ts">
     <item priority="low">
@@ -3055,6 +3243,9 @@
     </item>
     <item priority="high">
       export const SELECTED_PARAM: unknown;
+    </item>
+    <item priority="high">
+      export const REHEARSAL_PARAM: unknown;
     </item>
     <item priority="low">
       interface TimelineIntent {

@@ -3,6 +3,7 @@ import { flatToTree } from "@json-render/react";
 import type { Spec } from "@json-render/react";
 import { useAuth } from "@mbe/auth/react";
 import { streamNDJSON } from "@mbe/api-client/streaming";
+import { describeLimitError } from "../pages/classifyGenerationError.js";
 
 // FlatElement is the element type consumed by flatToTree. We derive it from the
 // function signature rather than importing from @json-render/core (not a direct dep).
@@ -144,7 +145,11 @@ export function useGenStream({
           return;
         }
 
-        const error = err instanceof Error ? err : new Error(String(err));
+        const raised = err instanceof Error ? err : new Error(String(err));
+        // Swap in limit-specific copy but keep the status fields, so the
+        // result still classifies as a transport failure.
+        const limitCopy = describeLimitError(raised);
+        const error = limitCopy ? Object.assign(new Error(limitCopy), { ...raised }) : raised;
         setError(error);
         setIsStreaming(false);
         onErrorRef.current?.(error);

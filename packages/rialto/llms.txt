@@ -174,7 +174,14 @@
         role: "user" | "assistant";
         content: string;
         elements?: ChatMessageElement[];
+        note?: string;
       }
+    </item>
+    <item priority="medium">
+      function withNoteOnLastReply(messages: ChatMessage[], note: string): ChatMessage[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toWireMessage(m: ChatMessage): { role: ChatMessage["role"]; content: string } { /* ... */ }
     </item>
     <item priority="low">
       interface PendingAction {
@@ -215,6 +222,7 @@
         stream: ChatStreamFn;
         domainContext: DomainContext;
         getAccessToken: () => string | null | Promise<string | null>;
+        requestContext?: Readonly<Record<string, unknown>>;
       }
     </item>
     <item priority="low">
@@ -231,6 +239,7 @@
         api,
         stream,
         getAccessToken,
+        requestContext,
       }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
     </item>
   </file>
@@ -425,6 +434,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="GuestCards">
+  <file path="src/components/GuestCards/GuestCards.catalog.ts">
+    <item priority="high">
+      export const guestCardsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="IconButton">
   <file path="src/components/IconButton/IconButton.catalog.ts">
     <item priority="high">
@@ -476,6 +492,13 @@
   <file path="src/components/Odometer/Odometer.catalog.ts">
     <item priority="high">
       export const odometerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="ReservationList">
+  <file path="src/components/ReservationList/ReservationList.catalog.ts">
+    <item priority="high">
+      export const reservationListCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -581,6 +604,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Stat">
+  <file path="src/components/Stat/Stat.catalog.ts">
+    <item priority="high">
+      export const statCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="StatusLED">
+  <file path="src/components/StatusLED/StatusLED.catalog.ts">
+    <item priority="high">
+      export const statusLEDCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Table">
   <file path="src/components/Table/Table.catalog.ts">
     <item priority="high">
@@ -592,6 +629,13 @@
   <file path="src/components/Tabs/Tabs.catalog.ts">
     <item priority="high">
       export const tabsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Tag">
+  <file path="src/components/Tag/Tag.catalog.ts">
+    <item priority="high">
+      export const tagCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -821,6 +865,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="TimeSlots">
+  <file path="src/components/TimeSlots/TimeSlots.catalog.ts">
+    <item priority="high">
+      export const timeSlotsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Timeline">
+  <file path="src/components/Timeline/Timeline.catalog.ts">
+    <item priority="high">
+      export const timelineCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Toast">
   <file path="src/components/Toast/Toast.catalog.ts">
     <item priority="high">
@@ -914,6 +972,32 @@
   </file>
   </section>
   <section priority="medium" role="components">
+  <file path="src/components/booking-vocabulary.ts">
+    <item priority="low">
+      type VocabularyTone = "neutral" | "success" | "warning" | "error";
+    </item>
+    <item priority="low">
+      type ReservationStatusKey = keyof ReservationStatusMessages;
+    </item>
+    <item priority="low">
+      type GuestRiskKey = keyof GuestRiskMessages;
+    </item>
+    <item priority="low">
+      interface Resolved {
+        key: K | undefined;
+        tone: VocabularyTone;
+      }
+    </item>
+    <item priority="medium">
+      function canonical(raw: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeReservationStatus(raw: string): Resolved<ReservationStatusKey> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/catalog-meta.ts">
     <item priority="low">
       type CatalogCharLimits = Readonly<Record<string, number>>;
@@ -1207,6 +1291,22 @@
         arrivalsLabel: string;
         departuresLabel: string;
         inHouseLabel: string;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationStatusMessages {
+        pending: string;
+        confirmed: string;
+        cancelled: string;
+        completed: string;
+        noShow: string;
+      }
+    </item>
+    <item priority="low">
+      interface GuestRiskMessages {
+        trusted: string;
+        standard: string;
+        risky: string;
       }
     </item>
     <item priority="low">

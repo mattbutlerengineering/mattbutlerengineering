@@ -79,9 +79,10 @@ run was cold, and the PR run, which also touched the lockfile, was not.
   - `revert-watchdog` should skip or downgrade the revert when the failing test file(s) do not intersect the
     culprit PR's changed files and the same test fails on an unrelated later commit, or it should try
     `gh run rerun --failed` once before proposing a revert.
-  - A revert PR should reopen any issue its culprit PR closed (`Closes #N`), so the work is not lost.
+  - A revert PR should reopen any issue its culprit PR closed (`Closes #N`), so the work is not lost. **Now live** (#7397, #7399): when a revert-watchdog revert PR merges, `reopen-culprit-issues` in `revert-watchdog.yml` reopens, labels `ready` and comments on each issue the culprit PR closed.
 
 ## Action items
 
 - [x] Reopen #5826 (done by the orchestrator, labelled `ready`). The re-land should re-verify the vitest-runner patch (`patches/@stryker-mutator__vitest-runner@10.0.0.patch`) per the README note in the original PR.
 - [x] Seed the revert-watchdog test-path-overlap/rerun check and the revert-reopens-issues behavior: two seeds appended to `docs/backlog.md` (from: RCA-PR-5949).
+- [x] Revert PRs reopen the issues their culprit PR closed: `extractClosedIssueNumbers` (#7397) and the merged-revert `reopen-culprit-issues` job (#7399), tracked in #7396.

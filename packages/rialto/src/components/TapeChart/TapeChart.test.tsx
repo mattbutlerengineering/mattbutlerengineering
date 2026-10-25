@@ -431,3 +431,38 @@ describe("<TapeChart /> rendering", () => {
     expect(screen.getByRole("region", { name: /予約テープチャート/i })).toBeInTheDocument();
   });
 });
+
+// WCAG 2.5.3 / axe label-content-name-mismatch: a bar's accessible name must
+// contain the text it shows (title + price), not only describe it.
+describe("<TapeChart /> bar accessible name", () => {
+  it("contains the bar's visible text, including the price", () => {
+    render(
+      <TapeChart
+        reservations={[
+          buildReservation({ ratePerNight: 100, currency: "USD" }),
+          buildReservation({
+            id: "res-2",
+            roomId: "r2",
+            guestName: undefined,
+            blockedReason: "Maintenance",
+            status: "tentative",
+          }),
+        ]}
+        rooms={ROOMS}
+        startDate="2026-04-20"
+        endDate="2026-04-27"
+      />
+    );
+    const bars = document.querySelectorAll("button[data-status]");
+    expect(bars.length).toBe(2);
+    for (const bar of bars) {
+      const visible = Array.from(bar.querySelectorAll("span"))
+        .map((s) => s.textContent)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+      expect(visible).not.toBe("");
+      expect(bar.getAttribute("aria-label")).toContain(visible);
+    }
+  });
+});

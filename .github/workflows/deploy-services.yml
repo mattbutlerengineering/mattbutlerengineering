@@ -18,6 +18,13 @@ on:
       # transitive deps, and neither package is ever named by this workflow.
       - "packages/sentry/**"
       - "packages/service-bootstrap/**"
+      # Same class, found when #7460 changed the catalog prompt agent-api sends the
+      # model and nothing redeployed. scripts/__tests__/deploy-services-image-paths
+      # now fails when a Dockerfile bakes in a package this list doesn't cover.
+      - "packages/api-client/**"
+      - "packages/database/**"
+      - "packages/cancellation-policy/**"
+      - "packages/rialto-catalog/**"
   # Lets a stuck deploy (e.g. exhausted retries from a transient DO
   # BuildRateLimit — see the "Trigger deployment" retry loop below) be
   # re-run without an unrelated code push. The deploys-unhealthy runbook

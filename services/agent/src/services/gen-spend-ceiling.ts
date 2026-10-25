@@ -1,6 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "./database.js";
-import { GEN_MAX_OUTPUT_TOKENS, GEN_PRICING } from "../routes/gen-stream.js";
+import { GEN_MAX_OUTPUT_TOKENS, GEN_PRICING, cacheTokens } from "../routes/gen-stream.js";
 
 /**
  * Aggregate daily spend ceiling for the `/api/gen/*` routes (#7234, part of #6948).
@@ -35,16 +35,10 @@ export function getGenDailyCeilingUsd(): number {
  * cache reads and writes; cache reads bill at a tenth of base input.
  */
 export function genCostMicroUsd(
-  usage: { readonly inputTokens?: number; readonly outputTokens?: number },
+  usage: Parameters<typeof cacheTokens>[0],
   providerMetadata: unknown
 ): number {
-  const meta = (
-    providerMetadata as
-      | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
-      | undefined
-  )?.anthropic;
-  const read = meta?.cacheReadInputTokens ?? 0;
-  const write = meta?.cacheCreationInputTokens ?? 0;
+  const { read, write } = cacheTokens(usage, providerMetadata);
   const fresh = Math.max(0, (usage.inputTokens ?? 0) - read - write);
   const usd =
     (fresh * GEN_PRICING.input +

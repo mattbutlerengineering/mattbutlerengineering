@@ -62,6 +62,15 @@ describe("genCostMicroUsd", () => {
     expect(genCostMicroUsd({ inputTokens: 1_000_000, outputTokens: 0 }, meta)).toBe(125_000);
   });
 
+  it("prices cache reads reported on ai@7 usage.inputTokenDetails (#7435)", () => {
+    const usage = {
+      inputTokens: 1_000_000,
+      outputTokens: 0,
+      inputTokenDetails: { cacheReadTokens: 1_000_000, cacheWriteTokens: 0 },
+    };
+    expect(genCostMicroUsd(usage, {})).toBe(10_000);
+  });
+
   it("treats missing usage as zero", () => {
     expect(genCostMicroUsd({}, undefined)).toBe(0);
   });

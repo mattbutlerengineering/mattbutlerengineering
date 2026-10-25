@@ -191,7 +191,6 @@ const LANDS_ON: Record<string, string> = { "/": "timeline" };
 /** A route whose populated state needs a query string the ledger path lacks. */
 const QUERY: Record<string, string> = { "reservations/manage": "?token=vr-manage-token" };
 
-/* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks -- Playwright fixtures, as in fixtures.ts */
 const test = base.extend<{ unmockedApi: string[] }>({
   // eslint-disable-next-line no-empty-pattern -- Playwright's fixture signature
   unmockedApi: async ({}, use) => {
@@ -237,7 +236,6 @@ const test = base.extend<{ unmockedApi: string[] }>({
     await use(page);
   },
 });
-/* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 
 interface LedgerRow {
   route: string;
