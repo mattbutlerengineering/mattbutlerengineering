@@ -66807,8 +66807,9 @@
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(reservationEventRoutes, { prefix: "/api/v1/reservations" });
-      await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
-      await fastify.register(venueTeamRoutes, { prefix: "/api/v1/venues" });
+      const venuesPrefix = "/api/v1/venues";
+      await fastify.register(venueRoutes, { prefix: venuesPrefix });
+      await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
       });
