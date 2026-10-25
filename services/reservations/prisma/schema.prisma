@@ -130,6 +130,18 @@ model Venue {
   reservationEvents         ReservationEvent[]
   tableEvents               TableEvent[]
   memberships               VenueMembership[]
+  schedules                 Schedule[]
+  venueServices             VenueService[]
+  scheduleServices          ScheduleService[]
+  scheduleAssignments       ScheduleAssignment[]
+  dateRules                 DateRule[]
+  dateRuleTables            DateRuleTable[]
+  availabilityChanges       AvailabilityChange[]
+  closureOutcomes           ClosureOutcome[]
+  /// Per-venue compare-and-set counter for availability config saves (ADR-030).
+  availabilityVersion       Int               @default(0) @map("availability_version")
+  /// Host "stop all online bookings" switch.
+  hostEmergencyClose        Boolean           @default(false) @map("host_emergency_close")
   createdAt                 DateTime          @default(now()) @map("created_at")
   updatedAt                 DateTime          @updatedAt @map("updated_at")
 
@@ -253,6 +265,7 @@ model Table {
   sectionId     String?           @map("section_id")
   section       FloorPlanSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   shapeMetadata Json?             @map("shape_metadata")
+  dateRuleTables DateRuleTable[]
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
   reservations  Reservation[]
@@ -326,7 +339,13 @@ model Reservation {
   /// reservation. Proof of ownership for the public deposit route (#6304).
   /// Null for reservations created outside the widget.
   originSessionId    String?            @map("origin_session_id")
-  createdAt          DateTime           @default(now()) @map("created_at")
+  /// Staff reason for booking past a soft availability limit (ADR-030 `judge`).
+  overrideReason     String?            @map("override_reason")
+  /// The soft limits that were overridden (after_last_seating, pacing, ...). NULL = none.
+  overrideLimits     String[]           @map("override_limits")
+  closureOutcomes        ClosureOutcome[] @relation("ClosureOutcomeReservation")
+  rebookedFromOutcomes   ClosureOutcome[] @relation("ClosureOutcomeRebooked")
+  createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
   @@index([date, status])
@@ -484,4 +503,249 @@ model VenueMembership {
   @@index([userSub])
   @@index([venueId])
   @@map("venue_memberships")
+}
+
+// ── Venue availability (ADR-030) ────────────────────────────────────────────
+// Layered rows resolved by the pure @mbe/availability engine. Times are minutes
+// from the service day's local midnight; `closesAt` may exceed 1440. jsonb
+// payloads carry a `version` and are parsed with the zod schemas in
+// @mbe/types (availability-config.ts) on read. Every table is venue-scoped
+// (`venue_id` NOT NULL) with ENABLE + FORCE RLS (ADR-026).
+
+enum ScheduleKind {
+  regular
+  alternate
+  holiday
+}
+
+enum DateRuleKind {
+  special_hours
+  closure
+  use_schedule
+  skip
+  tonight
+}
+
+enum DateRuleTargetKind {
+  venue
+  service
+  booking
+  tables
+}
+
+enum DateRuleSource {
+  manual
+  holiday
+  tonight
+}
+
+enum ClosureAction {
+  cancel
+  move
+  keep_notify
+  keep_silent
+}
+
+enum ClosureRefundStatus {
+  none
+  pending
+  done
+  failed
+}
+
+/// A named weekly (or holiday) pattern of services. Exactly one non-archived
+/// `isRegular` schedule per venue: partial unique index
+/// `schedules_one_regular_per_venue_key`, hand-written in the migration
+/// because Prisma cannot express a partial index.
+model Schedule {
+  id          String       @id @default(cuid())
+  venueId     String       @map("venue_id")
+  venue       Venue        @relation(fields: [venueId], references: [id])
+  name        String
+  kind        ScheduleKind
+  isRegular   Boolean      @default(false) @map("is_regular")
+  archivedAt  DateTime?    @map("archived_at")
+  services    ScheduleService[]
+  assignments ScheduleAssignment[]
+  dateRules   DateRule[]
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([venueId])
+  @@map("schedules")
+}
+
+/// The venue-wide identity of a service ("Dinner"). Closures, Compare and later
+/// policies/events reference this row, never a name.
+model VenueService {
+  id               String    @id @default(cuid())
+  venueId          String    @map("venue_id")
+  venue            Venue     @relation(fields: [venueId], references: [id])
+  name             String
+  position         Int       @default(0)
+  archivedAt       DateTime? @map("archived_at")
+  scheduleServices ScheduleService[]
+  dateRules        DateRule[]
+
+  @@index([venueId, position])
+  @@map("venue_services")
+}
+
+model ScheduleService {
+  id             String       @id @default(cuid())
+  venueId        String       @map("venue_id")
+  venue          Venue        @relation(fields: [venueId], references: [id])
+  scheduleId     String       @map("schedule_id")
+  schedule       Schedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  venueServiceId String       @map("venue_service_id")
+  venueService   VenueService @relation(fields: [venueServiceId], references: [id])
+  opensAt        Int          @map("opens_at")
+  lastSeatingAt  Int          @map("last_seating_at")
+  closesAt       Int          @map("closes_at")
+  /// {version:1, interval} | {version:1, fixed:[minutes]}
+  seating        Json
+  /// Subset of {online, phone}; empty = walk-in only.
+  bookingTypes   String[]     @default([]) @map("booking_types")
+  /// Versioned value bundle (P3 turn times, pacing, party limits, windows).
+  rules          Json         @default("{}")
+
+  @@unique([scheduleId, venueServiceId])
+  @@index([venueId])
+  @@index([venueServiceId])
+  @@map("schedule_services")
+}
+
+model ScheduleAssignment {
+  id         String    @id @default(cuid())
+  venueId    String    @map("venue_id")
+  venue      Venue     @relation(fields: [venueId], references: [id])
+  scheduleId String    @map("schedule_id")
+  schedule   Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  /// 0 = Sunday.
+  weekdays   Int[]
+  startsOn   DateTime? @map("starts_on") @db.Date
+  endsOn     DateTime? @map("ends_on") @db.Date
+  /// Larger wins where assignments overlap.
+  precedence Int       @default(0)
+
+  @@index([venueId])
+  @@index([scheduleId])
+  @@map("schedule_assignments")
+}
+
+/// A dated override layer: special hours, closure, use-schedule, skip, tonight.
+/// Soft-deleted via `deletedAt`. `sectionId` (P3) is deliberately absent.
+model DateRule {
+  id             String             @id @default(cuid())
+  venueId        String             @map("venue_id")
+  venue          Venue              @relation(fields: [venueId], references: [id])
+  kind           DateRuleKind
+  targetKind     DateRuleTargetKind @default(venue) @map("target_kind")
+  venueServiceId String?            @map("venue_service_id")
+  venueService   VenueService?      @relation(fields: [venueServiceId], references: [id])
+  /// Subset of {online, phone, waitlist}; empty = all channels.
+  bookingTypes   String[]           @default([]) @map("booking_types")
+  tables         DateRuleTable[]
+  startsOn       DateTime           @map("starts_on") @db.Date
+  /// NULL = "until I reopen".
+  endsOn         DateTime?          @map("ends_on") @db.Date
+  /// {version:1, weekdays:[..]} within [startsOn, endsOn].
+  repeat         Json?
+  /// {version:1, from, to} minutes; NULL = whole service day.
+  window         Json?
+  /// special_hours: services[]; tonight: {pacing|closeAt|stop}.
+  payload        Json               @default("{}")
+  useScheduleId  String?            @map("use_schedule_id")
+  useSchedule    Schedule?          @relation(fields: [useScheduleId], references: [id])
+  /// Skip / edit-one-date rows point at the series root.
+  seriesId       String?            @map("series_id")
+  series         DateRule?          @relation("DateRuleSeries", fields: [seriesId], references: [id], onDelete: SetNull)
+  seriesMembers  DateRule[]         @relation("DateRuleSeries")
+  source         DateRuleSource     @default(manual)
+  holidayKey     String?            @map("holiday_key")
+  bookingOpensAt DateTime?          @map("booking_opens_at")
+  guestMessage   String?            @map("guest_message") @db.VarChar(200)
+  staffNote      String?            @map("staff_note")
+  /// Tonight rules only: the venue's service-day boundary, set at write time.
+  expiresAt      DateTime?          @map("expires_at") @db.Timestamptz(3)
+  createdBy      String             @map("created_by")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  deletedAt      DateTime?          @map("deleted_at")
+  outcomes       ClosureOutcome[]
+
+  @@index([venueId, startsOn])
+  @@index([venueServiceId])
+  @@index([useScheduleId])
+  @@index([seriesId])
+  @@map("date_rules")
+}
+
+/// FK join rows for `DateRule.targetKind = tables`.
+model DateRuleTable {
+  dateRuleId String   @map("date_rule_id")
+  dateRule   DateRule @relation(fields: [dateRuleId], references: [id], onDelete: Cascade)
+  tableId    String   @map("table_id")
+  table      Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  venueId    String   @map("venue_id")
+  venue      Venue    @relation(fields: [venueId], references: [id])
+
+  @@id([dateRuleId, tableId])
+  @@index([tableId])
+  @@index([venueId])
+  @@map("date_rule_tables")
+}
+
+/// Audit + undo log of availability edits. Append-only: `app_reservations`
+/// holds SELECT + INSERT, plus a column-level UPDATE on `reverted_by` only
+/// (marking a change as undone); no DELETE. `affectedFrom/To` replace the
+/// architecture's `daterange` column (Prisma has no native type for it).
+model AvailabilityChange {
+  id             String    @id @default(cuid())
+  venueId        String    @map("venue_id")
+  venue          Venue     @relation(fields: [venueId], references: [id])
+  actorId        String    @map("actor_id")
+  at             DateTime  @default(now())
+  kind           String
+  summary        String
+  affectedFrom   DateTime? @map("affected_from") @db.Date
+  affectedTo     DateTime? @map("affected_to") @db.Date
+  /// Rows to restore/delete to undo this change.
+  inverse        Json
+  notifiedGuests Boolean   @default(false) @map("notified_guests")
+  /// The change that undid this one.
+  revertedById   String?   @map("reverted_by")
+  revertedBy     AvailabilityChange?  @relation("AvailabilityChangeRevert", fields: [revertedById], references: [id], onDelete: Restrict)
+  reverts        AvailabilityChange[] @relation("AvailabilityChangeRevert")
+
+  @@index([venueId, at])
+  @@index([revertedById])
+  @@map("availability_changes")
+}
+
+/// What happened to each reservation overlapping a saved closure.
+model ClosureOutcome {
+  id                     String              @id @default(cuid())
+  venueId                String              @map("venue_id")
+  venue                  Venue               @relation(fields: [venueId], references: [id])
+  dateRuleId             String              @map("date_rule_id")
+  dateRule               DateRule            @relation(fields: [dateRuleId], references: [id])
+  reservationId          String              @map("reservation_id")
+  reservation            Reservation         @relation("ClosureOutcomeReservation", fields: [reservationId], references: [id])
+  action                 ClosureAction
+  movedTo                DateTime?           @map("moved_to") @db.Timestamptz(3)
+  /// {email: sent|failed|skipped, sms: ...}
+  deliveries             Json                @default("{}")
+  refund                 ClosureRefundStatus @default(none)
+  rebookedReservationId  String?             @map("rebooked_reservation_id")
+  rebookedReservation    Reservation?        @relation("ClosureOutcomeRebooked", fields: [rebookedReservationId], references: [id], onDelete: SetNull)
+  /// keep_silent: who acknowledged the guest would not be told.
+  acknowledgedBy         String?             @map("acknowledged_by")
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+
+  @@unique([dateRuleId, reservationId])
+  @@index([venueId])
+  @@index([reservationId])
+  @@index([rebookedReservationId])
+  @@map("closure_outcomes")
 }

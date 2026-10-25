@@ -47316,6 +47316,14 @@
       "menuSection",
       "menuItem",
       "floorPlanSection",
+      "schedule",
+      "venueService",
+      "scheduleService",
+      "scheduleAssignment",
+      "dateRule",
+      "dateRuleTable",
+      "availabilityChange",
+      "closureOutcome",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
