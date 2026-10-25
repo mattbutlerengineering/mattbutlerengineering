@@ -36,7 +36,8 @@
             body: AvailabilityConfigProblemSchema,
           },
           422: {
-            description: "`invalid-config`, with path-addressed issues",
+            description:
+              "`invalid-config`, with path-addressed issues, or `legacy-unreadable` (the venue's legacy hours cannot be read)",
             body: AvailabilityConfigProblemSchema,
           },
         },
@@ -382,13 +383,15 @@
       changes: AvailabilityConfigChangesSchema,
       scopeConflicts: ScopeConflictModeSchema.default("keep"),
     });
-    export const AVAILABILITY_CONFIG_SOURCES = ["rows", "legacy", "empty"] as const;
+    export const AVAILABILITY_CONFIG_SOURCES = ["rows", "legacy", "empty", "unreadable"] as const;
     export const AvailabilityConfigSourceSchema = z.enum(AVAILABILITY_CONFIG_SOURCES);
     export const AvailabilityConfigStateSchema = z.object({
       config: AvailabilityConfigSchema,
       /** `Venue.availabilityVersion`; send it back as `expectedVersion`. */
       version: z.number().int(),
       source: AvailabilityConfigSourceSchema,
+      /** `unreadable` only: the legacy normaliser's reason and detail. */
+      legacyProblem: z.object({ reason: z.string(), detail: z.string() }).optional(),
     });
     export const AvailabilityConfigSaveResultSchema = z.object({
       version: z.number().int(),
@@ -411,6 +414,7 @@
       "version-conflict",
       "invalid-config",
       "stranded-bookings",
+      "legacy-unreadable",
     ] as const;
     export const AvailabilityConfigProblemSchema = z.object({
       type: z.string(),

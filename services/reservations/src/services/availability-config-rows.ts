@@ -7,7 +7,7 @@ import type {
   VenueService,
 } from "@mbe/types";
 import { Prisma, type PrismaClient } from "../generated/prisma/index.js";
-import type { ConfigDiff } from "./availability-config-plan.js";
+import type { ConfigDiff, ConfigTable } from "./availability-config-plan.js";
 import { parseConfigRows, type SnapshotWarning } from "./availability-snapshot.js";
 
 /**
@@ -116,36 +116,71 @@ async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule)
   });
 }
 
+/**
+ * A write refused by a unique constraint: most often a client-chosen id that is
+ * already taken (a soft-deleted row, or another venue's, which RLS hides).
+ */
+export class ConfigRowConflict extends Error {
+  constructor(
+    readonly table: ConfigTable,
+    readonly id: string,
+    /** The primary key collided, rather than another unique index. */
+    readonly onId: boolean
+  ) {
+    super(`${table} ${id}: unique constraint`);
+    this.name = "ConfigRowConflict";
+  }
+}
+
+function uniqueViolation(error: unknown): { onId: boolean } | null {
+  if (typeof error !== "object" || error === null) return null;
+  if ((error as { code?: unknown }).code !== "P2002") return null;
+  const meta = JSON.stringify((error as { meta?: unknown }).meta ?? {});
+  return { onId: /"id"|_pkey/.test(meta) };
+}
+
+/** Runs one row's write, naming the row when a unique constraint refuses it. */
+async function guarded(table: ConfigTable, id: string, write: () => Promise<unknown>) {
+  try {
+    await write();
+  } catch (error) {
+    const violation = uniqueViolation(error);
+    if (violation) throw new ConfigRowConflict(table, id, violation.onId);
+    throw error;
+  }
+}
+
+/** One row at a time (saves are small), so a collision names its row. */
 async function writeCreates(
   db: ConfigRowDb,
   venueId: string,
   create: ConfigDiff["create"],
   actorId: string
 ): Promise<void> {
-  if (create.schedules.length > 0) {
-    await db.schedule.createMany({
-      data: create.schedules.map((s) => ({ id: s.id, venueId, ...scheduleData(s) })),
-    });
+  for (const s of create.schedules) {
+    await guarded("schedules", s.id, () =>
+      db.schedule.create({ data: { id: s.id, venueId, ...scheduleData(s) } })
+    );
   }
-  if (create.venueServices.length > 0) {
-    await db.venueService.createMany({
-      data: create.venueServices.map((s) => ({ id: s.id, venueId, ...venueServiceData(s) })),
-    });
+  for (const s of create.venueServices) {
+    await guarded("venueServices", s.id, () =>
+      db.venueService.create({ data: { id: s.id, venueId, ...venueServiceData(s) } })
+    );
   }
-  if (create.scheduleServices.length > 0) {
-    await db.scheduleService.createMany({
-      data: create.scheduleServices.map((s) => ({ id: s.id, venueId, ...scheduleServiceData(s) })),
-    });
+  for (const s of create.scheduleServices) {
+    await guarded("scheduleServices", s.id, () =>
+      db.scheduleService.create({ data: { id: s.id, venueId, ...scheduleServiceData(s) } })
+    );
   }
-  if (create.assignments.length > 0) {
-    await db.scheduleAssignment.createMany({
-      data: create.assignments.map((a) => ({ id: a.id, venueId, ...assignmentData(a) })),
-    });
+  for (const a of create.assignments) {
+    await guarded("assignments", a.id, () =>
+      db.scheduleAssignment.create({ data: { id: a.id, venueId, ...assignmentData(a) } })
+    );
   }
   for (const r of create.dateRules) {
-    await db.dateRule.create({
-      data: { id: r.id, venueId, createdBy: actorId, ...dateRuleData(r) },
-    });
+    await guarded("dateRules", r.id, () =>
+      db.dateRule.create({ data: { id: r.id, venueId, createdBy: actorId, ...dateRuleData(r) } })
+    );
     await writeRuleTables(db, venueId, r);
   }
 }
@@ -168,7 +203,9 @@ export async function writeConfigDiff(
     (a, b) => Number(a.isRegular) - Number(b.isRegular)
   );
   for (const s of demotionsFirst) {
-    await db.schedule.update({ where: { id: s.id }, data: scheduleData(s) });
+    await guarded("schedules", s.id, () =>
+      db.schedule.update({ where: { id: s.id }, data: scheduleData(s) })
+    );
   }
   for (const s of update.venueServices) {
     await db.venueService.update({ where: { id: s.id }, data: venueServiceData(s) });
@@ -191,7 +228,9 @@ export async function writeConfigDiff(
   await writeCreates(db, venueId, create, context.actorId);
 
   for (const s of update.scheduleServices) {
-    await db.scheduleService.update({ where: { id: s.id }, data: scheduleServiceData(s) });
+    await guarded("scheduleServices", s.id, () =>
+      db.scheduleService.update({ where: { id: s.id }, data: scheduleServiceData(s) })
+    );
   }
   for (const a of update.assignments) {
     await db.scheduleAssignment.update({ where: { id: a.id }, data: assignmentData(a) });

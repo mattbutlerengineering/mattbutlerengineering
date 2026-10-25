@@ -192,19 +192,16 @@ describe("saveAvailabilityConfig", () => {
     });
   });
 
-  it("commits rows, the audit row and the legacy projection together", async () => {
-    const update = vi.fn(async () => ({}));
-    const create = vi.fn(async () => ({ id: "chg-10" }));
-    const rows = emptyRows();
-    const client = fakeClient({
-      ...rows,
-      schedule: { ...rows.schedule, createMany: vi.fn(async () => ({ count: 1 })) },
-      venueService: { ...rows.venueService, createMany: vi.fn(async () => ({ count: 1 })) },
-      scheduleService: { ...rows.scheduleService, createMany: vi.fn(async () => ({ count: 1 })) },
-      scheduleAssignment: {
-        ...rows.scheduleAssignment,
-        createMany: vi.fn(async () => ({ count: 1 })),
-      },
+  /** A transaction a full save can run through; `rows` overrides per delegate. */
+  function savingTx(rows: Record<string, object> = {}) {
+    const empty = emptyRows();
+    const created = () => vi.fn(async () => ({}));
+    return {
+      ...empty,
+      schedule: { ...empty.schedule, create: created() },
+      venueService: { ...empty.venueService, create: created() },
+      scheduleService: { ...empty.scheduleService, create: created() },
+      scheduleAssignment: { ...empty.scheduleAssignment, create: created() },
       venue: {
         updateMany: vi.fn(async () => ({ count: 1 })),
         findUnique: vi.fn(async () => ({
@@ -213,35 +210,76 @@ describe("saveAvailabilityConfig", () => {
           operatingHours: null,
           availabilityVersion: 4,
         })),
-        update,
+        update: vi.fn(async () => ({})),
       },
       reservation: { findMany: vi.fn(async () => []) },
       table: { findMany: vi.fn(async () => []) },
-      availabilityChange: { create },
-    });
+      availabilityChange: { create: vi.fn(async () => ({ id: "chg-10" })) },
+      ...rows,
+    };
+  }
+
+  const WHOLE_WEEK = body({ upsert: { ...CONFIG, dateRules: [] } }, 3);
+
+  it("commits rows, the audit row and the legacy projection together", async () => {
+    const tx = savingTx();
 
     const outcome = await saveAvailabilityConfig(
-      {
-        venueId: "venue-1",
-        actorId: "auth0|ben",
-        body: body({ upsert: { ...CONFIG, dateRules: [] } }, 3),
-        now: NOW,
-      },
-      client
+      { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+      fakeClient(tx)
     );
 
     expect(outcome).toEqual({ kind: "saved", version: 4, changeId: "chg-10" });
-    expect(create).toHaveBeenCalledWith(
+    expect(tx.availabilityChange.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ venueId: "venue-1", actorId: "auth0|ben", kind: "config" }),
       })
     );
-    expect(update).toHaveBeenCalledWith({
+    expect(tx.venue.update).toHaveBeenCalledWith({
       where: { id: "venue-1" },
       data: {
         operatingHours: expect.objectContaining({ friday: { open: "17:00", close: "22:00" } }),
       },
     });
+  });
+
+  it("answers an id another row already holds with 422 id_taken, not a 500", async () => {
+    const taken = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+      meta: { modelName: "Schedule", target: ["id"] },
+    });
+    const empty = emptyRows();
+    const tx = savingTx({
+      schedule: { ...empty.schedule, create: vi.fn(async () => Promise.reject(taken)) },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+      fakeClient(tx)
+    );
+
+    expect(outcome).toEqual({
+      kind: "invalid",
+      issues: [expect.objectContaining({ path: "schedules[0].id", code: "id_taken" })],
+    });
+    expect(tx.availabilityChange.create).not.toHaveBeenCalled();
+  });
+
+  it("lets a non-unique database error through", async () => {
+    const empty = emptyRows();
+    const tx = savingTx({
+      schedule: {
+        ...empty.schedule,
+        create: vi.fn(async () => Promise.reject(new Error("connection reset"))),
+      },
+    });
+
+    await expect(
+      saveAvailabilityConfig(
+        { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+        fakeClient(tx)
+      )
+    ).rejects.toThrow("connection reset");
   });
 
   it("rolls back and reports invalid config", async () => {
@@ -273,6 +311,41 @@ describe("saveAvailabilityConfig", () => {
     });
     expect(create).not.toHaveBeenCalled();
   });
+
+  it("scans from yesterday's service day so a running past-midnight service is checked", async () => {
+    const findMany = vi.fn(async () => []);
+    const client = fakeClient({
+      ...emptyRows(),
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        findUnique: vi.fn(async () => ({
+          ianaTimezone: TZ,
+          settings: {},
+          operatingHours: null,
+          availabilityVersion: 1,
+        })),
+      },
+      reservation: { findMany },
+      table: { findMany: vi.fn(async () => []) },
+      availabilityChange: { create: vi.fn() },
+    });
+    // 00:10 on Sat 7 Nov in Los Angeles: Friday's service day is still running.
+    const late = new Date("2026-11-07T08:10:00.000Z");
+
+    await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: body({}, 0), now: late },
+      client
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          date: { gte: new Date("2026-11-06T00:00:00.000Z") },
+          startTime: { gte: late },
+        }),
+      })
+    );
+  });
 });
 
 describe("getAvailabilityConfig", () => {
@@ -295,5 +368,76 @@ describe("getAvailabilityConfig", () => {
     expect(first).toMatchObject({ source: "legacy", version: 0 });
     expect(first?.config.schedules).toHaveLength(1);
     expect(second?.config).toEqual(first?.config);
+  });
+});
+
+// Monday's open cannot be read (25:00); Friday's can. Strictly, nothing migrates.
+const UNREADABLE_HOURS = {
+  monday: { open: "25:00", close: "22:00" },
+  friday: { open: "17:00", close: "22:00" },
+};
+
+const venueWith = (operatingHours: unknown) => ({
+  updateMany: vi.fn(async () => ({ count: 1 })),
+  findUnique: vi.fn(async () => ({
+    ianaTimezone: TZ,
+    settings: {},
+    operatingHours,
+    availabilityVersion: 0,
+  })),
+  update: vi.fn(async () => ({})),
+});
+
+describe("a venue whose legacy hours cannot be read", () => {
+  it("reads as unreadable with the normaliser's reason, not as empty", async () => {
+    const client = fakeClient({ ...emptyRows(), venue: venueWith(UNREADABLE_HOURS) });
+
+    const state = await getAvailabilityConfig("venue-1", NOW, client);
+
+    expect(state).toMatchObject({
+      source: "unreadable",
+      legacyProblem: { reason: "unreadable_time" },
+    });
+  });
+
+  it("refuses a save: no projection overwrite and no silent stranding", async () => {
+    const venue = venueWith(UNREADABLE_HOURS);
+    const change = { create: vi.fn() };
+    const scheduleCreate = vi.fn();
+    const empty = emptyRows();
+    // A future Friday booking, on a weekday the save below would leave closed.
+    const client = fakeClient({
+      ...empty,
+      schedule: { ...empty.schedule, create: scheduleCreate },
+      venue,
+      reservation: { findMany: vi.fn(async () => [BOOKING]) },
+      table: { findMany: vi.fn(async () => []) },
+      availabilityChange: change,
+    });
+    const mondayOnly = body(
+      {
+        upsert: {
+          ...CONFIG,
+          assignments: [{ ...CONFIG.assignments[0]!, weekdays: [1] }],
+          dateRules: [],
+        },
+      },
+      0
+    );
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: mondayOnly, now: NOW },
+      client
+    );
+
+    expect(outcome).toMatchObject({ kind: "legacy_unreadable", reason: "unreadable_time" });
+    expect(venue.update).not.toHaveBeenCalled();
+    expect(scheduleCreate).not.toHaveBeenCalled();
+    expect(change.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps a venue with no hours at all as empty", async () => {
+    const client = fakeClient({ ...emptyRows(), venue: venueWith(null) });
+    expect(await getAvailabilityConfig("venue-1", NOW, client)).toMatchObject({ source: "empty" });
   });
 });

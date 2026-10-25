@@ -49,6 +49,10 @@ export const AvailabilityConfigChangesSchema = z.object({
 /**
  * What to do with dates in scope that already have their own hours change
  * (special hours or a use-schedule rule): `keep` theirs, or `replace` them.
+ * The scope is the dates a new or edited dated rule covers, or, for an edit
+ * to a schedule's services or assignments, the future dates that schedule
+ * runs ("everywhere it is used"). Replaced dates get `skip` rows; no stored
+ * rule's range is rewritten.
  */
 export const SCOPE_CONFLICT_MODES = ["keep", "replace"] as const;
 export const ScopeConflictModeSchema = z.enum(SCOPE_CONFLICT_MODES);
@@ -62,10 +66,13 @@ export const PutAvailabilityConfigBodySchema = z.object({
 
 /**
  * Where the returned config came from: the venue's rows, derived from the
- * legacy `operatingHours` column (a venue the backfill has not reached), or
- * nothing at all (closed every day). A save always writes rows.
+ * legacy `operatingHours` column (a venue the backfill has not reached),
+ * nothing at all (no hours: closed every day), or `unreadable` legacy hours
+ * (config empty, `legacyProblem` says why; a save is refused with 422
+ * `legacy-unreadable` rather than overwriting what guests see). A save always
+ * writes rows.
  */
-export const AVAILABILITY_CONFIG_SOURCES = ["rows", "legacy", "empty"] as const;
+export const AVAILABILITY_CONFIG_SOURCES = ["rows", "legacy", "empty", "unreadable"] as const;
 export const AvailabilityConfigSourceSchema = z.enum(AVAILABILITY_CONFIG_SOURCES);
 
 export const AvailabilityConfigStateSchema = z.object({
@@ -73,6 +80,8 @@ export const AvailabilityConfigStateSchema = z.object({
   /** `Venue.availabilityVersion`; send it back as `expectedVersion`. */
   version: z.number().int(),
   source: AvailabilityConfigSourceSchema,
+  /** `unreadable` only: the legacy normaliser's reason and detail. */
+  legacyProblem: z.object({ reason: z.string(), detail: z.string() }).optional(),
 });
 
 export const AvailabilityConfigSaveResultSchema = z.object({
@@ -100,6 +109,7 @@ export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
   "version-conflict",
   "invalid-config",
   "stranded-bookings",
+  "legacy-unreadable",
 ] as const;
 
 /** RFC 9457 problem with the config API's extension members. */

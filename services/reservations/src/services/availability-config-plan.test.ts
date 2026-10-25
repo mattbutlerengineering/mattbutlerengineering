@@ -10,6 +10,7 @@ import {
 } from "./availability-config-plan.js";
 
 const NOW = "2026-10-25T12:00:00.000Z";
+const TODAY = "2026-10-25";
 
 const BASE: AvailabilityConfig = {
   schedules: [{ id: "sch-1", name: "Regular", kind: "regular", isRegular: true }],
@@ -102,7 +103,7 @@ describe("resolveScopeConflicts", () => {
   };
 
   it("keep: skips the new rule on every date that already has its own change", () => {
-    const resolved = resolveScopeConflicts(before, next, "keep", ids());
+    const resolved = resolveScopeConflicts(before, next, "keep", ids(), TODAY);
 
     const skips = resolved.dateRules.filter((r) => r.kind === "skip");
     expect(skips.map((s) => [s.seriesId, s.startsOn])).toEqual([
@@ -112,7 +113,7 @@ describe("resolveScopeConflicts", () => {
   });
 
   it("replace: skips the existing rule on the dates the new rule covers", () => {
-    const resolved = resolveScopeConflicts(before, next, "replace", ids());
+    const resolved = resolveScopeConflicts(before, next, "replace", ids(), TODAY);
 
     const skips = resolved.dateRules.filter((r) => r.kind === "skip");
     expect(skips.map((s) => [s.seriesId, s.startsOn])).toEqual([
@@ -122,7 +123,81 @@ describe("resolveScopeConflicts", () => {
   });
 
   it("leaves a change with no dated hours rules alone", () => {
-    expect(resolveScopeConflicts(before, before, "replace", ids())).toBe(before);
+    expect(resolveScopeConflicts(before, before, "replace", ids(), TODAY)).toBe(before);
+  });
+
+  describe("an edit to a schedule (everywhere it is used)", () => {
+    const longer = { ...BASE.scheduleServices[0]!, closesAt: 1380 };
+    const weekEdit = { ...before, scheduleServices: [longer] };
+
+    it("replace: skips stored dated hours on the future dates that schedule runs", () => {
+      const resolved = resolveScopeConflicts(before, weekEdit, "replace", ids(), TODAY);
+
+      const skips = resolved.dateRules.filter((r) => r.kind === "skip");
+      expect(skips.map((s) => s.seriesId)).toEqual(Array(8).fill("dr-old"));
+      expect(skips.map((s) => s.startsOn)).toEqual([
+        "2026-11-06",
+        "2026-11-07",
+        "2026-11-08",
+        "2026-11-09",
+        "2026-11-10",
+        "2026-11-11",
+        "2026-11-12",
+        "2026-11-13",
+      ]);
+    });
+
+    it("keep: leaves the stored dated hours winning", () => {
+      expect(resolveScopeConflicts(before, weekEdit, "keep", ids(), TODAY)).toBe(weekEdit);
+    });
+
+    it("replace: leaves dated hours alone where another schedule runs", () => {
+      const summer = {
+        id: "sch-summer",
+        name: "Summer",
+        kind: "alternate" as const,
+        isRegular: false,
+      };
+      const withSummer: AvailabilityConfig = {
+        ...before,
+        schedules: [...before.schedules, summer],
+        scheduleServices: [
+          ...before.scheduleServices,
+          { ...BASE.scheduleServices[0]!, id: "ss-summer", scheduleId: "sch-summer" },
+        ],
+        assignments: [
+          ...before.assignments,
+          {
+            id: "as-summer",
+            scheduleId: "sch-summer",
+            weekdays: [0, 1, 2, 3, 4, 5, 6],
+            startsOn: "2027-06-01",
+            endsOn: "2027-09-15",
+            precedence: 1,
+          },
+        ],
+      };
+      const summerEdit = {
+        ...withSummer,
+        scheduleServices: withSummer.scheduleServices.map((s) =>
+          s.id === "ss-summer" ? { ...s, closesAt: 1380 } : s
+        ),
+      };
+
+      expect(resolveScopeConflicts(withSummer, summerEdit, "replace", ids(), TODAY)).toBe(
+        summerEdit
+      );
+    });
+
+    it("replace: never skips a past date", () => {
+      const resolved = resolveScopeConflicts(before, weekEdit, "replace", ids(), "2026-11-10");
+      expect(resolved.dateRules.filter((r) => r.kind === "skip").map((s) => s.startsOn)).toEqual([
+        "2026-11-10",
+        "2026-11-11",
+        "2026-11-12",
+        "2026-11-13",
+      ]);
+    });
   });
 });
 

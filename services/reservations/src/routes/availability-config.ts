@@ -51,6 +51,12 @@ function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "
           issues: outcome.issues,
         })
       );
+    case "legacy_unreadable":
+      return reply.code(422).send(
+        configProblem(422, "Unprocessable Entity", `${outcome.reason}: ${outcome.detail}`, {
+          code: "legacy-unreadable",
+        })
+      );
     case "stranded":
       return reply
         .code(409)

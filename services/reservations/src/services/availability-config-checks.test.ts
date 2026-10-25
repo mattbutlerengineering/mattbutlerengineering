@@ -67,6 +67,23 @@ describe("findStrandedReservations", () => {
     expect(stranded.map((s) => s.reason)).toEqual(["outside_service"]);
   });
 
+  it("reports a past-midnight booking against the service day it belongs to", () => {
+    // Dinner runs 17:00 – 02:00; 00:30 on Sat 7 Nov is Friday's service day.
+    const late = {
+      ...CONFIG,
+      scheduleServices: [{ ...CONFIG.scheduleServices[0]!, lastSeatingAt: 1530, closesAt: 1560 }],
+    };
+    const booking = { ...BOOKING, startTime: new Date("2026-11-07T08:30:00.000Z") };
+
+    const stranded = findStrandedReservations(
+      { timezone: TZ, config: late },
+      { timezone: TZ, config: { ...late, dateRules: closedOn("2026-11-06").dateRules } },
+      [booking]
+    );
+
+    expect(stranded.map((s) => s.reason)).toEqual(["closed"]);
+  });
+
   it("ignores a booking that was already outside service before the change", () => {
     const closed = { timezone: TZ, config: closedOn("2026-11-06") };
     expect(findStrandedReservations(closed, closed, [BOOKING])).toEqual([]);

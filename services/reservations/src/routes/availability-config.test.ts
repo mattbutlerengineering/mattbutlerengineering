@@ -164,6 +164,22 @@ describe("availability config routes", () => {
       expect(res.json()).toMatchObject({ code: "stranded-bookings", reservations });
     });
 
+    it("refuses a save over unreadable legacy hours with 422 legacy-unreadable", async () => {
+      svc.save.mockResolvedValueOnce({
+        kind: "legacy_unreadable",
+        reason: "unreadable_time",
+        detail: "monday.open 25:00",
+      });
+
+      const res = await put(app);
+
+      expect(res.statusCode).toBe(422);
+      expect(res.json()).toMatchObject({
+        code: "legacy-unreadable",
+        detail: "unreadable_time: monday.open 25:00",
+      });
+    });
+
     it("rejects a malformed body before the store", async () => {
       const res = await put(app, { changes: {} });
       expect(res.statusCode).toBe(400);

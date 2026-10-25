@@ -1,4 +1,4 @@
-import { addDays, weekdayIndexOf } from "@mbe/availability";
+import { addDays, resolveDay, weekdayIndexOf } from "@mbe/availability";
 import type {
   AvailabilityConfig,
   AvailabilityConfigChanges,
@@ -106,18 +106,71 @@ function sharedDates(a: DateRule, b: DateRule): string[] {
   return dates;
 }
 
+type Skip = { seriesId: string; date: string };
+
+/** Schedules whose services or assignments this change touches. */
+function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): Set<string> {
+  const touched = new Set<string>();
+  for (const table of ["scheduleServices", "assignments"] as const) {
+    const was = new Map(before[table].map((r) => [r.id, r]));
+    const now = new Map(next[table].map((r) => [r.id, r]));
+    for (const id of new Set([...was.keys(), ...now.keys()])) {
+      const [a, b] = [was.get(id), now.get(id)];
+      if (a && b && sameRow(a, b)) continue;
+      if (a) touched.add(a.scheduleId);
+      if (b) touched.add(b.scheduleId);
+    }
+  }
+  return touched;
+}
+
 /**
- * Dates in scope that already have their own hours change: an incoming
- * (new or edited) special-hours or use-schedule rule meets a stored one left
- * untouched. `keep` takes the incoming rule out on those dates; `replace`
- * takes the stored one out. Either way it is a `skip` row pointing at the
- * series it removes, so neither rule's own range is rewritten.
+ * `replace` for an edit to a schedule ("everywhere it is used"): stored dated
+ * hours on a future date that schedule runs, before or after the change, are
+ * skipped so the edited week shows through. Bounded like `sharedDates`.
+ */
+function scheduleEditSkips(
+  before: AvailabilityConfig,
+  next: AvailabilityConfig,
+  stored: readonly DateRule[],
+  today: string
+): Skip[] {
+  const edited = editedSchedules(before, next);
+  if (edited.size === 0 || stored.length === 0) return [];
+  // The week alone decides which schedule a date runs; date rules are set aside.
+  const weekOf = (config: AvailabilityConfig, date: string) =>
+    resolveDay({ timezone: "UTC", config: { ...config, dateRules: [] } }, date).scheduleId;
+  const inScope = (date: string) =>
+    [weekOf(before, date), weekOf(next, date)].some((id) => id != null && edited.has(id));
+  return stored.flatMap((rule) => {
+    const from = rule.startsOn > today ? rule.startsOn : today;
+    const horizon = addDays(from, SCOPE_CONFLICT_HORIZON_DAYS - 1);
+    const to = rule.endsOn != null && rule.endsOn < horizon ? rule.endsOn : horizon;
+    const skips: Skip[] = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) {
+      if (coversDate(rule, d) && inScope(d)) skips.push({ seriesId: rule.id, date: d });
+    }
+    return skips;
+  });
+}
+
+/**
+ * Dates in scope that already have their own hours change (special hours or
+ * use-schedule), left untouched by this save:
+ * - a dated edit (an incoming rule meeting a stored one): `keep` takes the
+ *   incoming rule out on the shared dates, `replace` the stored one;
+ * - a schedule edit (its services or assignments): `keep` leaves the stored
+ *   rules winning, as layers already do; `replace` takes them out on the
+ *   future dates that schedule runs.
+ * Either way it is a `skip` row pointing at the series it removes, so no
+ * rule's own range is rewritten.
  */
 export function resolveScopeConflicts(
   before: AvailabilityConfig,
   next: AvailabilityConfig,
   mode: ScopeConflictMode,
-  newId: () => string
+  newId: () => string,
+  today: string
 ): AvailabilityConfig {
   const stored = new Map(before.dateRules.map((r) => [r.id, r]));
   const hours = next.dateRules.filter(isHoursRule);
@@ -127,14 +180,17 @@ export function resolveScopeConflicts(
     next.dateRules.filter((r) => r.kind === "skip").map((r) => `${r.seriesId}@${r.startsOn}`)
   );
 
-  const skips = incoming.flatMap((rule) =>
-    untouched.flatMap((theirs) =>
-      sharedDates(rule, theirs).map((date) => ({
-        seriesId: mode === "keep" ? rule.id : theirs.id,
-        date,
-      }))
-    )
-  );
+  const skips: Skip[] = [
+    ...incoming.flatMap((rule) =>
+      untouched.flatMap((theirs) =>
+        sharedDates(rule, theirs).map((date) => ({
+          seriesId: mode === "keep" ? rule.id : theirs.id,
+          date,
+        }))
+      )
+    ),
+    ...(mode === "replace" ? scheduleEditSkips(before, next, untouched, today) : []),
+  ];
   const fresh = skips.filter(({ seriesId, date }) => {
     const key = `${seriesId}@${date}`;
     if (skipped.has(key)) return false;
@@ -256,10 +312,13 @@ export function affectedRange(
 
 // ── References ──────────────────────────────────────────────────────────────
 
-/** A reference `validateConfig` cannot see: to a row outside this venue's config. */
+/**
+ * An issue only the store can see: a reference to a row outside this venue's
+ * config, or (on write) an id or unique value another row already holds.
+ */
 export interface ReferenceIssue {
   path: string;
-  code: "unknown_reference";
+  code: "unknown_reference" | "id_taken" | "duplicate_row";
   message: string;
 }
 

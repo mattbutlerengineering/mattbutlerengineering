@@ -1602,11 +1602,26 @@
       function sharedDates(a: DateRule, b: DateRule): string[] { /* ... */ }
     </item>
     <item priority="high">
+      type Skip = { seriesId: string; date: string };
+    </item>
+    <item priority="medium">
+      function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): Set<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleEditSkips(
+        before: AvailabilityConfig,
+        next: AvailabilityConfig,
+        stored: readonly DateRule[],
+        today: string
+      ): Skip[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function resolveScopeConflicts(
         before: AvailabilityConfig,
         next: AvailabilityConfig,
         mode: ScopeConflictMode,
-        newId: () => string
+        newId: () => string,
+        today: string
       ): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="low">
@@ -1650,7 +1665,7 @@
     <item priority="low">
       interface ReferenceIssue {
         path: string;
-        code: "unknown_reference";
+        code: "unknown_reference" | "id_taken" | "duplicate_row";
         message: string;
       }
     </item>
@@ -1677,6 +1692,17 @@
     </item>
     <item priority="low">
       async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      class ConfigRowConflict {
+        
+      }
+    </item>
+    <item priority="medium">
+      function uniqueViolation(error: unknown): { onId: boolean } | null { /* ... */ }
+    </item>
+    <item priority="low">
+      async function guarded(table: ConfigTable, id: string, write: () => Promise<unknown>) { /* ... */ }
     </item>
     <item priority="low">
       async function writeCreates(
@@ -1708,8 +1734,8 @@
         stored: AvailabilityConfig;
         effective: AvailabilityConfig;
         source: AvailabilityConfigSource;
+        legacyProblem?: { reason: string; detail: string };
         version: number;
-        timezone: string;
       }
     </item>
     <item priority="medium">
@@ -1734,6 +1760,7 @@
         config: AvailabilityConfig;
         version: number;
         source: AvailabilityConfigSource;
+        legacyProblem?: { reason: string; detail: string };
       } | null> { /* ... */ }
     </item>
     <item priority="high">
@@ -1746,7 +1773,7 @@
       ): Promise<AvailabilityDaySummary[] | null> { /* ... */ }
     </item>
     <item priority="low">
-      type SavePlan = { kind: "invalid"; issues: (Co | { kind: "stranded"; reservatio | {
+      type SavePlan = { kind: "legacy_unreadable"; r | { kind: "invalid"; issues: (Co | { kind: "stranded"; reservatio | {
             kind: "write";
             n;
     </item>
@@ -1782,6 +1809,9 @@
     </item>
     <item priority="low">
       async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome { /* ... */ }
     </item>
     <item priority="high">
       export async function saveAvailabilityConfig(

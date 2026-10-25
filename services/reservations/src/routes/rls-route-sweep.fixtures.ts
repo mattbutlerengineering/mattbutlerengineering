@@ -1023,10 +1023,11 @@ const availabilityFixtures: Record<string, RouteFixture> = {
   "PUT /api/v1/venues/:id/availability/config": ok(async (ctx) => {
     const venueId = await createDisposableVenue(ctx);
     const url = `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/config`;
+    const changes = sweepConfigChanges();
     const saved = await asAdmin(ctx, {
       method: "PUT",
       url,
-      payload: { expectedVersion: 0, changes: sweepConfigChanges(), scopeConflicts: "keep" },
+      payload: { expectedVersion: 0, changes, scopeConflicts: "keep" },
     });
     expectOk(saved, "admin disposable venue");
     // The rows, audit row and version bump landed under RLS: the read sees
@@ -1040,6 +1041,19 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     });
     expect(stale.statusCode).toBe(409);
     expect(JSON.parse(stale.body).winningChange.id).toBe(JSON.parse(saved.body).data.changeId);
+    // Another venue reusing those ids cannot see them (RLS), so the primary
+    // key refuses the write; that is a 422 naming the row, never a 500.
+    const otherVenue = await createDisposableVenue(ctx);
+    const reused = await asAdmin(ctx, {
+      method: "PUT",
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${otherVenue}/availability/config`,
+      payload: { expectedVersion: 0, changes, scopeConflicts: "keep" },
+    });
+    expect(reused.statusCode, reused.body).toBe(422);
+    expect(JSON.parse(reused.body).issues[0]).toMatchObject({
+      path: "schedules[0].id",
+      code: "id_taken",
+    });
     expectDenied(
       await asMember(ctx, {
         method: "PUT",

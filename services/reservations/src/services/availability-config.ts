@@ -32,7 +32,12 @@ import {
   summarizeDay,
   type BookedReservation,
 } from "./availability-config-checks.js";
-import { readStoredConfig, writeConfigDiff, type ConfigRowDb } from "./availability-config-rows.js";
+import {
+  ConfigRowConflict,
+  readStoredConfig,
+  writeConfigDiff,
+  type ConfigRowDb,
+} from "./availability-config-rows.js";
 import { civilDateIn, planVenueMigration } from "./availability-migration.js";
 import { prisma } from "./database.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
@@ -66,6 +71,8 @@ export interface ConfigState {
   /** What the venue runs on: the rows, or the legacy-derived config. */
   effective: AvailabilityConfig;
   source: AvailabilityConfigSource;
+  /** `unreadable` only: why the legacy hours could not be read. */
+  legacyProblem?: { reason: string; detail: string };
   version: number;
   timezone: string;
   operatingHours: unknown;
@@ -111,9 +118,18 @@ export async function loadConfigState(
   };
   if (stored.hasRows) return { ...base, effective: stored.config, source: "rows" };
   const plan = planVenueMigration(venue, now, legacyIds(venueId));
-  return plan.kind === "migrate"
-    ? { ...base, effective: plan.config, source: "legacy" }
-    : { ...base, effective: EMPTY_CONFIG, source: "empty" };
+  if (plan.kind === "migrate") return { ...base, effective: plan.config, source: "legacy" };
+  if (plan.reason === "no_hours") return { ...base, effective: EMPTY_CONFIG, source: "empty" };
+  // TODO(#7511 follow-up): once #7582 lands, read these leniently
+  // (`planVenueMigration(..., { lenient: true })`) and serve `source: "legacy"`
+  // with its notes, so the editor and the stranded check start from what
+  // guests see. Until then a save is refused rather than starting from empty.
+  return {
+    ...base,
+    effective: EMPTY_CONFIG,
+    source: "unreadable",
+    legacyProblem: { reason: plan.reason, detail: plan.detail },
+  };
 }
 
 function readState(client: StoreClient, venueId: string, now: Date): Promise<ConfigState | null> {
@@ -131,9 +147,12 @@ export async function getAvailabilityConfig(
   config: AvailabilityConfig;
   version: number;
   source: AvailabilityConfigSource;
+  legacyProblem?: { reason: string; detail: string };
 } | null> {
   const state = await readState(client, venueId, now);
-  return state && { config: state.effective, version: state.version, source: state.source };
+  if (!state) return null;
+  const { effective: config, version, source, legacyProblem } = state;
+  return { config, version, source, ...(legacyProblem ? { legacyProblem } : {}) };
 }
 
 /** Calendar summaries for `from`..`to` inclusive; the caller bounds the range. */
@@ -157,6 +176,7 @@ export async function listAvailabilityDays(
 // ── Save ────────────────────────────────────────────────────────────────────
 
 export type SavePlan =
+  | { kind: "legacy_unreadable"; reason: string; detail: string }
   | { kind: "invalid"; issues: (ConfigIssue | ReferenceIssue)[] }
   | { kind: "stranded"; reservations: StrandedReservation[] }
   | {
@@ -185,12 +205,16 @@ export function planSave(input: {
   newId?: () => string;
 }): SavePlan {
   const { state, body, bookings, now } = input;
+  // Starting from an empty week would silently drop (and, through the
+  // projection, overwrite) the hours guests still see.
+  if (state.legacyProblem) return { kind: "legacy_unreadable", ...state.legacyProblem };
   const applied = applyChanges(state.effective, body.changes, now.toISOString());
   const next = resolveScopeConflicts(
     state.effective,
     applied,
     body.scopeConflicts,
-    input.newId ?? randomUUID
+    input.newId ?? randomUUID,
+    civilDateIn(now, state.timezone)
   );
   const issues = [...validateConfig(next), ...referenceIssues(next, input.tableIds)];
   if (issues.length > 0) return { kind: "invalid", issues };
@@ -236,7 +260,9 @@ async function futureBookings(
   return db.reservation.findMany({
     where: {
       venueId,
-      date: { gte: new Date(`${today}T00:00:00.000Z`) },
+      // From yesterday's service day: a service running past midnight is still
+      // yesterday's (ADR-029), and `startTime >= now` keeps the scan to the future.
+      date: { gte: new Date(`${addDays(today, -1)}T00:00:00.000Z`) },
       startTime: { gte: now },
       status: { notIn: [...NOT_BOOKED_STATUSES] },
     },
@@ -255,6 +281,27 @@ async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
   return {
     kind: "version_conflict",
     winningChange: winner && { ...winner, at: winner.at.toISOString() },
+  };
+}
+
+/** A unique-constraint refusal as the 422 a client can act on, addressed into the next config. */
+function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome {
+  const index = (next[error.table] as { id: string }[]).findIndex((r) => r.id === error.id);
+  return {
+    kind: "invalid",
+    issues: [
+      error.onId
+        ? {
+            path: `${error.table}[${index}].id`,
+            code: "id_taken",
+            message: "This id is already used; choose another.",
+          }
+        : {
+            path: `${error.table}[${index}]`,
+            code: "duplicate_row",
+            message: "Another row already has these values.",
+          },
+    ],
   };
 }
 
@@ -287,7 +334,11 @@ export async function saveAvailabilityConfig(
       const plan = planSave({ state, body, bookings, tableIds, now });
       if (plan.kind !== "write") throw new SaveRefused(plan);
 
-      await writeConfigDiff(tx, venueId, plan.diff, { actorId, now });
+      await writeConfigDiff(tx, venueId, plan.diff, { actorId, now }).catch((error: unknown) => {
+        throw error instanceof ConfigRowConflict
+          ? new SaveRefused(conflictIssue(error, plan.next))
+          : error;
+      });
       const change = await tx.availabilityChange.create({
         data: {
           venueId,

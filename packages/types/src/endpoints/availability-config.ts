@@ -58,7 +58,8 @@ export const availabilityConfigEndpoints = {
         body: AvailabilityConfigProblemSchema,
       },
       422: {
-        description: "`invalid-config`, with path-addressed issues",
+        description:
+          "`invalid-config`, with path-addressed issues, or `legacy-unreadable` (the venue's legacy hours cannot be read)",
         body: AvailabilityConfigProblemSchema,
       },
     },
