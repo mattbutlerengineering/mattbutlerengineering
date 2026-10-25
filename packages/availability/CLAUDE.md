@@ -11,13 +11,17 @@ src/
 ├── index.ts            # Barrel export
 ├── types.ts            # ServiceDate, Weekday, WEEKDAYS, MINUTES_PER_DAY
 ├── civil-date.ts       # addDays, weekdayOf — "YYYY-MM-DD" arithmetic via Date.UTC
-└── instant.ts          # serviceDayInstant, localDateTimeOf — the only wall-clock ↔ instant crossing
+├── instant.ts          # serviceDayInstant, localDateTimeOf — the only wall-clock ↔ instant crossing
+└── validate-config.ts  # validateConfig — cross-row invariants over the @mbe/types config schemas
 ```
 
 ## Gotchas
 
 - Never construct a `Date` from a `ServiceDate` with the local-time
   constructor — the process time zone leaks in. Go through `civil-date.ts`.
+- Config shape lives in `@mbe/types` (`schemas/availability-config.ts`) and is
+  structural only. Invariants spanning fields or rows go in `validateConfig`,
+  which returns path-addressed issues and never throws.
 - `serviceDayInstant` takes minutes past the service day's midnight and
   accepts values ≥ 1440 for services that run past midnight (ADR-029). A
   spring-forward gap returns `null`; a fall-back repeat resolves to its first

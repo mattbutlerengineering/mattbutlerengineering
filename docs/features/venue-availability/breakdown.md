@@ -24,7 +24,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Engine package scaffold** — create `packages/availability` and port prior-art `civil-date.ts` and `instant.ts` with their tests. Add vitest, a typecheck config that covers the tests, and an entry in `regen-manifest.mjs` if llms files are generated. (tracker: #7495)
   - Accept: `pnpm --dir packages/availability test` and `typecheck` are green, and the DST table tests pass.
   - Blocked by: Preview spike
-- [ ] **Config schemas** — zod schemas and types in `@mbe/types` for Schedule, VenueService, ScheduleService, ScheduleAssignment and DateRule, plus the versioned payloads (seating, window, special-hours services, Tonight payload); `validateConfig` in the engine. (tracker: #7496)
+- [x] **Config schemas** — zod schemas and types in `@mbe/types` for Schedule, VenueService, ScheduleService, ScheduleAssignment and DateRule, plus the versioned payloads (seating, window, special-hours services, Tonight payload); `validateConfig` in the engine. (tracker: #7496)
   - Accept: unit tests reject overlapping services, last seating after close, two regular schedules, and an unknown payload version. Each issue carries a field path.
   - Blocked by: Engine package scaffold
 - [ ] **resolveDay: schedules and assignments** — the regular schedule, weekday assignments with date ranges and precedence, services that run past midnight, and service-day semantics (ADR-029), salvaging prior-art `resolve.ts` and `seatingRanges`. (tracker: #7497)

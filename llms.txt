@@ -9205,6 +9205,104 @@
       export const ProblemDetailsSchema: unknown;
     </item>
   </file>
+  <file path="packages/types/src/schemas/availability-config.ts">
+    <item priority="high">
+      export const SCHEDULE_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const DATE_RULE_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const DATE_RULE_TARGETS: unknown;
+    </item>
+    <item priority="high">
+      export const SERVICE_BOOKING_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const RULE_BOOKING_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const GUEST_MESSAGE_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const MinuteSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ServiceDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SeatingSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WindowSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RepeatSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SpecialHoursServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SpecialHoursPayloadSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightPayloadSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleAssignmentSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSchema: unknown;
+    </item>
+    <item priority="low">
+      type Seating = z.infer<typeof SeatingSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityWindow = z.infer<typeof WindowSchema>;
+    </item>
+    <item priority="low">
+      type Repeat = z.infer<typeof RepeatSchema>;
+    </item>
+    <item priority="low">
+      type SpecialHoursService = z.infer<typeof SpecialHoursServiceSchema>;
+    </item>
+    <item priority="low">
+      type SpecialHoursPayload = z.infer<typeof SpecialHoursPayloadSchema>;
+    </item>
+    <item priority="low">
+      type TonightPayload = z.infer<typeof TonightPayloadSchema>;
+    </item>
+    <item priority="low">
+      type Schedule = z.infer<typeof ScheduleSchema>;
+    </item>
+    <item priority="low">
+      type VenueService = z.infer<typeof VenueServiceSchema>;
+    </item>
+    <item priority="low">
+      type ScheduleService = z.infer<typeof ScheduleServiceSchema>;
+    </item>
+    <item priority="low">
+      type ScheduleAssignment = z.infer<typeof ScheduleAssignmentSchema>;
+    </item>
+    <item priority="low">
+      type DateRule = z.infer<typeof DateRuleSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
+    </item>
+  </file>
   <file path="packages/types/src/schemas/common.ts">
     <item priority="high">
       export const PaginationSchema: unknown;
@@ -16044,6 +16142,87 @@
     </item>
     <item priority="high">
       export const MINUTES_PER_DAY: unknown;
+    </item>
+  </file>
+  <file path="packages/availability/src/validate-config.ts">
+    <item priority="low">
+      type ConfigIssueCode = "invalid" | "overlap" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start";
+    </item>
+    <item priority="low">
+      interface ConfigIssue {
+        path: string;
+        code: ConfigIssueCode;
+        message: string;
+      }
+    </item>
+    <item priority="high">
+      type ServiceHours = Pick<SpecialHoursService, "opensAt" | "lastSeatingAt" | "...;
+    </item>
+    <item priority="high">
+      interface PathedService {
+        path: string;
+        hours: ServiceHours;
+      }
+    </item>
+    <item priority="medium">
+      function issue(path: string, code: ConfigIssueCode, message: string): ConfigIssue { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatPath(segments: readonly PropertyKey[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatMinute(minute: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fixedSeatingIssues({ path, hours }: PathedService): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursIssues({ path, hours }: PathedService): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlapIssues(services: readonly PathedService[]): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function serviceListIssues(services: readonly PathedService[]): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleServiceIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialHoursIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularScheduleIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function endsBeforeStart(
+        startsOn: string | null | undefined,
+        endsOn: string | null | undefined
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rangeIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayIndexOf(date: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function latest(a?: string | null, b?: string | null): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function earliest(a?: string | null, b?: string | null): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function assignmentsMeet(a: ScheduleAssignment, b: ScheduleAssignment): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function precedenceIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function windowIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateConfig(input: unknown): ConfigIssue[] { /* ... */ }
     </item>
   </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">

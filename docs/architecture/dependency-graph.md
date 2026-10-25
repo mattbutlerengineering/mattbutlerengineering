@@ -97,6 +97,7 @@ flowchart TD
   api_client --> config
   auth --> types
   auth --> config
+  availability --> types
   availability --> config
   cancellation_policy --> config
   database --> config

@@ -294,6 +294,115 @@
       })
       .catchall(z.unknown());
   </file>
+  <file path="src/schemas/availability-config.ts">
+    export const SCHEDULE_KINDS = ["regular", "alternate", "holiday"] as const;
+    export const DATE_RULE_KINDS = [
+      "special_hours",
+      "closure",
+      "use_schedule",
+      "skip",
+      "tonight",
+    ] as const;
+    export const DATE_RULE_TARGETS = ["venue", "service", "booking", "tables"] as const;
+    export const SERVICE_BOOKING_TYPES = ["online", "phone"] as const;
+    export const RULE_BOOKING_TYPES = ["online", "phone", "waitlist"] as const;
+    export const GUEST_MESSAGE_MAX_LENGTH = 200;
+    export const MinuteSchema = z.number().int().min(0).max(MINUTES_IN_TWO_DAYS);
+    export const ServiceDateSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
+    export const SeatingSchema = z.union([
+      z.strictObject({ version: z.literal(1), interval: z.number().int().min(1).max(240) }),
+      z.strictObject({ version: z.literal(1), fixed: z.array(MinuteSchema).min(1) }),
+    ]);
+    export const WindowSchema = z.object({
+      version: z.literal(1),
+      from: MinuteSchema,
+      to: MinuteSchema,
+    });
+    export const RepeatSchema = z.object({
+      version: z.literal(1),
+      weekdays: z.array(WeekdayIndexSchema).min(1),
+    });
+    export const SpecialHoursServiceSchema = z.object({
+      venueServiceId: IdSchema,
+      ...ServiceHoursFields,
+    });
+    export const SpecialHoursPayloadSchema = z.object({
+      version: z.literal(1),
+      services: z.array(SpecialHoursServiceSchema),
+    });
+    export const TonightPayloadSchema = z.union([
+      z.strictObject({
+        version: z.literal(1),
+        pacing: z.strictObject({ covers: z.number().int().min(1) }),
+      }),
+      z.strictObject({ version: z.literal(1), closeAt: MinuteSchema }),
+      z.strictObject({
+        version: z.literal(1),
+        stop: z.strictObject({ from: MinuteSchema, to: MinuteSchema }),
+      }),
+    ]);
+    export const ScheduleSchema = z.object({
+      id: IdSchema,
+      name: z.string().min(1).max(60),
+      kind: z.enum(SCHEDULE_KINDS),
+      isRegular: z.boolean(),
+      archivedAt: z.string().nullish(),
+    });
+    export const VenueServiceSchema = z.object({
+      id: IdSchema,
+      name: z.string().min(1).max(40),
+      position: z.number().int(),
+      archivedAt: z.string().nullish(),
+    });
+    export const ScheduleServiceSchema = z.object({
+      id: IdSchema,
+      scheduleId: IdSchema,
+      venueServiceId: IdSchema,
+      ...ServiceHoursFields,
+    });
+    export const ScheduleAssignmentSchema = z.object({
+      id: IdSchema,
+      scheduleId: IdSchema,
+      weekdays: z.array(WeekdayIndexSchema).min(1),
+      startsOn: ServiceDateSchema.nullish(),
+      endsOn: ServiceDateSchema.nullish(),
+      /** Larger wins where assignments overlap. */
+      precedence: z.number().int(),
+    });
+    export const DateRuleSchema = z.discriminatedUnion("kind", [
+      DateRuleBase.extend({
+        kind: z.literal("special_hours"),
+        payload: SpecialHoursPayloadSchema,
+      }),
+      DateRuleBase.extend({ kind: z.literal("closure") }),
+      DateRuleBase.extend({ kind: z.literal("use_schedule"), useScheduleId: IdSchema }),
+      DateRuleBase.extend({ kind: z.literal("skip") }),
+      DateRuleBase.extend({
+        kind: z.literal("tonight"),
+        payload: TonightPayloadSchema,
+        expiresAt: z.string().nullish(),
+      }),
+    ]);
+    export const AvailabilityConfigSchema = z.object({
+      schedules: z.array(ScheduleSchema),
+      venueServices: z.array(VenueServiceSchema),
+      scheduleServices: z.array(ScheduleServiceSchema),
+      assignments: z.array(ScheduleAssignmentSchema),
+      dateRules: z.array(DateRuleSchema),
+    });
+    export type Seating = z.infer<typeof SeatingSchema>;
+    export type AvailabilityWindow = z.infer<typeof WindowSchema>;
+    export type Repeat = z.infer<typeof RepeatSchema>;
+    export type SpecialHoursService = z.infer<typeof SpecialHoursServiceSchema>;
+    export type SpecialHoursPayload = z.infer<typeof SpecialHoursPayloadSchema>;
+    export type TonightPayload = z.infer<typeof TonightPayloadSchema>;
+    export type Schedule = z.infer<typeof ScheduleSchema>;
+    export type VenueService = z.infer<typeof VenueServiceSchema>;
+    export type ScheduleService = z.infer<typeof ScheduleServiceSchema>;
+    export type ScheduleAssignment = z.infer<typeof ScheduleAssignmentSchema>;
+    export type DateRule = z.infer<typeof DateRuleSchema>;
+    export type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
+  </file>
   <file path="src/schemas/common.ts">
     export const PaginationSchema = z.object({
       page: z.number(),
