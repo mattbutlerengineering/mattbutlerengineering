@@ -621,6 +621,21 @@ it("broadcasts reservation:created event", async () => {
 });
 ```
 
+## Availability backfill
+
+`src/scripts/backfill-availability.ts` turns each venue's legacy `operatingHours` into availability rows (#7502). It is run by an operator, once per environment, after the `add_venue_availability` migration is applied. It is not part of `prisma migrate deploy` or the deploy job.
+
+```bash
+node dist/scripts/backfill-availability.js            # dry run: reports what it would do
+node dist/scripts/backfill-availability.js --apply    # writes
+```
+
+- It needs `DATABASE_URL` and prints one JSON line per venue, then a `summary` line. Exit code is 1 only if a venue errored.
+- It is idempotent: a venue that already has a regular schedule is skipped (`already_migrated`).
+- Each venue is its own transaction in its own venue context. A venue whose hours cannot be read (`unrecognised`: unknown shape or version, bad interval or buffer, overlapping windows) is left untouched.
+- It only inserts. The legacy column is rewritten (to its derived projection) only for venues stored in the old seed-array shape, which the legacy slot code could not read; weekday-keyed values are not touched.
+- Weekdays with the same hours share one schedule. The largest group is the regular week, the rest become `alternate` schedules, and a closed weekday gets no assignment.
+
 ## Environment Variables
 
 | Variable                   | Required   | Description                                             |
