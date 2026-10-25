@@ -63,17 +63,70 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/never ask them to type yes/i);
   });
 
-  it("maps each kind of tool data to the element that shows it", () => {
+  describe("maps each data shape to the element that shows it", () => {
     const prompt = buildAgentSystemPrompt({
       venueId: "venue-1",
       now: NOW,
       catalogPrompt: "CATALOG",
     });
+    // The line that says "as <Element>" (or "as a/an <Element>").
+    const showsAs = (line: string, element: string): boolean => {
+      const words = line.split(/[\s,.()]+/);
+      return words.some((word, i) => {
+        if (word !== element) return false;
+        const before = words[i - 1];
+        return before === "as" || ((before === "a" || before === "an") && words[i - 2] === "as");
+      });
+    };
+    const lineFor = (element: string): string =>
+      prompt.split("\n").find((line) => showsAs(line, element)) ?? "";
 
-    expect(prompt).toMatch(/counts .*Stat/i);
-    expect(prompt).toMatch(/Timeline/);
-    expect(prompt).toMatch(/table statuses? .*StatusLED/i);
-    expect(prompt).toMatch(/dietary .*Tag/i);
+    it("reservations from list_today_reservations or lookup_reservation as ReservationList", () => {
+      const line = lineFor("ReservationList");
+      expect(line).toMatch(/list_today_reservations/);
+      expect(line).toMatch(/lookup_reservation/);
+      expect(line).toMatch(/arrival order/i);
+      expect(line).toMatch(/localTime/);
+      expect(line).toMatch(/status .*as is/i);
+      expect(line).toMatch(/guestName as the guest/i);
+      expect(line).toMatch(/walk-in/i);
+      expect(line).toMatch(/tonight .*leave cancelled and no-show rows out/i);
+    });
+
+    it("open slots from check_availability as TimeSlots, never for a closed or full day", () => {
+      const line = lineFor("TimeSlots");
+      expect(line).toMatch(/check_availability/);
+      expect(line).toMatch(/localTime/);
+      expect(line).toMatch(/open times only/i);
+      expect(line).toMatch(/closed or fully booked day .*in words/i);
+    });
+
+    it("guests from search_guests as GuestCards, at most five, without private details", () => {
+      const line = lineFor("GuestCards");
+      expect(line).toMatch(/search_guests/);
+      expect(line).toMatch(/at most five/i);
+      expect(line).toMatch(/how many more matched/i);
+      expect(line).toMatch(/never .*email, phone, notes or spend/i);
+    });
+
+    it("a guest's visit history as Timeline", () => {
+      expect(lineFor("Timeline")).toMatch(/visit history/i);
+    });
+
+    it("table statuses from get_table_status as StatusLED", () => {
+      expect(lineFor("StatusLED")).toMatch(/get_table_status/);
+    });
+
+    it("headline counts as Stat, tags as Tag, other lists as Table", () => {
+      expect(lineFor("Stat")).toMatch(/counts/i);
+      expect(lineFor("Tag")).toMatch(/dietary/i);
+      expect(lineFor("Table")).toMatch(/other lists/i);
+    });
+
+    it("never maps a night's bookings to Timeline", () => {
+      expect(lineFor("Timeline")).not.toMatch(/booking|reservation|arrival/i);
+      expect(prompt).not.toMatch(/night's bookings[^\n]*Timeline/i);
+    });
   });
 
   it("keeps the catalog's component rules, after the assistant guidance", () => {
