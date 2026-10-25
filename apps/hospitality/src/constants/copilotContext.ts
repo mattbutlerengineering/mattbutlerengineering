@@ -108,12 +108,16 @@ type ChatActionKey =
 type Translate = (key: ChatActionKey) => string;
 
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isRealDate = (value: string): boolean => {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
 const WALL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const TIME_FIELDS: ReadonlySet<string> = new Set(["startTime", "endTime"]);
 
 /** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
 function formatWhen(key: string, value: string, locale?: string): string {
-  if (key === "date" && CALENDAR_DATE.test(value)) {
+  if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
     return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
   }
   if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);

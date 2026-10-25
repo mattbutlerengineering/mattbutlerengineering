@@ -111,4 +111,26 @@ describe("describeChatAction dates and times", () => {
 
     expect(description.details.map((detail) => detail.value)).toEqual(["next Friday", "7pm"]);
   });
+
+  it("keeps an impossible calendar date as sent rather than rolling it over", () => {
+    const description = describeChatAction(
+      {
+        actionId: "a6",
+        toolName: "modify_reservation",
+        toolInput: { date: "2026-13-45" },
+      },
+      (key) => `t:${key}`,
+      () => undefined,
+      "en-US"
+    );
+    const feb = describeChatAction(
+      { actionId: "a7", toolName: "modify_reservation", toolInput: { date: "2026-02-31" } },
+      (key) => `t:${key}`,
+      () => undefined,
+      "en-US"
+    );
+
+    expect(description.details.map((detail) => detail.value)).toEqual(["2026-13-45"]);
+    expect(feb.details.map((detail) => detail.value)).toEqual(["2026-02-31"]);
+  });
 });

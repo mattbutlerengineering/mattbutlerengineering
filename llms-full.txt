@@ -6977,7 +6977,7 @@
       | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
     type Translate = (key: ChatActionKey) => string;
     function formatWhen(key: string, value: string, locale?: string): string {
-      if (key === "date" && CALENDAR_DATE.test(value)) {
+      if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
         return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
       }
       if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
