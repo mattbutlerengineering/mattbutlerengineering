@@ -16078,6 +16078,26 @@
       return readiness;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useVenueTeam.ts">
+    export const VENUE_TEAM_QUERY_KEY = "venueTeam" as const;
+    export const useVenueTeam = createQueryHook<VenueTeam | null, { venueId: string | null }>({
+      key: VENUE_TEAM_QUERY_KEY,
+      fetcher: async (params, api) => (params?.venueId ? api.venueTeam.get(params.venueId) : null),
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useSetTeamRole = createMutationHook<{
+      venueId: string;
+      userSub: string;
+      role: TeamRole;
+    }>({
+      invalidateKeys: VENUE_TEAM_QUERY_KEY,
+      mutationFn: (api, { venueId, userSub, role }) => api.venueTeam.setRole(venueId, userSub, role),
+    });
+    export const useSetHostEmergencyClose = createMutationHook<{ venueId: string; enabled: boolean }>({
+      invalidateKeys: VENUE_TEAM_QUERY_KEY,
+      mutationFn: (api, { venueId, enabled }) => api.venueTeam.setHostEmergencyClose(venueId, enabled),
+    });
+  </file>
   <file path="apps/hospitality/src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
@@ -32821,6 +32841,96 @@
       return scopedHandler as unknown as Handler<RG>;
     }
   </file>
+  <file path="services/reservations/src/routes/venue-team.ts">
+    export const venueTeamRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueTeamService } = fastify.services;
+    
+      fastify.get<{ Params: { id: string }; Reply: { data: VenueTeam } | ProblemDetails }>(
+        "/:id/team",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List a venue's team with each member's role",
+            tags: ["Venues"],
+            params: idParams,
+            response: { 200: { type: "object", properties: { data: venueTeamResponseJsonSchema } } },
+          },
+        },
+        venueScoped(venueFromRouteId, async (request, reply, { venueId, isAdmin }) => {
+          const team = await venueTeamService.get(venueId, request.user?.raw.sub ?? "", isAdmin);
+          if (!team) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          return { data: team };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { id: string };
+        Body: UpdateVenueTeamRequest;
+        Reply: { data: UpdateVenueTeamRequest } | ProblemDetails;
+      }>(
+        "/:id/team",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Set whether Hosts can close the venue in an emergency",
+            tags: ["Venues"],
+            params: idParams,
+            body: updateVenueTeamBodyJsonSchema,
+          },
+        },
+        venueScoped(venueManagerFromRouteId, async (request, reply, { venueId }) => {
+          const { hostEmergencyClose } = request.body;
+          if (!(await venueTeamService.setHostEmergencyClose(venueId, hostEmergencyClose))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          return { data: { hostEmergencyClose } };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { id: string; userSub: string };
+        Body: UpdateTeamMemberRoleRequest;
+        Reply: { data: { userSub: string; role: TeamRole } } | ProblemDetails;
+      }>(
+        "/:id/team/members/:userSub",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Make a member a Manager or a Host",
+            description:
+              "Refuses with 409 when the change would leave the venue without an owner or manager.",
+            tags: ["Venues"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" }, userSub: { type: "string" } },
+              required: ["id", "userSub"],
+            },
+            body: updateTeamMemberRoleBodyJsonSchema,
+          },
+        },
+        venueScoped(venueManagerFromRouteId, async (request, reply, { venueId }) => {
+          try {
+            const member = await venueTeamService.setRole(
+              venueId,
+              request.params.userSub,
+              request.body.role
+            );
+            if (!member) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", MEMBER_NOT_FOUND));
+            }
+            return { data: member };
+          } catch (error) {
+            if (error instanceof LastManagerError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", error.message));
+            }
+            throw error;
+          }
+        })
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/venues.ts">
     export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
     function isWriteConflict(error: unknown): boolean {
@@ -34936,6 +35046,11 @@
     export const assignSectionTablesBodyJsonSchema = toRequestJsonSchema(
       AssignSectionTablesRequestSchema
     );
+    export const venueTeamResponseJsonSchema = toResponseJsonSchema(VenueTeamSchema);
+    export const updateTeamMemberRoleBodyJsonSchema = toRequestJsonSchema(
+      UpdateTeamMemberRoleRequestSchema
+    );
+    export const updateVenueTeamBodyJsonSchema = toRequestJsonSchema(UpdateVenueTeamRequestSchema);
     export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
     export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
     export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
@@ -35609,6 +35724,30 @@
       name: z.string().nullable(),
       picture: z.string().nullable(),
     });
+  </file>
+  <file path="packages/types/src/schemas/venue-team.ts">
+    export const TEAM_ROLES = ["manager", "host"] as const;
+    export const TeamRoleSchema = z.enum(TEAM_ROLES);
+    export const TeamMemberSchema = z.object({
+      userSub: z.string(),
+      role: TeamRoleSchema,
+      /** True for the caller's own membership row. */
+      isViewer: z.boolean(),
+    });
+    export const VenueTeamSchema = z.object({
+      members: z.array(TeamMemberSchema),
+      /** "Hosts can close in an emergency" (`Venue.hostEmergencyClose`). */
+      hostEmergencyClose: z.boolean(),
+      /** The caller's role at this venue; platform admins count as a Manager. */
+      viewerRole: TeamRoleSchema,
+    });
+    export const UpdateTeamMemberRoleRequestSchema = z.object({ role: TeamRoleSchema });
+    export const UpdateVenueTeamRequestSchema = z.object({ hostEmergencyClose: z.boolean() });
+    export type TeamRole = z.infer<typeof TeamRoleSchema>;
+    export type TeamMember = z.infer<typeof TeamMemberSchema>;
+    export type VenueTeam = z.infer<typeof VenueTeamSchema>;
+    export type UpdateTeamMemberRoleRequest = z.infer<typeof UpdateTeamMemberRoleRequestSchema>;
+    export type UpdateVenueTeamRequest = z.infer<typeof UpdateVenueTeamRequestSchema>;
   </file>
   <file path="packages/types/src/schemas/venue.ts">
     export const DayScheduleSchema = z.object({
@@ -42017,6 +42156,7 @@
       depositService: DepositService;
       waitlistService: typeof waitlistService;
       briefingService: typeof briefingService;
+      venueTeamService: typeof venueTeamService;
     }
     export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
@@ -42031,6 +42171,7 @@
       holdService,
       waitlistService,
       briefingService,
+      venueTeamService,
     };
   </file>
   <file path="services/reservations/src/services/events.ts">
@@ -47979,6 +48120,89 @@
         },
       });
     }
+  </file>
+  <file path="services/reservations/src/services/venue-team.ts">
+    function toTeamRole(role: VenueRole): TeamRole {
+      return role === "staff" ? "host" : "manager";
+    }
+    export class LastManagerError extends Error {
+      constructor() {
+        super("A venue needs at least one Manager");
+        this.name = "LastManagerError";
+      }
+    }
+    export function createVenueTeamService(client: PrismaClient = prisma) {
+      return {
+        /** `null` when the venue does not exist. */
+        async get(venueId: string, viewerSub: string, isAdmin: boolean): Promise<VenueTeam | null> {
+          const venue = await client.venue.findUnique({
+            where: { id: venueId },
+            select: { hostEmergencyClose: true },
+          });
+          if (!venue) return null;
+          const rows = await client.venueMembership.findMany({
+            where: { venueId },
+            select: { userSub: true, role: true },
+            orderBy: { createdAt: "asc" },
+          });
+          const members = rows.map((row) => ({
+            userSub: row.userSub,
+            role: toTeamRole(row.role),
+            isViewer: row.userSub === viewerSub,
+          }));
+          const own = members.find((member) => member.isViewer);
+          return {
+            members,
+            hostEmergencyClose: venue.hostEmergencyClose,
+            viewerRole: isAdmin ? "manager" : (own?.role ?? "host"),
+          };
+        },
+    
+        /**
+         * Sets one member's role. `manager` leaves an owner an owner; `host`
+         * stores `staff`. Refuses with {@link LastManagerError} to demote the
+         * venue's last owner/manager. The venue's membership rows are locked
+         * first, so two Managers demoting each other at once cannot both pass the
+         * count. `null` when the user is not a member of this venue.
+         */
+        async setRole(
+          venueId: string,
+          userSub: string,
+          role: TeamRole
+        ): Promise<{ userSub: string; role: TeamRole } | null> {
+          return client.$transaction(async (tx) => {
+            await setVenueContext(tx, venueId);
+            await tx.$queryRaw`SELECT id FROM venue_memberships WHERE venue_id = ${venueId} FOR UPDATE`;
+            const key = { userSub_venueId: { userSub, venueId } };
+            const current = await tx.venueMembership.findUnique({ where: key });
+            if (!current) return null;
+            if (toTeamRole(current.role) === role) return { userSub, role };
+    
+            if (role === "host") {
+              const rows = await tx.venueMembership.findMany({ where: { venueId } });
+              const otherManagers = rows.filter(
+                (row) => row.userSub !== userSub && isManagerRole(row.role)
+              );
+              if (otherManagers.length === 0) throw new LastManagerError();
+            }
+            const stored: VenueRole = role === "host" ? "staff" : "manager";
+            await tx.venueMembership.update({ where: key, data: { role: stored } });
+            return { userSub, role };
+          });
+        },
+    
+        /** `false` when the venue does not exist. */
+        async setHostEmergencyClose(venueId: string, enabled: boolean): Promise<boolean> {
+          const { count } = await client.venue.updateMany({
+            where: { id: venueId },
+            data: { hostEmergencyClose: enabled },
+          });
+          return count > 0;
+        },
+      };
+    }
+    export type VenueTeamService = ReturnType<typeof createVenueTeamService>;
+    export const venueTeamService = createVenueTeamService();
   </file>
   <file path="services/reservations/src/services/venue.ts">
     export type VenueDeleteOutcome = "deleted" | "not_found" | "has_dependents";
@@ -58758,6 +58982,7 @@
         reservations: new ReservationsClient(client),
         venues: new VenuesClient(client),
         venueGroups: new VenueGroupsClient(client),
+        venueTeam: new VenueTeamClient(client),
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
@@ -59530,6 +59755,37 @@
        */
       async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> {
         return this.client.patchOne<User>("/api/v1/users/me/preferences", preferences, UserSchema);
+      }
+    }
+  </file>
+  <file path="packages/api-client/src/venue-team.ts">
+    function teamPath(venueId: string, ...segments: string[]): string {
+      return ["/api/v1/venues", ...[venueId, "team", ...segments].map(encodeURIComponent)].join("/");
+    }
+    export class VenueTeamClient {
+      constructor(private client: ApiClient) {}
+    
+      async get(venueId: string): Promise<VenueTeam> {
+        return this.client.getOne<VenueTeam>(teamPath(venueId), undefined, VenueTeamSchema);
+      }
+    
+      /** Needs Manager. A 409 means the change would leave the venue with no Manager. */
+      async setRole(
+        venueId: string,
+        userSub: string,
+        role: TeamRole
+      ): Promise<{ userSub: string; role: TeamRole }> {
+        return this.client.patchOne(teamPath(venueId, "members", userSub), { role }, memberRoleSchema);
+      }
+    
+      /** Needs Manager. Resolves to the stored grant. */
+      async setHostEmergencyClose(venueId: string, enabled: boolean): Promise<boolean> {
+        const result = await this.client.patchOne(
+          teamPath(venueId),
+          { hostEmergencyClose: enabled },
+          UpdateVenueTeamRequestSchema
+        );
+        return result.hostEmergencyClose;
       }
     }
   </file>
@@ -66387,6 +66643,7 @@
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(reservationEventRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
+      await fastify.register(venueTeamRoutes, { prefix: "/api/v1/venues" });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
       });

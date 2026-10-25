@@ -5,6 +5,7 @@ import { registerSchemas } from "./schemas/index.js";
 import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
+import { venueTeamRoutes } from "./routes/venue-team.js";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
@@ -275,6 +276,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
   await fastify.register(reservationEventRoutes, { prefix: "/api/v1/reservations" });
   await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
+  await fastify.register(venueTeamRoutes, { prefix: "/api/v1/venues" });
   await fastify.register(availabilityRoutes, {
     prefix: "/api/v1/availability",
   });

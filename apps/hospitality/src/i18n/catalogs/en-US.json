@@ -1623,6 +1623,22 @@
       "description": "Manage the days and times your venue is open for reservations.",
       "operatingHours": "Operating Hours"
     },
+    "team": {
+      "title": "Team",
+      "description": "Managers change hours, closures and roles. Hosts run tonight's service.",
+      "noVenue": "Choose a venue to see its team.",
+      "loadError": "Couldn't load the team",
+      "empty": "No one is on this venue's team yet.",
+      "roleLabel": "Role for {{member}}",
+      "roleManager": "Manager",
+      "roleHost": "Host",
+      "you": "You",
+      "readOnly": "Only managers change roles.",
+      "emergencyClose": "Hosts can close in an emergency",
+      "emergencyCloseHint": "Hosts can close the whole venue for tonight only. Anything longer needs a manager.",
+      "emergencyCloseOn": "Hosts can close the whole venue for tonight in an emergency.",
+      "emergencyCloseOff": "Only managers can close the venue."
+    },
     "profile": {
       "title": "Venue Profile",
       "description": "Who you are, as guests see you on your public booking page.",

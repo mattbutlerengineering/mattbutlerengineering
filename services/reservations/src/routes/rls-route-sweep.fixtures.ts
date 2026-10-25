@@ -66,6 +66,9 @@ export function normalizeRouteKey(key: string): string {
 
 const HOLDS_URL = "/api/v1/holds";
 
+/** Settings → Team routes (#7510), addressed by the venue's own id. */
+const teamUrl = (venueId: string, suffix = "") => `/api/v1/venues/${venueId}/team${suffix}`;
+
 /** Routes with no venue-scoped data at all — excluded from the sweep by design. */
 export const INFRA_ROUTES: ReadonlySet<string> = new Set([
   "GET /docs",
@@ -950,6 +953,34 @@ const venueFixtures: Record<string, RouteFixture> = {
     (ctx) => ctx.venueA.id,
     (ctx) => ctx.venueB.id
   ),
+  // Settings → Team (#7510). The member is venue A's manager, so both writes
+  // are Manager-gated own-venue writes; each is idempotent (the grant stays
+  // off, the member stays a Manager) so no later fixture sees a changed venue.
+  "GET /api/v1/venues/:id/team": okEntityRead(
+    (id) => teamUrl(id),
+    (ctx) => ctx.venueA.id,
+    (ctx) => ctx.venueB.id
+  ),
+  "PATCH /api/v1/venues/:id/team": ok(async (ctx) => {
+    const request = (venueId: string) => ({
+      method: "PATCH" as const,
+      url: teamUrl(venueId),
+      payload: { hostEmergencyClose: false },
+    });
+    expectOk(await asAdmin(ctx, request(ctx.venueB.id)), "admin venue B");
+    expectOk(await asMember(ctx, request(ctx.venueA.id)), "member venue A (own venue)");
+    expectDenied(await asMember(ctx, request(ctx.venueB.id)), "member venue B (not a member)");
+  }),
+  "PATCH /api/v1/venues/:id/team/members/:userSub": ok(async (ctx) => {
+    const request = (venueId: string) => ({
+      method: "PATCH" as const,
+      url: teamUrl(venueId, `/members/${encodeURIComponent(ctx.memberSub)}`),
+      payload: { role: "manager" },
+    });
+    expectOk(await asAdmin(ctx, request(ctx.venueA.id)), "admin venue A");
+    expectOk(await asMember(ctx, request(ctx.venueA.id)), "member venue A (own venue)");
+    expectDenied(await asMember(ctx, request(ctx.venueB.id)), "member venue B (not a member)");
+  }),
 };
 
 /**

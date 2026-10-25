@@ -1649,6 +1649,22 @@
       "description": "Administra los días y horarios en que tu local acepta reservas.",
       "operatingHours": "Horario de atención"
     },
+    "team": {
+      "title": "Equipo",
+      "description": "Los gerentes cambian horarios, cierres y roles. Los anfitriones atienden el servicio de esta noche.",
+      "noVenue": "Elige un establecimiento para ver su equipo.",
+      "loadError": "No se pudo cargar el equipo",
+      "empty": "Este establecimiento aún no tiene equipo.",
+      "roleLabel": "Rol de {{member}}",
+      "roleManager": "Gerente",
+      "roleHost": "Anfitrión",
+      "you": "Tú",
+      "readOnly": "Solo los gerentes cambian los roles.",
+      "emergencyClose": "Los anfitriones pueden cerrar en una emergencia",
+      "emergencyCloseHint": "Los anfitriones pueden cerrar todo el establecimiento solo por esta noche. Un cierre más largo necesita a un gerente.",
+      "emergencyCloseOn": "Los anfitriones pueden cerrar todo el establecimiento esta noche en una emergencia.",
+      "emergencyCloseOff": "Solo los gerentes pueden cerrar el establecimiento."
+    },
     "profile": {
       "title": "Perfil del local",
       "description": "Quién eres, tal como lo ven tus comensales en tu página pública de reservas.",

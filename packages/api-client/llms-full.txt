@@ -1122,6 +1122,7 @@
         reservations: new ReservationsClient(client),
         venues: new VenuesClient(client),
         venueGroups: new VenueGroupsClient(client),
+        venueTeam: new VenueTeamClient(client),
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
@@ -1894,6 +1895,37 @@
        */
       async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> {
         return this.client.patchOne<User>("/api/v1/users/me/preferences", preferences, UserSchema);
+      }
+    }
+  </file>
+  <file path="src/venue-team.ts">
+    function teamPath(venueId: string, ...segments: string[]): string {
+      return ["/api/v1/venues", ...[venueId, "team", ...segments].map(encodeURIComponent)].join("/");
+    }
+    export class VenueTeamClient {
+      constructor(private client: ApiClient) {}
+    
+      async get(venueId: string): Promise<VenueTeam> {
+        return this.client.getOne<VenueTeam>(teamPath(venueId), undefined, VenueTeamSchema);
+      }
+    
+      /** Needs Manager. A 409 means the change would leave the venue with no Manager. */
+      async setRole(
+        venueId: string,
+        userSub: string,
+        role: TeamRole
+      ): Promise<{ userSub: string; role: TeamRole }> {
+        return this.client.patchOne(teamPath(venueId, "members", userSub), { role }, memberRoleSchema);
+      }
+    
+      /** Needs Manager. Resolves to the stored grant. */
+      async setHostEmergencyClose(venueId: string, enabled: boolean): Promise<boolean> {
+        const result = await this.client.patchOne(
+          teamPath(venueId),
+          { hostEmergencyClose: enabled },
+          UpdateVenueTeamRequestSchema
+        );
+        return result.hostEmergencyClose;
       }
     }
   </file>

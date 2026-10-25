@@ -1370,6 +1370,11 @@
       >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/venue-team.ts">
+    <item priority="high">
+      export const venueTeamRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/venues.ts">
     <item priority="high">
       export const VENUE_CREATE_RATE_LIMIT: unknown;
@@ -3220,6 +3225,25 @@
     </item>
     <item priority="high">
       export function withVenueScopedQueries(client: PrismaClient): PrismaClient { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/venue-team.ts">
+    <item priority="medium">
+      function toTeamRole(role: VenueRole): TeamRole { /* ... */ }
+    </item>
+    <item priority="high">
+      class LastManagerError {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createVenueTeamService(client: PrismaClient = prisma) { /* ... */ }
+    </item>
+    <item priority="low">
+      type VenueTeamService = ReturnType<typeof createVenueTeamService>;
+    </item>
+    <item priority="high">
+      export const venueTeamService: unknown;
     </item>
   </file>
   <file path="src/services/venue.ts">

@@ -5601,6 +5601,26 @@
       return readiness;
     }
   </file>
+  <file path="src/hooks/useVenueTeam.ts">
+    export const VENUE_TEAM_QUERY_KEY = "venueTeam" as const;
+    export const useVenueTeam = createQueryHook<VenueTeam | null, { venueId: string | null }>({
+      key: VENUE_TEAM_QUERY_KEY,
+      fetcher: async (params, api) => (params?.venueId ? api.venueTeam.get(params.venueId) : null),
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useSetTeamRole = createMutationHook<{
+      venueId: string;
+      userSub: string;
+      role: TeamRole;
+    }>({
+      invalidateKeys: VENUE_TEAM_QUERY_KEY,
+      mutationFn: (api, { venueId, userSub, role }) => api.venueTeam.setRole(venueId, userSub, role),
+    });
+    export const useSetHostEmergencyClose = createMutationHook<{ venueId: string; enabled: boolean }>({
+      invalidateKeys: VENUE_TEAM_QUERY_KEY,
+      mutationFn: (api, { venueId, enabled }) => api.venueTeam.setHostEmergencyClose(venueId, enabled),
+    });
+  </file>
   <file path="src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;

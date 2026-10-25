@@ -595,6 +595,15 @@
       export const assignSectionTablesBodyJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const venueTeamResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateTeamMemberRoleBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateVenueTeamBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const createMenuBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -1017,6 +1026,41 @@
     </item>
     <item priority="high">
       export const UserProfileSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/venue-team.ts">
+    <item priority="high">
+      export const TEAM_ROLES: unknown;
+    </item>
+    <item priority="high">
+      export const TeamRoleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TeamMemberSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueTeamSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateTeamMemberRoleRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateVenueTeamRequestSchema: unknown;
+    </item>
+    <item priority="low">
+      type TeamRole = z.infer<typeof TeamRoleSchema>;
+    </item>
+    <item priority="low">
+      type TeamMember = z.infer<typeof TeamMemberSchema>;
+    </item>
+    <item priority="low">
+      type VenueTeam = z.infer<typeof VenueTeamSchema>;
+    </item>
+    <item priority="low">
+      type UpdateTeamMemberRoleRequest = z.infer<typeof UpdateTeamMemberRoleRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateVenueTeamRequest = z.infer<typeof UpdateVenueTeamRequestSchema>;
     </item>
   </file>
   <file path="src/schemas/venue.ts">

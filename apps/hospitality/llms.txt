@@ -2001,6 +2001,20 @@
       export function useVenueReadiness(): VenueReadiness { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useVenueTeam.ts">
+    <item priority="high">
+      export const VENUE_TEAM_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useVenueTeam: unknown;
+    </item>
+    <item priority="high">
+      export const useSetTeamRole: unknown;
+    </item>
+    <item priority="high">
+      export const useSetHostEmergencyClose: unknown;
+    </item>
+  </file>
   <file path="src/hooks/useVenues.ts">
     <item priority="high">
       export const VENUES_QUERY_KEY: unknown;
