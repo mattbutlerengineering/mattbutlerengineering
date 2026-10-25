@@ -1527,7 +1527,8 @@
       export function planVenueMigration(
         venue: VenueForMigration,
         now: Date,
-        newId: () => string = randomUUID
+        newId: () => string = randomUUID,
+        options: { lenient?: boolean } = {}
       ): VenueMigrationPlan { /* ... */ }
     </item>
     <item priority="high">
@@ -1562,6 +1563,35 @@
       ): Promise<VenueMigrationOutcome> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/availability-notices.ts">
+    <item priority="high">
+      export const DEFAULT_CLOSURE_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export const PAUSED_CALL_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export const PAUSED_MESSAGE: unknown;
+    </item>
+    <item priority="low">
+      interface DayNotices {
+        closure?: AvailabilityClosure;
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="medium">
+      function activePause(snapshot: BookingSnapshot, day: ReturnType<typeof resolveDay>) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dayNotices(
+        snapshot: BookingSnapshot,
+        serviceDate: ServiceDate,
+        phone: string | null,
+        /** Online seatings `listSlots` found for the date, booked or not. */
+        seatingCount: number
+      ): DayNotices { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/availability-snapshot.ts">
     <item priority="low">
       interface SnapshotWarning {
@@ -1589,10 +1619,20 @@
       }
     </item>
     <item priority="low">
+      type SnapshotSource = "rows" | "legacy" | "none";
+    </item>
+    <item priority="low">
       interface LoadedSnapshot {
         snapshot: BookingSnapshot;
         version: number;
         warnings: SnapshotWarning[];
+        source: SnapshotSource;
+        venueSettings: VenueSettings | null;
+      }
+    </item>
+    <item priority="high">
+      class VenueNotFoundError {
+        
       }
     </item>
     <item priority="high">
@@ -1629,6 +1669,22 @@
     <item priority="medium">
       function dateRuleCandidate(row: DateRuleRow): unknown { /* ... */ }
     </item>
+    <item priority="high">
+      interface LegacyVenue {
+        operatingHours: unknown;
+        settings: unknown;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function effectiveConfig(
+        venueId: string,
+        config: AvailabilityConfig,
+        venue: LegacyVenue,
+        now: Date,
+        warnings: SnapshotWarning[]
+      ): { config: AvailabilityConfig; source: SnapshotSource } { /* ... */ }
+    </item>
     <item priority="medium">
       function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null { /* ... */ }
     </item>
@@ -1643,32 +1699,74 @@
     </item>
   </file>
   <file path="src/services/availability.ts">
-    <item priority="high">
-      interface VenueWithSettings {
-        id: string;
-        name: string;
-        slug: string;
-        ianaTimezone: string;
-        settings: VenueSettings | null;
+    <item priority="low">
+      interface ListingOptions {
+        logger?: SnapshotLogger;
       }
     </item>
+    <item priority="low">
+      interface DayAvailability {
+        slots: TimeSlot[];
+        closure?: AvailabilityClosure;
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="low">
+      async function loadOrNull(
+        venueId: string,
+        fromDate: string,
+        toDate: string,
+        now: Date,
+        options: ListingOptions
+      ): Promise<LoadedSnapshot | null> { /* ... */ }
+    </item>
     <item priority="medium">
-      function parseTimeToMinutes(time: string): number { /* ... */ }
+      function withDuration(
+        snapshot: BookingSnapshot,
+        partySize: number,
+        durationMinutes: number | undefined
+      ): BookingSnapshot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toTimeSlot(slot: Slot): TimeSlot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getDayAvailability(
+        venueId: string,
+        date: string,
+        partySize: number,
+        durationOverride?: number,
+        options: ListingOptions = {}
+      ): Promise<DayAvailability> { /* ... */ }
     </item>
     <item priority="high">
       export async function generateTimeSlots(
         venueId: string,
         date: string,
         partySize: number,
-        durationOverride?: number
+        durationOverride?: number,
+        options: ListingOptions = {}
       ): Promise<TimeSlot[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rangeDates(startDate: string, endDate: string): string[] { /* ... */ }
     </item>
     <item priority="high">
       export async function getAvailableDates(
         venueId: string,
         startDate: string,
         endDate: string,
-        partySize: number
+        partySize: number,
+        options: ListingOptions = {}
       ): Promise<DateAvailability[]> { /* ... */ }
     </item>
     <item priority="high">
@@ -1688,9 +1786,6 @@
         venueId: string,
         date: string
       ): Promise<{ reservations: ReservationSlim[]; holds: HoldSlim[] }> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date { /* ... */ }
     </item>
     <item priority="high">
       export const availabilityService: unknown;
@@ -3657,6 +3752,32 @@
     </item>
     <item priority="high">
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
+    </item>
+  </file>
+  <file path="src/test/legacy-slot-oracle.ts">
+    <item priority="low">
+      interface OracleVenue {
+        ianaTimezone: string;
+        settings: VenueSettings | null;
+        operatingHours: OperatingHours | null;
+      }
+    </item>
+    <item priority="low">
+      interface OracleTable {
+        name: string;
+      }
+    </item>
+    <item priority="medium">
+      function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyTimeSlots(
+        venue: OracleVenue,
+        tables: OracleTable[],
+        date: string,
+        partySize: number,
+        now: Date
+      ): TimeSlot[] { /* ... */ }
     </item>
   </file>
   <file path="src/test/mocks.ts">

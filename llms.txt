@@ -9382,6 +9382,35 @@
       type ClosureAction = z.infer<typeof ClosureActionSchema>;
     </item>
   </file>
+  <file path="packages/types/src/schemas/availability-response.ts">
+    <item priority="high">
+      export const AvailableTableSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TimeSlotSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityClosureSchema: unknown;
+    </item>
+    <item priority="high">
+      export const BookingPausedSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateAvailabilitySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityResponseSchema: unknown;
+    </item>
+    <item priority="low">
+      type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
+    </item>
+    <item priority="low">
+      type BookingPaused = z.infer<typeof BookingPausedSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
+    </item>
+  </file>
   <file path="packages/types/src/schemas/common.ts">
     <item priority="high">
       export const PaginationSchema: unknown;
@@ -9814,6 +9843,9 @@
     </item>
     <item priority="high">
       export const publicAvailabilityQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityResponseJsonSchema: unknown;
     </item>
     <item priority="high">
       export const publicDepositBodyJsonSchema: unknown;
@@ -11376,7 +11408,8 @@
       export function planVenueMigration(
         venue: VenueForMigration,
         now: Date,
-        newId: () => string = randomUUID
+        newId: () => string = randomUUID,
+        options: { lenient?: boolean } = {}
       ): VenueMigrationPlan { /* ... */ }
     </item>
     <item priority="high">
@@ -11411,6 +11444,35 @@
       ): Promise<VenueMigrationOutcome> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/availability-notices.ts">
+    <item priority="high">
+      export const DEFAULT_CLOSURE_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export const PAUSED_CALL_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export const PAUSED_MESSAGE: unknown;
+    </item>
+    <item priority="low">
+      interface DayNotices {
+        closure?: AvailabilityClosure;
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="medium">
+      function activePause(snapshot: BookingSnapshot, day: ReturnType<typeof resolveDay>) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dayNotices(
+        snapshot: BookingSnapshot,
+        serviceDate: ServiceDate,
+        phone: string | null,
+        /** Online seatings `listSlots` found for the date, booked or not. */
+        seatingCount: number
+      ): DayNotices { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
     <item priority="low">
       interface SnapshotWarning {
@@ -11438,10 +11500,20 @@
       }
     </item>
     <item priority="low">
+      type SnapshotSource = "rows" | "legacy" | "none";
+    </item>
+    <item priority="low">
       interface LoadedSnapshot {
         snapshot: BookingSnapshot;
         version: number;
         warnings: SnapshotWarning[];
+        source: SnapshotSource;
+        venueSettings: VenueSettings | null;
+      }
+    </item>
+    <item priority="high">
+      class VenueNotFoundError {
+        
       }
     </item>
     <item priority="high">
@@ -11478,6 +11550,22 @@
     <item priority="medium">
       function dateRuleCandidate(row: DateRuleRow): unknown { /* ... */ }
     </item>
+    <item priority="high">
+      interface LegacyVenue {
+        operatingHours: unknown;
+        settings: unknown;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function effectiveConfig(
+        venueId: string,
+        config: AvailabilityConfig,
+        venue: LegacyVenue,
+        now: Date,
+        warnings: SnapshotWarning[]
+      ): { config: AvailabilityConfig; source: SnapshotSource } { /* ... */ }
+    </item>
     <item priority="medium">
       function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null { /* ... */ }
     </item>
@@ -11492,32 +11580,74 @@
     </item>
   </file>
   <file path="services/reservations/src/services/availability.ts">
-    <item priority="high">
-      interface VenueWithSettings {
-        id: string;
-        name: string;
-        slug: string;
-        ianaTimezone: string;
-        settings: VenueSettings | null;
+    <item priority="low">
+      interface ListingOptions {
+        logger?: SnapshotLogger;
       }
     </item>
+    <item priority="low">
+      interface DayAvailability {
+        slots: TimeSlot[];
+        closure?: AvailabilityClosure;
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="low">
+      async function loadOrNull(
+        venueId: string,
+        fromDate: string,
+        toDate: string,
+        now: Date,
+        options: ListingOptions
+      ): Promise<LoadedSnapshot | null> { /* ... */ }
+    </item>
     <item priority="medium">
-      function parseTimeToMinutes(time: string): number { /* ... */ }
+      function withDuration(
+        snapshot: BookingSnapshot,
+        partySize: number,
+        durationMinutes: number | undefined
+      ): BookingSnapshot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toTimeSlot(slot: Slot): TimeSlot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getDayAvailability(
+        venueId: string,
+        date: string,
+        partySize: number,
+        durationOverride?: number,
+        options: ListingOptions = {}
+      ): Promise<DayAvailability> { /* ... */ }
     </item>
     <item priority="high">
       export async function generateTimeSlots(
         venueId: string,
         date: string,
         partySize: number,
-        durationOverride?: number
+        durationOverride?: number,
+        options: ListingOptions = {}
       ): Promise<TimeSlot[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rangeDates(startDate: string, endDate: string): string[] { /* ... */ }
     </item>
     <item priority="high">
       export async function getAvailableDates(
         venueId: string,
         startDate: string,
         endDate: string,
-        partySize: number
+        partySize: number,
+        options: ListingOptions = {}
       ): Promise<DateAvailability[]> { /* ... */ }
     </item>
     <item priority="high">
@@ -11537,9 +11667,6 @@
         venueId: string,
         date: string
       ): Promise<{ reservations: ReservationSlim[]; holds: HoldSlim[] }> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date { /* ... */ }
     </item>
     <item priority="high">
       export const availabilityService: unknown;
@@ -16534,51 +16661,75 @@
       type LegacyHoursFailure = { ok: false; reason: "no_hours | { ok: false; reason: "unknown_ | { ok: false; reason: "unknown_ | { ok: false; reason: "unreadab | { ok: false; reason: "unreadab;
     </item>
     <item priority="low">
-      type LegacyHoursResult = { ok: true; shape: LegacyShape | LegacyHoursFailure;
+      interface LegacyHoursOptions {
+        lenient?: boolean;
+      }
+    </item>
+    <item priority="low">
+      type LegacyHoursResult = {
+            ok: true;
+            shape: | LegacyHoursFailure;
     </item>
     <item priority="high">
       type Loose = Record<string, unknown>;
     </item>
     <item priority="medium">
-      function parseTime(value: unknown): number | null { /* ... */ }
+      function parseTime(value: unknown, lenient: boolean): number | null { /* ... */ }
     </item>
     <item priority="high">
       type Problems = string[];
+    </item>
+    <item priority="high">
+      interface Reader {
+        problems: Problems;
+        lenient: boolean;
+        unreadableDays: string[];
+      }
     </item>
     <item priority="medium">
       function toWindow(
         where: string,
         problems: Problems,
+        lenient: boolean,
         open: unknown,
         close: unknown,
         name?: unknown
       ): LegacyWindow | null { /* ... */ }
     </item>
     <item priority="medium">
-      function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult { /* ... */ }
+      function finish(shape: LegacyShape, reader: Reader, hours: LegacyHours): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="medium">
       function weeklyFrom(
-        windowsFor: (day: Weekday) => LegacyWindow[]
+        reader: Reader,
+        windowsFor: (day: Weekday, problems: Problems) => LegacyWindow[]
       ): Record<Weekday, readonly LegacyWindow[]> { /* ... */ }
     </item>
     <item priority="medium">
-      function fromWeekdayKeyed(raw: Loose): LegacyHoursResult { /* ... */ }
+      function fromWeekdayKeyed(raw: Loose, reader: Reader): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="medium">
-      function fromSeedArray(raw: unknown[]): LegacyHoursResult { /* ... */ }
+      function fromSeedArray(raw: unknown[], reader: Reader): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="medium">
-      function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] { /* ... */ }
+      function toWindows(
+        where: string,
+        problems: Problems,
+        lenient: boolean,
+        raw: unknown
+      ): LegacyWindow[] { /* ... */ }
     </item>
     <item priority="medium">
-      function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] { /* ... */ }
+      function toOverrides(problems: Problems, lenient: boolean, raw: unknown): LegacyOverride[] { /* ... */ }
     </item>
     <item priority="medium">
-      function fromV2(raw: Loose): LegacyHoursResult { /* ... */ }
+      function fromV2(raw: Loose, reader: Reader): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="high">
-      export function normalizeLegacyHours(raw: unknown): LegacyHoursResult { /* ... */ }
+      export function normalizeLegacyHours(
+        raw: unknown,
+        options: LegacyHoursOptions = {}
+      ): LegacyHoursResult { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/legacy-migration.ts">
@@ -16608,6 +16759,7 @@
         droppedWindows: number;
         skippedPastOverrides: number;
         migratedOverrides: number;
+        unreadableDays?: string[];
       }
     </item>
     <item priority="low">
@@ -16635,12 +16787,27 @@
       function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] { /* ... */ }
     </item>
     <item priority="medium">
-      function validIntervalOrBuffer(
-        input: LegacyMigrationInput
-      ): { interval: number; buffer: number } | LegacyMigrationResult { /* ... */ }
+      function validIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule | LegacyMigrationResult { /* ... */ }
+    </item>
+    <item priority="high">
+      interface SeatingRule {
+        interval: number;
+        fixedStep?: number;
+        buffer: number;
+        coercions: string[];
+      }
+    </item>
+    <item priority="medium">
+      function lenientIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fixedSeatings(open: number, last: number, step: number): number[] { /* ... */ }
     </item>
     <item priority="medium">
       function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeImplausibleDays(hours: LegacyHours): { hours: LegacyHours; closed: string[] } { /* ... */ }
     </item>
     <item priority="high">
       export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult { /* ... */ }
@@ -18555,6 +18722,7 @@
         date: string;
         hasAvailability: boolean;
         slotCount?: number;
+        closure?: { message: string };
       }
     </item>
     <item priority="low">
@@ -20183,6 +20351,32 @@
     </item>
     <item priority="high">
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/test/legacy-slot-oracle.ts">
+    <item priority="low">
+      interface OracleVenue {
+        ianaTimezone: string;
+        settings: VenueSettings | null;
+        operatingHours: OperatingHours | null;
+      }
+    </item>
+    <item priority="low">
+      interface OracleTable {
+        name: string;
+      }
+    </item>
+    <item priority="medium">
+      function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyTimeSlots(
+        venue: OracleVenue,
+        tables: OracleTable[],
+        date: string,
+        partySize: number,
+        now: Date
+      ): TimeSlot[] { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/test/mocks.ts">

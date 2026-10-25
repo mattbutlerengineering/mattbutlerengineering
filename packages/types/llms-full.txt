@@ -413,6 +413,41 @@
     export type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
     export type ClosureAction = z.infer<typeof ClosureActionSchema>;
   </file>
+  <file path="src/schemas/availability-response.ts">
+    export const AvailableTableSchema = z.object({
+      id: z.string(),
+      name: z.string(),
+      capacity: z.number().int(),
+      minCovers: z.number().int(),
+      maxCovers: z.number().int().nullable(),
+    });
+    export const TimeSlotSchema = z.object({
+      time: z.string(),
+      available: z.boolean(),
+      tables: z.array(AvailableTableSchema).optional(),
+    });
+    export const AvailabilityClosureSchema = z.object({
+      message: z.string().min(1),
+    });
+    export const BookingPausedSchema = z.object({
+      message: z.string().min(1),
+      phone: z.string().optional(),
+    });
+    export const DateAvailabilitySchema = z.object({
+      date: z.string(),
+      hasAvailability: z.boolean(),
+      slotCount: z.number().int().optional(),
+      closure: AvailabilityClosureSchema.optional(),
+    });
+    export const PublicAvailabilityResponseSchema = z.object({
+      data: z.array(TimeSlotSchema),
+      closure: AvailabilityClosureSchema.optional(),
+      bookingPaused: BookingPausedSchema.optional(),
+    });
+    export type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
+    export type BookingPaused = z.infer<typeof BookingPausedSchema>;
+    export type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
+  </file>
   <file path="src/schemas/common.ts">
     export const PaginationSchema = z.object({
       page: z.number(),
@@ -881,6 +916,9 @@
     export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBodySchema);
     export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
     export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+    export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
+      PublicAvailabilityResponseSchema
+    );
     export const publicDepositBodyJsonSchema = toRequestJsonSchema(PublicDepositBodySchema);
     export const publicGuestRecognitionQueryJsonSchema = toRequestJsonSchema(
       PublicGuestRecognitionQuerySchema
@@ -1835,6 +1873,8 @@
       date: string; // YYYY-MM-DD
       hasAvailability: boolean;
       slotCount?: number;
+      /** Present when the date is closed; see `DateAvailabilitySchema`. */
+      closure?: { message: string };
     }
     export interface AvailabilityQuery {
       date: string; // YYYY-MM-DD

@@ -54,12 +54,21 @@ export function civilDateIn(now: Date, timeZone: string): string {
   }).format(now);
 }
 
+/**
+ * `lenient` is for the live listing fallback only: an unreadable or implausible
+ * day is closed and listed in `notes.unreadableDays` (as the legacy listing
+ * closed it), and settings or keys the legacy listing read anyway are coerced
+ * and listed in `notes.coercions`, instead of the whole venue being
+ * `unrecognised`. The backfill stays strict.
+ */
 export function planVenueMigration(
   venue: VenueForMigration,
   now: Date,
-  newId: () => string = randomUUID
+  newId: () => string = randomUUID,
+  options: { lenient?: boolean } = {}
 ): VenueMigrationPlan {
-  const normalised = normalizeLegacyHours(venue.operatingHours);
+  const lenient = options.lenient ?? false;
+  const normalised = normalizeLegacyHours(venue.operatingHours, { lenient });
   if (!normalised.ok) {
     const detail = "detail" in normalised ? normalised.detail : "";
     return { kind: "unrecognised", reason: normalised.reason, detail };
@@ -71,13 +80,24 @@ export function planVenueMigration(
     lastSeatingBuffer: settings.lastSeatingBuffer,
     today: civilDateIn(now, venue.ianaTimezone),
     newId,
+    lenient,
   });
   if (!built.ok) return { kind: "unrecognised", reason: built.reason, detail: built.detail };
+  const unreadableDays = [
+    ...(normalised.unreadableDays ?? []),
+    ...(built.notes.unreadableDays ?? []),
+  ];
+  const coercions = [...(normalised.coercions ?? []), ...(built.notes.coercions ?? [])];
+  const notes = {
+    ...built.notes,
+    ...(unreadableDays.length > 0 ? { unreadableDays } : {}),
+    ...(coercions.length > 0 ? { coercions } : {}),
+  };
   return {
     kind: "migrate",
     shape: normalised.shape,
     config: built.config,
-    notes: built.notes,
+    notes,
     projection: projectLegacyOperatingHours(built.config),
   };
 }

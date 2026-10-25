@@ -275,6 +275,35 @@
       type ClosureAction = z.infer<typeof ClosureActionSchema>;
     </item>
   </file>
+  <file path="src/schemas/availability-response.ts">
+    <item priority="high">
+      export const AvailableTableSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TimeSlotSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityClosureSchema: unknown;
+    </item>
+    <item priority="high">
+      export const BookingPausedSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateAvailabilitySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityResponseSchema: unknown;
+    </item>
+    <item priority="low">
+      type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
+    </item>
+    <item priority="low">
+      type BookingPaused = z.infer<typeof BookingPausedSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
+    </item>
+  </file>
   <file path="src/schemas/common.ts">
     <item priority="high">
       export const PaginationSchema: unknown;
@@ -707,6 +736,9 @@
     </item>
     <item priority="high">
       export const publicAvailabilityQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityResponseJsonSchema: unknown;
     </item>
     <item priority="high">
       export const publicDepositBodyJsonSchema: unknown;
@@ -1265,6 +1297,7 @@
         date: string;
         hasAvailability: boolean;
         slotCount?: number;
+        closure?: { message: string };
       }
     </item>
     <item priority="low">

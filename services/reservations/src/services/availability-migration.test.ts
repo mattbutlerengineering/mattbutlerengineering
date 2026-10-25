@@ -75,6 +75,30 @@ describe("planVenueMigration", () => {
   });
 });
 
+describe("planVenueMigration, strict vs lenient", () => {
+  const MESSY = {
+    ...WEEKDAY_HOURS,
+    monday: { open: "", close: "22:00" },
+    tuesday: { open: "09:00", close: "08:00" },
+    wednesday: { open: "11:00:00", close: "22:00:00" },
+  };
+
+  it("stays strict for the backfill: one unreadable day leaves the venue unrecognised", () => {
+    expect(planVenueMigration(venueRow(MESSY), NOW).kind).toBe("unrecognised");
+  });
+
+  it("in lenient mode closes the bad days and lists each in notes.unreadableDays", () => {
+    const plan = planVenueMigration(venueRow(MESSY), NOW, undefined, { lenient: true });
+    if (plan.kind !== "migrate") throw new Error(plan.reason);
+    expect(plan.notes.unreadableDays).toEqual([
+      expect.stringContaining("monday"),
+      expect.stringContaining("tuesday"),
+    ]);
+    const assigned = plan.config.assignments.flatMap((a) => a.weekdays).sort();
+    expect(assigned).toEqual([3, 4, 5, 6]); // Wed-Sat open; Sun closed; Mon/Tue closed as bad
+  });
+});
+
 describe("migrateVenue", () => {
   it("writes every table inside the venue's RLS context", async () => {
     const { prisma, tx } = fakePrisma(venueRow(WEEKDAY_HOURS));
