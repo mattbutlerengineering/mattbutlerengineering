@@ -42,6 +42,9 @@ Not yet run: 2, 3, 6, 7, 8, 10, 11, 12, 14, 16, 18, 19. All need venue context t
 | F30 | Chat elements show 24-hour times ("09:00", "20:30") to an en-US host, both in TimeSlots chips and ReservationList rows. `localTime` is `HH:mm`; nothing formats it for the locale.                                                                                                                                                                   | batch 8                                                                                  |
 | F31 | Timeline's connector between event dots is a short stub under each dot, not a line that reaches the next event. Cosmetic.                                                                                                                                                                                                                            | /gen screenshot, batch 8                                                                 |
 | F32 | Suspected: answering "status of every table", the model listed a table as "Matt Butler: seated", then corrected itself unprompted on the next turn ("it's the unnamed table, and its status is ready"). Needs the `get_table_status` payload to tell a data quirk from a misread.                                                                    | batch 8                                                                                  |
+| F33 | The chat appended json-render's full `catalog.prompt()`, a /gen generator spec ("Output ONLY JSONL patches"). Asked for reservations "with a short label above the list", the model wrote four `{"op":"add",…}` lines as reply text, and the host saw raw JSON. Fixed in #7492: the chat gets only the component list.                               | batch 9 screenshot                                                                       |
+| F34 | Minor: the model sometimes converts `localTime` itself and sends zero-padded 12-hour chips ("09:00 AM"). That is not a bare `HH:mm`, so #7533 passes it through unchanged.                                                                                                                                                                           | batch 9                                                                                  |
+| F35 | Minor: after a tool call the model restates its pre-tool sentence ("…only Monday, October 26 is open…" twice). With F29 fixed the two are now separate paragraphs, so the repeat is easy to see.                                                                                                                                                     | batch 9                                                                                  |
 
 ## Confirmed live (from the pre-run list)
 
@@ -156,3 +159,18 @@ Checked once agent-api run 40172193499's `Deploy API Services` job succeeded for
 | /gen | —                         | Visit history with long timestamps                       | pass     | 3 elements, 0 fallbacks. One Generate click sent exactly one `/api/gen/ui` request (F26 fixed live). Long timestamps wrap in their own column, clear of the dots (F25 fixed live). Connector stub, F31.      |
 
 "Component could not be displayed" count: chat 1 (F28), /gen 0. Target was 0, so F28 is the one open blocker for wave 2's success criterion. All five read tools reached their fitting element or, where the data called for it, words.
+
+## Batch 9 (after #7487, #7489, #7491, #7492), 2026-10-25
+
+Static Sites was dispatched once by hand (Owner-approved) after #7487's push deploy skipped Hospitality; #7489 fixes that filter. The `Deploy API Services` job of agent-api run 40207394749 succeeded for `c9e5aeb5e` (#7492).
+
+| #   | Question                                                                     | Verdict | Notes                                                                                                                                                  |
+| --- | ---------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 9.1 | "Show me the reservations for Friday, October 16." (after #7487)             | pass    | One ReservationList row, 0 fallbacks. The model sent no word-less label this time, so the #7487 drop path was not exercised live; unit tests cover it. |
+| 9.2 | "…for Friday, October 16, with a short label above the list." (before #7492) | fail    | Raw JSONL patch lines as the reply text, no element (F33).                                                                                             |
+| 9.3 | Same question (after #7492)                                                  | pass    | A visible label Text "Reservations for Friday, Oct 16" above the row, no JSON, 0 fallbacks. F33 fixed live.                                            |
+| 9.4 | "Which days this week are we open? Show the open times…" (after #7491)       | pass    | The pre-tool and post-tool text are separate paragraphs (F29 fixed live). 47 TimeSlots chips, 0 fallbacks. See F34, F35.                               |
+
+| 9.5 | "Show me the reservations for Friday, October 16." (after #7533) | pass | The row reads "9:26 AM · Matt Butler · Party of 2 · Confirmed". F30 fixed live. This hospitality deploy (run 40208407361) fired from the rialto change itself, so #7489's filter fix is proven on a real push. |
+
+Fallback count: chat 0. Open: F31 (Timeline connector stub), F32 (suspected table misread), F34, F35, and F12 (out of scope).
