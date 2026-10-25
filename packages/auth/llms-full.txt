@@ -54,6 +54,52 @@
         }
       };
     }
+    export type VenueRole = "owner" | "manager" | "staff";
+    export function hasVenueRole(role: VenueRole | null, minimum: VenueRole): boolean {
+      return role !== null && VENUE_ROLE_RANK[role] >= VENUE_ROLE_RANK[minimum];
+    }
+    export type VenueRoleLookup = (userSub: string, venueId: string) => Promise<VenueRole | null>;
+    export function requireVenueRole(
+      minimum: VenueRole,
+      lookupRole: VenueRoleLookup,
+      resolveVenueId: VenueIdResolver
+    ) {
+      const roleDetail = `${minimum.charAt(0).toUpperCase()}${minimum.slice(1)} role required for this venue`;
+    
+      return async function venueRoleHandler(
+        request: FastifyRequest,
+        reply: FastifyReply
+      ): Promise<void> {
+        const user = request.user;
+    
+        if (!user) {
+          reply
+            .code(401)
+            .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
+          return;
+        }
+    
+        if (hasPermission(user, "admin")) {
+          return;
+        }
+    
+        const venueId = await resolveVenueId(request);
+        const role = venueId ? await lookupRole(user.raw.sub, venueId) : null;
+    
+        if (role === null) {
+          reply
+            .code(403)
+            .send(
+              createProblemDetails(403, titleForStatus(403), "You do not have access to this venue")
+            );
+          return;
+        }
+    
+        if (!hasVenueRole(role, minimum)) {
+          reply.code(403).send(createProblemDetails(403, titleForStatus(403), roleDetail));
+        }
+      };
+    }
     export function requireVenueCreateAccess(hasAnyVenueMembership: HasAnyVenueMembership) {
       return async function venueCreateAccessHandler(
         request: FastifyRequest,

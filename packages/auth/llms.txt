@@ -21,6 +21,22 @@
         resolveVenueId: VenueIdResolver
       ) { /* ... */ }
     </item>
+    <item priority="low">
+      type VenueRole = "owner" | "manager" | "staff";
+    </item>
+    <item priority="high">
+      export function hasVenueRole(role: VenueRole | null, minimum: VenueRole): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      type VenueRoleLookup = (userSub: string, venueId: string) => Promise<VenueRole |...;
+    </item>
+    <item priority="high">
+      export function requireVenueRole(
+        minimum: VenueRole,
+        lookupRole: VenueRoleLookup,
+        resolveVenueId: VenueIdResolver
+      ) { /* ... */ }
+    </item>
     <item priority="high">
       export function requireVenueCreateAccess(hasAnyVenueMembership: HasAnyVenueMembership) { /* ... */ }
     </item>

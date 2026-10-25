@@ -48,8 +48,13 @@ import { venueScopeOf } from "./routes/venue-scope.js";
 import {
   createHasAnyVenueMembership,
   createVenueMembershipLookup,
+  createVenueRoleLookup,
 } from "./services/venue-membership.js";
-import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
+import type {
+  HasAnyVenueMembership,
+  VenueMembershipLookup,
+  VenueRoleLookup,
+} from "@mbe/auth/fastify";
 import { getStripeConfig } from "./config/stripe.js";
 import { getManageTokenConfig } from "./config/manage-token.js";
 import { ReservationEventEmitter } from "./services/events.js";
@@ -78,6 +83,7 @@ export interface ReservationsAppOptions extends AppOptions {
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
+  venueRoleLookup?: VenueRoleLookup;
   hasAnyVenueMembership?: HasAnyVenueMembership;
   /**
    * Domain-service overrides (issue #3357). Defaults to the production Prisma-backed
@@ -203,6 +209,11 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   const venueMembershipLookup =
     options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
   fastify.decorate("venueMembershipLookup", venueMembershipLookup);
+
+  // Wire the venue-role lookup (requireVenueRole) the same way: per request,
+  // so a demotion from manager takes effect on the next call.
+  const venueRoleLookup = options.venueRoleLookup ?? createVenueRoleLookup(prisma);
+  fastify.decorate("venueRoleLookup", venueRoleLookup);
 
   // Wire the "holds any venue membership" lookup (ADR-020, third case) —
   // injectable for testing, Prisma-backed for production.
@@ -357,6 +368,7 @@ declare module "fastify" {
     /** Reservation transitions — one verb per transition, effects planned in one table. */
     transitions: ReservationTransitions;
     venueMembershipLookup: VenueMembershipLookup;
+    venueRoleLookup: VenueRoleLookup;
     hasAnyVenueMembership: HasAnyVenueMembership;
     /** Resolved domain-service seam (issue #3357) — see {@link DomainServices}. */
     services: DomainServices;

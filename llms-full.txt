@@ -11622,6 +11622,52 @@
         }
       };
     }
+    export type VenueRole = "owner" | "manager" | "staff";
+    export function hasVenueRole(role: VenueRole | null, minimum: VenueRole): boolean {
+      return role !== null && VENUE_ROLE_RANK[role] >= VENUE_ROLE_RANK[minimum];
+    }
+    export type VenueRoleLookup = (userSub: string, venueId: string) => Promise<VenueRole | null>;
+    export function requireVenueRole(
+      minimum: VenueRole,
+      lookupRole: VenueRoleLookup,
+      resolveVenueId: VenueIdResolver
+    ) {
+      const roleDetail = `${minimum.charAt(0).toUpperCase()}${minimum.slice(1)} role required for this venue`;
+    
+      return async function venueRoleHandler(
+        request: FastifyRequest,
+        reply: FastifyReply
+      ): Promise<void> {
+        const user = request.user;
+    
+        if (!user) {
+          reply
+            .code(401)
+            .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
+          return;
+        }
+    
+        if (hasPermission(user, "admin")) {
+          return;
+        }
+    
+        const venueId = await resolveVenueId(request);
+        const role = venueId ? await lookupRole(user.raw.sub, venueId) : null;
+    
+        if (role === null) {
+          reply
+            .code(403)
+            .send(
+              createProblemDetails(403, titleForStatus(403), "You do not have access to this venue")
+            );
+          return;
+        }
+    
+        if (!hasVenueRole(role, minimum)) {
+          reply.code(403).send(createProblemDetails(403, titleForStatus(403), roleDetail));
+        }
+      };
+    }
     export function requireVenueCreateAccess(hasAnyVenueMembership: HasAnyVenueMembership) {
       return async function venueCreateAccessHandler(
         request: FastifyRequest,
@@ -32599,6 +32645,11 @@
     export type VenueAccess<E> =
       /** Default: ADR-020 venue membership (`requireVenueAccess`). Admins pass. */
       | "member"
+      /**
+       * Venue configuration writes: `requireVenueRole("manager")` — an owner or
+       * manager membership (owner ⊇ manager ⊇ staff). Admins pass; staff get 403.
+       */
+      | "manager"
       /** RLS context only; relies on `requireAuth` in the route's preHandler. */
       | "authenticated"
       /** ADR-020 ownership: the verified email equals `owner(entity)`. Admins pass. */
@@ -32703,6 +32754,12 @@
             async () => (entity == null ? null : ownerAccess.owner(entity)),
             resolveCurrentUserEmail
           )(request, reply);
+        } else if (access === "manager") {
+          await requireVenueRole(
+            "manager",
+            request.server.venueRoleLookup,
+            () => venueId
+          )(request, reply);
         } else {
           await requireVenueAccess(request.server.venueMembershipLookup, () => venueId)(request, reply);
         }
@@ -32744,7 +32801,8 @@
         );
         if (problem) return reply.code(problem.status).send(problem);
     
-        if (access === "member" && !(await decide(request, reply, venueId, null))) return reply;
+        const membershipAccess = access === "member" || access === "manager";
+        if (membershipAccess && !(await decide(request, reply, venueId, null))) return reply;
     
         const resolvedVenueId = venueId;
         return runWithVenueContext(resolvedVenueId, async () => {
@@ -33407,7 +33465,7 @@
             summary: "Update a venue",
             operationId: "updateVenue",
             description:
-              "Update an existing venue. Only provided fields will be updated. Requires authentication.",
+              "Update an existing venue. Only provided fields will be updated. Requires a Manager (owner or manager) membership of the venue, or the admin role.",
             tags: ["Venues"],
             security: [{ bearerAuth: [] }],
             params: {
@@ -33434,7 +33492,8 @@
                 $ref: "Error#",
               },
               403: {
-                description: "Admin role required to change the venue's venue group",
+                description:
+                  "Caller is not a Manager (owner or manager) of this venue, or is not an admin and is changing the venue's venue group",
                 $ref: "Error#",
               },
               404: {
@@ -33444,17 +33503,18 @@
             },
           },
         },
-        venueScoped(venueFromRouteId, async (request, reply, { venueId, isAdmin }) => {
+        // Venue configuration write: needs Manager (owner or manager membership,
+        // #7509); staff/Host members are refused, admins bypass.
+        venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
           const { venueGroupId } = request.body;
     
           if (venueGroupId !== undefined && !isAdmin) {
-            // Venue scope proves MEMBERSHIP of this venue only — it never inspects
-            // a per-venue role (ADR-020). Re-parenting a venue into a different
-            // venue group is an org-hierarchy-defining mutation, the same class as
-            // venue-group CRUD and venue creation, both admin-gated in this file.
-            // Every other editable field stays open to members, so the check is
-            // scoped to an actual CHANGE of venueGroupId rather than gating the
-            // whole route.
+            // Manager scope proves a per-venue role, never platform authority.
+            // Re-parenting a venue into a different venue group is an
+            // org-hierarchy-defining mutation, the same class as venue-group CRUD
+            // and venue creation, both admin-gated in this file. Every other
+            // editable field stays open to Managers, so the check is scoped to an
+            // actual CHANGE of venueGroupId rather than gating the whole route.
             const current = await venueService.getById(venueId);
             // A venue that does not exist is not a reassignment — fall through so
             // the update below surfaces the existing 404.
@@ -47585,6 +47645,15 @@
       return async (userSub: string, venueId: string): Promise<boolean> => {
         const count = await client.venueMembership.count({ where: { userSub, venueId } });
         return count > 0;
+      };
+    }
+    export function createVenueRoleLookup(client: PrismaClient = prisma): VenueRoleLookup {
+      return async (userSub: string, venueId: string): Promise<VenueRole | null> => {
+        const membership = await client.venueMembership.findUnique({
+          where: { userSub_venueId: { userSub, venueId } },
+          select: { role: true },
+        });
+        return membership?.role ?? null;
       };
     }
     export function createHasAnyVenueMembership(client: PrismaClient = prisma): HasAnyVenueMembership {
@@ -65443,6 +65512,7 @@
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
+      venueRoleLookup?: VenueRoleLookup;
       hasAnyVenueMembership?: HasAnyVenueMembership;
       /**
        * Domain-service overrides (issue #3357). Defaults to the production Prisma-backed
@@ -65562,6 +65632,11 @@
       const venueMembershipLookup =
         options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
       fastify.decorate("venueMembershipLookup", venueMembershipLookup);
+    
+      // Wire the venue-role lookup (requireVenueRole) the same way: per request,
+      // so a demotion from manager takes effect on the next call.
+      const venueRoleLookup = options.venueRoleLookup ?? createVenueRoleLookup(prisma);
+      fastify.decorate("venueRoleLookup", venueRoleLookup);
     
       // Wire the "holds any venue membership" lookup (ADR-020, third case) —
       // injectable for testing, Prisma-backed for production.
