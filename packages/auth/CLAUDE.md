@@ -2,53 +2,11 @@
 
 Shared authentication package for React (frontend) and Fastify (backend). Uses standard OIDC/JWKS — not Auth0-specific SDKs — for provider portability.
 
-## Structure
+## Reference
 
-```
-src/
-├── types/index.ts        # OIDCConfig, JWTPayload, AuthUser
-├── react/
-│   ├── provider.tsx      # AuthProvider (wraps react-oidc-context)
-│   ├── hooks.ts          # useAuth, useAccessToken, useRequireAuth
-│   ├── auth-gate.ts      # useAuthGate / resolveAuthGate — the one screen-gate order
-│   └── signin-return-to.ts # signinReturnTo — validated post-sign-in destination
-└── fastify/
-    ├── plugin.ts          # authPlugin, requireAuth, optionalAuth, hasPermission
-    ├── plugin.test.ts     # Test patterns with mocked jose
-    ├── ownership.ts       # requireOwnershipOrAdmin — owner-or-admin guard (with { denial } knob)
-    └── authz.ts           # requireAdmin, requireVenueAccess — role / venue-membership guards
-```
+File map, `AuthProvider` and hook API tables, Fastify usage examples, the token verification flow and the `jose` mock example: [docs/reference.md](./docs/reference.md).
 
 ## React API
-
-### AuthProvider
-
-Wraps the app with OIDC context. Cleans callback params from URL after sign-in.
-
-```tsx
-<AuthProvider
-  config={{
-    authority: "https://your-tenant.auth0.com",
-    clientId: "abc123",
-    redirectUri: window.location.origin,
-    audience: "https://api.example.com",
-    scope: "openid profile email", // default
-  }}
-  onSigninCallback={() => navigate("/")}
->
-  {children}
-</AuthProvider>
-```
-
-### Hooks
-
-| Hook                       | Returns                                                                                                                                                | Purpose                                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `useAuth()`                | `{ isLoading, isAuthenticated, user, accessToken, signIn, signOut, signInSilent, error, activeNavigator, isRefreshing, sessionExpired, refreshError }` | Full auth state and methods                                                                                                           |
-| `useAccessToken()`         | `{ accessToken: string \| null, refreshError: Error \| null }`                                                                                         | Access token + proactive-refresh error                                                                                                |
-| `useRequireAuth()`         | Same as `useAuth()`                                                                                                                                    | Auto-redirects to login if unauthenticated                                                                                            |
-| `useSessionLifecycle()`    | `{ expired: boolean }`                                                                                                                                 | Raw token-expiry signal (used by `useAuth`)                                                                                           |
-| `hasAuthParams(location?)` | `boolean`                                                                                                                                              | react-oidc-context's own callback predicate, re-exported so an app's gate and the provider agree on whether a callback is in progress |
 
 ### Auth gate
 
@@ -72,22 +30,6 @@ The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailV
 
 The `authPlugin` is **permissive by default**: it populates `request.user` for valid tokens, rejects invalid tokens with 401, and passes through requests with no token. Use `requireAuth` or `optionalAuth` preHandlers to control per-route behavior.
 
-```typescript
-import { authPlugin, requireAuth, optionalAuth } from "@mbe/auth";
-
-await fastify.register(authPlugin, {
-  authority: "https://your-tenant.auth0.com",
-  audience: "https://api.example.com",
-  excludePaths: ["/health", "/docs"],
-});
-
-// Requires valid token — 401 if missing
-fastify.get("/me", { preHandler: requireAuth }, handler);
-
-// Documents that auth is optional — request.user may be undefined
-fastify.get("/public", { preHandler: optionalAuth }, handler);
-```
-
 ### getAuthPluginOptionsFromEnv()
 
 Reads `AUTH_AUTHORITY` and `AUTH_AUDIENCE` from env, throws if missing. Excludes `/health` and `/docs` by default.
@@ -106,26 +48,9 @@ PreHandler factory admitting the resource **owner** OR any **admin**. Attaches `
   - `"forbid"` (default) — `403` for a non-owner or null owner, `401` when the current identity is unresolvable. The resource is known to exist; the caller merely lacks access. **Every existing call site keeps this behavior.**
   - `"hide"` — `404` for **every** denial (non-owner, null owner, unresolvable identity). Existence-hiding: a deny is byte-for-byte indistinguishable from a genuine not-found, so unauthorized callers learn nothing about the resource. Used by the agent service's session routes, where confirming a session id exists is itself a leak.
 
-```typescript
-// Existence-hiding: non-owner / non-admin / webhook-origin (userId=null) all get 404.
-const requireSessionAccess = [
-  loadSession, // stashes request.agentSession for a single DB read
-  requireOwnershipOrAdmin(
-    (req) => Promise.resolve(req.agentSession?.userId ?? null),
-    undefined, // default resolveCurrentId = request.user.id
-    { denial: "hide" }
-  ),
-];
-fastify.get("/:id", { preHandler: [requireAuth, ...requireSessionAccess] }, handler);
-```
-
 #### requireAdmin
 
 PreHandler admitting only platform admins (`hasPermission(user, "admin")`, read statelessly from the JWT); `403` otherwise. Use for admin-only collections instead of an inline `hasPermission` check inside the handler.
-
-```typescript
-fastify.get("/", { preHandler: [requireAuth, requireAdmin] }, listAllHandler);
-```
 
 #### requireVenueAccess(membershipLookup, resolveVenueId)
 
@@ -134,14 +59,6 @@ PreHandler admitting platform admins OR members of the addressed venue (fine-gra
 ### Test Auth Bypass
 
 The auth bypass (`bypassTestMode`, sourced from `AUTH_BYPASS_IN_TESTS=true`) is **DEFAULT OFF**. Both check sites — the global `onRequest` hook and the `requireAuth` preHandler — use a positive opt-in gate: the bypass activates **only when `NODE_ENV === "test"`**. Production, staging, and an unset `NODE_ENV` all leave it OFF, so a deploy that forgets to set `NODE_ENV` can never mint the hardcoded admin identity (`auth0|user-123`) or skip JWT validation. Never set `AUTH_BYPASS_IN_TESTS` in production.
-
-### Token Verification Flow
-
-1. Global `onRequest` hook extracts Bearer token from Authorization header
-2. Verifies JWT against JWKS endpoint (`{authority}/.well-known/jwks.json`) using `jose`
-3. Validates `iss` (must match authority) and `aud` (must match audience)
-4. Populates `request.user: AuthUser` on success
-5. Returns RFC 9457 Problem Details on failure via `createProblemDetails`
 
 ## Environment Variables
 
@@ -157,31 +74,7 @@ Frontend config is passed via `AuthProvider` props (typically from build-time en
 
 ### Mocking JWT Verification (Fastify)
 
-```typescript
-const mockJwtVerify = vi.hoisted(() => vi.fn());
-const mockCreateRemoteJWKSet = vi.hoisted(() => vi.fn(() => "mock-jwks"));
-
-vi.mock("jose", () => ({
-  createRemoteJWKSet: mockCreateRemoteJWKSet,
-  jwtVerify: mockJwtVerify,
-}));
-
-// In test: resolve with valid payload
-mockJwtVerify.mockResolvedValueOnce({
-  payload: {
-    sub: "auth0|user-123",
-    iss: "https://test.auth0.com/",
-    aud: "https://api.example.com",
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    iat: Math.floor(Date.now() / 1000),
-    email: "test@example.com",
-  },
-  protectedHeader: { alg: "RS256" },
-});
-
-// Or reject for auth failure tests
-mockJwtVerify.mockRejectedValueOnce(new Error("Invalid token"));
-```
+Mock `jose` (`createRemoteJWKSet`, `jwtVerify`) via `vi.hoisted` + `vi.mock`, then `mockResolvedValueOnce` a payload or `mockRejectedValueOnce` for failure cases. Full example: [docs/reference.md](./docs/reference.md#mocking-jwt-verification-fastify).
 
 ### Testing Protected Routes
 
