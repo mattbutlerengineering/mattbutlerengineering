@@ -463,6 +463,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="GuestCards">
+  <file path="packages/rialto/src/components/GuestCards/GuestCards.catalog.ts">
+    <item priority="high">
+      export const guestCardsCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="IconButton">
   <file path="packages/rialto/src/components/IconButton/IconButton.catalog.ts">
     <item priority="high">

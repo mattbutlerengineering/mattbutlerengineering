@@ -190,6 +190,10 @@
       "types": "./dist/lib/components/GlobalNav/index.d.ts",
       "import": "./dist/lib/components/GlobalNav/index.js"
     },
+    "./GuestCards": {
+      "types": "./dist/lib/components/GuestCards/index.d.ts",
+      "import": "./dist/lib/components/GuestCards/index.js"
+    },
     "./Handshake": {
       "types": "./dist/lib/components/Handshake/index.d.ts",
       "import": "./dist/lib/components/Handshake/index.js"

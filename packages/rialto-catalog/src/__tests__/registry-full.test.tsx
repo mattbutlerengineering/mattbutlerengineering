@@ -1296,6 +1296,18 @@ describe("ReservationList", () => {
     expect(list.textContent).toContain("Walk-in");
   });
 
+  // Reservation.guestName is `string | null`: a walk-in copied as is must not
+  // fall back the whole list (F13).
+  it("shows Walk-in for a null guest and keeps every row", () => {
+    const { container } = renderReservations([
+      { time: "6:00 PM", guest: null, partySize: 2, status: "SEATED" },
+      { time: "7:00 PM", guest: "Kept", partySize: 4, status: "CONFIRMED" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getAllByRole("listitem")).toHaveLength(2);
+    expect(container.textContent).toContain("Walk-in");
+  });
+
   it.each([
     ["time", { guest: "No time", partySize: 2, status: "CONFIRMED" }],
     ["partySize", { time: "7:00 PM", guest: "No party", status: "CONFIRMED" }],
@@ -1403,5 +1415,106 @@ describe("TimeSlots", () => {
     const clamped = `${date.slice(0, 39).trimEnd()}…`;
     expect(clamped.length).toBeLessThanOrEqual(40);
     expect(within(container).getByText(`${clamped} · Party of 2`)).toBeTruthy();
+  });
+});
+
+// gen-ui-elements-2: a guest card needs name, visits and risk; one bad card is
+// dropped rather than replacing every card with the fallback.
+describe("GuestCards", () => {
+  function renderGuests(guests: unknown[]) {
+    return renderSpec({
+      root: "g",
+      elements: { g: { type: "GuestCards", props: { guests } } },
+    });
+  }
+
+  function cards(container: HTMLElement) {
+    return Array.from(
+      within(container).getByRole("list", { name: "Guests" }).querySelectorAll(":scope > li")
+    );
+  }
+
+  it("renders one card per guest", () => {
+    const { container } = renderGuests([
+      { name: "Maria Garcia", visits: 12, risk: "trusted", tags: ["VIP"] },
+      { name: "Tom Nguyen", visits: 1, risk: "standard" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(2);
+    expect(container.textContent).toContain("12 visits");
+    expect(container.textContent).toContain("VIP");
+  });
+
+  it.each([
+    ["name", { visits: 2, risk: "trusted" }],
+    ["visits", { name: "No visits", risk: "trusted" }],
+    ["risk", { name: "No risk", visits: 2 }],
+    ["name (blank)", { name: "  ", visits: 2, risk: "trusted" }],
+    ["risk (blank)", { name: "Blank risk", visits: 2, risk: "" }],
+    ["visits (non-numeric)", { name: "Many", visits: "many", risk: "trusted" }],
+  ])("drops a card missing %s and keeps the rest", (_field, bad) => {
+    const { container } = renderGuests([bad, { name: "Kept", visits: 2, risk: "trusted" }]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(1);
+    expect(within(container).getByText("Kept")).toBeTruthy();
+  });
+
+  // search_guests returns `tags: null` for an untagged guest; a copied null or a
+  // stray non-array must keep the card, not fall back the whole element (F13).
+  it.each([
+    ["null", null],
+    ["a bare string", "VIP"],
+    ["an array holding null", [null]],
+  ])("keeps every card when tags is %s", (_label, tags) => {
+    const { container } = renderGuests([
+      { name: "Odd tags", visits: 1, risk: "standard", tags },
+      { name: "Kept", visits: 2, risk: "trusted", tags: ["VIP"] },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(2);
+  });
+
+  it("drops a card whose name, visits or risk is null and keeps the rest", () => {
+    const { container } = renderGuests([
+      { name: null, visits: 1, risk: "trusted" },
+      { name: "Kept", visits: null, risk: "trusted" },
+      { name: "Also kept", visits: 3, risk: "trusted" },
+    ]);
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(cards(container)).toHaveLength(1);
+  });
+
+  it("coerces a numeric visits string", () => {
+    const { container } = renderGuests([{ name: "Coerced", visits: "4", risk: "trusted" }]);
+    expect(cards(container)[0]?.textContent).toContain("4 visits");
+  });
+
+  it("keeps a card with no tags or only blank tags, and drops blank tags", () => {
+    const { container } = renderGuests([
+      { name: "No tags", visits: 1, risk: "trusted" },
+      { name: "Blank tags", visits: 1, risk: "trusted", tags: ["", "  "] },
+      { name: "Some tags", visits: 1, risk: "trusted", tags: ["VIP", " ", "Regular"] },
+    ]);
+    const [none, blank, some] = cards(container) as HTMLElement[];
+    expect(within(none!).queryByRole("list")).toBeNull();
+    expect(within(blank!).queryByRole("list")).toBeNull();
+    expect(
+      within(within(some!).getByRole("list"))
+        .getAllByRole("listitem")
+        .map((t) => t.textContent)
+    ).toEqual(["VIP", "Regular"]);
+  });
+
+  it("falls back only when no card survives", () => {
+    const { container } = renderGuests([{ name: "Nothing else" }]);
+    expect(container.querySelector('[data-rialto-seam-fallback="GuestCards"]')).not.toBeNull();
+  });
+
+  it("falls back when the guests array is missing", () => {
+    const { container } = renderSpec({
+      root: "g",
+      elements: { g: { type: "GuestCards", props: {} } },
+    });
+    expect(container.querySelector('[data-rialto-seam-fallback="GuestCards"]')).not.toBeNull();
   });
 });

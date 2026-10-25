@@ -58,6 +58,7 @@ import { Footer } from "../../components/Footer/Footer";
 import { Form } from "../../components/Form/Form";
 import { FormField } from "../../components/FormField/FormField";
 import { GlobalNav } from "../../components/GlobalNav/GlobalNav";
+import { GuestCards } from "../../components/GuestCards/GuestCards";
 import { Handshake } from "../../components/Handshake/Handshake";
 import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
@@ -161,6 +162,7 @@ export type BarrelExportName =
   | "Form"
   | "FormField"
   | "GlobalNav"
+  | "GuestCards"
   | "Handshake"
   | "Heading"
   | "Hero"
@@ -511,6 +513,18 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   GlobalNav: {
     element: <GlobalNav currentApp="marketing" />,
+  },
+
+  GuestCards: {
+    element: (
+      <GuestCards
+        guests={[
+          { name: "Maria Garcia", visits: 12, risk: "trusted", tags: ["VIP", "Regular"] },
+          { name: "Tom Nguyen", visits: 1, risk: "standard" },
+          { name: "Ana Ruiz", visits: 3, risk: "Watch list" },
+        ]}
+      />
+    ),
   },
 
   Handshake: {

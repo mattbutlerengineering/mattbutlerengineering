@@ -152,6 +152,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
   },
+  GuestCards: {
+    name: "GuestCards",
+    description:
+      "One card per matching guest, stacked: name, visit count, risk and tags. Required: guests, an array of cards, at most five. Each card needs name, visits (a number) and risk (the raw value from the tool, such as trusted, copied as is); tags is the guest's tags, optional. The element writes the visit count and risk in words itself. Never put email, phone, notes or spend on a card. A card missing name, visits or risk is left out.",
+  },
   IconButton: {
     name: "IconButton",
     description:

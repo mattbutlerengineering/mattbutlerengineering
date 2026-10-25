@@ -43,6 +43,7 @@ import {
   Divider,
   EmptyState,
   Footer,
+  GuestCards,
   IconButton,
   Input,
   NavigationMenu,
@@ -63,6 +64,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type {
   DepartureBoardProps,
+  GuestCard,
   ReservationListRow,
   StatProps,
   StatusLEDProps,
@@ -106,6 +108,16 @@ function usableReservations(rows: readonly Record<string, unknown>[]): Reservati
     const size = toPartySize(partySize);
     return isFilled(time) && isFilled(status) && size !== undefined
       ? [{ time, guest: typeof guest === "string" ? guest : undefined, partySize: size, status }]
+      : [];
+  });
+}
+
+/** Cards a guest list can show: name, visits and risk present; blank tags dropped (gen-ui-elements-2). */
+function usableGuests(cards: readonly Record<string, unknown>[]): GuestCard[] {
+  return cards.flatMap(({ name, visits, risk, tags }) => {
+    const count = toPartySize(visits);
+    return isFilled(name) && isFilled(risk) && count !== undefined
+      ? [{ name, visits: count, risk, tags: Array.isArray(tags) ? tags.filter(isFilled) : [] }]
       : [];
   });
 }
@@ -624,6 +636,18 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           <TimeSlots date={p.date} partySize={partySize} times={p.times.filter(isFilled)} />
         ) : (
           <SeamFallback name="TimeSlots" />
+        );
+      },
+
+      // A card missing name, visits or risk is dropped; the whole element falls
+      // back only when no card survives.
+      GuestCards: ({ props }: { props: unknown }) => {
+        const p = props as { guests: Record<string, unknown>[] };
+        const guests = usableGuests(p.guests);
+        return guests.length > 0 ? (
+          <GuestCards guests={guests} />
+        ) : (
+          <SeamFallback name="GuestCards" />
         );
       },
 
