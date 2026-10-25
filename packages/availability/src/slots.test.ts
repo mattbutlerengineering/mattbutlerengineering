@@ -336,3 +336,48 @@ describe("judge", () => {
     });
   });
 });
+
+describe("listSlots ↔ judge agreement (review follow-ups)", () => {
+  it("never lists a seating at or after close", () => {
+    const tonight = withRules({
+      id: "n",
+      kind: "tonight",
+      targetKind: "venue",
+      startsOn: DATE,
+      payload: { version: 1, closeAt: 1050 },
+    });
+    const starts = listSlots(tonight, DATE, 2, "online", NOW).map((s) => s.minute);
+    expect(starts).toEqual([1020]);
+    for (const slot of listSlots(tonight, DATE, 2, "online", NOW)) {
+      expect(judge(tonight, { start: slot.start, partySize: 2, channel: "online" }, NOW)).toEqual({
+        kind: "ok",
+      });
+    }
+  });
+
+  it("drops a last seating equal to close", () => {
+    const flush = snapshot({
+      config: {
+        ...CONFIG,
+        scheduleServices: [{ ...CONFIG.scheduleServices[0]!, lastSeatingAt: 1200 }],
+      },
+    });
+    expect(listSlots(flush, DATE, 2, "online", NOW).at(-1)?.minute).toBe(1170);
+  });
+
+  it("says booking_closed for a booking-type closure", () => {
+    const paused = withRules({
+      id: "p",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      startsOn: DATE,
+      guestMessage: "Call us.",
+    });
+    expect(judge(paused, { start: at("17:30"), partySize: 2, channel: "online" }, NOW)).toEqual({
+      kind: "hard",
+      reason: "booking_closed",
+      message: "Call us.",
+    });
+  });
+});

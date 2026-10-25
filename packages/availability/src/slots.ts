@@ -73,15 +73,18 @@ export interface BookingRequest {
   override?: { reason: string };
 }
 
+/** Seatings from opening to last seating — never at or after close, so judge accepts every one. */
 function seatingMinutes(service: ResolvedService): number[] {
-  const { opensAt, lastSeatingAt, seating } = service;
+  const { opensAt, lastSeatingAt, closesAt, seating } = service;
+  const bookable = (m: number) => m >= opensAt && m <= lastSeatingAt && m < closesAt;
   if ("interval" in seating) {
     const count = Math.floor((lastSeatingAt - opensAt) / seating.interval) + 1;
-    return Array.from({ length: Math.max(count, 0) }, (_, k) => opensAt + k * seating.interval);
+    return Array.from(
+      { length: Math.max(count, 0) },
+      (_, k) => opensAt + k * seating.interval
+    ).filter(bookable);
   }
-  return [...new Set(seating.fixed)]
-    .filter((m) => m >= opensAt && m <= lastSeatingAt)
-    .sort((a, b) => a - b);
+  return [...new Set(seating.fixed)].filter(bookable).sort((a, b) => a - b);
 }
 
 function inBand(band: ResolvedClosure, minute: number): boolean {
@@ -262,9 +265,10 @@ export function judge(snapshot: BookingSnapshot, request: BookingRequest, now: D
   const day = resolveDay(snapshot, serviceDate);
   const message = day.guestMessage;
 
-  if (day.closures.some((b) => closesSeating(b, minute, planned.venueServiceId, request.channel))) {
-    return hard("closed", message);
-  }
+  const band = day.closures.find((b) =>
+    closesSeating(b, minute, planned.venueServiceId, request.channel)
+  );
+  if (band) return hard(band.targetKind === "booking" ? "booking_closed" : "closed", message);
   if (!day.bookingOpen[request.channel]) return hard("booking_closed", message);
   const service = day.services
     .filter((s) => s.venueServiceId === planned.venueServiceId)

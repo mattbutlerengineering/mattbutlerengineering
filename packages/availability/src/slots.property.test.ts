@@ -20,9 +20,11 @@ const NOW = new Date("2026-01-01T00:00:00Z");
 const servicesArb = fc
   .array(
     fc.record({
-      gap: fc.integer({ min: 0, max: 240 }),
-      length: fc.integer({ min: 30, max: 360 }),
-      seatingShare: fc.double({ min: 0, max: 1, noNaN: true }),
+      // Quarter-hour grid, so closes, last seatings and Tonight changes land
+      // exactly on seatings — where off-by-one bugs live.
+      gap: fc.integer({ min: 0, max: 16 }).map((q) => q * 15),
+      length: fc.integer({ min: 2, max: 24 }).map((q) => q * 15),
+      seatingShare: fc.oneof(fc.constant(1), fc.double({ min: 0, max: 1, noNaN: true })),
       interval: fc.constantFrom(15, 30, 45, 60),
       fixed: fc.boolean(),
       bookingTypes: fc.subarray(["online", "phone"] as const),
@@ -34,7 +36,8 @@ const servicesArb = fc
       const previousClose = acc.at(-1)?.closesAt ?? 360;
       const opensAt = Math.min(previousClose + spec.gap, 1439);
       const closesAt = opensAt + spec.length;
-      const lastSeatingAt = opensAt + Math.floor((closesAt - opensAt) * spec.seatingShare);
+      const lastSeatingAt =
+        opensAt + Math.floor(((closesAt - opensAt) * spec.seatingShare) / 15) * 15;
       return [
         ...acc,
         {
@@ -73,6 +76,34 @@ const ruleArb = (date: string) =>
       ...(r.windowed ? { window: { version: 1, from: r.from, to: r.from + r.span } } : {}),
     }));
 
+const tonightArb = (date: string) =>
+  fc
+    .record({
+      targetKind: fc.constantFrom("venue", "service", "booking"),
+      service: fc.integer({ min: 0, max: 2 }),
+      change: fc.oneof(
+        fc.record({ closeAt: fc.integer({ min: 0, max: 130 }).map((q) => q * 15) }),
+        fc
+          .record({
+            from: fc.integer({ min: 0, max: 1800 }),
+            span: fc.integer({ min: 15, max: 300 }),
+          })
+          .map(({ from, span }) => ({ stop: { from, to: from + span } })),
+        fc.record({ pacing: fc.record({ covers: fc.integer({ min: 1, max: 6 }) }) })
+      ),
+    })
+    .map(
+      (r): Omit<DateRule, "id"> =>
+        ({
+          kind: "tonight",
+          targetKind: r.targetKind,
+          startsOn: date,
+          ...(r.targetKind === "service" ? { venueServiceId: `vs-${r.service}` } : {}),
+          ...(r.targetKind === "booking" ? { bookingTypes: ["online"] } : {}),
+          payload: { version: 1, ...r.change },
+        }) as Omit<DateRule, "id">
+    );
+
 const scenarioArb = fc
   .record({ date: fc.constantFrom(...DATES), timezone: fc.constantFrom(...ZONES) })
   .chain(({ date, timezone }) =>
@@ -80,7 +111,7 @@ const scenarioArb = fc
       date: fc.constant(date),
       timezone: fc.constant(timezone),
       services: servicesArb,
-      rules: fc.array(ruleArb(date), { maxLength: 3 }),
+      rules: fc.array(fc.oneof(ruleArb(date), tonightArb(date)), { maxLength: 3 }),
     })
   )
   .map(({ date, timezone, services, rules }) => {
@@ -147,6 +178,21 @@ describe("engine correctness (property)", () => {
                   (b.targetKind === "booking" && (b.bookingTypes ?? []).includes(channel)))
             );
             expect(closedBand).toBeUndefined();
+          }
+        }
+      }),
+      { numRuns: 300 }
+    );
+  });
+
+  it("never lists an available slot that judge rejects", () => {
+    fc.assert(
+      fc.property(scenarioArb, ({ date, snapshot }) => {
+        for (const channel of CHANNELS) {
+          for (const slot of listSlots(snapshot, date, 2, channel, NOW)) {
+            if (!slot.available) continue;
+            const verdict = judge(snapshot, { start: slot.start, partySize: 2, channel }, NOW);
+            expect(verdict.kind, `${slot.start.toISOString()} ${channel}`).not.toBe("hard");
           }
         }
       }),
