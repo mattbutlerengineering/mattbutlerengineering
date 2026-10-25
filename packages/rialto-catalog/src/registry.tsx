@@ -95,10 +95,15 @@ function toPartySize(value: unknown): number | undefined {
 }
 
 /** Rows a reservation list can show: time, party size and status present (gen-ui-elements-2). */
+/** A string with something other than whitespace in it — a blank word reads as missing. */
+function isFilled(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
 function usableReservations(rows: readonly Record<string, unknown>[]): ReservationListRow[] {
   return rows.flatMap(({ time, guest, partySize, status }) => {
     const size = toPartySize(partySize);
-    return typeof time === "string" && typeof status === "string" && size !== undefined
+    return isFilled(time) && isFilled(status) && size !== undefined
       ? [{ time, guest: typeof guest === "string" ? guest : undefined, partySize: size, status }]
       : [];
   });

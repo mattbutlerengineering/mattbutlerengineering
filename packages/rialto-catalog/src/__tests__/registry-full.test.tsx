@@ -1300,6 +1300,8 @@ describe("ReservationList", () => {
     ["time", { guest: "No time", partySize: 2, status: "CONFIRMED" }],
     ["partySize", { time: "7:00 PM", guest: "No party", status: "CONFIRMED" }],
     ["status", { time: "7:00 PM", guest: "No status", partySize: 2 }],
+    ["time (blank)", { time: "  ", guest: "Blank time", partySize: 2, status: "CONFIRMED" }],
+    ["status (blank)", { time: "7:00 PM", guest: "Blank status", partySize: 2, status: "" }],
   ])("drops a row missing %s and keeps the rest", (_field, bad) => {
     const { container } = renderReservations([
       bad,
