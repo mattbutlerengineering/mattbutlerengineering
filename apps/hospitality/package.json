@@ -94,6 +94,7 @@
     "@json-render/react": "^0.21.1",
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/api-client": "workspace:*",
+    "@mbe/availability": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/cancellation-policy": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",

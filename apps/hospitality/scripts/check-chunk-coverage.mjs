@@ -31,6 +31,7 @@ export const UNBUDGETED_CHUNK_ALLOWLIST = [
   // that one page, and the page-level budgets that exist (FloorPlanEditorPage,
   // VenueOnboardingPage) were added when a PR actually fought for bytes there.
   "dist/assets/AdminPage-*.js",
+  "dist/assets/AvailabilityPage-*.js",
   "dist/assets/BookingWidgetDemoPage-*.js",
   "dist/assets/BriefingPage-*.js",
   "dist/assets/GuestsPage-*.js",

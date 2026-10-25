@@ -1,0 +1,207 @@
+import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { Skeleton } from "@mattbutlerengineering/rialto";
+import { addDays } from "@mbe/availability";
+import type { AvailabilityDaySummary } from "@mbe/types";
+import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { shiftAnchor, visibleDates, type CalendarView } from "./calendar-dates.js";
+import { closureBandText } from "./closure-band.js";
+import styles from "./AvailabilityCalendar.module.css";
+
+export interface AvailabilityCalendarProps {
+  readonly view: CalendarView;
+  /** The day that holds the single tab stop; the visible range follows it. */
+  readonly anchor: string;
+  /** Today on the venue clock (`YYYY-MM-DD`). */
+  readonly today: string;
+  readonly days: readonly AvailabilityDaySummary[] | undefined;
+  readonly isLoading: boolean;
+  /** The day whose drawer is open. */
+  readonly selectedDate?: string | null;
+  readonly onOpenDay: (date: string) => void;
+  readonly onAnchorChange: (date: string) => void;
+}
+
+interface CellProps {
+  readonly date: string;
+  readonly summary: AvailabilityDaySummary | undefined;
+  readonly isLoading: boolean;
+  readonly detailed: boolean;
+  readonly isToday: boolean;
+  readonly isSelected: boolean;
+  readonly isTabStop: boolean;
+  readonly isMuted: boolean;
+  readonly format: VenueFormat;
+  readonly onOpen: (date: string) => void;
+  readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>, date: string) => void;
+}
+
+function Cell(props: CellProps) {
+  const { date, summary, isLoading, detailed, isToday, isSelected, isTabStop, isMuted } = props;
+  const { t } = useTranslation();
+  const { format } = props;
+
+  const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
+  const showCount = summary !== undefined && (detailed || summary.serviceCount >= 2);
+  const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+  const count = summary ? t("availability.calendar.services", { count: summary.serviceCount }) : "";
+
+  const nameParts = summary
+    ? [
+        summary.label,
+        ...(showCount ? [count] : []),
+        ...bands.map((b) => b.name),
+        ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
+      ]
+    : [t("availability.calendar.loadingDay")];
+  const fullDate = format.formatCalendarDate(date, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  const className = [
+    styles.cell,
+    isMuted ? styles.muted : "",
+    isSelected ? styles.selected : "",
+    detailed ? styles.detailed : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div role="gridcell" className={styles.dayCell}>
+      <button
+        type="button"
+        className={className}
+        data-date={date}
+        tabIndex={isTabStop ? 0 : -1}
+        aria-current={isToday ? "date" : undefined}
+        aria-label={t("availability.calendar.cellName", {
+          date: fullDate,
+          details: nameParts.join(", "),
+        })}
+        onClick={() => props.onOpen(date)}
+        onKeyDown={(event) => props.onKeyDown(event, date)}
+      >
+        <span className={styles.dayNumber} aria-hidden="true">
+          {format.formatCalendarDate(date, { day: "numeric" })}
+        </span>
+        {isLoading || !summary ? (
+          <Skeleton variant="text" width="100%" height={16} />
+        ) : (
+          <span className={styles.details} aria-hidden="true">
+            <span className={styles.label}>{summary.label}</span>
+            {showCount && <span className={styles.meta}>{count}</span>}
+            {bands.map((b) => (
+              <span key={b.key} className={styles.band}>
+                {b.text}
+              </span>
+            ))}
+            {onlineOff && (
+              <span className={styles.meta}>{t("availability.calendar.onlineOff")}</span>
+            )}
+          </span>
+        )}
+      </button>
+    </div>
+  );
+}
+
+/** Where an arrow, Home/End or page key sends the anchor, or null for any other key. */
+function targetFor(key: string, date: string): string | null {
+  switch (key) {
+    case "ArrowLeft":
+      return addDays(date, -1);
+    case "ArrowRight":
+      return addDays(date, 1);
+    case "ArrowUp":
+      return addDays(date, -7);
+    case "ArrowDown":
+      return addDays(date, 7);
+    case "Home":
+      return visibleDates("week", date)[0] ?? null;
+    case "End":
+      return visibleDates("week", date)[6] ?? null;
+    case "PageUp":
+      return shiftAnchor("month", date, -1);
+    case "PageDown":
+      return shiftAnchor("month", date, 1);
+    default:
+      return null;
+  }
+}
+
+/**
+ * App-local month and week grid (architecture § Components: rialto `Calendar` has no
+ * per-day content). Read-only: a cell opens the day drawer. `role="grid"` with a roving
+ * tabindex, so the whole grid is one Tab stop.
+ */
+export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
+  const { view, anchor, today, days, isLoading, selectedDate, onOpenDay, onAnchorChange } = props;
+  const { t } = useTranslation();
+  const format = useVenueFormat();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const focusRequested = useRef(false);
+
+  const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
+  const byDate = useMemo(() => new Map((days ?? []).map((d) => [d.serviceDate, d])), [days]);
+  const anchorMonth = anchor.slice(0, 7);
+  const tabStop = dates.includes(anchor) ? anchor : dates[0];
+
+  // After a key moves the anchor, focus follows once its cell has rendered. No state is set here.
+  useEffect(() => {
+    if (!focusRequested.current) return;
+    focusRequested.current = false;
+    gridRef.current?.querySelector<HTMLElement>(`[data-date="${anchor}"]`)?.focus();
+  }, [anchor, view]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, date: string) => {
+    const next = targetFor(event.key, date);
+    if (!next) return;
+    event.preventDefault();
+    focusRequested.current = true;
+    onAnchorChange(next);
+  };
+
+  const weeks = Array.from({ length: Math.ceil(dates.length / 7) }, (_, i) =>
+    dates.slice(i * 7, i * 7 + 7)
+  );
+
+  return (
+    <div
+      ref={gridRef}
+      role="grid"
+      aria-label={t("availability.calendar.label")}
+      className={styles.calendar}
+    >
+      <div role="row" className={styles.row}>
+        {(weeks[0] ?? []).map((date) => (
+          <div key={date} role="columnheader" className={styles.columnHeader}>
+            {format.formatCalendarDate(date, { weekday: "short" })}
+          </div>
+        ))}
+      </div>
+      {weeks.map((week) => (
+        <div key={week[0]} role="row" className={styles.row}>
+          {week.map((date) => (
+            <Cell
+              key={date}
+              date={date}
+              summary={byDate.get(date)}
+              isLoading={isLoading}
+              detailed={view === "week"}
+              isToday={date === today}
+              isSelected={date === selectedDate}
+              isTabStop={date === tabStop}
+              isMuted={view === "month" && !date.startsWith(anchorMonth)}
+              format={format}
+              onOpen={onOpenDay}
+              onKeyDown={handleKeyDown}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
