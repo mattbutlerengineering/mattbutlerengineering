@@ -16549,7 +16549,6 @@
         async getTimeSlotsForVenue(): Promise<unknown>;
         async getPublicAvailability(): Promise<unknown>;
         async getDates(): Promise<unknown>;
-        async getConfig(): Promise<unknown>;
       }
     </item>
     <item priority="high">
