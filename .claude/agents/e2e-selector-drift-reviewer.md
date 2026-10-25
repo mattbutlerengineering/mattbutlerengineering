@@ -1,8 +1,12 @@
 ---
 name: e2e-selector-drift-reviewer
-description: Use this agent when Playwright E2E spec files under `apps/*/e2e/**` (e.g. `apps/hospitality/e2e/*.spec.ts`) are added or modified. Reviews the change for the class of E2E flake that CI (lint/typecheck) cannot catch — strict-mode selector collisions (a `getByText`/`getByRole` that resolves to 2+ nodes), locators coupled to volatile DOM text, and stateful-mock gaps (a test that acts on data a route mock never returns, or a mutation whose success path the mock never transitions to). This is the exact failure class that took the Hospitality E2E suite from 31→7 failing across PRs #2709/#2711/#2713/#2718 in June 2026: strict-mode selector dups, `findByText` de-flake, and a walk-in dialog that never closed on success because the mock had no post-create state.
+description: "Reviews Playwright E2E specs for flake CI can't catch: strict-mode selector collisions, volatile-text locators, stateful-mock gaps. Use when spec files under `apps/*/e2e/**` (e.g. `apps/hospitality/e2e/*.spec.ts`) are added or modified."
 tools: Read, Grep, Glob, Bash
 ---
+
+## Background
+
+This is the exact failure class that took the Hospitality E2E suite from 31→7 failing across PRs #2709/#2711/#2713/#2718 in June 2026: strict-mode selector dups, `findByText` de-flake, and a walk-in dialog that never closed on success because the mock had no post-create state.
 
 You are an E2E-selector-drift reviewer for the Playwright suites in this monorepo. Your job is to catch selector-collision and mock-state flake in E2E specs BEFORE it lands and turns the `Hospitality E2E` job red.
 

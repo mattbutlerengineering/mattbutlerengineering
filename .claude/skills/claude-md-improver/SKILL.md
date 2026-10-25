@@ -1,6 +1,6 @@
 ---
 name: claude-md-improver
-description: "Audit Claude Code instruction files (CLAUDE.md, AGENTS.md, .claude/rules/*) for staleness and gaps — dangling paths, skill/agent tables that drift from disk, mandates pointing at things that don't resolve, and repo surfaces no instruction file documents. Proposes fixes; never writes silently. Use when instructions feel out of date, after a big refactor or extraction, or from the monthly mbe-monthly-meta-audit routine."
+description: "Audits CLAUDE.md, AGENTS.md and .claude/rules/* for dangling paths, table drift, unresolvable mandates and undocumented surfaces; proposes, never writes silently. Use when instructions feel stale, after a big refactor or extraction, or from the monthly mbe-monthly-meta-audit routine."
 user-invocable: true
 allowed-tools: Read, Edit, Write, Glob, Grep, Bash, AskUserQuestion, TodoWrite
 ---

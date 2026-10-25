@@ -1,6 +1,6 @@
 ---
 name: claude-automation-recommender
-description: "Audit the repo's automation layer — .claude/hooks, .claude/agents, .claude/skills, and .github/workflows — for guards that exist but never fire, guards that fire wrongly, and recurring failures with no guard at all. Recommends new hooks/subagents/skills grounded in real repo history. Proposes; never writes silently. Use when a known failure keeps recurring, after adding a hook or agent, or from the monthly mbe-monthly-meta-audit routine."
+description: "Audits .claude/hooks, agents, skills and .github/workflows for guards that never fire, fire wrongly, or are missing; proposes, never writes silently. Use when a failure keeps recurring, after adding a hook or agent, or from the monthly mbe-monthly-meta-audit routine."
 user-invocable: true
 allowed-tools: Read, Edit, Write, Glob, Grep, Bash, AskUserQuestion, TodoWrite
 ---

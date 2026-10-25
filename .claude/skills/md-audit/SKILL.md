@@ -1,6 +1,6 @@
 ---
 name: md-audit
-description: "Audit human-facing markdown (README, CONTRIBUTING, SECURITY, docs/**, package READMEs) for claims the repo no longer satisfies — commands that fail, flags that don't exist, described behaviour the code dropped. Runs after scripts/audit-markdown.mjs has settled the mechanical findings. Use weekly from the docs-audit routine, or after a refactor that moved user-facing surfaces."
+description: "Semantic audit of human-facing markdown (README, CONTRIBUTING, SECURITY, docs/**, package READMEs) for claims the repo no longer satisfies, after scripts/audit-markdown.mjs. Use weekly from the docs-audit routine, or after a refactor that moved user-facing surfaces."
 user-invocable: true
 allowed-tools: Read, Edit, Write, Glob, Grep, Bash, TodoWrite
 ---

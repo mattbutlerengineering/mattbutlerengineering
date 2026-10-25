@@ -1,6 +1,6 @@
 ---
 name: optimize-implement-queue
-description: Daily optimization loop for the implement-queue workflow. Measures queue efficiency via the queueEfficiency sensor, appends a trend point, logs the run, and files de-duplicated ready issues on regression. Async eval is scheduled separately — never run synchronously here. Invoke with /optimize-implement-queue.
+description: "Daily implement-queue optimization: measures efficiency via the queueEfficiency sensor, logs a trend point, files de-duplicated ready issues on regression; never runs eval synchronously. Invoke with /optimize-implement-queue."
 user-invocable: true
 ---
 

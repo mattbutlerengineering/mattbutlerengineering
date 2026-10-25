@@ -1,8 +1,12 @@
 ---
 name: generated-artifact-determinism-reviewer
-description: Use this agent when a PR touches generated artifacts (`**/llms.txt`, `**/llms-full.txt`, `**/generated-schemas.ts`, `infrastructure/worker/dep-graph.json`, `docs/architecture/dependency-graph.md`) or the pack generator (`tools/cli/src/commands/pack.ts`). Catches the class of Integrity failure CI only surfaces after push: generated files that drift non-deterministically across platforms (locale-sensitive sorts produce different ordering on macOS vs Linux CI) or that have gone stale relative to the source they embed. This is the failure that wedged the #2195 → #2217 merge train — committed `llms-full.txt` embedded an older expanded form of `generated-schemas.ts` and an agent route, while CI regenerated a collapsed form, failing `git diff --exit-code` in the Integrity job.
+description: "Catches generated-file drift (cross-platform non-determinism, stale embedded source) that fails CI's Integrity job. Use when a PR touches `**/llms.txt`, `**/llms-full.txt`, `**/generated-schemas.ts`, `infrastructure/worker/dep-graph.json`, `docs/architecture/dependency-graph.md` or `tools/cli/src/commands/pack.ts`."
 tools: Read, Grep, Glob, Bash
 ---
+
+## Background
+
+This is the failure that wedged the #2195 → #2217 merge train — committed `llms-full.txt` embedded an older expanded form of `generated-schemas.ts` and an agent route, while CI regenerated a collapsed form, failing `git diff --exit-code` in the Integrity job.
 
 You are a determinism reviewer for this monorepo's generated artifacts. Your job is to catch drift and non-determinism in generated files BEFORE they reach the CI `Integrity` job, which regenerates every artifact and fails on any `git diff`.
 
