@@ -260,3 +260,49 @@ for (const story of STORIES) {
     await expect(target).toHaveScreenshot(`${story.id}.png`);
   });
 }
+
+/**
+ * F25 geometry: a Timeline's timestamps share one column, so no timestamp's
+ * text runs under its event node and every node sits at one x. A jsdom test
+ * cannot measure layout, so this is a real-layout assertion in the browser.
+ * The text's own extent is measured with a Range, because the timestamp's
+ * box is clipped to its grid column while overflowing text is not. Nodes are
+ * compared by centre, since the active node is 2px wider than the others.
+ */
+const TIMELINE_GEOMETRY_STORIES = [
+  "data-display-timeline--long-timestamps",
+  "data-display-timeline--long-timestamps-compact",
+];
+
+for (const storyId of TIMELINE_GEOMETRY_STORIES) {
+  test(`Timeline geometry / ${storyId}`, async ({ page }) => {
+    await loadStory(page, storyId);
+    const rows = await page.locator("#storybook-root [role='listitem']").evaluateAll((items) =>
+      items.map((item) => {
+        const timestamp = item.children[0] as HTMLElement;
+        const node = item.children[1]?.firstElementChild as HTMLElement;
+        const nodeBox = node.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(timestamp);
+        const text = timestamp.textContent ?? "";
+        return {
+          text,
+          textRight: text ? range.getBoundingClientRect().right : null,
+          nodeLeft: nodeBox.left,
+          nodeCenter: nodeBox.left + nodeBox.width / 2,
+        };
+      })
+    );
+
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      if (row.textRight === null) continue;
+      expect(
+        row.textRight,
+        `timestamp "${row.text}" ends at ${row.textRight}px, past its node at ${row.nodeLeft}px`
+      ).toBeLessThanOrEqual(row.nodeLeft);
+    }
+    const nodeXs = new Set(rows.map((row) => Math.round(row.nodeCenter)));
+    expect([...nodeXs], "every node shares one x").toHaveLength(1);
+  });
+}
