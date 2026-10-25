@@ -28,6 +28,8 @@ Not yet run: 2, 3, 6, 7, 8, 10, 11, 12, 14, 16, 18, 19. All need venue context t
 | F16 | Assistant markdown is shown raw: `**bold**` and `- ` bullets appear literally and newlines collapse into one paragraph.                                                                                                                                                                   | `ChatPanel.tsx` renders `{msg.content}` as plain text                       |
 | F17 | `update_table_status` / `get_table_status` key tables by number, but tables can have only a label (this venue has six with no number), so "Table 12 is clean" cannot work.                                                                                                                | Batch 3, scenario 9                                                         |
 | F18 | Every agent tool call 404'd in prod: `API_BASE_URL` carries `/api` and api-client paths are absolute, so requests went to `/api/api/v1/...`. Masked until F1 was fixed. Fixed in #7442.                                                                                                   | `curl` 404 vs 401                                                           |
+| F19 | The model didn't know the table status lifecycle ("can't tell whether READY tables are free to seat") and echoed raw enums to staff. Fixed in #7446.                                                                                                                                      | Batch 4                                                                     |
+| F20 | The model told staff "Reply yes to confirm", but since #7448 typing while a confirm is pending cancels it. The prompt now points staff at the Confirm and Cancel buttons.                                                                                                                 | Batch 5                                                                     |
 
 ## Confirmed live (from the pre-run list)
 
@@ -48,11 +50,13 @@ Not yet run: 2, 3, 6, 7, 8, 10, 11, 12, 14, 16, 18, 19. All need venue context t
 
 ## Improvement tracking
 
-| Date       | Change                                            | Scenarios passing                                                                              |
-| ---------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 2026-10-24 | none, baseline                                    | 2 / 8 run                                                                                      |
-| 2026-10-24 | #7439 venue + date context                        | context sent, dates resolve; all tool calls still fail (F18)                                   |
-| 2026-10-24 | #7441 ChatPanel UX, #7442 API origin, #7443 clamp | 1, 4, 5, 8 (to confirm), 10 pass; F8 self-corrections on every turn; confirm bar shows raw ids |
+| Date       | Change                                                                                   | Scenarios passing                                                                                           |
+| ---------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 2026-10-24 | none, baseline                                                                           | 2 / 8 run                                                                                                   |
+| 2026-10-24 | #7439 venue + date context                                                               | context sent, dates resolve; all tool calls still fail (F18)                                                |
+| 2026-10-24 | #7441 ChatPanel UX, #7442 API origin, #7443 clamp                                        | 1, 4, 5, 8 (to confirm), 10 pass; F8 self-corrections on every turn; confirm bar shows raw ids              |
+| 2026-10-24 | #7444 no self-correction, #7445 readable confirm + tables by name, #7446 table lifecycle | no self-corrections over 3 turns; confirm shows table names; statuses in plain words; READY → "reset first" |
+| 2026-10-24 | #7447 confirm title case, #7448 cancel feedback                                          | 1, 4, 5, 8, 9, 10 pass; cancel acknowledged; F20 found                                                      |
 
 ## Batch 3 (after #7441, #7442, #7443), 2026-10-24
 
@@ -66,3 +70,14 @@ Not yet run: 2, 3, 6, 7, 8, 10, 11, 12, 14, 16, 18, 19. All need venue context t
 | 9   | "Table 12 is clean"      | degraded | Can't work: tables have no numbers (F17).                                                                   |
 
 The empty state shows the four starter questions, auto-scroll holds at the bottom, and no seam fallbacks appeared. Every reply opened by "correcting" the previous one (F8), and the fix ships in the PR that adds this section.
+
+## Batch 5 (after #7444–#7448), 2026-10-24
+
+| #      | Scenario                       | Verdict | Notes                                                                                                                                  |
+| ------ | ------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 10     | "Which tables are open…"       | pass    | "Two tables are free right now… four more are clean but not yet reset." No raw enums.                                                  |
+| 8      | Walk-in → confirm → cancel     | pass    | Bar reads "Seat a walk-in · Party size: 2 · Table: lml · Guest: Lee". The note shows after Cancel, and the next reply acknowledges it. |
+| 9      | "Can I seat a walk-in at dsf?" | pass    | "No, not yet. dsf is clean but not reset…", which matches the reservations state machine.                                              |
+| 3-turn | Self-correction check          | pass    | None of the three replies retracted an earlier one.                                                                                    |
+
+Every write confirm was cancelled; no data was written to the venue. Remaining open items: F12 (waitlist and menu tools), F11 (drawer and `/chat` don't share a conversation), and confirm dates/times shown raw.

@@ -54,6 +54,15 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/plain words/i);
   });
 
+  it("points staff at the Confirm button, never at typing yes", () => {
+    // Live run 2026-10-24: the model said "Reply yes to confirm", but typing a
+    // message while a confirm is pending cancels it in the chat UI.
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+
+    expect(prompt).toMatch(/Confirm or Cancel button/);
+    expect(prompt).toMatch(/never ask them to type yes/i);
+  });
+
   it("keeps the catalog's component rules, after the assistant guidance", () => {
     const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
 
