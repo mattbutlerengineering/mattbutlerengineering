@@ -23,6 +23,11 @@ import {
   FloorPlanSectionVenueQuerySchema,
 } from "./floor-plan-section.js";
 import {
+  VenueTeamSchema,
+  UpdateTeamMemberRoleRequestSchema,
+  UpdateVenueTeamRequestSchema,
+} from "./venue-team.js";
+import {
   AgentSessionSchema,
   AgentSessionEventSchema,
   CreateAgentSessionRequestSchema,
@@ -399,6 +404,11 @@ export const reorderFloorPlanSectionsBodyJsonSchema = toRequestJsonSchema(
 export const assignSectionTablesBodyJsonSchema = toRequestJsonSchema(
   AssignSectionTablesRequestSchema
 );
+export const venueTeamResponseJsonSchema = toResponseJsonSchema(VenueTeamSchema);
+export const updateTeamMemberRoleBodyJsonSchema = toRequestJsonSchema(
+  UpdateTeamMemberRoleRequestSchema
+);
+export const updateVenueTeamBodyJsonSchema = toRequestJsonSchema(UpdateVenueTeamRequestSchema);
 export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
 export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
 export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);

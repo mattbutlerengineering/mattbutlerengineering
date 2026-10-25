@@ -47,6 +47,11 @@ vi.mock("../hooks/useVenues.js", () => ({
   useVenues: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useUpdateVenue: () => ({ mutateAsync: vi.fn() }),
 }));
+vi.mock("../hooks/useVenueTeam.js", () => ({
+  useVenueTeam: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+  useSetTeamRole: () => ({ mutateAsync: vi.fn() }),
+  useSetHostEmergencyClose: () => ({ mutateAsync: vi.fn() }),
+}));
 vi.mock("../contexts/VenueContext.js", () => ({
   useVenue: () => ({ selectedVenue: null, selectedVenueId: null }),
 }));

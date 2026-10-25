@@ -10,6 +10,7 @@ import { holdService } from "./hold.js";
 import type { DepositService } from "./deposit.js";
 import { waitlistService } from "./waitlist.js";
 import { briefingService } from "./briefing.js";
+import { venueTeamService } from "./venue-team.js";
 
 /**
  * The reservations domain-service seam (issue #3357).
@@ -46,6 +47,7 @@ export interface DomainServices {
   depositService: DepositService;
   waitlistService: typeof waitlistService;
   briefingService: typeof briefingService;
+  venueTeamService: typeof venueTeamService;
 }
 
 /**
@@ -66,4 +68,5 @@ export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
   holdService,
   waitlistService,
   briefingService,
+  venueTeamService,
 };

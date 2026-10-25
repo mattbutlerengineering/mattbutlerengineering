@@ -57,6 +57,11 @@ vi.mock("../components/venue-profile/VenueProfileCard.js", () => ({
   VenueProfileCard: () => <div data-testid="venue-profile-card" />,
 }));
 
+// Settings → Team has its own suite at components/venue-team/TeamRolesCard.test.tsx.
+vi.mock("../components/venue-team/TeamRolesCard.js", () => ({
+  TeamRolesCard: () => <div data-testid="team-roles-card" />,
+}));
+
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="page-header">
@@ -305,6 +310,13 @@ describe("SettingsPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("venue-profile-card")).toBeDefined();
+    });
+  });
+
+  it("renders the Team roles card after loading (#7510)", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("team-roles-card")).toBeDefined();
     });
   });
 

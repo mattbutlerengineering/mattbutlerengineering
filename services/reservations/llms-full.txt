@@ -8029,6 +8029,105 @@
       return scopedHandler as unknown as Handler<RG>;
     }
   </file>
+  <file path="src/routes/venue-team.ts">
+    export const venueTeamRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueTeamService } = fastify.services;
+    
+      fastify.get<{ Params: { id: string }; Reply: { data: VenueTeam } | ProblemDetails }>(
+        "/:id/team",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List a venue's team with each member's role",
+            tags: ["Venues"],
+            params: idParams,
+            response: { 200: { type: "object", properties: { data: venueTeamResponseJsonSchema } } },
+          },
+        },
+        venueScoped(venueFromRouteId, async (request, reply, { venueId, isAdmin }) => {
+          const team = await venueTeamService.get(venueId, request.user?.raw.sub ?? "", isAdmin);
+          if (!team) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          return { data: team };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { id: string };
+        Body: UpdateVenueTeamRequest;
+        Reply: { data: UpdateVenueTeamRequest } | ProblemDetails;
+      }>(
+        "/:id/team",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Set whether Hosts can close the venue in an emergency",
+            tags: ["Venues"],
+            params: idParams,
+            body: updateVenueTeamBodyJsonSchema,
+          },
+        },
+        venueScoped(venueManagerFromRouteId, async (request, reply, { venueId }) => {
+          const { hostEmergencyClose } = request.body;
+          if (!(await venueTeamService.setHostEmergencyClose(venueId, hostEmergencyClose))) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          return { data: { hostEmergencyClose } };
+        })
+      );
+    
+      fastify.patch<{
+        Params: { id: string; userSub: string };
+        Body: UpdateTeamMemberRoleRequest;
+        Reply: { data: { userSub: string; role: TeamRole } } | ProblemDetails;
+      }>(
+        "/:id/team/members/:userSub",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Make a member a Manager or a Host",
+            description:
+              "Refuses with 403 when a non-owner changes an owner's role, and with 409 when the change would leave the venue without an owner or manager.",
+            tags: ["Venues"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" }, userSub: { type: "string" } },
+              required: ["id", "userSub"],
+            },
+            body: updateTeamMemberRoleBodyJsonSchema,
+          },
+        },
+        venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
+          // The caller's own role decides whether they may touch an owner's row;
+          // an admin passes without a lookup, as in `requireVenueRole`.
+          const callerRole = isAdmin
+            ? null
+            : await request.server.venueRoleLookup(request.user?.raw.sub ?? "", venueId);
+          try {
+            const member = await venueTeamService.setRole(
+              venueId,
+              request.params.userSub,
+              request.body.role,
+              { isAdmin, role: callerRole }
+            );
+            if (!member) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", MEMBER_NOT_FOUND));
+            }
+            return { data: member };
+          } catch (error) {
+            if (error instanceof OwnerProtectedError) {
+              return reply.code(403).send(createProblemDetails(403, "Forbidden", error.message));
+            }
+            if (error instanceof LastManagerError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", error.message));
+            }
+            throw error;
+          }
+        })
+      );
+    };
+  </file>
   <file path="src/routes/venues.ts">
     export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
     function isWriteConflict(error: unknown): boolean {
@@ -11794,6 +11893,7 @@
       depositService: DepositService;
       waitlistService: typeof waitlistService;
       briefingService: typeof briefingService;
+      venueTeamService: typeof venueTeamService;
     }
     export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
@@ -11808,6 +11908,7 @@
       holdService,
       waitlistService,
       briefingService,
+      venueTeamService,
     };
   </file>
   <file path="src/services/events.ts">
@@ -17757,6 +17858,103 @@
       });
     }
   </file>
+  <file path="src/services/venue-team.ts">
+    function toTeamRole(role: VenueRole): TeamRole {
+      return role === "staff" ? "host" : "manager";
+    }
+    export class LastManagerError extends Error {
+      constructor() {
+        super("A venue needs at least one Manager");
+        this.name = "LastManagerError";
+      }
+    }
+    export class OwnerProtectedError extends Error {
+      constructor() {
+        super("Only an owner can change an owner's role");
+        this.name = "OwnerProtectedError";
+      }
+    }
+    export interface TeamCaller {
+      readonly isAdmin: boolean;
+      readonly role: VenueRole | null;
+    }
+    export function createVenueTeamService(client: PrismaClient = prisma) {
+      return {
+        /** `null` when the venue does not exist. */
+        async get(venueId: string, viewerSub: string, isAdmin: boolean): Promise<VenueTeam | null> {
+          const venue = await client.venue.findUnique({
+            where: { id: venueId },
+            select: { hostEmergencyClose: true },
+          });
+          if (!venue) return null;
+          const rows = await client.venueMembership.findMany({
+            where: { venueId },
+            select: { userSub: true, role: true },
+            orderBy: { createdAt: "asc" },
+          });
+          const members = rows.map((row) => ({
+            userSub: row.userSub,
+            role: toTeamRole(row.role),
+            isViewer: row.userSub === viewerSub,
+            isOwner: row.role === "owner",
+          }));
+          const own = members.find((member) => member.isViewer);
+          return {
+            members,
+            hostEmergencyClose: venue.hostEmergencyClose,
+            viewerRole: isAdmin ? "manager" : (own?.role ?? "host"),
+            viewerCanChangeOwners: isAdmin || own?.isOwner === true,
+          };
+        },
+    
+        /**
+         * Sets one member's role. `manager` leaves an owner an owner; `host`
+         * stores `staff`. Refuses with {@link OwnerProtectedError} any change to an
+         * owner's row unless `caller` is an owner or a platform admin, and with
+         * {@link LastManagerError} to demote the venue's last owner/manager. The venue's membership rows are locked
+         * first, so two Managers demoting each other at once cannot both pass the
+         * count. `null` when the user is not a member of this venue.
+         */
+        async setRole(
+          venueId: string,
+          userSub: string,
+          role: TeamRole,
+          caller: TeamCaller
+        ): Promise<{ userSub: string; role: TeamRole } | null> {
+          return client.$transaction(async (tx) => {
+            await setVenueContext(tx, venueId);
+            await tx.$queryRaw`SELECT id FROM venue_memberships WHERE venue_id = ${venueId} FOR UPDATE`;
+            const key = { userSub_venueId: { userSub, venueId } };
+            const current = await tx.venueMembership.findUnique({ where: key });
+            if (!current) return null;
+            if (current.role === "owner" && !canChangeOwner(caller)) throw new OwnerProtectedError();
+            if (toTeamRole(current.role) === role) return { userSub, role };
+    
+            if (role === "host") {
+              const rows = await tx.venueMembership.findMany({ where: { venueId } });
+              const otherManagers = rows.filter(
+                (row) => row.userSub !== userSub && isManagerRole(row.role)
+              );
+              if (otherManagers.length === 0) throw new LastManagerError();
+            }
+            const stored: VenueRole = role === "host" ? "staff" : "manager";
+            await tx.venueMembership.update({ where: key, data: { role: stored } });
+            return { userSub, role };
+          });
+        },
+    
+        /** `false` when the venue does not exist. */
+        async setHostEmergencyClose(venueId: string, enabled: boolean): Promise<boolean> {
+          const { count } = await client.venue.updateMany({
+            where: { id: venueId },
+            data: { hostEmergencyClose: enabled },
+          });
+          return count > 0;
+        },
+      };
+    }
+    export const venueTeamService = createVenueTeamService();
+  </file>
   <file path="src/services/venue.ts">
     export type VenueDeleteOutcome = "deleted" | "not_found" | "has_dependents";
     export interface VenuePolicy {
@@ -19165,7 +19363,9 @@
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(reservationEventRoutes, { prefix: "/api/v1/reservations" });
-      await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
+      const venuesPrefix = "/api/v1/venues";
+      await fastify.register(venueRoutes, { prefix: venuesPrefix });
+      await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
       });

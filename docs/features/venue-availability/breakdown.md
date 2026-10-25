@@ -76,7 +76,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Venue roles** — `requireVenueRole("manager")` in `packages/auth/src/fastify/authz.ts`, with the membership lookup returning the role and admins bypassing. The venue PATCH and every availability config write require Manager. (tracker: #7509)
   - Accept: route tests show a staff member gets 403 on config writes and 200 on reads, an owner or manager gets 200, and an admin bypasses.
   - Blocked by: —
-- [ ] **Team roles UI** — Settings → Team shows Manager or Host per member, plus the "Hosts can close in an emergency" toggle, with their endpoints and api-client methods. (tracker: #7510)
+- [x] **Team roles UI** — Settings → Team shows Manager or Host per member, plus the "Hosts can close in an emergency" toggle, with their endpoints and api-client methods. (tracker: #7510)
   - Accept: component and API tests cover a Manager changing a role and the grant, while a Host sees nothing to edit.
   - Blocked by: Venue roles
 

@@ -9,11 +9,13 @@ import type {
   PublicVenue,
   PublicVenueConfig,
   GuestRiskResult,
+  VenueTeam,
 } from "@mbe/types";
 import {
   PublicVenueSchema,
   PublicVenueConfigSchema,
   GuestRiskResultSchema,
+  VenueTeamSchema,
   toPublicVenueProfile,
 } from "@mbe/types/schemas";
 import { atLocal, localDay } from "./local-day.js";
@@ -198,6 +200,24 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
  */
 export function buildGuestRiskFixture(): GuestRiskResult {
   return GuestRiskResultSchema.parse({ requiresDeposit: false });
+}
+
+/**
+ * Settings → Team (#7510): the viewer is a Manager, alongside the venue's
+ * owner and one Host. Stable subs, so the card (and its visual baseline)
+ * renders identically every run.
+ */
+export function buildVenueTeamFixture(): VenueTeam {
+  return VenueTeamSchema.parse({
+    members: [
+      { userSub: "auth0|e2e-owner", role: "manager", isViewer: false, isOwner: true },
+      { userSub: "auth0|e2e-manager", role: "manager", isViewer: true, isOwner: false },
+      { userSub: "auth0|e2e-host", role: "host", isViewer: false, isOwner: false },
+    ],
+    hostEmergencyClose: false,
+    viewerRole: "manager",
+    viewerCanChangeOwners: false,
+  });
 }
 
 /** Deposits backing the dashboard's exposure stats; `nowDate` stamps every timestamp. */
@@ -574,6 +594,20 @@ export async function mockApi(page: Page): Promise<void> {
       return jsonOk(route, { ...venues.data[0], updatedAt: new Date().toISOString() });
     }
     return jsonOk(route, venues.data[0]);
+  });
+
+  // Settings → Team (#7510): GET returns a constant team (the viewer is a
+  // Manager, plus an owner and one Host) so the Settings page renders the same
+  // card every run; PATCHes echo the body back as the stored value.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/team(\/members\/[^/?]+)?$/, (route) => {
+    const request = route.request();
+    if (request.method() !== "PATCH") return jsonOk(route, buildVenueTeamFixture());
+    const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+    const memberSub = request.url().match(/\/members\/([^/?]+)$/)?.[1];
+    return jsonOk(
+      route,
+      memberSub ? { userSub: decodeURIComponent(memberSub), role: body.role } : body
+    );
   });
 
   // Venue Groups

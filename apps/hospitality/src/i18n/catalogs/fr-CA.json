@@ -1649,6 +1649,22 @@
       "description": "Gérez les jours et les heures où votre établissement accepte les réservations.",
       "operatingHours": "Heures d'ouverture"
     },
+    "team": {
+      "title": "Équipe",
+      "description": "Les gérants modifient les heures, les fermetures et les rôles. Les hôtes s'occupent du service de ce soir.",
+      "noVenue": "Choisissez un établissement pour voir son équipe.",
+      "loadError": "Impossible de charger l'équipe",
+      "empty": "Cet établissement n'a pas encore d'équipe.",
+      "roleLabel": "Rôle de {{member}}",
+      "roleManager": "Gérant",
+      "roleHost": "Hôte",
+      "you": "Vous",
+      "readOnly": "Seuls les gérants modifient les rôles.",
+      "emergencyClose": "Les hôtes peuvent fermer en cas d'urgence",
+      "emergencyCloseHint": "Les hôtes peuvent fermer tout l'établissement pour ce soir seulement. Une fermeture plus longue exige un gérant.",
+      "emergencyCloseOn": "Les hôtes peuvent fermer tout l'établissement ce soir en cas d'urgence.",
+      "emergencyCloseOff": "Seuls les gérants peuvent fermer l'établissement."
+    },
     "profile": {
       "title": "Profil de l'établissement",
       "description": "Qui vous êtes, tel que les clients vous voient sur votre page de réservation publique.",

@@ -874,6 +874,11 @@
     export const assignSectionTablesBodyJsonSchema = toRequestJsonSchema(
       AssignSectionTablesRequestSchema
     );
+    export const venueTeamResponseJsonSchema = toResponseJsonSchema(VenueTeamSchema);
+    export const updateTeamMemberRoleBodyJsonSchema = toRequestJsonSchema(
+      UpdateTeamMemberRoleRequestSchema
+    );
+    export const updateVenueTeamBodyJsonSchema = toRequestJsonSchema(UpdateVenueTeamRequestSchema);
     export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
     export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
     export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
@@ -1550,6 +1555,38 @@
       name: z.string().nullable(),
       picture: z.string().nullable(),
     });
+  </file>
+  <file path="src/schemas/venue-team.ts">
+    export const TEAM_ROLES = ["manager", "host"] as const;
+    export const TeamRoleSchema = z.enum(TEAM_ROLES);
+    export const TeamMemberSchema = z.object({
+      userSub: z.string(),
+      role: TeamRoleSchema,
+      /** True for the caller's own membership row. */
+      isViewer: z.boolean(),
+      /**
+       * True for a stored `owner` (shown as a Manager). Only an owner or a
+       * platform admin may change an owner's role, so the owner marker is never
+       * lost to a manager's demotion.
+       */
+      isOwner: z.boolean(),
+    });
+    export const VenueTeamSchema = z.object({
+      members: z.array(TeamMemberSchema),
+      /** "Hosts can close in an emergency" (`Venue.hostEmergencyClose`). */
+      hostEmergencyClose: z.boolean(),
+      /** The caller's role at this venue; platform admins count as a Manager. */
+      viewerRole: TeamRoleSchema,
+      /** True when the caller is an owner or a platform admin, the only callers who may change an owner's role. */
+      viewerCanChangeOwners: z.boolean(),
+    });
+    export const UpdateTeamMemberRoleRequestSchema = z.object({ role: TeamRoleSchema });
+    export const UpdateVenueTeamRequestSchema = z.object({ hostEmergencyClose: z.boolean() });
+    export type TeamRole = z.infer<typeof TeamRoleSchema>;
+    export type TeamMember = z.infer<typeof TeamMemberSchema>;
+    export type VenueTeam = z.infer<typeof VenueTeamSchema>;
+    export type UpdateTeamMemberRoleRequest = z.infer<typeof UpdateTeamMemberRoleRequestSchema>;
+    export type UpdateVenueTeamRequest = z.infer<typeof UpdateVenueTeamRequestSchema>;
   </file>
   <file path="src/schemas/venue.ts">
     export const DayScheduleSchema = z.object({

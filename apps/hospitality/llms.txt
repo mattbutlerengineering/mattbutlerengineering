@@ -363,6 +363,9 @@
       export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
     </item>
     <item priority="high">
+      export function buildVenueTeamFixture(): VenueTeam { /* ... */ }
+    </item>
+    <item priority="high">
       export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
@@ -1999,6 +2002,20 @@
     </item>
     <item priority="high">
       export function useVenueReadiness(): VenueReadiness { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useVenueTeam.ts">
+    <item priority="high">
+      export const VENUE_TEAM_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useVenueTeam: unknown;
+    </item>
+    <item priority="high">
+      export const useSetTeamRole: unknown;
+    </item>
+    <item priority="high">
+      export const useSetHostEmergencyClose: unknown;
     </item>
   </file>
   <file path="src/hooks/useVenues.ts">

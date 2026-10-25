@@ -456,6 +456,18 @@
       }
     </item>
   </file>
+  <file path="src/venue-team.ts">
+    <item priority="medium">
+      function teamPath(venueId: string, ...segments: string[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      class VenueTeamClient {
+        async get(): Promise<unknown>;
+        async setRole(): Promise<unknown>;
+        async setHostEmergencyClose(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="src/venues.ts">
     <item priority="high">
       class VenuesClient {

@@ -2749,6 +2749,9 @@
       export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
     </item>
     <item priority="high">
+      export function buildVenueTeamFixture(): VenueTeam { /* ... */ }
+    </item>
+    <item priority="high">
       export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
@@ -5376,6 +5379,20 @@
     </item>
     <item priority="high">
       export function useVenueReadiness(): VenueReadiness { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useVenueTeam.ts">
+    <item priority="high">
+      export const VENUE_TEAM_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useVenueTeam: unknown;
+    </item>
+    <item priority="high">
+      export const useSetTeamRole: unknown;
+    </item>
+    <item priority="high">
+      export const useSetHostEmergencyClose: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useVenues.ts">
@@ -9171,6 +9188,11 @@
       >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/venue-team.ts">
+    <item priority="high">
+      export const venueTeamRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/venues.ts">
     <item priority="high">
       export const VENUE_CREATE_RATE_LIMIT: unknown;
@@ -9708,6 +9730,15 @@
       export const assignSectionTablesBodyJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const venueTeamResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateTeamMemberRoleBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateVenueTeamBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const createMenuBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -10133,6 +10164,41 @@
     </item>
     <item priority="high">
       export const UserProfileSchema: unknown;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/venue-team.ts">
+    <item priority="high">
+      export const TEAM_ROLES: unknown;
+    </item>
+    <item priority="high">
+      export const TeamRoleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TeamMemberSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueTeamSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateTeamMemberRoleRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateVenueTeamRequestSchema: unknown;
+    </item>
+    <item priority="low">
+      type TeamRole = z.infer<typeof TeamRoleSchema>;
+    </item>
+    <item priority="low">
+      type TeamMember = z.infer<typeof TeamMemberSchema>;
+    </item>
+    <item priority="low">
+      type VenueTeam = z.infer<typeof VenueTeamSchema>;
+    </item>
+    <item priority="low">
+      type UpdateTeamMemberRoleRequest = z.infer<typeof UpdateTeamMemberRoleRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateVenueTeamRequest = z.infer<typeof UpdateVenueTeamRequestSchema>;
     </item>
   </file>
   <file path="packages/types/src/schemas/venue.ts">
@@ -13134,6 +13200,33 @@
     </item>
     <item priority="high">
       export function withVenueScopedQueries(client: PrismaClient): PrismaClient { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/venue-team.ts">
+    <item priority="medium">
+      function toTeamRole(role: VenueRole): TeamRole { /* ... */ }
+    </item>
+    <item priority="high">
+      class LastManagerError {
+        
+      }
+    </item>
+    <item priority="high">
+      class OwnerProtectedError {
+        
+      }
+    </item>
+    <item priority="low">
+      interface TeamCaller {
+        isAdmin: boolean;
+        role: VenueRole | null;
+      }
+    </item>
+    <item priority="high">
+      export function createVenueTeamService(client: PrismaClient = prisma) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const venueTeamService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/venue.ts">
@@ -16404,6 +16497,18 @@
         async get(): Promise<unknown>;
         async me(): Promise<unknown>;
         async create(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/venue-team.ts">
+    <item priority="medium">
+      function teamPath(venueId: string, ...segments: string[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      class VenueTeamClient {
+        async get(): Promise<unknown>;
+        async setRole(): Promise<unknown>;
+        async setHostEmergencyClose(): Promise<unknown>;
       }
     </item>
   </file>
