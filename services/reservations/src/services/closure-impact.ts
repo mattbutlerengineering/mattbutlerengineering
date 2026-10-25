@@ -1,4 +1,4 @@
-import { resolveDay, serviceDayInstant } from "@mbe/availability";
+import { MINUTES_PER_DAY, localDateTimeOf, resolveDay } from "@mbe/availability";
 import type { AvailabilitySnapshot, ResolvedClosure } from "@mbe/availability";
 import type {
   AvailabilityConfig,
@@ -31,8 +31,6 @@ export interface ImpactBooking {
   heldDeposit: { amountCents: number; currency: string } | null;
 }
 
-const MS_PER_MINUTE = 60_000;
-
 /** `closed`: the whole day or service goes; anything narrower (a window, new hours) is `shortened`. */
 function kindOf(rule: DateRule): ClosureImpactKind {
   return rule.kind === "closure" && !rule.window ? "closed" : "shortened";
@@ -43,10 +41,16 @@ function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConf
   return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
 }
 
-const minutesBetween = (from: Date, to: Date): number =>
-  (to.getTime() - from.getTime()) / MS_PER_MINUTE;
+const MS_PER_DAY = 86_400_000;
 
-/** Does a band of the draft cut into the booking after it has started? */
+/** Wall-clock minutes of an instant past the service day's local midnight (ADR-029), as engine times are. */
+function wallMinutes(instant: Date, serviceDate: string, tz: string): number {
+  const local = localDateTimeOf(instant, tz);
+  const days = (Date.parse(local.date) - Date.parse(serviceDate)) / MS_PER_DAY;
+  return days * MINUTES_PER_DAY + local.minute;
+}
+
+/** Does a closure band of the draft cut into the booking after it has started? */
 function runsIntoBand(
   band: ResolvedClosure,
   startMin: number,
@@ -62,10 +66,15 @@ function runsIntoBand(
 }
 
 interface Verdicts {
-  strandedAfter: boolean;
   runsInto: boolean;
 }
 
+/**
+ * How the draft touches a booking the venue served before it, or null. Shortened
+ * hours add no closure band, they move a service's `closesAt` / `lastSeatingAt`:
+ * a booking that now ends after close runs into it, and one starting after the
+ * new last seating can no longer be booked as it is.
+ */
 function assess(
   before: AvailabilitySnapshot,
   after: AvailabilitySnapshot,
@@ -73,22 +82,34 @@ function assess(
   booking: ImpactBooking
 ): Verdicts | null {
   if (strandReason(before, booking) !== null) return null; // already unserved: not this change's doing
-  if (strandReason(after, booking) !== null) return { strandedAfter: true, runsInto: false };
+  if (strandReason(after, booking) !== null) return { runsInto: false };
 
   const date = booking.date.toISOString().slice(0, 10);
-  const midnight = serviceDayInstant(date, 0, after.timezone);
-  if (!midnight) return null;
-  const startMin = minutesBetween(midnight, booking.startTime);
-  const endMin = minutesBetween(midnight, booking.endTime);
-  const served = new Set(
-    resolveDay(before, date)
-      .services.filter((s) => s.opensAt <= startMin && startMin < s.closesAt)
-      .map((s) => s.venueServiceId)
+  const startMin = wallMinutes(booking.startTime, date, after.timezone);
+  const endMin = wallMinutes(booking.endTime, date, after.timezone);
+  const dayAfter = resolveDay(after, date);
+  const servedBefore = resolveDay(before, date).services.filter(
+    (s) => s.opensAt <= startMin && startMin < s.closesAt
   );
-  const runsInto = resolveDay(after, date).closures.some(
-    (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, served)
+
+  const servedIds = new Set(servedBefore.map((s) => s.venueServiceId));
+  const bandRunsInto = dayAfter.closures.some(
+    (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, servedIds)
   );
-  return runsInto ? { strandedAfter: false, runsInto: true } : null;
+  const hours = servedBefore.map((was) => ({
+    was,
+    now: dayAfter.services.find((s) => s.venueServiceId === was.venueServiceId),
+  }));
+  const endsAfterClose = hours.some(
+    ({ was, now }) => now !== undefined && now.closesAt < endMin && was.closesAt >= endMin
+  );
+  const pastLastSeating = hours.some(
+    ({ was, now }) =>
+      now !== undefined && now.lastSeatingAt < startMin && was.lastSeatingAt >= startMin
+  );
+
+  if (bandRunsInto || endsAfterClose) return { runsInto: true };
+  return pastLastSeating ? { runsInto: false } : null;
 }
 
 function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpactReservation {

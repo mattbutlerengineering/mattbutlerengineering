@@ -177,4 +177,83 @@ describe("computeClosureImpact", () => {
     });
     expect(result.reservations).toBe(0);
   });
+
+  /** A booking from explicit instants, for dates where the UTC offset is not -8. */
+  const at = (date: string, startIso: string, endIso: string): ImpactBooking => ({
+    ...booking("x", date, 0, 0),
+    date: new Date(`${date}T00:00:00.000Z`),
+    startTime: new Date(startIso),
+    endTime: new Date(endIso),
+  });
+  const flags = (result: ReturnType<typeof impact>) =>
+    result.groups.flatMap((g) => g.reservations.map((r) => r.runsIntoClosure));
+
+  it("flags a booking that runs past a Tonight close-early", () => {
+    const tonight = {
+      id: "dr-new",
+      kind: "tonight",
+      targetKind: "venue",
+      startsOn: "2026-11-02",
+      endsOn: "2026-11-02",
+      payload: { version: 1, closeAt: 1260 }, // closes 9:00 PM
+    } as DateRule;
+
+    // 8:30 - 10:00 PM PST
+    const result = impact(tonight, [
+      at("2026-11-02", "2026-11-03T04:30:00Z", "2026-11-03T06:00:00Z"),
+    ]);
+
+    expect(result.reservations).toBe(1);
+    expect(result.groups[0]).toMatchObject({ kind: "shortened" });
+    expect(flags(result)).toEqual([true]);
+  });
+
+  it("flags a booking that runs past shortened hours, and one now past last seating", () => {
+    const shortened = {
+      id: "dr-new",
+      kind: "special_hours",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      payload: {
+        version: 1,
+        services: [
+          {
+            venueServiceId: "vs-dinner",
+            opensAt: 960,
+            lastSeatingAt: 1080, // 6:00 PM
+            closesAt: 1200, // 8:00 PM
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+      },
+    } as DateRule;
+
+    const result = impact(shortened, [
+      booking("runs-past-close", "2026-12-24", 19, 0), // 7:00 - 8:30 PM
+      booking("past-last-seating", "2026-12-24", 18, 30, { partySize: 2 }), // 6:30 - 8:00 PM
+      booking("fine", "2026-12-24", 17, 0), // 5:00 - 6:30 PM
+    ]);
+
+    expect(result.groups[0]!.reservations.map((r) => [r.id, r.runsIntoClosure])).toEqual([
+      ["past-last-seating", false],
+      ["runs-past-close", true],
+    ]);
+  });
+
+  it.each([
+    ["fall-back", "2026-11-01", "2026-11-02T05:00:00Z", "2026-11-02T06:30:00Z"],
+    ["spring-forward", "2026-03-08", "2026-03-09T04:00:00Z", "2026-03-09T05:30:00Z"],
+    ["an ordinary day", "2026-11-02", "2026-11-03T05:00:00Z", "2026-11-03T06:30:00Z"],
+  ])("compares wall-clock minutes on %s", (_label, date, start, end) => {
+    // 9:00 - 10:30 PM local; the window closes from 9:30 PM.
+    const late = closure({
+      startsOn: date,
+      endsOn: date,
+      window: { version: 1, from: 1290, to: 1440 },
+    });
+
+    expect(flags(impact(late, [at(date, start, end)]))).toEqual([true]);
+  });
 });

@@ -2279,6 +2279,9 @@
       function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="medium">
+      function wallMinutes(instant: Date, serviceDate: string, tz: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
       function runsIntoBand(
         band: ResolvedClosure,
         startMin: number,
@@ -2288,7 +2291,6 @@
     </item>
     <item priority="high">
       interface Verdicts {
-        strandedAfter: boolean;
         runsInto: boolean;
       }
     </item>
