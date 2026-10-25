@@ -13096,9 +13096,6 @@
     <item priority="high">
       export function createVenueTeamService(client: PrismaClient = prisma) { /* ... */ }
     </item>
-    <item priority="low">
-      type VenueTeamService = ReturnType<typeof createVenueTeamService>;
-    </item>
     <item priority="high">
       export const venueTeamService: unknown;
     </item>

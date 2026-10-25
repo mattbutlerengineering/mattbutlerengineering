@@ -122,6 +122,4 @@ export function createVenueTeamService(client: PrismaClient = prisma) {
   };
 }
 
-export type VenueTeamService = ReturnType<typeof createVenueTeamService>;
-
 export const venueTeamService = createVenueTeamService();

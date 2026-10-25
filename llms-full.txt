@@ -48233,7 +48233,6 @@
         },
       };
     }
-    export type VenueTeamService = ReturnType<typeof createVenueTeamService>;
     export const venueTeamService = createVenueTeamService();
   </file>
   <file path="services/reservations/src/services/venue.ts">
@@ -67302,6 +67301,7 @@
         { name: "publicVenue", instance: api.publicVenue },
         { name: "waitlist", instance: api.waitlist },
         { name: "availability", instance: api.availability },
+        { name: "venueTeam", instance: api.venueTeam },
         {
           name: "holds",
           instance: api.holds,

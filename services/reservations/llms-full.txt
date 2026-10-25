@@ -17994,7 +17994,6 @@
         },
       };
     }
-    export type VenueTeamService = ReturnType<typeof createVenueTeamService>;
     export const venueTeamService = createVenueTeamService();
   </file>
   <file path="src/services/venue.ts">
