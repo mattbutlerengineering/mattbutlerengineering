@@ -1,5 +1,19 @@
 # @mattbutlerengineering/rialto
 
+## 0.8.6
+
+### Patch Changes
+
+- [#7466](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7466) [`eeb5bfa`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/eeb5bfaf9010a7354e4f93d4844498899cae68a4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add the locale words the upcoming reservation, open-times and guest chat elements render — `partyOf`, `visitCount`, `reservationStatus`, `guestRisk`, `walkIn`, `noOpenTimes` and the list names `reservations`, `openTimes`, `guests` — in every locale, plus an internal status and risk normalizer.
+
+- [#7475](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7475) [`953f3b9`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/953f3b9e7839612b003f5f0fdbe227bce436eaf1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add GuestCards, a display-only stack of guest cards (name in the display face, localized visit count and risk word in its tone, tags in a wrapping row; never contact details, notes or spend), with a catalog meta for generative UI.
+
+- [#7471](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7471) [`b2ba512`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b2ba512e281b4783d90995c1a8a6f53e8cc64630) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add ReservationList, a display-only list of bookings (time, guest or Walk-in, party size and status word in its tone), with a catalog meta for generative UI.
+
+- [#7474](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7474) [`8bb548c`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/8bb548ca7bfeb8cc5ef7ad2b8c4b7bd329abf721) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add TimeSlots, a display-only list of open times for one date and party size (a date line over static Tag-look labels that wrap, or a localized "No open times" line), with a catalog meta for generative UI.
+
+- [#7469](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7469) [`4150f46`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4150f46c4085354805add0c707c7f3e1318d5cf5) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Timeline: timestamps now share one column as wide as the longest of them (capped at a third of the Timeline, wrapping past that), so a long timestamp such as "March 14, 2025" no longer runs under its event dot. Short timestamps keep today's 64px (48px compact) column. The catalog description now names only a guest's visit history.
+
 ## 0.8.5
 
 ### Patch Changes
