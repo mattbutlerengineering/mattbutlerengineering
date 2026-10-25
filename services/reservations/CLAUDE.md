@@ -43,6 +43,11 @@ fastify.get(
 );
 ```
 
+## Invariants
+
+- Every `Table.status` change must call `recordTableEvent(tx, …)` in the same transaction. **No test enforces this**, so a missed call silently drops events from `table_events`.
+- Every `reservation` mutation or deposit status CAS must call `recordReservationEvent` in the same function, or be allowlisted with a reason in `src/services/reservation-event-coverage.test.ts` (fails `CI Gate` otherwise).
+
 ## Testing Patterns
 
 ### Mocking Database
