@@ -524,6 +524,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="ReservationList">
+  <file path="packages/rialto/src/components/ReservationList/ReservationList.catalog.ts">
+    <item priority="high">
+      export const reservationListCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Select">
   <file path="packages/rialto/src/components/Select/Select.catalog.ts">
     <item priority="high">

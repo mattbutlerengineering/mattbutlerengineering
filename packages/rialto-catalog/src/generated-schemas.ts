@@ -182,6 +182,9 @@ export const generatedSchemas = {
     flipInterval: z.number().optional(),
     cascadeDelay: z.number().optional(),
   }),
+  ReservationList: z.object({
+    reservations: z.array(z.object({ time: z.string().optional(), guest: z.string().optional(), partySize: z.union([z.number(), z.string()]).optional(), status: z.string().optional() })),
+  }),
   Select: z.object({
     options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
     value: z.string().optional(),

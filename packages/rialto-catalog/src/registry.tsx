@@ -47,6 +47,7 @@ import {
   Input,
   NavigationMenu,
   Odometer,
+  ReservationList,
   Select,
   Sidebar,
   Stack,
@@ -61,6 +62,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type {
   DepartureBoardProps,
+  ReservationListRow,
   StatProps,
   StatusLEDProps,
   TagProps,
@@ -82,6 +84,29 @@ function isTimelineStatus(
   status: string
 ): status is NonNullable<TimelineProps["events"][number]["status"]> {
   return TIMELINE_STATUSES.has(status);
+}
+
+/** A party size as a number, from a number or a numeric string; undefined otherwise. */
+function toPartySize(value: unknown): number | undefined {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== "string" || value.trim() === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Rows a reservation list can show: time, party size and status present (gen-ui-elements-2). */
+/** A string with something other than whitespace in it — a blank word reads as missing. */
+function isFilled(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function usableReservations(rows: readonly Record<string, unknown>[]): ReservationListRow[] {
+  return rows.flatMap(({ time, guest, partySize, status }) => {
+    const size = toPartySize(partySize);
+    return isFilled(time) && isFilled(status) && size !== undefined
+      ? [{ time, guest: typeof guest === "string" ? guest : undefined, partySize: size, status }]
+      : [];
+  });
 }
 
 /** A slot's child elements when there are some, else the element's own words (F24). */
@@ -575,6 +600,18 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
               ]
         );
         return <Timeline events={events} compact={p.compact} />;
+      },
+
+      // A row missing time, partySize or status is dropped; the whole element
+      // falls back only when no row survives.
+      ReservationList: ({ props }: { props: unknown }) => {
+        const p = props as { reservations: Record<string, unknown>[] };
+        const reservations = usableReservations(p.reservations);
+        return reservations.length > 0 ? (
+          <ReservationList reservations={reservations} />
+        ) : (
+          <SeamFallback name="ReservationList" />
+        );
       },
 
       Odometer: ({ props }: { props: unknown }) => {

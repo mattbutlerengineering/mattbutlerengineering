@@ -26,6 +26,7 @@ export * from "./Pagination";
 export * from "./PinInput";
 export * from "./Popover";
 export * from "./Progress";
+export * from "./ReservationList";
 export * from "./Select";
 export * from "./Skeleton";
 export * from "./Slider";
