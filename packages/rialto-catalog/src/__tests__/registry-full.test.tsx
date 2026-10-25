@@ -1225,3 +1225,40 @@ describe("generated words are required where a component needs them", () => {
     expect(within(container).getByText("Visit 1 - Party of 2")).toBeTruthy();
   });
 });
+
+// Review of #7462: requiring the words must not break a Text or Badge that holds
+// only child elements, the shape the model is told every slot accepts.
+describe("slot components with only child elements", () => {
+  it("renders a Text whose content is child elements and no words of its own", () => {
+    const { container } = renderSpec({
+      root: "s",
+      elements: {
+        s: { type: "Stack", props: { direction: "column" }, children: ["t"] },
+        t: { type: "Text", props: { variant: "body" }, children: ["inner"] },
+        inner: { type: "Badge", props: { label: "Hi" } },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Hi")).toBeTruthy();
+  });
+
+  it("renders a Badge whose content is a child element", () => {
+    const { container } = renderSpec({
+      root: "b",
+      elements: {
+        b: { type: "Badge", props: { variant: "success" }, children: ["t"] },
+        t: { type: "Text", props: { text: "Inside" } },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Inside")).toBeTruthy();
+  });
+
+  it("still falls back for a leaf Text with no words", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: { t: { type: "Text", props: { variant: "body" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).not.toBeNull();
+  });
+});

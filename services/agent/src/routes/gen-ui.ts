@@ -18,8 +18,9 @@ const RENDER_TOOL_INSTRUCTIONS =
   "request, call the render_component tool exactly once with the complete " +
   "list of elements. Each element needs a unique `key` (not `id`) and, for " +
   "every element except the root, a `parentKey` set to its parent's `key` " +
-  "(omit `parentKey` on the root element). Do not use `children` — the tree " +
-  "is assembled purely from `parentKey` links.";
+  "(omit `parentKey` on the root element). Do not give elements a `children` " +
+  "array of keys — the tree is assembled purely from `parentKey` links. An " +
+  "element's own words go in its text or label prop.";
 
 // Memoize catalog prompt at module load — avoid re-generating per request
 const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${RENDER_TOOL_INSTRUCTIONS}`;

@@ -213,6 +213,15 @@ function clampToCharLimits(name: string, props: unknown): unknown {
  * Compose as `withAliasNormalization(withSchemaValidation(...))` so props are
  * alias-normalized first, then validated, then handed to the adapter.
  */
+/**
+ * The slice of a Zod object schema the seam uses to make a slot's words optional.
+ * `generatedSchemas` is a union of distinct object schemas, on which `.partial(mask)`
+ * does not typecheck; this file deliberately imports no Zod to name the type.
+ */
+interface Masked {
+  partial(mask: { children: true }): { safeParse(value: unknown): { success: boolean } };
+}
+
 function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T): T {
   const wrapped: Record<string, AdapterFn> = {};
   for (const [name, adapter] of Object.entries<AdapterFn>(adapters)) {
@@ -221,9 +230,16 @@ function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T):
       wrapped[name] = adapter;
       continue;
     }
+    // A slot component's words are required only when it has no child elements:
+    // with child elements, those are its content (review of #7462).
+    const withoutWords =
+      "children" in schema.shape
+        ? (schema as unknown as Masked).partial({ children: true })
+        : schema;
     wrapped[name] = (context) => {
       const clamped = { ...context, props: clampToCharLimits(name, context.props) };
-      return schema.safeParse(clamped.props).success ? (
+      const check = Children.count(context.children) > 0 ? withoutWords : schema;
+      return check.safeParse(clamped.props).success ? (
         adapter(clamped)
       ) : (
         <SeamFallback name={name} />

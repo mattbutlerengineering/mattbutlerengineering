@@ -141,8 +141,9 @@ const JSON_OUTPUT_INSTRUCTIONS =
   'ONLY one JSON object of the form {"elements":[...]} and no prose or code fences. ' +
   "Each element needs a unique `key`, a `type`, `props`, and, for every element " +
   "except the root, a `parentKey` set to its parent's `key` (omit `parentKey` on " +
-  "the root element). Do not use `children` — the tree is assembled purely from " +
-  "`parentKey` links.";
+  "the root element). Do not give elements a `children` array of keys — the tree " +
+  "is assembled purely from `parentKey` links. An element's own words go in its " +
+  "text or label prop.";
 
 export const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${JSON_OUTPUT_INSTRUCTIONS}`;
 

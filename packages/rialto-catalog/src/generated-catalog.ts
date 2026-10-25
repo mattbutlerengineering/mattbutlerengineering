@@ -37,7 +37,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Badge: {
     name: "Badge",
     description:
-      "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Its words go in children (required).",
+      "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle. Put its words in label (required unless it holds child elements).",
     slots: ["default"],
     aliases: { label: "children" },
   },
@@ -218,14 +218,14 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Tag: {
     name: "Tag",
     description:
-      "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Its words go in children. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
+      "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Put its words in label. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
     charLimits: { children: 30 },
     aliases: { label: "children" },
   },
   Text: {
     name: "Text",
     description:
-      "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Its words go in children (required).",
+      "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put its words in text (required unless it holds child elements).",
     slots: ["default"],
     aliases: { text: "children" },
   },
