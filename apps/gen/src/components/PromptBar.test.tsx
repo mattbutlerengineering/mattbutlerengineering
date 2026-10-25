@@ -59,6 +59,18 @@ describe("PromptBar", () => {
     expect(screen.getByRole("button", { name: /generate/i })).toBeDefined();
   });
 
+  // F26: the hints line stays mounted (CSS :focus-within shows it) so focus changes
+  // never resize the bar under the pointer.
+  it("keeps the hints line mounted while the textarea is unfocused", () => {
+    const { container } = render(<PromptBar {...defaultProps} />);
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    expect(document.activeElement).not.toBe(textarea);
+    expect(container.querySelector(".hints")).not.toBeNull();
+    fireEvent.focus(textarea);
+    fireEvent.blur(textarea);
+    expect(container.querySelector(".hints")).not.toBeNull();
+  });
+
   it("renders Stop button when isStreaming is true", () => {
     render(<PromptBar {...defaultProps} isStreaming={true} />);
     expect(screen.getByRole("button", { name: /stop/i })).toBeDefined();
