@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildAgentSystemPrompt } from "./gen-agent-prompt.js";
+import { catalog } from "@mbe/rialto-catalog/catalog";
+import { buildAgentSystemPrompt, chatComponentReference } from "./gen-agent-prompt.js";
+import { genAgentSystemPrompt } from "./gen-agent.js";
 
 const NOW = new Date("2026-10-25T02:00:00Z"); // Sat Oct 24, 7pm Pacific
 
@@ -139,5 +141,46 @@ describe("buildAgentSystemPrompt", () => {
     const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
 
     expect(prompt.endsWith("CATALOG")).toBe(true);
+  });
+});
+
+// Live chat batch 9 (F33): the chat appended json-render's full catalog.prompt(),
+// a generator spec ("Output ONLY JSONL patches"), and asked for "a short label
+// above the list" the model wrote the patch lines as reply text. The chat now
+// gets only the component list, and is told elements go through render_component.
+describe("chat component reference", () => {
+  const reference = chatComponentReference(catalog.prompt());
+
+  it("keeps the component list, including the chat elements", () => {
+    expect(reference.startsWith("AVAILABLE COMPONENTS (")).toBe(true);
+    for (const name of ["ReservationList", "TimeSlots", "GuestCards", "StatusLED", "Text"]) {
+      expect(reference).toContain(`- ${name}:`);
+    }
+  });
+
+  it("drops the generator's JSONL, state and output rules", () => {
+    expect(reference).not.toMatch(/JSONL|"op"|AVAILABLE ACTIONS|INITIAL STATE|RULES:/);
+  });
+
+  it("fails loudly if the catalog prompt's layout changes", () => {
+    expect(() => chatComponentReference("no markers here")).toThrow(/AVAILABLE COMPONENTS/);
+    expect(() => chatComponentReference("AVAILABLE COMPONENTS (1):\n\n- A: {}")).toThrow(
+      /AVAILABLE ACTIONS/
+    );
+  });
+
+  it("is what the chat route sends, with no JSONL anywhere", () => {
+    const prompt = genAgentSystemPrompt({ venueId: "v", timeZone: "UTC" }, catalog.prompt());
+
+    expect(prompt).toContain("- ReservationList:");
+    expect(prompt).not.toMatch(/JSONL|"op"/);
+    expect(prompt.length).toBeLessThan(catalog.prompt().length);
+  });
+
+  it("tells the model elements go only through render_component", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+
+    expect(prompt).toMatch(/render_component[^.\n]*elements/);
+    expect(prompt).toMatch(/never write JSON[^.\n]*reply/i);
   });
 });

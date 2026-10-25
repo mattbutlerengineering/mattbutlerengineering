@@ -34,7 +34,11 @@ vi.mock("../services/gen-spend-ceiling.js", async (importActual) => {
 
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
   catalog: {
-    prompt: vi.fn(() => "mock system prompt"),
+    // Shaped like json-render's prompt: the chat keeps only the component list.
+    prompt: vi.fn(
+      () =>
+        'OUTPUT FORMAT (JSONL):\n{"op":"add"}\n\nAVAILABLE COMPONENTS (1):\n\n- MockCard: { title: string } - mock component\n\nAVAILABLE ACTIONS:\n\nRULES:\n1. Output ONLY JSONL'
+    ),
   },
 }));
 
@@ -208,7 +212,7 @@ describe("POST /api/gen/agent", () => {
         // ai@7: system prompt rides the instructions option, never messages.
         instructions: expect.objectContaining({
           role: "system",
-          content: expect.stringContaining("mock system prompt"),
+          content: expect.stringContaining("- MockCard:"),
           providerOptions: {
             anthropic: { cacheControl: { type: "ephemeral" } },
           },
@@ -245,7 +249,8 @@ describe("POST /api/gen/agent", () => {
     };
     expect(call.instructions.content).toMatch(/venue is already selected/i);
     expect(call.instructions.content).toContain("America/Los_Angeles");
-    expect(call.instructions.content).toContain("mock system prompt");
+    expect(call.instructions.content).toContain("- MockCard:");
+    expect(call.instructions.content).not.toMatch(/JSONL|"op"/);
   });
 
   it("returns 400 for an unknown time zone", async () => {
