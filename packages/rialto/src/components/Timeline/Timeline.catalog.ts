@@ -11,9 +11,10 @@ export const timelineCatalogMeta = {
   // Nested strings carry no .max() and status is any string: the seam validates
   // events as one value and clamps only top-level charLimits, so a long title or
   // a reservation status like "seated" would otherwise drop the whole Timeline
-  // (F13). The adapter shows an unknown status as a plain event.
+  // (F13). The adapter shows an unknown status as a plain event and drops an
+  // event with no title.
   propSchemas: {
     events:
-      "z.array(z.object({ title: z.string(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() }))",
+      "z.array(z.object({ title: z.string().optional(), description: z.string().optional(), timestamp: z.string().optional(), status: z.string().optional() }))",
   },
 } satisfies CatalogMeta;

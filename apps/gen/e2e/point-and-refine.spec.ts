@@ -16,7 +16,12 @@ const GENERATED: FlatElementLine[] = [
 const REFINED_BODY: FlatElementLine[] = [
   { key: "body", type: "Stack", props: { direction: "row", gap: "sm" } },
   { key: "kpi", type: "Card", props: { title: "Refined KPI" }, parentKey: "body" },
-  { key: "kpi-badge", type: "Badge", props: { variant: "success" }, parentKey: "body" },
+  {
+    key: "kpi-badge",
+    type: "Badge",
+    props: { variant: "success", label: "On track" },
+    parentKey: "body",
+  },
 ];
 
 const SUBTREE_KEYS = ["body", "kpi", "kpi-badge"];

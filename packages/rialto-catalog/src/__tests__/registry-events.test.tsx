@@ -64,7 +64,7 @@ describe("Alert dismiss callback", () => {
           props: { variant: "info", title: "Heads up", dismissible: true },
           children: ["child1"],
         },
-        child1: { type: "Text", props: { variant: "body" } },
+        child1: { type: "Text", props: { children: "Sample words", variant: "body" } },
       },
     });
 
@@ -90,7 +90,7 @@ describe("Banner dismiss callback", () => {
           props: { variant: "warning", dismissible: true },
           children: ["child1"],
         },
-        child1: { type: "Text", props: { variant: "body" } },
+        child1: { type: "Text", props: { children: "Sample words", variant: "body" } },
       },
     });
 

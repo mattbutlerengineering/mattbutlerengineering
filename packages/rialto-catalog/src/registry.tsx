@@ -213,6 +213,15 @@ function clampToCharLimits(name: string, props: unknown): unknown {
  * Compose as `withAliasNormalization(withSchemaValidation(...))` so props are
  * alias-normalized first, then validated, then handed to the adapter.
  */
+/**
+ * The slice of a Zod object schema the seam uses to make a slot's words optional.
+ * `generatedSchemas` is a union of distinct object schemas, on which `.partial(mask)`
+ * does not typecheck; this file deliberately imports no Zod to name the type.
+ */
+interface Masked {
+  partial(mask: { children: true }): { safeParse(value: unknown): { success: boolean } };
+}
+
 function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T): T {
   const wrapped: Record<string, AdapterFn> = {};
   for (const [name, adapter] of Object.entries<AdapterFn>(adapters)) {
@@ -221,9 +230,19 @@ function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T):
       wrapped[name] = adapter;
       continue;
     }
+    // A slot component's words are required only when it has no child elements:
+    // with child elements, those are its content (review of #7462).
+    // Only a slot component renders child elements; anything else (Tag) still
+    // needs its words even when the model nests elements under it.
+    const hasSlot = (catalogMeta[name]?.slots?.length ?? 0) > 0;
+    const withoutWords =
+      hasSlot && "children" in schema.shape
+        ? (schema as unknown as Masked).partial({ children: true })
+        : schema;
     wrapped[name] = (context) => {
       const clamped = { ...context, props: clampToCharLimits(name, context.props) };
-      return schema.safeParse(clamped.props).success ? (
+      const check = Children.count(context.children) > 0 ? withoutWords : schema;
+      return check.safeParse(clamped.props).success ? (
         adapter(clamped)
       ) : (
         <SeamFallback name={name} />
@@ -540,11 +559,20 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
 
       Timeline: ({ props }: { props: unknown }) => {
         const p = props as {
-          events: (Omit<TimelineProps["events"][number], "status"> & { status?: string })[];
+          events: (Omit<TimelineProps["events"][number], "title" | "status"> & {
+            title?: string;
+            status?: string;
+          })[];
           compact?: boolean;
         };
-        const events = p.events.map(({ status, ...event }) =>
-          status && isTimelineStatus(status) ? { ...event, status } : event
+        const events = p.events.flatMap(({ title, status, ...event }) =>
+          title === undefined
+            ? []
+            : [
+                status && isTimelineStatus(status)
+                  ? { ...event, title, status }
+                  : { ...event, title },
+              ]
         );
         return <Timeline events={events} compact={p.compact} />;
       },

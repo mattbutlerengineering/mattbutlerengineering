@@ -7,12 +7,13 @@ import type { CatalogMeta } from "../catalog-meta";
 export const textCatalogMeta = {
   name: "Text",
   description:
-    "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put the words in text.",
+    "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put its words in text (required unless it holds child elements).",
   slots: ["default"],
   // A generated spec has no other way to give Text its words: the default slot
-  // holds child elements, not a string (F24).
+  // holds child elements, not a string (F24). Required, because live the model
+  // filled Tag's required words every time and skipped optional ones here.
   propSchemas: {
-    children: "z.string().optional()",
+    children: "z.string()",
   },
   aliases: {
     text: "children",
