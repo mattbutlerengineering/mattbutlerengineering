@@ -1253,11 +1253,59 @@ describe("slot components with only child elements", () => {
     expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
     expect(within(container).getByText("Inside")).toBeTruthy();
   });
+});
 
-  it("still falls back for a leaf Text with no words", () => {
+// Live chat batch 8 (F28): the model sent a word-less label Text as a heading above
+// a correct ReservationList. With no words and no child elements there is nothing to
+// show, so the seam drops it (leaving a hidden marker) instead of the fallback.
+describe("word-less leaf slot components are dropped", () => {
+  it("drops a leaf Text with no words, without a fallback", () => {
     const { container } = renderSpec({
       root: "t",
       elements: { t: { type: "Text", props: { variant: "body" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(container.querySelector('[data-rialto-seam-dropped="Text"]')).not.toBeNull();
+    expect(container.textContent).toBe("");
+  });
+
+  it("drops a leaf Badge with no words, without a fallback", () => {
+    const { container } = renderSpec({
+      root: "b",
+      elements: { b: { type: "Badge", props: { variant: "success" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(container.querySelector('[data-rialto-seam-dropped="Badge"]')).not.toBeNull();
+  });
+
+  it("keeps the list when a word-less label Text heads it (the F28 spec)", () => {
+    const { container } = renderSpec({
+      root: "root",
+      elements: {
+        root: {
+          type: "Stack",
+          props: { direction: "column", gap: "md" },
+          children: ["title", "list"],
+        },
+        title: { type: "Text", props: { variant: "label" }, children: [] },
+        list: {
+          type: "ReservationList",
+          props: {
+            reservations: [
+              { time: "09:26", guest: "Matt Butler", partySize: 2, status: "CONFIRMED" },
+            ],
+          },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Matt Butler")).toBeTruthy();
+  });
+
+  it("still falls back for a word-less Text whose other props are invalid", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: { t: { type: "Text", props: { variant: "not-a-variant" } } },
     });
     expect(container.querySelector("[data-rialto-seam-fallback]")).not.toBeNull();
   });
