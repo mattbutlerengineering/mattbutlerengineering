@@ -25179,9 +25179,18 @@
               : undefined,
           });
     
+          // Text from a later step (after a tool call) would otherwise run straight
+          // on from the previous step's: "…for 2 people:Monday's slots…" (F29).
+          let textSoFar = false;
+          let stepEnded = false;
           for await (const event of result.fullStream) {
             if (event.type === "text-delta") {
-              await onEvent({ type: "text", content: event.text });
+              const content = textSoFar && stepEnded ? `\n\n${event.text}` : event.text;
+              textSoFar = true;
+              stepEnded = false;
+              await onEvent({ type: "text", content });
+            } else if (event.type === "finish-step" && event.finishReason !== "length") {
+              stepEnded = true;
             } else if (event.type === "tool-call") {
               await handleToolCall(event, onEvent);
             } else if (event.type === "tool-result") {
