@@ -45,9 +45,9 @@ The work ships in five phases (below). Each phase is useful on its own. Architec
 
 ## Phases
 
-1. **Time structure + closures.** Shifts, templates, weekly assignment, copy/reuse, date and range overrides, closures with affected-guest handling, night-of Host changes, server enforcement, staff override, live preview, migration. Also in Phase 1, found during UX Design: fixing guest manage links, which today point at the site root instead of the manage page and are needed by closure rebooking; and introducing Manager vs Host venue roles, which nothing enforces today. Scenarios: A, B, C, D21–23, E, H77, L, M113–115, M119–120, O.
+1. **Time structure + closures.** Shifts, templates, weekly assignment, copy/reuse, date and range overrides, closures with affected-guest handling, night-of Host changes, server enforcement, staff override, live preview, migration. Also in Phase 1, found during UX Design: fixing guest manage links, which today point at the site root instead of the manage page and are needed by closure rebooking; and introducing Manager vs Host venue roles, which nothing enforces today. Scenarios: A, B, C, D21–23, E (except E42), H77, L, M113–115, M119–120, O.
 2. **Holidays.** Recurring and moving holidays, region-pluggable calendar (US first), holiday templates, holiday booking windows, missing-decision warnings, year-over-year copy. Scenarios: D24–36.
-3. **Inventory + pacing.** Areas per shift, channels and holdback, seasonal areas, table out of service, floor plan per template, turn times, buffers, pacing, party-size limits, booking windows, cutoffs. Scenarios: F, G, H72–76.
+3. **Inventory + pacing.** Areas per shift, channels and holdback, seasonal areas, table out of service, floor plan per template, turn times, buffers, pacing, party-size limits, booking windows, cutoffs, closing one area. Scenarios: E42, F, G, H72–76.
 4. **Policies.** Named cancellation, deposit and prepay policies attached to shifts, areas, overrides, events and party sizes; guest-facing terms; policy preview. Scenarios: I.
 5. **Events + private dining.** Events alongside or replacing service, ticketed capacity (absorbs Open Door), showings, sales windows, add-ons, event refunds, private spaces, buyouts, tentative holds. Scenarios: J, K, M116.
 
@@ -84,7 +84,7 @@ Each story is tagged with its phase and traced to the idea.md scenario numbers. 
 15. As a **Manager**, I want to close a date, one shift on a date, or give a date special hours, so that holidays and one-offs are right. (D21–23) [PA]
 16. As a **Manager**, I want to close a date range in one action, so that a vacation is one entry, not seven. (E37–38)
 17. As a **Manager**, I want a repeating closure (every Monday in January), so that a seasonal pattern isn't hand-entered. (E39)
-18. As a **Manager**, I want to close one area or one channel only (online, in-house, waitlist), so that a rained-out patio or a phone-only night doesn't close the venue. (E42–43)
+18. As a **Manager**, I want to close one channel only (online, in-house, waitlist), so that a phone-only night doesn't close the venue. (E43)
 19. As a **Manager**, I want to pause online booking indefinitely with a guest message, so that I can stop taking reservations without deleting anything. (E44–45)
 20. As a **Manager**, I want separate internal and guest-facing messages on any closure, so that staff see "burst pipe" while guests see "closed for repairs". (E46) [PA: guest note]
 21. As a **Manager** closing time that has bookings, I want to see every affected reservation (count, covers, deposits held, list), including bookings that start before the closure and run into it, before I save. (E47, E52–53) [PA: count]
@@ -131,6 +131,7 @@ Each story is tagged with its phase and traced to the idea.md scenario numbers. 
 56. As a **Guest**, I want to pick a seating area and see its availability, so that I can book the patio. (F60)
 57. As a **Guest** whose party is over the online limit, I want the venue's chosen path (call or request) with a reason, so that I'm not stuck. (H72–73, M117)
 58. As a **Manager** of a one-room venue, I want none of the area settings to appear until I need them, so that setup stays simple. (F62)
+59. As a **Manager**, I want to close one area only, so that a rained-out patio doesn't close the venue. Story 78 belongs to Phase 3; it is numbered last so existing story numbers stay stable. (E42)
 
 ### Phase 4: policies
 
@@ -203,3 +204,6 @@ Each criterion names the phase whose Verify must pass it.
 - **Affected bookings on closure:** the Manager must pick one of three outcomes. None is a default.
 - **Staff override:** soft limits only, with a reason; closures are hard limits.
 - **Ticketed events:** owned by Phase 5 (absorbs Open Door).
+- **Edit scope (from the UX audit):** the Manager chooses how far an edit reaches before editing, and the preview and stranded-booking check cover that whole scope.
+- **Urgent closure notices:** for closures starting within 6 hours, notices go by SMS and email wherever the guest has that contact, subject to the existing contact policy; guests with no confirmed delivery appear on a call list.
+- **Area closures:** moved to Phase 3 (story 78). In Phase 1, a rained-out patio is handled by blocking its tables from the Tonight panel (story 26).
