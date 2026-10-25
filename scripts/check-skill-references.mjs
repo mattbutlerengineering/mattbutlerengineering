@@ -59,17 +59,18 @@ const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
  */
 export const DECLARED_NON_REPO_REFERENCES = Object.freeze({
   // --- user-level skill installs (~/.claude/skills/), documented as such in
-  // CLAUDE.md § Skills. Not in this repo by design; PR #3323 moved them out.
-  caveman: "user-level skill install, not in this repo (CLAUDE.md § Skills)",
-  diagnose: "user-level skill install, not in this repo (CLAUDE.md § Skills)",
-  "grill-with-docs": "user-level skill install, not in this repo (CLAUDE.md § Skills)",
-  improve: "user-level skill install, not in this repo (CLAUDE.md § Skills)",
+  // docs/claude-reference.md § Skills. Not in this repo by design; PR #3323 moved them out.
+  caveman: "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
+  diagnose: "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
+  "grill-with-docs":
+    "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
+  improve: "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
   "improve-codebase-architecture":
-    "user-level skill install, not in this repo (CLAUDE.md § Skills)",
-  tdd: "user-level skill install, not in this repo (CLAUDE.md § Skills)",
-  "to-issues": "user-level skill install, not in this repo (CLAUDE.md § Skills)",
-  triage: "user-level skill install, not in this repo (CLAUDE.md § Skills)",
-  "write-a-skill": "user-level skill install, not in this repo (CLAUDE.md § Skills)",
+    "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
+  tdd: "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
+  "to-issues": "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
+  triage: "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
+  "write-a-skill": "user-level skill install, not in this repo (docs/claude-reference.md § Skills)",
 
   // --- claude-mem commands, documented as unavailable until `npx claude-mem
   // install` is run. CLAUDE.md already says so at the point of use.
@@ -265,7 +266,7 @@ export function collectSkillDirectories(root = DEFAULT_ROOT) {
  */
 export function collectInstructionFiles(root = DEFAULT_ROOT) {
   const files = [];
-  for (const top of ["CLAUDE.md", "AGENTS.md"]) {
+  for (const top of ["CLAUDE.md", "docs/claude-reference.md", "AGENTS.md"]) {
     if (existsSync(join(root, top))) files.push(top);
   }
   for (const rule of existsSync(join(root, ".claude/rules"))

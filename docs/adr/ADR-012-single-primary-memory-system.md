@@ -71,6 +71,6 @@ No hooks or config are changed by this ADR.
 
 ### 2026-10-24: claude-mem is opt-in, not installed by default
 
-claude-mem is the designated primary semantic lane, but it is **not installed in this repo or in fresh checkouts**. Its commands (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`) do not resolve until someone runs `npx claude-mem install`. See `CLAUDE.md` § Cross-Session Memory.
+claude-mem is the designated primary semantic lane, but it is **not installed in this repo or in fresh checkouts**. Its commands (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`) do not resolve until someone runs `npx claude-mem install`. See `docs/claude-reference.md` § Cross-Session Memory.
 
 In any session where claude-mem has not been installed, the de facto primary memory mechanism is the checked-in `MEMORY.md` curated-index lane this ADR calls secondary. That lane is the one populated and read every session by default.

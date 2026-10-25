@@ -12,4 +12,4 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-`ready` is deliberately shared with the implement-queue state machine (see CLAUDE.md → GitHub Labels): applying it makes the issue eligible for pickup by `/issue-worker` and scheduled agents. Only apply it when the issue is fully specified — acceptance criteria, file pointers, no open questions.
+`ready` is deliberately shared with the implement-queue state machine (see docs/claude-reference.md → GitHub Labels): applying it makes the issue eligible for pickup by `/issue-worker` and scheduled agents. Only apply it when the issue is fully specified — acceptance criteria, file pointers, no open questions.

@@ -117,5 +117,5 @@ Ordered by impact-to-effort ratio:
 - `.github/workflows/ai-attribution.yml` — runtime detection and labeling
 - `.github/workflows/ai-audit.yml` — weekly AI activity audit report
 - `.github/workflows/agent-task.yml` — agent dispatch via `workflow_dispatch`
-- `CLAUDE.md` — GitHub Labels table (state machine) and AI Observability (Langfuse) sections
+- `docs/claude-reference.md` — GitHub Labels table (state machine); `CLAUDE.md` — MCP Servers & Observability (Langfuse) section
 - `packages/agent-core/` — `runSession()` which creates Langfuse traces
