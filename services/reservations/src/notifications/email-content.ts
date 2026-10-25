@@ -2,6 +2,7 @@ import type { BookingNotificationInput } from "./port.js";
 import { escapeHtml, sanitizeUrl } from "./sanitize.js";
 import { escapeIcalText } from "./ical.js";
 import { toVenueLocalTime } from "./venue-time.js";
+import { buildManageUrl } from "./manage-url.js";
 
 export { escapeHtml, sanitizeUrl, escapeIcalText };
 
@@ -61,7 +62,7 @@ function eventCopy(venueName: string, event: NotificationEventType): EventCopy {
  * sanitizeUrl's scheme check — never renders an unsafe href.
  */
 function manageLinkHtml(manageBaseUrl: string, manageToken: string): string {
-  const rawUrl = `${manageBaseUrl}?token=${encodeURIComponent(manageToken)}`;
+  const rawUrl = buildManageUrl(manageBaseUrl, manageToken);
   const safeUrl = sanitizeUrl(rawUrl);
   if (!safeUrl) return "";
   return `<p><a href="${escapeHtml(safeUrl)}">Modify or Cancel</a></p>`;
