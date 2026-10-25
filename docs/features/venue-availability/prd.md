@@ -45,7 +45,7 @@ The work ships in five phases (below). Each phase is useful on its own. Architec
 
 ## Phases
 
-1. **Time structure + closures.** Shifts, templates, weekly assignment, copy/reuse, date and range overrides, closures with affected-guest handling, night-of Host changes, server enforcement, staff override, live preview, migration. Scenarios: A, B, C, D21–23, E, H77, L, M113–115, M119–120, O.
+1. **Time structure + closures.** Shifts, templates, weekly assignment, copy/reuse, date and range overrides, closures with affected-guest handling, night-of Host changes, server enforcement, staff override, live preview, migration. Also in Phase 1, found during UX Design: fixing guest manage links, which today point at the site root instead of the manage page and are needed by closure rebooking; and introducing Manager vs Host venue roles, which nothing enforces today. Scenarios: A, B, C, D21–23, E, H77, L, M113–115, M119–120, O.
 2. **Holidays.** Recurring and moving holidays, region-pluggable calendar (US first), holiday templates, holiday booking windows, missing-decision warnings, year-over-year copy. Scenarios: D24–36.
 3. **Inventory + pacing.** Areas per shift, channels and holdback, seasonal areas, table out of service, floor plan per template, turn times, buffers, pacing, party-size limits, booking windows, cutoffs. Scenarios: F, G, H72–76.
 4. **Policies.** Named cancellation, deposit and prepay policies attached to shifts, areas, overrides, events and party sizes; guest-facing terms; policy preview. Scenarios: I.
