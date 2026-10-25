@@ -11,7 +11,9 @@ src/
 ├── index.ts            # Barrel export
 ├── types.ts            # ServiceDate, Weekday, WEEKDAYS, MINUTES_PER_DAY
 ├── civil-date.ts       # addDays, weekdayOf, weekdayIndexOf (0 = Sunday, as stored) — via Date.UTC
-├── resolve-day.ts      # resolveDay — the schedule and services in force on one service day
+├── date-rules.ts       # which date rules apply to a day (range, repeat, skips, Tonight) and their labels
+├── format-minute.ts    # "10:30 PM" for a service-day minute
+├── resolve-day.ts      # resolveDay — the layer stack for one service day, with "Why this day"
 ├── instant.ts          # serviceDayInstant, localDateTimeOf — the only wall-clock ↔ instant crossing
 └── validate-config.ts  # validateConfig — cross-row invariants over the @mbe/types config schemas
 ```
@@ -27,6 +29,11 @@ src/
   date no assignment covers is closed (there is no fallback to the regular
   schedule). A service belongs to the day it opens on, so a past-midnight
   service never appears on the next calendar date.
+- Layer order is fixed: schedule → use_schedule → special_hours → skip →
+  closures → Tonight. A Tonight rule applies only when `startsOn` is the
+  requested service date. A skip or an edited date (any row with `seriesId`)
+  takes its series out on its own dates. Each `explanation[].removalResult` is
+  `resolveDay` with that row removed, so keep `resolveLayers` side-effect free.
 - `serviceDayInstant` takes minutes past the service day's midnight and
   accepts values ≥ 1440 for services that run past midnight (ADR-029). A
   spring-forward gap returns `null`; a fall-back repeat resolves to its first

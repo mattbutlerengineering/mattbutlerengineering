@@ -174,12 +174,12 @@ describe("resolveDay — services past midnight (ADR-029)", () => {
   });
 
   it("does not appear on the next calendar date's service day", () => {
-    // Sunday 00:00–02:00 is Saturday's Late Night, not Sunday's.
-    const sunday = resolveDay(
-      snapshot({ assignments: [assignment("a", "regular", [6], 0)] }),
-      "2026-10-25"
-    );
-    expect(sunday.services).toEqual([]);
+    // Sunday 00:00–02:00 is Saturday's Late Night, not Sunday's: Sunday's own
+    // services all open on Sunday, and none starts at or before 02:00.
+    const sunday = resolveDay(s, "2026-10-25");
+    expect(sunday.services.length).toBeGreaterThan(0);
+    expect(sunday.services.every((r) => r.opensAt >= 120)).toBe(true);
+    expect(sunday.services.map((r) => r.opensAt)).toEqual([690, 1020, 1380]);
   });
 });
 
