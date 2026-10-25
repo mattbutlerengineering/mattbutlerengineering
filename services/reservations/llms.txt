@@ -1439,6 +1439,7 @@
         venues: number;
         counts: Record<string, number>;
         errors: { venueId: string; message: string }[];
+        unrecognised: { venueId: string; reason: string }[];
       }
     </item>
     <item priority="high">

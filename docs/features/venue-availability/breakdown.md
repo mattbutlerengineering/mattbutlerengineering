@@ -82,7 +82,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 4: Manager configures time structure (Availability page)
 
-- [ ] **Config API** — `GET` and `PUT …/availability/config` with an `expectedVersion` compare-and-set, an AvailabilityChange audit row with its inverse, and `scopeConflicts`. Adds `GET …/availability/days`, api-client methods and contract tests. (tracker: #7511)
+- [ ] **Config API** — `GET` and `PUT …/availability/config` with an `expectedVersion` compare-and-set, an AvailabilityChange audit row with its inverse, and `scopeConflicts`. Every config write also stores `projectLegacyOperatingHours(config)` to `Venue.operatingHours` in the same transaction (the derived projection from #7502). Adds `GET …/availability/days`, api-client methods and contract tests. (tracker: #7511)
   - Accept: tests cover a stale version (409 naming the winning change), invalid config (422 with issue paths), and a change that strands bookings without a decision (409 `stranded-bookings`).
   - Blocked by: Snapshot loader, Venue roles
 - [ ] **Preview endpoint** — `POST …/availability/preview` built on `applyDraft` and `diffDays`, with a stranded list across every future date in scope, paged after 50, and a 5s timeout that returns 503 `preview-timeout`. (tracker: #7512)

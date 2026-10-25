@@ -38229,6 +38229,7 @@
       venues: number;
       counts: Record<string, number>;
       errors: { venueId: string; message: string }[];
+      unrecognised: { venueId: string; reason: string }[];
     }
     type Log = (line: string) => void;
     export async function runBackfill(
@@ -38239,11 +38240,15 @@
       const venueIds = await getAllVenueIds(prisma);
       const counts: Record<string, number> = {};
       const errors: BackfillSummary["errors"] = [];
+      const unrecognised: BackfillSummary["unrecognised"] = [];
     
       for (const venueId of venueIds) {
         try {
           const outcome: VenueMigrationOutcome = await migrateVenue(prisma, venueId, options);
           counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
+          if (outcome.outcome === "unrecognised") {
+            unrecognised.push({ venueId, reason: outcome.reason });
+          }
           log(JSON.stringify(outcome));
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -38251,7 +38256,7 @@
           log(JSON.stringify({ venueId, outcome: "error", message }));
         }
       }
-      return { apply: options.apply, venues: venueIds.length, counts, errors };
+      return { apply: options.apply, venues: venueIds.length, counts, errors, unrecognised };
     }
     async function main(): Promise<void> {
       const apply = process.argv.includes("--apply");
