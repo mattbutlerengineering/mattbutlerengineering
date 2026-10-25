@@ -4,8 +4,7 @@ import {
   type ScheduleAssignment,
   type SpecialHoursService,
 } from "@mbe/types";
-import { addDays, weekdayOf } from "./civil-date.js";
-import { WEEKDAYS } from "./types.js";
+import { addDays, weekdayIndexOf } from "./civil-date.js";
 
 /**
  * The invariants the configuration layers must satisfy together (ADR-030).
@@ -178,11 +177,6 @@ function rangeIssues(config: AvailabilityConfig): ConfigIssue[] {
         : []
     ),
   ];
-}
-
-/** 0 = Sunday … 6 = Saturday, the stored weekday numbering. */
-function weekdayIndexOf(date: string): number {
-  return (WEEKDAYS.indexOf(weekdayOf(date)) + 1) % 7;
 }
 
 function latest(a?: string | null, b?: string | null): string | null {

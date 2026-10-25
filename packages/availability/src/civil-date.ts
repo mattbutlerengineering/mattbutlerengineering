@@ -29,3 +29,8 @@ export function weekdayOf(date: ServiceDate): Weekday {
   // getUTCDay is 0..6, so the index is always in range.
   return WEEKDAYS[(sundayFirst + 6) % 7] as Weekday;
 }
+
+/** The stored weekday number of the date: 0 = Sunday … 6 = Saturday. */
+export function weekdayIndexOf(date: ServiceDate): number {
+  return new Date(toUtcMs(date)).getUTCDay();
+}

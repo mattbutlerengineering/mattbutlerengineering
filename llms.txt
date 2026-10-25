@@ -16099,6 +16099,9 @@
     <item priority="high">
       export function weekdayOf(date: ServiceDate): Weekday { /* ... */ }
     </item>
+    <item priority="high">
+      export function weekdayIndexOf(date: ServiceDate): number { /* ... */ }
+    </item>
   </file>
   <file path="packages/availability/src/instant.ts">
     <item priority="medium">
@@ -16128,6 +16131,39 @@
     </item>
     <item priority="high">
       export function localDateTimeOf(instant: Date, tz: string): { date: ServiceDate; minute: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/resolve-day.ts">
+    <item priority="low">
+      interface AvailabilitySnapshot {
+        timezone: string;
+        config: AvailabilityConfig;
+      }
+    </item>
+    <item priority="low">
+      interface ResolvedService {
+        scheduleServiceId: string;
+        name: string;
+      }
+    </item>
+    <item priority="low">
+      interface ResolvedDay {
+        serviceDate: ServiceDate;
+        scheduleId: string | null;
+        services: ResolvedService[];
+      }
+    </item>
+    <item priority="medium">
+      function coversDate(assignment: ScheduleAssignment, serviceDate: ServiceDate): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleFor(config: AvailabilityConfig, serviceDate: ServiceDate): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toResolved(service: ScheduleService, venueService: VenueService): ResolvedService { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate): ResolvedDay { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/types.ts">
@@ -16202,9 +16238,6 @@
     </item>
     <item priority="medium">
       function rangeIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function weekdayIndexOf(date: string): number { /* ... */ }
     </item>
     <item priority="medium">
       function latest(a?: string | null, b?: string | null): string | null { /* ... */ }

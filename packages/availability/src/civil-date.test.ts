@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { addDays, weekdayOf } from "./civil-date.js";
+import { addDays, weekdayIndexOf, weekdayOf } from "./civil-date.js";
 import { WEEKDAYS } from "./types.js";
 
 const ORIGINAL_TZ = process.env.TZ;
@@ -61,5 +61,13 @@ describe("weekday vocabulary", () => {
       "saturday",
       "sunday",
     ]);
+  });
+});
+
+describe("weekdayIndexOf", () => {
+  it("numbers weekdays from Sunday = 0, as stored", () => {
+    expect(weekdayIndexOf("2026-10-25")).toBe(0);
+    expect(weekdayIndexOf("2026-10-26")).toBe(1);
+    expect(weekdayIndexOf("2026-10-31")).toBe(6);
   });
 });
