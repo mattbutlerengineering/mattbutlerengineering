@@ -2,6 +2,7 @@ import type { AvailabilityConfig, DateRule, ScheduleService } from "@mbe/types";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { serviceDayInstant } from "./instant.js";
+import { validateConfig } from "./validate-config.js";
 import { resolveDay } from "./resolve-day.js";
 import { judge, listSlots, type BookingChannel, type BookingSnapshot } from "./slots.js";
 
@@ -34,7 +35,10 @@ const servicesArb = fc
   .map((specs) =>
     specs.reduce<ScheduleService[]>((acc, spec, i) => {
       const previousClose = acc.at(-1)?.closesAt ?? 360;
-      const opensAt = Math.min(previousClose + spec.gap, 1439);
+      const opensAt = previousClose + spec.gap;
+      // A service must open within its own day; a spec that can't is dropped,
+      // never clamped (clamping would overlap the previous service).
+      if (opensAt > 1439) return acc;
       const closesAt = opensAt + spec.length;
       const lastSeatingAt =
         opensAt + Math.floor(((closesAt - opensAt) * spec.seatingShare) / 15) * 15;
@@ -152,7 +156,9 @@ const scenarioArb = fc
       settings: null,
     };
     return { date, snapshot };
-  });
+  })
+  // The engine's contract is over configurations the store accepts.
+  .filter(({ snapshot }) => validateConfig(snapshot.config).length === 0);
 
 describe("engine correctness (property)", () => {
   it("never lists a slot outside the resolved day", () => {
