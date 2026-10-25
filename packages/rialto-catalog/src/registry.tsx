@@ -232,8 +232,11 @@ function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T):
     }
     // A slot component's words are required only when it has no child elements:
     // with child elements, those are its content (review of #7462).
+    // Only a slot component renders child elements; anything else (Tag) still
+    // needs its words even when the model nests elements under it.
+    const hasSlot = (catalogMeta[name]?.slots?.length ?? 0) > 0;
     const withoutWords =
-      "children" in schema.shape
+      hasSlot && "children" in schema.shape
         ? (schema as unknown as Masked).partial({ children: true })
         : schema;
     wrapped[name] = (context) => {

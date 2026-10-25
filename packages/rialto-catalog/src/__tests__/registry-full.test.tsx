@@ -1262,3 +1262,14 @@ describe("slot components with only child elements", () => {
     expect(container.querySelector("[data-rialto-seam-fallback]")).not.toBeNull();
   });
 });
+
+it("still falls back for a Tag with child elements and no label (Tag has no slot)", () => {
+  const { container } = renderSpec({
+    root: "t",
+    elements: {
+      t: { type: "Tag", props: { variant: "accent" }, children: ["x"] },
+      x: { type: "Text", props: { text: "VIP" } },
+    },
+  });
+  expect(container.querySelector("[data-rialto-seam-fallback]")).not.toBeNull();
+});
