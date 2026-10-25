@@ -27,7 +27,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Config schemas** — zod schemas and types in `@mbe/types` for Schedule, VenueService, ScheduleService, ScheduleAssignment and DateRule, plus the versioned payloads (seating, window, special-hours services, Tonight payload); `validateConfig` in the engine. (tracker: #7496)
   - Accept: unit tests reject overlapping services, last seating after close, two regular schedules, and an unknown payload version. Each issue carries a field path.
   - Blocked by: Engine package scaffold
-- [ ] **resolveDay: schedules and assignments** — the regular schedule, weekday assignments with date ranges and precedence, services that run past midnight, and service-day semantics (ADR-029), salvaging prior-art `resolve.ts` and `seatingRanges`. (tracker: #7497)
+- [x] **resolveDay: schedules and assignments** — the regular schedule, weekday assignments with date ranges and precedence, services that run past midnight, and service-day semantics (ADR-029), salvaging prior-art `resolve.ts` and `seatingRanges`. (tracker: #7497)
   - Accept: tests cover a past-midnight service on its start day, overlapping assignments with precedence, a range starting and ending, and a DST weekend.
   - Blocked by: Config schemas
 - [ ] **resolveDay: date rules and explanation** — DateRule kinds (special_hours, closure targeting venue, service or booking type, use_schedule, skip, tonight), `repeat`, open-ended rules, windows, and `explanation[]` with `removalResult`. (tracker: #7498)
