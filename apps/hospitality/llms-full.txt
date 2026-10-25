@@ -840,13 +840,21 @@
       | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
       | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
     type Translate = (key: ChatActionKey) => string;
+    function formatWhen(key: string, value: string, locale?: string): string {
+      if (key === "date" && CALENDAR_DATE.test(value)) {
+        return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
+      }
+      if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
+      return value;
+    }
     function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
       return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
     }
     export function describeChatAction(
       action: PendingAction,
       t: Translate,
-      tableName: (id: string) => string | undefined
+      tableName: (id: string) => string | undefined,
+      locale?: string
     ): ActionDescription {
       const titleKey = lookup(ACTION_TITLES, action.toolName);
       return {
@@ -855,14 +863,18 @@
           const value = String(raw);
           const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
           const shown =
-            key === "tableId" ? (tableName(value) ?? value) : statusKey ? t(statusKey) : value;
+            key === "tableId"
+              ? (tableName(value) ?? value)
+              : statusKey
+                ? t(statusKey)
+                : formatWhen(key, value, locale);
           const labelKey = lookup(ACTION_FIELDS, key);
           return { label: labelKey ? t(labelKey) : key, value: shown };
         }),
       };
     }
     export function useDescribeChatAction(): (action: PendingAction) => ActionDescription {
-      const { t } = useTranslation();
+      const { t, i18n } = useTranslation();
       const { selectedVenue } = useVenue();
       const { data: tables } = useTables({
         venueId: selectedVenue?.id ?? "",
@@ -871,8 +883,13 @@
       });
       return useCallback(
         (action: PendingAction) =>
-          describeChatAction(action, t, (id) => tables?.find((table) => table.id === id)?.name),
-        [t, tables]
+          describeChatAction(
+            action,
+            t,
+            (id) => tables?.find((table) => table.id === id)?.name,
+            i18n.language
+          ),
+        [t, tables, i18n.language]
       );
     }
   </file>

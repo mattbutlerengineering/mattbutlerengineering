@@ -7,7 +7,7 @@ import type {
 } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useTables } from "../hooks/useTables.js";
-import { resolveTimeZone } from "../utils/format.js";
+import { formatCalendarDate, formatLocalTime, resolveTimeZone } from "../utils/format.js";
 
 /**
  * Hardcoded domain context for the hospitality app's Gen Copilot.
@@ -107,20 +107,36 @@ type ChatActionKey =
 
 type Translate = (key: ChatActionKey) => string;
 
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const WALL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const TIME_FIELDS: ReadonlySet<string> = new Set(["startTime", "endTime"]);
+
+/** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
+function formatWhen(key: string, value: string, locale?: string): string {
+  if (key === "date" && CALENDAR_DATE.test(value)) {
+    return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
+  }
+  if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
+  return value;
+}
+
 function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
   return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
 }
 
 /**
  * How the chat's confirm bar presents a pending write: a translated title and
- * labelled values, with a table id shown as the table's name. An id that can't
- * be resolved stays visible: what the user confirms must be what executes. A
+ * labelled values, with a table id shown as the table's name and dates and times
+ * in the user's locale. An id that can't be resolved, or a date or time that isn't
+ * in the tool's format, stays visible as sent: what the user confirms must be what
+ * executes. A
  * tool or field this map doesn't know shows its raw name rather than a key.
  */
 export function describeChatAction(
   action: PendingAction,
   t: Translate,
-  tableName: (id: string) => string | undefined
+  tableName: (id: string) => string | undefined,
+  locale?: string
 ): ActionDescription {
   const titleKey = lookup(ACTION_TITLES, action.toolName);
   return {
@@ -129,7 +145,11 @@ export function describeChatAction(
       const value = String(raw);
       const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
       const shown =
-        key === "tableId" ? (tableName(value) ?? value) : statusKey ? t(statusKey) : value;
+        key === "tableId"
+          ? (tableName(value) ?? value)
+          : statusKey
+            ? t(statusKey)
+            : formatWhen(key, value, locale);
       const labelKey = lookup(ACTION_FIELDS, key);
       return { label: labelKey ? t(labelKey) : key, value: shown };
     }),
@@ -137,7 +157,7 @@ export function describeChatAction(
 }
 
 export function useDescribeChatAction(): (action: PendingAction) => ActionDescription {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { selectedVenue } = useVenue();
   const { data: tables } = useTables({
     venueId: selectedVenue?.id ?? "",
@@ -146,7 +166,12 @@ export function useDescribeChatAction(): (action: PendingAction) => ActionDescri
   });
   return useCallback(
     (action: PendingAction) =>
-      describeChatAction(action, t, (id) => tables?.find((table) => table.id === id)?.name),
-    [t, tables]
+      describeChatAction(
+        action,
+        t,
+        (id) => tables?.find((table) => table.id === id)?.name,
+        i18n.language
+      ),
+    [t, tables, i18n.language]
   );
 }
