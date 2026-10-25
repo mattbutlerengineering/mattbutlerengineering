@@ -1520,8 +1520,8 @@
         venueId: string;
         tableId: string;
         start: Date;
+        end?: Date;
         partySize: number;
-        channel: BookingChannel;
       }
     </item>
     <item priority="high">

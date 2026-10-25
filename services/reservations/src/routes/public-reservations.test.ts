@@ -213,6 +213,28 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     expect(response.statusCode).toBe(409);
   });
 
+  it("returns the gate's 422 outside-availability ProblemDetails when the slot closed after the hold", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: false,
+      error: "This time is not available",
+      errorCode: "NOT_BOOKABLE",
+      rejection: { code: "outside-availability", reason: "closed", message: "Private event" },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
+      payload: { holdId: "hold_1", guestName: "Jane", guestEmail: "jane@example.com" },
+    });
+
+    expect(response.statusCode).toBe(422);
+    const body = response.json();
+    expect(body.code).toBe("outside-availability");
+    expect(body.reason).toBe("closed");
+  });
+
   it("returns 422 with PACING_EXCEEDED code when pacing is exceeded", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(confirmHold).mockResolvedValueOnce({

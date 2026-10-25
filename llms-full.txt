@@ -30358,7 +30358,7 @@
           guestPhone?: string;
           specialRequests?: string;
         };
-        Reply: ApiResponse<PublicReservationResponse>;
+        Reply: ApiResponse<PublicReservationResponse> | ProblemDetails;
       }>(
         "/:slug/reservations",
         {
@@ -30436,6 +30436,10 @@
                   (manageToken = generateManageToken(reservation.id, guestEmail)),
               }
             );
+    
+            if (!result.success && result.rejection) {
+              return reply.status(422).send(gateProblem(result.rejection));
+            }
     
             if (!result.success) {
               // A hold the caller does not own answers exactly as a hold that does not
@@ -40033,6 +40037,8 @@
       venueId: string;
       tableId: string;
       start: Date;
+      /** The booking's real end. Without it the engine estimates one from the party size. */
+      end?: Date;
       partySize: number;
       /** Guests book `online`; staff create and update are `phone`. Walk-ins are never gated. */
       channel: BookingChannel;
@@ -40084,6 +40090,7 @@
         snapshot,
         {
           start: request.start,
+          end: request.end,
           partySize: request.partySize,
           channel: request.channel,
           tableId: request.tableId,
@@ -41989,6 +41996,7 @@
         venueId: intent.venueId,
         tableId: intent.tableId,
         start: intent.window.startTime,
+        end: intent.window.endTime,
         partySize: intent.partySize,
         channel,
         excludeReservationId: intent.excludeReservationId,
@@ -62731,6 +62739,8 @@
       partySize: number;
       channel: BookingChannel;
       tableId?: string;
+      /** The booking's real end; without it the estimated duration for the party size is used. */
+      end?: Date;
       override?: { reason: string };
     }
     function seatingMinutes(service: ResolvedService): number[] {
@@ -62779,11 +62789,12 @@
       minute: number,
       partySize: number,
       start: Date,
-      now: Date
+      now: Date,
+      requestedEnd?: Date
     ): EngineTable[] {
-      const end = new Date(
-        start.getTime() + estimateDuration(partySize, snapshot.settings) * MS_PER_MINUTE
-      );
+      const end =
+        requestedEnd ??
+        new Date(start.getTime() + estimateDuration(partySize, snapshot.settings) * MS_PER_MINUTE);
       const blocked = blockedTables(day, minute);
       return filterSuitableTables(snapshot.tables, partySize).filter(
         (t) =>
@@ -62870,7 +62881,15 @@
       request: BookingRequest,
       now: Date
     ): Verdict | null {
-      const free = freeTables(snapshot, day, minute, request.partySize, request.start, now);
+      const free = freeTables(
+        snapshot,
+        day,
+        minute,
+        request.partySize,
+        request.start,
+        now,
+        request.end
+      );
       if (request.tableId === undefined) return free.length > 0 ? null : hard("conflict");
       if (blockedTables(day, minute).has(request.tableId)) return hard("table_blocked");
       return free.some((t) => t.id === request.tableId) ? null : hard("conflict");

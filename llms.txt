@@ -11485,8 +11485,8 @@
         venueId: string;
         tableId: string;
         start: Date;
+        end?: Date;
         partySize: number;
-        channel: BookingChannel;
       }
     </item>
     <item priority="high">
@@ -17621,7 +17621,7 @@
         partySize: number;
         channel: BookingChannel;
         tableId?: string;
-        override?: { reason: string };
+        end?: Date;
       }
     </item>
     <item priority="medium">
@@ -17648,7 +17648,8 @@
         minute: number,
         partySize: number,
         start: Date,
-        now: Date
+        now: Date,
+        requestedEnd?: Date
       ): EngineTable[] { /* ... */ }
     </item>
     <item priority="medium">

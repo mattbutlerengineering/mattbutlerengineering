@@ -233,6 +233,7 @@ async function availabilityConflict(
     venueId: intent.venueId,
     tableId: intent.tableId,
     start: intent.window.startTime,
+    end: intent.window.endTime,
     partySize: intent.partySize,
     channel,
     excludeReservationId: intent.excludeReservationId,

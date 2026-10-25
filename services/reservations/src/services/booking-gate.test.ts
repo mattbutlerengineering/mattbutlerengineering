@@ -186,6 +186,14 @@ describe("judgeBooking", () => {
     ).toEqual({ kind: "ok" });
   });
 
+  it("judges the table over the booking's real end, so a short staff booking is not a conflict", async () => {
+    const reservations = [booked("res-1", at("2026-11-05T20:00:00"))];
+    const shortBooking = request({ channel: "phone", end: at("2026-11-05T20:00:00") });
+    expect(await judgeBooking(fakeDb({ reservations }), shortBooking, NOW)).toEqual({
+      kind: "ok",
+    });
+  });
+
   it("ignores the excluded hold and the caller's own session holds", async () => {
     const holds = [booked("hold-1", at("2026-11-05T19:00:00"))];
     expect(await judgeBooking(fakeDb({ holds }), request(), NOW)).toEqual({ kind: "conflict" });

@@ -146,6 +146,8 @@ export interface GateRequest {
   venueId: string;
   tableId: string;
   start: Date;
+  /** The booking's real end. Without it the engine estimates one from the party size. */
+  end?: Date;
   partySize: number;
   /** Guests book `online`; staff create and update are `phone`. Walk-ins are never gated. */
   channel: BookingChannel;
@@ -212,6 +214,7 @@ export async function judgeBooking(
     snapshot,
     {
       start: request.start,
+      end: request.end,
       partySize: request.partySize,
       channel: request.channel,
       tableId: request.tableId,

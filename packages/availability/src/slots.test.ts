@@ -320,6 +320,20 @@ describe("judge", () => {
     ).toEqual({ kind: "hard", reason: "conflict" });
   });
 
+  it("judges a requested table over the booking's real end, not the estimated one", () => {
+    const later = snapshot({
+      reservations: [
+        { id: "r", tableId: "t-4", startTime: at("18:00"), endTime: at("19:00"), partySize: 2 },
+      ],
+    });
+    const request = { start: at("17:00"), partySize: 2, channel: "phone" as const, tableId: "t-4" };
+    expect(judge(later, { ...request, end: at("18:00") }, NOW)).toEqual({ kind: "ok" });
+    expect(judge(later, { ...request, end: at("18:15") }, NOW)).toEqual({
+      kind: "hard",
+      reason: "conflict",
+    });
+  });
+
   it("is hard when no suitable table is free", () => {
     const full = snapshot({
       reservations: TABLES.map((t) => ({
