@@ -15,3 +15,4 @@ export * from "./reservation-requests.js";
 export * from "./common.js";
 export * from "./json-schema.js";
 export * from "./availability-config.js";
+export * from "./availability-response.js";

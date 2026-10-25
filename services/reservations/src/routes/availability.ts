@@ -74,6 +74,11 @@ const DateAvailabilitySchema = {
       type: "integer",
       description: "Number of available time slots",
     },
+    closure: {
+      type: "object",
+      description: "Present when the date is closed (DateAvailabilitySchema in @mbe/types)",
+      properties: { message: { type: "string" } },
+    },
   },
 } as const;
 

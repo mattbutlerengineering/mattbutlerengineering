@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { TimeSlot, ApiResponse } from "@mbe/types";
-import { createProblemDetails, publicAvailabilityQueryJsonSchema } from "@mbe/types";
+import type { PublicAvailabilityResponse } from "@mbe/types";
+import {
+  createProblemDetails,
+  publicAvailabilityQueryJsonSchema,
+  publicAvailabilityResponseJsonSchema,
+} from "@mbe/types";
 import { validatePartySize } from "@mbe/database";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
@@ -11,7 +15,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { slug: string };
     Querystring: { date: string; partySize: string };
-    Reply: ApiResponse<TimeSlot[]> | ReturnType<typeof createProblemDetails>;
+    Reply: PublicAvailabilityResponse | ReturnType<typeof createProblemDetails>;
   }>(
     "/:slug/availability",
     {
@@ -25,6 +29,9 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           required: ["slug"],
         },
         querystring: publicAvailabilityQueryJsonSchema,
+        // Engine-computed: the slots, plus `closure` for a closed date and
+        // `bookingPaused` while online booking is paused (@mbe/types pins both).
+        response: { 200: publicAvailabilityResponseJsonSchema },
       },
     },
     publicVenueScoped(
@@ -59,14 +66,15 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
         }
 
-        const slots = await availabilityService.generateTimeSlots(
+        const { slots, ...notices } = await availabilityService.getDayAvailability(
           venue.id,
           date,
-          partySizeResult.value
+          partySizeResult.value,
+          undefined,
+          { logger: request.log }
         );
-        const availableOnly = slots.filter((s: TimeSlot) => s.available);
 
-        return reply.send({ data: availableOnly });
+        return reply.send({ data: slots.filter((s) => s.available), ...notices });
       }
     )
   );

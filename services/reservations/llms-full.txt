@@ -4514,7 +4514,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { date: string; partySize: string };
-        Reply: ApiResponse<TimeSlot[]> | ReturnType<typeof createProblemDetails>;
+        Reply: PublicAvailabilityResponse | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/availability",
         {
@@ -4528,6 +4528,9 @@
               required: ["slug"],
             },
             querystring: publicAvailabilityQueryJsonSchema,
+            // Engine-computed: the slots, plus `closure` for a closed date and
+            // `bookingPaused` while online booking is paused (@mbe/types pins both).
+            response: { 200: publicAvailabilityResponseJsonSchema },
           },
         },
         publicVenueScoped(
@@ -4562,14 +4565,15 @@
                 .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
             }
     
-            const slots = await availabilityService.generateTimeSlots(
+            const { slots, ...notices } = await availabilityService.getDayAvailability(
               venue.id,
               date,
-              partySizeResult.value
+              partySizeResult.value,
+              undefined,
+              { logger: request.log }
             );
-            const availableOnly = slots.filter((s: TimeSlot) => s.available);
     
-            return reply.send({ data: availableOnly });
+            return reply.send({ data: slots.filter((s) => s.available), ...notices });
           }
         )
       );
@@ -9454,6 +9458,53 @@
       });
     }
   </file>
+  <file path="src/services/availability-notices.ts">
+    export const DEFAULT_CLOSURE_MESSAGE = "Closed on this date.";
+    export const PAUSED_CALL_MESSAGE = "Online booking is paused right now.";
+    export const PAUSED_MESSAGE = "Not taking reservations right now.";
+    export interface DayNotices {
+      closure?: AvailabilityClosure;
+      bookingPaused?: BookingPaused;
+    }
+    function activePause(snapshot: BookingSnapshot, day: ReturnType<typeof resolveDay>) {
+      const pausedRuleIds = new Set(
+        day.closures
+          .filter((band) => band.targetKind === "booking" && band.bookingTypes?.includes("online"))
+          .map((band) => band.ruleId)
+      );
+      return snapshot.config.dateRules.find(
+        (rule) =>
+          pausedRuleIds.has(rule.id) && rule.kind === "closure" && rule.endsOn == null && !rule.window
+      );
+    }
+    export function dayNotices(
+      snapshot: BookingSnapshot,
+      serviceDate: ServiceDate,
+      phone: string | null,
+      /** Online seatings `listSlots` found for the date, booked or not. */
+      seatingCount: number
+    ): DayNotices {
+      const day = resolveDay(snapshot, serviceDate);
+      const pause = activePause(snapshot, day);
+      if (pause) {
+        const phoneOpen =
+          day.bookingOpen.phone && day.services.some((s) => s.bookingTypes.includes("phone"));
+        const callable = phoneOpen && phone ? phone : undefined;
+        const fallback = callable ? PAUSED_CALL_MESSAGE : PAUSED_MESSAGE;
+        return {
+          bookingPaused: {
+            message: pause.guestMessage ?? fallback,
+            ...(callable ? { phone: callable } : {}),
+          },
+        };
+      }
+      const closedByRule = day.closures.some((band) => band.targetKind !== "tables");
+      if (!closedByRule) return {};
+      // Any seating left on the online channel means the date is open, if shorter.
+      if (seatingCount > 0) return {};
+      return { closure: { message: day.guestMessage ?? DEFAULT_CLOSURE_MESSAGE } };
+    }
+  </file>
   <file path="src/services/availability-snapshot.ts">
     export interface SnapshotWarning {
       table: string;
@@ -9481,11 +9532,21 @@
       /** Receives one `availability_snapshot_row_invalid` entry per warning. */
       logger?: SnapshotLogger;
     }
+    export type SnapshotSource = "rows" | "legacy" | "none";
     export interface LoadedSnapshot {
       snapshot: BookingSnapshot;
       /** `Venue.availabilityVersion` at read time. */
       version: number;
       warnings: SnapshotWarning[];
+      source: SnapshotSource;
+      /** The venue's full settings (booking window, phone), beyond the engine's subset. */
+      venueSettings: VenueSettings | null;
+    }
+    export class VenueNotFoundError extends Error {
+      constructor(venueId: string) {
+        super(`Venue ${venueId} not found`);
+        this.name = "VenueNotFoundError";
+      }
     }
     type RowSchema<T> = {
       safeParse(
@@ -9575,6 +9636,33 @@
         expiresAt: toIso(row.expiresAt),
       };
     }
+    interface LegacyVenue {
+      operatingHours: unknown;
+      settings: unknown;
+      ianaTimezone: string;
+    }
+    function effectiveConfig(
+      venueId: string,
+      config: AvailabilityConfig,
+      venue: LegacyVenue,
+      now: Date,
+      warnings: SnapshotWarning[]
+    ): { config: AvailabilityConfig; source: SnapshotSource } {
+      if (hasRegularSchedule(config)) return { config, source: "rows" };
+      const plan = planVenueMigration(venue, now);
+      if (plan.kind === "migrate") {
+        return {
+          config: { ...plan.config, dateRules: [...plan.config.dateRules, ...config.dateRules] },
+          source: "legacy",
+        };
+      }
+      // "no_hours" is a venue with nothing configured, not a bad row.
+      if (plan.reason !== "no_hours") {
+        const reason = `legacy operatingHours ${plan.reason}${plan.detail ? `: ${plan.detail}` : ""}`;
+        warnings.push({ table: "venues", id: venueId, reason });
+      }
+      return { config, source: "none" };
+    }
     function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null {
       if (!settings) return null;
       const {
@@ -9618,7 +9706,12 @@
       ] = await Promise.all([
         db.venue.findUnique({
           where: { id: venueId },
-          select: { ianaTimezone: true, settings: true, availabilityVersion: true },
+          select: {
+            ianaTimezone: true,
+            settings: true,
+            availabilityVersion: true,
+            operatingHours: true,
+          },
         }),
         db.schedule.findMany({ where: { venueId } }),
         db.venueService.findMany({ where: { venueId }, orderBy: { position: "asc" } }),
@@ -9663,11 +9756,11 @@
         }),
       ]);
     
-      if (!venue) throw new Error(`Venue ${venueId} not found`);
+      if (!venue) throw new VenueNotFoundError(venueId);
     
       const warnings: SnapshotWarning[] = [];
     
-      const config = {
+      const rowConfig = {
         schedules: parseRows<Schedule>(
           "schedules",
           ScheduleSchema,
@@ -9717,12 +9810,15 @@
         ),
       };
     
+      const { config, source } = effectiveConfig(venueId, rowConfig, venue, now, warnings);
+    
       if (options.logger) {
         for (const warning of warnings) {
           options.logger.warn({ venueId, ...warning }, "availability_snapshot_row_invalid");
         }
       }
     
+      const venueSettings = venue.settings as VenueSettings | null;
       return {
         snapshot: {
           timezone: venue.ianaTimezone,
@@ -9730,268 +9826,124 @@
           tables,
           reservations,
           holds,
-          settings: pickEngineSettings(venue.settings as VenueSettings | null),
+          settings: pickEngineSettings(venueSettings),
         },
         version: venue.availabilityVersion,
         warnings,
+        source,
+        venueSettings,
       };
     }
   </file>
   <file path="src/services/availability.ts">
-    interface VenueWithSettings {
-      id: string;
-      name: string;
-      slug: string;
-      ianaTimezone: string;
-      settings: VenueSettings | null;
-      operatingHours: OperatingHours | null;
+    export interface ListingOptions {
+      /** Receives one warning per configuration row (or legacy column) that could not be read. */
+      logger?: SnapshotLogger;
     }
-    function parseTimeToMinutes(time: string): number {
-      const [hours, minutes] = time.split(":").map(Number);
-      if (hours === undefined || minutes === undefined) {
-        throw new Error(`Invalid time format: ${time}`);
+    export interface DayAvailability {
+      slots: TimeSlot[];
+      closure?: AvailabilityClosure;
+      bookingPaused?: BookingPaused;
+    }
+    async function loadOrNull(
+      venueId: string,
+      fromDate: string,
+      toDate: string,
+      now: Date,
+      options: ListingOptions
+    ): Promise<LoadedSnapshot | null> {
+      try {
+        return await loadAvailabilitySnapshot(venueId, fromDate, toDate, now, {
+          logger: options.logger,
+        });
+      } catch (error) {
+        if (error instanceof VenueNotFoundError) return null;
+        throw error;
       }
-      return hours * 60 + minutes;
+    }
+    function withDuration(
+      snapshot: BookingSnapshot,
+      partySize: number,
+      durationMinutes: number | undefined
+    ): BookingSnapshot {
+      if (durationMinutes === undefined) return snapshot;
+      const rule = { minPartySize: partySize, maxPartySize: partySize, durationMinutes };
+      return { ...snapshot, settings: { ...snapshot.settings, durationRules: [rule] } };
+    }
+    function toTimeSlot(slot: Slot): TimeSlot {
+      const tables: AvailableTable[] = slot.tables.map((t) => ({
+        id: t.id,
+        name: t.name,
+        capacity: t.capacity,
+        minCovers: t.minCovers,
+        maxCovers: t.maxCovers,
+      }));
+      return {
+        time: slot.start.toISOString(),
+        available: slot.available,
+        tables: tables.length > 0 ? tables : undefined,
+      };
+    }
+    function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) {
+      const { snapshot, venueSettings } = loaded;
+      const seatings = listSlots(snapshot, date, partySize, "online", now);
+      // No table could ever seat the party: offer no times at all, as before the engine.
+      if (filterSuitableTables(snapshot.tables, partySize).length === 0) {
+        return { seatings, offered: [] };
+      }
+      const window = bookingWindow(venueSettings, now, snapshot.timezone);
+      return { seatings, offered: seatings.filter((s) => isSlotInBookingWindow(s.start, window)) };
+    }
+    function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) {
+      return dayNotices(loaded.snapshot, date, loaded.venueSettings?.phone ?? null, seatingCount);
+    }
+    export async function getDayAvailability(
+      venueId: string,
+      date: string,
+      partySize: number,
+      durationOverride?: number,
+      options: ListingOptions = {}
+    ): Promise<DayAvailability> {
+      const now = new Date();
+      const loaded = await loadOrNull(venueId, date, date, now, options);
+      if (!loaded) return { slots: [] };
+      const timed = { ...loaded, snapshot: withDuration(loaded.snapshot, partySize, durationOverride) };
+      const { seatings, offered } = listDay(timed, date, partySize, now);
+      return { slots: offered.map(toTimeSlot), ...noticesFor(loaded, date, seatings.length) };
     }
     export async function generateTimeSlots(
       venueId: string,
       date: string,
       partySize: number,
-      durationOverride?: number
+      durationOverride?: number,
+      options: ListingOptions = {}
     ): Promise<TimeSlot[]> {
-      const prismaVenue = await prisma.venue.findUnique({
-        where: { id: venueId },
-      });
-    
-      if (!prismaVenue) {
-        return [];
-      }
-    
-      const venue: VenueWithSettings = {
-        id: prismaVenue.id,
-        name: prismaVenue.name,
-        slug: prismaVenue.slug,
-        ianaTimezone: prismaVenue.ianaTimezone,
-        settings: prismaVenue.settings as VenueSettings | null,
-        operatingHours: prismaVenue.operatingHours as OperatingHours | null,
-      };
-    
-      const settings = venue.settings;
-      const schedule = parseOperatingHours(venue.operatingHours, date);
-    
-      if (!schedule) {
-        return [];
-      }
-    
-      const slotInterval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-      const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
-      const duration = durationOverride ?? estimateDuration(partySize, settings);
-    
-      const openMinutes = parseTimeToMinutes(schedule.open);
-      const closeMinutes = parseTimeToMinutes(schedule.close);
-      const lastSeatingMinutes = closeMinutes - lastSeatingBuffer;
-    
-      const suitableTables = await findSuitableTables(venueId, partySize);
-    
-      if (suitableTables.length === 0) {
-        return [];
-      }
-    
-      const { reservations, holds } = await fetchConflictData(venueId, date);
-    
-      const slots: TimeSlot[] = [];
-      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
-    
-      for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
-        const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
-        if (!isSlotInBookingWindow(slotStart, window)) continue;
-        const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
-    
-        // Uses the same pure predicates (checkTableConflict + checkPacingForSlot)
-        // that assertBookable composes on write paths — same rules, no divergence.
-        const availableTables: AvailableTable[] = [];
-    
-        for (const table of suitableTables) {
-          const hasConflict = checkTableConflict(table.id, slotStart, slotEnd, reservations, holds);
-    
-          if (!hasConflict) {
-            availableTables.push({
-              id: table.id,
-              name: table.name,
-              capacity: table.capacity,
-              minCovers: table.minCovers,
-              maxCovers: table.maxCovers,
-            });
-          }
-        }
-    
-        const pacingOk = checkPacingForSlot(slotStart, partySize, settings, reservations, holds);
-    
-        slots.push({
-          time: slotStart.toISOString(),
-          available: availableTables.length > 0 && pacingOk,
-          tables: availableTables.length > 0 ? availableTables : undefined,
-        });
-      }
-    
-      return slots;
+      return (await getDayAvailability(venueId, date, partySize, durationOverride, options)).slots;
+    }
+    function rangeDates(startDate: string, endDate: string): string[] {
+      const span = Math.ceil((Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY);
+      const days = Math.min(span, MAX_RANGE_DAYS);
+      return days >= 0 ? Array.from({ length: days + 1 }, (_, i) => addDays(startDate, i)) : [];
     }
     export async function getAvailableDates(
       venueId: string,
       startDate: string,
       endDate: string,
-      partySize: number
+      partySize: number,
+      options: ListingOptions = {}
     ): Promise<DateAvailability[]> {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      const dates = rangeDates(startDate, endDate);
+      const lastDate = dates.at(-1);
+      const now = new Date();
+      const loaded = lastDate ? await loadOrNull(venueId, startDate, lastDate, now, options) : null;
+      if (!loaded) return dates.map((date) => ({ date, hasAvailability: false, slotCount: 0 }));
     
-      const maxDays = 60;
-      const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      const actualEnd = new Date(start.getTime() + Math.min(daysDiff, maxDays) * 24 * 60 * 60 * 1000);
-    
-      const [prismaVenue, suitableTables] = await Promise.all([
-        prisma.venue.findUnique({ where: { id: venueId } }),
-        findSuitableTables(venueId, partySize),
-      ]);
-    
-      if (!prismaVenue || suitableTables.length === 0) {
-        const results: DateAvailability[] = [];
-        for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
-          results.push({ date: toDateString(d), hasAvailability: false, slotCount: 0 });
-        }
-        return results;
-      }
-    
-      const venue: VenueWithSettings = {
-        id: prismaVenue.id,
-        name: prismaVenue.name,
-        slug: prismaVenue.slug,
-        ianaTimezone: prismaVenue.ianaTimezone,
-        settings: prismaVenue.settings as VenueSettings | null,
-        operatingHours: prismaVenue.operatingHours as OperatingHours | null,
-      };
-    
-      const [allReservations, allHolds] = await Promise.all([
-        prisma.reservation.findMany({
-          where: {
-            venueId,
-            date: { gte: start, lte: actualEnd },
-            status: { notIn: [...NOT_BOOKED_STATUSES] },
-          },
-          select: {
-            id: true,
-            tableId: true,
-            date: true,
-            startTime: true,
-            endTime: true,
-            partySize: true,
-          },
-        }),
-        prisma.reservationHold.findMany({
-          where: {
-            venueId,
-            date: { gte: start, lte: actualEnd },
-            expiresAt: activeHoldWindow(new Date()),
-          },
-          select: {
-            id: true,
-            tableId: true,
-            date: true,
-            startTime: true,
-            endTime: true,
-            partySize: true,
-            expiresAt: true,
-          },
-        }),
-      ]);
-    
-      const settings = venue.settings;
-      const slotInterval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-      const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
-      const duration = estimateDuration(partySize, settings);
-    
-      // Buckets by the venue-local booking date (the `date` column), not by
-      // `startTime` — for any venue west of UTC an evening reservation's
-      // `startTime` instant falls on the next UTC calendar day, which would
-      // silently bleed the conflict into the wrong bucket. `date` is stored as
-      // `new Date(dateStr)` (UTC midnight of the local date string), so
-      // `toDateString` round-trips it back to the same local date string.
-      const reservationsByDate = new Map<string, typeof allReservations>();
-      for (const r of allReservations) {
-        const key = toDateString(r.date);
-        const bucket = reservationsByDate.get(key);
-        if (bucket) {
-          bucket.push(r);
-        } else {
-          reservationsByDate.set(key, [r]);
-        }
-      }
-    
-      const holdsByDate = new Map<string, typeof allHolds>();
-      for (const h of allHolds) {
-        const key = toDateString(h.date);
-        const bucket = holdsByDate.get(key);
-        if (bucket) {
-          bucket.push(h);
-        } else {
-          holdsByDate.set(key, [h]);
-        }
-      }
-    
-      const results: DateAvailability[] = [];
-      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
-    
-      for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
-        const dateStr = toDateString(d);
-        const schedule = parseOperatingHours(venue.operatingHours, dateStr);
-    
-        if (!schedule) {
-          results.push({ date: dateStr, hasAvailability: false, slotCount: 0 });
-          continue;
-        }
-    
-        const dateReservations = reservationsByDate.get(dateStr) ?? [];
-        const dateHolds = holdsByDate.get(dateStr) ?? [];
-    
-        const openMinutes = parseTimeToMinutes(schedule.open);
-        const closeMinutes = parseTimeToMinutes(schedule.close);
-        const lastSeatingMinutes = closeMinutes - lastSeatingBuffer;
-    
-        let availableCount = 0;
-    
-        for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
-          const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
-          if (!isSlotInBookingWindow(slotStart, window)) continue;
-          const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
-    
-          // Applies checkPacingForSlot the same way generateTimeSlots does, so a
-          // date never reads as available here on grounds the slot list would
-          // then reject (#5096 — same divergence class #5000 fixed for UTC-day
-          // bucketing).
-          const hasAvailableTable = suitableTables.some(
-            (table) => !checkTableConflict(table.id, slotStart, slotEnd, dateReservations, dateHolds)
-          );
-          const pacingOk = checkPacingForSlot(
-            slotStart,
-            partySize,
-            settings,
-            dateReservations,
-            dateHolds
-          );
-    
-          if (hasAvailableTable && pacingOk) {
-            availableCount++;
-          }
-        }
-    
-        results.push({
-          date: dateStr,
-          hasAvailability: availableCount > 0,
-          slotCount: availableCount,
-        });
-      }
-    
-      return results;
+      return dates.map((date) => {
+        const { seatings, offered } = listDay(loaded, date, partySize, now);
+        const slotCount = offered.filter((s) => s.available).length;
+        const { closure } = noticesFor(loaded, date, seatings.length);
+        return { date, hasAvailability: slotCount > 0, slotCount, ...(closure ? { closure } : {}) };
+      });
     }
     export async function findBestTable(
       venueId: string,
@@ -10054,38 +10006,9 @@
     
       return { reservations, holds };
     }
-    function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date {
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      const localIso = `${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
-    
-      const utcGuess = new Date(localIso + "Z");
-    
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: timezone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }).formatToParts(utcGuess);
-    
-      const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
-      const tzHour = parseInt(get("hour"), 10);
-      const tzMin = parseInt(get("minute"), 10);
-      const tzTotalMin = tzHour * 60 + tzMin;
-      const utcTotalMin = utcGuess.getUTCHours() * 60 + utcGuess.getUTCMinutes();
-    
-      let offsetMin = tzTotalMin - utcTotalMin;
-      if (offsetMin > 720) offsetMin -= 1440;
-      if (offsetMin < -720) offsetMin += 1440;
-    
-      return new Date(new Date(localIso + "Z").getTime() - offsetMin * 60 * 1000);
-    }
     export const availabilityService = {
       generateTimeSlots,
+      getDayAvailability,
       getAvailableDates,
       findBestTable,
       fetchConflictData,
@@ -19491,6 +19414,80 @@
           }
         },
       };
+    }
+  </file>
+  <file path="src/test/legacy-slot-oracle.ts">
+    export interface OracleVenue {
+      ianaTimezone: string;
+      settings: VenueSettings | null;
+      operatingHours: OperatingHours | null;
+    }
+    export interface OracleTable extends TableFilter {
+      name: string;
+    }
+    function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      const localIso = `${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
+      const utcGuess = new Date(localIso + "Z");
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).formatToParts(utcGuess);
+      const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+      const tzTotalMin = parseInt(get("hour"), 10) * 60 + parseInt(get("minute"), 10);
+      const utcTotalMin = utcGuess.getUTCHours() * 60 + utcGuess.getUTCMinutes();
+      let offsetMin = tzTotalMin - utcTotalMin;
+      if (offsetMin > 720) offsetMin -= 1440;
+      if (offsetMin < -720) offsetMin += 1440;
+      return new Date(utcGuess.getTime() - offsetMin * 60 * 1000);
+    }
+    export function legacyTimeSlots(
+      venue: OracleVenue,
+      tables: OracleTable[],
+      date: string,
+      partySize: number,
+      now: Date
+    ): TimeSlot[] {
+      const { settings } = venue;
+      const schedule = parseOperatingHours(venue.operatingHours, date);
+      if (!schedule) return [];
+      const interval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+      const buffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+      const duration = estimateDuration(partySize, settings);
+      const lastSeating = toMinutes(schedule.close) - buffer;
+      const suitable = filterSuitableTables(tables, partySize);
+      if (suitable.length === 0) return [];
+      const window = bookingWindow(settings, now, venue.ianaTimezone);
+    
+      const slots: TimeSlot[] = [];
+      for (let minutes = toMinutes(schedule.open); minutes <= lastSeating; minutes += interval) {
+        const start = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
+        if (!isSlotInBookingWindow(start, window)) continue;
+        const end = new Date(start.getTime() + duration * 60 * 1000);
+        const free = suitable
+          .filter((t) => !checkTableConflict(t.id, start, end, [], []))
+          .map((t) => ({
+            id: t.id,
+            name: t.name,
+            capacity: t.capacity,
+            minCovers: t.minCovers,
+            maxCovers: t.maxCovers,
+          }));
+        const pacingOk = checkPacingForSlot(start, partySize, settings, [], []);
+        slots.push({
+          time: start.toISOString(),
+          available: free.length > 0 && pacingOk,
+          tables: free.length > 0 ? free : undefined,
+        });
+      }
+      return slots;
     }
   </file>
   <file path="src/test/mocks.ts">

@@ -18,6 +18,8 @@ export interface DateAvailability {
   date: string; // YYYY-MM-DD
   hasAvailability: boolean;
   slotCount?: number;
+  /** Present when the date is closed; see `DateAvailabilitySchema`. */
+  closure?: { message: string };
 }
 
 export interface AvailabilityQuery {

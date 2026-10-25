@@ -6,6 +6,7 @@ import {
   VenueServiceSchema,
 } from "@mbe/types";
 import type {
+  AvailabilityConfig,
   DateRule,
   Schedule,
   ScheduleAssignment,
@@ -16,6 +17,7 @@ import type {
 import { activeHoldWindow, addDays } from "@mbe/availability";
 import type { BookingSnapshot, EngineSettings, ServiceDate } from "@mbe/availability";
 import type { PrismaClient } from "../generated/prisma/index.js";
+import { planVenueMigration } from "./availability-migration.js";
 import { prisma } from "./database.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
@@ -33,6 +35,12 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  * as-is: a schedule service is dropped (that service is closed), a date rule
  * becomes a whole-day venue closure (fail closed), anything else is dropped.
  * Every such row is reported as a {@link SnapshotWarning}.
+ *
+ * Venues the operator backfill has not reached (no unarchived regular schedule
+ * row) get their schedules built in memory from the legacy `operatingHours`
+ * column, by the same pure `planVenueMigration` the backfill runs, so guests see
+ * the same slots before and after it. Date rule rows still apply on top. Legacy
+ * hours that cannot be read leave the venue closed, with a warning.
  */
 
 export interface SnapshotWarning {
@@ -65,11 +73,24 @@ export interface LoadSnapshotOptions {
   logger?: SnapshotLogger;
 }
 
+/** Where the schedules came from: rows, the legacy column (not yet backfilled), or nowhere (closed). */
+export type SnapshotSource = "rows" | "legacy" | "none";
+
 export interface LoadedSnapshot {
   snapshot: BookingSnapshot;
   /** `Venue.availabilityVersion` at read time. */
   version: number;
   warnings: SnapshotWarning[];
+  source: SnapshotSource;
+  /** The venue's full settings (booking window, phone), beyond the engine's subset. */
+  venueSettings: VenueSettings | null;
+}
+
+export class VenueNotFoundError extends Error {
+  constructor(venueId: string) {
+    super(`Venue ${venueId} not found`);
+    this.name = "VenueNotFoundError";
+  }
 }
 
 type RowSchema<T> = {
@@ -173,6 +194,39 @@ function dateRuleCandidate(row: DateRuleRow): unknown {
   };
 }
 
+const hasRegularSchedule = (config: AvailabilityConfig): boolean =>
+  config.schedules.some((s) => s.isRegular && !s.archivedAt);
+
+interface LegacyVenue {
+  operatingHours: unknown;
+  settings: unknown;
+  ianaTimezone: string;
+}
+
+/** The config the engine reads: the rows, or the legacy week derived in memory under the rows' date rules. */
+function effectiveConfig(
+  venueId: string,
+  config: AvailabilityConfig,
+  venue: LegacyVenue,
+  now: Date,
+  warnings: SnapshotWarning[]
+): { config: AvailabilityConfig; source: SnapshotSource } {
+  if (hasRegularSchedule(config)) return { config, source: "rows" };
+  const plan = planVenueMigration(venue, now);
+  if (plan.kind === "migrate") {
+    return {
+      config: { ...plan.config, dateRules: [...plan.config.dateRules, ...config.dateRules] },
+      source: "legacy",
+    };
+  }
+  // "no_hours" is a venue with nothing configured, not a bad row.
+  if (plan.reason !== "no_hours") {
+    const reason = `legacy operatingHours ${plan.reason}${plan.detail ? `: ${plan.detail}` : ""}`;
+    warnings.push({ table: "venues", id: venueId, reason });
+  }
+  return { config, source: "none" };
+}
+
 function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null {
   if (!settings) return null;
   const {
@@ -217,7 +271,12 @@ export async function loadAvailabilitySnapshot(
   ] = await Promise.all([
     db.venue.findUnique({
       where: { id: venueId },
-      select: { ianaTimezone: true, settings: true, availabilityVersion: true },
+      select: {
+        ianaTimezone: true,
+        settings: true,
+        availabilityVersion: true,
+        operatingHours: true,
+      },
     }),
     db.schedule.findMany({ where: { venueId } }),
     db.venueService.findMany({ where: { venueId }, orderBy: { position: "asc" } }),
@@ -262,11 +321,11 @@ export async function loadAvailabilitySnapshot(
     }),
   ]);
 
-  if (!venue) throw new Error(`Venue ${venueId} not found`);
+  if (!venue) throw new VenueNotFoundError(venueId);
 
   const warnings: SnapshotWarning[] = [];
 
-  const config = {
+  const rowConfig = {
     schedules: parseRows<Schedule>(
       "schedules",
       ScheduleSchema,
@@ -316,12 +375,15 @@ export async function loadAvailabilitySnapshot(
     ),
   };
 
+  const { config, source } = effectiveConfig(venueId, rowConfig, venue, now, warnings);
+
   if (options.logger) {
     for (const warning of warnings) {
       options.logger.warn({ venueId, ...warning }, "availability_snapshot_row_invalid");
     }
   }
 
+  const venueSettings = venue.settings as VenueSettings | null;
   return {
     snapshot: {
       timezone: venue.ianaTimezone,
@@ -329,9 +391,11 @@ export async function loadAvailabilitySnapshot(
       tables,
       reservations,
       holds,
-      settings: pickEngineSettings(venue.settings as VenueSettings | null),
+      settings: pickEngineSettings(venueSettings),
     },
     version: venue.availabilityVersion,
     warnings,
+    source,
+    venueSettings,
   };
 }

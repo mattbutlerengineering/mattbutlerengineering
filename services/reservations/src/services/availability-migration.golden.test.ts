@@ -8,6 +8,11 @@ vi.mock("./database.js", async () => {
       table: { findMany: vi.fn() },
       reservation: { findMany: vi.fn() },
       reservationHold: { findMany: vi.fn() },
+      schedule: { findMany: vi.fn() },
+      venueService: { findMany: vi.fn() },
+      scheduleService: { findMany: vi.fn() },
+      scheduleAssignment: { findMany: vi.fn() },
+      dateRule: { findMany: vi.fn() },
     },
   });
 });
@@ -22,6 +27,8 @@ import {
   type EngineTable,
   type Weekday,
 } from "@mbe/availability";
+import type { AvailabilityConfig, TimeSlot } from "@mbe/types";
+import { legacyTimeSlots } from "../test/legacy-slot-oracle.js";
 import { SEED_VENUES } from "../test/seed-venues.js";
 import { availabilityService } from "./availability.js";
 import { planVenueMigration } from "./availability-migration.js";
@@ -33,10 +40,16 @@ import { prisma } from "./database.js";
  * the slots the engine offers over the migrated rows, and requires them to be
  * identical — for both legacy storage shapes of the same hours.
  *
- * Unit level: the "before" runs the real `generateTimeSlots` against a mocked
- * Prisma client (no database is available to this suite); the "after" runs
- * `planVenueMigration` + the engine's `listSlots`. Time zones and windows are
- * chosen so each 60-day window crosses a DST transition.
+ * Unit level: the "before" is the pre-engine slot loop, frozen as a test oracle
+ * (`legacyTimeSlots`); the "after" runs `planVenueMigration` + the engine's
+ * `listSlots`. Time zones and windows are chosen so each 60-day window crosses a
+ * DST transition.
+ *
+ * Listing (#7503) runs on the engine whether or not the backfill has run: the
+ * real `generateTimeSlots`, against a mocked Prisma client (no database is
+ * available to this suite), must equal the engine "after" both with the
+ * migrated rows present and with no rows at all (the config derived in memory
+ * from the legacy column).
  *
  * The "before" of the seed-array shape is synthetic: the legacy slot code reads
  * only the weekday-keyed shape, so it offers nothing for a seed-array column
@@ -167,17 +180,54 @@ interface SlotView {
   tableIds: string[];
 }
 
-async function legacySlots(venue: object, date: string, partySize: number): Promise<SlotView[]> {
-  vi.mocked(prisma.venue.findUnique).mockResolvedValue(venue as never);
-  vi.mocked(prisma.table.findMany).mockResolvedValue(TABLES as never);
-  vi.mocked(prisma.reservation.findMany).mockResolvedValue([]);
-  vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([]);
-  const slots = await availabilityService.generateTimeSlots("v1", date, partySize);
-  return slots.map((s) => ({
+const fromTimeSlots = (slots: TimeSlot[]): SlotView[] =>
+  slots.map((s) => ({
     time: s.time,
     available: s.available,
     tableIds: (s.tables ?? []).map((t) => t.id),
   }));
+
+function legacySlots(venue: object, date: string, partySize: number, now: Date): SlotView[] {
+  return fromTimeSlots(legacyTimeSlots(venue as never, TABLES, date, partySize, now));
+}
+
+/** Prisma rows for a config, as the backfill writes them. */
+function rowsOf(config: AvailabilityConfig) {
+  return {
+    schedules: config.schedules.map((s) => ({ ...s, venueId: "v1", archivedAt: null })),
+    venueServices: config.venueServices.map((s) => ({ ...s, venueId: "v1", archivedAt: null })),
+    scheduleServices: config.scheduleServices.map((s) => ({ ...s, venueId: "v1", rules: {} })),
+    assignments: config.assignments.map((a) => ({
+      ...a,
+      venueId: "v1",
+      startsOn: null,
+      endsOn: null,
+    })),
+  };
+}
+
+const NO_ROWS = { schedules: [], venueServices: [], scheduleServices: [], assignments: [] };
+
+/** The real listing, through the snapshot loader, over the given availability rows. */
+async function listedSlots(
+  venue: object,
+  rows: ReturnType<typeof rowsOf>,
+  date: string,
+  partySize: number
+): Promise<SlotView[]> {
+  vi.mocked(prisma.venue.findUnique).mockResolvedValue({
+    ...venue,
+    availabilityVersion: 0,
+  } as never);
+  vi.mocked(prisma.table.findMany).mockResolvedValue(TABLES as never);
+  vi.mocked(prisma.reservation.findMany).mockResolvedValue([]);
+  vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([]);
+  vi.mocked(prisma.schedule.findMany).mockResolvedValue(rows.schedules as never);
+  vi.mocked(prisma.venueService.findMany).mockResolvedValue(rows.venueServices as never);
+  vi.mocked(prisma.scheduleService.findMany).mockResolvedValue(rows.scheduleServices as never);
+  vi.mocked(prisma.scheduleAssignment.findMany).mockResolvedValue(rows.assignments as never);
+  vi.mocked(prisma.dateRule.findMany).mockResolvedValue([]);
+  return fromTimeSlots(await availabilityService.generateTimeSlots("v1", date, partySize));
 }
 
 function engineSlotList(
@@ -259,15 +309,17 @@ describe("legacy -> availability rows: slots are identical before and after", ()
         // Both legacy shapes of the same hours migrate to the same rows apart from ids.
         expect(fromArray.kind).toBe("migrate");
         expect(fromWeekday.kind).toBe("migrate");
+        if (fromWeekday.kind !== "migrate") return;
+        const migratedRows = rowsOf(fromWeekday.config);
 
         let compared = 0;
         for (let i = 0; i < DAYS; i += 1) {
           const date = addDays(c.start, i);
           const hours = fixture.week[weekdayOf(date)];
           for (const partySize of PARTY_SIZES) {
-            const before = await legacySlots(asWeekday, date, partySize);
+            const before = legacySlots(asWeekday, date, partySize, clock);
             // The legacy code cannot read the seed-array shape at all.
-            expect(await legacySlots(asSeedArray, date, partySize)).toEqual([]);
+            expect(legacySlots(asSeedArray, date, partySize, clock)).toEqual([]);
             const afterWeekday = engineSlots(
               fromWeekday,
               c.tz,
@@ -285,6 +337,17 @@ describe("legacy -> availability rows: slots are identical before and after", ()
               clock
             );
             expect(afterArray).toEqual(afterWeekday);
+            // Listing on the engine: identical whether or not the backfill has run.
+            const label = `${date} party ${partySize}`;
+            expect(await listedSlots(asWeekday, migratedRows, date, partySize), label).toEqual(
+              afterWeekday
+            );
+            expect(await listedSlots(asWeekday, NO_ROWS, date, partySize), label).toEqual(
+              afterWeekday
+            );
+            expect(await listedSlots(asSeedArray, NO_ROWS, date, partySize), label).toEqual(
+              afterWeekday
+            );
             if (isOvernight(hours)) {
               // Documented divergence: the legacy loop offered nothing for a close at or
               // before the open; the migration reads it as past midnight (ADR-029).
