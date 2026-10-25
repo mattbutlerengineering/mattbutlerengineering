@@ -64,6 +64,16 @@
       export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
     </item>
     <item priority="high">
+      export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withLocalTime<T extends object>(
+        item: T,
+        field: string,
+        timeZone: string | undefined
+      ): T | (T & { localTime: string }) { /* ... */ }
+    </item>
+    <item priority="high">
       interface DayHours {
         closed?: boolean | undefined;
       }
