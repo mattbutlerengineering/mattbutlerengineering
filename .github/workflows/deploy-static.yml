@@ -11,6 +11,10 @@ on:
       - "packages/rialto/**"
       - "packages/rialto-catalog/**"
       - "packages/auth/**"
+      - "packages/api-client/**"
+      - "packages/types/**"
+      - "packages/cancellation-policy/**"
+      - "packages/sentry/**"
   workflow_dispatch:
 
 concurrency:
@@ -66,18 +70,29 @@ jobs:
         id: filter
         if: github.event_name == 'push'
         with:
+          # Each list is the app plus every workspace package it bundles,
+          # transitively (scripts/__tests__/deploy-static-app-paths.test.mjs).
           filters: |
             marketing:
               - 'apps/marketing/**'
               - 'packages/rialto/**'
+              - 'packages/sentry/**'
             hospitality:
               - 'apps/hospitality/**'
               - 'packages/rialto/**'
               - 'packages/auth/**'
+              - 'packages/rialto-catalog/**'
+              - 'packages/api-client/**'
+              - 'packages/types/**'
+              - 'packages/cancellation-policy/**'
+              - 'packages/sentry/**'
             rialto-web:
               - 'apps/rialto-web/**'
               - 'scripts/ui-quality/derive-path.*'
               - 'packages/rialto/**'
+              - 'packages/api-client/**'
+              - 'packages/types/**'
+              - 'packages/sentry/**'
       - name: Set outputs
         id: result
         run: |
