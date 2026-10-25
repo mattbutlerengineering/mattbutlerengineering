@@ -1505,6 +1505,14 @@
         "lastSeating": "{{name}} last seating {{time}}",
         "reopens": "reopens {{from}} – {{to}}",
         "reopensAllDay": "reopens all day",
+        "serviceReopens": "{{name}} reopens {{from}} – {{to}}",
+        "channelBackOn": "{{channels}} back on {{from}} – {{to}}",
+        "channel": {
+          "online": "online booking",
+          "phone": "phone booking",
+          "waitlist": "waitlist"
+        },
+        "closes": "closed {{from}} – {{to}}",
         "bookingOn": {
           "online": "online booking back on",
           "phone": "phone booking back on",

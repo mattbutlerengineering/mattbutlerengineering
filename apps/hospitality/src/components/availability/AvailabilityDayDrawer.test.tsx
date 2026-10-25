@@ -5,8 +5,13 @@ import type { ResolvedDay } from "@mbe/availability";
 import { AvailabilityDayDrawer } from "./AvailabilityDayDrawer.js";
 import {
   EARLY_DINNER,
+  LATE_CLOSURE,
+  LUNCH_WINDOW,
   ONLINE_CLOSURE,
+  ONLINE_WINDOW,
   PARTY_CLOSURE,
+  SKIP_WEEKLY,
+  WEEKLY_CLOSURE,
   resolveFixtureDay,
 } from "./resolved-day-fixtures.js";
 
@@ -127,5 +132,35 @@ describe("AvailabilityDayDrawer", () => {
   it("has no axe violations", async () => {
     renderDrawer({ viewerRole: "host" });
     expect((await axe(document.body, AXE_OPTIONS)).violations).toEqual([]);
+  });
+});
+
+describe("AvailabilityDayDrawer windowed closure wording", () => {
+  function removedTexts(day: ResolvedDay): string[] {
+    renderDrawer({ day });
+    return within(screen.getByRole("dialog"))
+      .getAllByRole("listitem")
+      .map((li) => li.textContent ?? "");
+  }
+
+  it("says the channel is back on, not that the venue reopens", () => {
+    const texts = removedTexts(resolveFixtureDay(ONLINE_WINDOW));
+    expect(texts[1]).toContain("If removed: online booking back on 6:00 PM – 7:00 PM");
+  });
+
+  it("names the service that reopens", () => {
+    const texts = removedTexts(resolveFixtureDay(LUNCH_WINDOW));
+    expect(texts[1]).toContain("If removed: Lunch reopens 12:00 PM – 1:00 PM");
+  });
+
+  it("reads a venue window as reopens, with the next-day marker past midnight", () => {
+    const texts = removedTexts(resolveFixtureDay(LATE_CLOSURE));
+    expect(texts[1]).toContain("If removed: reopens 11:00 PM – 1:00 AM (next day)");
+  });
+
+  it("keeps a re-applied closure lowercase inside the list", () => {
+    const texts = removedTexts(resolveFixtureDay(WEEKLY_CLOSURE, SKIP_WEEKLY));
+    expect(texts[1]).toContain("If removed: closed 10:00 PM – 11:00 PM");
+    expect(texts[1]).not.toContain("Closed 10:00");
   });
 });
