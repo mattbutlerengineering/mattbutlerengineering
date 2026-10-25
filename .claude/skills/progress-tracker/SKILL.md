@@ -1,6 +1,6 @@
 ---
 name: progress-tracker
-description: Track loop metrics, trends, improvements. Invoke: /progress-tracker.
+description: "Track loop metrics, trends, improvements. Invoke: /progress-tracker."
 user-invocable: true
 ---
 
