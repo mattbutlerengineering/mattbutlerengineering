@@ -11236,6 +11236,86 @@
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/availability-snapshot.ts">
+    <item priority="low">
+      interface SnapshotWarning {
+        table: string;
+        id: string;
+        reason: string;
+      }
+    </item>
+    <item priority="low">
+      interface SnapshotLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      type SnapshotDb = Pick<
+        PrismaClient,
+        | "venue"
+        | "schedule"
+        | "ven...;
+    </item>
+    <item priority="low">
+      interface LoadSnapshotOptions {
+        db?: SnapshotDb;
+        logger?: SnapshotLogger;
+      }
+    </item>
+    <item priority="low">
+      interface LoadedSnapshot {
+        snapshot: BookingSnapshot;
+        version: number;
+        warnings: SnapshotWarning[];
+      }
+    </item>
+    <item priority="high">
+      type RowSchema = {
+        safeParse(
+          value: unknown
+        ):
+          | { success: t...;
+    </item>
+    <item priority="medium">
+      function failureReason(issues: readonly { path: PropertyKey[]; message: string }[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseRows<T>(
+        table: string,
+        schema: RowSchema<T>,
+        candidates: readonly { id: string; value: unknown }[],
+        warnings: SnapshotWarning[],
+        onInvalid?: (id: string, value: unknown) => T | null
+      ): T[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function failClosedRule(row: DateRuleRow): DateRule { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DateRuleRow {
+        id: string;
+        kind: string;
+        targetKind: string;
+        venueServiceId: string | null;
+        bookingTypes: string[];
+      }
+    </item>
+    <item priority="medium">
+      function dateRuleCandidate(row: DateRuleRow): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadAvailabilitySnapshot(
+        venueId: string,
+        fromDate: ServiceDate,
+        toDate: ServiceDate,
+        now: Date,
+        options: LoadSnapshotOptions = {}
+      ): Promise<LoadedSnapshot> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/availability.ts">
     <item priority="high">
       interface VenueWithSettings {

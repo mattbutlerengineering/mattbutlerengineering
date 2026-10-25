@@ -330,6 +330,11 @@
     },
     {
       "from": "@mbe/reservations-service",
+      "to": "@mbe/availability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
       "to": "@mbe/cancellation-policy",
       "type": "dependency"
     },

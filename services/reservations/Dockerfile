@@ -19,6 +19,7 @@ COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/cancellation-policy/package.json ./packages/cancellation-policy/
+COPY packages/availability/package.json ./packages/availability/
 COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY services/reservations/package.json ./services/reservations/
 
@@ -37,6 +38,7 @@ COPY packages/api-client/tsconfig.json ./packages/api-client/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/cancellation-policy/tsconfig.json ./packages/cancellation-policy/
+COPY packages/availability/tsconfig.json ./packages/availability/
 COPY packages/service-bootstrap/tsconfig.json ./packages/service-bootstrap/
 COPY services/reservations/tsconfig.json services/reservations/tsconfig.build.json ./services/reservations/
 
@@ -51,6 +53,7 @@ COPY packages/api-client/src ./packages/api-client/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
 COPY packages/cancellation-policy/src ./packages/cancellation-policy/src
+COPY packages/availability/src ./packages/availability/src
 COPY packages/service-bootstrap/src ./packages/service-bootstrap/src
 COPY services/reservations/src ./services/reservations/src
 
@@ -61,6 +64,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
     pnpm --filter @mbe/cancellation-policy build && \
+    pnpm --filter @mbe/availability build && \
     pnpm --filter @mbe/service-bootstrap build && \
     pnpm --filter @mbe/reservations-service db:generate && \
     pnpm --filter @mbe/reservations-service build
@@ -90,6 +94,7 @@ COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/cancellation-policy/package.json ./packages/cancellation-policy/
+COPY packages/availability/package.json ./packages/availability/
 COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY services/reservations/package.json ./services/reservations/
 
@@ -104,6 +109,7 @@ COPY --from=builder /app/packages/api-client/dist ./packages/api-client/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/cancellation-policy/dist ./packages/cancellation-policy/dist
+COPY --from=builder /app/packages/availability/dist ./packages/availability/dist
 COPY --from=builder /app/packages/service-bootstrap/dist ./packages/service-bootstrap/dist
 
 # Copy built reservations service

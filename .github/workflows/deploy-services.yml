@@ -24,6 +24,7 @@ on:
       - "packages/api-client/**"
       - "packages/database/**"
       - "packages/cancellation-policy/**"
+      - "packages/availability/**"
       - "packages/rialto-catalog/**"
   # Lets a stuck deploy (e.g. exhausted retries from a transient DO
   # BuildRateLimit — see the "Trigger deployment" retry loop below) be
