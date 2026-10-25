@@ -76,7 +76,7 @@ describe("ChatPanel with the real catalog registry", () => {
 
     expect(await screen.findByText("Covers tonight")).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Patio 2: free" })).toBeInTheDocument();
+    expect(screen.getByText("Patio 2: free")).toBeInTheDocument();
     expect(screen.getByText("Garcia, party of 4")).toBeInTheDocument();
     expect(screen.getByText("Gluten-free")).toBeInTheDocument();
     expect(document.querySelector("[data-element-type]")).toBeNull();
