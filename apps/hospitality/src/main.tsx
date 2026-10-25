@@ -67,6 +67,9 @@ const BookingWidgetDemoPage = lazy(() =>
     default: m.BookingWidgetDemoPage,
   }))
 );
+const AvailabilityPage = lazy(() =>
+  import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
+);
 const ProfilePage = lazy(() =>
   import("./pages/ProfilePage.js").then((m) => ({ default: m.ProfilePage }))
 );
@@ -273,6 +276,14 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <FloorPlanEditorPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "availability",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <AvailabilityPage />
                 </Suspense>
               ),
             },

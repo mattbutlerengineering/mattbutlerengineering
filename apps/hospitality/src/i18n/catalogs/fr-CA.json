@@ -333,7 +333,8 @@
       "bookingWidget": "Widget de réservation",
       "signOut": "Se déconnecter",
       "chat": "Clavardage",
-      "menus": "Menus"
+      "menus": "Menus",
+      "availability": "Disponibilité"
     }
   },
   "layout": {
@@ -357,6 +358,7 @@
       "setup": "Configuration",
       "hours": "Heures d'ouverture",
       "menus": "Menus",
+      "availability": "Disponibilité",
       "chat": "Clavardage"
     },
     "venuesNotLoaded": "Les établissements n'ont pas été chargés.",
@@ -1467,6 +1469,49 @@
         "notes": "Notes",
         "reservationId": "Réservation"
       }
+    }
+  },
+  "availability": {
+    "title": "Disponibilité",
+    "description": "Ce qui régit chaque jour, et pourquoi.",
+    "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
+    "loadError": "Impossible de charger la disponibilité",
+    "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",
+    "toolbar": {
+      "viewLabel": "Affichage du calendrier",
+      "month": "Mois",
+      "week": "Semaine",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "today": "Aujourd'hui"
+    },
+    "calendar": {
+      "label": "Calendrier de disponibilité",
+      "cellName": "{{date}} : {{details}}",
+      "loadingDay": "chargement",
+      "services_one": "{{count}} service",
+      "services_other": "{{count}} services",
+      "services_many": "{{count}} services",
+      "onlineOff": "Réservation en ligne désactivée",
+      "onlineOffName": "réservation en ligne désactivée",
+      "closedAllDay": "Fermé toute la journée",
+      "closedAllDayName": "fermé toute la journée",
+      "closedBand": "Fermé {{from}} – {{to}}",
+      "closedBandName": "fermé {{from}} – {{to}}",
+      "nextDay": "{{time}} (lendemain)"
+    },
+    "drawer": {
+      "summaryOpen": "Ouvert pour {{services}}.",
+      "summaryClosed": "Fermé.",
+      "closedRegular": "Fermé. Votre semaine habituelle n'a pas d'heures le {{weekday}}.",
+      "changes_one": "{{count}} changement par rapport à votre {{weekday}} habituel.",
+      "changes_other": "{{count}} changements par rapport à votre {{weekday}} habituel.",
+      "changes_many": "{{count}} changements par rapport à votre {{weekday}} habituel.",
+      "whyTitle": "Pourquoi ce jour",
+      "ifRemoved": "Si retiré : {{result}}",
+      "removalOpen": "ouvert pour {{services}}",
+      "removalClosed": "fermé",
+      "loadError": "Impossible de charger pourquoi ce jour est ainsi"
     }
   },
   "setupHours": {

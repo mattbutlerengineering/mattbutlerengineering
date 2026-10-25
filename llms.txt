@@ -1393,6 +1393,50 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="availability">
+  <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
+    <item priority="low">
+      type CalendarView = "month" | "week";
+    </item>
+    <item priority="medium">
+      function daysSinceMonday(date: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function daysInMonth(year: number, month: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function visibleDates(view: CalendarView, anchor: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/closure-band.ts">
+    <item priority="high">
+      type Closure = AvailabilityDaySummary["closures"][number];
+    </item>
+    <item priority="low">
+      interface ClosureBandText {
+        key: string;
+        text: string;
+        name: string;
+      }
+    </item>
+    <item priority="high">
+      export function minuteText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureBandText(
+        closure: Closure,
+        t: TFunction,
+        format: VenueFormat
+      ): ClosureBandText { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     <item priority="low">
@@ -4546,6 +4590,20 @@
   <file path="apps/hospitality/src/hooks/useApiClient.ts">
     <item priority="high">
       export function useApiClient() { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useAvailability.ts">
+    <item priority="high">
+      export const AVAILABILITY_DAYS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityDays: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityConfig: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">

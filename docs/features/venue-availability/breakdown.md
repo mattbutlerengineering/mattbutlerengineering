@@ -92,7 +92,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Quick setup and onboarding** — the S1 card, onboarding hours step reuse (F-ONB), and the five entry points repointed from `/setup/hours`. (tracker: #7513)
   - Accept: component tests cover valid, invalid and server-error states. An E2E test sets up the bistro week from an empty venue, and the setup checklist marks availability as done.
   - Blocked by: Config API
-- [ ] **AvailabilityCalendar and day drawer (read)** — an app-local month and week grid with per-day labels and closure bands, and a drawer showing the plain summary plus "Why this day" from `explanation`. Hosts get a view-only drawer (F-HOST). (tracker: #7514)
+- [x] **AvailabilityCalendar and day drawer (read)** — an app-local month and week grid with per-day labels and closure bands, and a drawer showing the plain summary plus "Why this day" from `explanation`. Hosts get a view-only drawer (F-HOST). (tracker: #7514)
   - Accept: component tests render the layer stack and removal results, and the Host view shows no edit controls. The `e2e-selector-drift-reviewer` passes any E2E spec.
   - Blocked by: Config API
 - [ ] **Drawer editing** — a scope select chosen before editing, the services editor, keep or replace for dates that already have their own changes, a save naming the result, a concurrency 409 dialog, a discard guard, and the draft dot. (tracker: #7515)
