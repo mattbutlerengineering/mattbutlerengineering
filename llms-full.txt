@@ -22673,11 +22673,13 @@
           slug: seed.slug,
           ianaTimezone: seed.ianaTimezone,
           currencyCode: "USD",
-          operatingHours: (plan.projection ?? seed.hours) as unknown as Prisma.InputJsonValue,
+          operatingHours: plan.projection as unknown as Prisma.InputJsonValue,
           settings: seed.settings,
         },
       });
-      await migrateVenue(prisma, venue.id, { apply: true });
+      // Written as the connection owner like the rest of the seed (no venue context).
+      const hasRows = await prisma.schedule.count({ where: { venueId: venue.id, isRegular: true } });
+      if (hasRows === 0) await writeAvailabilityConfig(prisma, venue.id, plan.config);
       return venue;
     }
     async function main() {
@@ -39406,8 +39408,8 @@
           shape: LegacyShape;
           config: AvailabilityConfig;
           notes: LegacyMigrationNotes;
-          /** Set when the legacy column must be rewritten to stay readable. */
-          projection: LegacyOperatingHours | null;
+          /** The legacy column derived from the rows; the seed writes it, the backfill does not. */
+          projection: LegacyOperatingHours;
         }
       | { kind: "unrecognised"; reason: string; detail: string };
     export function civilDateIn(now: Date, timeZone: string): string {
@@ -39442,31 +39444,32 @@
         shape: normalised.shape,
         config: built.config,
         notes: built.notes,
-        projection: normalised.shape === "weekday" ? null : projectLegacyOperatingHours(built.config),
+        projection: projectLegacyOperatingHours(built.config),
       };
     }
+    interface MigrationSummary {
+      shape: LegacyShape;
+      notes: LegacyMigrationNotes;
+      rows: number;
+    }
     export type VenueMigrationOutcome =
+      | ({ venueId: string; outcome: "migrated"; operatingHours: unknown } & MigrationSummary)
+      | ({ venueId: string; outcome: "would_migrate"; operatingHours: unknown } & MigrationSummary)
+      | { venueId: string; outcome: "already_migrated"; operatingHours: unknown }
       | {
           venueId: string;
-          outcome: "migrated";
-          shape: LegacyShape;
-          notes: LegacyMigrationNotes;
-          rows: number;
-          legacyColumnRewritten: boolean;
+          outcome: "unrecognised";
+          reason: string;
+          detail: string;
+          operatingHours: unknown;
         }
-      | {
-          venueId: string;
-          outcome: "would_migrate";
-          shape: LegacyShape;
-          notes: LegacyMigrationNotes;
-          rows: number;
-          legacyColumnRewritten: boolean;
-        }
-      | { venueId: string; outcome: "already_migrated" }
-      | { venueId: string; outcome: "unrecognised"; reason: string; detail: string }
       | { venueId: string; outcome: "not_found" };
-    async function writeConfig(
-      tx: Prisma.TransactionClient,
+    export type AvailabilityRowWriter = Pick<
+      PrismaClient,
+      "schedule" | "venueService" | "scheduleService" | "scheduleAssignment" | "dateRule"
+    >;
+    export async function writeAvailabilityConfig(
+      tx: AvailabilityRowWriter,
       venueId: string,
       config: AvailabilityConfig
     ): Promise<void> {
@@ -39537,10 +39540,12 @@
         });
         if (!venue) return { venueId, outcome: "not_found" as const };
     
+        const { operatingHours } = venue;
+    
         const existing = await tx.schedule.count({
           where: { venueId, isRegular: true, archivedAt: null },
         });
-        if (existing > 0) return { venueId, outcome: "already_migrated" as const };
+        if (existing > 0) return { venueId, outcome: "already_migrated" as const, operatingHours };
     
         const plan = planVenueMigration(venue, now);
         if (plan.kind === "unrecognised") {
@@ -39549,24 +39554,19 @@
             outcome: "unrecognised" as const,
             reason: plan.reason,
             detail: plan.detail,
+            operatingHours,
           };
         }
         const summary = {
           venueId,
+          operatingHours,
           shape: plan.shape,
           notes: plan.notes,
           rows: countRows(plan.config),
-          legacyColumnRewritten: plan.projection !== null,
         };
         if (!options.apply) return { ...summary, outcome: "would_migrate" as const };
     
-        await writeConfig(tx, venueId, plan.config);
-        if (plan.projection) {
-          await tx.venue.update({
-            where: { id: venueId },
-            data: { operatingHours: plan.projection },
-          });
-        }
+        await writeAvailabilityConfig(tx, venueId, plan.config);
         return { ...summary, outcome: "migrated" as const };
       });
     }
@@ -59803,6 +59803,8 @@
       name?: string;
       open: number;
       close: number;
+      /** The stored close was at or before the open, so it was read as past midnight. */
+      wrapped?: true;
     }
     export interface LegacyOverride {
       date: ServiceDate;
@@ -59816,7 +59818,9 @@
     export type LegacyHoursFailure =
       | { ok: false; reason: "no_hours" }
       | { ok: false; reason: "unknown_shape"; detail: string }
-      | { ok: false; reason: "unknown_version"; detail: string };
+      | { ok: false; reason: "unknown_version"; detail: string }
+      /** A day the legacy code treated as open has a time this parser cannot read. */
+      | { ok: false; reason: "unreadable_time"; detail: string };
     export type LegacyHoursResult =
       { ok: true; shape: LegacyShape; hours: LegacyHours } | LegacyHoursFailure;
     type Loose = Record<string, unknown>;
@@ -59827,12 +59831,33 @@
       const minutes = Number(match[1]) * 60 + Number(match[2]);
       return minutes > MINUTES_PER_DAY ? null : minutes;
     }
-    function toWindow(open: unknown, close: unknown, name?: unknown): LegacyWindow | null {
+    type Problems = string[];
+    function toWindow(
+      where: string,
+      problems: Problems,
+      open: unknown,
+      close: unknown,
+      name?: unknown
+    ): LegacyWindow | null {
       const o = parseTime(open);
       const c = parseTime(close);
-      if (o === null || c === null || o >= MINUTES_PER_DAY || o === c) return null;
-      const window = { open: o, close: c < o ? c + MINUTES_PER_DAY : c };
+      if (o === null || c === null || o >= MINUTES_PER_DAY) {
+        problems.push(`${where}: open ${JSON.stringify(open)}, close ${JSON.stringify(close)}`);
+        return null;
+      }
+      if (o === c) return null;
+      const wrapped = c < o;
+      const window = {
+        open: o,
+        close: wrapped ? c + MINUTES_PER_DAY : c,
+        ...(wrapped ? { wrapped: true as const } : {}),
+      };
       return typeof name === "string" && name.length > 0 ? { name, ...window } : window;
+    }
+    function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult {
+      return problems.length > 0
+        ? { ok: false, reason: "unreadable_time", detail: problems.join("; ") }
+        : { ok: true, shape, hours };
     }
     function weeklyFrom(
       windowsFor: (day: Weekday) => LegacyWindow[]
@@ -59845,16 +59870,16 @@
       if (!WEEKDAYS.some((day) => day in raw)) {
         return { ok: false, reason: "unknown_shape", detail: "no weekday keys" };
       }
-      const dayWindows = (value: unknown): LegacyWindow[] => {
-        if (!isObject(value) || value.closed === true) return [];
-        const window = toWindow(value.open, value.close);
+      const problems: Problems = [];
+      // As the legacy code: a missing day, or one flagged `closed` (truthy), is closed.
+      const dayWindows = (day: Weekday): LegacyWindow[] => {
+        const value = raw[day];
+        if (!isObject(value) || value.closed) return [];
+        const window = toWindow(day, problems, value.open, value.close);
         return window ? [window] : [];
       };
-      return {
-        ok: true,
-        shape: "weekday",
-        hours: { weekly: weeklyFrom((day) => dayWindows(raw[day])), overrides: [] },
-      };
+      const weekly = weeklyFrom(dayWindows);
+      return finish("weekday", problems, { weekly, overrides: [] });
     }
     function fromSeedArray(raw: unknown[]): LegacyHoursResult {
       const rows = raw.filter(isObject);
@@ -59866,31 +59891,31 @@
       if (rows.length === 0 || rows.length !== raw.length || !rows.every(dayIndexOk)) {
         return { ok: false, reason: "unknown_shape", detail: "array rows lack a 0-6 dayOfWeek" };
       }
+      const problems: Problems = [];
       const windowsFor = (day: Weekday) =>
         rows
-          .filter((row) => row.isClosed !== true && SUNDAY_FIRST[row.dayOfWeek as number] === day)
-          .map((row) => toWindow(row.openTime, row.closeTime))
+          .filter((row) => !row.isClosed && SUNDAY_FIRST[row.dayOfWeek as number] === day)
+          .map((row) => toWindow(day, problems, row.openTime, row.closeTime))
           .filter(isWindow);
-      return {
-        ok: true,
-        shape: "seed_array",
-        hours: { weekly: weeklyFrom(windowsFor), overrides: [] },
-      };
+      const weekly = weeklyFrom(windowsFor);
+      return finish("seed_array", problems, { weekly, overrides: [] });
     }
-    function toWindows(raw: unknown): LegacyWindow[] {
+    function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] {
       if (!Array.isArray(raw)) return [];
       return raw
         .filter(isObject)
-        .map((w) => toWindow(w.open, w.close, w.name))
+        .map((w) => toWindow(where, problems, w.open, w.close, w.name))
         .filter(isWindow);
     }
-    function toOverrides(raw: unknown): LegacyOverride[] {
+    function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] {
       if (!Array.isArray(raw)) return [];
       const byDate = new Map<string, LegacyOverride>();
       for (const entry of raw) {
         if (!isObject(entry) || typeof entry.date !== "string" || !ISO_DATE.test(entry.date)) continue;
         if (byDate.has(entry.date)) continue;
-        const windows = entry.closed === true ? [] : sortedByOpen(toWindows(entry.windows));
+        const windows = entry.closed
+          ? []
+          : sortedByOpen(toWindows(`override ${entry.date}`, problems, entry.windows));
         byDate.set(entry.date, {
           date: entry.date,
           windows,
@@ -59903,15 +59928,10 @@
       if (!isObject(raw.weekly)) {
         return { ok: false, reason: "unknown_shape", detail: "v2 document has no weekly object" };
       }
-      const weekly = raw.weekly;
-      return {
-        ok: true,
-        shape: "v2",
-        hours: {
-          weekly: weeklyFrom((day) => toWindows(weekly[day])),
-          overrides: toOverrides(raw.overrides),
-        },
-      };
+      const weeklyRaw = raw.weekly;
+      const problems: Problems = [];
+      const weekly = weeklyFrom((day) => toWindows(day, problems, weeklyRaw[day]));
+      return finish("v2", problems, { weekly, overrides: toOverrides(problems, raw.overrides) });
     }
     export function normalizeLegacyHours(raw: unknown): LegacyHoursResult {
       if (raw === null || raw === undefined) return { ok: false, reason: "no_hours" };
@@ -59939,7 +59959,16 @@
       today: ServiceDate;
       newId: () => string;
     }
+    export interface PastMidnightWindow {
+      /** A weekday name, or an override's date. */
+      day: string;
+      open: number;
+      /** Minutes past the day's midnight, above 1440. */
+      close: number;
+      span: number;
+    }
     export interface LegacyMigrationNotes {
+      pastMidnightWindows: PastMidnightWindow[];
       /** Windows the legacy slot loop could never seat (last seating before opening). */
       droppedWindows: number;
       skippedPastOverrides: number;
@@ -59949,7 +59978,7 @@
       | { ok: true; config: AvailabilityConfig; notes: LegacyMigrationNotes }
       | {
           ok: false;
-          reason: "invalid_interval" | "invalid_buffer" | "invalid_config";
+          reason: "invalid_interval" | "invalid_buffer" | "invalid_config" | "implausible_span";
           detail: string;
         };
     interface SeatedWindow {
@@ -59983,11 +60012,32 @@
       }
       return { interval, buffer };
     }
+    function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] {
+      const entries = [
+        ...WEEKDAYS.map((day) => ({ day: day as string, windows: hours.weekly[day] })),
+        ...hours.overrides.map((o) => ({ day: o.date, windows: o.windows })),
+      ];
+      return entries.flatMap(({ day, windows }) =>
+        windows
+          .filter((w) => w.wrapped)
+          .map((w) => ({ day, open: w.open, close: w.close, span: w.close - w.open }))
+      );
+    }
     export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult {
       const checked = validIntervalOrBuffer(input);
       if ("ok" in checked) return checked;
       const { interval, buffer } = checked;
       const { hours, newId, today } = input;
+    
+      const wrapped = pastMidnightWindows(hours);
+      const tooLong = wrapped.find((w) => w.span > MAX_PAST_MIDNIGHT_SPAN);
+      if (tooLong) {
+        return {
+          ok: false,
+          reason: "implausible_span",
+          detail: `${tooLong.day} ${tooLong.open}-${tooLong.close} spans ${tooLong.span} minutes`,
+        };
+      }
     
       const seatedWeek = WEEKDAYS.map((day) => seat(hours.weekly[day], buffer));
       const dropped = WEEKDAYS.reduce(
@@ -60086,6 +60136,7 @@
         ok: true,
         config,
         notes: {
+          pastMidnightWindows: wrapped,
           droppedWindows: dropped,
           skippedPastOverrides: hours.overrides.length - futureOverrides.length,
           migratedOverrides: futureOverrides.length,

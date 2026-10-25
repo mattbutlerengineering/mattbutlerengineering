@@ -11288,16 +11288,26 @@
         newId: () => string = randomUUID
       ): VenueMigrationPlan { /* ... */ }
     </item>
-    <item priority="low">
-      type VenueMigrationOutcome = {
-            venueId: string;
-            | {
-            venueId: string;
-            | { venueId: string; outcome: "a | { venueId: string; outcome: "u | { venueId: string; outcome: "n;
+    <item priority="high">
+      interface MigrationSummary {
+        shape: LegacyShape;
+        notes: LegacyMigrationNotes;
+        rows: number;
+      }
     </item>
     <item priority="low">
-      async function writeConfig(
-        tx: Prisma.TransactionClient,
+      type VenueMigrationOutcome = ({ venueId: string; outcome: " | ({ venueId: string; outcome: " | { venueId: string; outcome: "a | {
+            venueId: string;
+            | { venueId: string; outcome: "n;
+    </item>
+    <item priority="low">
+      type AvailabilityRowWriter = Pick<
+        PrismaClient,
+        "schedule" | "venueService" | "sc...;
+    </item>
+    <item priority="high">
+      export async function writeAvailabilityConfig(
+        tx: AvailabilityRowWriter,
         venueId: string,
         config: AvailabilityConfig
       ): Promise<void> { /* ... */ }
@@ -16371,6 +16381,7 @@
         name?: string;
         open: number;
         close: number;
+        wrapped?: true;
       }
     </item>
     <item priority="low">
@@ -16387,7 +16398,7 @@
       }
     </item>
     <item priority="low">
-      type LegacyHoursFailure = { ok: false; reason: "no_hours | { ok: false; reason: "unknown_ | { ok: false; reason: "unknown_;
+      type LegacyHoursFailure = { ok: false; reason: "no_hours | { ok: false; reason: "unknown_ | { ok: false; reason: "unknown_ | { ok: false; reason: "unreadab;
     </item>
     <item priority="low">
       type LegacyHoursResult = { ok: true; shape: LegacyShape | LegacyHoursFailure;
@@ -16398,8 +16409,20 @@
     <item priority="medium">
       function parseTime(value: unknown): number | null { /* ... */ }
     </item>
+    <item priority="high">
+      type Problems = string[];
+    </item>
     <item priority="medium">
-      function toWindow(open: unknown, close: unknown, name?: unknown): LegacyWindow | null { /* ... */ }
+      function toWindow(
+        where: string,
+        problems: Problems,
+        open: unknown,
+        close: unknown,
+        name?: unknown
+      ): LegacyWindow | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="medium">
       function weeklyFrom(
@@ -16413,10 +16436,10 @@
       function fromSeedArray(raw: unknown[]): LegacyHoursResult { /* ... */ }
     </item>
     <item priority="medium">
-      function toWindows(raw: unknown): LegacyWindow[] { /* ... */ }
+      function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] { /* ... */ }
     </item>
     <item priority="medium">
-      function toOverrides(raw: unknown): LegacyOverride[] { /* ... */ }
+      function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] { /* ... */ }
     </item>
     <item priority="medium">
       function fromV2(raw: Loose): LegacyHoursResult { /* ... */ }
@@ -16439,7 +16462,16 @@
       }
     </item>
     <item priority="low">
+      interface PastMidnightWindow {
+        day: string;
+        open: number;
+        close: number;
+        span: number;
+      }
+    </item>
+    <item priority="low">
       interface LegacyMigrationNotes {
+        pastMidnightWindows: PastMidnightWindow[];
         droppedWindows: number;
         skippedPastOverrides: number;
         migratedOverrides: number;
@@ -16473,6 +16505,9 @@
       function validIntervalOrBuffer(
         input: LegacyMigrationInput
       ): { interval: number; buffer: number } | LegacyMigrationResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] { /* ... */ }
     </item>
     <item priority="high">
       export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult { /* ... */ }
