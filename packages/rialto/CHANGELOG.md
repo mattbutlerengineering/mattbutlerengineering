@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 0.8.5
+
+### Patch Changes
+
+- [#7456](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7456) [`85b7783`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/85b77836f02a2f357d14af95cd8f5e3eff413521) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add catalog metadata for Stat, Timeline, Tag and StatusLED so generative UI can offer them.
+
+- [#7460](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7460) [`ce18386`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ce18386e8c02235455f8bb252b48a264f161afd3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Text and Badge catalog metadata declare a string `text`/`label` prop so generated UI can give them words.
+
+- [#7462](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7462) [`1b7ad23`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1b7ad23fbcd9a485b0d9a3c230a9eb79b1e338d4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Text and Badge catalog metadata require their words; Timeline events tolerate a missing title.
+
 ## 0.8.4
 
 ### Patch Changes
