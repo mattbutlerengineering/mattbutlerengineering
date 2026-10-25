@@ -76,3 +76,61 @@ describe("describeChatAction fallbacks", () => {
     });
   });
 });
+
+describe("describeChatAction dates and times", () => {
+  it("shows a booking's date and times as people read them, in the given locale", () => {
+    const description = describeChatAction(
+      {
+        actionId: "a4",
+        toolName: "create_reservation",
+        toolInput: { date: "2026-10-30", startTime: "19:00", endTime: "20:30" },
+      },
+      (key) => `t:${key}`,
+      () => undefined,
+      "en-US"
+    );
+
+    expect(description.details.map((detail) => detail.value)).toEqual([
+      "Friday, Oct 30",
+      "7:00 PM",
+      "8:30 PM",
+    ]);
+  });
+
+  it("keeps a malformed date or time visible as sent: what is confirmed is what executes", () => {
+    const description = describeChatAction(
+      {
+        actionId: "a5",
+        toolName: "modify_reservation",
+        toolInput: { date: "next Friday", startTime: "7pm" },
+      },
+      (key) => `t:${key}`,
+      () => undefined,
+      "en-US"
+    );
+
+    expect(description.details.map((detail) => detail.value)).toEqual(["next Friday", "7pm"]);
+  });
+
+  it("keeps an impossible calendar date as sent rather than rolling it over", () => {
+    const description = describeChatAction(
+      {
+        actionId: "a6",
+        toolName: "modify_reservation",
+        toolInput: { date: "2026-13-45" },
+      },
+      (key) => `t:${key}`,
+      () => undefined,
+      "en-US"
+    );
+    const feb = describeChatAction(
+      { actionId: "a7", toolName: "modify_reservation", toolInput: { date: "2026-02-31" } },
+      (key) => `t:${key}`,
+      () => undefined,
+      "en-US"
+    );
+
+    expect(description.details.map((detail) => detail.value)).toEqual(["2026-13-45"]);
+    expect(feb.details.map((detail) => detail.value)).toEqual(["2026-02-31"]);
+  });
+});

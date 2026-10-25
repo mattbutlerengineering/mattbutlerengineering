@@ -1865,13 +1865,17 @@
       type Translate = (key: ChatActionKey) => string;
     </item>
     <item priority="medium">
+      function formatWhen(key: string, value: string, locale?: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
       function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function describeChatAction(
         action: PendingAction,
         t: Translate,
-        tableName: (id: string) => string | undefined
+        tableName: (id: string) => string | undefined,
+        locale?: string
       ): ActionDescription { /* ... */ }
     </item>
     <item priority="high">
