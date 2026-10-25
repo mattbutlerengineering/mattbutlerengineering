@@ -164,6 +164,9 @@ describe("chat component reference", () => {
 
   it("fails loudly if the catalog prompt's layout changes", () => {
     expect(() => chatComponentReference("no markers here")).toThrow(/AVAILABLE COMPONENTS/);
+    expect(() => chatComponentReference("AVAILABLE COMPONENTS (1):\n\n- A: {}")).toThrow(
+      /AVAILABLE ACTIONS/
+    );
   });
 
   it("is what the chat route sends, with no JSONL anywhere", () => {
