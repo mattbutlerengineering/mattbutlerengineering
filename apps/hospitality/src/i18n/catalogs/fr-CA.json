@@ -356,7 +356,8 @@
       "dashboard": "Tableau de bord",
       "setup": "Configuration",
       "hours": "Heures d'ouverture",
-      "menus": "Menus"
+      "menus": "Menus",
+      "chat": "Clavardage"
     },
     "venuesNotLoaded": "Les établissements n'ont pas été chargés.",
     "searchPlaceholder": "Rechercher des pages et des actions...",
