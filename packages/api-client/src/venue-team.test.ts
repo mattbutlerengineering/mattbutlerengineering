@@ -17,9 +17,10 @@ function makeClient() {
 }
 
 const team = {
-  members: [{ userSub: "auth0|a", role: "manager", isViewer: true }],
+  members: [{ userSub: "auth0|a", role: "manager", isViewer: true, isOwner: true }],
   hostEmergencyClose: false,
   viewerRole: "manager",
+  viewerCanChangeOwners: true,
 };
 
 describe("VenueTeamClient", () => {

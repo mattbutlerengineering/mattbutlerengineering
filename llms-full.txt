@@ -32900,7 +32900,7 @@
           schema: {
             summary: "Make a member a Manager or a Host",
             description:
-              "Refuses with 409 when the change would leave the venue without an owner or manager.",
+              "Refuses with 403 when a non-owner changes an owner's role, and with 409 when the change would leave the venue without an owner or manager.",
             tags: ["Venues"],
             params: {
               type: "object",
@@ -32910,18 +32910,27 @@
             body: updateTeamMemberRoleBodyJsonSchema,
           },
         },
-        venueScoped(venueManagerFromRouteId, async (request, reply, { venueId }) => {
+        venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
+          // The caller's own role decides whether they may touch an owner's row;
+          // an admin passes without a lookup, as in `requireVenueRole`.
+          const callerRole = isAdmin
+            ? null
+            : await request.server.venueRoleLookup(request.user?.raw.sub ?? "", venueId);
           try {
             const member = await venueTeamService.setRole(
               venueId,
               request.params.userSub,
-              request.body.role
+              request.body.role,
+              { isAdmin, role: callerRole }
             );
             if (!member) {
               return reply.code(404).send(createProblemDetails(404, "Not Found", MEMBER_NOT_FOUND));
             }
             return { data: member };
           } catch (error) {
+            if (error instanceof OwnerProtectedError) {
+              return reply.code(403).send(createProblemDetails(403, "Forbidden", error.message));
+            }
             if (error instanceof LastManagerError) {
               return reply.code(409).send(createProblemDetails(409, "Conflict", error.message));
             }
@@ -35733,6 +35742,12 @@
       role: TeamRoleSchema,
       /** True for the caller's own membership row. */
       isViewer: z.boolean(),
+      /**
+       * True for a stored `owner` (shown as a Manager). Only an owner or a
+       * platform admin may change an owner's role, so the owner marker is never
+       * lost to a manager's demotion.
+       */
+      isOwner: z.boolean(),
     });
     export const VenueTeamSchema = z.object({
       members: z.array(TeamMemberSchema),
@@ -35740,6 +35755,8 @@
       hostEmergencyClose: z.boolean(),
       /** The caller's role at this venue; platform admins count as a Manager. */
       viewerRole: TeamRoleSchema,
+      /** True when the caller is an owner or a platform admin, the only callers who may change an owner's role. */
+      viewerCanChangeOwners: z.boolean(),
     });
     export const UpdateTeamMemberRoleRequestSchema = z.object({ role: TeamRoleSchema });
     export const UpdateVenueTeamRequestSchema = z.object({ hostEmergencyClose: z.boolean() });
@@ -48131,6 +48148,16 @@
         this.name = "LastManagerError";
       }
     }
+    export class OwnerProtectedError extends Error {
+      constructor() {
+        super("Only an owner can change an owner's role");
+        this.name = "OwnerProtectedError";
+      }
+    }
+    export interface TeamCaller {
+      readonly isAdmin: boolean;
+      readonly role: VenueRole | null;
+    }
     export function createVenueTeamService(client: PrismaClient = prisma) {
       return {
         /** `null` when the venue does not exist. */
@@ -48149,26 +48176,30 @@
             userSub: row.userSub,
             role: toTeamRole(row.role),
             isViewer: row.userSub === viewerSub,
+            isOwner: row.role === "owner",
           }));
           const own = members.find((member) => member.isViewer);
           return {
             members,
             hostEmergencyClose: venue.hostEmergencyClose,
             viewerRole: isAdmin ? "manager" : (own?.role ?? "host"),
+            viewerCanChangeOwners: isAdmin || own?.isOwner === true,
           };
         },
     
         /**
          * Sets one member's role. `manager` leaves an owner an owner; `host`
-         * stores `staff`. Refuses with {@link LastManagerError} to demote the
-         * venue's last owner/manager. The venue's membership rows are locked
+         * stores `staff`. Refuses with {@link OwnerProtectedError} any change to an
+         * owner's row unless `caller` is an owner or a platform admin, and with
+         * {@link LastManagerError} to demote the venue's last owner/manager. The venue's membership rows are locked
          * first, so two Managers demoting each other at once cannot both pass the
          * count. `null` when the user is not a member of this venue.
          */
         async setRole(
           venueId: string,
           userSub: string,
-          role: TeamRole
+          role: TeamRole,
+          caller: TeamCaller
         ): Promise<{ userSub: string; role: TeamRole } | null> {
           return client.$transaction(async (tx) => {
             await setVenueContext(tx, venueId);
@@ -48176,6 +48207,7 @@
             const key = { userSub_venueId: { userSub, venueId } };
             const current = await tx.venueMembership.findUnique({ where: key });
             if (!current) return null;
+            if (current.role === "owner" && !canChangeOwner(caller)) throw new OwnerProtectedError();
             if (toTeamRole(current.role) === role) return { userSub, role };
     
             if (role === "host") {

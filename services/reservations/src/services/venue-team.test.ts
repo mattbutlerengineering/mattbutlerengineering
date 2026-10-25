@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/index.js";
-import { createVenueTeamService, LastManagerError } from "./venue-team.js";
+import { createVenueTeamService, LastManagerError, OwnerProtectedError } from "./venue-team.js";
 
 vi.mock("../middleware/venue-context.js", () => ({ setVenueContext: vi.fn() }));
 
@@ -57,19 +57,29 @@ describe("venueTeamService.get", () => {
 
     expect(team).toEqual({
       members: [
-        { userSub: "auth0|owner", role: "manager", isViewer: false },
-        { userSub: "auth0|host", role: "host", isViewer: true },
+        { userSub: "auth0|owner", role: "manager", isViewer: false, isOwner: true },
+        { userSub: "auth0|host", role: "host", isViewer: true, isOwner: false },
       ],
       hostEmergencyClose: true,
       viewerRole: "host",
+      viewerCanChangeOwners: false,
     });
   });
 
-  it("treats a platform admin who is not a member as a Manager", async () => {
+  it("treats a platform admin who is not a member as a Manager who can change owners", async () => {
     const { client } = fakeClient(TEAM);
     const team = await createVenueTeamService(client).get("venue-1", "auth0|admin", true);
 
     expect(team?.viewerRole).toBe("manager");
+    expect(team?.viewerCanChangeOwners).toBe(true);
+  });
+
+  it("lets an owner change owners but not a manager", async () => {
+    const { client } = fakeClient([...TEAM, { userSub: "auth0|mgr", role: "manager" }]);
+    const service = createVenueTeamService(client);
+
+    expect((await service.get("venue-1", "auth0|owner", false))?.viewerCanChangeOwners).toBe(true);
+    expect((await service.get("venue-1", "auth0|mgr", false))?.viewerCanChangeOwners).toBe(false);
   });
 
   it("returns null when the venue does not exist", async () => {
@@ -80,11 +90,20 @@ describe("venueTeamService.get", () => {
   });
 });
 
+const AS_OWNER = { isAdmin: false, role: "owner" } as const;
+const AS_MANAGER = { isAdmin: false, role: "manager" } as const;
+const AS_ADMIN = { isAdmin: true, role: null } as const;
+
 describe("venueTeamService.setRole", () => {
   it("promotes a Host to Manager", async () => {
     const { client, state } = fakeClient(TEAM);
 
-    const member = await createVenueTeamService(client).setRole("venue-1", "auth0|host", "manager");
+    const member = await createVenueTeamService(client).setRole(
+      "venue-1",
+      "auth0|host",
+      "manager",
+      AS_MANAGER
+    );
 
     expect(member).toEqual({ userSub: "auth0|host", role: "manager" });
     expect(state.rows[1]?.role).toBe("manager");
@@ -93,7 +112,7 @@ describe("venueTeamService.setRole", () => {
   it("keeps an owner an owner when asked to make them a Manager", async () => {
     const { client, tx } = fakeClient(TEAM);
 
-    await createVenueTeamService(client).setRole("venue-1", "auth0|owner", "manager");
+    await createVenueTeamService(client).setRole("venue-1", "auth0|owner", "manager", AS_OWNER);
 
     expect(tx.venueMembership.update).not.toHaveBeenCalled();
   });
@@ -101,7 +120,33 @@ describe("venueTeamService.setRole", () => {
   it("demotes a Manager to Host while another Manager remains", async () => {
     const { client, state } = fakeClient([...TEAM, { userSub: "auth0|mgr", role: "manager" }]);
 
-    await createVenueTeamService(client).setRole("venue-1", "auth0|owner", "host");
+    await createVenueTeamService(client).setRole("venue-1", "auth0|mgr", "host", AS_MANAGER);
+
+    expect(state.rows[2]?.role).toBe("staff");
+  });
+
+  it("refuses a manager changing an owner's role and writes nothing", async () => {
+    const { client, state, tx } = fakeClient([...TEAM, { userSub: "auth0|mgr", role: "manager" }]);
+
+    await expect(
+      createVenueTeamService(client).setRole("venue-1", "auth0|owner", "host", AS_MANAGER)
+    ).rejects.toBeInstanceOf(OwnerProtectedError);
+    expect(tx.venueMembership.update).not.toHaveBeenCalled();
+    expect(state.rows[0]?.role).toBe("owner");
+  });
+
+  it("lets an owner demote another owner while a Manager remains", async () => {
+    const { client, state } = fakeClient([...TEAM, { userSub: "auth0|owner2", role: "owner" }]);
+
+    await createVenueTeamService(client).setRole("venue-1", "auth0|owner2", "host", AS_OWNER);
+
+    expect(state.rows[2]?.role).toBe("staff");
+  });
+
+  it("lets a platform admin demote an owner while a Manager remains", async () => {
+    const { client, state } = fakeClient([...TEAM, { userSub: "auth0|mgr", role: "manager" }]);
+
+    await createVenueTeamService(client).setRole("venue-1", "auth0|owner", "host", AS_ADMIN);
 
     expect(state.rows[0]?.role).toBe("staff");
   });
@@ -110,7 +155,7 @@ describe("venueTeamService.setRole", () => {
     const { client, state } = fakeClient(TEAM);
 
     await expect(
-      createVenueTeamService(client).setRole("venue-1", "auth0|owner", "host")
+      createVenueTeamService(client).setRole("venue-1", "auth0|owner", "host", AS_OWNER)
     ).rejects.toBeInstanceOf(LastManagerError);
     expect(state.rows[0]?.role).toBe("owner");
   });
@@ -118,7 +163,7 @@ describe("venueTeamService.setRole", () => {
   it("locks the venue's memberships before counting Managers", async () => {
     const { client, tx } = fakeClient(TEAM);
 
-    await createVenueTeamService(client).setRole("venue-1", "auth0|host", "manager");
+    await createVenueTeamService(client).setRole("venue-1", "auth0|host", "manager", AS_MANAGER);
 
     expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
   });
@@ -127,7 +172,7 @@ describe("venueTeamService.setRole", () => {
     const { client } = fakeClient(TEAM);
 
     expect(
-      await createVenueTeamService(client).setRole("venue-1", "auth0|nobody", "manager")
+      await createVenueTeamService(client).setRole("venue-1", "auth0|nobody", "manager", AS_OWNER)
     ).toBeNull();
   });
 });

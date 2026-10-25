@@ -3237,6 +3237,17 @@
       }
     </item>
     <item priority="high">
+      class OwnerProtectedError {
+        
+      }
+    </item>
+    <item priority="low">
+      interface TeamCaller {
+        isAdmin: boolean;
+        role: VenueRole | null;
+      }
+    </item>
+    <item priority="high">
       export function createVenueTeamService(client: PrismaClient = prisma) { /* ... */ }
     </item>
     <item priority="low">

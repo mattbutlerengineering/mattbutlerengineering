@@ -15,6 +15,12 @@ export const TeamMemberSchema = z.object({
   role: TeamRoleSchema,
   /** True for the caller's own membership row. */
   isViewer: z.boolean(),
+  /**
+   * True for a stored `owner` (shown as a Manager). Only an owner or a
+   * platform admin may change an owner's role, so the owner marker is never
+   * lost to a manager's demotion.
+   */
+  isOwner: z.boolean(),
 });
 
 /** `GET /api/v1/venues/:id/team`. */
@@ -24,6 +30,8 @@ export const VenueTeamSchema = z.object({
   hostEmergencyClose: z.boolean(),
   /** The caller's role at this venue; platform admins count as a Manager. */
   viewerRole: TeamRoleSchema,
+  /** True when the caller is an owner or a platform admin, the only callers who may change an owner's role. */
+  viewerCanChangeOwners: z.boolean(),
 });
 
 /** `PATCH /api/v1/venues/:id/team/members/:userSub`. */

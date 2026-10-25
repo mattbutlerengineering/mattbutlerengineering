@@ -1,4 +1,13 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  type MockInstance,
+} from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import type { VenueTeam } from "@mbe/types";
@@ -31,16 +40,34 @@ import { TeamRolesCard } from "./TeamRolesCard.js";
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
-function team(viewerRole: VenueTeam["viewerRole"], hostEmergencyClose = false): VenueTeam {
+/** Olive owns the venue; Maria is a manager; Sam is a Host. The viewer is Maria or Sam. */
+function team(
+  viewerRole: VenueTeam["viewerRole"],
+  hostEmergencyClose = false,
+  viewerCanChangeOwners = false
+): VenueTeam {
   return {
     members: [
-      { userSub: "auth0|maria", role: "manager", isViewer: viewerRole === "manager" },
-      { userSub: "auth0|sam", role: "host", isViewer: viewerRole === "host" },
+      { userSub: "auth0|olive", role: "manager", isViewer: false, isOwner: true },
+      {
+        userSub: "auth0|maria",
+        role: "manager",
+        isViewer: viewerRole === "manager",
+        isOwner: false,
+      },
+      { userSub: "auth0|sam", role: "host", isViewer: viewerRole === "host", isOwner: false },
     ],
     hostEmergencyClose,
     viewerRole,
+    viewerCanChangeOwners,
   };
 }
+
+/** React reports invalid DOM nesting (e.g. `<p>` inside `<p>`) through console.error. */
+const isDomNestingError = (args: unknown[]) =>
+  args.some(
+    (arg) => typeof arg === "string" && /cannot (be a descendant|contain a nested)/.test(arg)
+  );
 
 function renderCard() {
   return render(
@@ -51,6 +78,8 @@ function renderCard() {
 }
 
 describe("TeamRolesCard", () => {
+  let consoleError: MockInstance<typeof console.error>;
+
   // rialto's Select scrolls the focused option into view; jsdom has no such method.
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -62,6 +91,13 @@ describe("TeamRolesCard", () => {
     teamQuery.value = { data: team("manager"), isLoading: false, error: null };
     setRole.mockResolvedValue({ userSub: "auth0|sam", role: "manager" });
     setGrant.mockResolvedValue(true);
+    consoleError = vi.spyOn(console, "error");
+  });
+
+  afterEach(() => {
+    const nesting = consoleError.mock.calls.filter(isDomNestingError);
+    consoleError.mockRestore();
+    expect(nesting, "React reported invalid DOM nesting").toEqual([]);
   });
 
   it("shows each member's role and marks the viewer", () => {
@@ -72,6 +108,23 @@ describe("TeamRolesCard", () => {
     );
     expect(screen.getByRole("combobox", { name: "Role for auth0|sam" })).toHaveTextContent("Host");
     expect(screen.getByText("You")).toBeInTheDocument();
+  });
+
+  it("shows an owner's role as read-only text to a manager who is not an owner", () => {
+    renderCard();
+
+    expect(screen.queryByRole("combobox", { name: "Role for auth0|olive" })).toBeNull();
+    expect(screen.getByTestId("team-role-auth0|olive")).toHaveTextContent("Manager");
+    expect(screen.getByRole("combobox", { name: "Role for auth0|maria" })).toBeInTheDocument();
+  });
+
+  it("lets an owner or admin change an owner's role", () => {
+    teamQuery.value = { data: team("manager", false, true), isLoading: false, error: null };
+    renderCard();
+
+    expect(screen.getByRole("combobox", { name: "Role for auth0|olive" })).toHaveTextContent(
+      "Manager"
+    );
   });
 
   it("lets a Manager make a Host a Manager", async () => {
@@ -132,7 +185,7 @@ describe("TeamRolesCard", () => {
     expect(
       screen.getByText("Hosts can close the whole venue for tonight in an emergency.")
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Manager")).toHaveLength(1);
+    expect(screen.getAllByText("Manager")).toHaveLength(2);
     expect(screen.getAllByText("Host")).toHaveLength(1);
   });
 

@@ -11,7 +11,7 @@ import {
   venueTeamResponseJsonSchema,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { LastManagerError } from "../services/venue-team.js";
+import { LastManagerError, OwnerProtectedError } from "../services/venue-team.js";
 import { venueScoped } from "./venue-scope.js";
 
 /** The team routes address the venue by its own `:id`, like the venue self-routes. */
@@ -90,7 +90,7 @@ export const venueTeamRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Make a member a Manager or a Host",
         description:
-          "Refuses with 409 when the change would leave the venue without an owner or manager.",
+          "Refuses with 403 when a non-owner changes an owner's role, and with 409 when the change would leave the venue without an owner or manager.",
         tags: ["Venues"],
         params: {
           type: "object",
@@ -100,18 +100,27 @@ export const venueTeamRoutes: FastifyPluginAsync = async (fastify) => {
         body: updateTeamMemberRoleBodyJsonSchema,
       },
     },
-    venueScoped(venueManagerFromRouteId, async (request, reply, { venueId }) => {
+    venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
+      // The caller's own role decides whether they may touch an owner's row;
+      // an admin passes without a lookup, as in `requireVenueRole`.
+      const callerRole = isAdmin
+        ? null
+        : await request.server.venueRoleLookup(request.user?.raw.sub ?? "", venueId);
       try {
         const member = await venueTeamService.setRole(
           venueId,
           request.params.userSub,
-          request.body.role
+          request.body.role,
+          { isAdmin, role: callerRole }
         );
         if (!member) {
           return reply.code(404).send(createProblemDetails(404, "Not Found", MEMBER_NOT_FOUND));
         }
         return { data: member };
       } catch (error) {
+        if (error instanceof OwnerProtectedError) {
+          return reply.code(403).send(createProblemDetails(403, "Forbidden", error.message));
+        }
         if (error instanceof LastManagerError) {
           return reply.code(409).send(createProblemDetails(409, "Conflict", error.message));
         }

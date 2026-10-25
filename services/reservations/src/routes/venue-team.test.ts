@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { VenueMembershipLookup, VenueRole, VenueRoleLookup } from "@mbe/auth/fastify";
 import { buildApp } from "../app.js";
-import { LastManagerError } from "../services/venue-team.js";
+import { LastManagerError, OwnerProtectedError } from "../services/venue-team.js";
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -19,14 +19,16 @@ import { jwtVerify } from "jose";
 const VENUE = "venue-1";
 const TEAM_URL = `/api/v1/venues/${VENUE}/team`;
 const MEMBER_URL = `${TEAM_URL}/members/${encodeURIComponent("auth0|host")}`;
+const OWNER_URL = `${TEAM_URL}/members/${encodeURIComponent("auth0|other-owner")}`;
 
 const team = {
   members: [
-    { userSub: "auth0|manager", role: "manager", isViewer: false },
-    { userSub: "auth0|host", role: "host", isViewer: true },
+    { userSub: "auth0|manager", role: "manager", isViewer: false, isOwner: true },
+    { userSub: "auth0|host", role: "host", isViewer: true, isOwner: false },
   ],
   hostEmergencyClose: false,
   viewerRole: "host",
+  viewerCanChangeOwners: false,
 };
 
 const svc = { get: vi.fn(), setRole: vi.fn(), setHostEmergencyClose: vi.fn() };
@@ -106,7 +108,61 @@ describe("Venue team routes", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.json().data).toEqual({ userSub: "auth0|host", role: "manager" });
-    expect(svc.setRole).toHaveBeenCalledWith(VENUE, "auth0|host", "manager");
+    expect(svc.setRole).toHaveBeenCalledWith(VENUE, "auth0|host", "manager", {
+      isAdmin: false,
+      role: "manager",
+    });
+  });
+
+  it("refuses a manager changing an owner's role with 403", async () => {
+    app = await appAs("manager");
+    svc.setRole.mockRejectedValueOnce(new OwnerProtectedError());
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: OWNER_URL,
+      headers: BEARER,
+      payload: { role: "host" },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().detail).toBe("Only an owner can change an owner's role");
+  });
+
+  it("passes an owner caller's role through so an owner can change an owner", async () => {
+    app = await appAs("owner");
+    svc.setRole.mockResolvedValueOnce({ userSub: "auth0|other-owner", role: "host" });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: OWNER_URL,
+      headers: BEARER,
+      payload: { role: "host" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(svc.setRole).toHaveBeenCalledWith(VENUE, "auth0|other-owner", "host", {
+      isAdmin: false,
+      role: "owner",
+    });
+  });
+
+  it("passes a platform admin through as an admin caller", async () => {
+    app = await appAs("manager");
+    svc.setRole.mockResolvedValueOnce({ userSub: "auth0|other-owner", role: "host" });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: OWNER_URL,
+      headers: { "x-auth-bypass": "true" },
+      payload: { role: "host" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(svc.setRole).toHaveBeenCalledWith(VENUE, "auth0|other-owner", "host", {
+      isAdmin: true,
+      role: null,
+    });
   });
 
   it("refuses a Host changing a role with 403", async () => {

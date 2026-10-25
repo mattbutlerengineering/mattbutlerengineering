@@ -34,7 +34,7 @@ interface MemberRowProps {
   readonly onRoleChange: (member: TeamMember, role: TeamRole) => void;
 }
 
-/** One member: their role as a Select for a Manager, as a badge for a Host. */
+/** One member: their role as a Select when the viewer may change it, otherwise as a badge. */
 function MemberRow({ member, editable, disabled, onRoleChange }: MemberRowProps) {
   const { t } = useTranslation();
   const options = (Object.keys(ROLE_KEYS) as TeamRole[]).map((role) => ({
@@ -44,8 +44,8 @@ function MemberRow({ member, editable, disabled, onRoleChange }: MemberRowProps)
 
   return (
     <li className={styles.member}>
-      <Text className={styles.identity}>
-        <Text variant="body" color="primary">
+      <Text as="div" className={styles.identity}>
+        <Text as="span" variant="body" color="primary">
           {member.userSub}
         </Text>
         {member.isViewer && (
@@ -63,7 +63,9 @@ function MemberRow({ member, editable, disabled, onRoleChange }: MemberRowProps)
           disabled={disabled}
         />
       ) : (
-        <Badge size="sm">{t(ROLE_KEYS[member.role])}</Badge>
+        <Badge size="sm" data-testid={`team-role-${member.userSub}`}>
+          {t(ROLE_KEYS[member.role])}
+        </Badge>
       )}
     </li>
   );
@@ -112,7 +114,9 @@ function TeamBody({ venueId, team }: TeamBodyProps) {
             <MemberRow
               key={member.userSub}
               member={member}
-              editable={isManager}
+              // Only an owner or admin may change an owner's role (the API
+              // answers 403 otherwise), so other Managers see it as text.
+              editable={isManager && (!member.isOwner || team.viewerCanChangeOwners)}
               disabled={isSaving}
               onRoleChange={handleRoleChange}
             />

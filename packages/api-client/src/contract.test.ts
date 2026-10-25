@@ -144,7 +144,12 @@ describe("API Client ↔ Service Schema Contracts", () => {
         jsonSchemaKeys(members.members!.items as Record<string, unknown>)
       );
       // No name or email crosses the wire: members are keyed by Auth0 sub only.
-      expect([...zodKeys(TeamMemberSchema)].sort()).toEqual(["isViewer", "role", "userSub"]);
+      expect([...zodKeys(TeamMemberSchema)].sort()).toEqual([
+        "isOwner",
+        "isViewer",
+        "role",
+        "userSub",
+      ]);
     });
   });
 });
