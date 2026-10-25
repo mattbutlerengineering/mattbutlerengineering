@@ -22,6 +22,7 @@ flowchart TD
     agent_core["agent-core"]
     api_client["api-client"]
     auth["auth"]
+    availability["availability"]
     cancellation_policy["cancellation-policy"]
     config["config"]
     database["database"]
@@ -96,6 +97,7 @@ flowchart TD
   api_client --> config
   auth --> types
   auth --> config
+  availability --> config
   cancellation_policy --> config
   database --> config
   gh_client --> config
@@ -141,6 +143,7 @@ flowchart TD
   class agent_core shared
   class api_client shared
   class auth shared
+  class availability shared
   class cancellation_policy shared
   class config shared
   class database shared
