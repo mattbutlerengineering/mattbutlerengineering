@@ -6867,6 +6867,16 @@
     export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> {
       return RISK[canonical(raw)] ?? UNKNOWN;
     }
+    export function displayClockTime(raw: string, locale: string | undefined): string {
+      const match = CLOCK_TIME.exec(raw);
+      if (!match) return raw;
+      const at = Date.UTC(1970, 0, 1, Number(match[1] ?? 0), Number(match[2] ?? 0));
+      return new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "UTC",
+      }).format(at);
+    }
   </file>
   <file path="packages/rialto/src/components/catalog-meta.ts">
     export type CatalogCharLimits = Readonly<Record<string, number>>;

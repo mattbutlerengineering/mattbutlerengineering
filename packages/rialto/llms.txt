@@ -997,6 +997,9 @@
     <item priority="high">
       export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> { /* ... */ }
     </item>
+    <item priority="high">
+      export function displayClockTime(raw: string, locale: string | undefined): string { /* ... */ }
+    </item>
   </file>
   <file path="src/components/catalog-meta.ts">
     <item priority="low">
