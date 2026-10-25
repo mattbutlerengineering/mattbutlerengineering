@@ -1,6 +1,6 @@
 # Reservations service reference
 
-Domain model, API routes, SSE events and error handling for `services/reservations`, moved out of [CLAUDE.md](../CLAUDE.md) so they don't load into context every time a reservations file is read. The source of truth is the code: `prisma/schema.prisma` for the model and `src/routes/` for the API.
+Domain model, API routes, SSE events, error handling, integration flows, code examples and environment variables for `services/reservations`, moved out of [CLAUDE.md](../CLAUDE.md) so they don't load into context every time a reservations file is read. The source of truth is the code: `prisma/schema.prisma` for the model and `src/routes/` for the API.
 
 ## Domain Model
 
@@ -521,3 +521,121 @@ extension members (Section 3.2) alongside the standard fields, not nested in a
   "conflictingReservationId": "res-123"
 }
 ```
+
+## Integration Points
+
+The auth rules (which routes require a JWT) stay in [CLAUDE.md § Auth Flow](../CLAUDE.md#auth-flow).
+
+### Hospitality App
+
+```
+Hospitality UI ──> Reservations API ──> SSE ──> Hospitality UI (updates)
+```
+
+### Booking Widget
+
+```
+Booking Widget ──> GET /public/v1/venues/:slug/availability ──> Time slots
+               ──> POST /public/v1/venues/:slug/holds ──> Hold created (venue default 10 m) + x-session-id
+               ──> POST /public/v1/venues/:slug/holds/:holdId/confirm ──> Reservation created
+               ──> POST /public/v1/venues/:slug/deposits/payment-intent ──> Stripe PaymentIntent (if deposit enabled)
+```
+
+### Auth Flow example
+
+```typescript
+// Routes use @mbe/auth plugin
+fastify.get(
+  "/api/v1/reservations",
+  {
+    preHandler: [fastify.requireAuth],
+  },
+  async (request) => {
+    const { venueId, date } = request.query;
+    // Filter by user's accessible venues
+  }
+);
+```
+
+## Venue scope example
+
+The rules for declaring a route's venue stay in [CLAUDE.md § Venue scope](../CLAUDE.md#venue-scope).
+
+```typescript
+fastify.get<{ Querystring: { venueId: string } }>(
+  "/",
+  { preHandler: requireAuth },
+  venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
+    return { data: await thingService.list(venueId) };
+  })
+);
+```
+
+## RLS history
+
+ADR-026 §3.3 records the route-by-route breakage measured on 2026-09-21, before
+the `SECURITY DEFINER` resolvers and this FORCE migration. That measurement is
+history.
+
+## Testing Patterns
+
+### Mocking Database
+
+```typescript
+vi.mock("../services/database.js", () => ({
+  prisma: {
+    venue: { findMany: vi.fn(), findUnique: vi.fn() },
+    table: { findMany: vi.fn(), update: vi.fn() },
+    reservation: { findMany: vi.fn(), create: vi.fn() },
+  },
+}));
+```
+
+### SSE Event Testing
+
+```typescript
+it("broadcasts reservation:created event", async () => {
+  const app = await buildApp({ logger: false });
+  await app.ready();
+
+  // Track SSE broadcasts
+  const broadcasts: unknown[] = [];
+  app.reservationEvents.on("reservation:created", (data) => {
+    broadcasts.push(data);
+  });
+
+  // Create reservation
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/v1/reservations",
+    headers: { authorization: `Bearer ${token}` },
+    payload: validReservationPayload,
+  });
+
+  expect(response.statusCode).toBe(201);
+  expect(broadcasts).toHaveLength(1);
+  expect(broadcasts[0]).toMatchObject({
+    type: "reservation:created",
+    data: expect.objectContaining({ id: expect.any(String) }),
+  });
+});
+```
+
+## Environment Variables
+
+| Variable                   | Required   | Description                                             |
+| -------------------------- | ---------- | ------------------------------------------------------- |
+| `PORT`                     | No         | Service port (default: 3004)                            |
+| `LOG_LEVEL`                | No         | Logging level (default: info)                           |
+| `CORS_ORIGINS`             | No         | Comma-separated allowed origins                         |
+| `AUTH_AUTHORITY`           | Yes (prod) | Auth0 domain                                            |
+| `AUTH_AUDIENCE`            | Yes (prod) | Auth0 API identifier                                    |
+| `DATABASE_URL`             | Yes        | Postgres connection                                     |
+| `MANAGE_TOKEN_SECRET`      | Yes (prod) | HMAC secret for self-service manage/cancel tokens       |
+| `RESEND_API_KEY`           | No         | Resend API key — enables email notifications when set   |
+| `EMAIL_FROM`               | No         | From address for emails (default: reservations@m...com) |
+| `MANAGE_BASE_URL`          | No         | Base URL for manage/cancel links in emails              |
+| `SENTRY_DSN`               | No         | Sentry DSN for error tracking                           |
+| `STRIPE_SECRET_KEY`        | Yes (prod) | Stripe secret key — required when deposits are enabled  |
+| `STRIPE_WEBHOOK_SECRET`    | Yes (prod) | Stripe webhook signing secret for HMAC verification     |
+| `UNSUBSCRIBE_TOKEN_SECRET` | Yes (prod) | HMAC secret for post-visit-email unsubscribe tokens     |
