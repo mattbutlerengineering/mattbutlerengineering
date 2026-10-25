@@ -78,6 +78,21 @@
           404: venueNotFound,
         },
       }),
+      check: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/check`,
+        params: VenueParamsSchema,
+        body: AvailabilityCheckBodySchema,
+        responses: {
+          200: {
+            description: "The booking gate's verdict on this staff booking, with a human message",
+            body: z.object({ data: AvailabilityCheckResultSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
     };
   </file>
   <file path="src/endpoints/define.ts">
@@ -510,6 +525,31 @@
     export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
     export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
     export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    export const SOFT_LIMITS = ["after_last_seating", "pacing", "party_size"] as const;
+    export const SoftLimitSchema = z.enum(SOFT_LIMITS);
+    export const HARD_REASONS = [
+      "closed",
+      "booking_closed",
+      "outside_service",
+      "table_blocked",
+      "conflict",
+    ] as const;
+    export const HardReasonSchema = z.enum(HARD_REASONS);
+    export const AvailabilityCheckBodySchema = z.object({
+      start: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
+      end: z.iso
+        .datetime({ offset: true })
+        .describe("End time (ISO 8601); send the booking's real end, omit to estimate from party size")
+        .optional(),
+      partySize: z.number().int().min(1).describe("Number of guests"),
+      channel: z.literal("phone").describe("Staff checks are phone bookings"),
+      tableId: z.string().describe("Table to check; omit to ask whether any table is free").optional(),
+    });
+    export const AvailabilityCheckResultSchema = z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("ok") }),
+      z.object({ kind: z.literal("soft"), limits: z.array(SoftLimitSchema), message: z.string() }),
+      z.object({ kind: z.literal("hard"), reason: HardReasonSchema, message: z.string() }),
+    ]);
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
     export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
@@ -520,6 +560,8 @@
     export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
     export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
     export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
   </file>
   <file path="src/schemas/availability-config.ts">
     export const SCHEDULE_KINDS = ["regular", "alternate", "holiday"] as const;
@@ -1289,6 +1331,9 @@
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
       })
       .describe("Walk-in reservation payload");
+    export const StaffOverrideSchema = z
+      .object({ reason: z.string().describe("Why the limit is being overridden") })
+      .describe("Override a soft availability limit");
     export const CreateReservationBodySchema = z
       .object({
         date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
@@ -1307,6 +1352,7 @@
         venueId: z.string().describe("ID of the venue for this reservation").optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+        override: StaffOverrideSchema.optional(),
       })
       .describe("Reservation creation payload");
     export const UpdateReservationBodySchema = z
@@ -1328,6 +1374,7 @@
           .optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+        override: StaffOverrideSchema.optional(),
       })
       .describe("Fields to update");
     export const AvailabilityQuerySchema = z.object({
@@ -2402,6 +2449,8 @@
       guestPhone?: string;
       guestId?: string;
       venueId?: string;
+      /** Staff override of a soft availability limit; stored with the booking. */
+      override?: { reason: string };
     }
     export interface UpdateReservationRequest {
       date?: string;
@@ -2415,6 +2464,8 @@
       seatingPreference?: SeatingPreference;
       cancellationReason?: string;
       cancellationNote?: string;
+      /** Staff override of a soft availability limit on a time or table move. */
+      override?: { reason: string };
     }
     export interface UpdateTableStatusRequest {
       status: TableStatus;

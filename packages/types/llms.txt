@@ -234,6 +234,24 @@
     <item priority="low">
       type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
     </item>
+    <item priority="high">
+      export const SOFT_LIMITS: unknown;
+    </item>
+    <item priority="high">
+      export const SoftLimitSchema: unknown;
+    </item>
+    <item priority="high">
+      export const HARD_REASONS: unknown;
+    </item>
+    <item priority="high">
+      export const HardReasonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckResultSchema: unknown;
+    </item>
     <item priority="low">
       type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     </item>
@@ -263,6 +281,12 @@
     </item>
     <item priority="low">
       type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
     </item>
   </file>
   <file path="src/schemas/availability-config.ts">
@@ -999,6 +1023,9 @@
     </item>
     <item priority="high">
       export const WalkInBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const StaffOverrideSchema: unknown;
     </item>
     <item priority="high">
       export const CreateReservationBodySchema: unknown;

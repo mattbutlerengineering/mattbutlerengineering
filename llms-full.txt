@@ -10060,6 +10060,21 @@
           404: venueNotFound,
         },
       }),
+      check: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/check`,
+        params: VenueParamsSchema,
+        body: AvailabilityCheckBodySchema,
+        responses: {
+          200: {
+            description: "The booking gate's verdict on this staff booking, with a human message",
+            body: z.object({ data: AvailabilityCheckResultSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
     };
   </file>
   <file path="packages/types/src/endpoints/define.ts">
@@ -27054,6 +27069,21 @@
           }
         ),
       });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.check, {
+        docs: {
+          summary: "Check a staff booking against availability",
+          operationId: "checkAvailability",
+          description:
+            "The booking gate's verdict on a phone booking (`ok`, `soft` with the limits and a message, or `hard` with the reason and a message), for the staff form. Read-only; the booking write still passes the gate, where a `soft` limit yields to `override.reason` and a `hard` one never does.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, _reply, { venueId }) => ({
+          data: await availabilityConfigService.check(venueId, request.body, new Date()),
+        })),
+      });
     };
   </file>
   <file path="services/reservations/src/routes/availability.ts">
@@ -31330,8 +31360,7 @@
                 },
               },
               400: {
-                description:
-                  "Invalid request body, unknown guest for this venue, or pacing limit exceeded",
+                description: "Invalid request body, unknown guest for this venue",
                 $ref: "Error#",
               },
               401: {
@@ -34973,6 +35002,31 @@
     export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
     export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
     export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    export const SOFT_LIMITS = ["after_last_seating", "pacing", "party_size"] as const;
+    export const SoftLimitSchema = z.enum(SOFT_LIMITS);
+    export const HARD_REASONS = [
+      "closed",
+      "booking_closed",
+      "outside_service",
+      "table_blocked",
+      "conflict",
+    ] as const;
+    export const HardReasonSchema = z.enum(HARD_REASONS);
+    export const AvailabilityCheckBodySchema = z.object({
+      start: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
+      end: z.iso
+        .datetime({ offset: true })
+        .describe("End time (ISO 8601); send the booking's real end, omit to estimate from party size")
+        .optional(),
+      partySize: z.number().int().min(1).describe("Number of guests"),
+      channel: z.literal("phone").describe("Staff checks are phone bookings"),
+      tableId: z.string().describe("Table to check; omit to ask whether any table is free").optional(),
+    });
+    export const AvailabilityCheckResultSchema = z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("ok") }),
+      z.object({ kind: z.literal("soft"), limits: z.array(SoftLimitSchema), message: z.string() }),
+      z.object({ kind: z.literal("hard"), reason: HardReasonSchema, message: z.string() }),
+    ]);
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
     export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
@@ -34983,6 +35037,8 @@
     export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
     export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
     export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
   </file>
   <file path="packages/types/src/schemas/availability-config.ts">
     export const SCHEDULE_KINDS = ["regular", "alternate", "holiday"] as const;
@@ -35752,6 +35808,9 @@
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
       })
       .describe("Walk-in reservation payload");
+    export const StaffOverrideSchema = z
+      .object({ reason: z.string().describe("Why the limit is being overridden") })
+      .describe("Override a soft availability limit");
     export const CreateReservationBodySchema = z
       .object({
         date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
@@ -35770,6 +35829,7 @@
         venueId: z.string().describe("ID of the venue for this reservation").optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+        override: StaffOverrideSchema.optional(),
       })
       .describe("Reservation creation payload");
     export const UpdateReservationBodySchema = z
@@ -35791,6 +35851,7 @@
           .optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+        override: StaffOverrideSchema.optional(),
       })
       .describe("Fields to update");
     export const AvailabilityQuerySchema = z.object({
@@ -40130,16 +40191,21 @@
       | { code: "outside-availability"; reason: HardReason; message?: string }
       | { code: "soft-limit"; limits: SoftLimit[] };
     export type GateOutcome =
-      { kind: "ok" } | { kind: "conflict" } | { kind: "rejected"; rejection: GateRejection };
+      | { kind: "ok"; overrideLimits?: SoftLimit[] }
+      | { kind: "conflict" }
+      | { kind: "rejected"; rejection: GateRejection };
     export interface GateRequest {
       venueId: string;
-      tableId: string;
+      /** Omit to ask whether any table is free (the staff check endpoint). */
+      tableId?: string;
       start: Date;
       /** The booking's real end. Without it the engine estimates one from the party size. */
       end?: Date;
       partySize: number;
       /** Guests book `online`; staff create and update are `phone`. Walk-ins are never gated. */
       channel: BookingChannel;
+      /** A staff reason to pass a soft limit. Honoured on the phone channel only; closures never yield. */
+      override?: { reason: string };
       /** The reservation being moved; it must not conflict or pace against itself. */
       excludeReservationId?: string;
       /** The hold being confirmed or moved onto. */
@@ -40192,6 +40258,7 @@
           partySize: request.partySize,
           channel: request.channel,
           tableId: request.tableId,
+          override: request.override,
         },
         now
       );
@@ -40206,8 +40273,9 @@
     function outcomeOf(verdict: Verdict): GateOutcome {
       switch (verdict.kind) {
         case "ok":
-        case "ok_with_override":
           return { kind: "ok" };
+        case "ok_with_override":
+          return { kind: "ok", overrideLimits: verdict.limits };
         case "soft":
           return { kind: "rejected", rejection: { code: "soft-limit", limits: verdict.limits } };
         case "hard":
@@ -40225,7 +40293,7 @@
       snapshot: BookingSnapshot,
       serviceDate: string,
       minute: number,
-      tableId: string
+      tableId: string | undefined
     ): { reason: HardReason; message?: string } | null {
       const day = resolveDay(snapshot, serviceDate);
       const band = day.closures.find(
@@ -40234,7 +40302,9 @@
           minute < b.to &&
           (b.targetKind === "venue" ||
             (b.targetKind === "booking" && (b.bookingTypes ?? []).includes("phone")) ||
-            (b.targetKind === "tables" && (b.tableIds ?? []).includes(tableId)))
+            (b.targetKind === "tables" &&
+              tableId !== undefined &&
+              (b.tableIds ?? []).includes(tableId)))
       );
       if (!band) return null;
       const reason: HardReason =
@@ -40266,15 +40336,20 @@
       );
       return { kind: "ok" };
     }
-    export function gateProblem(rejection: GateRejection): ProblemDetails {
+    export function rejectionDetail(rejection: GateRejection): string {
       if (rejection.code === "outside-availability") {
-        const detail = rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
+        return rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
+      }
+      return `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
+    }
+    export function gateProblem(rejection: GateRejection): ProblemDetails {
+      const detail = rejectionDetail(rejection);
+      if (rejection.code === "outside-availability") {
         return createProblemDetails(422, "Outside Availability", detail, "about:blank", undefined, {
           code: rejection.code,
           reason: rejection.reason,
         });
       }
-      const detail = `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
       return createProblemDetails(422, "Soft Limit", detail, "about:blank", undefined, {
         code: rejection.code,
         limits: rejection.limits,
@@ -40294,6 +40369,46 @@
     }
     export async function assumeAppRole(tx: AppRoleClient): Promise<void> {
       await tx.$executeRawUnsafe(appRoleSetStatement());
+    }
+  </file>
+  <file path="services/reservations/src/services/availability-check.ts">
+    function resultOf(outcome: GateOutcome): AvailabilityCheckResult {
+      switch (outcome.kind) {
+        case "ok":
+          return { kind: "ok" };
+        case "conflict":
+          return {
+            kind: "hard",
+            reason: "conflict",
+            message: rejectionDetail({ code: "outside-availability", reason: "conflict" }),
+          };
+        case "rejected": {
+          const { rejection } = outcome;
+          const message = rejectionDetail(rejection);
+          return rejection.code === "soft-limit"
+            ? { kind: "soft", limits: rejection.limits, message }
+            : { kind: "hard", reason: rejection.reason, message };
+        }
+      }
+    }
+    export async function checkAvailability(
+      venueId: string,
+      body: AvailabilityCheckBody,
+      now: Date
+    ): Promise<AvailabilityCheckResult> {
+      const outcome = await judgeBooking(
+        prisma,
+        {
+          venueId,
+          tableId: body.tableId,
+          start: new Date(body.start),
+          end: body.end === undefined ? undefined : new Date(body.end),
+          partySize: body.partySize,
+          channel: body.channel,
+        },
+        now
+      );
+      return resultOf(outcome);
     }
   </file>
   <file path="services/reservations/src/services/availability-config-checks.ts">
@@ -41119,6 +41234,7 @@
       }
     }
     export const availabilityConfigService = {
+      check: checkAvailability,
       get: getAvailabilityConfig,
       listDays: listAvailabilityDays,
       save: saveAvailabilityConfig,
@@ -41953,7 +42069,7 @@
        * reading the committed configuration through this transaction
        * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
        */
-      gate?: { channel: BookingChannel };
+      gate?: { channel: BookingChannel; override?: { reason: string } };
       /**
        * Runs immediately after the lock, before the conflict re-check. Returning a
        * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -41966,8 +42082,12 @@
        * hold that could not be confirmed.
        */
       onUnbookable?: (tx: Prisma.TransactionClient, conflict: SlotConflict) => Promise<void>;
-      /** Performs the actual mutation once the slot is confirmed bookable. */
-      write: (tx: Prisma.TransactionClient) => Promise<T>;
+      /**
+       * Performs the actual mutation once the slot is confirmed bookable.
+       * `gated.overrideLimits` lists the soft limits a staff override passed, so
+       * the write can store them with the booking.
+       */
+      write: (tx: Prisma.TransactionClient, gated: { overrideLimits?: SoftLimit[] }) => Promise<T>;
     }
     export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteResult<T>> {
       const {
@@ -42076,38 +42196,43 @@
           }
         }
     
+        let gated: { overrideLimits?: SoftLimit[] } = {};
         if (gate && venueId) {
-          const gateConflict = await availabilityConflict(tx, { ...intent, venueId }, gate.channel);
-          if (gateConflict) return fail(gateConflict);
+          const verdict = await availabilityVerdict(tx, { ...intent, venueId }, gate);
+          if (verdict.conflict) return fail(verdict.conflict);
+          gated = { overrideLimits: verdict.overrideLimits };
         }
     
-        const value = await write(tx);
+        const value = await write(tx, gated);
         return { ok: true, value };
       });
     }
-    async function availabilityConflict(
+    async function availabilityVerdict(
       tx: Prisma.TransactionClient,
       intent: BookSlotIntent<unknown> & { venueId: string },
-      channel: BookingChannel
-    ): Promise<SlotConflict | undefined> {
+      gate: NonNullable<BookSlotIntent<unknown>["gate"]>
+    ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> {
       const outcome = await judgeBooking(tx, {
         venueId: intent.venueId,
         tableId: intent.tableId,
         start: intent.window.startTime,
         end: intent.window.endTime,
         partySize: intent.partySize,
-        channel,
+        channel: gate.channel,
+        override: gate.override,
         excludeReservationId: intent.excludeReservationId,
         excludeHoldId: intent.excludeHoldId,
         excludeSessionId: intent.excludeSessionId,
       });
       if (outcome.kind === "conflict") {
-        return { code: "CONFLICT", message: "Table is not available for this time slot" };
+        return { conflict: { code: "CONFLICT", message: "Table is not available for this time slot" } };
       }
       if (outcome.kind === "rejected") {
-        return { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection };
+        return {
+          conflict: { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection },
+        };
       }
-      return undefined;
+      return { overrideLimits: outcome.overrideLimits };
     }
   </file>
   <file path="services/reservations/src/services/booking-metrics.ts">
@@ -46888,6 +47013,8 @@
       startTime: string;
       endTime: string;
       partySize: number;
+      /** Present when a staff override passed a soft limit to book this slot. */
+      override?: { reason: string; limits: string[] };
     };
     export type DepositEventState = { depositStatus: string };
     export function toEventState(row: {
@@ -46897,6 +47024,8 @@
       startTime: Date;
       endTime: Date;
       partySize: number;
+      overrideReason?: string | null;
+      overrideLimits?: string[];
     }): EventState {
       return {
         status: row.status,
@@ -46905,6 +47034,9 @@
         startTime: row.startTime.toISOString(),
         endTime: row.endTime.toISOString(),
         partySize: row.partySize,
+        ...(row.overrideReason
+          ? { override: { reason: row.overrideReason, limits: row.overrideLimits ?? [] } }
+          : {}),
       };
     }
     export async function recordReservationEvent(
@@ -47656,6 +47788,10 @@
       /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
       rejection?: GateRejection;
     }
+    function overrideColumns(override: { reason: string } | undefined, limits: string[] | undefined) {
+      if (!override || !limits || limits.length === 0) return {};
+      return { overrideReason: override.reason.trim(), overrideLimits: limits };
+    }
     function staffSlotFailure(conflict: SlotConflict) {
       if (conflict.code === "NOT_BOOKABLE") {
         return { success: false, error: conflict.message, rejection: conflict.rejection } as const;
@@ -47866,11 +48002,10 @@
     
         if (venueId) {
           // Fetch venue settings + conflict slices once, then evaluate the single
-          // canonical booking invariant (conflict + pacing) through assertBookable —
-          // the same seam confirmHold and createWalkIn cross, so staff direct
-          // bookings can never apply a different rule than guest bookings.
-          const venue = await prisma.venue.findUnique({ where: { id: venueId } });
-          const settings = (venue?.settings ?? null) as VenueSettings | null;
+          // canonical booking invariant (party fit + conflict) through assertBookable —
+          // the same seam confirmHold and createWalkIn cross. Pacing is NOT checked
+          // here (settings: null): it is a soft limit the booking gate judges below,
+          // so a staff override with a reason can pass it.
           const { reservations, holds } = await availabilityService.fetchConflictData(
             venueId,
             data.date
@@ -47881,7 +48016,7 @@
             table: await loadTableFit(data.tableId),
             window: { startTime, endTime },
             partySize: data.partySize,
-            settings,
+            settings: null,
             reservations,
             holds,
           });
@@ -47896,14 +48031,6 @@
               conflict: { hasConflict: true },
             };
           }
-          if (bookingError?.code === "PACING_EXCEEDED") {
-            const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot ?? Infinity;
-            return {
-              success: false,
-              error: bookingError.message,
-              pacing: { withinLimit: false, currentCovers: 0, maxCovers },
-            };
-          }
         }
     
         // Restore the advisory-lock + transaction this staff-booking path silently
@@ -47916,8 +48043,8 @@
           window: { startTime, endTime },
           partySize: data.partySize,
           checkHoldConflict: true,
-          gate: { channel: "phone" },
-          write: async (tx) => {
+          gate: { channel: "phone", override: data.override },
+          write: async (tx, gated) => {
             const created = await tx.reservation.create({
               data: {
                 date: new Date(data.date),
@@ -47934,6 +48061,7 @@
                 guestId: data.guestId ?? null,
                 userId: userId ?? null,
                 venueId: data.venueId ?? null,
+                ...overrideColumns(data.override, gated.overrideLimits),
               },
               include: {
                 table: true,
@@ -48222,13 +48350,11 @@
     
         if (venueId) {
           // Fetch venue settings + conflict slices once, then evaluate the single
-          // canonical booking invariant (conflict + pacing) through assertBookable —
-          // the same seam every other write path crosses. Exclude the current
-          // reservation from the slices so a move doesn't conflict or pace against
-          // itself. This closes the pacing gap: moves previously checked conflict
-          // only, so a slot move could push a window over its cover limit.
-          const venue = await prisma.venue.findUnique({ where: { id: venueId } });
-          const settings = (venue?.settings ?? null) as VenueSettings | null;
+          // canonical booking invariant (conflict) through assertBookable — the same
+          // seam every other write path crosses. Exclude the current reservation
+          // from the slices so a move doesn't conflict against itself. Pacing is a
+          // soft limit judged by the booking gate below (settings: null here), so a
+          // staff override with a reason can pass it.
           const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
           const filteredReservations = reservations.filter((r) => r.id !== id);
     
@@ -48236,7 +48362,7 @@
             tableId,
             window: { startTime, endTime },
             partySize: data.partySize ?? existing.partySize,
-            settings,
+            settings: null,
             reservations: filteredReservations,
             holds,
           });
@@ -48246,12 +48372,6 @@
               success: false,
               error: "Time slot has a conflict with an existing reservation or hold",
               conflict: { hasConflict: true },
-            };
-          }
-          if (bookingError?.code === "PACING_EXCEEDED") {
-            return {
-              success: false,
-              error: bookingError.message,
             };
           }
         }
@@ -48281,12 +48401,19 @@
           partySize: data.partySize ?? existing.partySize,
           excludeReservationId: id,
           checkHoldConflict: true,
-          gate: { channel: "phone" },
-          write: async (tx) => {
+          gate: { channel: "phone", override: data.override },
+          write: async (tx, gated) => {
             try {
               const moved = await tx.reservation.update({
                 where: { id },
-                data: updateData,
+                // A re-judged slot replaces any earlier override: it stays only if
+                // this move needed one.
+                data: {
+                  ...updateData,
+                  overrideReason: null,
+                  overrideLimits: [],
+                  ...overrideColumns(data.override, gated.overrideLimits),
+                },
                 include: { table: true },
               });
               await recordReservationEvent(tx, {
@@ -59848,6 +59975,22 @@
         });
         return response.data;
       }
+    
+      /**
+       * Ask the booking gate whether it would take a staff (phone) booking:
+       * `ok`, `soft` (limits a reason can override), or `hard` (closures, never
+       * overridable), each with a human message.
+       */
+      async checkBooking(
+        venueId: string,
+        body: AvailabilityCheckBody
+      ): Promise<AvailabilityCheckResult> {
+        const response = await this.client.call(availabilityConfigEndpoints.check, {
+          params: { id: venueId },
+          body,
+        });
+        return response.data;
+      }
     }
     export class HoldsClient {
       private sessionId: string | null = null;
@@ -67588,6 +67731,8 @@
       guestPhone?: string;
       guestId?: string;
       venueId?: string;
+      /** Staff override of a soft availability limit; stored with the booking. */
+      override?: { reason: string };
     }
     export interface UpdateReservationRequest {
       date?: string;
@@ -67601,6 +67746,8 @@
       seatingPreference?: SeatingPreference;
       cancellationReason?: string;
       cancellationNote?: string;
+      /** Staff override of a soft availability limit on a time or table move. */
+      override?: { reason: string };
     }
     export interface UpdateTableStatusRequest {
       status: TableStatus;
