@@ -8733,6 +8733,18 @@
     export function buildGuestRiskFixture(): GuestRiskResult {
       return GuestRiskResultSchema.parse({ requiresDeposit: false });
     }
+    export function buildVenueTeamFixture(): VenueTeam {
+      return VenueTeamSchema.parse({
+        members: [
+          { userSub: "auth0|e2e-owner", role: "manager", isViewer: false, isOwner: true },
+          { userSub: "auth0|e2e-manager", role: "manager", isViewer: true, isOwner: false },
+          { userSub: "auth0|e2e-host", role: "host", isViewer: false, isOwner: false },
+        ],
+        hostEmergencyClose: false,
+        viewerRole: "manager",
+        viewerCanChangeOwners: false,
+      });
+    }
     export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> {
       const now = nowDate.toISOString();
       return [
@@ -9074,6 +9086,20 @@
           return jsonOk(route, { ...venues.data[0], updatedAt: new Date().toISOString() });
         }
         return jsonOk(route, venues.data[0]);
+      });
+    
+      // Settings → Team (#7510): GET returns a constant team (the viewer is a
+      // Manager, plus an owner and one Host) so the Settings page renders the same
+      // card every run; PATCHes echo the body back as the stored value.
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/team(\/members\/[^/?]+)?$/, (route) => {
+        const request = route.request();
+        if (request.method() !== "PATCH") return jsonOk(route, buildVenueTeamFixture());
+        const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+        const memberSub = request.url().match(/\/members\/([^/?]+)$/)?.[1];
+        return jsonOk(
+          route,
+          memberSub ? { userSub: decodeURIComponent(memberSub), role: body.role } : body
+        );
       });
     
       // Venue Groups

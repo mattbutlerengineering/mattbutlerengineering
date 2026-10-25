@@ -2749,6 +2749,9 @@
       export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
     </item>
     <item priority="high">
+      export function buildVenueTeamFixture(): VenueTeam { /* ... */ }
+    </item>
+    <item priority="high">
       export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
