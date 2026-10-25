@@ -82,4 +82,64 @@ describe("ChatPanel with the real catalog registry", () => {
     expect(document.querySelector("[data-element-type]")).toBeNull();
     expect(document.querySelector("[data-rialto-seam-fallback]")).toBeNull();
   });
+  it("renders ReservationList, TimeSlots and GuestCards through the real registry", async () => {
+    const user = userEvent.setup();
+    const elements = [
+      {
+        id: "tonight",
+        type: "ReservationList",
+        props: {
+          reservations: [
+            { time: "6:30 PM", guest: "Garcia", partySize: 4, status: "CONFIRMED" },
+            // A walk-in copied from the tool arrives with guestName: null.
+            { time: "7:00 PM", guest: null, partySize: 2, status: "SEATED" },
+          ],
+        },
+      },
+      {
+        id: "slots",
+        type: "TimeSlots",
+        props: { date: "Friday, Oct 30", partySize: 4, times: ["7:30 PM", "8:00 PM"] },
+      },
+      {
+        id: "guests",
+        type: "GuestCards",
+        props: {
+          guests: [
+            { name: "Maria Garcia", visits: 12, risk: "trusted", tags: ["VIP"] },
+            // search_guests returns tags: null for an untagged guest.
+            { name: "Tom Nguyen", visits: 1, risk: "standard", tags: null },
+          ],
+        },
+      },
+    ];
+    async function* stream() {
+      for (const element of elements) yield { type: "element", element };
+      yield { type: "text", content: "Here is tonight." };
+    }
+
+    render(
+      <ChatPanel
+        standalone
+        onClose={() => {}}
+        api="/api/gen/agent"
+        stream={stream}
+        domainContext={HOSPITALITY_DOMAIN_CONTEXT}
+        getAccessToken={() => "test-token"}
+        registry={registry}
+      />
+    );
+
+    await user.type(screen.getByRole("textbox", { name: /chat input/i }), "who is coming{Enter}");
+
+    const reservations = await screen.findByRole("list", { name: "Reservations" });
+    expect(reservations).toHaveTextContent("Garcia");
+    expect(reservations).toHaveTextContent("Walk-in");
+    expect(screen.getByRole("list", { name: "Open times" })).toHaveTextContent("7:30 PM");
+    const guests = screen.getByRole("list", { name: "Guests" });
+    expect(guests).toHaveTextContent("Maria Garcia");
+    expect(guests).toHaveTextContent("Tom Nguyen");
+    expect(document.querySelector("[data-element-type]")).toBeNull();
+    expect(document.querySelectorAll("[data-rialto-seam-fallback]")).toHaveLength(0);
+  });
 });
