@@ -59638,7 +59638,7 @@
         s.start.getTime() > now.getTime() &&
         s.start.getTime() !== reservation.startTime.getTime();
     
-      const chosen = Array.from({ length: REBOOK_WINDOW_DAYS }, (_, i) => addDays(today, i))
+      const chosen = Array.from({ length: REBOOK_WINDOW_DAYS + 1 }, (_, i) => addDays(today, i - 1))
         .flatMap((date) => {
           const open = listSlots(snapshot, date, reservation.partySize, "online", now).filter(isOffer);
           return rankDay(open, originalMinute, timezone);
