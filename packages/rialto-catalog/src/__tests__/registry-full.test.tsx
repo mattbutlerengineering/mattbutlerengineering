@@ -1151,3 +1151,36 @@ describe("hospitality data elements tolerate plausible model output", () => {
     expect(shown.textContent!.length).toBeLessThanOrEqual(30);
   });
 });
+
+// Live /gen run 2026-10-24 (F24): Text and Badge had no prop for their words, and
+// their adapters rendered only child elements, so every generated label was empty.
+describe("text-bearing elements carry their own words", () => {
+  it("renders a Text's words from its text prop", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: { t: { type: "Text", props: { variant: "label", text: "Visit history" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Visit history")).toBeTruthy();
+  });
+
+  it("renders a Badge's words from its label prop", () => {
+    const { container } = renderSpec({
+      root: "b",
+      elements: { b: { type: "Badge", props: { variant: "success", label: "Confirmed" } } },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Confirmed")).toBeTruthy();
+  });
+
+  it("still renders a Text's child elements when it has them", () => {
+    const { container } = renderSpec({
+      root: "t",
+      elements: {
+        t: { type: "Text", props: { text: "ignored" }, children: ["b"] },
+        b: { type: "Badge", props: { label: "Inner" } },
+      },
+    });
+    expect(within(container).getByText("Inner")).toBeTruthy();
+  });
+});

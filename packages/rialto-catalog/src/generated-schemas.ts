@@ -34,6 +34,7 @@ export const generatedSchemas = {
     variant: z.enum(["accent", "error", "neutral", "success", "warning"]).optional(),
     size: z.enum(["md", "sm"]).optional(),
     dot: z.boolean().optional(),
+    children: z.string().optional(),
   }),
   Banner: z.object({
     variant: z.enum(["accent", "error", "info", "warning"]).optional(),
@@ -242,6 +243,7 @@ export const generatedSchemas = {
     align: z.enum(["center", "left", "right"]).optional(),
     mono: z.boolean().optional(),
     truncate: z.boolean().optional(),
+    children: z.string().optional(),
   }),
   TimePicker: z.object({
     step: z.number().optional(),

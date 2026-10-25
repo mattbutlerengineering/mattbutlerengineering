@@ -69,7 +69,7 @@ import type {
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
-import type { ReactNode } from "react";
+import { Children, type ReactNode } from "react";
 
 const TIMELINE_STATUSES: ReadonlySet<string> = new Set([
   "completed",
@@ -82,6 +82,11 @@ function isTimelineStatus(
   status: string
 ): status is NonNullable<TimelineProps["events"][number]["status"]> {
   return TIMELINE_STATUSES.has(status);
+}
+
+/** A slot's child elements when there are some, else the element's own words (F24). */
+function slotOr(children: ReactNode, words: unknown): ReactNode {
+  return Children.count(children) > 0 ? children : (words as ReactNode);
 }
 
 // Toast is intentionally omitted from this registry.
@@ -274,13 +279,13 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           mono={props.mono}
           truncate={props.truncate}
         >
-          {children}
+          {slotOr(children, props.children)}
         </Text>
       ),
 
       Badge: ({ props, children }: any) => (
         <Badge variant={props.variant} size={props.size} dot={props.dot}>
-          {children}
+          {slotOr(children, props.children)}
         </Badge>
       ),
 
