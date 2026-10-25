@@ -1,16 +1,6 @@
 # Rialto Design System
 
-## Design Philosophy
-
-This component library embodies a design language of material honesty, precision surfaces, restrained luxury, and tactile contrast — inspired by premium industrial design.
-
-### Core Principles
-
-1. **Material honesty** — Every surface communicates what it is. Aluminum looks machined. Glass looks translucent. Recessed inputs feel carved.
-2. **Surgical color** — The palette is warm neutral aluminum. Gold/amber is the single jewel accent, used only for focus, active states, and primary actions. Never decorative.
-3. **Tactile interaction** — Buttons feel like physical controls. Press states show depth change. Toggles have spring-physics detent feel.
-4. **Precision restraint** — Less is more. Three font weights maximum. Tight spacing. Small radii for small elements, larger for containers.
-5. **Warmth over coldness** — Despite the precision, everything has warm undertones. No blue-grays. No pure black. No pure white.
+Design philosophy, token inventories (surface/text/border/semantic colors, spacing, radius and shadow tiers), file maps and background detail: [docs/reference.md](./docs/reference.md).
 
 ---
 
@@ -19,12 +9,7 @@ This component library embodies a design language of material honesty, precision
 ### Colors
 
 - **Never hardcode colors.** Always use `var(--rialto-*)` tokens.
-- Background surfaces: `--rialto-surface`, `--rialto-surface-elevated`, `--rialto-surface-recessed`
-- Text: `--rialto-text-primary`, `--rialto-text-secondary`, `--rialto-text-tertiary`
-- Borders: `--rialto-border`, `--rialto-border-strong`
 - Gold accent: `--rialto-accent` — ONLY for focus rings, active/selected states, primary action fills
-- Semantic: `--rialto-error`, `--rialto-warning`, `--rialto-success` + their `*-muted` variants
-- Warning is warm amber (#b8862a light / #d4a030 dark) — distinct from gold accent
 - Never use gold for decorative purposes, backgrounds, or text color (except on gold-filled buttons)
 - Never hardcode semantic colors — always use the tokens (replaces old `#c49a2a` pattern)
 
@@ -39,28 +24,10 @@ This component library embodies a design language of material honesty, precision
 - Headings: slightly tighter letter-spacing via `--rialto-tracking-tight`
 - Body: natural letter-spacing
 
-### Spacing
+### Spacing, radius, shadows
 
 - Base unit: 4px. All spacing uses `--rialto-space-*` tokens.
-- Component internal padding: typically `--rialto-space-sm` to `--rialto-space-md`
-- Between components: `--rialto-space-lg` to `--rialto-space-xl`
-- Section spacing: `--rialto-space-2xl` to `--rialto-space-3xl`
-
-### Radius (hierarchy-based)
-
-- Small elements (badges, chips): `--rialto-radius-sharp` (2px)
-- Standard interactive (buttons, inputs): `--rialto-radius-default` (6px)
-- Containers (cards, panels): `--rialto-radius-soft` (10px)
-- Pills/avatars: `--rialto-radius-round` (9999px)
-
-### Shadows
-
-- Elevation tiers: `--rialto-shadow-xs` → `--rialto-shadow-sm` → `--rialto-shadow-md` → `--rialto-shadow-lg`
-- Use `xs` for resting buttons/tags, `sm` for cards, `md` for hovered cards, `lg` for modals/floating panels
-- Back-compat alias: `--rialto-shadow-elevated` = `--rialto-shadow-sm`
-- Pressed/active states: `--rialto-shadow-pressed` (inset)
-- Focus states: `--rialto-shadow-focus` (gold glow)
-- Glass panels: `--rialto-shadow-glass`
+- Radius follows the hierarchy (`--rialto-radius-sharp` / `-default` / `-soft` / `-round`) and elevation the `--rialto-shadow-*` tiers — pick from the tables in [docs/reference.md](./docs/reference.md#token-inventory).
 
 ### Easing
 
@@ -120,15 +87,9 @@ This component library embodies a design language of material honesty, precision
 
 ## Component Authoring Patterns
 
-### File structure
+### Wiring up a new component
 
-```
-src/components/ComponentName/
-├── ComponentName.tsx          # Component + props interface
-├── ComponentName.module.css   # Styles using token variables
-├── ComponentName.test.tsx     # Unit tests
-└── index.ts                   # Re-exports the component + public types
-```
+One folder per component under `src/components/ComponentName/` (`.tsx`, `.module.css`, `.test.tsx`, `index.ts` — layout in [docs/reference.md](./docs/reference.md#component-file-structure)).
 
 **Also wire up:**
 
@@ -163,19 +124,9 @@ src/components/ComponentName/
 - Reduced motion: respect `prefers-reduced-motion` media query
 - Focus shifts after a state change: use `useEffect` with a mount-guard ref, NOT `requestAnimationFrame`. testing-library doesn't await rAF callbacks, so tests time out.
 - Reading a ref's `.current` in JSX triggers `react-hooks/refs` ESLint error — keep values used in render in state, not refs.
-- **Overlay/popup components that open from a trigger must call `useReturnFocus(open)`** (`src/hooks/useReturnFocus.ts`) and add a matching `it("<Name> returns focus to trigger on close", ...)` test to `src/test/accessibility/focus-management.accessibility.test.tsx`. That hook captures `document.activeElement` in a `useLayoutEffect`, not a plain `useEffect` — layout effects always flush before passive effects regardless of hook-declaration order, so this is what lets the capture win the race against a component's own layout effect that moves focus into its panel on open (getting this backwards is how `DropdownMenu` silently "restored" focus to its own first menu item instead of the real trigger — #5618). The test file's own coverage-guard test greps every component for a direct `useReturnFocus(` call and fails if the matching test is missing, so a new overlay can't silently skip this. Components with no separate trigger element (Combobox/Autocomplete — the `<input>` itself never loses focus, per the ARIA APG combobox pattern) or that never take focus at all (Tooltip/HoverCard) get a different, documented assertion instead of this contract — see that file's own comments.
+- **Overlay/popup components that open from a trigger must call `useReturnFocus(open)`** (`src/hooks/useReturnFocus.ts`) and add a matching `it("<Name> returns focus to trigger on close", ...)` test to `src/test/accessibility/focus-management.accessibility.test.tsx`. The hook must capture in a `useLayoutEffect`, not a plain `useEffect` (why: [docs/reference.md](./docs/reference.md#why-usereturnfocus-captures-in-a-layout-effect), #5618). The test file's own coverage-guard test greps every component for a direct `useReturnFocus(` call and fails if the matching test is missing, so a new overlay can't silently skip this. Components with no separate trigger element (Combobox/Autocomplete — the `<input>` itself never loses focus, per the ARIA APG combobox pattern) or that never take focus at all (Tooltip/HoverCard) get a different, documented assertion instead of this contract — see that file's own comments.
 
 ---
-
-## File Organization
-
-```
-src/
-├── tokens/          # Design tokens (CSS custom properties + motion TS)
-├── styles/          # Surface materials, reset, global styles
-├── components/      # Component library (one folder per component)
-└── showcase/        # Showcase application
-```
 
 ## AI Assistant Reference
 
@@ -206,7 +157,7 @@ Every string rialto renders on its own (accessible names, default button labels,
 
 ## Exports Map
 
-The `exports` field in `package.json` is auto-generated. `pnpm build` runs `vite build && tsx scripts/generate-all.ts` — the latter parses components once and writes `registry.json`, `dist/manifest.json`, and the `package.json` exports map in a single pass. After adding a new component:
+The `exports` field in `package.json` is auto-generated by `pnpm build` (how: [docs/reference.md](./docs/reference.md#exports-map-generation)). After adding a new component:
 
 1. Wire it up in `src/components/index.ts` (barrel export)
 2. Run `pnpm build` — regenerates `registry.json`, the manifest, and the exports map together
