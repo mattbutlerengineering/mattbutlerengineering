@@ -1781,14 +1781,7 @@
       ): Promise<void> { /* ... */ }
     </item>
   </file>
-  <file path="src/services/availability-config.ts">
-    <item priority="high">
-      type StoreDb = ConfigRowDb &
-        Pick<PrismaClient, "venue" | "reservation...;
-    </item>
-    <item priority="high">
-      type StoreClient = Pick<PrismaClient, "$transaction">;
-    </item>
+  <file path="src/services/availability-config-state.ts">
     <item priority="low">
       interface ConfigState {
         stored: AvailabilityConfig;
@@ -1803,6 +1796,15 @@
         unreadableDays: string[];
         coercions: string[];
       }
+    </item>
+  </file>
+  <file path="src/services/availability-config.ts">
+    <item priority="high">
+      type StoreDb = ConfigRowDb &
+        Pick<PrismaClient, "venue" | "reservation...;
+    </item>
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="medium">
       function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig { /* ... */ }

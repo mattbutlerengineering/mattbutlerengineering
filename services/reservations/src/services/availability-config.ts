@@ -38,6 +38,7 @@ import {
 } from "./availability-config-rows.js";
 import { civilDateIn, planVenueMigration } from "./availability-migration.js";
 import { planPreview, type PreviewPlan } from "./availability-preview.js";
+import type { ConfigState, LegacyNotes } from "./availability-config-state.js";
 import { prisma } from "./database.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
@@ -64,25 +65,7 @@ type StoreDb = ConfigRowDb &
   Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
 type StoreClient = Pick<PrismaClient, "$transaction">;
 
-export interface ConfigState {
-  /** The rows as stored (empty for a venue with none). */
-  stored: AvailabilityConfig;
-  /** What the venue runs on: the rows, or the legacy-derived config. */
-  effective: AvailabilityConfig;
-  source: AvailabilityConfigSource;
-  /** `legacy` only: days the lenient reader closed, and values it coerced. */
-  legacyNotes?: LegacyNotes;
-  /** `unreadable` only: why even the lenient reader could not read the hours. */
-  legacyProblem?: { reason: string; detail: string };
-  version: number;
-  timezone: string;
-  operatingHours: unknown;
-}
-
-export interface LegacyNotes {
-  unreadableDays: string[];
-  coercions: string[];
-}
+export type { ConfigState, LegacyNotes } from "./availability-config-state.js";
 
 const hasRegularSchedule = (config: AvailabilityConfig): boolean =>
   config.schedules.some((s) => s.isRegular && !s.archivedAt);

@@ -13,7 +13,7 @@ import {
   type BookedReservation,
 } from "./availability-config-checks.js";
 import { settleDraft, type ReferenceIssue } from "./availability-config-plan.js";
-import type { ConfigState } from "./availability-config.js";
+import type { ConfigState } from "./availability-config-state.js";
 import { civilDateIn } from "./availability-migration.js";
 import type { ConfigIssue } from "@mbe/availability";
 

@@ -10316,10 +10316,7 @@
       }
     }
   </file>
-  <file path="src/services/availability-config.ts">
-    type StoreDb = ConfigRowDb &
-      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
-    type StoreClient = Pick<PrismaClient, "$transaction">;
+  <file path="src/services/availability-config-state.ts">
     export interface ConfigState {
       /** The rows as stored (empty for a venue with none). */
       stored: AvailabilityConfig;
@@ -10338,6 +10335,11 @@
       unreadableDays: string[];
       coercions: string[];
     }
+  </file>
+  <file path="src/services/availability-config.ts">
+    type StoreDb = ConfigRowDb &
+      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+    type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
       return {
         schedules: [...legacy.schedules, ...stored.schedules],
