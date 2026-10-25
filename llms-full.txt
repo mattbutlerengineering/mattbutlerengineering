@@ -34343,6 +34343,15 @@
     export const DATE_RULE_TARGETS = ["venue", "service", "booking", "tables"] as const;
     export const SERVICE_BOOKING_TYPES = ["online", "phone"] as const;
     export const RULE_BOOKING_TYPES = ["online", "phone", "waitlist"] as const;
+    export const DATE_RULE_SOURCES = ["manual", "holiday", "tonight"] as const;
+    export const CLOSURE_ACTIONS = ["cancel", "move", "keep_notify", "keep_silent"] as const;
+    export const CLOSURE_REFUND_STATUSES = ["none", "pending", "done", "failed"] as const;
+    export const ScheduleKindSchema = z.enum(SCHEDULE_KINDS);
+    export const DateRuleKindSchema = z.enum(DATE_RULE_KINDS);
+    export const DateRuleTargetKindSchema = z.enum(DATE_RULE_TARGETS);
+    export const DateRuleSourceSchema = z.enum(DATE_RULE_SOURCES);
+    export const ClosureActionSchema = z.enum(CLOSURE_ACTIONS);
+    export const ClosureRefundStatusSchema = z.enum(CLOSURE_REFUND_STATUSES);
     export const GUEST_MESSAGE_MAX_LENGTH = 200;
     export const MinuteSchema = z.number().int().min(0).max(MINUTES_IN_TWO_DAYS);
     export const ServiceDateSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
@@ -34381,7 +34390,7 @@
     export const ScheduleSchema = z.object({
       id: IdSchema,
       name: z.string().min(1).max(60),
-      kind: z.enum(SCHEDULE_KINDS),
+      kind: ScheduleKindSchema,
       isRegular: z.boolean(),
       archivedAt: z.string().nullish(),
     });
@@ -34439,6 +34448,7 @@
     export type ScheduleAssignment = z.infer<typeof ScheduleAssignmentSchema>;
     export type DateRule = z.infer<typeof DateRuleSchema>;
     export type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
+    export type ClosureAction = z.infer<typeof ClosureActionSchema>;
   </file>
   <file path="packages/types/src/schemas/common.ts">
     export const PaginationSchema = z.object({
