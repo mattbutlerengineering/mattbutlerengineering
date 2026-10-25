@@ -7,7 +7,7 @@ import type { CatalogMeta } from "../catalog-meta";
 export const timelineCatalogMeta = {
   name: "Timeline",
   description:
-    "A time-ordered sequence of events, such as tonight's reservations in arrival order or a guest's visit history. Each event has a title, optional description and timestamp (display text, e.g. \"7:30 PM\"), and status=completed|active|upcoming|error. Use compact=true for long lists.",
+    "A time-ordered sequence of events, such as tonight's reservations in arrival order or a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
   // Nested strings carry no .max(): the seam clamps only top-level charLimits, so a
   // nested limit would drop the whole Timeline over one long title (F13).
   propSchemas: {

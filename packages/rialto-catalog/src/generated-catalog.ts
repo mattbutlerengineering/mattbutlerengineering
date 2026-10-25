@@ -193,7 +193,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Stat: {
     name: "Stat",
     description:
-      'A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text like "7:30 PM"); label says what it counts. Add delta (e.g. "+6") with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.',
+      "A labelled headline number, such as covers tonight, open tables, or no-shows this week. value is the number (or short text such as 7:30 PM); label says what it counts. Add a delta such as +6 with trend=up|down|neutral to show a change. Put several Stats in a Stack with direction=row for a summary row.",
     charLimits: { label: 25, delta: 10 },
   },
   StatusLED: {
@@ -236,7 +236,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Timeline: {
     name: "Timeline",
     description:
-      "A time-ordered sequence of events, such as tonight's reservations in arrival order or a guest's visit history. Each event has a title, optional description and timestamp (display text, e.g. \"7:30 PM\"), and status=completed|active|upcoming|error. Use compact=true for long lists.",
+      "A time-ordered sequence of events, such as tonight's reservations in arrival order or a guest's visit history. Each event has a title, optional description and timestamp (display text such as 7:30 PM), and status=completed|active|upcoming|error. Use compact=true for long lists.",
   },
   Toast: {
     name: "Toast",
