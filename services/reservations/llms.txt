@@ -1688,7 +1688,7 @@
       export async function readStoredConfig(
         db: ConfigRowDb,
         venueId: string
-      ): Promise<{ config: AvailabilityConfig; hasRows: boolean; warnings: SnapshotWarning[] }> { /* ... */ }
+      ): Promise<{ config: AvailabilityConfig; warnings: SnapshotWarning[] }> { /* ... */ }
     </item>
     <item priority="low">
       async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule): Promise<void> { /* ... */ }
@@ -1734,9 +1734,18 @@
         stored: AvailabilityConfig;
         effective: AvailabilityConfig;
         source: AvailabilityConfigSource;
+        legacyNotes?: LegacyNotes;
         legacyProblem?: { reason: string; detail: string };
-        version: number;
       }
+    </item>
+    <item priority="low">
+      interface LegacyNotes {
+        unreadableDays: string[];
+        coercions: string[];
+      }
+    </item>
+    <item priority="medium">
+      function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="medium">
       function legacyIds(venueId: string): () => string { /* ... */ }
@@ -1760,6 +1769,7 @@
         config: AvailabilityConfig;
         version: number;
         source: AvailabilityConfigSource;
+        legacyNotes?: LegacyNotes;
         legacyProblem?: { reason: string; detail: string };
       } | null> { /* ... */ }
     </item>
@@ -1773,7 +1783,7 @@
       ): Promise<AvailabilityDaySummary[] | null> { /* ... */ }
     </item>
     <item priority="low">
-      type SavePlan = { kind: "legacy_unreadable"; r | { kind: "invalid"; issues: (Co | { kind: "stranded"; reservatio | {
+      type SavePlan = { kind: "invalid"; issues: (Co | { kind: "stranded"; reservatio | {
             kind: "write";
             n;
     </item>

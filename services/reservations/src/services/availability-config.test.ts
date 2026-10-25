@@ -371,7 +371,8 @@ describe("getAvailabilityConfig", () => {
   });
 });
 
-// Monday's open cannot be read (25:00); Friday's can. Strictly, nothing migrates.
+// Monday's open cannot be read (25:00); Friday's can. The strict backfill
+// rejects the whole venue; the lenient reader closes Monday, as the listing does.
 const UNREADABLE_HOURS = {
   monday: { open: "25:00", close: "22:00" },
   friday: { open: "17:00", close: "22:00" },
@@ -388,49 +389,54 @@ const venueWith = (operatingHours: unknown) => ({
   update: vi.fn(async () => ({})),
 });
 
-describe("a venue whose legacy hours cannot be read", () => {
-  it("reads as unreadable with the normaliser's reason, not as empty", async () => {
+describe("a venue whose legacy hours the strict reader rejects", () => {
+  it("reads leniently, as guests see it, with the closed day noted", async () => {
     const client = fakeClient({ ...emptyRows(), venue: venueWith(UNREADABLE_HOURS) });
 
     const state = await getAvailabilityConfig("venue-1", NOW, client);
 
     expect(state).toMatchObject({
-      source: "unreadable",
-      legacyProblem: { reason: "unreadable_time" },
+      source: "legacy",
+      legacyNotes: { unreadableDays: [expect.stringContaining("monday")] },
     });
+    expect(state?.config.scheduleServices.length).toBeGreaterThan(0);
   });
 
-  it("refuses a save: no projection overwrite and no silent stranding", async () => {
+  it("does not silently strand or overwrite: closing Friday's booking is a 409", async () => {
     const venue = venueWith(UNREADABLE_HOURS);
     const change = { create: vi.fn() };
     const scheduleCreate = vi.fn();
     const empty = emptyRows();
-    // A future Friday booking, on a weekday the save below would leave closed.
     const client = fakeClient({
       ...empty,
       schedule: { ...empty.schedule, create: scheduleCreate },
       venue,
+      // A future Friday booking, served by the leniently read Friday hours.
       reservation: { findMany: vi.fn(async () => [BOOKING]) },
       table: { findMany: vi.fn(async () => []) },
       availabilityChange: change,
     });
-    const mondayOnly = body(
-      {
-        upsert: {
-          ...CONFIG,
-          assignments: [{ ...CONFIG.assignments[0]!, weekdays: [1] }],
-          dateRules: [],
-        },
-      },
+    // Removing the derived services, as an editor working from the lenient
+    // read would, closes Friday.
+    const read = await getAvailabilityConfig(
+      "venue-1",
+      NOW,
+      fakeClient({ ...emptyRows(), venue: venueWith(UNREADABLE_HOURS) })
+    );
+    const closeEveryDay = body(
+      { remove: { scheduleServices: read!.config.scheduleServices.map((s) => s.id) } },
       0
     );
 
     const outcome = await saveAvailabilityConfig(
-      { venueId: "venue-1", actorId: "auth0|ben", body: mondayOnly, now: NOW },
+      { venueId: "venue-1", actorId: "auth0|ben", body: closeEveryDay, now: NOW },
       client
     );
 
-    expect(outcome).toMatchObject({ kind: "legacy_unreadable", reason: "unreadable_time" });
+    expect(outcome).toMatchObject({
+      kind: "stranded",
+      reservations: [expect.objectContaining({ id: "res-1" })],
+    });
     expect(venue.update).not.toHaveBeenCalled();
     expect(scheduleCreate).not.toHaveBeenCalled();
     expect(change.create).not.toHaveBeenCalled();
@@ -439,5 +445,13 @@ describe("a venue whose legacy hours cannot be read", () => {
   it("keeps a venue with no hours at all as empty", async () => {
     const client = fakeClient({ ...emptyRows(), venue: venueWith(null) });
     expect(await getAvailabilityConfig("venue-1", NOW, client)).toMatchObject({ source: "empty" });
+  });
+
+  it("reports hours not even the lenient reader can read as unreadable", async () => {
+    const client = fakeClient({ ...emptyRows(), venue: venueWith({ version: 99 }) });
+    expect(await getAvailabilityConfig("venue-1", NOW, client)).toMatchObject({
+      source: "unreadable",
+      legacyProblem: { reason: "unknown_version" },
+    });
   });
 });

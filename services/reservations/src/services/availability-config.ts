@@ -71,20 +71,33 @@ export interface ConfigState {
   /** What the venue runs on: the rows, or the legacy-derived config. */
   effective: AvailabilityConfig;
   source: AvailabilityConfigSource;
-  /** `unreadable` only: why the legacy hours could not be read. */
+  /** `legacy` only: days the lenient reader closed, and values it coerced. */
+  legacyNotes?: LegacyNotes;
+  /** `unreadable` only: why even the lenient reader could not read the hours. */
   legacyProblem?: { reason: string; detail: string };
   version: number;
   timezone: string;
   operatingHours: unknown;
 }
 
-const EMPTY_CONFIG: AvailabilityConfig = {
-  schedules: [],
-  venueServices: [],
-  scheduleServices: [],
-  assignments: [],
-  dateRules: [],
-};
+export interface LegacyNotes {
+  unreadableDays: string[];
+  coercions: string[];
+}
+
+const hasRegularSchedule = (config: AvailabilityConfig): boolean =>
+  config.schedules.some((s) => s.isRegular && !s.archivedAt);
+
+/** The legacy-derived week with every stored row kept, so a save drops nothing. */
+function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
+  return {
+    schedules: [...legacy.schedules, ...stored.schedules],
+    venueServices: [...legacy.venueServices, ...stored.venueServices],
+    scheduleServices: [...legacy.scheduleServices, ...stored.scheduleServices],
+    assignments: [...legacy.assignments, ...stored.assignments],
+    dateRules: [...legacy.dateRules, ...stored.dateRules],
+  };
+}
 
 /** Stable ids for a venue's legacy-derived config, the same on every read. */
 function legacyIds(venueId: string): () => string {
@@ -116,17 +129,29 @@ export async function loadConfigState(
     timezone: venue.ianaTimezone,
     operatingHours: venue.operatingHours,
   };
-  if (stored.hasRows) return { ...base, effective: stored.config, source: "rows" };
-  const plan = planVenueMigration(venue, now, legacyIds(venueId));
-  if (plan.kind === "migrate") return { ...base, effective: plan.config, source: "legacy" };
-  if (plan.reason === "no_hours") return { ...base, effective: EMPTY_CONFIG, source: "empty" };
-  // TODO(#7511 follow-up): once #7582 lands, read these leniently
-  // (`planVenueMigration(..., { lenient: true })`) and serve `source: "legacy"`
-  // with its notes, so the editor and the stranded check start from what
-  // guests see. Until then a save is refused rather than starting from empty.
+  // The same choice, and the same lenient read, as the live listing's
+  // snapshot loader, so the editor and the stranded check both start from
+  // what guests see.
+  if (hasRegularSchedule(stored.config)) {
+    return { ...base, effective: stored.config, source: "rows" };
+  }
+  const plan = planVenueMigration(venue, now, legacyIds(venueId), { lenient: true });
+  if (plan.kind === "migrate") {
+    const { unreadableDays = [], coercions = [] } = plan.notes;
+    const notes = unreadableDays.length + coercions.length > 0;
+    return {
+      ...base,
+      effective: withStored(plan.config, stored.config),
+      source: "legacy",
+      ...(notes ? { legacyNotes: { unreadableDays, coercions } } : {}),
+    };
+  }
+  if (plan.reason === "no_hours") return { ...base, effective: stored.config, source: "empty" };
+  // Not even the lenient reader can read it, and the listing serves it as
+  // closed too: the editor starts from that, and says why.
   return {
     ...base,
-    effective: EMPTY_CONFIG,
+    effective: stored.config,
     source: "unreadable",
     legacyProblem: { reason: plan.reason, detail: plan.detail },
   };
@@ -147,12 +172,19 @@ export async function getAvailabilityConfig(
   config: AvailabilityConfig;
   version: number;
   source: AvailabilityConfigSource;
+  legacyNotes?: LegacyNotes;
   legacyProblem?: { reason: string; detail: string };
 } | null> {
   const state = await readState(client, venueId, now);
   if (!state) return null;
-  const { effective: config, version, source, legacyProblem } = state;
-  return { config, version, source, ...(legacyProblem ? { legacyProblem } : {}) };
+  const { effective: config, version, source, legacyNotes, legacyProblem } = state;
+  return {
+    config,
+    version,
+    source,
+    ...(legacyNotes ? { legacyNotes } : {}),
+    ...(legacyProblem ? { legacyProblem } : {}),
+  };
 }
 
 /** Calendar summaries for `from`..`to` inclusive; the caller bounds the range. */
@@ -176,7 +208,6 @@ export async function listAvailabilityDays(
 // ── Save ────────────────────────────────────────────────────────────────────
 
 export type SavePlan =
-  | { kind: "legacy_unreadable"; reason: string; detail: string }
   | { kind: "invalid"; issues: (ConfigIssue | ReferenceIssue)[] }
   | { kind: "stranded"; reservations: StrandedReservation[] }
   | {
@@ -205,9 +236,6 @@ export function planSave(input: {
   newId?: () => string;
 }): SavePlan {
   const { state, body, bookings, now } = input;
-  // Starting from an empty week would silently drop (and, through the
-  // projection, overwrite) the hours guests still see.
-  if (state.legacyProblem) return { kind: "legacy_unreadable", ...state.legacyProblem };
   const applied = applyChanges(state.effective, body.changes, now.toISOString());
   const next = resolveScopeConflicts(
     state.effective,

@@ -40,7 +40,7 @@ const jsonOrNull = (value: unknown) => (value == null ? Prisma.DbNull : json(val
 export async function readStoredConfig(
   db: ConfigRowDb,
   venueId: string
-): Promise<{ config: AvailabilityConfig; hasRows: boolean; warnings: SnapshotWarning[] }> {
+): Promise<{ config: AvailabilityConfig; warnings: SnapshotWarning[] }> {
   const [schedules, venueServices, scheduleServices, assignments, dateRules] = await Promise.all([
     db.schedule.findMany({ where: { venueId } }),
     db.venueService.findMany({ where: { venueId }, orderBy: { position: "asc" } }),
@@ -57,7 +57,7 @@ export async function readStoredConfig(
     { schedules, venueServices, scheduleServices, assignments, dateRules },
     warnings
   );
-  return { config, hasRows: schedules.length > 0, warnings };
+  return { config, warnings };
 }
 
 const scheduleData = (s: Schedule) => ({

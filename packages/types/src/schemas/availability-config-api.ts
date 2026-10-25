@@ -65,12 +65,13 @@ export const PutAvailabilityConfigBodySchema = z.object({
 });
 
 /**
- * Where the returned config came from: the venue's rows, derived from the
- * legacy `operatingHours` column (a venue the backfill has not reached),
- * nothing at all (no hours: closed every day), or `unreadable` legacy hours
- * (config empty, `legacyProblem` says why; a save is refused with 422
- * `legacy-unreadable` rather than overwriting what guests see). A save always
- * writes rows.
+ * Where the returned config came from, chosen exactly as the live listing
+ * chooses it: the venue's rows (a live regular schedule); derived from the
+ * legacy `operatingHours` column, read leniently (`legacyNotes` lists the days
+ * it closed and the values it coerced); `empty` (no hours: closed every day);
+ * or `unreadable` (not even the lenient reader can read it, so guests see it
+ * closed too; `legacyProblem` says why). Stored rows always come along. A
+ * save always writes rows.
  */
 export const AVAILABILITY_CONFIG_SOURCES = ["rows", "legacy", "empty", "unreadable"] as const;
 export const AvailabilityConfigSourceSchema = z.enum(AVAILABILITY_CONFIG_SOURCES);
@@ -80,7 +81,11 @@ export const AvailabilityConfigStateSchema = z.object({
   /** `Venue.availabilityVersion`; send it back as `expectedVersion`. */
   version: z.number().int(),
   source: AvailabilityConfigSourceSchema,
-  /** `unreadable` only: the legacy normaliser's reason and detail. */
+  /** `legacy` only: days the lenient reader closed, and values it coerced. */
+  legacyNotes: z
+    .object({ unreadableDays: z.array(z.string()), coercions: z.array(z.string()) })
+    .optional(),
+  /** `unreadable` only: why not even the lenient reader could read the hours. */
   legacyProblem: z.object({ reason: z.string(), detail: z.string() }).optional(),
 });
 
@@ -109,7 +114,6 @@ export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
   "version-conflict",
   "invalid-config",
   "stranded-bookings",
-  "legacy-unreadable",
 ] as const;
 
 /** RFC 9457 problem with the config API's extension members. */
