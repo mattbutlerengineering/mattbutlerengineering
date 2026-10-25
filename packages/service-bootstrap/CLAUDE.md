@@ -2,26 +2,9 @@
 
 Fastify service bootstrap. Provides `createServiceApp` (fully-configured Fastify instance with all shared plugins) and `startServiceServer` (telemetry init + graceful shutdown). Services call these instead of duplicating bootstrap code.
 
-## Structure
+## Reference
 
-```
-src/
-├── index.ts                    # Re-exports
-├── create-service-app.ts       # Fastify app factory
-├── create-service-app.test.ts
-├── apply-versioning.ts         # API-Version / Link / Sunset header policy (ADR-002)
-├── classify-error.ts           # Maps a thrown error to { status, title, detail, extensions }
-├── error-handler.ts            # Fastify error-handler plugin — wraps classify-error into RFC 7807 problem-details bodies
-├── readiness-routes.ts         # registerReadinessRoutes — /ready probe backed by observability/ checks
-├── feature-flags.ts            # Inline feature-flag evaluation (former @mbe/feature-flags)
-├── feature-flags.test.ts
-├── start-service-server.ts     # Telemetry + listen + graceful shutdown
-├── start-service-server.test.ts
-├── observability/              # OTel SDK, request-id, readiness, error-rate + rate-limit monitors, Auth0 JWKS probe (folded in from the former observability package)
-├── health.ts                   # createLatencyTracker, checkAuth0
-├── health.test.ts
-└── health-routes.ts            # registerHealthRoutes
-```
+`src/` file map and full `createServiceApp` / `startServiceServer` and health usage examples: [docs/reference.md](./docs/reference.md).
 
 ## createServiceApp
 
@@ -40,23 +23,7 @@ Registers all shared plugins in order:
 11. **Error handler** — maps thrown errors (incl. Prisma `P2025`/`P2002`/`P2003`) to RFC 7807 problem-details bodies (`error-handler.ts`)
 12. **API versioning** — `API-Version` / `Link` / `Sunset` headers
 
-```typescript
-import { createServiceApp, startServiceServer } from "@mbe/service-bootstrap";
-
-const app = await createServiceApp({
-  swagger: { title: "Users API", description: "...", serverUrl: "https://api.mbe.dev" },
-});
-
-app.get("/api/v1/users/me", { preHandler: requireAuth }, async (req) => {
-  req.features.check("new-dashboard"); // inline feature flags
-});
-
-startServiceServer({
-  serviceName: "users",
-  port: 3001,
-  buildApp: () => Promise.resolve(app),
-});
-```
+Usage example: [docs/reference.md](./docs/reference.md#createserviceapp).
 
 ## Feature Flags
 
@@ -69,16 +36,7 @@ request.features.checkForUser("flag-name", userId); // percentage rollout
 
 ## Health
 
-```typescript
-import { createLatencyTracker, checkAuth0, registerHealthRoutes } from "@mbe/service-bootstrap";
-
-const tracker = createLatencyTracker();
-tracker.record(42);
-const { isAnomaly } = tracker.checkAnomaly(150); // true if >3x rolling avg
-
-const auth0 = await checkAuth0(); // { status: "ok"|"degraded", latency }
-registerHealthRoutes(app, { tracker, prisma: db.prisma });
-```
+`createLatencyTracker` (anomaly = >3x rolling avg), `checkAuth0` and `registerHealthRoutes`, all exported from the package root. Example: [docs/reference.md](./docs/reference.md#health).
 
 ## Commands
 
