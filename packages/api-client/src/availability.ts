@@ -1,5 +1,6 @@
 import type {
   TimeSlot,
+  PublicAvailabilityResponse,
   DateAvailability,
   ReservationHold,
   CreateHoldRequest,
@@ -47,6 +48,21 @@ export class AvailabilityClient {
    */
   async getTimeSlotsForVenue(slug: string, params: GetVenueTimeSlotsParams): Promise<TimeSlot[]> {
     return this.client.getOne<TimeSlot[]>(publicAvailabilityPath(slug), {
+      date: params.date,
+      partySize: params.partySize,
+    });
+  }
+
+  /**
+   * Same public route as {@link getTimeSlotsForVenue}, but returns the whole
+   * response — the slots plus the engine's per-date `closure` and venue-level
+   * `bookingPaused` — for callers that must tell "closed" from "fully booked".
+   */
+  async getPublicAvailability(
+    slug: string,
+    params: GetVenueTimeSlotsParams
+  ): Promise<PublicAvailabilityResponse> {
+    return this.client.get<PublicAvailabilityResponse>(publicAvailabilityPath(slug), {
       date: params.date,
       partySize: params.partySize,
     });

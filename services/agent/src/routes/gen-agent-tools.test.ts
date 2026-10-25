@@ -19,7 +19,7 @@ function createMockLogger(): FastifyBaseLogger {
 function createMockApiClient() {
   return {
     availability: {
-      getTimeSlots: vi.fn(),
+      getPublicAvailability: vi.fn(),
     },
     venues: {
       get: vi.fn(),
@@ -69,106 +69,100 @@ describe("createAgentTools", () => {
   }
 
   describe("check_availability", () => {
-    it("calls api.availability.getTimeSlots with correct params", async () => {
+    beforeEach(() => {
+      api.venues.get.mockResolvedValue({ id: "v1", slug: "joes-bistro" });
+    });
+
+    function checkAvailability(input = { date: "2026-10-29", partySize: 2 }) {
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      return tools.check_availability!.execute!(input, toolCtx);
+    }
+
+    it("asks the public availability endpoint for the venue's slug", async () => {
       const mockSlots = [
         { time: "18:00", available: true },
         { time: "19:00", available: true },
       ];
-      api.availability.getTimeSlots.mockResolvedValue(mockSlots);
+      api.availability.getPublicAvailability.mockResolvedValue({ data: mockSlots });
 
-      const tools = createAgentTools(log, api as never, { venueId: "v1" });
-      const checkAvailabilityTool = tools.check_availability;
-      if (!checkAvailabilityTool) throw new Error("expected check_availability tool");
-      const result = await checkAvailabilityTool.execute!(
-        { venueId: "v1", date: "2026-05-18", partySize: 4 },
-        toolCtx
-      );
+      const result = await checkAvailability({ date: "2026-05-18", partySize: 4 });
 
-      expect(api.availability.getTimeSlots).toHaveBeenCalledWith({
-        venueId: "v1",
+      expect(api.venues.get).toHaveBeenCalledWith("v1");
+      expect(api.availability.getPublicAvailability).toHaveBeenCalledWith("joes-bistro", {
         date: "2026-05-18",
         partySize: 4,
       });
       expect(result).toEqual({ slots: mockSlots });
     });
 
-    it("returns error message when API call fails", async () => {
-      api.availability.getTimeSlots.mockRejectedValue(new Error("Service unavailable"));
-
-      const tools = createAgentTools(log, api as never, { venueId: "v1" });
-      const checkAvailabilityTool = tools.check_availability;
-      if (!checkAvailabilityTool) throw new Error("expected check_availability tool");
-      const result = await checkAvailabilityTool.execute!(
-        { venueId: "v1", date: "2026-05-18", partySize: 4 },
-        toolCtx
-      );
-
-      expect(result).toEqual({ error: "Failed to check availability. Please try again." });
-      expect(log.error).toHaveBeenCalled();
-    });
-
-    it("says the venue is closed when a day with no slots has no operating hours", async () => {
-      api.availability.getTimeSlots.mockResolvedValue([]);
-      api.venues.get.mockResolvedValue({
-        operatingHours: { monday: { open: "09:00", close: "22:00" } },
+    it("reports a closed date with the venue's message", async () => {
+      api.availability.getPublicAvailability.mockResolvedValue({
+        data: [],
+        closure: { message: "Closed for a private event" },
       });
 
-      const tools = createAgentTools(log, api as never, { venueId: "v1" });
-      const result = await tools.check_availability!.execute!(
-        { date: "2026-10-29", partySize: 2 },
-        toolCtx
-      );
+      const result = await checkAvailability();
 
-      expect(api.venues.get).toHaveBeenCalledWith("v1");
       expect(result).toEqual({
         slots: [],
         closed: true,
-        note: "The venue is closed on Thursday: it has no operating hours that day, so nothing can be booked. Say so rather than calling the day fully booked.",
+        closureMessage: "Closed for a private event",
+        note: "The venue is closed on 2026-10-29 (Closed for a private event), so nothing can be booked. Say so rather than calling the day fully booked.",
       });
     });
 
-    it("treats a day marked closed as closed", async () => {
-      api.availability.getTimeSlots.mockResolvedValue([]);
-      api.venues.get.mockResolvedValue({
-        operatingHours: { thursday: { open: "17:00", close: "22:00", closed: true } },
+    it("reports paused online booking with the message and phone", async () => {
+      api.availability.getPublicAvailability.mockResolvedValue({
+        data: [],
+        bookingPaused: { message: "Online booking is paused", phone: "555-0100" },
       });
 
-      const tools = createAgentTools(log, api as never, { venueId: "v1" });
-      const result = await tools.check_availability!.execute!(
-        { date: "2026-10-29", partySize: 2 },
-        toolCtx
+      const result = await checkAvailability();
+
+      expect(result).toMatchObject({
+        slots: [],
+        bookingPaused: { message: "Online booking is paused", phone: "555-0100" },
+      });
+      expect(result).not.toHaveProperty("closed");
+    });
+
+    it("returns the empty slots unchanged when the venue is open but full", async () => {
+      api.availability.getPublicAvailability.mockResolvedValue({ data: [] });
+
+      expect(await checkAvailability()).toEqual({ slots: [] });
+    });
+
+    it("reports availability unknown, never closed, on a 5xx", async () => {
+      api.availability.getPublicAvailability.mockRejectedValue(
+        new Error("503 Service Unavailable")
       );
 
-      expect(result).toMatchObject({ slots: [], closed: true });
+      const result = await checkAvailability();
+
+      expect(result).toEqual({
+        unknown: true,
+        error: expect.stringMatching(/couldn't check/i),
+      });
+      expect(result).not.toHaveProperty("closed");
+      expect(log.error).toHaveBeenCalled();
     });
 
-    it("returns the empty slots unchanged when the venue is open that day", async () => {
-      api.availability.getTimeSlots.mockResolvedValue([]);
-      api.venues.get.mockResolvedValue({
-        operatingHours: { thursday: { open: "17:00", close: "22:00" } },
-      });
-
-      const tools = createAgentTools(log, api as never, { venueId: "v1" });
-      const result = await tools.check_availability!.execute!(
-        { date: "2026-10-29", partySize: 2 },
-        toolCtx
+    it("reports availability unknown on a timeout", async () => {
+      api.availability.getPublicAvailability.mockRejectedValue(
+        new DOMException("The operation timed out.", "TimeoutError")
       );
 
-      expect(result).toEqual({ slots: [] });
+      expect(await checkAvailability()).toMatchObject({ unknown: true });
     });
 
-    it("still answers with the empty slots when the venue lookup fails", async () => {
-      api.availability.getTimeSlots.mockResolvedValue([]);
+    it("reports availability unknown, never closed, when the venue lookup fails", async () => {
       api.venues.get.mockRejectedValue(new Error("boom"));
 
-      const tools = createAgentTools(log, api as never, { venueId: "v1" });
-      const result = await tools.check_availability!.execute!(
-        { date: "2026-10-29", partySize: 2 },
-        toolCtx
-      );
+      const result = await checkAvailability();
 
-      expect(result).toEqual({ slots: [] });
-      expect(log.warn).toHaveBeenCalled();
+      expect(result).toMatchObject({ unknown: true });
+      expect(result).not.toHaveProperty("closed");
+      expect(api.availability.getPublicAvailability).not.toHaveBeenCalled();
     });
   });
 
@@ -736,15 +730,16 @@ describe("createAgentTools", () => {
     });
 
     it("scopes read tools to the session venue", async () => {
-      api.availability.getTimeSlots.mockResolvedValue([]);
+      api.venues.get.mockResolvedValue({ slug: "venue-one" });
+      api.availability.getPublicAvailability.mockResolvedValue({ data: [] });
       api.guests.search.mockResolvedValue({ data: [] });
       const tools = createAgentTools(log, api as never, { venueId: "venue-1" });
 
       await tools.check_availability!.execute!({ date: "2026-05-18", partySize: 4 }, toolCtx);
       await tools.search_guests!.execute!({ query: "Lopez" }, toolCtx);
 
-      expect(api.availability.getTimeSlots).toHaveBeenCalledWith({
-        venueId: "venue-1",
+      expect(api.venues.get).toHaveBeenCalledWith("venue-1");
+      expect(api.availability.getPublicAvailability).toHaveBeenCalledWith("venue-one", {
         date: "2026-05-18",
         partySize: 4,
       });
@@ -971,9 +966,10 @@ describe("createAgentTools", () => {
     }
 
     it("check_availability adds the venue-local HH:mm to each slot", async () => {
-      api.availability.getTimeSlots.mockResolvedValue([
-        { time: "2026-05-18T19:30:00.000Z", available: true },
-      ]);
+      api.venues.get.mockResolvedValue({ slug: "v" });
+      api.availability.getPublicAvailability.mockResolvedValue({
+        data: [{ time: "2026-05-18T19:30:00.000Z", available: true }],
+      });
       const result = await run("check_availability", { date: "2026-05-18", partySize: 2 }, LA);
       expect(result).toEqual({
         slots: [{ time: "2026-05-18T19:30:00.000Z", available: true, localTime: "12:30" }],
@@ -1019,7 +1015,10 @@ describe("createAgentTools", () => {
     it("omits localTime for an unparseable time without throwing", async () => {
       const reservation = { id: "r1", startTime: "not a time" };
       api.reservations.list.mockResolvedValue(page([reservation]));
-      api.availability.getTimeSlots.mockResolvedValue([{ time: "soon", available: true }]);
+      api.venues.get.mockResolvedValue({ slug: "v" });
+      api.availability.getPublicAvailability.mockResolvedValue({
+        data: [{ time: "soon", available: true }],
+      });
 
       const listed = await run("list_today_reservations", { date: "2026-05-18" }, LA);
       expect(listed).toEqual({ reservations: [reservation] });

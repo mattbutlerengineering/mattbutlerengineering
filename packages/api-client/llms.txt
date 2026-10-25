@@ -74,6 +74,7 @@
       class AvailabilityClient {
         async getTimeSlots(): Promise<unknown>;
         async getTimeSlotsForVenue(): Promise<unknown>;
+        async getPublicAvailability(): Promise<unknown>;
         async getDates(): Promise<unknown>;
       }
     </item>

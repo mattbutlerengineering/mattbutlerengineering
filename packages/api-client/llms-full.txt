@@ -104,6 +104,21 @@
       }
     
       /**
+       * Same public route as {@link getTimeSlotsForVenue}, but returns the whole
+       * response — the slots plus the engine's per-date `closure` and venue-level
+       * `bookingPaused` — for callers that must tell "closed" from "fully booked".
+       */
+      async getPublicAvailability(
+        slug: string,
+        params: GetVenueTimeSlotsParams
+      ): Promise<PublicAvailabilityResponse> {
+        return this.client.get<PublicAvailabilityResponse>(publicAvailabilityPath(slug), {
+          date: params.date,
+          partySize: params.partySize,
+        });
+      }
+    
+      /**
        * Get dates with availability in a range
        */
       async getDates(params: GetDatesParams): Promise<DateAvailability[]> {
