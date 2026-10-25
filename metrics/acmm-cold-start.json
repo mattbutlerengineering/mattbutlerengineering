@@ -25,5 +25,14 @@
     "test_passed": false,
     "install_passed": true,
     "commit": "7724b7dcc406e2754228a88d50fdf8761380af8d"
+  },
+  {
+    "ts": "2026-10-25T10:40:47Z",
+    "install_seconds": 20,
+    "test_seconds": 344,
+    "total_seconds": 364,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "f8ad5dbe84b62455c1b03b3dcaf04781214af1c5"
   }
 ]
