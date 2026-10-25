@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 
 /**
- * Builds a minimal but internally-consistent fixture repo: a CLAUDE.md with
+ * Builds a minimal but internally-consistent fixture repo: a docs/claude-reference.md with
  * the three drift-checked tables, a `tools/cli/src/command-loaders.ts` + commands
  * tree matching the CLI table, `.claude/skills` and `plugins/<name>/skills`
  * directories matching the skills tables, and `.claude/agents` markdown
@@ -58,8 +58,9 @@ function writeCleanFixture(root) {
     "---\nname: reviewer\ndescription: reviews things\n---\n\nBody text.\n"
   );
 
+  fs.mkdirSync(path.join(root, "docs"), { recursive: true });
   fs.writeFileSync(
-    path.join(root, "CLAUDE.md"),
+    path.join(root, "docs", "claude-reference.md"),
     [
       "## mbe CLI Commands",
       "",
@@ -120,9 +121,9 @@ describe("check-claude-md-table-drift", () => {
 
   test("CLI command documented but absent from source is flagged", async () => {
     fs.writeFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
+      path.join(tmpDir, "docs", "claude-reference.md"),
       fs
-        .readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8")
+        .readFileSync(path.join(tmpDir, "docs", "claude-reference.md"), "utf-8")
         .replace("| `login` | — | Authenticate with the API |\n", "")
         .replace(
           "| `agent` | `run` | Run autonomous coding agents |",
@@ -179,9 +180,9 @@ describe("check-claude-md-table-drift", () => {
 
   test("skill documented but absent from .claude/skills/ is flagged", async () => {
     fs.writeFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
+      path.join(tmpDir, "docs", "claude-reference.md"),
       fs
-        .readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8")
+        .readFileSync(path.join(tmpDir, "docs", "claude-reference.md"), "utf-8")
         .replace(
           "| `/ideate` | Autonomous feature ideation |",
           "| `/ideate` | Autonomous feature ideation |\n| `/ghost-skill` | Does not exist on disk |"
@@ -227,9 +228,9 @@ describe("check-claude-md-table-drift", () => {
 
   test("plugin-extraction carve-out does not apply when the row doesn't mention 'plugin'", async () => {
     fs.writeFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
+      path.join(tmpDir, "docs", "claude-reference.md"),
       fs
-        .readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8")
+        .readFileSync(path.join(tmpDir, "docs", "claude-reference.md"), "utf-8")
         .replace(
           "| `/acmm-audit` | now ships as the `plugins/acmm` plugin (extracted in #818), not a `.claude/skills/` entry |",
           "| `/acmm-audit` | Score repo against the maturity model |"
@@ -248,9 +249,9 @@ describe("check-claude-md-table-drift", () => {
 
   test("subagent documented but absent is flagged", async () => {
     fs.writeFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
+      path.join(tmpDir, "docs", "claude-reference.md"),
       fs
-        .readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8")
+        .readFileSync(path.join(tmpDir, "docs", "claude-reference.md"), "utf-8")
         .replace(
           "| `reviewer` | Bad diffs | Before merge |",
           "| `reviewer` | Bad diffs | Before merge |\n| `ghost-reviewer` | Nothing | Never |"
@@ -285,7 +286,7 @@ describe("check-claude-md-table-drift", () => {
 
   test("subagent detection reads frontmatter name:, not the filename", async () => {
     // File is named mismatched-filename.md but its frontmatter name: differs.
-    // The CLAUDE.md table documents "reviewer" (from the clean fixture) and
+    // The reference-doc table documents "reviewer" (from the clean fixture) and
     // this file's frontmatter also says "reviewer" — despite living in a
     // differently-named file. If the check read the filename instead, it
     // would report both "mismatched-filename" (present-but-undocumented)
@@ -300,5 +301,18 @@ describe("check-claude-md-table-drift", () => {
     const findings = findTableDrift(tmpDir);
 
     expect(findings.find((f) => f.table === "Subagents")).toBeUndefined();
+  });
+});
+
+describe("the real tables doc", () => {
+  // findTableDrift returns [] for a missing doc or a missing heading, so a
+  // rename or move would silently turn the whole check into a no-op.
+  test("exists and carries all three drift-checked headings", async () => {
+    const { TABLES_DOC } = await import("../check-claude-md-table-drift.mjs");
+    const repoRoot = path.resolve(import.meta.dirname, "../..");
+    const lines = fs.readFileSync(path.join(repoRoot, TABLES_DOC), "utf-8").split("\n");
+    for (const heading of ["## mbe CLI Commands", "### Skills", "### Subagents"]) {
+      expect(lines).toContain(heading);
+    }
   });
 });

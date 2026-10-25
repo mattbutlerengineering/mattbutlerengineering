@@ -6,7 +6,7 @@
  *
  * The check used to run entirely as inline bash inside the workflow and had
  * no way to exempt a file from it. `.claude/improvement-loop/log.md` is an
- * append-only daily run log (CLAUDE.md § `.claude/improvement-loop/`) whose
+ * append-only daily run log (docs/claude-reference.md § `.claude/improvement-loop/`) whose
  * whole purpose is to grow — it trips this warning on every routine log PR,
  * and "split into smaller, focused modules" (the check's own suggested fix)
  * does not apply to a log. A warning that fires on every PR of a class and
