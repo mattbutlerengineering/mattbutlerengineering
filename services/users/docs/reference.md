@@ -1,0 +1,320 @@
+# Users service reference
+
+Domain model, file map, route tables, response shapes, integration diagrams, error-code table and full test examples, moved out of [CLAUDE.md](../CLAUDE.md) so they don't load into context every time a users-service file is read. The rules (error shape, env vars, commands, testing approach) stay in CLAUDE.md. The source of truth is `src/` and `prisma/schema.prisma`.
+
+## Domain Model
+
+### User Entity
+
+```typescript
+interface User {
+  id: string; // cuid, primary key
+  email: string; // Unique, used for login
+  name: string | null; // Display name
+  picture: string | null; // Avatar URL
+  emailVerified: boolean; // Email verification status
+  preferences: UserPreferences; // JSON object
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface UserPreferences {
+  theme: "light" | "dark" | "system";
+  timezone: string;
+  notifications: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+  };
+  defaultVenueId?: string;
+}
+```
+
+### Database Schema
+
+```prisma
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  picture       String?
+  emailVerified Boolean  @default(false) @map("email_verified")
+  preferences   Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+```
+
+### Entity Relationships
+
+```
+User (1) ──────< Venue (many, via VenueGroup)
+              │
+              └────< Reservations (many, via guestId)
+```
+
+## Structure
+
+```
+src/
+├── app.ts          # Fastify app builder (plugins, routes, schemas)
+├── index.ts        # Entry point (starts server)
+├── routes/
+│   └── users.ts    # User CRUD endpoints
+├── schemas/
+│   └── index.ts    # JSON Schema definitions with $id refs
+├── services/
+│   └── database.ts # Prisma client singleton
+└── generated/      # Prisma client (gitignored, run db:generate)
+```
+
+## API Routes
+
+### Health Check
+
+| Method | Path                   | Description                             |
+| ------ | ---------------------- | --------------------------------------- |
+| GET    | `/health`              | Internal health check (DO App Platform) |
+| GET    | `/ready`               | Readiness probe (database + auth JWKS)  |
+| GET    | `/api/v1/users/health` | Public health endpoint                  |
+
+**Health Response:**
+
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "apiVersion": "v1",
+  "successorVersion": "v2",
+  "timestamp": "2026-04-04T00:00:00.000Z",
+  "checks": {
+    "database": { "status": "ok", "latency": 5 }
+  }
+}
+```
+
+**Readiness Response (`/ready`):**
+
+Returns 200 when all checks pass, 503 while starting or when a dependency is unavailable.
+
+```json
+{
+  "ready": true,
+  "timestamp": "2026-04-04T00:00:00.000Z",
+  "checks": [
+    { "name": "database", "status": "ok" },
+    { "name": "auth", "status": "ok" }
+  ]
+}
+```
+
+### User Management
+
+| Method | Path                           | Description              | Auth     |
+| ------ | ------------------------------ | ------------------------ | -------- |
+| GET    | `/api/v1/users/me`             | Get current user profile | Required |
+| PATCH  | `/api/v1/users/me/preferences` | Update preferences       | Required |
+
+**GET /api/v1/users/me Response:**
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "picture": "https://...",
+    "emailVerified": true,
+    "preferences": {
+      "theme": "dark",
+      "timezone": "America/New_York"
+    }
+  },
+  "meta": {
+    "timestamp": "2026-04-04T00:00:00.000Z"
+  }
+}
+```
+
+**PUT /api/v1/users/me Request:**
+
+```json
+{
+  "name": "Jane Doe",
+  "picture": "https://..."
+}
+```
+
+## Health Check
+
+The service exposes three health/readiness endpoints:
+
+1. **Internal** (`/health`): Used by DO App Platform for container health checks
+2. **Public** (`/api/v1/users/health`): For external monitoring and synthetic checks
+3. **Readiness** (`/ready`): Kubernetes-style readiness probe — returns 200 only when the database is reachable and the Auth0 JWKS endpoint responds. Returns 503 during startup or when a dependency is unavailable.
+
+The health endpoints return a status object including database connectivity status. The readiness endpoint returns a `ready` boolean plus per-check results.
+
+## Integration Points
+
+### Auth0 Integration
+
+```
+Auth0 ──(ROPC/PKCE)──> Hospitality UI ──(JWT)──> Users Service
+                                            │
+                                            └── Verify JWT
+                                                │
+                                                └── @mbe/auth plugin
+```
+
+### JWT Verification
+
+```typescript
+import { requireAuth } from "@mbe/auth/fastify";
+
+// Route handler with auth
+fastify.get(
+  "/api/v1/users/me",
+  {
+    preHandler: requireAuth,
+    schema: {/* ... */},
+  },
+  async (request) => {
+    const userId = request.user!.id; // From verified JWT (AuthUser.id = JWT sub)
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return { data: user };
+  }
+);
+```
+
+### API Client Usage
+
+```typescript
+// From hospitality app
+const user = await api.users.getProfile(accessToken);
+
+// From @mbe/api-client
+import { createApiClient } from "@mbe/api-client";
+
+const api = createApiClient({
+  baseUrl: import.meta.env.VITE_API_URL,
+  getAccessToken: () => accessToken,
+});
+
+const profile = await api.users.me();
+```
+
+## Error Handling
+
+### Standard Error Response
+
+```typescript
+// RFC 7807 Problem Details (ADR-008) — the single error shape on the wire.
+interface ProblemDetails {
+  type: string; // URI identifying the error type (default: "about:blank")
+  title: string; // Short human-readable summary (e.g. "Not Found")
+  status: number; // HTTP status code
+  detail: string; // Human-readable explanation for this occurrence
+  instance?: string; // URI identifying this specific occurrence
+}
+```
+
+### Error Codes
+
+| Code               | HTTP Status | Description                            |
+| ------------------ | ----------- | -------------------------------------- |
+| `UNAUTHORIZED`     | 401         | Missing or invalid JWT                 |
+| `FORBIDDEN`        | 403         | Valid JWT but insufficient permissions |
+| `NOT_FOUND`        | 404         | User not found                         |
+| `VALIDATION_ERROR` | 422         | Invalid request body                   |
+| `INTERNAL_ERROR`   | 500         | Server error                           |
+
+### Error Response Example
+
+```json
+{
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "User with id '123' not found"
+}
+```
+
+## Testing Patterns
+
+### Route Testing with app.inject()
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { buildApp } from "../app.js";
+
+vi.mock("../services/database.js", () => ({
+  prisma: {
+    user: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+  },
+}));
+
+describe("GET /api/v1/users/me", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("returns 401 without auth", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/users/me",
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("returns user with valid auth", async () => {
+    const mockUser = {
+      id: "user-123",
+      email: "test@example.com",
+      name: "Test User",
+    };
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/users/me",
+      headers: {
+        authorization: `Bearer ${generateTestToken()}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({
+      data: mockUser,
+    });
+  });
+});
+```
+
+### Mocking Auth
+
+```typescript
+vi.mock("@mbe/auth/fastify", () => ({
+  authPlugin: vi.fn().mockImplementation(async (app) => {
+    app.decorateRequest("user", {
+      sub: "test-user-id",
+      email: "test@example.com",
+    });
+  }),
+  getAuthPluginOptionsFromEnv: () => ({}),
+}));
+```
