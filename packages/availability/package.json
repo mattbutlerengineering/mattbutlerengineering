@@ -18,6 +18,9 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
+  "dependencies": {
+    "@mbe/types": "workspace:*"
+  },
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",

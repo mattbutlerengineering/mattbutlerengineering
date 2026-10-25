@@ -425,6 +425,11 @@
     },
     {
       "from": "@mbe/availability",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/availability",
       "to": "@mbe/config",
       "type": "devDependency"
     },
