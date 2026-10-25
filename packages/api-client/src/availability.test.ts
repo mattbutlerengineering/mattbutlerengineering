@@ -161,6 +161,26 @@ describe("AvailabilityClient", () => {
     });
   });
 
+  describe("getPublicAvailability (public, slug-scoped, full envelope)", () => {
+    it("returns the slots plus closure and bookingPaused alongside them", async () => {
+      const body = {
+        data: [],
+        closure: { message: "Closed for a private event" },
+        bookingPaused: { message: "Booking is paused", phone: "555-0100" },
+      };
+      mockFetch.mockResolvedValueOnce(jsonResponse(body));
+
+      const result = await new AvailabilityClient(makeApiClient()).getPublicAvailability(
+        "joes-bistro",
+        { date: "2026-06-01", partySize: 2 }
+      );
+
+      const [url] = mockFetch.mock.calls[0]!;
+      expect(new URL(url as string).pathname).toBe("/public/v1/venues/joes-bistro/availability");
+      expect(result).toEqual(body);
+    });
+  });
+
   describe("getDates", () => {
     it("requests /api/v1/availability/:venueId/dates with params", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeDateAvailability] }));

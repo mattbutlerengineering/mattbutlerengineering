@@ -64,7 +64,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Service-day conflicts and timeline** — conflict and pacing queries read service days D−1 through D+1. Ports the prior art's after-midnight timeline layout (`reservationLayout.ts`, V5). (tracker: #7506)
   - Accept: tests show a 00:30 seating from Friday's late service conflicts correctly with Saturday's early seating, and renders on Friday's timeline.
   - Blocked by: Booking gate
-- [ ] **Agent tools via availability endpoint** — `services/agent/src/routes/gen-agent-tools.ts` stops reading `operatingHours` and calls the public availability endpoint. A timeout or 5xx reports "couldn't check". (tracker: #7507)
+- [x] **Agent tools via availability endpoint** — `services/agent/src/routes/gen-agent-tools.ts` stops reading `operatingHours` and calls the public availability endpoint. A timeout or 5xx reports "couldn't check". (tracker: #7507)
   - Accept: tests cover a closed date (reports closed with the message) and a failing endpoint (reports unknown, never closed).
   - Blocked by: Listing on the engine
 

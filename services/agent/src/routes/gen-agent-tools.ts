@@ -74,33 +74,42 @@ function withLocalTime<T extends object>(
   return localTime ? { ...item, localTime } : item;
 }
 
-const WEEKDAYS = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-] as const;
-
-interface DayHours {
-  readonly closed?: boolean | undefined;
-}
+type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAvailability"]>>;
 
 /**
- * The weekday a YYYY-MM-DD date falls on, when the venue's hours leave it
- * closed — the same rule the availability service uses to return no slots
- * (no hours at all, no entry for the day, or the day marked closed).
+ * Availability is unknown, which is not the same as closed: the model must
+ * say it couldn't check, never that the venue is closed or fully booked.
  */
-export function closedWeekday(
-  operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
-  date: string
-): string | undefined {
-  const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
-  if (!weekday) return undefined;
-  const hours = operatingHours?.[weekday];
-  return !hours || hours.closed ? weekday : undefined;
+const AVAILABILITY_UNKNOWN = {
+  unknown: true,
+  error:
+    "Couldn't check availability right now. Tell the user you couldn't check and to try again shortly; do not say the venue is closed or fully booked.",
+} as const;
+
+/** The tool result for one date: the slots, plus the closure or pause the endpoint reported. */
+function availabilityResult(
+  response: PublicAvailability,
+  date: string,
+  timeZone: string | undefined
+) {
+  const slots = response.data.map((slot) => withLocalTime(slot, "time", timeZone));
+  const { closure, bookingPaused } = response;
+  return {
+    slots,
+    ...(closure
+      ? {
+          closed: true,
+          closureMessage: closure.message,
+          note: `The venue is closed on ${date} (${closure.message}), so nothing can be booked. Say so rather than calling the day fully booked.`,
+        }
+      : {}),
+    ...(bookingPaused
+      ? {
+          bookingPaused,
+          note: `Online booking is paused: ${bookingPaused.message}${bookingPaused.phone ? ` Guests can call ${bookingPaused.phone}.` : ""} Say so rather than calling the day fully booked.`,
+        }
+      : {}),
+  };
 }
 
 const CONFIRMATION_PENDING = {
@@ -212,28 +221,14 @@ export function createAgentTools(
         if (!venueId) return NO_VENUE;
         log.info({ venueId, date, partySize }, "check_availability tool called");
         try {
-          const slots = (await api.availability.getTimeSlots({ venueId, date, partySize })).map(
-            (slot) => withLocalTime(slot, "time", timeZone)
-          );
-          if (slots.length > 0) return { slots };
-          // No slots reads as "fully booked" unless the model knows the venue is closed.
-          const weekday = await api.venues.get(venueId).then(
-            (venue) => closedWeekday(venue.operatingHours, date),
-            (err: unknown) => {
-              log.warn({ err, venueId }, "check_availability: venue hours lookup failed");
-              return undefined;
-            }
-          );
-          if (!weekday) return { slots };
-          const day = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-          return {
-            slots,
-            closed: true,
-            note: `The venue is closed on ${day}: it has no operating hours that day, so nothing can be booked. Say so rather than calling the day fully booked.`,
-          };
+          // The public endpoint is slug-scoped and already carries closures and pauses.
+          const { slug } = await api.venues.get(venueId);
+          const response = await api.availability.getPublicAvailability(slug, { date, partySize });
+          return availabilityResult(response, date, timeZone);
         } catch (err) {
+          // Timeout, 5xx or network failure: unknown, never "closed".
           log.error({ err, venueId, date, partySize }, "check_availability failed");
-          return { error: "Failed to check availability. Please try again." };
+          return AVAILABILITY_UNKNOWN;
         }
       },
     }),
