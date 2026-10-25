@@ -70,6 +70,8 @@ export interface BookingRequest {
   partySize: number;
   channel: BookingChannel;
   tableId?: string;
+  /** The booking's real end; without it the estimated duration for the party size is used. */
+  end?: Date;
   override?: { reason: string };
 }
 
@@ -125,11 +127,12 @@ function freeTables(
   minute: number,
   partySize: number,
   start: Date,
-  now: Date
+  now: Date,
+  requestedEnd?: Date
 ): EngineTable[] {
-  const end = new Date(
-    start.getTime() + estimateDuration(partySize, snapshot.settings) * MS_PER_MINUTE
-  );
+  const end =
+    requestedEnd ??
+    new Date(start.getTime() + estimateDuration(partySize, snapshot.settings) * MS_PER_MINUTE);
   const blocked = blockedTables(day, minute);
   return filterSuitableTables(snapshot.tables, partySize).filter(
     (t) =>
@@ -235,7 +238,15 @@ function tableVerdict(
   request: BookingRequest,
   now: Date
 ): Verdict | null {
-  const free = freeTables(snapshot, day, minute, request.partySize, request.start, now);
+  const free = freeTables(
+    snapshot,
+    day,
+    minute,
+    request.partySize,
+    request.start,
+    now,
+    request.end
+  );
   if (request.tableId === undefined) return free.length > 0 ? null : hard("conflict");
   if (blockedTables(day, minute).has(request.tableId)) return hard("table_blocked");
   return free.some((t) => t.id === request.tableId) ? null : hard("conflict");

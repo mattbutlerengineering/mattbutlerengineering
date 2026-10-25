@@ -51,6 +51,22 @@ const RLS_TABLES = [
   "waitlist_entries",
 ] as const;
 
+/**
+ * Every sweep venue is open 09:00–23:00 UTC every day, so the booking gate
+ * (#7504) admits the fixtures' 18:00–20:00 holds and bookings. A venue with no
+ * hours offers guests nothing and refuses online holds.
+ */
+const SWEEP_OPERATING_HOURS = JSON.stringify(
+  Object.fromEntries(
+    ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [
+      day,
+      { open: "09:00", close: "23:00" },
+    ])
+  )
+);
+const INSERT_SWEEP_VENUE = `INSERT INTO venues (id, name, slug, iana_timezone, operating_hours, updated_at)
+  VALUES ($1, $2, $3, 'UTC', $4::jsonb, now())`;
+
 const declaredForce = parseRlsDeclarations(
   readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -154,26 +170,32 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     // reservation_holds are not forced; they are inserted after the venues
     // they reference have committed.
     await withOwnerVenue(venueAId, async () => {
-      await seedClient.query(
-        `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
-        [venueAId, "RLS Sweep Venue A", venueASlug]
-      );
+      await seedClient.query(INSERT_SWEEP_VENUE, [
+        venueAId,
+        "RLS Sweep Venue A",
+        venueASlug,
+        SWEEP_OPERATING_HOURS,
+      ]);
     });
     await withOwnerVenue(venueBId, async () => {
-      await seedClient.query(
-        `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
-        [venueBId, "RLS Sweep Venue B", venueBSlug]
-      );
+      await seedClient.query(INSERT_SWEEP_VENUE, [
+        venueBId,
+        "RLS Sweep Venue B",
+        venueBSlug,
+        SWEEP_OPERATING_HOURS,
+      ]);
     });
     // #5369 PR 6: a second venue the member belongs to, so the item-1 fixture
     // can prove `listForMember`'s fan-out returns EVERY venue the member is a
     // member of, not just one. Deliberately not `venueB` — many other
     // fixtures in this sweep rely on `memberSub` staying a non-member of it.
     await withOwnerVenue(venueCId, async () => {
-      await seedClient.query(
-        `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
-        [venueCId, "RLS Sweep Venue C", venueCSlug]
-      );
+      await seedClient.query(INSERT_SWEEP_VENUE, [
+        venueCId,
+        "RLS Sweep Venue C",
+        venueCSlug,
+        SWEEP_OPERATING_HOURS,
+      ]);
     });
     // 'manager' in venue A: PATCH /venues/:id is a Manager-only config write
     // (#7509), and its member leg must still prove the own-venue write lands.

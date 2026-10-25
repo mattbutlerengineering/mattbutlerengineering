@@ -19,8 +19,13 @@ vi.mock("./slot-rules.js", async (importOriginal) => {
   return { ...actual, checkPacingForSlot: vi.fn().mockReturnValue(true) };
 });
 
+vi.mock("./assert-bookable.js", () => ({
+  judgeBooking: vi.fn().mockResolvedValue({ kind: "ok" }),
+}));
+
 import { bookSlot, tableAdvisoryLockSql } from "./book-slot.js";
 import { prisma } from "./database.js";
+import { judgeBooking } from "./assert-bookable.js";
 import {
   checkPacingForSlot,
   overlapWindow,
@@ -74,6 +79,7 @@ describe("bookSlot", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(checkPacingForSlot).mockReturnValue(true);
+    vi.mocked(judgeBooking).mockResolvedValue({ kind: "ok" });
   });
 
   it("acquires the table advisory lock, then runs write when the slot is free", async () => {
@@ -224,6 +230,67 @@ describe("bookSlot", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.conflict.code).toBe("EXPIRED");
     expect(onUnbookable).toHaveBeenCalledTimes(1);
+    expect(intent.write).not.toHaveBeenCalled();
+  });
+
+  it("never runs the availability gate unless the intent asks for it", async () => {
+    useTxOnce(makeTx());
+    await bookSlot(baseIntent());
+    expect(judgeBooking).not.toHaveBeenCalled();
+  });
+
+  it("runs the availability gate on the transaction client with the slot and exclusions", async () => {
+    const tx = makeTx();
+    useTxOnce(tx);
+    const intent = baseIntent({
+      gate: { channel: "phone" },
+      excludeReservationId: "res-9",
+      excludeHoldId: "hold-9",
+      excludeSessionId: "sess-9",
+    });
+
+    const result = await bookSlot(intent);
+
+    expect(result.ok).toBe(true);
+    expect(judgeBooking).toHaveBeenCalledWith(tx, {
+      venueId: "venue-1",
+      tableId: "table-1",
+      start: START,
+      end: END,
+      partySize: 2,
+      channel: "phone",
+      excludeReservationId: "res-9",
+      excludeHoldId: "hold-9",
+      excludeSessionId: "sess-9",
+    });
+  });
+
+  it("refuses a slot the gate rejects as NOT_BOOKABLE, runs onUnbookable, skips write", async () => {
+    const rejection = { code: "outside-availability", reason: "closed" } as const;
+    vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+    useTxOnce(makeTx());
+    const onUnbookable = vi.fn().mockResolvedValue(undefined);
+    const intent = baseIntent({ gate: { channel: "online" }, onUnbookable });
+
+    const result = await bookSlot(intent);
+
+    expect(result).toEqual({
+      ok: false,
+      conflict: { code: "NOT_BOOKABLE", message: expect.any(String), rejection },
+    });
+    expect(onUnbookable).toHaveBeenCalledTimes(1);
+    expect(intent.write).not.toHaveBeenCalled();
+  });
+
+  it("reports a gate conflict as CONFLICT", async () => {
+    vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "conflict" });
+    useTxOnce(makeTx());
+    const intent = baseIntent({ gate: { channel: "online" } });
+
+    const result = await bookSlot(intent);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.conflict.code).toBe("CONFLICT");
     expect(intent.write).not.toHaveBeenCalled();
   });
 

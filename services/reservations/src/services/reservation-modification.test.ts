@@ -153,6 +153,20 @@ describe("modifyReservation", () => {
     expect(result).toMatchObject({ success: false, status, code });
   });
 
+  it("carries the availability gate's rejection on a NOT_BOOKABLE move failure", async () => {
+    const rejection = { code: "outside-availability", reason: "closed" } as const;
+    vi.mocked(moveReservationToHold).mockResolvedValueOnce({
+      success: false,
+      error: "closed",
+      errorCode: "NOT_BOOKABLE",
+      rejection,
+    });
+
+    const result = await modifyHeld(makeReservation(), { startTime: iso0() });
+
+    expect(result).toMatchObject({ success: false, status: 422, rejection });
+  });
+
   it("returns HOLD_NOT_FOUND (404) without moving when the hold is missing or from another venue", async () => {
     vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(null);
     const missing = await modifyReservation(makeReservation(), { partySize: 2 }, deposits, {

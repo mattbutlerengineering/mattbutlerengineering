@@ -55,7 +55,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 2: Enforcement on every booking path
 
-- [ ] **Booking gate** — `assert-bookable.ts` loads a one-day snapshot and calls `judge` on public hold create, hold confirm (re-check), staff create and update, and guest modify. Walk-ins are counted, never refused. Failures return 422 `outside-availability` and `soft-limit` ProblemDetails. (tracker: #7504)
+- [x] **Booking gate** — `assert-bookable.ts` loads a one-day snapshot and calls `judge` on public hold create, hold confirm (re-check), staff create and update, and guest modify. Walk-ins are counted, never refused. Failures return 422 `outside-availability` and `soft-limit` ProblemDetails. (tracker: #7504)
   - Accept: API tests reject a booking outside the resolved availability on each path with the error envelope (SC Correctness, API half). A closure saved between hold and confirm makes confirm fail.
   - Blocked by: Listing on the engine
 - [ ] **Staff override and check endpoint** — `override: {reason}` on staff create and update, persisted to `Reservation.overrideReason` and `overrideLimits`. Adds `POST …/availability/check`, the api-client method and a contract-test entry. (tracker: #7505)

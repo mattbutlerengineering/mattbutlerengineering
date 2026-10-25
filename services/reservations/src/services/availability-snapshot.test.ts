@@ -383,7 +383,7 @@ describe("loadAvailabilitySnapshot", () => {
     it("is closed, with a warning, when the legacy shape is unrecognised", async () => {
       const { db } = fakeDb(unmigrated({ version: 9, weekly: {} }));
       const logger = { warn: vi.fn() };
-      const { snapshot, source, warnings } = await loadAvailabilitySnapshot(
+      const { snapshot, source, unconfigured, warnings } = await loadAvailabilitySnapshot(
         "v1",
         "2026-11-05",
         "2026-11-05",
@@ -391,6 +391,7 @@ describe("loadAvailabilitySnapshot", () => {
         { db, logger }
       );
       expect(source).toBe("none");
+      expect(unconfigured).toBe(false);
       expect(warnings).toEqual([
         expect.objectContaining({
           table: "venues",
@@ -404,7 +405,7 @@ describe("loadAvailabilitySnapshot", () => {
 
     it("is closed without a warning when nothing is configured at all", async () => {
       const { db } = fakeDb(unmigrated(null));
-      const { snapshot, source, warnings } = await loadAvailabilitySnapshot(
+      const { snapshot, source, unconfigured, warnings } = await loadAvailabilitySnapshot(
         "v1",
         "2026-11-05",
         "2026-11-05",
@@ -412,6 +413,7 @@ describe("loadAvailabilitySnapshot", () => {
         { db }
       );
       expect(source).toBe("none");
+      expect(unconfigured).toBe(true);
       expect(warnings).toEqual([]);
       expect(listSlots(snapshot, "2026-11-05", 2, "online", now)).toEqual([]);
     });

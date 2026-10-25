@@ -411,6 +411,35 @@ describe("Reservation Routes", () => {
       expect(body.data.id).toBe(mockReservation.id);
     });
 
+    it("returns 422 soft-limit when the booking gate reports a soft limit", async () => {
+      vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "Requested time is outside the venue's availability",
+        rejection: { code: "soft-limit", limits: ["after_last_seating"] },
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations",
+        headers: { authorization: "Bearer valid-token" },
+        payload: {
+          date: "2026-02-15",
+          startTime: "2026-02-15T21:45:00.000Z",
+          endTime: "2026-02-15T23:15:00.000Z",
+          partySize: 4,
+          tableId: "table-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 422,
+        title: "Soft Limit",
+        code: "soft-limit",
+        limits: ["after_last_seating"],
+      });
+    });
+
     it("rejects party size over 20 when enhanced-validation flag is enabled", async () => {
       const response = await app.inject({
         method: "POST",
@@ -633,6 +662,29 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data.partySize).toBe(6);
+    });
+
+    it("a move the booking gate refuses → 422 outside-availability", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "Requested time is outside the venue's availability",
+        rejection: { code: "outside-availability", reason: "outside_service" },
+      });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { startTime: "2026-02-15T10:00:00.000Z" },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 422,
+        code: "outside-availability",
+        reason: "outside_service",
+      });
     });
 
     it("moving onto another venue's table → 403 problem, never a 409", async () => {

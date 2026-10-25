@@ -1,6 +1,7 @@
 import type { Reservation } from "@mbe/types";
 import { prisma } from "./database.js";
 import { bookSlot } from "./book-slot.js";
+import type { GateRejection } from "./assert-bookable.js";
 import { toReservation } from "./serializers.js";
 import {
   SYSTEM_ACTOR,
@@ -10,7 +11,7 @@ import {
 } from "./reservation-events.js";
 
 type MoveToHoldErrorCode =
-  "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+  "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
 
 export interface MoveToHoldInput {
   /** The existing reservation to move. Its status is never changed. */
@@ -31,7 +32,13 @@ export interface MoveToHoldInput {
 
 export type MoveToHoldResult =
   | { success: true; reservation: Reservation }
-  | { success: false; error: string; errorCode: MoveToHoldErrorCode };
+  | {
+      success: false;
+      error: string;
+      errorCode: MoveToHoldErrorCode;
+      /** Set with `NOT_BOOKABLE`: the availability gate's refusal. */
+      rejection?: GateRejection;
+    };
 
 /**
  * Atomically moves an existing reservation onto a guest's hold.
@@ -68,6 +75,7 @@ export async function moveReservationToHold(input: MoveToHoldInput): Promise<Mov
     excludeHoldId: holdId,
     checkHoldConflict: true,
     checkPacing: true,
+    gate: { channel: "online" },
     guard: async () =>
       hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
     write: async (tx) => {
@@ -105,11 +113,15 @@ export async function moveReservationToHold(input: MoveToHoldInput): Promise<Mov
   });
 
   if (!result.ok) {
-    const { code } = result.conflict;
-    if (code === "EXPIRED") {
+    const { conflict } = result;
+    if (conflict.code === "NOT_BOOKABLE") {
+      const { message: error, rejection } = conflict;
+      return { success: false, error, errorCode: "NOT_BOOKABLE", rejection };
+    }
+    if (conflict.code === "EXPIRED") {
       return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
     }
-    if (code === "PACING_EXCEEDED") {
+    if (conflict.code === "PACING_EXCEEDED") {
       return {
         success: false,
         error: "Pacing limit reached for this time slot",

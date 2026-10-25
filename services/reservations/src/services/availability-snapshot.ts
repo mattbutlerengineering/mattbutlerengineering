@@ -92,6 +92,12 @@ export interface LoadedSnapshot {
   version: number;
   warnings: SnapshotWarning[];
   source: SnapshotSource;
+  /**
+   * The venue never set hours: no regular schedule row and no legacy
+   * `operatingHours`. Distinct from hours that exist but cannot be read, which
+   * are `source: "none"` with a warning. The booking gate lets staff book here.
+   */
+  unconfigured: boolean;
   /** The venue's full settings (booking window, phone), beyond the engine's subset. */
   venueSettings: VenueSettings | null;
 }
@@ -220,7 +226,7 @@ function effectiveConfig(
   venue: LegacyVenue,
   now: Date,
   warnings: SnapshotWarning[]
-): { config: AvailabilityConfig; source: SnapshotSource } {
+): { config: AvailabilityConfig; source: SnapshotSource; unconfigured?: true } {
   if (hasRegularSchedule(config)) return { config, source: "rows" };
   const plan = planVenueMigration(venue, now, undefined, { lenient: true });
   if (plan.kind === "migrate") {
@@ -240,10 +246,9 @@ function effectiveConfig(
     };
   }
   // "no_hours" is a venue with nothing configured, not a bad row.
-  if (plan.reason !== "no_hours") {
-    const reason = `legacy operatingHours ${plan.reason}${plan.detail ? `: ${plan.detail}` : ""}`;
-    warnings.push({ table: "venues", id: venueId, reason });
-  }
+  if (plan.reason === "no_hours") return { config, source: "none", unconfigured: true };
+  const reason = `legacy operatingHours ${plan.reason}${plan.detail ? `: ${plan.detail}` : ""}`;
+  warnings.push({ table: "venues", id: venueId, reason });
   return { config, source: "none" };
 }
 
@@ -412,7 +417,13 @@ export async function loadAvailabilitySnapshot(
     warnings
   );
 
-  const { config, source } = effectiveConfig(venueId, rowConfig, venue, now, warnings);
+  const { config, source, unconfigured } = effectiveConfig(
+    venueId,
+    rowConfig,
+    venue,
+    now,
+    warnings
+  );
 
   if (options.logger) {
     for (const warning of warnings) {
@@ -433,6 +444,7 @@ export async function loadAvailabilitySnapshot(
     version: venue.availabilityVersion,
     warnings,
     source,
+    unconfigured: unconfigured ?? false,
     venueSettings,
   };
 }
