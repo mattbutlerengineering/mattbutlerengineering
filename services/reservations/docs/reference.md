@@ -621,6 +621,24 @@ it("broadcasts reservation:created event", async () => {
 });
 ```
 
+## Availability backfill
+
+`src/scripts/backfill-availability.ts` turns each venue's legacy `operatingHours` into availability rows (#7502). It is run by an operator, once per environment, after the `add_venue_availability` migration is applied. It is not part of `prisma migrate deploy` or the deploy job.
+
+```bash
+# Deployed image (matches the Dockerfile CMD):
+node --conditions production dist/scripts/backfill-availability.js            # dry run: reports what it would do
+node --conditions production dist/scripts/backfill-availability.js --apply    # writes
+# Dev checkout (tsx):
+pnpm db:backfill-availability [--apply]
+```
+
+- It needs `DATABASE_URL` and prints one JSON line per venue, then a `summary` line. Exit code is 1 only if a venue errored.
+- It is idempotent: a venue that already has a regular schedule is skipped (`already_migrated`).
+- Each venue is its own transaction in its own venue context. A venue whose hours cannot be read is left untouched and reported `unrecognised`: unknown shape or version, a time the parser cannot read on an open day (`unreadable_time`), a past-midnight window longer than 16 hours (`implausible_span`), a bad interval or buffer, or overlapping windows.
+- It only inserts, and it never touches `Venue.operatingHours`. Every outcome line (dry run and apply) carries the original `operatingHours` value, so keep the log: it is the backup. `notes.pastMidnightWindows` lists each window read as running past midnight so a typo is visible in the dry run.
+- Weekdays with the same hours share one schedule. The largest group is the regular week, the rest become `alternate` schedules, and a closed weekday gets no assignment.
+
 ## Environment Variables
 
 | Variable                   | Required   | Description                                             |

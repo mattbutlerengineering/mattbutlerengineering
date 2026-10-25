@@ -7442,6 +7442,9 @@
       function todayDate(): Date { /* ... */ }
     </item>
     <item priority="low">
+      async function upsertSeedVenue(venueGroupId: string, seed: SeedVenue) { /* ... */ }
+    </item>
+    <item priority="low">
       async function main() { /* ... */ }
     </item>
   </file>
@@ -10872,6 +10875,30 @@
       export function isExternalSpecifier(id: string): boolean { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/scripts/backfill-availability.ts">
+    <item priority="low">
+      interface BackfillSummary {
+        apply: boolean;
+        venues: number;
+        counts: Record<string, number>;
+        errors: { venueId: string; message: string }[];
+        unrecognised: { venueId: string; reason: string }[];
+      }
+    </item>
+    <item priority="high">
+      type Log = (line: string) => void;
+    </item>
+    <item priority="high">
+      export async function runBackfill(
+        prisma: PrismaClient,
+        options: { apply: boolean },
+        log: Log
+      ): Promise<BackfillSummary> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main(): Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="services/agent/src/services/database.ts">
@@ -11234,6 +11261,64 @@
     </item>
     <item priority="high">
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-migration.ts">
+    <item priority="high">
+      export const MIGRATION_ACTOR: unknown;
+    </item>
+    <item priority="low">
+      interface VenueForMigration {
+        operatingHours: unknown;
+        settings: unknown;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="low">
+      type VenueMigrationPlan = {
+            kind: "migrate";
+            | { kind: "unrecognised"; reason;
+    </item>
+    <item priority="high">
+      export function civilDateIn(now: Date, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planVenueMigration(
+        venue: VenueForMigration,
+        now: Date,
+        newId: () => string = randomUUID
+      ): VenueMigrationPlan { /* ... */ }
+    </item>
+    <item priority="high">
+      interface MigrationSummary {
+        shape: LegacyShape;
+        notes: LegacyMigrationNotes;
+        rows: number;
+      }
+    </item>
+    <item priority="low">
+      type VenueMigrationOutcome = ({ venueId: string; outcome: " | ({ venueId: string; outcome: " | { venueId: string; outcome: "a | {
+            venueId: string;
+            | { venueId: string; outcome: "n;
+    </item>
+    <item priority="low">
+      type AvailabilityRowWriter = Pick<
+        PrismaClient,
+        "schedule" | "venueService" | "sc...;
+    </item>
+    <item priority="high">
+      export async function writeAvailabilityConfig(
+        tx: AvailabilityRowWriter,
+        venueId: string,
+        config: AvailabilityConfig
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function migrateVenue(
+        prisma: PrismaClient,
+        venueId: string,
+        options: { apply: boolean; now?: Date }
+      ): Promise<VenueMigrationOutcome> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
@@ -16288,6 +16373,165 @@
       export function localDateTimeOf(instant: Date, tz: string): { date: ServiceDate; minute: number } { /* ... */ }
     </item>
   </file>
+  <file path="packages/availability/src/legacy-hours.ts">
+    <item priority="low">
+      type LegacyShape = "weekday" | "seed_array" | "v2";
+    </item>
+    <item priority="low">
+      interface LegacyWindow {
+        name?: string;
+        open: number;
+        close: number;
+        wrapped?: true;
+      }
+    </item>
+    <item priority="low">
+      interface LegacyOverride {
+        date: ServiceDate;
+        windows: readonly LegacyWindow[];
+        note?: string;
+      }
+    </item>
+    <item priority="low">
+      interface LegacyHours {
+        weekly: Readonly<Record<Weekday, readonly LegacyWindow[]>>;
+        overrides: readonly LegacyOverride[];
+      }
+    </item>
+    <item priority="low">
+      type LegacyHoursFailure = { ok: false; reason: "no_hours | { ok: false; reason: "unknown_ | { ok: false; reason: "unknown_ | { ok: false; reason: "unreadab | { ok: false; reason: "unreadab;
+    </item>
+    <item priority="low">
+      type LegacyHoursResult = { ok: true; shape: LegacyShape | LegacyHoursFailure;
+    </item>
+    <item priority="high">
+      type Loose = Record<string, unknown>;
+    </item>
+    <item priority="medium">
+      function parseTime(value: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type Problems = string[];
+    </item>
+    <item priority="medium">
+      function toWindow(
+        where: string,
+        problems: Problems,
+        open: unknown,
+        close: unknown,
+        name?: unknown
+      ): LegacyWindow | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function finish(shape: LegacyShape, problems: Problems, hours: LegacyHours): LegacyHoursResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weeklyFrom(
+        windowsFor: (day: Weekday) => LegacyWindow[]
+      ): Record<Weekday, readonly LegacyWindow[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fromWeekdayKeyed(raw: Loose): LegacyHoursResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fromSeedArray(raw: unknown[]): LegacyHoursResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toWindows(where: string, problems: Problems, raw: unknown): LegacyWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toOverrides(problems: Problems, raw: unknown): LegacyOverride[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fromV2(raw: Loose): LegacyHoursResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeLegacyHours(raw: unknown): LegacyHoursResult { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/legacy-migration.ts">
+    <item priority="high">
+      export const DEFAULT_LAST_SEATING_BUFFER: unknown;
+    </item>
+    <item priority="low">
+      interface LegacyMigrationInput {
+        hours: LegacyHours;
+        slotIntervalMinutes?: number | null;
+        lastSeatingBuffer?: number | null;
+        today: ServiceDate;
+        newId: () => string;
+      }
+    </item>
+    <item priority="low">
+      interface PastMidnightWindow {
+        day: string;
+        open: number;
+        close: number;
+        span: number;
+      }
+    </item>
+    <item priority="low">
+      interface LegacyMigrationNotes {
+        pastMidnightWindows: PastMidnightWindow[];
+        droppedWindows: number;
+        skippedPastOverrides: number;
+        migratedOverrides: number;
+      }
+    </item>
+    <item priority="low">
+      type LegacyMigrationResult = { ok: true; config: Availabili | {
+            ok: false;
+            reaso;
+    </item>
+    <item priority="high">
+      interface SeatedWindow {
+        name?: string;
+        open: number;
+        close: number;
+        last: number;
+      }
+    </item>
+    <item priority="high">
+      interface NamedWindow {
+        serviceName: string;
+      }
+    </item>
+    <item priority="medium">
+      function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validIntervalOrBuffer(
+        input: LegacyMigrationInput
+      ): { interval: number; buffer: number } | LegacyMigrationResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/legacy-projection.ts">
+    <item priority="low">
+      type LegacyDayHours = {
+        open: string;
+        close: string;
+        closed?: boolean;
+      };
+    </item>
+    <item priority="low">
+      type LegacyOperatingHours = Record<Weekday, LegacyDayHours>;
+    </item>
+    <item priority="medium">
+      function clock(minute: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyOperatingHours { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/resolve-day.ts">
     <item priority="low">
       interface AvailabilitySnapshot {
@@ -19816,6 +20060,28 @@
     </item>
     <item priority="high">
       export const ERROR_FORBIDDEN: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/test/seed-venues.ts">
+    <item priority="low">
+      interface SeedHoursRow {
+        dayOfWeek: number;
+        openTime: string;
+        closeTime: string;
+        isClosed: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface SeedVenue {
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        hours: SeedHoursRow[];
+        settings: { defaultReservationDuration: number; maxPartySize: number };
+      }
+    </item>
+    <item priority="high">
+      export const SEED_VENUES: readonly SeedVenue[];
     </item>
   </file>
   <file path="services/reservations/src/test/shared-schema-compilers.ts">

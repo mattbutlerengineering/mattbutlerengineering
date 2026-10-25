@@ -583,6 +583,9 @@
       function todayDate(): Date { /* ... */ }
     </item>
     <item priority="low">
+      async function upsertSeedVenue(venueGroupId: string, seed: SeedVenue) { /* ... */ }
+    </item>
+    <item priority="low">
       async function main() { /* ... */ }
     </item>
   </file>
@@ -1428,6 +1431,32 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="scripts">
+  <file path="src/scripts/backfill-availability.ts">
+    <item priority="low">
+      interface BackfillSummary {
+        apply: boolean;
+        venues: number;
+        counts: Record<string, number>;
+        errors: { venueId: string; message: string }[];
+        unrecognised: { venueId: string; reason: string }[];
+      }
+    </item>
+    <item priority="high">
+      type Log = (line: string) => void;
+    </item>
+    <item priority="high">
+      export async function runBackfill(
+        prisma: PrismaClient,
+        options: { apply: boolean },
+        log: Log
+      ): Promise<BackfillSummary> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main(): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     <item priority="low">
@@ -1460,6 +1489,64 @@
     </item>
     <item priority="high">
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/availability-migration.ts">
+    <item priority="high">
+      export const MIGRATION_ACTOR: unknown;
+    </item>
+    <item priority="low">
+      interface VenueForMigration {
+        operatingHours: unknown;
+        settings: unknown;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="low">
+      type VenueMigrationPlan = {
+            kind: "migrate";
+            | { kind: "unrecognised"; reason;
+    </item>
+    <item priority="high">
+      export function civilDateIn(now: Date, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planVenueMigration(
+        venue: VenueForMigration,
+        now: Date,
+        newId: () => string = randomUUID
+      ): VenueMigrationPlan { /* ... */ }
+    </item>
+    <item priority="high">
+      interface MigrationSummary {
+        shape: LegacyShape;
+        notes: LegacyMigrationNotes;
+        rows: number;
+      }
+    </item>
+    <item priority="low">
+      type VenueMigrationOutcome = ({ venueId: string; outcome: " | ({ venueId: string; outcome: " | { venueId: string; outcome: "a | {
+            venueId: string;
+            | { venueId: string; outcome: "n;
+    </item>
+    <item priority="low">
+      type AvailabilityRowWriter = Pick<
+        PrismaClient,
+        "schedule" | "venueService" | "sc...;
+    </item>
+    <item priority="high">
+      export async function writeAvailabilityConfig(
+        tx: AvailabilityRowWriter,
+        venueId: string,
+        config: AvailabilityConfig
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function migrateVenue(
+        prisma: PrismaClient,
+        venueId: string,
+        options: { apply: boolean; now?: Date }
+      ): Promise<VenueMigrationOutcome> { /* ... */ }
     </item>
   </file>
   <file path="src/services/availability-snapshot.ts">
@@ -3576,6 +3663,28 @@
     </item>
     <item priority="high">
       export const ERROR_FORBIDDEN: unknown;
+    </item>
+  </file>
+  <file path="src/test/seed-venues.ts">
+    <item priority="low">
+      interface SeedHoursRow {
+        dayOfWeek: number;
+        openTime: string;
+        closeTime: string;
+        isClosed: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface SeedVenue {
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        hours: SeedHoursRow[];
+        settings: { defaultReservationDuration: number; maxPartySize: number };
+      }
+    </item>
+    <item priority="high">
+      export const SEED_VENUES: readonly SeedVenue[];
     </item>
   </file>
   <file path="src/test/shared-schema-compilers.ts">

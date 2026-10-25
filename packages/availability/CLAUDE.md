@@ -16,6 +16,9 @@ src/
 ├── resolve-day.ts      # resolveDay — the layer stack for one service day, with "Why this day"
 ├── slot-rules.ts       # duration, table fit, conflict, pacing — moved from the reservations service
 ├── slots.ts            # listSlots and judge (ok / soft / hard) over a BookingSnapshot
+├── legacy-hours.ts     # normalizeLegacyHours — reads the legacy operatingHours shapes; unknown shape/version is a typed failure
+├── legacy-migration.ts # buildLegacyConfig — legacy hours + interval + buffer → validated config rows (pure)
+├── legacy-projection.ts # projectLegacyOperatingHours — the legacy column as a derived projection of the regular week
 ├── instant.ts          # serviceDayInstant, localDateTimeOf — the only wall-clock ↔ instant crossing
 └── validate-config.ts  # validateConfig — cross-row invariants over the @mbe/types config schemas
 ```

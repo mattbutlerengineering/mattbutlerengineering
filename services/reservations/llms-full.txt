@@ -1633,8 +1633,39 @@
       d.setHours(0, 0, 0, 0);
       return d;
     }
+    async function upsertSeedVenue(venueGroupId: string, seed: SeedVenue) {
+      const plan = planVenueMigration(
+        { operatingHours: seed.hours, settings: seed.settings, ianaTimezone: seed.ianaTimezone },
+        new Date()
+      );
+      if (plan.kind !== "migrate")
+        throw new Error(`Seed hours for ${seed.slug} unreadable: ${plan.reason}`);
+      // One transaction, so a failed row write cannot leave a venue that later runs skip.
+      // Written as the connection owner like the rest of the seed (no venue context).
+      const venue = await prisma.$transaction(async (tx) => {
+        const upserted = await tx.venue.upsert({
+          where: { venueGroupId_slug: { venueGroupId, slug: seed.slug } },
+          update: {},
+          create: {
+            venueGroupId,
+            name: seed.name,
+            slug: seed.slug,
+            ianaTimezone: seed.ianaTimezone,
+            currencyCode: "USD",
+            operatingHours: plan.projection as unknown as Prisma.InputJsonValue,
+            settings: seed.settings,
+          },
+        });
+        const hasRows = await tx.schedule.count({
+          where: { venueId: upserted.id, isRegular: true },
+        });
+        if (hasRows === 0) await writeAvailabilityConfig(tx, upserted.id, plan.config);
+        return upserted;
+      });
+      return venue;
+    }
     async function main() {
-      console.log("Seeding reservations database...");
+      console.info("Seeding reservations database...");
     
       // --- Venue Group ---
       const group = await prisma.venueGroup.upsert({
@@ -1648,49 +1679,10 @@
       });
     
       // --- Venues ---
-      const venueA = await prisma.venue.upsert({
-        where: { venueGroupId_slug: { venueGroupId: group.id, slug: "the-grand-bistro" } },
-        update: {},
-        create: {
-          venueGroupId: group.id,
-          name: "The Grand Bistro",
-          slug: "the-grand-bistro",
-          ianaTimezone: "America/New_York",
-          currencyCode: "USD",
-          operatingHours: [
-            { dayOfWeek: 0, openTime: "10:00", closeTime: "21:00", isClosed: false },
-            { dayOfWeek: 1, openTime: "11:00", closeTime: "22:00", isClosed: false },
-            { dayOfWeek: 2, openTime: "11:00", closeTime: "22:00", isClosed: false },
-            { dayOfWeek: 3, openTime: "11:00", closeTime: "22:00", isClosed: false },
-            { dayOfWeek: 4, openTime: "11:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 5, openTime: "11:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 6, openTime: "10:00", closeTime: "22:00", isClosed: false },
-          ],
-          settings: { defaultDurationMinutes: 90, maxPartySize: 12 },
-        },
-      });
-    
-      const venueB = await prisma.venue.upsert({
-        where: { venueGroupId_slug: { venueGroupId: group.id, slug: "rooftop-lounge" } },
-        update: {},
-        create: {
-          venueGroupId: group.id,
-          name: "Rooftop Lounge",
-          slug: "rooftop-lounge",
-          ianaTimezone: "America/New_York",
-          currencyCode: "USD",
-          operatingHours: [
-            { dayOfWeek: 0, openTime: "16:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 1, openTime: "00:00", closeTime: "00:00", isClosed: true },
-            { dayOfWeek: 2, openTime: "16:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 3, openTime: "16:00", closeTime: "23:00", isClosed: false },
-            { dayOfWeek: 4, openTime: "16:00", closeTime: "00:00", isClosed: false },
-            { dayOfWeek: 5, openTime: "16:00", closeTime: "01:00", isClosed: false },
-            { dayOfWeek: 6, openTime: "14:00", closeTime: "00:00", isClosed: false },
-          ],
-          settings: { defaultDurationMinutes: 120, maxPartySize: 8 },
-        },
-      });
+      const [venueA, venueB] = await Promise.all(
+        SEED_VENUES.map((seed) => upsertSeedVenue(group.id, seed))
+      );
+      if (!venueA || !venueB) throw new Error("Seed venues missing");
     
       // --- Floor Plans ---
       const floorA = await prisma.floorPlan.create({
@@ -1963,7 +1955,7 @@
         reservations.map((r) => prisma.reservation.create({ data: r }))
       );
     
-      console.log("Seeded reservations database:", {
+      console.info("Seeded reservations database:", {
         venueGroup: group.id,
         venues: [venueA.id, venueB.id],
         floorPlans: [floorA.id, floorB.id],
@@ -9123,6 +9115,57 @@
     }
   </file>
   </section>
+  <section priority="medium" role="scripts">
+  <file path="src/scripts/backfill-availability.ts">
+    export interface BackfillSummary {
+      apply: boolean;
+      venues: number;
+      counts: Record<string, number>;
+      errors: { venueId: string; message: string }[];
+      unrecognised: { venueId: string; reason: string }[];
+    }
+    type Log = (line: string) => void;
+    export async function runBackfill(
+      prisma: PrismaClient,
+      options: { apply: boolean },
+      log: Log
+    ): Promise<BackfillSummary> {
+      const venueIds = await getAllVenueIds(prisma);
+      const counts: Record<string, number> = {};
+      const errors: BackfillSummary["errors"] = [];
+      const unrecognised: BackfillSummary["unrecognised"] = [];
+    
+      for (const venueId of venueIds) {
+        try {
+          const outcome: VenueMigrationOutcome = await migrateVenue(prisma, venueId, options);
+          counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
+          if (outcome.outcome === "unrecognised") {
+            unrecognised.push({ venueId, reason: outcome.reason });
+          }
+          log(JSON.stringify(outcome));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ venueId, message });
+          log(JSON.stringify({ venueId, outcome: "error", message }));
+        }
+      }
+      return { apply: options.apply, venues: venueIds.length, counts, errors, unrecognised };
+    }
+    async function main(): Promise<void> {
+      const apply = process.argv.includes("--apply");
+      const prisma = db.prisma as unknown as PrismaClient;
+      try {
+        const summary = await runBackfill(prisma, { apply }, (line) =>
+          process.stdout.write(`${line}\n`)
+        );
+        process.stdout.write(`${JSON.stringify({ summary })}\n`);
+        process.exitCode = summary.errors.length > 0 ? 1 : 0;
+      } finally {
+        await prisma.$disconnect();
+      }
+    }
+  </file>
+  </section>
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     export type BookableError =
@@ -9225,6 +9268,182 @@
     }
     export async function assumeAppRole(tx: AppRoleClient): Promise<void> {
       await tx.$executeRawUnsafe(appRoleSetStatement());
+    }
+  </file>
+  <file path="src/services/availability-migration.ts">
+    export const MIGRATION_ACTOR = "system:availability-legacy-migration";
+    export interface VenueForMigration {
+      operatingHours: unknown;
+      settings: unknown;
+      ianaTimezone: string;
+    }
+    export type VenueMigrationPlan =
+      | {
+          kind: "migrate";
+          shape: LegacyShape;
+          config: AvailabilityConfig;
+          notes: LegacyMigrationNotes;
+          /** The legacy column derived from the rows; the seed writes it, the backfill does not. */
+          projection: LegacyOperatingHours;
+        }
+      | { kind: "unrecognised"; reason: string; detail: string };
+    export function civilDateIn(now: Date, timeZone: string): string {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
+    }
+    export function planVenueMigration(
+      venue: VenueForMigration,
+      now: Date,
+      newId: () => string = randomUUID
+    ): VenueMigrationPlan {
+      const normalised = normalizeLegacyHours(venue.operatingHours);
+      if (!normalised.ok) {
+        const detail = "detail" in normalised ? normalised.detail : "";
+        return { kind: "unrecognised", reason: normalised.reason, detail };
+      }
+      const settings = (venue.settings ?? {}) as VenueSettings;
+      const built = buildLegacyConfig({
+        hours: normalised.hours,
+        slotIntervalMinutes: settings.slotIntervalMinutes,
+        lastSeatingBuffer: settings.lastSeatingBuffer,
+        today: civilDateIn(now, venue.ianaTimezone),
+        newId,
+      });
+      if (!built.ok) return { kind: "unrecognised", reason: built.reason, detail: built.detail };
+      return {
+        kind: "migrate",
+        shape: normalised.shape,
+        config: built.config,
+        notes: built.notes,
+        projection: projectLegacyOperatingHours(built.config),
+      };
+    }
+    interface MigrationSummary {
+      shape: LegacyShape;
+      notes: LegacyMigrationNotes;
+      rows: number;
+    }
+    export type VenueMigrationOutcome =
+      | ({ venueId: string; outcome: "migrated"; operatingHours: unknown } & MigrationSummary)
+      | ({ venueId: string; outcome: "would_migrate"; operatingHours: unknown } & MigrationSummary)
+      | { venueId: string; outcome: "already_migrated"; operatingHours: unknown }
+      | {
+          venueId: string;
+          outcome: "unrecognised";
+          reason: string;
+          detail: string;
+          operatingHours: unknown;
+        }
+      | { venueId: string; outcome: "not_found" };
+    export type AvailabilityRowWriter = Pick<
+      PrismaClient,
+      "schedule" | "venueService" | "scheduleService" | "scheduleAssignment" | "dateRule"
+    >;
+    export async function writeAvailabilityConfig(
+      tx: AvailabilityRowWriter,
+      venueId: string,
+      config: AvailabilityConfig
+    ): Promise<void> {
+      await tx.schedule.createMany({
+        data: config.schedules.map((s) => ({
+          id: s.id,
+          venueId,
+          name: s.name,
+          kind: s.kind,
+          isRegular: s.isRegular,
+        })),
+      });
+      await tx.venueService.createMany({
+        data: config.venueServices.map((s) => ({
+          id: s.id,
+          venueId,
+          name: s.name,
+          position: s.position,
+        })),
+      });
+      await tx.scheduleService.createMany({
+        data: config.scheduleServices.map((s) => ({
+          id: s.id,
+          venueId,
+          scheduleId: s.scheduleId,
+          venueServiceId: s.venueServiceId,
+          opensAt: s.opensAt,
+          lastSeatingAt: s.lastSeatingAt,
+          closesAt: s.closesAt,
+          seating: s.seating,
+          bookingTypes: s.bookingTypes,
+        })),
+      });
+      await tx.scheduleAssignment.createMany({
+        data: config.assignments.map((a) => ({
+          id: a.id,
+          venueId,
+          scheduleId: a.scheduleId,
+          weekdays: a.weekdays,
+          precedence: a.precedence,
+        })),
+      });
+      await tx.dateRule.createMany({
+        data: config.dateRules.map((r) => ({
+          id: r.id,
+          venueId,
+          kind: r.kind,
+          targetKind: r.targetKind,
+          startsOn: toDate(r.startsOn),
+          endsOn: r.endsOn ? toDate(r.endsOn) : null,
+          staffNote: r.staffNote ?? null,
+          ...(r.kind === "special_hours" ? { payload: r.payload } : {}),
+          createdBy: MIGRATION_ACTOR,
+        })),
+      });
+    }
+    export async function migrateVenue(
+      prisma: PrismaClient,
+      venueId: string,
+      options: { apply: boolean; now?: Date }
+    ): Promise<VenueMigrationOutcome> {
+      const now = options.now ?? new Date();
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const venue = await tx.venue.findUnique({
+          where: { id: venueId },
+          select: { operatingHours: true, settings: true, ianaTimezone: true },
+        });
+        if (!venue) return { venueId, outcome: "not_found" as const };
+    
+        const { operatingHours } = venue;
+    
+        const existing = await tx.schedule.count({
+          where: { venueId, isRegular: true, archivedAt: null },
+        });
+        if (existing > 0) return { venueId, outcome: "already_migrated" as const, operatingHours };
+    
+        const plan = planVenueMigration(venue, now);
+        if (plan.kind === "unrecognised") {
+          return {
+            venueId,
+            outcome: "unrecognised" as const,
+            reason: plan.reason,
+            detail: plan.detail,
+            operatingHours,
+          };
+        }
+        const summary = {
+          venueId,
+          operatingHours,
+          shape: plan.shape,
+          notes: plan.notes,
+          rows: countRows(plan.config),
+        };
+        if (!options.apply) return { ...summary, outcome: "would_migrate" as const };
+    
+        await writeAvailabilityConfig(tx, venueId, plan.config);
+        return { ...summary, outcome: "migrated" as const };
+      });
     }
   </file>
   <file path="src/services/availability-snapshot.ts">
@@ -19369,6 +19588,54 @@
     export const ERROR_UNAUTHORIZED = "Unauthorized";
     export const ERROR_CONFLICT = "Conflict";
     export const ERROR_FORBIDDEN = "Forbidden";
+  </file>
+  <file path="src/test/seed-venues.ts">
+    export interface SeedHoursRow {
+      dayOfWeek: number;
+      openTime: string;
+      closeTime: string;
+      isClosed: boolean;
+    }
+    export interface SeedVenue {
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      hours: SeedHoursRow[];
+      /** `defaultReservationDuration` is the key the engine reads (it was `defaultDurationMinutes`). */
+      settings: { defaultReservationDuration: number; maxPartySize: number };
+    }
+    export const SEED_VENUES: readonly SeedVenue[] = [
+      {
+        name: "The Grand Bistro",
+        slug: "the-grand-bistro",
+        ianaTimezone: "America/New_York",
+        hours: [
+          { dayOfWeek: 0, openTime: "10:00", closeTime: "21:00", isClosed: false },
+          { dayOfWeek: 1, openTime: "11:00", closeTime: "22:00", isClosed: false },
+          { dayOfWeek: 2, openTime: "11:00", closeTime: "22:00", isClosed: false },
+          { dayOfWeek: 3, openTime: "11:00", closeTime: "22:00", isClosed: false },
+          { dayOfWeek: 4, openTime: "11:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 5, openTime: "11:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 6, openTime: "10:00", closeTime: "22:00", isClosed: false },
+        ],
+        settings: { defaultReservationDuration: 90, maxPartySize: 12 },
+      },
+      {
+        name: "Rooftop Lounge",
+        slug: "rooftop-lounge",
+        ianaTimezone: "America/New_York",
+        hours: [
+          { dayOfWeek: 0, openTime: "16:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 1, openTime: "00:00", closeTime: "00:00", isClosed: true },
+          { dayOfWeek: 2, openTime: "16:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 3, openTime: "16:00", closeTime: "23:00", isClosed: false },
+          { dayOfWeek: 4, openTime: "16:00", closeTime: "00:00", isClosed: false },
+          { dayOfWeek: 5, openTime: "16:00", closeTime: "01:00", isClosed: false },
+          { dayOfWeek: 6, openTime: "14:00", closeTime: "00:00", isClosed: false },
+        ],
+        settings: { defaultReservationDuration: 120, maxPartySize: 8 },
+      },
+    ];
   </file>
   <file path="src/test/shared-schema-compilers.ts">
     type RouteSchemaDef = {

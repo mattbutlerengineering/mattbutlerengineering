@@ -46,7 +46,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Snapshot loader** — `services/availability-snapshot.ts` loads config, tables, sections, and reservations and holds (±1 day) for a range in a fixed number of queries, parsing jsonb with zod on read. (tracker: #7501)
   - Accept: an integration test asserts the query count is independent of the range length. A row with an unknown payload version loads as closed, with a warning.
   - Blocked by: Availability schema migration, listSlots and judge
-- [ ] **Legacy data migration and projection** — the prior-art normaliser (with an unknown-version guard) turns both legacy `operatingHours` shapes plus `slotIntervalMinutes` and `lastSeatingBuffer` into rows. The store writes the legacy column as a derived projection. The seed is rewritten to the new model, with `defaultReservationDuration` fixed. (tracker: #7502)
+- [x] **Legacy data migration and projection** — the prior-art normaliser (with an unknown-version guard) turns both legacy `operatingHours` shapes plus `slotIntervalMinutes` and `lastSeatingBuffer` into rows. The store writes the legacy column as a derived projection. The seed is rewritten to the new model, with `defaultReservationDuration` fixed. (tracker: #7502)
   - Accept: a golden test captures every seeded and fixture venue's slots for a fixed 60-day window before and after migration, identical across both legacy shapes. The seed venue offers bookable slots. This covers SC Migration.
   - Blocked by: Snapshot loader
 - [ ] **Listing on the engine** — `generateTimeSlots` and `getAvailableDates` in `services/availability.ts`, and the public availability routes, compute through the snapshot loader and engine. The public response adds `closure` and `bookingPaused`. (tracker: #7503)
@@ -82,7 +82,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 4: Manager configures time structure (Availability page)
 
-- [ ] **Config API** — `GET` and `PUT …/availability/config` with an `expectedVersion` compare-and-set, an AvailabilityChange audit row with its inverse, and `scopeConflicts`. Adds `GET …/availability/days`, api-client methods and contract tests. (tracker: #7511)
+- [ ] **Config API** — `GET` and `PUT …/availability/config` with an `expectedVersion` compare-and-set, an AvailabilityChange audit row with its inverse, and `scopeConflicts`. Every config write also stores `projectLegacyOperatingHours(config)` to `Venue.operatingHours` in the same transaction (the derived projection from #7502). Adds `GET …/availability/days`, api-client methods and contract tests. (tracker: #7511)
   - Accept: tests cover a stale version (409 naming the winning change), invalid config (422 with issue paths), and a change that strands bookings without a decision (409 `stranded-bookings`).
   - Blocked by: Snapshot loader, Venue roles
 - [ ] **Preview endpoint** — `POST …/availability/preview` built on `applyDraft` and `diffDays`, with a stranded list across every future date in scope, paged after 50, and a 5s timeout that returns 503 `preview-timeout`. (tracker: #7512)
