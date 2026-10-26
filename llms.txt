@@ -14210,7 +14210,20 @@
       export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
     </item>
     <item priority="high">
-      export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean { /* ... */ }
+      export const MIN_SERVICE_MINUTES: unknown;
+    </item>
+    <item priority="high">
+      type DayServices = ReturnType<typeof resolveDay>;
+    </item>
+    <item priority="medium">
+      function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isEmergencyTonightClose(
+        snapshot: AvailabilitySnapshot,
+        rule: DateRule,
+        now: Date
+      ): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean { /* ... */ }

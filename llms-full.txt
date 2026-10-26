@@ -47607,20 +47607,66 @@
       const yesterday = addDays(today, -1);
       return isOpen(yesterday) ? yesterday : today;
     }
-    export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
-      if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
-      const { closeAt } = rule.payload;
-      const planned = {
-        ...snapshot,
-        config: {
-          ...snapshot.config,
-          dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
-        },
-      };
-      const targeted = resolveDay(planned, rule.startsOn).services.filter(
-        (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
+    export const MIN_SERVICE_MINUTES = 60;
+    type DayServices = ReturnType<typeof resolveDay>;
+    function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] {
+      const s = day.services.find((d) => d.venueServiceId === venueServiceId);
+      if (!s) return [];
+      const grid =
+        "interval" in s.seating
+          ? Array.from(
+              {
+                length: Math.max(Math.floor((s.lastSeatingAt - s.opensAt) / s.seating.interval) + 1, 0),
+              },
+              (_, k) => s.opensAt + k * (s.seating as { interval: number }).interval
+            )
+          : [...new Set(s.seating.fixed)];
+      const bands = day.closures.filter(
+        (c) =>
+          c.targetKind === "venue" ||
+          (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
       );
-      return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+      return grid
+        .filter((m) => m >= Math.max(s.opensAt, fromMin) && m <= s.lastSeatingAt && m < s.closesAt)
+        .filter((m) => !bands.some((band) => band.from <= m && m < band.to))
+        .sort((x, y) => x - y);
+    }
+    export function isEmergencyTonightClose(
+      snapshot: AvailabilitySnapshot,
+      rule: DateRule,
+      now: Date
+    ): boolean {
+      if (rule.kind !== "tonight") return false;
+      if (rule.targetKind !== "venue" && rule.targetKind !== "service") return false;
+      const others = snapshot.config.dateRules.filter((r) => r.id !== rule.id);
+      const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
+        ...snapshot,
+        config: { ...snapshot.config, dateRules },
+      });
+      const planned = resolveDay(withRules(others.filter((r) => r.kind !== "tonight")), rule.startsOn);
+      const before = resolveDay(withRules(others), rule.startsOn);
+      const after = resolveDay(withRules([...others, rule]), rule.startsOn);
+      const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
+      const live = before.services
+        .filter((s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId)
+        .filter((s) => seatingStarts(before, s.venueServiceId, nowMin).length > 0);
+      return (
+        live.length > 0 &&
+        live.some((s) => {
+          const remaining = seatingStarts(after, s.venueServiceId, nowMin);
+          if (remaining.length === 0) return true;
+          // A change that takes no seating away closes nothing, however short the service already is.
+          const current = seatingStarts(before, s.venueServiceId, nowMin);
+          if (remaining.length === current.length) return false;
+          const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
+          const openAt = plannedOpen?.opensAt ?? s.opensAt;
+          const floor = Math.min(
+            MIN_SERVICE_MINUTES,
+            spanOf(seatingStarts(planned, s.venueServiceId, openAt))
+          );
+          return spanOf(seatingStarts(after, s.venueServiceId, openAt)) < floor;
+        })
+      );
     }
     export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean {
       return (
@@ -47702,8 +47748,8 @@
       const serviceDate = currentServiceDate(snapshot, now);
       if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
       if (rule.startsOn !== serviceDate) return false;
-      // A close-early that leaves no targeted service tonight is the emergency close in effect.
-      return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
+      // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
+      return venue.hostEmergencyClose || !isEmergencyTonightClose(snapshot, rule, now);
     }
     export function mayClose(
       venueId: string,
@@ -57230,6 +57276,12 @@
           }
           const replayed = await replayOf(tx, venueId, rule, state);
           if (replayed) return { kind: "saved", result: replayed };
+          if (body.change.type === "stop_window") {
+            // A stop over what is left of the service closes the night like a close-early does.
+            // After the replay check: a saved stop's retry is not a new close.
+            const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
+            if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });
+          }
           const result = await writeChange(
             tx,
             { venueId, actorId: caller.actorId, now, body },
