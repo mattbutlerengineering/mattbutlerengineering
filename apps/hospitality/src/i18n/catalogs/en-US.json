@@ -1397,6 +1397,26 @@
       "action": "Change booking",
       "cutoff": "Changes close {{hours}} hours before your visit. Call {{venue}} to change this booking.",
       "success": "Your booking has been updated."
+    },
+    "venueCancelled": {
+      "heading": "Your reservation was cancelled",
+      "intro": "{{venue}} had to cancel this reservation.",
+      "refund": {
+        "pending": "Your deposit refund is on its way.",
+        "done": "Your deposit has been refunded.",
+        "failed": "We couldn't refund your deposit automatically. {{venue}} will be in touch, or you can call them."
+      },
+      "rebookHeading": "Rebook in one tap",
+      "rebook": "Rebook {{date}} at {{time}}",
+      "rebooking": "Rebooking…",
+      "rebooked": "You're rebooked for {{when}}.",
+      "viewRebooked": "View your new reservation",
+      "noOffers": "There are no open times in the next 14 days for your party. Pick another date.",
+      "otherDates": "Other dates and times",
+      "notice": {
+        "taken": "That time was just taken. Here are the times still open.",
+        "failed": "We couldn't rebook that time. Please try again."
+      }
     }
   },
   "offlineBanner": {

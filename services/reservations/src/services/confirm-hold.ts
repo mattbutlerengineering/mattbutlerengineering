@@ -1,4 +1,5 @@
 import { type ConfirmHoldRequest, type Reservation, type VenueSettings } from "@mbe/types";
+import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable, type GateRejection } from "./assert-bookable.js";
@@ -30,6 +31,11 @@ export interface ConfirmHoldInput {
   venueId?: string;
   /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
   actor?: ReservationEventActor;
+  /**
+   * Runs inside the confirm transaction, after the reservation insert. Throwing
+   * rolls the whole confirm back (the hold survives for the caller to release).
+   */
+  inTransaction?: (tx: Prisma.TransactionClient, reservationId: string) => Promise<void>;
 }
 
 export type ConfirmHoldResult =
@@ -179,6 +185,8 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
 
       // Delete the hold in the same transaction as the reservation insert.
       await tx.reservationHold.delete({ where: { id: holdId } });
+
+      await input.inTransaction?.(tx, reservation.id);
 
       return reservation;
     },

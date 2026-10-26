@@ -1421,6 +1421,26 @@
       "action": "Modifier la réservation",
       "cutoff": "Les modifications ferment {{hours}} heures avant votre visite. Appelez {{venue}} pour modifier cette réservation.",
       "success": "Votre réservation a été mise à jour."
+    },
+    "venueCancelled": {
+      "heading": "Votre réservation a été annulée",
+      "intro": "{{venue}} a dû annuler cette réservation.",
+      "refund": {
+        "pending": "Le remboursement de votre dépôt est en cours.",
+        "done": "Votre dépôt a été remboursé.",
+        "failed": "Nous n'avons pas pu rembourser votre dépôt automatiquement. {{venue}} communiquera avec vous, ou vous pouvez l'appeler."
+      },
+      "rebookHeading": "Réservez de nouveau en un geste",
+      "rebook": "Réserver le {{date}} à {{time}}",
+      "rebooking": "Réservation en cours…",
+      "rebooked": "Votre réservation est confirmée pour le {{when}}.",
+      "viewRebooked": "Voir votre nouvelle réservation",
+      "noOffers": "Aucune heure n'est disponible dans les 14 prochains jours pour votre groupe. Choisissez une autre date.",
+      "otherDates": "Autres dates et heures",
+      "notice": {
+        "taken": "Cette heure vient d'être prise. Voici les heures encore disponibles.",
+        "failed": "Nous n'avons pas pu réserver cette heure. Veuillez réessayer."
+      }
     }
   },
   "offlineBanner": {

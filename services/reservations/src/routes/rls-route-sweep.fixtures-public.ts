@@ -645,6 +645,34 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
       expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
     },
   },
+  "POST /public/v1/reservations/manage/rebook": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { generateManageToken } = await loadTokenHelpers();
+      const guestEmail = `rls-sweep-rebook-${randomUUID()}@example.com`;
+      // A live (not venue-cancelled) booking: the scoped read resolves it under
+      // its venue and the rebook refuses it with 409, writing nothing.
+      const reservationId = await createDisposableManagedReservation(ctx, guestEmail, "2026-10-18");
+      const token = generateManageToken(reservationId, guestEmail);
+
+      const refused = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/reservations/manage/rebook?token=${token}`,
+        payload: { offerId: "2026-10-19T01:00:00.000Z" },
+      });
+      expect(refused.statusCode, `expected 409, got ${refused.statusCode}: ${refused.body}`).toBe(
+        409
+      );
+
+      const goneToken = generateManageToken("rls-sweep-no-such-reservation", "nobody@example.com");
+      const denied = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/reservations/manage/rebook?token=${goneToken}`,
+        payload: { offerId: "2026-10-19T01:00:00.000Z" },
+      });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
   "PATCH /public/v1/reservations/confirm": {
     kind: "ok",
     run: async (ctx) => {
