@@ -5,7 +5,7 @@
   margin: 0;
   padding: var(--rialto-space-md);
   border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-md);
+  border-radius: var(--rialto-radius-default);
 }
 
 .legend {
