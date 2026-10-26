@@ -98,9 +98,6 @@
       export const WEEKEND_SHORTCUT: readonly number[];
     </item>
     <item priority="high">
-      export const EVERY_DAY_SHORTCUT: readonly number[];
-    </item>
-    <item priority="high">
       export const SERVICE_PRESETS: unknown;
     </item>
     <item priority="low">

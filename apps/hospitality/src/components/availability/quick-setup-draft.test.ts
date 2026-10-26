@@ -11,8 +11,8 @@ import {
   setServiceTime,
   toggleDay,
   validateDraft,
-  EVERY_DAY_SHORTCUT,
   WEEKDAY_SHORTCUT,
+  WEEK_DISPLAY_ORDER,
   type QuickSetupDraft,
 } from "./quick-setup-draft.js";
 
@@ -100,7 +100,7 @@ describe("quick setup draft", () => {
   it("treats a close earlier than the opening as past midnight", () => {
     const draft = emptyDraft("s1");
     const late = applyPreset(draft.services[0]!, "late", "Late");
-    const full = { services: [late], days: EVERY_DAY_SHORTCUT };
+    const full = { services: [late], days: WEEK_DISPLAY_ORDER };
     expect(validateDraft(full)).toEqual([]);
     const config = draftToConfig(full, counter());
     expect(config.scheduleServices[0]).toMatchObject({

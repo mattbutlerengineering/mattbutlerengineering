@@ -39,7 +39,6 @@ const SEATING_INTERVAL_MINUTES = 15;
 export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
 export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
 export const WEEKEND_SHORTCUT: readonly number[] = [6, 0];
-export const EVERY_DAY_SHORTCUT: readonly number[] = WEEK_DISPLAY_ORDER;
 
 export const SERVICE_PRESETS = {
   lunch: { opens: "11:30", closes: "14:30" },

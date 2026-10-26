@@ -13,7 +13,6 @@ import {
 import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import {
-  EVERY_DAY_SHORTCUT,
   SERVICE_PRESET_IDS,
   WEEKDAY_SHORTCUT,
   WEEKEND_SHORTCUT,
@@ -170,7 +169,7 @@ function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
   const shortcuts = [
     { id: "weekdays", days: WEEKDAY_SHORTCUT },
     { id: "weekends", days: WEEKEND_SHORTCUT },
-    { id: "everyDay", days: EVERY_DAY_SHORTCUT },
+    { id: "everyDay", days: WEEK_DISPLAY_ORDER },
   ] as const;
   return (
     <fieldset className={styles.days} id={DAYS_FIELD_ID} tabIndex={-1}>
