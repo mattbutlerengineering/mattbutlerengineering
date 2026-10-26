@@ -228,17 +228,31 @@ export function toRequestJsonSchema(zodSchema: ZodType): Record<string, unknown>
   return rest;
 }
 
-/** Recursively drop object-level `required` arrays (property maps are untouched). */
-function stripRequired(obj: Record<string, unknown>): Record<string, unknown> {
+const UNION_KEYS = new Set(["anyOf", "oneOf"]);
+
+/**
+ * Recursively drop object-level `required` arrays (property maps are untouched).
+ *
+ * `required` on a direct `anyOf`/`oneOf` branch is kept: without it every
+ * branch of a union of objects matches any object, and fast-json-stringify
+ * serialises with the first branch, dropping the other branches' keys (#7722).
+ * A branch is only chosen when the data satisfies it, so this cannot make a
+ * well-formed response throw; nested objects inside a branch are still stripped.
+ */
+function stripRequired(
+  obj: Record<string, unknown>,
+  isUnionBranch = false
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
-    if (key === "required" && Array.isArray(value)) continue;
+    if (key === "required" && Array.isArray(value) && !isUnionBranch) continue;
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
       result[key] = stripRequired(value as Record<string, unknown>);
     } else if (Array.isArray(value)) {
+      const branches = UNION_KEYS.has(key);
       result[key] = value.map((item) =>
         item !== null && typeof item === "object" && !Array.isArray(item)
-          ? stripRequired(item as Record<string, unknown>)
+          ? stripRequired(item as Record<string, unknown>, branches)
           : item
       );
     } else {

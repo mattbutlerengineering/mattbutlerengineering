@@ -805,7 +805,10 @@
       export function toRequestJsonSchema(zodSchema: ZodType): Record<string, unknown> { /* ... */ }
     </item>
     <item priority="medium">
-      function stripRequired(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+      function stripRequired(
+        obj: Record<string, unknown>,
+        isUnionBranch = false
+      ): Record<string, unknown> { /* ... */ }
     </item>
     <item priority="high">
       export function toResponseJsonSchema(zodSchema: ZodType): Record<string, unknown> { /* ... */ }
