@@ -99,14 +99,17 @@ describe("CloseDialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
 
     expect(within(dialog).getByText("Step 2 of 2")).toBeTruthy();
-    // No outcome chosen yet, so the button cannot name one and is disabled.
-    const buttons = within(dialog).getAllByRole("button");
-    expect((buttons.at(-1) as HTMLButtonElement).disabled).toBe(true);
+    // No outcome chosen yet, so the button asks for one instead of naming it, and is disabled.
+    const primary = within(dialog).getByTestId("close-primary");
+    expect(primary).toHaveTextContent(/^Choose for each group$/);
+    expect(primary).toBeDisabled();
 
     fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // The toast counts what was notified: reservations, not the 52 guests booked.
+    expect(await screen.findByText("Thu, Dec 24 closed · 14 reservations notified")).toBeTruthy();
     const call = create.mock.calls[0]?.[0] as {
       body: { expectedVersion: number; rule: Record<string, unknown>; decisions: unknown[] };
     };

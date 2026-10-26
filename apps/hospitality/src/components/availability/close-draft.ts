@@ -6,6 +6,7 @@ import {
   type ClosureImpactKind,
   type DateRule,
 } from "@mbe/types";
+import { addDays } from "../../utils/service-day.js";
 
 /** Channels a booking-only closure can close. */
 export type BookingChannel = "online" | "phone" | "waitlist";
@@ -183,13 +184,23 @@ export function isUrgent(
   nowMinute: number
 ): boolean {
   if (closure.startsOn < today) return true;
+  // Two or more days out is never within 6 hours, whatever the time now.
+  if (closure.startsOn > addDays(today, 1)) return false;
   const startMinute =
     (closure.startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
   return startMinute - nowMinute <= URGENT_WITHIN_MINUTES;
 }
 
-/** The open online pause covering `today`, whose banner offers Resume. */
-export function activeOnlinePause(rules: readonly DateRule[], today: string): DateRule | null {
+/**
+ * The online pause in force now, whose banner offers Resume (ux.md F5 step 9). Only the shape
+ * the Pause button creates counts: online, open-ended and not repeating, so Resume never deletes
+ * a dated or recurring closure. A start time holds the pause back until it is reached.
+ */
+export function activeOnlinePause(
+  rules: readonly DateRule[],
+  today: string,
+  nowMinute: number
+): DateRule | null {
   return (
     rules.find(
       (r) =>
@@ -197,7 +208,9 @@ export function activeOnlinePause(rules: readonly DateRule[], today: string): Da
         r.targetKind === "booking" &&
         (r.bookingTypes ?? []).includes("online") &&
         r.startsOn <= today &&
-        (r.endsOn === null || r.endsOn === undefined || r.endsOn >= today)
+        (r.endsOn === null || r.endsOn === undefined) &&
+        !r.repeat &&
+        (!r.window || r.window.from <= nowMinute)
     ) ?? null
   );
 }

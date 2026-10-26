@@ -1714,6 +1714,7 @@
         "keep_silent_other": "Close and keep {{count}} silently",
         "keep_silent_many": "Close and keep {{count}} silently",
         "mixed": "Close · {{parts}}",
+        "choose": "Choose for each group",
         "part": {
           "cancel_one": "cancel {{count}}",
           "cancel_other": "cancel {{count}}",
@@ -1731,9 +1732,9 @@
       },
       "toast": {
         "closed": "{{date}} closed",
-        "notified_one": "{{date}} closed · {{count}} guest notified",
-        "notified_other": "{{date}} closed · {{count}} guests notified",
-        "notified_many": "{{date}} closed · {{count}} guests notified"
+        "notified_one": "{{date}} closed · {{count}} reservation notified",
+        "notified_other": "{{date}} closed · {{count}} reservations notified",
+        "notified_many": "{{date}} closed · {{count}} reservations notified"
       },
       "step2": {
         "urgent": "Urgent: guests will get a text and an email",

@@ -61,6 +61,8 @@ function outcomeLabel(counts: OutcomeCounts, t: TFunction): string {
   const parts = (["cancel", "move", "keep_notify", "keep_silent"] as const)
     .filter((a) => counts[a] > 0)
     .map((a) => ({ a, count: counts[a] }));
+  // Nothing chosen yet: ask for a choice rather than render an empty "Close · ".
+  if (parts.length === 0) return t("availability.close.button.choose");
   if (parts.length === 1) {
     const [only] = parts;
     return t(`availability.close.button.${only!.a}`, { count: only!.count });
@@ -192,6 +194,7 @@ export function CloseDialog(props: CloseDialogProps) {
           </Button>
           <Button
             variant="primary"
+            data-testid="close-primary"
             onClick={step === 2 ? () => void save() : next}
             isLoading={isPending}
             disabled={primaryDisabled}

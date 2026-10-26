@@ -1511,7 +1511,11 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function activeOnlinePause(rules: readonly DateRule[], today: string): DateRule | null { /* ... */ }
+      export function activeOnlinePause(
+        rules: readonly DateRule[],
+        today: string,
+        nowMinute: number
+      ): DateRule | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/closure-band.ts">

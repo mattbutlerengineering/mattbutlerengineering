@@ -181,6 +181,19 @@ describe("isUrgent", () => {
     expect(isUrgent({ startsOn: TODAY, fromMinute: 23 * 60 }, TODAY, 12 * 60)).toBe(false);
     expect(isUrgent({ startsOn: "2026-12-24", fromMinute: null }, TODAY, 12 * 60)).toBe(false);
   });
+
+  it("is never urgent for a closure two or more days out, however late it is", () => {
+    for (const nowMinute of [18 * 60, 20 * 60, 23 * 60 + 59]) {
+      expect(isUrgent({ startsOn: "2026-12-03", fromMinute: null }, TODAY, nowMinute)).toBe(false);
+      expect(isUrgent({ startsOn: "2026-12-24", fromMinute: null }, TODAY, nowMinute)).toBe(false);
+    }
+  });
+
+  it("measures a closure tomorrow from tonight", () => {
+    expect(isUrgent({ startsOn: "2026-12-02", fromMinute: null }, TODAY, 20 * 60)).toBe(true);
+    expect(isUrgent({ startsOn: "2026-12-02", fromMinute: 60 }, TODAY, 20 * 60)).toBe(true);
+    expect(isUrgent({ startsOn: "2026-12-02", fromMinute: 12 * 60 }, TODAY, 20 * 60)).toBe(false);
+  });
 });
 
 describe("activeOnlinePause", () => {
@@ -195,14 +208,35 @@ describe("activeOnlinePause", () => {
       ...patch,
     }) as DateRule;
 
+  const NOON = 12 * 60;
+
   it("finds an open-ended online pause that has started", () => {
-    expect(activeOnlinePause([rule({})], TODAY)?.id).toBe("p1");
+    expect(activeOnlinePause([rule({})], TODAY, NOON)?.id).toBe("p1");
+    expect(activeOnlinePause([rule({ window: null })], TODAY, NOON)?.id).toBe("p1");
   });
 
   it("ignores pauses that have not started, have ended, or close other channels", () => {
-    expect(activeOnlinePause([rule({ startsOn: "2026-12-02" })], TODAY)).toBeNull();
-    expect(activeOnlinePause([rule({ endsOn: "2026-11-30" })], TODAY)).toBeNull();
-    expect(activeOnlinePause([rule({ bookingTypes: ["phone"] })], TODAY)).toBeNull();
-    expect(activeOnlinePause([rule({ targetKind: "venue" })], TODAY)).toBeNull();
+    expect(activeOnlinePause([rule({ startsOn: "2026-12-02" })], TODAY, NOON)).toBeNull();
+    expect(activeOnlinePause([rule({ endsOn: "2026-11-30" })], TODAY, NOON)).toBeNull();
+    expect(activeOnlinePause([rule({ bookingTypes: ["phone"] })], TODAY, NOON)).toBeNull();
+    expect(activeOnlinePause([rule({ targetKind: "venue" })], TODAY, NOON)).toBeNull();
+  });
+
+  it("ignores a repeating online closure, even on one of its weekdays", () => {
+    // 2026-12-01 is a Tuesday; Resume would delete the whole recurring rule.
+    const tuesdays = rule({ repeat: { version: 1, weekdays: [2] } });
+    const mondays = rule({ repeat: { version: 1, weekdays: [1] } });
+    expect(activeOnlinePause([mondays], TODAY, NOON)).toBeNull();
+    expect(activeOnlinePause([tuesdays], TODAY, NOON)).toBeNull();
+  });
+
+  it("ignores a dated online closure: only the open-ended pause shape offers Resume", () => {
+    expect(activeOnlinePause([rule({ startsOn: TODAY, endsOn: TODAY })], TODAY, NOON)).toBeNull();
+  });
+
+  it("waits for a later-today window to start", () => {
+    const late = rule({ startsOn: TODAY, window: { version: 1, from: 22 * 60, to: 2880 } });
+    expect(activeOnlinePause([late], TODAY, NOON)).toBeNull();
+    expect(activeOnlinePause([late], TODAY, 22 * 60)?.id).toBe("p1");
   });
 });

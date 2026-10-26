@@ -5,7 +5,7 @@ import { resolveDay } from "@mbe/availability";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailability.js";
 import { useNow } from "../hooks/useNow.js";
-import { venueDate } from "../utils/service-day.js";
+import { minutesOfDayIn, venueDate } from "../utils/service-day.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
@@ -26,6 +26,18 @@ import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import styles from "./AvailabilityPage.module.css";
 
+/** The Close dialog (F5): `date` pre-fills "one date"; `pause` starts on pausing online booking. */
+interface Closing {
+  readonly date: string | null;
+  readonly pause: boolean;
+}
+
+/** Where the drawer goes next, and whether the Close dialog opens with it. */
+interface DayMove {
+  readonly open: string | null;
+  readonly closing?: Closing;
+}
+
 /**
  * Availability → Calendar (read-only, #7514): the venue's month or week with what governs each
  * day, and a drawer that explains a day. Managers and Hosts see the same thing here; only a
@@ -35,17 +47,21 @@ export function AvailabilityPage() {
   const { t } = useTranslation();
   const { selectedVenueId, selectedVenue } = useVenue();
   const timeZone = selectedVenue?.ianaTimezone ?? "";
-  const today = venueDate(useNow(), timeZone);
+  const now = useNow();
+  const today = venueDate(now, timeZone);
 
   const [view, setView] = useState<CalendarView>("month");
   // `null` follows today until the viewer navigates.
   const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
   const [openDate, setOpenDate] = useState<string | null>(null);
-  // The Close dialog (F5): `date` pre-fills "one date"; `pause` starts on pausing online booking.
-  const [closing, setClosing] = useState<{ date: string | null; pause: boolean } | null>(null);
+  const [closing, setClosing] = useState<Closing | null>(null);
   const anchor = chosenAnchor ?? today;
-  // Moving off a day with an unsaved draft asks first (ux.md F2 step 6).
-  const guard = useDiscardGuard<string | null>(setOpenDate);
+  // Moving off a day with an unsaved draft asks first (ux.md F2 step 6). A move can carry the
+  // Close dialog, which opens only once the guard lets the move through.
+  const guard = useDiscardGuard<DayMove>((move) => {
+    setOpenDate(move.open);
+    if (move.closing) setClosing(move.closing);
+  });
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
   const days = useAvailabilityDays({
@@ -98,7 +114,9 @@ export function AvailabilityPage() {
   }
 
   const isManager = team?.viewerRole === "manager";
-  const pause = config.data ? activeOnlinePause(config.data.config.dateRules, today) : null;
+  const pause = config.data
+    ? activeOnlinePause(config.data.config.dateRules, today, minutesOfDayIn(now, timeZone))
+    : null;
   const failure = days.error ? describeApiError(days.error) : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 
@@ -154,7 +172,7 @@ export function AvailabilityPage() {
         isLoading={days.isLoading}
         selectedDate={openDate}
         draftDate={guard.dirty ? openDate : null}
-        onOpenDay={(date) => (date === openDate ? undefined : guard.request(date))}
+        onOpenDay={(date) => (date === openDate ? undefined : guard.request({ open: date }))}
         onAnchorChange={setChosenAnchor}
       />
       <AvailabilityDayDrawer
@@ -171,15 +189,13 @@ export function AvailabilityPage() {
                 timezone: timeZone,
                 today,
                 onDirtyChange: guard.setDirty,
-                onFinished: () => guard.release(null),
-                onCloseDay: (date: string) => {
-                  guard.request(null);
-                  setClosing({ date, pause: false });
-                },
+                onFinished: () => guard.release({ open: null }),
+                onCloseDay: (date: string) =>
+                  guard.request({ open: null, closing: { date, pause: false } }),
               }
             : undefined
         }
-        onClose={() => guard.request(null)}
+        onClose={() => guard.request({ open: null })}
       />
       {closing && config.data && (
         <CloseDialog

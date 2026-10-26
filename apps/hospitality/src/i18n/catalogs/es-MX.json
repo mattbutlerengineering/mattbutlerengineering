@@ -1743,6 +1743,7 @@
         "keep_silent_other": "Cerrar y mantener {{count}} sin avisar",
         "keep_silent_many": "Cerrar y mantener {{count}} sin avisar",
         "mixed": "Cerrar · {{parts}}",
+        "choose": "Elige para cada grupo",
         "part": {
           "cancel_one": "cancelar {{count}}",
           "cancel_other": "cancelar {{count}}",
@@ -1760,9 +1761,9 @@
       },
       "toast": {
         "closed": "{{date}} cerrado",
-        "notified_one": "{{date}} cerrado · {{count}} comensal avisado",
-        "notified_other": "{{date}} cerrado · {{count}} comensales avisados",
-        "notified_many": "{{date}} cerrado · {{count}} comensales avisados"
+        "notified_one": "{{date}} cerrado · {{count}} reservación avisada",
+        "notified_other": "{{date}} cerrado · {{count}} reservaciones avisadas",
+        "notified_many": "{{date}} cerrado · {{count}} reservaciones avisadas"
       },
       "step2": {
         "urgent": "Urgente: los comensales recibirán un mensaje de texto y un correo",

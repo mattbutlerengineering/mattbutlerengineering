@@ -298,6 +298,42 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       expect(screen.getByRole("dialog", { name: /Thursday, October 29/ })).toBeTruthy();
     });
+
+    function closeFromDrawer() {
+      const drawer = screen.getByRole("dialog", { name: /Friday, October 30/ });
+      fireEvent.click(within(drawer).getByRole("button", { name: "Close…" }));
+    }
+
+    it("asks before the drawer's Close… replaces a draft, and Keep editing opens nothing", () => {
+      renderPage();
+      startDraft();
+      closeFromDrawer();
+      expect(
+        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+      ).toBeTruthy();
+      expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+      expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+    });
+
+    it("opens the Close dialog once the draft is discarded", async () => {
+      renderPage();
+      startDraft();
+      closeFromDrawer();
+      fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+      expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: /Friday, October 30/ })).not.toBeInTheDocument()
+      );
+    });
+
+    it("opens the Close dialog straight away with no draft", () => {
+      renderPage();
+      openFriday();
+      closeFromDrawer();
+      expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
+    });
   });
 
   it("offers Retry when the days fail to load", () => {

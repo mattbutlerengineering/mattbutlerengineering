@@ -1743,6 +1743,7 @@
         "keep_silent_other": "Fermer et garder {{count}} sans aviser",
         "keep_silent_many": "Fermer et garder {{count}} sans aviser",
         "mixed": "Fermer · {{parts}}",
+        "choose": "Choisissez pour chaque groupe",
         "part": {
           "cancel_one": "annuler {{count}}",
           "cancel_other": "annuler {{count}}",
@@ -1760,9 +1761,9 @@
       },
       "toast": {
         "closed": "{{date}} fermé",
-        "notified_one": "{{date}} fermé · {{count}} client avisé",
-        "notified_other": "{{date}} fermé · {{count}} clients avisés",
-        "notified_many": "{{date}} fermé · {{count}} clients avisés"
+        "notified_one": "{{date}} fermé · {{count}} réservation avisée",
+        "notified_other": "{{date}} fermé · {{count}} réservations avisées",
+        "notified_many": "{{date}} fermé · {{count}} réservations avisées"
       },
       "step2": {
         "urgent": "Urgent : les clients recevront un texto et un courriel",

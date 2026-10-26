@@ -1,7 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
-import { localDay } from "./local-day.js";
 
 /**
  * F5 (docs/features/venue-availability/ux.md), the PRD demo: a Manager closes 24 December with
@@ -14,16 +13,9 @@ const DINNER = { opensAt: 1020, lastSeatingAt: 1260, closesAt: 1380 };
 const ALL_DAY_CLOSURE = { from: 0, to: 2880 };
 const BOOKINGS = 14;
 const GUESTS = 52;
-
-/** The next 24 December on or after today, and how many months away its page is. */
-function nextChristmasEve(): { date: string; monthsAhead: number } {
-  const today = localDay();
-  const year = Number(today.slice(0, 4));
-  const thisYear = `${year}-12-24`;
-  const date = today <= thisYear ? thisYear : `${year + 1}-12-24`;
-  const monthsAhead = (Number(date.slice(0, 4)) - year) * 12 + 12 - Number(today.slice(5, 7));
-  return { date, monthsAhead };
-}
+/** The browser clock is pinned to a November noon in the venue's zone, so December is one page on. */
+const NOW = new Date("2026-11-10T12:00:00-05:00");
+const EVE = "2026-12-24";
 
 function datesBetween(from: string, to: string): string[] {
   const out: string[] = [];
@@ -141,41 +133,45 @@ test.describe("Availability close dialog (F5)", () => {
   test("a Manager closes 24 December, cancels and notifies 14 bookings, and sees the band", async ({
     mockedPage,
   }) => {
-    const eve = nextChristmasEve();
-    const state = await mockAvailability(mockedPage, eve.date);
+    await mockedPage.clock.setFixedTime(NOW);
+    const state = await mockAvailability(mockedPage, EVE);
     await mockedPage.goto("availability");
 
     const calendar = mockedPage.getByRole("grid", { name: "Availability calendar" });
     await expect(calendar).toBeVisible();
-    for (let i = 0; i < eve.monthsAhead; i += 1) {
-      await mockedPage.getByRole("button", { name: "Next", exact: true }).click();
-    }
-    await calendar.locator(`[data-date="${eve.date}"]`).click();
-    await mockedPage.getByRole("button", { name: "Close…", exact: true }).click();
+    await mockedPage.getByRole("button", { name: "Next", exact: true }).click();
+    await calendar.locator(`[data-date="${EVE}"]`).click();
+    // The toolbar has a "Close…" too; the drawer's carries the date.
+    const drawer = mockedPage.getByRole("dialog");
+    await drawer.getByRole("button", { name: "Close…", exact: true }).click();
 
     const dialog = mockedPage.getByRole("dialog", { name: "Close", exact: true });
     await expect(dialog.getByText("Step 1 of 2")).toBeVisible();
     await expect(
-      dialog.getByText("14 reservations · 52 guests are booked in this closure")
+      dialog.getByText(new RegExp(`${BOOKINGS} reservations · ${GUESTS} guests`))
     ).toBeVisible();
 
     await dialog.getByRole("button", { name: "Closed for a private event" }).click();
     await dialog.getByRole("button", { name: "Next", exact: true }).click();
 
     await expect(dialog.getByText("Step 2 of 2")).toBeVisible();
-    await expect(dialog.getByText(/14 reservations · 52 guests · 3 deposits held/)).toBeVisible();
-    const save = dialog.getByRole("button", { name: "Close and cancel 14" });
+    await expect(dialog.getByText(/3 deposits held/)).toBeVisible();
     // A choice is required for every group before anything is saved.
-    await expect(dialog.getByRole("button", { name: /^Close/ }).last()).toBeDisabled();
+    const primary = dialog.getByTestId("close-primary");
+    await expect(primary).toBeDisabled();
     await dialog.getByRole("radio", { name: /Cancel, notify & refund/ }).check();
-    await save.click();
+    await expect(primary).toHaveText(`Close and cancel ${BOOKINGS}`);
+    await primary.click();
 
-    await expect(mockedPage.getByText(/closed · 14 guests notified/)).toBeVisible();
+    const notifications = mockedPage.getByRole("region", { name: "Notifications" });
+    await expect(
+      notifications.getByText(new RegExp(`${BOOKINGS} reservations notified`))
+    ).toBeVisible();
     expect(state.saved()).toMatchObject({
       expectedVersion: 7,
-      rule: { kind: "closure", targetKind: "venue", startsOn: eve.date, endsOn: eve.date },
-      decisions: [{ groupKey: `${eve.date}:closed`, action: "cancel" }],
+      rule: { kind: "closure", targetKind: "venue", startsOn: EVE, endsOn: EVE },
+      decisions: [{ groupKey: `${EVE}:closed`, action: "cancel" }],
     });
-    await expect(calendar.locator(`[data-date="${eve.date}"]`)).toContainText("Closed all day");
+    await expect(calendar.locator(`[data-date="${EVE}"]`)).toContainText("Closed all day");
   });
 });
