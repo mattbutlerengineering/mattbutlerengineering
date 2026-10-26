@@ -32,6 +32,11 @@ interface NewReservationDialogProps {
   tables: Table[];
   venueId: string;
   defaultDate: string;
+  /**
+   * `defaultDate` is only a stand-in for the current service day: once the venue's config says
+   * which day that is, an untouched date field moves to it. False when the date was chosen.
+   */
+  followServiceDay?: boolean;
   onConfirm: (data: CreateReservationRequest) => Promise<void>;
   onClose: () => void;
 }
@@ -69,6 +74,7 @@ export function NewReservationDialog({
   tables,
   venueId,
   defaultDate,
+  followServiceDay = false,
   onConfirm,
   onClose,
 }: NewReservationDialogProps) {
@@ -106,7 +112,7 @@ export function NewReservationDialog({
     setValue,
     setFocus,
     watch,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<NewReservationFormData>({
     defaultValues: {
       guestName: "",
@@ -122,6 +128,17 @@ export function NewReservationDialog({
   const startTime = watch("startTime");
 
   const tonight = useStaffTonight(venueId);
+
+  // The dialog can mount before the config loads, prefilled with the calendar date. Move an
+  // untouched date field to the service day once known, once, so 00:45 does not book next night.
+  const followedRef = useRef(false);
+  const serviceDate = tonight.serviceDate;
+  const dateIsDirty = dirtyFields.date === true;
+  useEffect(() => {
+    if (!followServiceDay || !serviceDate || followedRef.current) return;
+    followedRef.current = true;
+    if (!dateIsDirty) setValue("date", serviceDate);
+  }, [followServiceDay, serviceDate, dateIsDirty, setValue]);
 
   // The booking's real window on the venue clock; null until date and time are both entered.
   // `date` is the service day, so an after-midnight time sits on the next calendar date.

@@ -396,6 +396,7 @@ export function ReservationsPage() {
           tables={tables ?? []}
           venueId={selectedVenueId}
           defaultDate={dialogDate}
+          followServiceDay={!searchParams.has("date")}
           onConfirm={handleCreateReservation}
           onClose={handleCloseNewReservation}
         />

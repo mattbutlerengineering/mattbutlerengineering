@@ -17,13 +17,15 @@ const mockCheck = vi.fn((_args: unknown) => ({ phase: "idle", verdict: null }));
 vi.mock("../../hooks/useStaffBookingCheck.js", () => ({
   useStaffBookingCheck: (args: unknown) => mockCheck(args),
 }));
+const LOADED_TONIGHT = {
+  serviceDate: "2026-05-10",
+  config: DINNER_CONFIG,
+  rules: [],
+  waitlistClosed: false,
+};
+const mockTonight = vi.fn(() => LOADED_TONIGHT);
 vi.mock("../../hooks/useStaffTonight.js", () => ({
-  useStaffTonight: () => ({
-    serviceDate: "2026-05-10",
-    config: DINNER_CONFIG,
-    rules: [],
-    waitlistClosed: false,
-  }),
+  useStaffTonight: () => mockTonight(),
 }));
 vi.mock("../../hooks/useOpenTimes.js", () => ({
   useOpenTimes: () => ({ data: [], isLoading: false, error: null }),
@@ -64,7 +66,52 @@ function createWith(date: string, time: string) {
 }
 
 describe("NewReservationDialog past-midnight seatings", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTonight.mockReturnValue(LOADED_TONIGHT);
+  });
+
+  describe("date follows the service day once the config loads", () => {
+    const LOADING = { serviceDate: null, config: null, rules: [], waitlistClosed: false } as never;
+    const tree = (followServiceDay: boolean) => (
+      <NewReservationDialog
+        tables={[TABLE]}
+        venueId="venue-1"
+        defaultDate="2026-05-15"
+        followServiceDay={followServiceDay}
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    const dateInput = () => screen.getByLabelText(/^date/i) as HTMLInputElement;
+    const loaded = { ...LOADED_TONIGHT, serviceDate: "2026-05-14" };
+
+    it("replaces the calendar-date prefill with the service day when it arrives", () => {
+      mockTonight.mockReturnValue(LOADING);
+      const { rerender } = render(tree(true));
+      expect(dateInput().value).toBe("2026-05-15");
+      mockTonight.mockReturnValue(loaded);
+      rerender(tree(true));
+      expect(dateInput().value).toBe("2026-05-14");
+    });
+
+    it("never overwrites a date the user edited", () => {
+      mockTonight.mockReturnValue(LOADING);
+      const { rerender } = render(tree(true));
+      fireEvent.change(dateInput(), { target: { value: "2026-06-01" } });
+      mockTonight.mockReturnValue(loaded);
+      rerender(tree(true));
+      expect(dateInput().value).toBe("2026-06-01");
+    });
+
+    it("leaves a date the URL named alone", () => {
+      mockTonight.mockReturnValue(LOADING);
+      const { rerender } = render(tree(false));
+      mockTonight.mockReturnValue(loaded);
+      rerender(tree(false));
+      expect(dateInput().value).toBe("2026-05-15");
+    });
+  });
 
   it("books 00:30 on service day 2026-05-10 as 2026-05-11 00:30 local, date stays the service day", async () => {
     const onConfirm = createWith("2026-05-10", "00:30");
