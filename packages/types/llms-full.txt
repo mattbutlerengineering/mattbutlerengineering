@@ -2128,7 +2128,7 @@
       phone: z.string().optional(),
     });
     export const PublicHoldBodySchema = z.object({
-      date: z.string().min(1),
+      date: ServiceDateSchema,
       startTime: z.string().min(1),
       // Optional because the hold's end is always derived server-side from the
       // venue's turn-time rules (`estimateDuration`); the public create handler has

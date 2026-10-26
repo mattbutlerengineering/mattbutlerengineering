@@ -247,6 +247,16 @@ describe("POST /public/v1/venues/:slug/holds", () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it('rejects a malformed date ("x") with 400 before touching availability (#7696)', async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "x", startTime: "19:00", partySize: 2 },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
   it("rejects a payload missing partySize with 400", async () => {
     const response = await app.inject({
       method: "POST",
