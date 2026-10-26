@@ -141,7 +141,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 6: Tonight, staff and guest surfaces
 
-- [ ] **Tonight API** — `POST` and `DELETE …/tonight`: Tonight DateRules (pause online, close early, stop window, table blocks through DateRuleTable, pacing) with a server-computed `expiresAt`. Close-early with bookings routes to the closure command. (tracker: #7529)
+- [x] **Tonight API** — `POST` and `DELETE …/tonight`: Tonight DateRules (pause online, close early, stop window, table blocks through DateRuleTable, pacing) with a server-computed `expiresAt`. Close-early with bookings routes to the closure command. (tracker: #7529)
   - Accept: a clock-advance test shows every Tonight change gone at the service-day boundary, with schedules untouched (SC Night-of expiry). Blocked tables stop being offered on every booking path.
   - Blocked by: Booking gate, Closure command
 - [ ] **Tonight panel** — the F7 popover or sheet, header chips, the emergency close (What and When locked for Hosts with the grant), and the footer link. (tracker: #7530)

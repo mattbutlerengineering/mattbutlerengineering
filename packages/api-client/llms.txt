@@ -76,6 +76,9 @@
     <item priority="low">
       type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
     </item>
+    <item priority="low">
+      type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
+    </item>
     <item priority="high">
       class AvailabilityClient {
         async getTimeSlots(): Promise<unknown>;

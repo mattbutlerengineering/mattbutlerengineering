@@ -689,8 +689,8 @@
         extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
       ): AvailabilityConfigProblem { /* ... */ }
     </item>
-    <item priority="medium">
-      function sendRefusal(reply: FastifyReply, outcome: Refusal) { /* ... */ }
+    <item priority="high">
+      export function sendRefusal(reply: FastifyReply, outcome: Refusal) { /* ... */ }
     </item>
     <item priority="high">
       export const closureRoutes: FastifyPluginAsync;
@@ -1350,6 +1350,11 @@
     </item>
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/tonight.ts">
+    <item priority="high">
+      export const tonightRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/venue-scope.ts">
@@ -2495,6 +2500,9 @@
       export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
     </item>
     <item priority="high">
+      export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean { /* ... */ }
     </item>
   </file>
@@ -2505,6 +2513,9 @@
     <item priority="high">
       type Db = StoreDb &
         Pick<PrismaClient, "closureOutcome" | "reserv...;
+    </item>
+    <item priority="high">
+      export const TONIGHT_RULE_KINDS: ReadonlySet<string>;
     </item>
     <item priority="low">
       interface ClosureCaller {
@@ -2614,6 +2625,8 @@
           body: CreateClosureBody;
           idempotencyKey: string;
           now: Date;
+          /** Rule kinds this call may save; the Tonight API widens it to `tonight`. */
+          ruleKinds?: ReadonlySet<string>;
         },
         client: StoreClient = prisma
       ): Promise<CreateClosureOutcome> { /* ... */ }
@@ -2984,7 +2997,7 @@
         availabilityConfigService: typeof availabilityConfigService;
         closureImpactService: typeof closureImpactService;
         closureCommandService: typeof closureCommandService;
-        venueService: typeof venueService;
+        tonightCommandService: typeof tonightCommandService;
       }
     </item>
     <item priority="high">
@@ -4339,6 +4352,115 @@
     </item>
     <item priority="high">
       export const tableService: unknown;
+    </item>
+  </file>
+  <file path="src/services/tonight-command.ts">
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
+    </item>
+    <item priority="high">
+      type Db = StoreDb;
+    </item>
+    <item priority="low">
+      type SetTonightOutcome = { kind: "saved"; result: Tonig | Exclude<CreateClosureOutcome,  | { kind: "rule_exists" };
+    </item>
+    <item priority="high">
+      type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
+    </item>
+    <item priority="medium">
+      class Refused {
+        
+      }
+    </item>
+    <item priority="high">
+      interface TonightDeps {
+        createClosure: typeof createClosure;
+      }
+    </item>
+    <item priority="medium">
+      function dayBoundary(state: ConfigState, serviceDate: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      type RuleShape = Pick<
+        Extract<DateRule, { kind: "tonight" }>,
+        "target...;
+    </item>
+    <item priority="medium">
+      function shapeOf(change: TonightChange): RuleShape { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildRule(
+        body: SetTonightBody,
+        serviceDate: string,
+        expiresAt: Date
+      ): Extract<DateRule, { kind: "tonight" }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeChange(change: TonightChange): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fingerprint(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function storedSame(
+        state: ConfigState,
+        rule: DateRule
+      ): Extract<DateRule, { kind: "tonight" }> | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeEarlyKey(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface TonightMeta {
+        ruleId: string;
+        version: number;
+      }
+    </item>
+    <item priority="low">
+      async function replayOf(
+        tx: Db,
+        venueId: string,
+        rule: Extract<DateRule, { kind: "tonight" }>,
+        state: ConfigState
+      ): Promise<TonightResult | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function checkRule(
+        tx: Db,
+        venueId: string,
+        state: ConfigState,
+        rule: DateRule
+      ): Promise<AvailabilityConfig> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function writeChange(
+        tx: Db,
+        input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+        state: ConfigState,
+        rule: Extract<DateRule, { kind: "tonight" }>
+      ): Promise<TonightResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      type Prepared = { kind: "saved"; result: Tonig | { kind: "delegate"; rule: Extr;
+    </item>
+    <item priority="high">
+      export async function setTonight(
+        input: { venueId: string; caller: ClosureCaller; body: SetTonightBody; now: Date },
+        client: StoreClient = prisma,
+        deps: TonightDeps = { createClosure }
+      ): Promise<SetTonightOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      type EndTonightOutcome = { kind: "ended"; result: Reope | { kind: "not_found" };
+    </item>
+    <item priority="high">
+      export async function endTonight(
+        input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+        client: StoreClient = prisma
+      ): Promise<EndTonightOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const tonightCommandService: unknown;
     </item>
   </file>
   <file path="src/services/venue-context-store.ts">

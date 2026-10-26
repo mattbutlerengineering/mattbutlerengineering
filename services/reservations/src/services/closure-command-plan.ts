@@ -121,6 +121,28 @@ export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): s
 }
 
 /**
+ * Whether a Tonight close-early takes away every service it targets on the
+ * planned day (Tonight changes stripped): a close at or before the earliest
+ * open drops them all (resolve-day `closeEarly`), which is a closure, not a
+ * shortened night. A target with no service tonight removes nothing.
+ */
+export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
+  if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
+  const { closeAt } = rule.payload;
+  const planned = {
+    ...snapshot,
+    config: {
+      ...snapshot.config,
+      dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
+    },
+  };
+  const targeted = resolveDay(planned, rule.startsOn).services.filter(
+    (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
+  );
+  return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+}
+
+/**
  * The Host's one allowed closure: the whole venue, the whole of the current
  * service day, and nothing narrower or wider (architecture.md § Venue roles).
  */
