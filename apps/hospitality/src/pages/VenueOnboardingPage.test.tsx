@@ -641,6 +641,22 @@ describe("VenueOnboardingPage", () => {
     expect(screen.getByText("At least one day must be open")).toBeTruthy();
   });
 
+  it("advances past hours whose close is after midnight (the Late preset)", () => {
+    renderPage();
+    const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: "My Venue" } });
+    fireEvent.click(screen.getByText("Next"));
+    const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
+    fireEvent.change(tz, { target: { value: "America/New_York" } });
+    fireEvent.click(screen.getByText("Next"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Late" }));
+    fireEvent.click(screen.getByRole("button", { name: "Every day" }));
+    fireEvent.click(screen.getByText("Next"));
+
+    expect(screen.getByText("Venue Settings")).toBeTruthy();
+  });
+
   it("should show validation error on step 3 when no days are open", () => {
     renderPage();
 

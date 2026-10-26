@@ -11,6 +11,7 @@ import {
   setServiceTime,
   toggleDay,
   validateDraft,
+  validateQuickSetupHours,
   WEEKDAY_SHORTCUT,
   WEEK_DISPLAY_ORDER,
   type QuickSetupDraft,
@@ -83,6 +84,24 @@ describe("quick setup draft", () => {
     expect(validateDraft(bad)).toEqual([
       { serviceId: "s1", field: "lastSeating", code: "last_seating_after_close" },
     ]);
+  });
+
+  it("flags a service name over 40 characters", () => {
+    const draft = dinnerWeekdays();
+    const long = replaceService(draft, { ...draft.services[0]!, name: "D".repeat(41) });
+    expect(validateDraft(long)).toEqual([
+      { serviceId: "s1", field: "name", code: "name_too_long" },
+    ]);
+    const ok = replaceService(draft, { ...draft.services[0]!, name: "D".repeat(40) });
+    expect(validateDraft(ok)).toEqual([]);
+  });
+
+  it("gates wizard hours on at least one open day, accepting past-midnight closes", () => {
+    const late = applyPreset(emptyDraft("s1").services[0]!, "late", "Late");
+    const hours = draftToLegacyHours({ services: [late], days: WEEK_DISPLAY_ORDER });
+    expect(hours.monday).toEqual({ open: "22:00", close: "01:00" });
+    expect(validateQuickSetupHours(hours)).toBeNull();
+    expect(validateQuickSetupHours({})?.global).toBe("At least one day must be open");
   });
 
   it("flags services that overlap", () => {

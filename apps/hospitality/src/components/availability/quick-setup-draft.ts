@@ -1,4 +1,7 @@
+import type { TFunction } from "i18next";
 import { projectLegacyOperatingHours, validateConfig } from "@mbe/availability";
+import { localeRuntime } from "../../i18n/runtime.js";
+import type { OperatingHoursValidationErrors } from "../venue-onboarding/OperatingHoursStep.js";
 import type {
   AvailabilityConfig,
   AvailabilityConfigChanges,
@@ -32,6 +35,8 @@ export interface QuickSetupDraft {
 }
 
 export const LAST_SEATING_LEAD_MINUTES = 45;
+/** `VenueServiceSchema.name` max; the server refuses a longer name. */
+export const SERVICE_NAME_MAX_LENGTH = 40;
 const MINUTES_PER_DAY = 1440;
 const SEATING_INTERVAL_MINUTES = 15;
 
@@ -122,10 +127,10 @@ export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft 
 export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
 export type QuickSetupIssueCode =
   | "name_required"
+  | "name_too_long"
   | "time_required"
   | "close_after_open"
   | "last_seating_after_close"
-  | "last_seating_before_open"
   | "overlap"
   | "days_required";
 
@@ -178,10 +183,13 @@ function completenessIssues(service: ServiceDraft): QuickSetupIssue[] {
       code: "time_required",
     })
   );
+  const name = service.name.trim();
   const unnamed: QuickSetupIssue[] =
-    service.name.trim() === ""
+    name === ""
       ? [{ serviceId: service.id, field: "name", code: "name_required" }]
-      : [];
+      : name.length > SERVICE_NAME_MAX_LENGTH
+        ? [{ serviceId: service.id, field: "name", code: "name_too_long" }]
+        : [];
   return [...unnamed, ...missing];
 }
 
@@ -301,6 +309,18 @@ export function draftToChanges(
       assignments: stored.assignments.filter((a) => a.scheduleId === scheduleId).map((a) => a.id),
     },
   };
+}
+
+/**
+ * The wizard's step-3 gate for hours that came from the card. The card has already validated
+ * its times, and a close earlier than the open is a legitimate past-midnight service that the
+ * old per-day string compare would refuse, so only "at least one day open" remains.
+ */
+export function validateQuickSetupHours(
+  hours: OperatingHours,
+  t: TFunction = localeRuntime.i18n.t
+): OperatingHoursValidationErrors | null {
+  return Object.keys(hours).length === 0 ? { global: t("onboarding.hours.atLeastOne") } : null;
 }
 
 /** The legacy shape the new-venue wizard sends (the venue has no config rows until it exists). */

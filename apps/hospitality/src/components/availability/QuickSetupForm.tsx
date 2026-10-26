@@ -13,6 +13,7 @@ import {
 import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import {
+  SERVICE_NAME_MAX_LENGTH,
   SERVICE_PRESET_IDS,
   WEEKDAY_SHORTCUT,
   WEEKEND_SHORTCUT,
@@ -117,6 +118,7 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
           id={quickSetupFieldId(service.id, "name")}
           label={t("availability.quickSetup.nameLabel")}
           value={service.name}
+          maxLength={SERVICE_NAME_MAX_LENGTH}
           error={nameProblems.length > 0}
           onChange={(e) => onChange({ ...service, name: e.target.value })}
         />

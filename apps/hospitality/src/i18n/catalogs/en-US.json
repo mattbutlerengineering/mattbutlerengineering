@@ -1570,7 +1570,7 @@
         "time_required": "Choose a time.",
         "close_after_open": "Closing must be different from opening.",
         "last_seating_after_close": "Last seating must be before closing.",
-        "last_seating_before_open": "Last seating must be after opening.",
+        "name_too_long": "Use 40 characters or fewer for the service name.",
         "overlap": "This service overlaps another one.",
         "days_required": "Choose at least one day."
       }

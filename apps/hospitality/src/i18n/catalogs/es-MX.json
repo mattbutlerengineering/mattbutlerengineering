@@ -1594,7 +1594,7 @@
         "time_required": "Elige una hora.",
         "close_after_open": "El cierre debe ser distinto de la apertura.",
         "last_seating_after_close": "La última mesa debe ser antes del cierre.",
-        "last_seating_before_open": "La última mesa debe ser después de la apertura.",
+        "name_too_long": "Usa 40 caracteres o menos para el nombre del servicio.",
         "overlap": "Este servicio se traslapa con otro.",
         "days_required": "Elige al menos un día."
       }
