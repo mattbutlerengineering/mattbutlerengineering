@@ -14109,7 +14109,7 @@
       function clearOfBand(
         ranges: readonly StartRange[],
         band: { from: number; to: number },
-        durationMin: number
+        span: number
       ): StartRange[] { /* ... */ }
     </item>
     <item priority="high">

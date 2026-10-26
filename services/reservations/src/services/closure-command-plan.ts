@@ -77,13 +77,17 @@ function wallMinutes(instant: Date, serviceDate: string, tz: string): number {
 
 type StartRange = readonly [lo: number, hi: number];
 
-/** The ranges left of `ranges` once starts whose booking would touch the band are removed. */
+/**
+ * The ranges left of `ranges` once starts that hit the band are removed.
+ * `span` is how much of the booking the band covers: all of it for a closure,
+ * one minute (the start) for a Tonight stop window, which only stops new seatings.
+ */
 function clearOfBand(
   ranges: readonly StartRange[],
   band: { from: number; to: number },
-  durationMin: number
+  span: number
 ): StartRange[] {
-  const lastBefore = band.from - durationMin; // starts at or before this end by the band
+  const lastBefore = band.from - span; // latest start that clears the band
   return ranges.flatMap(([lo, hi]) => [
     ...(lo <= lastBefore ? [[lo, Math.min(hi, lastBefore)] as const] : []),
     ...(hi >= band.to ? [[Math.max(lo, band.to), hi] as const] : []),
@@ -108,6 +112,11 @@ export function moveTarget(
   const startMin = wallMinutes(start, serviceDate, after.timezone);
   const nowMin = wallMinutes(now, serviceDate, after.timezone);
   const day = resolveDay(after, serviceDate);
+  const stopRuleIds = new Set(
+    after.config.dateRules.filter((r) => r.kind === "tonight").map((r) => r.id)
+  );
+  const spanOf = (band: { ruleId: string }): number =>
+    stopRuleIds.has(band.ruleId) ? 1 : durationMin;
   const candidates = day.services.flatMap((s) => {
     const bands = day.closures.filter(
       (c) =>
@@ -118,7 +127,7 @@ export function moveTarget(
       [Math.max(s.opensAt, nowMin), Math.min(s.lastSeatingAt, s.closesAt - durationMin)],
     ];
     const free = bands
-      .reduce((ranges, band) => clearOfBand(ranges, band, durationMin), open)
+      .reduce((ranges, band) => clearOfBand(ranges, band, spanOf(band)), open)
       .filter(([lo, hi]) => lo <= hi);
     return free.map(([lo, hi]) => Math.min(Math.max(startMin, lo), hi));
   });
