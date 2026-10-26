@@ -4,6 +4,7 @@ import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 import { ApiClientError } from "@mbe/api-client";
+import { resolveDay } from "@mbe/availability";
 
 const save = vi.hoisted(() => vi.fn());
 const revertAsync = vi.hoisted(() => vi.fn());
@@ -119,6 +120,56 @@ describe("AvailabilityDayEditor", () => {
     expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x1`);
     chooseScope(/Every Friday/);
     expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x53`);
+  });
+
+  it("makes no preview when the chosen scope reaches no dates", () => {
+    // "Brunch" is in no regular-week day; only a use_schedule rule on the fixture date uses it.
+    const base = fixtureConfig();
+    const lunch = base.scheduleServices[0]!;
+    const config = {
+      ...base,
+      schedules: [
+        ...base.schedules,
+        { id: "brunch", name: "Brunch", kind: "alternate" as const, isRegular: false },
+      ],
+      scheduleServices: [
+        ...base.scheduleServices,
+        { ...lunch, id: "ss-brunch", scheduleId: "brunch" },
+      ],
+      dateRules: [
+        {
+          id: "dr-brunch",
+          kind: "use_schedule" as const,
+          targetKind: "venue" as const,
+          startsOn: FIXTURE_DATE,
+          endsOn: FIXTURE_DATE,
+          useScheduleId: "brunch",
+        },
+      ],
+    };
+    render(
+      <ToastProvider>
+        <main>
+          <AvailabilityDayEditor
+            venueId="venue-1"
+            date={FIXTURE_DATE}
+            day={resolveDay({ timezone: FIXTURE_TIMEZONE, config }, FIXTURE_DATE)}
+            state={{ config, version: 4, source: "rows" }}
+            timezone={FIXTURE_TIMEZONE}
+            today="2026-10-28"
+            onDirtyChange={vi.fn()}
+            onCancel={vi.fn()}
+            onFinished={vi.fn()}
+          />
+        </main>
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x1`);
+    chooseScope(/Everywhere “Brunch” is used/);
+    expect(screen.getByText("Applies to 0 dates")).toBeTruthy();
+    expect(screen.queryByTestId("guest-preview")).not.toBeInTheDocument();
   });
 
   it("holds the preview while a new service has no name (the server would refuse it)", () => {
