@@ -5,6 +5,8 @@ import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
 import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
+import { CopyDayAction } from "./CopyDayAction.js";
+import { ScheduleNudge } from "./ScheduleNudge.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
 import styles from "./AvailabilityDayDrawer.module.css";
 
@@ -23,6 +25,8 @@ export interface DayEditing {
    * It replaces the scope choice ("Applies to 6 dates") and the editor writes exactly these.
    */
   readonly fixedDates?: readonly string[];
+  /** Reload the config after a schedule save was refused as out of date. */
+  readonly onStale?: () => void;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -37,6 +41,8 @@ export interface AvailabilityDayDrawerProps {
   readonly editing?: DayEditing;
   readonly onClose: () => void;
 }
+
+const noop = () => undefined;
 
 function serviceNames(day: ResolvedDaySummary, locale: string): string {
   return new Intl.ListFormat(locale, { type: "conjunction" }).format(
@@ -141,11 +147,35 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
           <AvailabilityDayEditor
             // A new date, or a new pick for the same date, is a new draft.
             key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
-            {...editing}
+            venueId={editing.venueId}
+            state={editing.state}
+            timezone={editing.timezone}
+            today={editing.today}
+            onDirtyChange={editing.onDirtyChange}
+            onFinished={editing.onFinished}
+            fixedDates={editing.fixedDates}
             date={date}
             day={day}
             onCancel={onClose}
           />
+        )}
+        {viewerRole === "manager" && editing && (
+          <>
+            <CopyDayAction
+              venueId={editing.venueId}
+              state={editing.state}
+              date={date}
+              day={day}
+              onStale={editing.onStale ?? noop}
+            />
+            <ScheduleNudge
+              venueId={editing.venueId}
+              state={editing.state}
+              date={date}
+              day={day}
+              onStale={editing.onStale ?? noop}
+            />
+          </>
         )}
       </>
     );

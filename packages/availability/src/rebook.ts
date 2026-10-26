@@ -23,6 +23,15 @@ import { MINUTES_PER_DAY } from "./types.js";
 export const MAX_REBOOK_OFFERS = 3;
 export const REBOOK_WINDOW_DAYS = 14;
 
+/**
+ * The id of a rebooking offer: the slot's start instant. The single source of
+ * the format, shared by the manage page's offers and the `rebook=` link a
+ * closure message carries, so the two can never drift apart.
+ */
+export function rebookOfferId(start: Date): string {
+  return start.toISOString();
+}
+
 export interface RebookReservation {
   startTime: Date;
   partySize: number;

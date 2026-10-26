@@ -21,6 +21,11 @@ import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQ
 import { AvailabilitySelectionBar } from "../components/availability/AvailabilitySelectionBar.js";
 import { AvailabilityDayDrawer } from "../components/availability/AvailabilityDayDrawer.js";
 import {
+  AvailabilityScheduleControls,
+  type AvailabilityTab,
+} from "../components/availability/AvailabilityScheduleControls.js";
+import { SchedulesTab } from "../components/availability/SchedulesTab.js";
+import {
   shiftAnchor,
   visibleDates,
   type CalendarView,
@@ -58,6 +63,7 @@ export function AvailabilityPage() {
   const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
   const [target, setTarget] = useState<OpenTarget>(CLOSED);
   const openDate = target.date;
+  const [tab, setTab] = useState<AvailabilityTab>("calendar");
   const anchor = chosenAnchor ?? today;
   // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
   const [picked, setPicked] = useState<{ venueId: string | null; dates: string[] }>({
@@ -155,12 +161,42 @@ export function AvailabilityPage() {
       : []),
   ];
 
+  const scheduleControls =
+    team?.viewerRole === "manager" && config.data ? (
+      <AvailabilityScheduleControls
+        venueId={selectedVenueId}
+        state={config.data}
+        today={today}
+        tab={tab}
+        // Leaving the calendar with an unsaved draft asks first; the tab changes on the next try.
+        onTabChange={(next) => (guard.dirty ? guard.request(CLOSED) : setTab(next))}
+        onStale={() => void config.refetch()}
+      />
+    ) : null;
+
+  if (tab === "schedules" && scheduleControls && config.data) {
+    return (
+      <Stack gap="md">
+        <PageHeader title={t("availability.title")} description={t("availability.description")} />
+        {scheduleControls}
+        <SchedulesTab
+          venueId={selectedVenueId}
+          state={config.data}
+          timezone={timeZone}
+          today={today}
+          onStale={() => void config.refetch()}
+        />
+      </Stack>
+    );
+  }
+
   const failure = days.error ? describeApiError(days.error) : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 
   return (
     <Stack gap="md">
       <PageHeader title={t("availability.title")} description={t("availability.description")} />
+      {scheduleControls}
       <div className={styles.toolbar}>
         <Button variant="secondary" onClick={() => setChosenAnchor(shiftAnchor(view, anchor, -1))}>
           {t("availability.toolbar.previous")}
@@ -228,6 +264,7 @@ export function AvailabilityPage() {
                 onDirtyChange: guard.setDirty,
                 onFinished: () => guard.release(CLOSED),
                 fixedDates: target.fixedDates,
+                onStale: () => void config.refetch(),
               }
             : undefined
         }
