@@ -1,9 +1,10 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
+import { localDay } from "./local-day.js";
 
 /**
- * F5 (docs/features/venue-availability/ux.md), the PRD demo: a Manager closes 24 December with
+ * F5 (docs/features/venue-availability/ux.md), the PRD demo: a Manager closes a date with
  * 14 bookings, chooses cancel and notify, and sees the calendar band and the outcome counts.
  * The config, days, impact and closure endpoints are stateful: the days answer with the band
  * once the closure POST lands.
@@ -13,9 +14,22 @@ const DINNER = { opensAt: 1020, lastSeatingAt: 1260, closesAt: 1380 };
 const ALL_DAY_CLOSURE = { from: 0, to: 2880 };
 const BOOKINGS = 14;
 const GUESTS = 52;
-/** The browser clock is pinned to a November noon in the venue's zone, so December is one page on. */
-const NOW = new Date("2026-11-10T12:00:00-05:00");
-const EVE = "2026-12-24";
+
+/**
+ * The browser clock is pinned to today's noon — never a fixed date, because the injected OIDC
+ * session's `expires_at` comes from the real clock and a clock pinned past it shows "Your session
+ * ended". The closed date is the 15th of next month, so one "Next" page always reaches it, and
+ * mid-month keeps it clear of any venue-zone day boundary.
+ */
+function pinnedNoon(): Date {
+  return new Date(`${localDay()}T12:00:00`);
+}
+
+function midNextMonth(): string {
+  const [year, month] = localDay().split("-").map(Number) as [number, number];
+  const next = new Date(Date.UTC(year, month, 15)); // `month` is 1-based, so this is next month
+  return next.toISOString().slice(0, 10);
+}
 
 function datesBetween(from: string, to: string): string[] {
   const out: string[] = [];
@@ -130,17 +144,18 @@ async function mockAvailability(page: Page, closeDate: string) {
 }
 
 test.describe("Availability close dialog (F5)", () => {
-  test("a Manager closes 24 December, cancels and notifies 14 bookings, and sees the band", async ({
+  test("a Manager closes a date, cancels and notifies 14 bookings, and sees the band", async ({
     mockedPage,
   }) => {
-    await mockedPage.clock.setFixedTime(NOW);
-    const state = await mockAvailability(mockedPage, EVE);
+    const CLOSE_DATE = midNextMonth();
+    await mockedPage.clock.setFixedTime(pinnedNoon());
+    const state = await mockAvailability(mockedPage, CLOSE_DATE);
     await mockedPage.goto("availability");
 
     const calendar = mockedPage.getByRole("grid", { name: "Availability calendar" });
     await expect(calendar).toBeVisible();
     await mockedPage.getByRole("button", { name: "Next", exact: true }).click();
-    await calendar.locator(`[data-date="${EVE}"]`).click();
+    await calendar.locator(`[data-date="${CLOSE_DATE}"]`).click();
     // The toolbar has a "Close…" too; the drawer's carries the date.
     const drawer = mockedPage.getByRole("dialog");
     await drawer.getByRole("button", { name: "Close…", exact: true }).click();
@@ -159,7 +174,11 @@ test.describe("Availability close dialog (F5)", () => {
     // A choice is required for every group before anything is saved.
     const primary = dialog.getByTestId("close-primary");
     await expect(primary).toBeDisabled();
-    await dialog.getByRole("radio", { name: /Cancel, notify & refund/ }).check();
+    // The radio's styled circle overlays the native input, so pick it by its label, as a user does.
+    const cancelRadio = mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ });
+    const cancel = dialog.locator("label").filter({ has: cancelRadio });
+    await cancel.click();
+    await expect(dialog.getByRole("radio", { name: /Cancel, notify & refund/ })).toBeChecked();
     await expect(primary).toHaveText(`Close and cancel ${BOOKINGS}`);
     await primary.click();
 
@@ -169,9 +188,9 @@ test.describe("Availability close dialog (F5)", () => {
     ).toBeVisible();
     expect(state.saved()).toMatchObject({
       expectedVersion: 7,
-      rule: { kind: "closure", targetKind: "venue", startsOn: EVE, endsOn: EVE },
-      decisions: [{ groupKey: `${EVE}:closed`, action: "cancel" }],
+      rule: { kind: "closure", targetKind: "venue", startsOn: CLOSE_DATE, endsOn: CLOSE_DATE },
+      decisions: [{ groupKey: `${CLOSE_DATE}:closed`, action: "cancel" }],
     });
-    await expect(calendar.locator(`[data-date="${EVE}"]`)).toContainText("Closed all day");
+    await expect(calendar.locator(`[data-date="${CLOSE_DATE}"]`)).toContainText("Closed all day");
   });
 });

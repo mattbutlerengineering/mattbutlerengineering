@@ -147,6 +147,37 @@ describe("CloseDialog", () => {
     expect(create.mock.calls[0]?.[0].body.decisions).toEqual([]);
   });
 
+  it("says online booking is paused, not that the date is closed, after a pause", async () => {
+    impactState.value = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+    create.mockResolvedValue({
+      ruleId: "rule",
+      version: 8,
+      changeId: "c",
+      outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+    });
+    const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
+    const onClose = vi.fn();
+    render(
+      <ToastProvider>
+        <main>
+          <CloseDialog
+            venueId="venue-1"
+            state={state}
+            timezone="America/Los_Angeles"
+            today="2026-12-01"
+            initialDate={null}
+            pauseOnline
+            onClose={onClose}
+          />
+        </main>
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pause online booking" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await screen.findByText("Online booking paused")).toBeTruthy();
+    expect(screen.queryByText(/closed$/)).toBeNull();
+  });
+
   it("keeps the dialog open and says why when the save fails", async () => {
     create.mockRejectedValue(new Error("boom"));
     const { onClose } = renderDialog();

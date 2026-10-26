@@ -1891,6 +1891,7 @@
       },
       "toast": {
         "closed": "{{date}} closed",
+        "paused": "Online booking paused",
         "notified_one": "{{date}} closed · {{count}} reservation notified",
         "notified_other": "{{date}} closed · {{count}} reservations notified",
         "notified_many": "{{date}} closed · {{count}} reservations notified"

@@ -1933,6 +1933,7 @@
       },
       "toast": {
         "closed": "{{date}} cerrado",
+        "paused": "Reservaciones en línea pausadas",
         "notified_one": "{{date}} cerrado · {{count}} reservación avisada",
         "notified_other": "{{date}} cerrado · {{count}} reservaciones avisadas",
         "notified_many": "{{date}} cerrado · {{count}} reservaciones avisadas"
