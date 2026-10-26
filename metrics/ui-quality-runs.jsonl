@@ -20,3 +20,4 @@
 {"ts":"2026-10-22T07:41:20Z","due":40,"audited":36,"unreachable":{"auth":20,"build":2},"unjudged":2,"dropped_tells":0,"git_depth":"full","rubric_version":1}
 {"ts":"2026-10-23T07:40:07Z","due":40,"audited":40,"unreachable":{"auth":20,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1}
 {"ts":"2026-10-25T07:35:01Z","due":40,"audited":40,"unreachable":{"auth":20,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1}
+{"ts":"2026-10-26T07:40:25Z","due":14,"audited":14,"unreachable":{"auth":20,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1}
