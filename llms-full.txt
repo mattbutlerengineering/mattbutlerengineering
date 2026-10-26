@@ -77702,30 +77702,25 @@
     }
   </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
-    export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
-      monday: "Monday",
-      tuesday: "Tuesday",
-      wednesday: "Wednesday",
-      thursday: "Thursday",
-      friday: "Friday",
-      saturday: "Saturday",
-      sunday: "Sunday",
-    };
     export function formatVenueOpenLabel(
       s: VenueOpenState,
-      formatClock: (hhmm: string) => string = formatLocalTime
+      formatClock: (hhmm: string) => string = formatLocalTime,
+      t: TFunction = defaultT
     ): string {
       switch (s.state) {
         case "open":
-          return `Open until ${formatClock(s.closesAt)}`;
+          return t("home.openSign.open", { time: formatClock(s.closesAt) });
         case "opening-soon":
-          return `Opens at ${formatClock(s.opensAt)}`;
+          return t("home.openSign.openingSoon", { time: formatClock(s.opensAt) });
         case "closed":
           return s.opensOn === null
-            ? `Closed, opens at ${formatClock(s.opensAt)}`
-            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatClock(s.opensAt)}`;
+            ? t("home.openSign.closedToday", { time: formatClock(s.opensAt) })
+            : t("home.openSign.closedOn", {
+                weekday: t(`home.openSign.weekdays.${s.opensOn}`),
+                time: formatClock(s.opensAt),
+              });
         case "unset":
-          return UNSET_LABEL;
+          return t("home.openSign.unset");
       }
     }
   </file>

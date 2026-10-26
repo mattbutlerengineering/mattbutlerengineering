@@ -596,6 +596,22 @@
   },
   "home": {
     "title": "Panel",
+    "openSign": {
+      "open": "Abierto hasta las {{time}}",
+      "openingSoon": "Abre a las {{time}}",
+      "closedToday": "Cerrado, abre a las {{time}}",
+      "closedOn": "Cerrado, abre el {{weekday}} a las {{time}}",
+      "unset": "Sin horario de operación definido",
+      "weekdays": {
+        "monday": "lunes",
+        "tuesday": "martes",
+        "wednesday": "miércoles",
+        "thursday": "jueves",
+        "friday": "viernes",
+        "saturday": "sábado",
+        "sunday": "domingo"
+      }
+    },
     "welcome": "Bienvenido de nuevo",
     "welcomeNamed": "Bienvenido de nuevo, {{name}}",
     "loadFailed": "No se pudo cargar el panel.",
