@@ -35,6 +35,7 @@ import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { useNow } from "../hooks/useNow.js";
+import { useAvailabilityConfig } from "../hooks/useAvailability.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError, type ApiErrorDescription } from "../lib/describe-api-error.js";
@@ -204,6 +205,7 @@ function LiveTimelinePage() {
     createWalkIn,
     updateTableStatus,
   } = useTimelineData({ venueId: selectedVenueId ?? undefined, date: selectedDate });
+  const { data: availabilityConfig } = useAvailabilityConfig({ venueId: selectedVenueId ?? null });
 
   // Derived from the id so the panel is never stale after a refetch.
   const selectedReservation = useMemo(
@@ -677,6 +679,7 @@ function LiveTimelinePage() {
         <EditReservationDrawer
           reservation={selectedReservation}
           tables={tables}
+          config={availabilityConfig?.config ?? null}
           onSave={handleEdit}
           onClose={() => setShowEditDrawer(false)}
         />

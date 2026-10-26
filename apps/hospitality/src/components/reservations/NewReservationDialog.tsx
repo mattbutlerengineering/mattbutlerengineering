@@ -19,6 +19,7 @@ import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { applyClear, applyPick, type PrefillSnapshot } from "../crm/guest-prefill.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { venueWallTimeToInstant } from "../../utils/venue-wall-time.js";
+import { serviceDayStartInstant } from "../../utils/service-day-start.js";
 import { useStaffBookingCheck } from "../../hooks/useStaffBookingCheck.js";
 import { useOpenTimes } from "../../hooks/useOpenTimes.js";
 import { useStaffTonight } from "../../hooks/useStaffTonight.js";
@@ -227,8 +228,9 @@ export function NewReservationDialog({
       return;
     }
 
-    // The picked date and time are the venue's wall clock; the API takes the UTC instant.
-    const startDate = venueWallTimeToInstant(data.date, data.startTime, timeZone);
+    // The picked date is the service day and the time the venue's wall clock; a time after
+    // midnight of a past-midnight service is on the next calendar date. The API takes UTC.
+    const startDate = serviceDayStartInstant(tonight.config, timeZone, data.date, data.startTime);
     const endDate = new Date(startDate.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
 
     setIsLoading(true);

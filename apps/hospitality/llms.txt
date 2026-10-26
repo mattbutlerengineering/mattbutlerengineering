@@ -4415,6 +4415,24 @@
       >(tables: readonly T[], partySize: number): T[] { /* ... */ }
     </item>
   </file>
+  <file path="src/utils/service-day-start.ts">
+    <item priority="high">
+      export function serviceDayCalendarDate(
+        config: AvailabilityConfig | null | undefined,
+        timeZone: string,
+        serviceDate: string,
+        hhmm: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceDayStartInstant(
+        config: AvailabilityConfig | null | undefined,
+        timeZone: string,
+        serviceDate: string,
+        hhmm: string
+      ): Date { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/service-day.ts">
     <item priority="high">
       export function deviceDate(now: Date): string { /* ... */ }
