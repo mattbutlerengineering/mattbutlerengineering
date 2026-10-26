@@ -38,11 +38,22 @@ export interface CloseDialogProps {
   readonly initialDate: string | null;
   /** Start with "Booking only: online" and "Until I reopen" (pause online booking). */
   readonly pauseOnline?: boolean;
+  /** A Host's emergency close (ux.md F7): Whole venue and Tonight, shown as text and not editable. */
+  readonly hostLocked?: boolean;
   readonly onClose: () => void;
 }
 
 function initialForm(props: CloseDialogProps): CloseForm {
-  const { initialDate, pauseOnline, today } = props;
+  const { initialDate, pauseOnline, hostLocked, today } = props;
+  if (hostLocked) {
+    return {
+      what: { kind: "venue" },
+      when: { kind: "tonight" },
+      fromMinute: null,
+      staffNote: "",
+      guestMessage: "",
+    };
+  }
   return {
     what: pauseOnline ? { kind: "booking", types: ["online"] } : { kind: "venue" },
     when: pauseOnline
@@ -228,6 +239,7 @@ export function CloseDialog(props: CloseDialogProps) {
           impactFailed={impactQuery.error !== null}
           replacedDate={replacedDate}
           invalid={invalid}
+          locked={props.hostLocked}
         />
       ) : (
         impact && (

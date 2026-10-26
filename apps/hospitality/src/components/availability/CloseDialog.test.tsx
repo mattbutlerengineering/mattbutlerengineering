@@ -51,7 +51,7 @@ const IMPACT: ClosureImpact = {
   ],
 };
 
-function renderDialog() {
+function renderDialog(extra: Partial<React.ComponentProps<typeof CloseDialog>> = {}) {
   const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
   const onClose = vi.fn();
   const utils = render(
@@ -64,6 +64,7 @@ function renderDialog() {
           today="2026-12-01"
           initialDate={DATE}
           onClose={onClose}
+          {...extra}
         />
       </main>
     </ToastProvider>
@@ -221,6 +222,32 @@ describe("CloseDialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Close and keep 14" }));
     expect(await within(dialog).findByText("Couldn't close")).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("locks What and When to the whole venue tonight for a Host, as text", async () => {
+    create.mockResolvedValue({
+      ruleId: "rule",
+      version: 8,
+      changeId: "c",
+      outcomes: { cancel: 14, move: 0, keep_notify: 0, keep_silent: 0 },
+    });
+    renderDialog({ hostLocked: true, initialDate: null });
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByRole("radio")).toBeNull();
+    expect(within(dialog).getByText("Whole venue")).toBeTruthy();
+    expect(within(dialog).getByText("Tonight")).toBeTruthy();
+    // Step 2 is still required: the Host decides what happens to each booking.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const call = create.mock.calls[0]?.[0] as { body: { rule: Record<string, unknown> } };
+    expect(call.body.rule).toMatchObject({
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-01",
+      endsOn: "2026-12-01",
+    });
   });
 
   it("has no axe violations on either step", async () => {

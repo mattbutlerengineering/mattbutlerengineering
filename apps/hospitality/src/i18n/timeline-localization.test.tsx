@@ -84,6 +84,7 @@ vi.mock("../hooks/useDeposits.js", () => ({
   useDepositByReservation: () => ({ data: null, isLoading: false, error: null }),
   useCreateDeposit: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }));
+vi.mock("../components/availability/TimelineTonight.js", () => ({ TimelineTonight: () => null }));
 vi.mock("../components/crm/GuestCard.js", () => ({ GuestCard: () => null }));
 vi.mock("../components/crm/GuestLookup.js", () => ({ GuestLookup: () => null }));
 

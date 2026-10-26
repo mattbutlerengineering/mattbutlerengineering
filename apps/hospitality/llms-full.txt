@@ -1538,6 +1538,43 @@
       return normalizeDates(days.filter((d) => d.scheduleId === scheduleId).map((d) => d.serviceDate));
     }
   </file>
+  <file path="src/components/availability/tonight-state.ts">
+    export type TonightChange =
+      | { readonly ruleId: string; readonly kind: "pause_online" }
+      | { readonly ruleId: string; readonly kind: "close_early"; readonly closeAt: number }
+      | {
+          readonly ruleId: string;
+          readonly kind: "stop_window";
+          readonly from: number;
+          readonly to: number;
+        }
+      | { readonly ruleId: string; readonly kind: "block_tables"; readonly tableCount: number }
+      | { readonly ruleId: string; readonly kind: "pacing"; readonly covers: number };
+    type TonightRule = Extract<DateRule, { kind: "tonight" }>;
+    function describe(rule: TonightRule): TonightChange | null {
+      const ruleId = rule.id;
+      const { payload } = rule;
+      if ("closeAt" in payload) return { ruleId, kind: "close_early", closeAt: payload.closeAt };
+      if ("pacing" in payload) return { ruleId, kind: "pacing", covers: payload.pacing.covers };
+      if (rule.targetKind === "booking") return { ruleId, kind: "pause_online" };
+      if (rule.targetKind === "tables") {
+        return { ruleId, kind: "block_tables", tableCount: rule.tableIds?.length ?? 0 };
+      }
+      return { ruleId, kind: "stop_window", from: payload.stop.from, to: payload.stop.to };
+    }
+    export function activeTonightChanges(
+      rules: readonly DateRule[],
+      today: string,
+      now: Date
+    ): readonly TonightChange[] {
+      return rules.flatMap((rule) => {
+        if (rule.kind !== "tonight" || rule.startsOn !== today) return [];
+        if (rule.expiresAt && new Date(rule.expiresAt).getTime() <= now.getTime()) return [];
+        const change = describe(rule);
+        return change ? [change] : [];
+      });
+    }
+  </file>
   <file path="src/components/availability/use-discard-guard.ts">
     export function useDiscardGuard<T>(apply: (next: T) => void) {
       const [dirty, setDirty] = useState(false);
@@ -7473,6 +7510,20 @@
     
       return { focusedId, setFocusedId, handleKeyDown };
     }
+  </file>
+  <file path="src/hooks/useTonight.ts">
+    export type SetTonightRequest = Parameters<AvailabilityClient["setTonight"]>[1];
+    export const useSetTonight = createMutationHook<
+      { venueId: string; body: SetTonightRequest },
+      TonightResult
+    >({
+      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      mutationFn: (api, { venueId, body }) => api.availability.setTonight(venueId, body),
+    });
+    export const useEndTonight = createMutationHook<{ venueId: string; ruleId: string }, ReopenResult>({
+      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      mutationFn: (api, { venueId, ruleId }) => api.availability.endTonight(venueId, ruleId),
+    });
   </file>
   <file path="src/hooks/useUsers.ts">
     export const CURRENT_USER_QUERY_KEY = "currentUser" as const;

@@ -59,3 +59,19 @@
   margin: 0;
   white-space: pre-wrap;
 }
+
+.locked {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--rialto-space-xs) var(--rialto-space-md);
+  margin: 0;
+}
+
+.locked dt {
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+}
+
+.locked dd {
+  margin: 0;
+}

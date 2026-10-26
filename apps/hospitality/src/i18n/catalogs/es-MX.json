@@ -2038,6 +2038,40 @@
       "selectMenu": "Seleccionar…",
       "weekdayInMonth": "Cada {{weekday}} de {{month}}",
       "usingSchedule": "Todas las fechas con {{schedule}}"
+    },
+    "tonight": {
+      "title": "Esta noche",
+      "open": "Esta noche",
+      "chips": "Cambios de esta noche",
+      "pause": "Pausar reservas en línea",
+      "closeEarly": "Cerrar antes a las",
+      "stopFrom": "Detener reservas desde las",
+      "stopTo": "hasta las",
+      "apply": "Aplicar",
+      "block": {
+        "label": "Bloquear mesas",
+        "all": "Todas las mesas",
+        "location": "Todas las mesas en {{location}}",
+        "button": "Bloquear"
+      },
+      "pacing": "Ritmo de esta noche (cubiertos por horario)",
+      "ends": "Termina {{time}} (fin del servicio de esta noche)",
+      "emergency": "Emergencia: cerrar esta noche…",
+      "whoCanClose": "¿Quién puede cerrar en una emergencia?",
+      "hostGranted": "Los anfitriones pueden cerrar todo el local esta noche. Por más tiempo se necesita un gerente.",
+      "hostNotGranted": "Solo los gerentes pueden cerrar en una emergencia. Pide a un gerente que lo permita para los anfitriones en Configuración.",
+      "error": "No se pudo aplicar el cambio. Inténtalo de nuevo.",
+      "chip": {
+        "pause": "Reservas en línea en pausa · el resto de la noche",
+        "closeEarly": "Cierre anticipado · {{time}}",
+        "stopWindow": "Sin reservas {{from}}–{{to}}",
+        "blocked_one": "{{count}} mesa bloqueada · el resto de la noche",
+        "blocked_other": "{{count}} mesas bloqueadas · el resto de la noche",
+        "blocked_many": "{{count}} mesas bloqueadas · el resto de la noche",
+        "pacing_one": "Ritmo de {{count}} cubierto",
+        "pacing_other": "Ritmo de {{count}} cubiertos",
+        "pacing_many": "Ritmo de {{count}} cubiertos"
+      }
     }
   },
   "setup": {
