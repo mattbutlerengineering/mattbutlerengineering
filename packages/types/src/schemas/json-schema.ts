@@ -59,7 +59,10 @@ import {
 import { WaitlistJoinResultSchema, WaitlistEstimateSchema } from "./waitlist.js";
 import { ProblemDetailsSchema } from "./api.js";
 import { PaginationSchema } from "./common.js";
-import { PublicAvailabilityResponseSchema } from "./availability-response.js";
+import {
+  PublicAvailabilityDatesResponseSchema,
+  PublicAvailabilityResponseSchema,
+} from "./availability-response.js";
 import {
   ListReservationsQuerySchema,
   ListMyReservationsQuerySchema,
@@ -100,6 +103,7 @@ import {
   CreateWaitlistBodySchema,
   ListWaitlistQuerySchema,
   PublicAvailabilityQuerySchema,
+  PublicAvailabilityDatesQuerySchema,
   PublicDepositBodySchema,
   PublicGuestRecognitionQuerySchema,
   PublicGuestRiskQuerySchema,
@@ -453,6 +457,12 @@ export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBo
 export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
 
 export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+export const publicAvailabilityDatesQueryJsonSchema = toRequestJsonSchema(
+  PublicAvailabilityDatesQuerySchema
+);
+export const publicAvailabilityDatesResponseJsonSchema = toResponseJsonSchema(
+  PublicAvailabilityDatesResponseSchema
+);
 export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
   PublicAvailabilityResponseSchema
 );

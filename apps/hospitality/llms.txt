@@ -49,6 +49,26 @@
       ): ClosureBandText { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/day-summary.ts">
+    <item priority="low">
+      interface DayPresentation {
+        bands: readonly ClosureBandText[];
+        count: string | null;
+        onlineOff: boolean;
+        accessibleDetails: string;
+        accessibleName: string;
+      }
+    </item>
+    <item priority="high">
+      export function presentDay(
+        date: string,
+        summary: AvailabilityDaySummary | undefined,
+        detailed: boolean,
+        t: TFunction,
+        format: VenueFormat
+      ): DayPresentation { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/quick-setup-draft.ts">
     <item priority="low">
       interface ServiceDraft {
@@ -173,6 +193,80 @@
       export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): QuickSetupDraft { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/removal-diff.ts">
+    <item priority="high">
+      type Channel = keyof BookingOpen;
+    </item>
+    <item priority="low">
+      type RemovalChange = { kind: "serviceOpens"; name:  | { kind: "serviceCloses"; name: | { kind: "opensAtChanges"; name | { kind: "closesAtChanges"; nam | { kind: "lastSeatingChanges";  | { kind: "closureLifted"; closu | { kind: "closureApplies"; clos | { kind: "bookingOn"; channel:  | { kind: "bookingOff"; channel: | { kind: "pacingLifted" } | { kind: "pacingSet"; covers: n;
+    </item>
+    <item priority="medium">
+      function serviceChanges(
+        current: readonly ResolvedService[],
+        removed: readonly ResolvedService[]
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureChanges(
+        current: readonly ResolvedClosure[],
+        removed: readonly ResolvedClosure[]
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingChanges(current: BookingOpen, removed: BookingOpen): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pacingChanges(current: ResolvedDaySummary, removed: ResolvedDaySummary): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function diffRemoval(
+        current: ResolvedDaySummary,
+        removed: ResolvedDaySummary
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function removalChangeText(
+        change: RemovalChange,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/resolved-day-fixtures.ts">
+    <item priority="high">
+      export const FIXTURE_DATE: unknown;
+    </item>
+    <item priority="high">
+      export const FIXTURE_TIMEZONE: unknown;
+    </item>
+    <item priority="high">
+      export const EARLY_DINNER: DateRule;
+    </item>
+    <item priority="high">
+      export const PARTY_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const ONLINE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const LUNCH_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const VENUE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_STOP: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_CLOSE: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_PACING: DateRule;
+    </item>
+    <item priority="high">
+      export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -241,6 +335,19 @@
       }
     </item>
     <item priority="low">
+      interface ClosedMidBooking {
+        message: string;
+        lostTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface SlotListing {
+        slots: TimeSlot[];
+        closure?: { message: string };
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="low">
       interface BookingFlowData {
         selectedDate: string | null;
         selectedEndDate: string | null;
@@ -256,7 +363,7 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; listing:  | { type: "CLOSED_MID_BOOKING";  | { type: "SET_CLOSED_DATES"; cl | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
     </item>
     <item priority="medium">
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
@@ -272,6 +379,9 @@
     </item>
     <item priority="high">
       export function deriveStepKeys(depositRequired: boolean): BookingStep[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outsideAvailabilityMessage(error: unknown): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState { /* ... */ }
@@ -615,6 +725,11 @@
     </item>
     <item priority="high">
       export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/booking-date.ts">
+    <item priority="high">
+      export async function pickBookingDate(page: Page, isoDate: string): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="e2e/fixtures.ts">

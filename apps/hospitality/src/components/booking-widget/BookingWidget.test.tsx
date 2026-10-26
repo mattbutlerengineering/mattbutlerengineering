@@ -70,7 +70,52 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
-  EmptyState: ({ heading }: { heading: React.ReactNode }) => <div>{heading}</div>,
+  EmptyState: ({
+    heading,
+    description,
+    action,
+  }: {
+    heading: React.ReactNode;
+    description?: React.ReactNode;
+    action?: React.ReactNode;
+  }) => (
+    <div>
+      <div>{heading}</div>
+      <div>{description}</div>
+      {action}
+    </div>
+  ),
+  // The date input stands in for the calendar grid; the probe button exposes
+  // what the real grid would do to one date (disabled state and accessible name).
+  Calendar: (props: {
+    value: string | null;
+    onChange: (value: string | null) => void;
+    isDateDisabled?: (iso: string) => boolean;
+    getDateLabel?: (iso: string) => string | undefined;
+    onFocus?: React.FocusEventHandler<HTMLDivElement>;
+  }) => (
+    <div>
+      <label htmlFor="date-input">Date</label>
+      <input
+        id="date-input"
+        type="date"
+        value={props.value ?? ""}
+        max={
+          [...Array(400).keys()]
+            .map((n) => addDays("2026-05-01", n))
+            .filter((iso) => !props.isDateDisabled?.(iso))
+            .at(-1) ?? ""
+        }
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        data-testid="probe-day"
+        disabled={props.isDateDisabled?.(FUTURE_DATE)}
+        aria-label={props.getDateLabel?.(FUTURE_DATE)}
+      />
+    </div>
+  ),
   Input: (props: MockInputProps) => {
     const id = props.id || props.label?.replace(/\s+/g, "-").toLowerCase() || "input";
     return (
@@ -113,7 +158,9 @@ describe("BookingWidget", () => {
       // Staff route — 401s for anonymous guests; asserted never called.
       getTimeSlots: vi.fn(),
       // Public slug-scoped route — what the widget calls for slots.
-      getTimeSlotsForVenue: vi.fn(),
+      getPublicAvailability: vi.fn().mockResolvedValue({ data: [] }),
+      // Public closed-dates listing — read once on mount for the calendar.
+      getClosedDates: vi.fn(),
     },
     holds: {
       create: vi.fn(),
@@ -141,6 +188,7 @@ describe("BookingWidget", () => {
     // resetAllMocks wipes the "s1" default; PaymentStep needs the booking
     // session as deposit ownership proof (#6304).
     mockApi.holds.getSessionId.mockReturnValue("s1");
+    mockApi.availability.getClosedDates.mockResolvedValue([]);
     vi.mocked(usePublicApiClient).mockReturnValue(
       mockApi as unknown as ReturnType<typeof usePublicApiClient>
     );
@@ -189,10 +237,12 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
-      { time: "2026-05-20T18:00:00", available: true },
-      { time: "2026-05-20T19:00:00", available: true },
-    ]);
+    mockApi.availability.getPublicAvailability.mockResolvedValue({
+      data: [
+        { time: "2026-05-20T18:00:00", available: true },
+        { time: "2026-05-20T19:00:00", available: true },
+      ],
+    });
 
     const nextBtn = screen.getByText("Find Available Times");
     fireEvent.click(nextBtn);
@@ -201,7 +251,7 @@ describe("BookingWidget", () => {
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
     // Slots come from the public slug-scoped route, never the staff
     // /api/v1/availability route that 401s for anonymous guests.
-    expect(mockApi.availability.getTimeSlotsForVenue).toHaveBeenCalledWith("the-oak-table", {
+    expect(mockApi.availability.getPublicAvailability).toHaveBeenCalledWith("the-oak-table", {
       date: FUTURE_DATE,
       partySize: 2,
     });
@@ -249,7 +299,7 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlotsForVenue.mockRejectedValue(new Error("API Down"));
+    mockApi.availability.getPublicAvailability.mockRejectedValue(new Error("API Down"));
 
     fireEvent.click(screen.getByText("Find Available Times"));
 
@@ -290,9 +340,9 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
-      { time: "2026-05-20T18:00:00", available: true },
-    ]);
+    mockApi.availability.getPublicAvailability.mockResolvedValue({
+      data: [{ time: "2026-05-20T18:00:00", available: true }],
+    });
     fireEvent.click(screen.getByText("Find Available Times"));
 
     // Step 2: Time
@@ -362,9 +412,9 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
-      { time: "2026-05-20T18:00:00", available: true },
-    ]);
+    mockApi.availability.getPublicAvailability.mockResolvedValue({
+      data: [{ time: "2026-05-20T18:00:00", available: true }],
+    });
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
@@ -445,9 +495,9 @@ describe("BookingWidget", () => {
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
     fireEvent.click(screen.getByRole("button", { name: "4" }));
 
-    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
-      { time: "2026-05-20T18:00:00", available: true },
-    ]);
+    mockApi.availability.getPublicAvailability.mockResolvedValue({
+      data: [{ time: "2026-05-20T18:00:00", available: true }],
+    });
     fireEvent.click(screen.getByText("Find Available Times"));
 
     // Step 2: Time
@@ -542,9 +592,9 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
-      { time: "2026-05-20T18:00:00", available: true },
-    ]);
+    mockApi.availability.getPublicAvailability.mockResolvedValue({
+      data: [{ time: "2026-05-20T18:00:00", available: true }],
+    });
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
@@ -621,9 +671,9 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
-      { time: "2026-05-20T18:00:00", available: true },
-    ]);
+    mockApi.availability.getPublicAvailability.mockResolvedValue({
+      data: [{ time: "2026-05-20T18:00:00", available: true }],
+    });
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
@@ -681,9 +731,9 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
-      { time: "2026-05-20T18:00:00", available: true },
-    ]);
+    mockApi.availability.getPublicAvailability.mockResolvedValue({
+      data: [{ time: "2026-05-20T18:00:00", available: true }],
+    });
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
@@ -736,9 +786,111 @@ describe("BookingWidget", () => {
       expect(screen.getByText(MISSING_VENUE_SLUG_ERROR, { exact: false })).toBeDefined()
     );
     expect(mockApi.availability.getTimeSlots).not.toHaveBeenCalled();
-    expect(mockApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
+    expect(mockApi.availability.getPublicAvailability).not.toHaveBeenCalled();
     expect(mockApi.holds.create).not.toHaveBeenCalled();
     expect(mockApi.holds.createForVenue).not.toHaveBeenCalled();
     expect(mockApi.venues.getPublicConfig).not.toHaveBeenCalled();
+  });
+
+  describe("venue availability notices (ux.md F9)", () => {
+    function chooseDateAndFindTimes() {
+      fireEvent.change(screen.getByLabelText("Date"), { target: { value: FUTURE_DATE } });
+      fireEvent.click(screen.getByText("Find Available Times"));
+    }
+
+    it("disables and names a closed date on the first visit, before any date is opened", async () => {
+      mockApi.availability.getClosedDates.mockResolvedValue([
+        { date: FUTURE_DATE, closure: { message: "Closed for a private event" } },
+      ]);
+      renderWidget();
+
+      await waitFor(() =>
+        expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(true)
+      );
+      expect(screen.getByTestId("probe-day").getAttribute("aria-label")).toMatch(
+        /closed.*Closed for a private event/i
+      );
+      expect(mockApi.availability.getPublicAvailability).not.toHaveBeenCalled();
+    });
+
+    it("shows a closed date's message, then disables and names that date in the calendar", async () => {
+      mockApi.availability.getPublicAvailability.mockResolvedValue({
+        data: [],
+        closure: { message: "Closed for a private event" },
+      });
+      renderWidget();
+      expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(false);
+
+      chooseDateAndFindTimes();
+      await waitFor(() => expect(screen.getByText("Closed for a private event")).toBeDefined());
+
+      fireEvent.click(screen.getByRole("button", { name: "See other dates" }));
+      const day = (await screen.findByTestId("probe-day")) as HTMLButtonElement;
+      expect(day.disabled).toBe(true);
+      expect(day.getAttribute("aria-label")).toMatch(/closed.*Closed for a private event/i);
+    });
+
+    it("shows the paused state with the phone while phone booking is open", async () => {
+      mockApi.availability.getPublicAvailability.mockResolvedValue({
+        data: [],
+        bookingPaused: { message: "Back at nine.", phone: "(555) 123-4567" },
+      });
+      renderWidget();
+      chooseDateAndFindTimes();
+
+      await waitFor(() =>
+        expect(screen.getByText("Online booking is paused right now")).toBeDefined()
+      );
+      expect(screen.getByText(/Call \(555\) 123-4567/)).toBeDefined();
+    });
+
+    it("shows the not-configured state instead of an empty picker", () => {
+      render(
+        <BookingWidget
+          venueId="v1"
+          venueSlug="the-oak-table"
+          hasOperatingHours={false}
+          phone="(555) 987-6543"
+        />
+      );
+      expect(screen.getByText("Not taking online bookings yet")).toBeDefined();
+      expect(screen.getByText(/Call \(555\) 987-6543/)).toBeDefined();
+      expect(screen.queryByText("Find Available Times")).toBeNull();
+    });
+
+    it("a closure at confirm releases the hold and offers other times inline", async () => {
+      const slots = [
+        { time: "2026-05-20T18:00:00", available: true },
+        { time: "2026-05-20T19:00:00", available: true },
+      ];
+      mockApi.availability.getPublicAvailability.mockResolvedValue({ data: slots });
+      mockApi.holds.createForVenue.mockResolvedValue({
+        hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+      });
+      renderWidget();
+      chooseDateAndFindTimes();
+      fireEvent.click(await screen.findByText(/6:00 PM/i));
+      await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
+      fireEvent.change(screen.getByLabelText("Name"), { target: { value: "John Doe" } });
+      fireEvent.change(screen.getByLabelText("Email"), { target: { value: "john@example.com" } });
+
+      mockApi.holds.confirmForVenue.mockRejectedValue({
+        category: "validationError",
+        problemDetails: {
+          status: 422,
+          code: "outside-availability",
+          reason: "closed",
+          detail: "Closed for a private event",
+        },
+      });
+      mockApi.availability.getPublicAvailability.mockResolvedValue({ data: [slots[1]] });
+      fireEvent.click(screen.getByText("Complete Reservation"));
+
+      await waitFor(() => expect(screen.getByText("This time just closed")).toBeDefined());
+      expect(screen.getByText(/Closed for a private event/)).toBeDefined();
+      expect(await screen.findByText(/7:00 PM/i)).toBeDefined();
+      expect(screen.getByRole("button", { name: "Pick another date" })).toBeDefined();
+      expect(mockApi.holds.releaseForVenue).toHaveBeenCalledWith("the-oak-table", "hold-1");
+    });
   });
 });

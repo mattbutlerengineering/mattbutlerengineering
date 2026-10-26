@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type {
   TimeSlot,
   PublicAvailabilityResponse,
+  PublicClosedDate,
   DateAvailability,
   ReservationHold,
   CreateHoldRequest,
@@ -12,6 +13,10 @@ import type {
   AvailabilityDaySummary,
   ClosureImpact,
   DateRule,
+  AvailabilityCheckBody,
+  AvailabilityCheckResult,
+  PreviewAvailabilityBody,
+  PreviewResult,
   PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
 import { availabilityConfigEndpoints } from "@mbe/types";
@@ -80,6 +85,21 @@ export class AvailabilityClient {
   }
 
   /**
+   * The dates in `from`..`to` (at most 60 days) the venue is closed, each with
+   * its guest message, from the public route — so a calendar can disable them
+   * before a guest picks one.
+   */
+  async getClosedDates(
+    slug: string,
+    range: { from: string; to: string }
+  ): Promise<PublicClosedDate[]> {
+    return this.client.getOne<PublicClosedDate[]>(`${publicAvailabilityPath(slug)}/dates`, {
+      from: range.from,
+      to: range.to,
+    });
+  }
+
+  /**
    * Get dates with availability in a range
    */
   async getDates(params: GetDatesParams): Promise<DateAvailability[]> {
@@ -129,6 +149,22 @@ export class AvailabilityClient {
     return response.data;
   }
 
+  /**
+   * What an unsaved draft changes: per-date added/removed times for 30 days
+   * from `focusDate`, the focus day, and a page of the future bookings in
+   * `scope` it would strand. Read-only, so a gateway failure is retried. A
+   * 503 `preview-timeout` rejects with an `ApiClientError`; keep the last
+   * good preview.
+   */
+  async previewConfig(venueId: string, body: PreviewAvailabilityBody): Promise<PreviewResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.previewAvailability,
+      { params: { id: venueId }, body },
+      { idempotentRetry: true }
+    );
+    return response.data;
+  }
+
   /** Calendar summaries for each service date from `from` to `to` inclusive (≤62 days). */
   async listDays(
     venueId: string,
@@ -137,6 +173,22 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.listDays, {
       params: { id: venueId },
       query: { from: range.from, to: range.to },
+    });
+    return response.data;
+  }
+
+  /**
+   * Ask the booking gate whether it would take a staff (phone) booking:
+   * `ok`, `soft` (limits a reason can override), or `hard` (closures, never
+   * overridable), each with a human message.
+   */
+  async checkBooking(
+    venueId: string,
+    body: AvailabilityCheckBody
+  ): Promise<AvailabilityCheckResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.check, {
+      params: { id: venueId },
+      body,
     });
     return response.data;
   }

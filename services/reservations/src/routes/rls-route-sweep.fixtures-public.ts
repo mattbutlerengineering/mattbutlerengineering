@@ -198,6 +198,26 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       );
     },
   },
+  "GET /public/v1/venues/:slug/availability/dates": {
+    kind: "ok",
+    run: async (ctx) => {
+      expectOk(
+        await asAdmin(ctx, {
+          method: "GET",
+          url: `/public/v1/venues/${ctx.venueA.slug}/availability/dates?from=2026-10-01&to=2026-10-07`,
+        }),
+        "list closed dates under the slug-resolved venue"
+      );
+
+      expectDenied(
+        await asAdmin(ctx, {
+          method: "GET",
+          url: `/public/v1/venues/${UNKNOWN_SLUG}/availability/dates?from=2026-10-01&to=2026-10-07`,
+        }),
+        "unknown slug"
+      );
+    },
+  },
   "POST /public/v1/venues/:slug/holds": {
     kind: "ok",
     run: async (ctx) => {

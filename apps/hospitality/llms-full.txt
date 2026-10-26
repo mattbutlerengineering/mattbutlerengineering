@@ -79,6 +79,57 @@
       };
     }
   </file>
+  <file path="src/components/availability/day-summary.ts">
+    export interface DayPresentation {
+      readonly bands: readonly ClosureBandText[];
+      /** "2 services", or `null` when the count is not worth showing. */
+      readonly count: string | null;
+      readonly onlineOff: boolean;
+      /** The spoken details after the date: "Special hours, 2 services, closed 10:00 PM – 11:00 PM". */
+      readonly accessibleDetails: string;
+      /** The button's accessible name: "Friday, October 30: …". */
+      readonly accessibleName: string;
+    }
+    export function presentDay(
+      date: string,
+      summary: AvailabilityDaySummary | undefined,
+      detailed: boolean,
+      t: TFunction,
+      format: VenueFormat
+    ): DayPresentation {
+      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
+      const showCount = summary !== undefined && (detailed || summary.serviceCount >= 2);
+      const count = showCount
+        ? t("availability.calendar.services", { count: summary.serviceCount })
+        : null;
+      const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+    
+      const parts = summary
+        ? [
+            summary.label,
+            ...(count ? [count] : []),
+            ...bands.map((b) => b.name),
+            ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
+          ]
+        : [t("availability.calendar.loadingDay")];
+      const accessibleDetails = parts.join(", ");
+      const fullDate = format.formatCalendarDate(date, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+      return {
+        bands,
+        count,
+        onlineOff,
+        accessibleDetails,
+        accessibleName: t("availability.calendar.cellName", {
+          date: fullDate,
+          details: accessibleDetails,
+        }),
+      };
+    }
+  </file>
   <file path="src/components/availability/quick-setup-draft.ts">
     export interface ServiceDraft {
       readonly id: string;
@@ -355,6 +406,228 @@
       };
     }
   </file>
+  <file path="src/components/availability/removal-diff.ts">
+    type Channel = keyof BookingOpen;
+    export type RemovalChange =
+      | { kind: "serviceOpens"; name: string; opensAt: number; closesAt: number }
+      | { kind: "serviceCloses"; name: string }
+      | { kind: "opensAtChanges"; name: string; minute: number }
+      | { kind: "closesAtChanges"; name: string; minute: number; later: boolean }
+      | { kind: "lastSeatingChanges"; name: string; minute: number }
+      | { kind: "closureLifted"; closure: ResolvedClosure }
+      | { kind: "closureApplies"; closure: ResolvedClosure }
+      | { kind: "bookingOn"; channel: Channel }
+      | { kind: "bookingOff"; channel: Channel }
+      | { kind: "pacingLifted" }
+      | { kind: "pacingSet"; covers: number };
+    function serviceChanges(
+      current: readonly ResolvedService[],
+      removed: readonly ResolvedService[]
+    ): RemovalChange[] {
+      const now = new Map(current.map((s) => [s.venueServiceId, s]));
+      const then = new Map(removed.map((s) => [s.venueServiceId, s]));
+      const opening = removed
+        .filter((s) => !now.has(s.venueServiceId))
+        .map((s): RemovalChange => ({
+          kind: "serviceOpens",
+          name: s.name,
+          opensAt: s.opensAt,
+          closesAt: s.closesAt,
+        }));
+      const closing = current
+        .filter((s) => !then.has(s.venueServiceId))
+        .map((s): RemovalChange => ({ kind: "serviceCloses", name: s.name }));
+      const adjusted = removed.flatMap((after): RemovalChange[] => {
+        const before = now.get(after.venueServiceId);
+        if (!before) return [];
+        return [
+          ...(before.opensAt !== after.opensAt
+            ? [{ kind: "opensAtChanges" as const, name: after.name, minute: after.opensAt }]
+            : []),
+          ...(before.closesAt !== after.closesAt
+            ? [
+                {
+                  kind: "closesAtChanges" as const,
+                  name: after.name,
+                  minute: after.closesAt,
+                  later: after.closesAt > before.closesAt,
+                },
+              ]
+            : []),
+          ...(before.lastSeatingAt !== after.lastSeatingAt
+            ? [
+                {
+                  kind: "lastSeatingChanges" as const,
+                  name: after.name,
+                  minute: after.lastSeatingAt,
+                },
+              ]
+            : []),
+        ];
+      });
+      return [...opening, ...closing, ...adjusted];
+    }
+    function closureChanges(
+      current: readonly ResolvedClosure[],
+      removed: readonly ResolvedClosure[]
+    ): RemovalChange[] {
+      // A whole-day closure of services or booking channels already shows up as those changes.
+      const worthSaying = (c: ResolvedClosure) => !isWholeDay(c) || c.targetKind === "tables";
+      return [
+        ...current
+          .filter((c) => !removed.some((r) => sameClosure(r, c)) && worthSaying(c))
+          .map((closure): RemovalChange => ({ kind: "closureLifted", closure })),
+        ...removed
+          .filter((c) => !current.some((r) => sameClosure(r, c)) && worthSaying(c))
+          .map((closure): RemovalChange => ({ kind: "closureApplies", closure })),
+      ];
+    }
+    function bookingChanges(current: BookingOpen, removed: BookingOpen): RemovalChange[] {
+      return CHANNELS.flatMap((channel): RemovalChange[] => {
+        if (current[channel] === removed[channel]) return [];
+        return [{ kind: removed[channel] ? "bookingOn" : "bookingOff", channel }];
+      });
+    }
+    function pacingChanges(current: ResolvedDaySummary, removed: ResolvedDaySummary): RemovalChange[] {
+      if (current.pacingCovers === removed.pacingCovers) return [];
+      return removed.pacingCovers === undefined
+        ? [{ kind: "pacingLifted" }]
+        : [{ kind: "pacingSet", covers: removed.pacingCovers }];
+    }
+    export function diffRemoval(
+      current: ResolvedDaySummary,
+      removed: ResolvedDaySummary
+    ): RemovalChange[] {
+      return [
+        ...serviceChanges(current.services, removed.services),
+        ...closureChanges(current.closures, removed.closures),
+        ...bookingChanges(current.bookingOpen, removed.bookingOpen),
+        ...pacingChanges(current, removed),
+      ];
+    }
+    export function removalChangeText(
+      change: RemovalChange,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      const at = (minute: number) => minuteText(minute, t, format);
+      switch (change.kind) {
+        case "serviceOpens":
+          return t("availability.drawer.removal.serviceOpens", {
+            name: change.name,
+            from: at(change.opensAt),
+            to: at(change.closesAt),
+          });
+        case "serviceCloses":
+          return t("availability.drawer.removal.serviceCloses", { name: change.name });
+        case "opensAtChanges":
+          return t("availability.drawer.removal.opensAt", {
+            name: change.name,
+            time: at(change.minute),
+          });
+        case "closesAtChanges":
+          return t(
+            change.later
+              ? "availability.drawer.removal.closesLater"
+              : "availability.drawer.removal.closesEarlier",
+            { name: change.name, time: at(change.minute) }
+          );
+        case "lastSeatingChanges":
+          return t("availability.drawer.removal.lastSeating", {
+            name: change.name,
+            time: at(change.minute),
+          });
+        case "closureLifted":
+          return isWholeDay(change.closure)
+            ? t("availability.drawer.removal.reopensAllDay")
+            : t("availability.drawer.removal.reopens", {
+                from: at(change.closure.from),
+                to: at(change.closure.to),
+              });
+        case "closureApplies":
+          return closureBandText(change.closure, t, format).text;
+        case "bookingOn":
+          return t(`availability.drawer.removal.bookingOn.${change.channel}`);
+        case "bookingOff":
+          return t(`availability.drawer.removal.bookingOff.${change.channel}`);
+        case "pacingLifted":
+          return t("availability.drawer.removal.pacingLifted");
+        case "pacingSet":
+          return t("availability.drawer.removal.pacingSet", { covers: change.covers });
+      }
+    }
+  </file>
+  <file path="src/components/availability/resolved-day-fixtures.ts">
+    export const FIXTURE_DATE = "2026-10-30";
+    export const FIXTURE_TIMEZONE = "America/Los_Angeles";
+    export const EARLY_DINNER: DateRule = {
+      ...ON_DAY,
+      id: "r-special",
+      kind: "special_hours",
+      targetKind: "venue",
+      payload: {
+        version: 1,
+        services: [
+          { venueServiceId: "vs-lunch", ...LUNCH_HOURS },
+          { venueServiceId: "vs-dinner", ...DINNER_HOURS, lastSeatingAt: 1200, closesAt: 1320 },
+        ],
+      },
+    };
+    export const PARTY_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-party",
+      kind: "closure",
+      targetKind: "venue",
+      window: { version: 1, from: 1320, to: 1380 },
+    };
+    export const ONLINE_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-online",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+    };
+    export const LUNCH_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-lunch",
+      kind: "closure",
+      targetKind: "service",
+      venueServiceId: "vs-lunch",
+    };
+    export const VENUE_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-venue",
+      kind: "closure",
+      targetKind: "venue",
+    };
+    export const TONIGHT_STOP: DateRule = {
+      ...ON_DAY,
+      id: "r-stop",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, stop: { from: 1260, to: 1290 } },
+    };
+    export const TONIGHT_CLOSE: DateRule = {
+      ...ON_DAY,
+      id: "r-close",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, closeAt: 1260 },
+    };
+    export const TONIGHT_PACING: DateRule = {
+      ...ON_DAY,
+      id: "r-pacing",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, pacing: { covers: 6 } },
+    };
+    export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay {
+      return resolveDay(
+        { timezone: FIXTURE_TIMEZONE, config: { ...BASE_CONFIG, dateRules: rules } },
+        FIXTURE_DATE
+      );
+    }
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -454,6 +727,17 @@
       position: number;
       estimatedWaitMinutes: number | null;
     }
+    export interface ClosedMidBooking {
+      /** The venue's guest message for the closure. */
+      message: string;
+      /** The time the guest had chosen, so alternatives can be offered near it. */
+      lostTime: string;
+    }
+    export interface SlotListing {
+      slots: TimeSlot[];
+      closure?: { message: string };
+      bookingPaused?: BookingPaused;
+    }
     export interface BookingFlowData {
       selectedDate: string | null;
       selectedEndDate: string | null;
@@ -462,6 +746,15 @@
       selectedSlot: TimeSlot | null;
       slotsLoading: boolean;
       slotsError: string | null;
+      /**
+       * Closed dates learned from listings, date to guest message. The public
+       * API has no range listing, so the date step only knows a date is closed
+       * after a listing for it has come back.
+       */
+      closures: Record<string, string>;
+      /** Online booking is paused venue-wide; from the latest listing. */
+      bookingPaused: BookingPaused | null;
+      closedMidBooking: ClosedMidBooking | null;
       hold: ReservationHold | null;
       holdLoading: boolean;
       holdError: string | null;
@@ -511,7 +804,9 @@
       | { type: "SET_PARTY_SIZE"; size: number }
       | { type: "GO_TO_TIME_SLOT" }
       | { type: "GO_TO_DATE_PARTY" }
-      | { type: "SET_SLOTS"; slots: TimeSlot[] }
+      | { type: "SET_SLOTS"; listing: SlotListing }
+      | { type: "CLOSED_MID_BOOKING"; message: string }
+      | { type: "SET_CLOSED_DATES"; closures: Record<string, string> }
       | { type: "SET_SLOTS_ERROR"; error: string }
       | { type: "HOLD_START"; slot: TimeSlot }
       | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
@@ -545,6 +840,17 @@
     export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
       return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
     }
+    function outsideAvailabilityMessage(error: unknown): string | null {
+      if (typeof error !== "object" || error === null || !("problemDetails" in error)) return null;
+      const problem = (
+        error as { problemDetails: { code?: unknown; reason?: unknown; detail?: unknown } }
+      ).problemDetails;
+      if (problem.code !== "outside-availability") return null;
+      // Only a closed venue makes "this time just closed" true; a blocked table or
+      // a closed booking type is an ordinary refusal and keeps its own message.
+      if (!CLOSURE_REASONS.has(String(problem.reason))) return null;
+      return typeof problem.detail === "string" ? problem.detail : "";
+    }
     function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
       switch (action.type) {
         case "SET_DATE":
@@ -566,6 +872,7 @@
               slotsLoading: true,
               slotsError: null,
               holdError: null,
+              closedMidBooking: null,
             },
           };
     
@@ -577,13 +884,53 @@
               selectedSlot: null,
               slots: [],
               hold: null,
+              closedMidBooking: null,
             },
           };
     
-        case "SET_SLOTS":
+        case "SET_SLOTS": {
+          const { listing } = action;
+          const date = state.data.selectedDate;
+          const { [date ?? ""]: _previous, ...otherClosures } = state.data.closures;
+          const closures =
+            date && listing.closure
+              ? { ...otherClosures, [date]: listing.closure.message }
+              : otherClosures;
           return {
             ...state,
-            data: { ...state.data, slots: action.slots, slotsLoading: false, slotsError: null },
+            data: {
+              ...state.data,
+              slots: listing.slots,
+              closures,
+              bookingPaused: listing.bookingPaused ?? null,
+              slotsLoading: false,
+              slotsError: null,
+            },
+          };
+        }
+    
+        case "SET_CLOSED_DATES":
+          // What a listing already learned about a date wins over the upfront list.
+          return {
+            ...state,
+            data: { ...state.data, closures: { ...action.closures, ...state.data.closures } },
+          };
+    
+        case "CLOSED_MID_BOOKING":
+          return {
+            step: "time-slot",
+            data: {
+              ...state.data,
+              hold: null,
+              selectedSlot: null,
+              confirmLoading: false,
+              confirmError: null,
+              slotsLoading: true,
+              closedMidBooking: {
+                message: action.message,
+                lostTime: state.data.selectedSlot?.time ?? "",
+              },
+            },
           };
     
         case "SET_SLOTS_ERROR":
@@ -817,13 +1164,17 @@
       // tokenless, so the staff /api/v1/availability route would 401 every guest.
       // goToTimeSlot reports the missing-slug dead end before calling this, so the
       // slug guard is just for the type.
-      const fetchSlots = useCallback(async (): Promise<TimeSlot[]> => {
-        if (!flowState.data.selectedDate || !venueSlug) return [];
-        const response = await api.availability.getTimeSlotsForVenue(venueSlug, {
+      const fetchSlots = useCallback(async (): Promise<SlotListing> => {
+        if (!flowState.data.selectedDate || !venueSlug) return { slots: [] };
+        const response = await api.availability.getPublicAvailability(venueSlug, {
           date: flowState.data.selectedDate,
           partySize: flowState.data.partySize,
         });
-        return response.filter((slot) => slot.available);
+        return {
+          slots: response.data.filter((slot) => slot.available),
+          closure: response.closure,
+          bookingPaused: response.bookingPaused,
+        };
       }, [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]);
     
       // Release a hold by ID — errors are ignored, the hold expires anyway.
@@ -899,6 +1250,23 @@
         fetchDepositConfig();
       }, [venueSlug, stripePublishableKey, api]);
     
+      // Closed dates for the booking window, fetched once so the calendar can
+      // disable and name them before a guest picks one. A failure is non-fatal:
+      // the per-date listing still reports a closure when a date is opened.
+      useEffect(() => {
+        if (!venueSlug) return;
+        const from = venueDate(new Date(), venueTimezone);
+        api.availability
+          .getClosedDates(venueSlug, { from, to: addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS) })
+          .then((dates) =>
+            dispatch({
+              type: "SET_CLOSED_DATES",
+              closures: Object.fromEntries(dates.map(({ date, closure }) => [date, closure.message])),
+            })
+          )
+          .catch(() => undefined);
+      }, [api, venueSlug, venueTimezone]);
+    
       const goToTimeSlot = useCallback(() => {
         const holdId = flowState.data.hold?.id;
         if (holdId) {
@@ -910,7 +1278,7 @@
           return;
         }
         fetchSlots()
-          .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+          .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
           .catch((err: unknown) => {
             dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
           });
@@ -1005,11 +1373,30 @@
               });
             }
           } catch (err) {
-            dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+            const closure = outsideAvailabilityMessage(err);
+            if (closure === null) {
+              dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+              return;
+            }
+            // A closure saved after the hold was made (ux.md F9.5): the hold is
+            // dead, so release it and show what is still open that day.
+            void releaseHold(flowState.data.hold.id);
+            dispatch({ type: "CLOSED_MID_BOOKING", message: closure });
+            fetchSlots()
+              .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
+              .catch(() =>
+                dispatch({
+                  type: "SET_SLOTS_ERROR",
+                  error: i18n.t("bookingWidget.errors.reloadFailed"),
+                })
+              );
           }
         },
         [
           api,
+          releaseHold,
+          fetchSlots,
+          i18n,
           flowState.data.hold,
           flowState.data.depositConfig,
           venueSlug,
@@ -1049,7 +1436,7 @@
           if (new Date() >= new Date(capturedHold.expiresAt)) {
             dispatch({ type: "EXPIRE_HOLD", error: i18n.t("bookingWidget.errors.holdExpired") });
             fetchSlots()
-              .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+              .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
               .catch(() =>
                 dispatch({
                   type: "SET_SLOTS_ERROR",
@@ -2405,6 +2792,15 @@
       // (the staff route above 401s for guests). The `**/public/v1/venues/*`
       // config glob below never reaches it (`*` never crosses `/`).
       await page.route("**/public/v1/venues/*/availability*", slotsResponse);
+      // Closed dates for the calendar. The glob above never reaches this path
+      // (`*` does not cross `/`); no closures by default.
+      await page.route("**/public/v1/venues/*/availability/dates*", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: [] }),
+        })
+      );
     
       // Holds
       await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -2685,6 +3081,12 @@
     
       // Reload so AuthProvider picks up the injected session
       await page.reload();
+    }
+  </file>
+  <file path="e2e/booking-date.ts">
+    export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
+      await expect(page.getByRole("grid")).toBeVisible();
+      await page.locator(`[role="gridcell"][data-date="${isoDate}"]`).click();
     }
   </file>
   <file path="e2e/fixtures.ts">

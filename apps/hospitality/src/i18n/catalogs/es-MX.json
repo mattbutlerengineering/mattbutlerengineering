@@ -1220,6 +1220,7 @@
       "partySize": "Número de personas",
       "largePartyCall": "Para grupos de más de {{max}}, llámanos al <phoneLink>{{phone}}</phoneLink>.",
       "largePartyContact": "Para grupos de más de {{max}}, comunícate directamente con el restaurante.",
+      "dateClosedLabel": "{{date}}, cerrado. {{message}}",
       "findTimes": "Buscar horarios disponibles",
       "dateHint": "Elige una fecha a partir de hoy para ver los horarios disponibles."
     },
@@ -1228,11 +1229,19 @@
       "noHoursStaffHeading": "No hay horario de atención configurado",
       "noHoursStaffDescription": "Este restaurante aún no tiene horario de atención configurado, así que los clientes no pueden ver disponibilidad ni reservar una mesa.",
       "setHours": "Configurar horario de atención",
-      "noHoursGuestHeading": "Las reservas en línea aún no están disponibles",
+      "noHoursGuestHeading": "Aún no aceptamos reservas en línea",
       "noHoursGuestDescription": "Este restaurante aún no ha configurado las reservas en línea. Comunícate directamente con ellos para reservar una mesa.",
       "noTimesHeading": "No hay horarios disponibles",
       "tryDifferent": "Prueba con otra fecha u otro número de personas.",
       "joinWaitlist": "Unirse a la lista de espera",
+      "closedHeading": "Cerrado el {{date}}",
+      "seeOtherDates": "Ver otras fechas",
+      "pausedHeading": "Las reservas en línea están en pausa por ahora",
+      "pausedCall": "Llama al {{phone}}",
+      "justClosed": "Este horario acaba de cerrarse",
+      "otherTimes": "Otros horarios ese día",
+      "pickAnotherDate": "Elegir otra fecha",
+      "noHoursGuestCall": "Llama al {{phone}} para reservar una mesa.",
       "periods": {
         "lunch": "Comida",
         "dinner": "Cena",
@@ -1241,7 +1250,8 @@
       "periodTimes": {
         "lunch": "Horarios disponibles para comida",
         "dinner": "Horarios disponibles para cena",
-        "late": "Horarios disponibles por la noche"
+        "late": "Horarios disponibles por la noche",
+        "lateAfterMidnight": "Horarios disponibles por la noche, después de medianoche del {{date}}"
       },
       "selected": "Seleccionado:",
       "tablesAvailable_one": "{{count}} mesa disponible",
@@ -1509,8 +1519,29 @@
       "changes_many": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "whyTitle": "Por qué este día",
       "ifRemoved": "Si se quita: {{result}}",
-      "removalOpen": "abierto para {{services}}",
-      "removalClosed": "cerrado",
+      "removalNone": "sin cambios en este día",
+      "removal": {
+        "serviceOpens": "{{name}} abre {{from}} – {{to}}",
+        "serviceCloses": "{{name}} ya no abre",
+        "opensAt": "{{name}} abre a las {{time}}",
+        "closesLater": "{{name}} vuelve a cerrar a las {{time}}",
+        "closesEarlier": "{{name}} cierra a las {{time}}",
+        "lastSeating": "{{name}}, última mesa a las {{time}}",
+        "reopens": "reabre {{from}} – {{to}}",
+        "reopensAllDay": "reabre todo el día",
+        "bookingOn": {
+          "online": "las reservas en línea se reactivan",
+          "phone": "las reservas por teléfono se reactivan",
+          "waitlist": "la lista de espera se reactiva"
+        },
+        "bookingOff": {
+          "online": "reservas en línea desactivadas",
+          "phone": "reservas por teléfono desactivadas",
+          "waitlist": "lista de espera desactivada"
+        },
+        "pacingLifted": "se quita el límite de ritmo",
+        "pacingSet": "ritmo de {{covers}} cubiertos por turno de asientos"
+      },
       "loadError": "No se pudo cargar por qué este día es así"
     },
     "quickSetup": {

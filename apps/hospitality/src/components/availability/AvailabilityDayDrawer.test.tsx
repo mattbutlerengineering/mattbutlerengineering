@@ -1,69 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { axe } from "vitest-axe";
-import type { ResolvedDay, ResolvedDaySummary, ResolvedService } from "@mbe/availability";
+import type { ResolvedDay } from "@mbe/availability";
 import { AvailabilityDayDrawer } from "./AvailabilityDayDrawer.js";
+import {
+  EARLY_DINNER,
+  ONLINE_CLOSURE,
+  PARTY_CLOSURE,
+  resolveFixtureDay,
+} from "./resolved-day-fixtures.js";
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
-const OPEN = { online: true, phone: true, waitlist: true };
-
-function service(name: string, opensAt: number): ResolvedService {
-  return {
-    scheduleServiceId: `ss-${name}`,
-    venueServiceId: `vs-${name}`,
-    name,
-    opensAt,
-    lastSeatingAt: opensAt + 120,
-    closesAt: opensAt + 180,
-    seating: { version: 1, interval: 15 },
-    bookingTypes: ["online", "phone"],
-  };
-}
-
-function summary(services: ResolvedService[]): ResolvedDaySummary {
-  return {
-    serviceDate: "2026-10-30",
-    scheduleId: "s1",
-    services,
-    closures: [],
-    bookingOpen: OPEN,
-  };
-}
-
-const LUNCH = service("Lunch", 690);
-const DINNER = service("Dinner", 1020);
-
-const STACKED: ResolvedDay = {
-  ...summary([LUNCH, DINNER]),
-  explanation: [
-    {
-      kind: "schedule",
-      id: "a1",
-      label: "Weekend",
-      effect: "Lunch 11:30 AM – 2:30 PM, Dinner 5:00 PM – 11:00 PM",
-      removalResult: summary([]),
-    },
-    {
-      kind: "special_hours",
-      id: "r1",
-      label: "Special hours",
-      effect: "Dinner until 10:00 PM",
-      removalResult: summary([LUNCH, DINNER]),
-    },
-    {
-      kind: "closure",
-      id: "r2",
-      label: "Closed",
-      effect: "10:00 PM – 11:00 PM, private party",
-      removalResult: summary([DINNER]),
-    },
-  ],
-};
-
-const REGULAR_ONLY: ResolvedDay = { ...STACKED, explanation: STACKED.explanation.slice(0, 1) };
-const CLOSED: ResolvedDay = { ...summary([]), explanation: [] };
+// Real engine output, so every "removalResult" is what the engine would resolve.
+const STACKED: ResolvedDay = resolveFixtureDay(EARLY_DINNER, PARTY_CLOSURE, ONLINE_CLOSURE);
+const REGULAR_ONLY: ResolvedDay = resolveFixtureDay();
+const CLOSED: ResolvedDay = { ...REGULAR_ONLY, services: [], explanation: [] };
 
 type Props = React.ComponentProps<typeof AvailabilityDayDrawer>;
 
@@ -90,7 +43,7 @@ describe("AvailabilityDayDrawer", () => {
     renderDrawer();
     const dialog = screen.getByRole("dialog", { name: /Friday, October 30/ });
     expect(within(dialog).getByText("Open for Lunch and Dinner.")).toBeInTheDocument();
-    expect(within(dialog).getByText("2 changes from your regular Friday.")).toBeInTheDocument();
+    expect(within(dialog).getByText("3 changes from your regular Friday.")).toBeInTheDocument();
   });
 
   it("lists the layer stack bottom-up, each with what removing it would do", () => {
@@ -98,17 +51,14 @@ describe("AvailabilityDayDrawer", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Why this day" })).toBeInTheDocument();
     const layers = within(dialog).getAllByRole("listitem");
-    expect(layers.map((l) => l.querySelector("[data-layer-label]")?.textContent)).toEqual([
-      "Weekend",
-      "Special hours",
-      "Closed",
-    ]);
-    expect(within(layers[1]!).getByText("Dinner until 10:00 PM")).toBeInTheDocument();
-    expect(
-      within(layers[1]!).getByText("If removed: open for Lunch and Dinner")
-    ).toBeInTheDocument();
-    expect(within(layers[2]!).getByText("If removed: open for Dinner")).toBeInTheDocument();
-    expect(within(layers[0]!).getByText("If removed: closed")).toBeInTheDocument();
+    expect(layers.map((l) => l.querySelector("[data-layer-label]")?.textContent)).toHaveLength(4);
+    const removed = layers.map((l) => l.textContent ?? "");
+    expect(removed[0]).toContain("If removed: no change to this day");
+    expect(removed[1]).toContain(
+      "If removed: Dinner back to 11:00 PM and Dinner last seating 9:00 PM"
+    );
+    expect(removed[2]).toContain("If removed: reopens 10:00 PM – 11:00 PM");
+    expect(removed[3]).toContain("If removed: online booking back on");
   });
 
   it("shows only the plain summary while the regular week is the sole layer", () => {
@@ -156,6 +106,9 @@ describe("AvailabilityDayDrawer", () => {
           onClose={onClose}
         />
       </main>
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Couldn't load why this day looks this way"
     );
     expect(screen.getByRole("alert")).toHaveTextContent("Network down");
   });

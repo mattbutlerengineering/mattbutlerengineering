@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
-import { Steps, Text } from "@mattbutlerengineering/rialto";
+import { EmptyState, Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import { addDays, venueDate } from "../../utils/service-day.js";
@@ -172,7 +172,18 @@ export function BookingWidget({
       )}
 
       {/* Step content */}
-      {state === "date-party" && (
+      {state === "date-party" && !hasOperatingHours && audience === "guest" && (
+        <EmptyState
+          heading={t("bookingWidget.timeSlot.noHoursGuestHeading")}
+          description={
+            phone
+              ? t("bookingWidget.timeSlot.noHoursGuestCall", { phone })
+              : t("bookingWidget.timeSlot.noHoursGuestDescription")
+          }
+        />
+      )}
+
+      {state === "date-party" && (hasOperatingHours || audience === "staff") && (
         <DatePartySelector
           selectedDate={data.selectedDate}
           selectedEndDate={data.selectedEndDate}
@@ -187,6 +198,7 @@ export function BookingWidget({
           minDate={minDate}
           maxDate={effectiveMaxDate}
           venueTimezone={venueTimezone}
+          closedDates={data.closures}
         />
       )}
 
@@ -206,6 +218,10 @@ export function BookingWidget({
           audience={audience}
           onSetHours={onSetHours}
           venueTimezone={venueTimezone}
+          closure={data.closures[data.selectedDate]}
+          bookingPaused={data.bookingPaused}
+          closedMidBooking={data.closedMidBooking}
+          phone={phone}
         />
       )}
 

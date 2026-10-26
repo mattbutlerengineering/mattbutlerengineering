@@ -62,6 +62,30 @@
           },
         },
       }),
+      previewAvailability: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/preview`,
+        params: VenueParamsSchema,
+        body: PreviewAvailabilityBodySchema,
+        responses: {
+          200: {
+            description:
+              "The draft's effect: per-date added/removed times, the focus day, and a page of stranded reservations",
+            body: z.object({ data: PreviewResultSchema }),
+          },
+          401: authRequired,
+          403: problem("Caller is not a Manager of this venue"),
+          404: venueNotFound,
+          422: {
+            description: "`invalid-config`, with path-addressed issues",
+            body: AvailabilityConfigProblemSchema,
+          },
+          503: {
+            description: "`preview-timeout`: the preview took longer than 5 seconds; retry is safe",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
       listDays: defineEndpoint({
         method: "GET",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/days`,
@@ -73,6 +97,21 @@
             body: z.object({ data: z.array(AvailabilityDaySummarySchema) }),
           },
           400: problem("Invalid or too long date range"),
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
+      check: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/check`,
+        params: VenueParamsSchema,
+        body: AvailabilityCheckBodySchema,
+        responses: {
+          200: {
+            description: "The booking gate's verdict on this staff booking, with a human message",
+            body: z.object({ data: AvailabilityCheckResultSchema }),
+          },
           401: authRequired,
           403: notMember,
           404: venueNotFound,
@@ -438,6 +477,7 @@
       "version-conflict",
       "invalid-config",
       "stranded-bookings",
+      "preview-timeout",
     ] as const;
     export const AvailabilityConfigProblemSchema = z.object({
       type: z.string(),
@@ -510,6 +550,82 @@
     export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
     export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
     export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    export const SOFT_LIMITS = ["after_last_seating", "pacing", "party_size"] as const;
+    export const SoftLimitSchema = z.enum(SOFT_LIMITS);
+    export const HARD_REASONS = [
+      "closed",
+      "booking_closed",
+      "outside_service",
+      "table_blocked",
+      "conflict",
+    ] as const;
+    export const HardReasonSchema = z.enum(HARD_REASONS);
+    export const AvailabilityCheckBodySchema = z.object({
+      start: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
+      end: z.iso
+        .datetime({ offset: true })
+        .describe("End time (ISO 8601); send the booking's real end, omit to estimate from party size")
+        .optional(),
+      partySize: z.number().int().min(1).describe("Number of guests"),
+      channel: z.literal("phone").describe("Staff checks are phone bookings"),
+      tableId: z.string().describe("Table to check; omit to ask whether any table is free").optional(),
+    });
+    export const AvailabilityCheckResultSchema = z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("ok") }),
+      z.object({ kind: z.literal("soft"), limits: z.array(SoftLimitSchema), message: z.string() }),
+      z.object({ kind: z.literal("hard"), reason: HardReasonSchema, message: z.string() }),
+    ]);
+    export const PREVIEW_WINDOW_DAYS = 30;
+    export const PREVIEW_STRANDED_PAGE_SIZE = 50;
+    export const PREVIEW_SCOPE_MAX_DATES = 366;
+    export const PreviewScopeSchema = z.union([
+      z.array(ServiceDateSchema).min(1).max(PREVIEW_SCOPE_MAX_DATES),
+      z.object({ from: ServiceDateSchema, to: ServiceDateSchema.optional() }),
+    ]);
+    export const PreviewAvailabilityBodySchema = z.object({
+      /** The unsaved edit: the rows a save would send. */
+      draft: z.object({
+        changes: AvailabilityConfigChangesSchema,
+        scopeConflicts: ScopeConflictModeSchema.default("keep"),
+      }),
+      scope: PreviewScopeSchema,
+      /** First date of the per-date window, and the date resolved in full. */
+      focusDate: ServiceDateSchema,
+      /** Index of the first stranded reservation to return (a page is 50). */
+      strandedOffset: z.number().int().min(0).default(0),
+    });
+    export const PreviewDaySchema = z.object({
+      serviceDate: ServiceDateSchema,
+      added: z.array(z.number().int()),
+      removed: z.array(z.number().int()),
+    });
+    export const PreviewResultSchema = z.object({
+      /** `Venue.availabilityVersion` the preview was computed against. */
+      version: z.number().int(),
+      days: z.array(PreviewDaySchema),
+      /** The focus date under the draft: its summary and the services that run. */
+      focusDay: AvailabilityDaySummarySchema.extend({
+        services: z.array(
+          z.object({
+            venueServiceId: z.string(),
+            name: z.string(),
+            opensAt: z.number().int(),
+            lastSeatingAt: z.number().int(),
+            closesAt: z.number().int(),
+          })
+        ),
+      }),
+      /** Future bookings in scope the draft would leave unserved, by start time. */
+      stranded: z.object({
+        total: z.number().int(),
+        offset: z.number().int(),
+        items: z.array(StrandedReservationSchema),
+      }),
+    });
+    export type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    export type PreviewScope = z.infer<typeof PreviewScopeSchema>;
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
     export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
@@ -520,6 +636,8 @@
     export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
     export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
     export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
   </file>
   <file path="src/schemas/availability-config.ts">
     export const SCHEDULE_KINDS = ["regular", "alternate", "holiday"] as const;
@@ -666,11 +784,20 @@
       slotCount: z.number().int().optional(),
       closure: AvailabilityClosureSchema.optional(),
     });
+    export const PublicClosedDateSchema = z.object({
+      date: z.string(),
+      closure: AvailabilityClosureSchema,
+    });
+    export const PublicAvailabilityDatesResponseSchema = z.object({
+      data: z.array(PublicClosedDateSchema),
+    });
     export const PublicAvailabilityResponseSchema = z.object({
       data: z.array(TimeSlotSchema),
       closure: AvailabilityClosureSchema.optional(),
       bookingPaused: BookingPausedSchema.optional(),
     });
+    export type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    export type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     export type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
     export type BookingPaused = z.infer<typeof BookingPausedSchema>;
     export type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
@@ -1143,6 +1270,12 @@
     export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBodySchema);
     export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
     export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+    export const publicAvailabilityDatesQueryJsonSchema = toRequestJsonSchema(
+      PublicAvailabilityDatesQuerySchema
+    );
+    export const publicAvailabilityDatesResponseJsonSchema = toResponseJsonSchema(
+      PublicAvailabilityDatesResponseSchema
+    );
     export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
       PublicAvailabilityResponseSchema
     );
@@ -1289,6 +1422,9 @@
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
       })
       .describe("Walk-in reservation payload");
+    export const StaffOverrideSchema = z
+      .object({ reason: z.string().describe("Why the limit is being overridden") })
+      .describe("Override a soft availability limit");
     export const CreateReservationBodySchema = z
       .object({
         date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
@@ -1307,6 +1443,7 @@
         venueId: z.string().describe("ID of the venue for this reservation").optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+        override: StaffOverrideSchema.optional(),
       })
       .describe("Reservation creation payload");
     export const UpdateReservationBodySchema = z
@@ -1328,6 +1465,7 @@
           .optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+        override: StaffOverrideSchema.optional(),
       })
       .describe("Fields to update");
     export const AvailabilityQuerySchema = z.object({
@@ -1591,6 +1729,10 @@
     export const PublicAvailabilityQuerySchema = z.object({
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       partySize: z.string(),
+    });
+    export const PublicAvailabilityDatesQuerySchema = z.object({
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     });
     export const PublicDepositBodySchema = z.object({
       reservationId: z.string().min(1),
@@ -2402,6 +2544,8 @@
       guestPhone?: string;
       guestId?: string;
       venueId?: string;
+      /** Staff override of a soft availability limit; stored with the booking. */
+      override?: { reason: string };
     }
     export interface UpdateReservationRequest {
       date?: string;
@@ -2415,6 +2559,8 @@
       seatingPreference?: SeatingPreference;
       cancellationReason?: string;
       cancellationNote?: string;
+      /** Staff override of a soft availability limit on a time or table move. */
+      override?: { reason: string };
     }
     export interface UpdateTableStatusRequest {
       status: TableStatus;

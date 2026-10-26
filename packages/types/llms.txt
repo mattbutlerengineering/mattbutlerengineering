@@ -234,6 +234,57 @@
     <item priority="low">
       type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
     </item>
+    <item priority="high">
+      export const SOFT_LIMITS: unknown;
+    </item>
+    <item priority="high">
+      export const SoftLimitSchema: unknown;
+    </item>
+    <item priority="high">
+      export const HARD_REASONS: unknown;
+    </item>
+    <item priority="high">
+      export const HardReasonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_STRANDED_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_SCOPE_MAX_DATES: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewScopeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewAvailabilityBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewDaySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    </item>
+    <item priority="low">
+      type PreviewScope = z.infer<typeof PreviewScopeSchema>;
+    </item>
     <item priority="low">
       type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     </item>
@@ -263,6 +314,12 @@
     </item>
     <item priority="low">
       type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
     </item>
   </file>
   <file path="src/schemas/availability-config.ts">
@@ -410,7 +467,19 @@
       export const DateAvailabilitySchema: unknown;
     </item>
     <item priority="high">
+      export const PublicClosedDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesResponseSchema: unknown;
+    </item>
+    <item priority="high">
       export const PublicAvailabilityResponseSchema: unknown;
+    </item>
+    <item priority="low">
+      type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     </item>
     <item priority="low">
       type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
@@ -856,6 +925,12 @@
       export const publicAvailabilityQueryJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const publicAvailabilityDatesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityDatesResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const publicAvailabilityResponseJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -1001,6 +1076,9 @@
       export const WalkInBodySchema: unknown;
     </item>
     <item priority="high">
+      export const StaffOverrideSchema: unknown;
+    </item>
+    <item priority="high">
       export const CreateReservationBodySchema: unknown;
     </item>
     <item priority="high">
@@ -1107,6 +1185,9 @@
     </item>
     <item priority="high">
       export const PublicAvailabilityQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesQuerySchema: unknown;
     </item>
     <item priority="high">
       export const PublicDepositBodySchema: unknown;
