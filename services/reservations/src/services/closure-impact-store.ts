@@ -36,10 +36,11 @@ const toDbDate = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
  * open-ended rule is scanned a year ahead.
  */
 function scanRange(rule: DateRule, today: string): { from: string; to: string } | null {
-  const horizon = addDays(rule.startsOn, SCOPE_CONFLICT_HORIZON_DAYS);
-  if (rule.endsOn && rule.endsOn > horizon) return null;
   const earliest = addDays(today, -1);
   const from = rule.startsOn > earliest ? rule.startsOn : earliest;
+  // The year is counted from the first date that can hold a booking, so a series that began long
+  // ago (an "All dates" edit keeps its start) is not "too long".
+  if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_CONFLICT_HORIZON_DAYS)) return null;
   return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
 }
 

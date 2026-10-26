@@ -11624,7 +11624,7 @@
         super(outcome.kind);
       }
     }
-    async function futureBookings(
+    export async function futureBookings(
       db: StoreDb,
       venueId: string,
       today: string,
@@ -13099,6 +13099,71 @@
     }
     export const briefingService = { getBriefing };
   </file>
+  <file path="src/services/closure-alongside.ts">
+    export interface AlongsideIssue {
+      path: string;
+      code: string;
+      message: string;
+    }
+    function canonical(value: unknown): unknown {
+      if (Array.isArray(value)) return value.map(canonical);
+      if (value === null || typeof value !== "object") return value;
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => [k, canonical(v)])
+      );
+    }
+    function onlyShortened(edited: DateRule, stored: DateRule): boolean {
+      return (
+        edited.endsOn != null &&
+        (stored.endsOn == null || edited.endsOn < stored.endsOn) &&
+        same({ ...edited, endsOn: stored.endsOn }, stored)
+      );
+    }
+    function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId: string) {
+      return (
+        stored.seriesId === seriesId &&
+        (edited.seriesId === seriesId || edited.seriesId === draftId) &&
+        same({ ...edited, seriesId: stored.seriesId }, stored)
+      );
+    }
+    export function checkAlongside(
+      stored: readonly DateRule[],
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): AlongsideIssue | null {
+      const byId = new Map(stored.map((r) => [r.id, r]));
+      const touched = new Set([
+        ...alongside.remove,
+        ...alongside.upsert
+          .filter((u) => byId.has(u.id) && isSeriesRow(byId.get(u.id)!))
+          .map((u) => u.id),
+      ]);
+      const [seriesId] = [...touched];
+      const series = seriesId ? byId.get(seriesId) : undefined;
+      if (touched.size !== 1 || !series || !isSeriesRow(series) || series.id === draft.id) {
+        return refuse("alongside", "A series edit replaces exactly one stored repeating closure.");
+      }
+      if (alongside.remove.some((id) => id !== series.id)) {
+        return refuse("alongside.remove", "Only the replaced series can be removed.");
+      }
+      for (const edited of alongside.upsert) {
+        const row = byId.get(edited.id);
+        const path = `alongside.upsert.${edited.id}`;
+        if (!row) return refuse(path, "A series edit adds no rows beside the new series.");
+        if (edited.id === series.id) {
+          if (alongside.remove.length > 0 || !onlyShortened(edited, row)) {
+            return refuse(path, "The replaced series can only end earlier.");
+          }
+        } else if (!onlyMoved(edited, row, series.id, draft.id)) {
+          return refuse(path, "Only the series' own skips and edited dates move, unchanged.");
+        }
+      }
+      return null;
+    }
+  </file>
   <file path="src/services/closure-apply.ts">
     type Tx = Pick<
       PrismaClient,
@@ -13529,19 +13594,27 @@
       }
       return storedResult(tx, venueId, replay);
     }
-    function checkAlongside(alongside: ClosureAlongside | undefined, caller: ClosureCaller): void {
+    async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> {
+      const { body, caller, venueId, now } = input;
+      const { alongside, rule } = body;
       if (!alongside) return;
       if (!caller.isManager) throw new Refused({ kind: "forbidden" });
-      if (alongside.upsert.some((r) => !ALONGSIDE_KINDS.has(r.kind))) {
+      const issue = checkAlongside(state.stored.dateRules, rule, alongside);
+      if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+      const today = civilDateIn(now, state.timezone);
+      const stranded = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: withAlongside(state.effective, alongside) },
+        await futureBookings(tx, venueId, today, now)
+      );
+      if (stranded.length > 0) {
         throw new Refused({
           kind: "invalid",
-          issues: [
-            {
-              path: "alongside.upsert",
-              code: "unsupported_kind",
-              message: "A series edit changes closures and skipped dates only.",
-            },
-          ],
+          issues: stranded.map((r) => ({
+            path: `reservations.${r.id}`,
+            code: "strands_booking",
+            message: "The rows replaced beside the closure would leave this booking without service.",
+          })),
         });
       }
     }
@@ -13549,7 +13622,6 @@
       const { venueId, caller, body, now } = input;
       const { rule } = body;
       await guard(tx, { venueId, caller, rule, now });
-      checkAlongside(body.alongside, caller);
       if (!input.ruleKinds.has(rule.kind)) {
         throw new Refused({
           kind: "invalid",
@@ -13586,6 +13658,7 @@
       if (state.stored.dateRules.some((r) => r.id === rule.id)) {
         throw new Refused({ kind: "closure_exists" });
       }
+      await refuseBadAlongside(tx, input, state);
       const found = await impactInTransaction(tx, venueId, state, rule, now, body.alongside);
       if (found.kind !== "ok") throw new Refused(found);
       const checked = checkDecisions(found.impact, body.decisions);
@@ -13778,10 +13851,11 @@
       | { kind: "too_long" }
       | { kind: "invalid"; issues: { path: string; code: string; message: string }[] };
     function scanRange(rule: DateRule, today: string): { from: string; to: string } | null {
-      const horizon = addDays(rule.startsOn, SCOPE_CONFLICT_HORIZON_DAYS);
-      if (rule.endsOn && rule.endsOn > horizon) return null;
       const earliest = addDays(today, -1);
       const from = rule.startsOn > earliest ? rule.startsOn : earliest;
+      // The year is counted from the first date that can hold a booking, so a series that began long
+      // ago (an "All dates" edit keeps its start) is not "too long".
+      if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_CONFLICT_HORIZON_DAYS)) return null;
       return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
     }
     export async function impactInTransaction(
@@ -13923,14 +13997,22 @@
       const startMin = wallMinutes(booking.startTime, date, after.timezone);
       const endMin = wallMinutes(booking.endTime, date, after.timezone);
       const dayAfter = resolveDay(after, date);
-      const servedBefore = resolveDay(before, date).services.filter(
+      const dayBefore = resolveDay(before, date);
+      const servedBefore = dayBefore.services.filter(
         (s) => s.opensAt <= startMin && startMin < s.closesAt
       );
     
       const servedIds = new Set(servedBefore.map((s) => s.venueServiceId));
-      const bandRunsInto = dayAfter.closures.some(
-        (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, servedIds)
+      // A band that already cut into this booking (the series being replaced had it) is not news:
+      // the Manager decided that booking then, and a second decision would write a second outcome.
+      const alreadyRunsInto = dayBefore.closures.some((band) =>
+        runsIntoBand(band, startMin, endMin, servedIds)
       );
+      const bandRunsInto =
+        !alreadyRunsInto &&
+        dayAfter.closures.some(
+          (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, servedIds)
+        );
       const hours = servedBefore.map((was) => ({
         was,
         now: dayAfter.services.find((s) => s.venueServiceId === was.venueServiceId),

@@ -2115,8 +2115,8 @@
         
       }
     </item>
-    <item priority="low">
-      async function futureBookings(
+    <item priority="high">
+      export async function futureBookings(
         db: StoreDb,
         venueId: string,
         today: string,
@@ -2613,6 +2613,31 @@
       export const briefingService: unknown;
     </item>
   </file>
+  <file path="src/services/closure-alongside.ts">
+    <item priority="low">
+      interface AlongsideIssue {
+        path: string;
+        code: string;
+        message: string;
+      }
+    </item>
+    <item priority="medium">
+      function canonical(value: unknown): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function onlyShortened(edited: DateRule, stored: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkAlongside(
+        stored: readonly DateRule[],
+        draft: DateRule,
+        alongside: ClosureAlongside
+      ): AlongsideIssue | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/closure-apply.ts">
     <item priority="high">
       type Tx = Pick<
@@ -2809,8 +2834,8 @@
     <item priority="low">
       async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> { /* ... */ }
     </item>
-    <item priority="medium">
-      function checkAlongside(alongside: ClosureAlongside | undefined, caller: ClosureCaller): void { /* ... */ }
+    <item priority="low">
+      async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function preflight(tx: Db, input: CommitInput): Promise<void> { /* ... */ }

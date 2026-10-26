@@ -213,6 +213,32 @@ describe("computeClosureImpact", () => {
     ]);
   });
 
+  it("does not offer again a booking the replaced series' window already cut into", () => {
+    const window = { version: 1 as const, from: 1320, to: 1440 }; // closed from 10:00 PM
+    const series: DateRule = {
+      id: "s1",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-01",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+      window,
+    };
+    const edited: DateRule = { ...series, id: "s2", repeat: { version: 1, weekdays: [4, 5] } };
+
+    const result = computeClosureImpact({
+      timezone: TZ,
+      config: { ...CONFIG, dateRules: [series] },
+      rule: edited,
+      alongside: { upsert: [], remove: ["s1"] },
+      bookings: [booking("thu-kept", "2026-12-24", 21, 0), booking("fri-new", "2026-12-25", 21, 0)],
+    });
+
+    expect(result.groups.map((g) => [g.groupKey, g.reservations.map((r) => r.id)])).toEqual([
+      ["2026-12-25:shortened", ["fri-new"]],
+    ]);
+  });
+
   /** A booking from explicit instants, for dates where the UTC offset is not -8. */
   const at = (date: string, startIso: string, endIso: string): ImpactBooking => ({
     ...booking("x", date, 0, 0),

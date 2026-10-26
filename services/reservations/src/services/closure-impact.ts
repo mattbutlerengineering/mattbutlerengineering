@@ -113,14 +113,22 @@ function assess(
   const startMin = wallMinutes(booking.startTime, date, after.timezone);
   const endMin = wallMinutes(booking.endTime, date, after.timezone);
   const dayAfter = resolveDay(after, date);
-  const servedBefore = resolveDay(before, date).services.filter(
+  const dayBefore = resolveDay(before, date);
+  const servedBefore = dayBefore.services.filter(
     (s) => s.opensAt <= startMin && startMin < s.closesAt
   );
 
   const servedIds = new Set(servedBefore.map((s) => s.venueServiceId));
-  const bandRunsInto = dayAfter.closures.some(
-    (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, servedIds)
+  // A band that already cut into this booking (the series being replaced had it) is not news:
+  // the Manager decided that booking then, and a second decision would write a second outcome.
+  const alreadyRunsInto = dayBefore.closures.some((band) =>
+    runsIntoBand(band, startMin, endMin, servedIds)
   );
+  const bandRunsInto =
+    !alreadyRunsInto &&
+    dayAfter.closures.some(
+      (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, servedIds)
+    );
   const hours = servedBefore.map((was) => ({
     was,
     now: dayAfter.services.find((s) => s.venueServiceId === was.venueServiceId),

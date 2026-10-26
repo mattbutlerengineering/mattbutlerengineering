@@ -12,8 +12,10 @@ import type {
 import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
+import { findStrandedReservations } from "./availability-config-checks.js";
 import {
   conflictIssue,
+  futureBookings,
   loadConfigState,
   refuseStale,
   toDbDate,
@@ -31,7 +33,8 @@ import {
   isHostEmergencyClose,
   moveTarget,
 } from "./closure-command-plan.js";
-import { withClosure } from "./closure-impact.js";
+import { checkAlongside } from "./closure-alongside.js";
+import { withAlongside, withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
 import { prisma } from "./database.js";
 
@@ -259,23 +262,33 @@ async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | nul
   return storedResult(tx, venueId, replay);
 }
 
-/** What a series edit may write beside its closure: closure rows and the skips that point at them. */
-const ALONGSIDE_KINDS: ReadonlySet<string> = new Set(["closure", "skip"]);
-
-/** The rows a closure replaces are a Manager's series edit, and only closures and skips. */
-function checkAlongside(alongside: ClosureAlongside | undefined, caller: ClosureCaller): void {
+/**
+ * A series edit's `alongside` is a Manager's, and is limited to shortening or removing the one
+ * series it replaces and moving that series' skips (`closure-alongside.ts`). As a second guard it
+ * must strand no booking by itself: the draft rule's dates are decided in Step 2, anything else
+ * the rows change is not.
+ */
+async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> {
+  const { body, caller, venueId, now } = input;
+  const { alongside, rule } = body;
   if (!alongside) return;
   if (!caller.isManager) throw new Refused({ kind: "forbidden" });
-  if (alongside.upsert.some((r) => !ALONGSIDE_KINDS.has(r.kind))) {
+  const issue = checkAlongside(state.stored.dateRules, rule, alongside);
+  if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+  const today = civilDateIn(now, state.timezone);
+  const stranded = findStrandedReservations(
+    { timezone: state.timezone, config: state.effective },
+    { timezone: state.timezone, config: withAlongside(state.effective, alongside) },
+    await futureBookings(tx, venueId, today, now)
+  );
+  if (stranded.length > 0) {
     throw new Refused({
       kind: "invalid",
-      issues: [
-        {
-          path: "alongside.upsert",
-          code: "unsupported_kind",
-          message: "A series edit changes closures and skipped dates only.",
-        },
-      ],
+      issues: stranded.map((r) => ({
+        path: `reservations.${r.id}`,
+        code: "strands_booking",
+        message: "The rows replaced beside the closure would leave this booking without service.",
+      })),
     });
   }
 }
@@ -285,7 +298,6 @@ async function preflight(tx: Db, input: CommitInput): Promise<void> {
   const { venueId, caller, body, now } = input;
   const { rule } = body;
   await guard(tx, { venueId, caller, rule, now });
-  checkAlongside(body.alongside, caller);
   if (!input.ruleKinds.has(rule.kind)) {
     throw new Refused({
       kind: "invalid",
@@ -323,6 +335,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   if (state.stored.dateRules.some((r) => r.id === rule.id)) {
     throw new Refused({ kind: "closure_exists" });
   }
+  await refuseBadAlongside(tx, input, state);
   const found = await impactInTransaction(tx, venueId, state, rule, now, body.alongside);
   if (found.kind !== "ok") throw new Refused(found);
   const checked = checkDecisions(found.impact, body.decisions);

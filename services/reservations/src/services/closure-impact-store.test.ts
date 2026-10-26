@@ -177,6 +177,17 @@ describe("getClosureImpact", () => {
     expect(outcome).toEqual({ kind: "too_long" });
   });
 
+  it("counts the year from today, so a long-running series is not too long", async () => {
+    const { client } = fakeClient(rows());
+    const series = closure({
+      startsOn: "2026-01-04",
+      endsOn: "2027-02-01",
+      repeat: { version: 1, weekdays: [4] },
+    });
+    const outcome = await getClosureImpact("venue-1", series, NOW, client);
+    expect(outcome.kind).toBe("ok");
+  });
+
   it("refuses a draft that does not validate against the config", async () => {
     const { client, tx } = fakeClient(rows());
 
