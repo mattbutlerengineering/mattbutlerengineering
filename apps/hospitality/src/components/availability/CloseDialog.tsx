@@ -204,7 +204,7 @@ export function CloseDialog(props: CloseDialogProps) {
 
   const counts = outcomeCounts(groups, choices);
   const urgent = isUrgent(
-    { startsOn, fromMinute: form.fromMinute },
+    { startsOn, endsOn: rule?.endsOn, repeat: rule?.repeat, fromMinute: form.fromMinute },
     today,
     minutesOfDayIn(now, timezone)
   );

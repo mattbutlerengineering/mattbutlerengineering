@@ -1,3 +1,4 @@
+import { firstOccurrenceOnOrAfter } from "@mbe/availability";
 import {
   GUEST_MESSAGE_MAX_LENGTH,
   type ClosureAction,
@@ -177,17 +178,26 @@ export function outcomeCounts(
   return counts;
 }
 
-/** A closure that starts within 6 hours tells guests by text and email (ux.md F5 step 7). */
+/**
+ * A closure that starts within 6 hours tells guests by text and email (ux.md F5 step 7).
+ * "Starts" is its next occurrence from today (honouring `endsOn` and `repeat`), not its
+ * stored `startsOn` — the same rule the server applies when it decides which channels to use.
+ */
 export function isUrgent(
-  closure: { readonly startsOn: string; readonly fromMinute: number | null },
+  closure: {
+    readonly startsOn: string;
+    readonly endsOn?: string | null;
+    readonly repeat?: { readonly weekdays: readonly number[] } | null;
+    readonly fromMinute: number | null;
+  },
   today: string,
   nowMinute: number
 ): boolean {
-  if (closure.startsOn < today) return true;
+  const startsOn = firstOccurrenceOnOrAfter(closure, today);
+  if (startsOn === null) return false;
   // Two or more days out is never within 6 hours, whatever the time now.
-  if (closure.startsOn > addDays(today, 1)) return false;
-  const startMinute =
-    (closure.startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
+  if (startsOn > addDays(today, 1)) return false;
+  const startMinute = (startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
   return startMinute - nowMinute <= URGENT_WITHIN_MINUTES;
 }
 

@@ -57,7 +57,8 @@ export const manageRebookRoutes: FastifyPluginAsync = async (fastify) => {
           const { id, guestEmail } = result.reservation;
           return reply.status(201).send({
             data: { reservationId: id, startTime: result.reservation.startTime },
-            manageToken: guestEmail ? generateManageToken(id, guestEmail) : undefined,
+            // A phone-only guest signs with "", like the closure notice runtime.
+            manageToken: generateManageToken(id, guestEmail ?? ""),
           });
         }
         if (result.reason === "rejected") {

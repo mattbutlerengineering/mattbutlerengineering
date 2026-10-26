@@ -106,6 +106,27 @@ describe("POST /public/v1/reservations/manage/rebook", () => {
     );
   });
 
+  it("returns a manage token for a phone-only guest, signed with an empty email", async () => {
+    const phoneOnly = { ...cancelled, guestEmail: null };
+    const phoneToken = generateManageToken("res_1", "");
+    vi.mocked(reservationService.getById).mockResolvedValue(phoneOnly as never);
+    vi.mocked(rebookVenueCancelled).mockResolvedValueOnce({
+      ok: true,
+      reservation: { id: "res_2", guestEmail: null, startTime: OFFER } as never,
+    });
+
+    const response = await post({ offerId: OFFER }, phoneToken);
+
+    expect(response.statusCode).toBe(201);
+    const body = response.json();
+    expect(typeof body.manageToken).toBe("string");
+    expect(verifyManageToken(body.manageToken)).toMatchObject({
+      valid: true,
+      reservationId: "res_2",
+      guestEmail: "",
+    });
+  });
+
   it("refuses with 422 where the venue would need a deposit", async () => {
     vi.mocked(rebookVenueCancelled).mockResolvedValueOnce({
       ok: false,
