@@ -1716,6 +1716,23 @@
         (_, i) => start + i * STEP_MINUTES
       );
     }
+    export interface TonightDefaults {
+      readonly closeAt: number;
+      readonly stopFrom: number;
+      readonly stopTo: number;
+    }
+    function nearestAtOrBefore(options: readonly number[], target: number): number {
+      const before = options.filter((m) => m <= target);
+      return before.length ? before[before.length - 1]! : options[options.length - 1]!;
+    }
+    export function tonightDefaults(options: readonly number[]): TonightDefaults {
+      const closeAt = nearestAtOrBefore(options, DEFAULT_CLOSE_AT);
+      const fromChoices = options.slice(0, -1);
+      const stopFrom = nearestAtOrBefore(fromChoices.length ? fromChoices : options, DEFAULT_STOP_FROM);
+      const after = options.filter((m) => m > stopFrom);
+      const stopTo = after.find((m) => m >= DEFAULT_STOP_TO) ?? after[0] ?? stopFrom;
+      return { closeAt, stopFrom, stopTo };
+    }
     export function activeTonightChanges(
       rules: readonly DateRule[],
       today: string,

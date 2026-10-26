@@ -75,6 +75,36 @@ export function tonightTimeMinutes(
   );
 }
 
+const DEFAULT_CLOSE_AT = 22 * 60;
+const DEFAULT_STOP_FROM = 19 * 60 + 30;
+const DEFAULT_STOP_TO = 20 * 60;
+
+export interface TonightDefaults {
+  readonly closeAt: number;
+  readonly stopFrom: number;
+  readonly stopTo: number;
+}
+
+/** The nearest option at or before `target`, else the last option. */
+function nearestAtOrBefore(options: readonly number[], target: number): number {
+  const before = options.filter((m) => m <= target);
+  return before.length ? before[before.length - 1]! : options[options.length - 1]!;
+}
+
+/**
+ * The control's starting times, kept inside `options` so the selects never show nothing and
+ * Apply never sends a time the day does not offer. The stop window is the nearest valid pair
+ * (from before to) around the usual 7:30 to 8:00 PM.
+ */
+export function tonightDefaults(options: readonly number[]): TonightDefaults {
+  const closeAt = nearestAtOrBefore(options, DEFAULT_CLOSE_AT);
+  const fromChoices = options.slice(0, -1);
+  const stopFrom = nearestAtOrBefore(fromChoices.length ? fromChoices : options, DEFAULT_STOP_FROM);
+  const after = options.filter((m) => m > stopFrom);
+  const stopTo = after.find((m) => m >= DEFAULT_STOP_TO) ?? after[0] ?? stopFrom;
+  return { closeAt, stopFrom, stopTo };
+}
+
 /** The Tonight rules for `today` that have not yet reached their service-day boundary. */
 export function activeTonightChanges(
   rules: readonly DateRule[],

@@ -28,7 +28,12 @@ import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js"
 import { CloseDialog } from "./CloseDialog.js";
 import { minuteText } from "./closure-band.js";
 import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
-import { activeTonightChanges, tonightTimeMinutes, type TonightChange } from "./tonight-state.js";
+import {
+  activeTonightChanges,
+  tonightDefaults,
+  tonightTimeMinutes,
+  type TonightChange,
+} from "./tonight-state.js";
 import { currentServiceDate } from "../../utils/current-service-date.js";
 import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import styles from "./TonightControl.module.css";
@@ -53,9 +58,6 @@ const ALL_TABLES = "all";
 const PICK_TABLES = "pick";
 const UNSET = "unset";
 const LOCATION_PREFIX = "location:";
-const DEFAULT_CLOSE_AT = 22 * 60;
-const DEFAULT_STOP_FROM = 19 * 60 + 30;
-const DEFAULT_STOP_TO = 20 * 60;
 const DEFAULT_PACING = 10;
 
 function chipText(change: TonightChange, t: TFunction, format: VenueFormat): string {
@@ -145,9 +147,10 @@ export function TonightControl(props: TonightControlProps) {
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [closeAt, setCloseAt] = useState(DEFAULT_CLOSE_AT);
-  const [stopFrom, setStopFrom] = useState(DEFAULT_STOP_FROM);
-  const [stopTo, setStopTo] = useState(DEFAULT_STOP_TO);
+  // Null until picked: the shown value is then the default clamped into tonight's options.
+  const [closeAtPick, setCloseAt] = useState<number | null>(null);
+  const [stopFromPick, setStopFrom] = useState<number | null>(null);
+  const [stopToPick, setStopTo] = useState<number | null>(null);
   const [blockTarget, setBlockTarget] = useState(ALL_TABLES);
   const [pickedTables, setPickedTables] = useState<readonly string[]>([]);
   const [blockFrom, setBlockFrom] = useState<number | null>(null);
@@ -184,7 +187,12 @@ export function TonightControl(props: TonightControlProps) {
     minutesOfDayIn(now, timezone) + (venueDate(now, timezone) > today ? MINUTES_PER_DAY : 0);
   const effectiveFrom = blockFrom ?? nowServiceMinute;
   const blockWindowInvalid = blockTo !== null && blockTo <= effectiveFrom;
-  const timeOptions = tonightTimeMinutes(state.config, timezone, today).map((m) => ({
+  const tonightMinutes = tonightTimeMinutes(state.config, timezone, today);
+  const defaults = tonightDefaults(tonightMinutes);
+  const closeAt = closeAtPick ?? defaults.closeAt;
+  const stopFrom = stopFromPick ?? defaults.stopFrom;
+  const stopTo = stopToPick ?? defaults.stopTo;
+  const timeOptions = tonightMinutes.map((m) => ({
     value: String(m),
     label: minuteText(m, t, format),
   }));

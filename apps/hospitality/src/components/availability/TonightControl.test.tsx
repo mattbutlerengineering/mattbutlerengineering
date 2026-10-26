@@ -9,6 +9,7 @@ import type { AvailabilityConfigState, ClosureImpact, DateRule, Table } from "@m
 const setTonight = vi.hoisted(() => vi.fn());
 const endTonight = vi.hoisted(() => vi.fn());
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
+const impactCalls = vi.hoisted(() => [] as unknown[]);
 const viewport = vi.hoisted(() => ({ value: "desktop" as "desktop" | "phone" }));
 
 vi.mock("../../hooks/useTonight.js", () => ({
@@ -17,8 +18,8 @@ vi.mock("../../hooks/useTonight.js", () => ({
 }));
 vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
 vi.mock("../../hooks/useClosures.js", () => ({
-  useClosureImpact: () => ({
-    data: impactState.value,
+  useClosureImpact: (args: unknown) => ({
+    data: (impactCalls.push(args), impactState.value),
     isLoading: false,
     error: null,
     refetch: vi.fn(),
@@ -425,6 +426,54 @@ describe("TonightControl", () => {
       expect(
         await screen.findByRole("dialog", { name: "Bookings after the new close" })
       ).toBeInTheDocument();
+      expect(impactCalls.at(-1)).toMatchObject({
+        venueId: "venue-1",
+        rule: { kind: "tonight", startsOn: "2026-10-29", endsOn: "2026-10-29" },
+      });
+    });
+
+    it("starts the close-early and stop pickers inside a 5 PM to 9 PM day", async () => {
+      renderControl({ state: nightState(1260), now: NOW });
+      open();
+      expect(screen.getByRole("combobox", { name: "Close early at" })).toHaveTextContent("9:00 PM");
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "close_early",
+        closeAt: 1260,
+      });
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[1]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(2));
+      expect(setTonight.mock.calls[1]![0].body.change).toEqual({
+        type: "stop_window",
+        from: 1170,
+        to: 1200,
+      });
+    });
+
+    it("starts the pickers inside an 11 AM to 3 PM day with a valid stop window", async () => {
+      const base = nightState(900);
+      renderControl({
+        state: {
+          ...base,
+          config: {
+            ...base.config,
+            scheduleServices: [
+              { ...base.config.scheduleServices[0]!, opensAt: 660, closesAt: 900 },
+            ],
+          },
+        },
+        now: NOW,
+      });
+      open();
+      expect(screen.getByRole("combobox", { name: "Close early at" })).toHaveTextContent("3:00 PM");
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[1]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "stop_window",
+        from: 870,
+        to: 900,
+      });
     });
 
     it("sends the service-day minute for Now", async () => {
