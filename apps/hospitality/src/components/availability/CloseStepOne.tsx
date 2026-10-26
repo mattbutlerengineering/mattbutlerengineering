@@ -39,6 +39,8 @@ export interface CloseStepOneProps {
   /** Dates in the closure that already carry special hours. */
   readonly replacedDate: string | null;
   readonly invalid: "what" | "when" | "guestMessage" | null;
+  /** A Host's emergency close: What and When are fixed to the whole venue, tonight. */
+  readonly locked?: boolean;
 }
 
 function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
@@ -91,111 +93,127 @@ export function CloseStepOne(props: CloseStepOneProps) {
 
   return (
     <Stack gap="md">
-      <RadioGroup
-        label={t("availability.close.what.label")}
-        name="close-what"
-        value={what.kind}
-        onChange={(kind) => patch({ what: whatKindDefaults(kind, services) })}
-      >
-        <Radio value="venue" label={t("availability.close.what.venue")} />
-        <Radio
-          value="service"
-          label={t("availability.close.what.service")}
-          disabled={services.length === 0}
-        />
-        <Radio value="booking" label={t("availability.close.what.booking")} />
-      </RadioGroup>
-      {what.kind === "service" && (
-        <Select
-          label={t("availability.close.what.pickService")}
-          value={what.serviceId}
-          options={services.map((s) => ({ value: s.id, label: s.name }))}
-          onChange={(serviceId) => patch({ what: { kind: "service", serviceId } })}
-        />
+      {props.locked && (
+        <dl className={styles.locked}>
+          <dt>{t("availability.close.what.label")}</dt>
+          <dd>{t("availability.close.what.venue")}</dd>
+          <dt>{t("availability.close.when.label")}</dt>
+          <dd>{t("availability.close.when.tonight")}</dd>
+        </dl>
       )}
-      {what.kind === "booking" && (
-        <Stack gap="xs">
-          {CHANNELS.map((channel) => (
-            <Checkbox
-              key={channel}
-              label={t(`availability.close.what.channel.${channel}`)}
-              checked={what.types.includes(channel)}
-              onCheckedChange={(on) =>
-                patch({
-                  what: {
-                    kind: "booking",
-                    types: on ? [...what.types, channel] : what.types.filter((c) => c !== channel),
-                  },
-                })
-              }
+      {!props.locked && (
+        <>
+          <RadioGroup
+            label={t("availability.close.what.label")}
+            name="close-what"
+            value={what.kind}
+            onChange={(kind) => patch({ what: whatKindDefaults(kind, services) })}
+          >
+            <Radio value="venue" label={t("availability.close.what.venue")} />
+            <Radio
+              value="service"
+              label={t("availability.close.what.service")}
+              disabled={services.length === 0}
             />
-          ))}
-          {props.invalid === "what" && (
+            <Radio value="booking" label={t("availability.close.what.booking")} />
+          </RadioGroup>
+          {what.kind === "service" && (
+            <Select
+              label={t("availability.close.what.pickService")}
+              value={what.serviceId}
+              options={services.map((s) => ({ value: s.id, label: s.name }))}
+              onChange={(serviceId) => patch({ what: { kind: "service", serviceId } })}
+            />
+          )}
+          {what.kind === "booking" && (
+            <Stack gap="xs">
+              {CHANNELS.map((channel) => (
+                <Checkbox
+                  key={channel}
+                  label={t(`availability.close.what.channel.${channel}`)}
+                  checked={what.types.includes(channel)}
+                  onCheckedChange={(on) =>
+                    patch({
+                      what: {
+                        kind: "booking",
+                        types: on
+                          ? [...what.types, channel]
+                          : what.types.filter((c) => c !== channel),
+                      },
+                    })
+                  }
+                />
+              ))}
+              {props.invalid === "what" && (
+                <Text variant="caption" color="secondary" role="alert">
+                  {t("availability.close.what.channelRequired")}
+                </Text>
+              )}
+            </Stack>
+          )}
+
+          <RadioGroup
+            label={t("availability.close.when.label")}
+            name="close-when"
+            value={when.kind}
+            onChange={(kind) =>
+              patch({ when: whenKindDefaults(kind as CloseWhen["kind"], firstDate || today) })
+            }
+          >
+            <Radio value="tonight" label={t("availability.close.when.tonight")} />
+            <Radio value="date" label={t("availability.close.when.date")} />
+            <Radio value="range" label={t("availability.close.when.range")} />
+            <Radio value="repeats" label={t("availability.close.when.repeats")} />
+            <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
+          </RadioGroup>
+          <div className={styles.row}>
+            {when.kind === "date" &&
+              dateField(t("availability.close.when.dateLabel"), when.date, (date) =>
+                patch({ when: { kind: "date", date } })
+              )}
+            {when.kind === "until-reopen" &&
+              dateField(t("availability.close.when.startingLabel"), when.from, (from) =>
+                patch({ when: { kind: "until-reopen", from } })
+              )}
+            {(when.kind === "range" || when.kind === "repeats") && (
+              <>
+                {dateField(t("availability.close.when.fromLabel"), when.from, (from) =>
+                  patch({ when: { ...when, from } })
+                )}
+                {dateField(t("availability.close.when.toLabel"), when.to, (to) =>
+                  patch({ when: { ...when, to } })
+                )}
+              </>
+            )}
+          </div>
+          {when.kind === "repeats" && (
+            <fieldset className={styles.weekdays}>
+              <legend className={styles.legend}>{t("availability.close.when.weekdays")}</legend>
+              {[1, 2, 3, 4, 5, 6, 0].map((day) => (
+                <Checkbox
+                  key={day}
+                  label={format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" })}
+                  checked={when.weekdays.includes(day)}
+                  onCheckedChange={(on) =>
+                    patch({
+                      when: {
+                        ...when,
+                        weekdays: on
+                          ? [...when.weekdays, day]
+                          : when.weekdays.filter((d) => d !== day),
+                      },
+                    })
+                  }
+                />
+              ))}
+            </fieldset>
+          )}
+          {props.invalid === "when" && (
             <Text variant="caption" color="secondary" role="alert">
-              {t("availability.close.what.channelRequired")}
+              {t("availability.close.when.invalid")}
             </Text>
           )}
-        </Stack>
-      )}
-
-      <RadioGroup
-        label={t("availability.close.when.label")}
-        name="close-when"
-        value={when.kind}
-        onChange={(kind) =>
-          patch({ when: whenKindDefaults(kind as CloseWhen["kind"], firstDate || today) })
-        }
-      >
-        <Radio value="tonight" label={t("availability.close.when.tonight")} />
-        <Radio value="date" label={t("availability.close.when.date")} />
-        <Radio value="range" label={t("availability.close.when.range")} />
-        <Radio value="repeats" label={t("availability.close.when.repeats")} />
-        <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
-      </RadioGroup>
-      <div className={styles.row}>
-        {when.kind === "date" &&
-          dateField(t("availability.close.when.dateLabel"), when.date, (date) =>
-            patch({ when: { kind: "date", date } })
-          )}
-        {when.kind === "until-reopen" &&
-          dateField(t("availability.close.when.startingLabel"), when.from, (from) =>
-            patch({ when: { kind: "until-reopen", from } })
-          )}
-        {(when.kind === "range" || when.kind === "repeats") && (
-          <>
-            {dateField(t("availability.close.when.fromLabel"), when.from, (from) =>
-              patch({ when: { ...when, from } })
-            )}
-            {dateField(t("availability.close.when.toLabel"), when.to, (to) =>
-              patch({ when: { ...when, to } })
-            )}
-          </>
-        )}
-      </div>
-      {when.kind === "repeats" && (
-        <fieldset className={styles.weekdays}>
-          <legend className={styles.legend}>{t("availability.close.when.weekdays")}</legend>
-          {[1, 2, 3, 4, 5, 6, 0].map((day) => (
-            <Checkbox
-              key={day}
-              label={format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" })}
-              checked={when.weekdays.includes(day)}
-              onCheckedChange={(on) =>
-                patch({
-                  when: {
-                    ...when,
-                    weekdays: on ? [...when.weekdays, day] : when.weekdays.filter((d) => d !== day),
-                  },
-                })
-              }
-            />
-          ))}
-        </fieldset>
-      )}
-      {props.invalid === "when" && (
-        <Text variant="caption" color="secondary" role="alert">
-          {t("availability.close.when.invalid")}
-        </Text>
+        </>
       )}
       <Select
         label={t("availability.close.window.label")}

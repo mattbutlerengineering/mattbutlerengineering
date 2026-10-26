@@ -5231,6 +5231,24 @@
       return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/outcome-label.ts">
+    export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string {
+      const parts = (["cancel", "move", "keep_notify", "keep_silent"] as const)
+        .filter((a) => counts[a] > 0)
+        .map((a) => ({ a, count: counts[a] }));
+      // Nothing chosen yet: ask for a choice rather than render an empty "Close · ".
+      if (parts.length === 0) return t("availability.close.button.choose");
+      if (parts.length === 1) {
+        const [only] = parts;
+        return t(`availability.close.button.${only!.a}`, { count: only!.count });
+      }
+      return t("availability.close.button.mixed", {
+        parts: parts
+          .map((p) => t(`availability.close.button.part.${p.a}`, { count: p.count }))
+          .join(" · "),
+      });
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
     export interface ServiceDraft {
       readonly id: string;
@@ -6195,6 +6213,43 @@
       return summaries.filter(
         (s) => s.refundFailed + s.refundPending > 0 && !listedRuleIds.includes(s.ruleId)
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/tonight-state.ts">
+    export type TonightChange =
+      | { readonly ruleId: string; readonly kind: "pause_online" }
+      | { readonly ruleId: string; readonly kind: "close_early"; readonly closeAt: number }
+      | {
+          readonly ruleId: string;
+          readonly kind: "stop_window";
+          readonly from: number;
+          readonly to: number;
+        }
+      | { readonly ruleId: string; readonly kind: "block_tables"; readonly tableCount: number }
+      | { readonly ruleId: string; readonly kind: "pacing"; readonly covers: number };
+    type TonightRule = Extract<DateRule, { kind: "tonight" }>;
+    function describe(rule: TonightRule): TonightChange | null {
+      const ruleId = rule.id;
+      const { payload } = rule;
+      if ("closeAt" in payload) return { ruleId, kind: "close_early", closeAt: payload.closeAt };
+      if ("pacing" in payload) return { ruleId, kind: "pacing", covers: payload.pacing.covers };
+      if (rule.targetKind === "booking") return { ruleId, kind: "pause_online" };
+      if (rule.targetKind === "tables") {
+        return { ruleId, kind: "block_tables", tableCount: rule.tableIds?.length ?? 0 };
+      }
+      return { ruleId, kind: "stop_window", from: payload.stop.from, to: payload.stop.to };
+    }
+    export function activeTonightChanges(
+      rules: readonly DateRule[],
+      today: string,
+      now: Date
+    ): readonly TonightChange[] {
+      return rules.flatMap((rule) => {
+        if (rule.kind !== "tonight" || rule.startsOn !== today) return [];
+        if (rule.expiresAt && new Date(rule.expiresAt).getTime() <= now.getTime()) return [];
+        const change = describe(rule);
+        return change ? [change] : [];
+      });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
@@ -18397,6 +18452,20 @@
     
       return { focusedId, setFocusedId, handleKeyDown };
     }
+  </file>
+  <file path="apps/hospitality/src/hooks/useTonight.ts">
+    export type SetTonightRequest = Parameters<AvailabilityClient["setTonight"]>[1];
+    export const useSetTonight = createMutationHook<
+      { venueId: string; body: SetTonightRequest },
+      TonightResult
+    >({
+      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      mutationFn: (api, { venueId, body }) => api.availability.setTonight(venueId, body),
+    });
+    export const useEndTonight = createMutationHook<{ venueId: string; ruleId: string }, ReopenResult>({
+      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      mutationFn: (api, { venueId, ruleId }) => api.availability.endTonight(venueId, ruleId),
+    });
   </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
     export const CURRENT_USER_QUERY_KEY = "currentUser" as const;

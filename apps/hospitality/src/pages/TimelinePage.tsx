@@ -16,6 +16,7 @@ import {
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { MarkNoShowDialog } from "../components/timeline/MarkNoShowDialog.js";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
+import { TimelineTonight } from "../components/availability/TimelineTonight";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { ReservationDetails } from "../components/timeline/ReservationDetails.js";
 import { tableStatusInline } from "../components/timeline/table-status-menu.js";
@@ -529,6 +530,7 @@ function LiveTimelinePage() {
             >
               {t("timeline.page.walkIn")}
             </Button>
+            <TimelineTonight />
             {walkInDisabled && (
               <Text
                 as="span"

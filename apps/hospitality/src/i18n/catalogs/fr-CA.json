@@ -2118,6 +2118,43 @@
       "selectMenu": "Sélectionner…",
       "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
       "usingSchedule": "Toutes les dates avec {{schedule}}"
+    },
+    "tonight": {
+      "title": "Ce soir",
+      "decisions": {
+        "title": "Réservations après la nouvelle fermeture"
+      },
+      "open": "Ce soir",
+      "chips": "Changements de ce soir",
+      "pause": "Suspendre les réservations en ligne",
+      "closeEarly": "Fermer plus tôt à",
+      "stopFrom": "Arrêter les réservations de",
+      "stopTo": "à",
+      "apply": "Appliquer",
+      "block": {
+        "label": "Bloquer des tables",
+        "all": "Toutes les tables",
+        "location": "Toutes les tables : {{location}}",
+        "button": "Bloquer"
+      },
+      "pacing": "Cadence de ce soir (couverts par plage)",
+      "ends": "Se termine {{time}} (fin du service de ce soir)",
+      "emergency": "Urgence : fermer ce soir…",
+      "whoCanClose": "Qui peut fermer en cas d'urgence?",
+      "hostGranted": "Les hôtes peuvent fermer tout l'établissement pour ce soir. Plus longtemps, il faut un gérant.",
+      "hostNotGranted": "Seuls les gérants peuvent fermer en cas d'urgence. Demandez à un gérant de l'autoriser pour les hôtes dans les paramètres.",
+      "error": "Impossible d'appliquer ce changement. Réessayez.",
+      "chip": {
+        "pause": "Réservations en ligne suspendues · reste de la soirée",
+        "closeEarly": "Fermeture hâtive · {{time}}",
+        "stopWindow": "Aucune réservation {{from}}–{{to}}",
+        "blocked_one": "{{count}} table bloquée · reste de la soirée",
+        "blocked_other": "{{count}} tables bloquées · reste de la soirée",
+        "blocked_many": "{{count}} tables bloquées · reste de la soirée",
+        "pacing_one": "Cadence de {{count}} couvert",
+        "pacing_other": "Cadence de {{count}} couverts",
+        "pacing_many": "Cadence de {{count}} couverts"
+      }
     }
   },
   "setup": {
