@@ -12,6 +12,11 @@ import { AvailabilityCalendar } from "../components/availability/AvailabilityCal
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
 import { AvailabilityDayDrawer } from "../components/availability/AvailabilityDayDrawer.js";
 import {
+  AvailabilityScheduleControls,
+  type AvailabilityTab,
+} from "../components/availability/AvailabilityScheduleControls.js";
+import { SchedulesTab } from "../components/availability/SchedulesTab.js";
+import {
   shiftAnchor,
   visibleDates,
   type CalendarView,
@@ -55,6 +60,7 @@ export function AvailabilityPage() {
   const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
   const [openDate, setOpenDate] = useState<string | null>(null);
   const [closing, setClosing] = useState<Closing | null>(null);
+  const [tab, setTab] = useState<AvailabilityTab>("calendar");
   const anchor = chosenAnchor ?? today;
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6). A move can carry the
   // Close dialog, which opens only once the guard lets the move through.
@@ -113,6 +119,35 @@ export function AvailabilityPage() {
     );
   }
 
+  const scheduleControls =
+    team?.viewerRole === "manager" && config.data ? (
+      <AvailabilityScheduleControls
+        venueId={selectedVenueId}
+        state={config.data}
+        today={today}
+        tab={tab}
+        // Leaving the calendar with an unsaved draft asks first; the tab changes on the next try.
+        onTabChange={(next) => (guard.dirty ? guard.request({ open: null }) : setTab(next))}
+        onStale={() => void config.refetch()}
+      />
+    ) : null;
+
+  if (tab === "schedules" && scheduleControls && config.data) {
+    return (
+      <Stack gap="md">
+        <PageHeader title={t("availability.title")} description={t("availability.description")} />
+        {scheduleControls}
+        <SchedulesTab
+          venueId={selectedVenueId}
+          state={config.data}
+          timezone={timeZone}
+          today={today}
+          onStale={() => void config.refetch()}
+        />
+      </Stack>
+    );
+  }
+
   const isManager = team?.viewerRole === "manager";
   const pause = config.data
     ? activeOnlinePause(config.data.config.dateRules, today, minutesOfDayIn(now, timeZone))
@@ -123,6 +158,7 @@ export function AvailabilityPage() {
   return (
     <Stack gap="md">
       <PageHeader title={t("availability.title")} description={t("availability.description")} />
+      {scheduleControls}
       <div className={styles.toolbar}>
         <Button variant="secondary" onClick={() => setChosenAnchor(shiftAnchor(view, anchor, -1))}>
           {t("availability.toolbar.previous")}
@@ -190,6 +226,7 @@ export function AvailabilityPage() {
                 today,
                 onDirtyChange: guard.setDirty,
                 onFinished: () => guard.release({ open: null }),
+                onStale: () => void config.refetch(),
                 onCloseDay: (date: string) =>
                   guard.request({ open: null, closing: { date, pause: false } }),
               }

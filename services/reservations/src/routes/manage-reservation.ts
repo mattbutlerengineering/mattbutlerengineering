@@ -1,7 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
 import { serializeManagedReservation } from "../services/serializers.js";
+import { loadVenueCancellation } from "../services/manage-rebook.js";
 import { manageTokenScoped } from "./manage-token-scope.js";
 import { reservationNotFoundProblem } from "./load-reservation-for-manage.js";
+import { generateManageToken } from "./public-reservations.js";
 
 export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
   const { venueService } = fastify.services;
@@ -19,10 +21,26 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
       async (_request, reply, { venueId, reservation }) => {
         const venue = await venueService.getById(venueId);
+        const loaded = await loadVenueCancellation(reservation, venueId);
+        // The new booking belongs to the same guest, so the same email signs its token.
+        const venueCancellation =
+          loaded?.rebooked && reservation.guestEmail
+            ? {
+                ...loaded,
+                rebooked: {
+                  startTime: loaded.rebooked.startTime,
+                  manageToken: generateManageToken(
+                    loaded.rebooked.reservationId,
+                    reservation.guestEmail
+                  ),
+                },
+              }
+            : loaded;
 
         return reply.status(200).send({
           data: {
             reservation: serializeManagedReservation(reservation),
+            venueCancellation,
             venue: venue
               ? {
                   id: venue.id,

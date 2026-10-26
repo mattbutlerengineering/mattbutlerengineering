@@ -102,7 +102,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Guest preview panel** — calls the preview endpoint with the debounced draft, showing added and removed marks, the summary line, the stranded list, and the slow-preview fallback. (tracker: #7516)
   - Accept: a component test covers updates on edit, keeping the last good result on 503, and a stranded list that spans the whole scope.
   - Blocked by: Preview endpoint, Drawer editing
-- [ ] **Schedules, Compare and copy** — the Schedules tab (new, duplicate, edit, delete-when-unused), Change regular week (F-UW, including overlap precedence), Compare services (F-X), copy a day (F4), and the discovery nudge. (tracker: #7517)
+- [x] **Schedules, Compare and copy** — the Schedules tab (new, duplicate, edit, delete-when-unused), Change regular week (F-UW, including overlap precedence), Compare services (F-X), copy a day (F4), and the discovery nudge. (tracker: #7517)
   - Accept: tests cover a dated schedule reverting after its end date, overlap choices setting precedence, and a Compare edit saving every schedule with one impact line.
   - Blocked by: Drawer editing
 - [ ] **Multi-select** — F-MS: drag, shift, cmd, weekday column, the Select… menu, touch long-press, and the selection bar opening the drawer with a fixed scope. (tracker: #7518)
@@ -135,7 +135,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Special dates tab** — F6 list and filters, the add special date sheet (several rows, one Step 2), reopen with tell-cancelled-guests, Sent/Rebooked/Unreachable counts, refund retry, the printable call list, and F-SER series edits. (tracker: #7527)
   - Accept: tests cover reopening a closure (slots return, the opt-in notice is sent), skipping one date of a repeating closure, and a call list with only unconfirmed guests.
   - Blocked by: Close dialog, Closure notices
-- [ ] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
+- [x] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
   - Accept: tests cover a successful rebook, a taken slot refreshing the list, and no offers showing only the picker link.
   - Blocked by: Rebook offers, manageUrl builder
 
