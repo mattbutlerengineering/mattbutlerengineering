@@ -465,6 +465,18 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       });
     }
     await withOwnerVenue(ctx.venueC.id, async () => {
+      // The availability fixtures write rows to venue C.
+      for (const table of [
+        "date_rule_tables",
+        "date_rules",
+        "availability_changes",
+        "schedule_assignments",
+        "schedule_services",
+        "schedules",
+        "venue_services",
+      ]) {
+        await seedClient.query(`DELETE FROM ${table} WHERE venue_id = $1`, [ctx.venueC.id]);
+      }
       await seedClient.query("DELETE FROM venues WHERE id = $1", [ctx.venueC.id]);
     });
 

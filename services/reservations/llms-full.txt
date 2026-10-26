@@ -7478,12 +7478,25 @@
         );
       });
     }
-    function sweepConfigChanges() {
+    async function sharedAvailabilityVenue(
+      ctx: SweepContext
+    ): Promise<{ base: string; version: number }> {
+      const base = `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueC.id}`;
+      const read = await asAdmin(ctx, { method: "GET", url: `${base}/availability/config` });
+      expectOk(read, "admin config read");
+      return { base, version: JSON.parse(read.body).data.version as number };
+    }
+    function sweepConfigChanges(options: { alternate?: boolean } = {}) {
+      const alternate = options.alternate === true;
       const id = (row: string) => `rls-sweep-${row}-${randomUUID()}`;
       const [schedule, service] = [id("sch"), id("vs")];
       return {
         upsert: {
-          schedules: [{ id: schedule, name: "Regular", kind: "regular", isRegular: true }],
+          schedules: [
+            alternate
+              ? { id: schedule, name: "Alternate", kind: "alternate", isRegular: false }
+              : { id: schedule, name: "Regular", kind: "regular", isRegular: true },
+          ],
           venueServices: [{ id: service, name: "Dinner", position: 0 }],
           scheduleServices: [
             {
@@ -7498,7 +7511,12 @@
             },
           ],
           assignments: [
-            { id: id("as"), scheduleId: schedule, weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+            {
+              id: id("as"),
+              scheduleId: schedule,
+              weekdays: [0, 1, 2, 3, 4, 5, 6],
+              precedence: alternate ? 1 : 0,
+            },
           ],
         },
         remove: {},

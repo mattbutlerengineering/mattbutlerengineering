@@ -9353,8 +9353,13 @@
     <item priority="medium">
       function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
     </item>
+    <item priority="low">
+      async function sharedAvailabilityVenue(
+        ctx: SweepContext
+      ): Promise<{ base: string; version: number }> { /* ... */ }
+    </item>
     <item priority="medium">
-      function sweepConfigChanges() { /* ... */ }
+      function sweepConfigChanges(options: { alternate?: boolean } = {}) { /* ... */ }
     </item>
     <item priority="high">
       interface SectionIds {
