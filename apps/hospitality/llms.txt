@@ -1754,6 +1754,25 @@
       export const useSaveAvailabilityConfig: unknown;
     </item>
   </file>
+  <file path="src/hooks/useAvailabilityPreview.ts">
+    <item priority="high">
+      export const AVAILABILITY_PREVIEW_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface AvailabilityPreviewState {
+        result: PreviewResult | null;
+        isFetching: boolean;
+        error: Error | null;
+        retry: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useAvailabilityPreview(
+        venueId: string,
+        body: PreviewAvailabilityBody | null
+      ): AvailabilityPreviewState { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useBriefing.ts">
     <item priority="high">
       export const BRIEFING_QUERY_KEY: unknown;

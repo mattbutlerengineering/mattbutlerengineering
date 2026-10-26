@@ -9,6 +9,11 @@ const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
 }));
+vi.mock("./AvailabilityGuestPreview.js", () => ({
+  AvailabilityGuestPreview: (props: { dates: string[]; focusDate: string }) => (
+    <div data-testid="guest-preview">{`${props.focusDate} x${props.dates.length}`}</div>
+  ),
+}));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -100,6 +105,24 @@ describe("AvailabilityDayEditor", () => {
     expect(screen.getByRole("button", { name: "Edit Lunch" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit Dinner" })).toBeInTheDocument();
     expect(screen.queryByText("You’re changing")).not.toBeInTheDocument();
+  });
+
+  it("previews the draft once it differs, across every date in the chosen scope", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    expect(screen.queryByTestId("guest-preview")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x1`);
+    chooseScope(/Every Friday/);
+    expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x53`);
+  });
+
+  it("holds the preview while a new service has no name (the server would refuse it)", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+    fireEvent.click(screen.getByRole("option", { name: "A new service…" }));
+    expect(screen.queryByTestId("guest-preview")).not.toBeInTheDocument();
   });
 
   it("shows the scope, defaulting to this date only, once an edit starts", () => {

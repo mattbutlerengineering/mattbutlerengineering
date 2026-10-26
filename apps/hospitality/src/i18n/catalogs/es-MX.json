@@ -1808,6 +1808,33 @@
         "yourService": "{{name}} {{from}} – {{to}}"
       }
     },
+    "preview": {
+      "title": "Vista previa del huésped",
+      "draft": "Borrador, sin guardar",
+      "summary": "{{added}} · {{removed}}",
+      "addedCount_one": "{{count}} horario agregado",
+      "addedCount_many": "{{count}} horarios agregados",
+      "addedCount_other": "{{count}} horarios agregados",
+      "removedCount_one": "{{count}} quitado",
+      "removedCount_many": "{{count}} quitados",
+      "removedCount_other": "{{count}} quitados",
+      "added": "{{time}} agregado",
+      "removed": "{{time}} quitado",
+      "slow": "La vista previa tarda más de lo normal",
+      "unavailable": "Vista previa no disponible",
+      "unavailableHelp": "Aún puedes guardar; la revisión de reservaciones se vuelve a hacer al guardar.",
+      "retry": "Reintentar",
+      "stranded_one": "{{count}} reservación quedaría fuera de este horario",
+      "stranded_many": "{{count}} reservaciones quedarían fuera de este horario",
+      "stranded_other": "{{count}} reservaciones quedarían fuera de este horario",
+      "strandedItem": "{{date}} · {{time}} · {{size}} personas · {{reason}}",
+      "strandedMore": "y {{count}} más en fechas posteriores del alcance",
+      "reason": {
+        "closed": "cerrado",
+        "outside_service": "fuera de servicio",
+        "table_blocked": "mesa bloqueada"
+      }
+    },
     "discard": {
       "title": "¿Descartar los cambios del {{date}}?",
       "description": "Se perderán tus cambios sin guardar en estos horarios.",
