@@ -100,11 +100,28 @@
         timeZone: string | undefined
       ): string | undefined { /* ... */ }
     </item>
+    <item priority="medium">
+      function nextDay(date: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reservationWindow(
+        date: string,
+        startTime: string,
+        endTime: string,
+        timeZone: string | undefined
+      ): { start: string; end: string } | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createFailureResult(err: unknown) { /* ... */ }
+    </item>
     <item priority="high">
       type BookingVerdict = Awaited<ReturnType<ApiClient["availability"]["checkBookin...;
     </item>
     <item priority="medium">
-      function bookingVerdictResult(verdict: BookingVerdict) { /* ... */ }
+      function bookingVerdictResult(
+        verdict: BookingVerdict,
+        judged: { readonly date: string; readonly startTime: string }
+      ) { /* ... */ }
     </item>
     <item priority="medium">
       function availabilityResult(
