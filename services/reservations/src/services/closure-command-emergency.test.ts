@@ -143,6 +143,67 @@ describe("isEmergencyTonightClose (#7687)", () => {
     });
   });
 
+  describe("a venue-targeted change is judged per service (#7687)", () => {
+    // Lunch 11:00-15:00 (last seating 14:00), dinner 17:00-22:00 (last seating 21:00), 15-min grid.
+    const svc = (id: string, opensAt: number, lastSeatingAt: number, closesAt: number) => ({
+      venueServiceId: id,
+      opensAt,
+      lastSeatingAt,
+      closesAt,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online"],
+    });
+    const twoServices = {
+      id: "sh2",
+      kind: "special_hours",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      payload: {
+        version: 1,
+        services: [svc("lunch", 660, 840, 900), svc("dinner", 1020, 1260, 1320)],
+      },
+    } as unknown as DateRule;
+    const checkTwo = (rule: DateRule, now: Date): boolean =>
+      isEmergencyTonightClose(
+        {
+          timezone: "UTC",
+          config: {
+            venueServices: [
+              { id: "lunch", name: "Lunch" },
+              { id: "dinner", name: "Dinner" },
+            ],
+            schedules: [],
+            scheduleServices: [],
+            assignments: [],
+            dateRules: [twoServices],
+          },
+        } as unknown as AvailabilitySnapshot,
+        rule,
+        now
+      );
+
+    it("refuses a venue close-early that wipes dinner while lunch keeps slots", () => {
+      expect(checkTwo(tonight("n", { closeAt: 735 }), at("10:00"))).toBe(true);
+    });
+
+    it("refuses a venue stop window that wipes dinner while lunch keeps slots", () => {
+      expect(checkTwo(tonight("n", { stop: { from: 1000, to: 1400 } }), at("10:00"))).toBe(true);
+    });
+
+    it("allows a venue close-early that leaves both services bookable", () => {
+      expect(checkTwo(tonight("n", { closeAt: 1260 }), at("10:00"))).toBe(false);
+    });
+  });
+
+  it("follows a service that runs past midnight after midnight too", () => {
+    const hours = { opensAt: 1320, lastSeatingAt: 1500, closesAt: 1560 };
+    const after = new Date("2026-12-25T00:30:00.000Z");
+    // 00:30 is minute 1470; the remaining seatings are 1470, 1485, 1500.
+    expect(check(tonight("n", { closeAt: 1470 }), after, { hours })).toBe(true);
+    expect(check(tonight("n", { closeAt: 1500 }), after, { hours })).toBe(false);
+  });
+
   it("follows a service that runs past midnight", () => {
     const hours = { opensAt: 1320, lastSeatingAt: 1500, closesAt: 1560 };
     expect(check(tonight("n", { closeAt: 1340 }), at("22:30"), { hours })).toBe(true);

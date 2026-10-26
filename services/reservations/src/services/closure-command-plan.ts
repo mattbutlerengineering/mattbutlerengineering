@@ -196,8 +196,10 @@ const spanOf = (starts: readonly number[]): number =>
   starts.length === 0 ? 0 : starts[starts.length - 1]! - starts[0]!;
 
 /**
- * Whether a Tonight change is the emergency close in effect (#7687): on a
- * targeted service that is still bookable from `now` before the change, the
+ * Whether a Tonight change is the emergency close in effect (#7687): on ANY
+ * targeted service that is still bookable from `now` before the change (a venue
+ * target is judged service by service, so wiping dinner is a close even while
+ * lunch keeps slots), the
  * change leaves nothing bookable from `now`, or leaves less than
  * MIN_SERVICE_MINUTES between its first and last seating, counted from the planned open.
  * "Before" keeps the other active Tonight rules, so closing the night in steps
@@ -225,7 +227,7 @@ export function isEmergencyTonightClose(
     .filter((s) => seatingStarts(before, s.venueServiceId, nowMin).length > 0);
   return (
     live.length > 0 &&
-    live.every((s) => {
+    live.some((s) => {
       const remaining = seatingStarts(after, s.venueServiceId, nowMin);
       if (remaining.length === 0) return true;
       // A change that takes no seating away closes nothing, however short the service already is.

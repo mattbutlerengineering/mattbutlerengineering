@@ -47648,7 +47648,7 @@
         .filter((s) => seatingStarts(before, s.venueServiceId, nowMin).length > 0);
       return (
         live.length > 0 &&
-        live.every((s) => {
+        live.some((s) => {
           const remaining = seatingStarts(after, s.venueServiceId, nowMin);
           if (remaining.length === 0) return true;
           // A change that takes no seating away closes nothing, however short the service already is.
