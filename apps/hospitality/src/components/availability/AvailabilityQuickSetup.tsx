@@ -41,8 +41,10 @@ export function AvailabilityQuickSetup({ venueId, state, onStale }: Availability
     try {
       const saved = await save.mutateAsync({
         venueId,
-        expectedVersion: state.version,
-        changes: draftToChanges(draft, state.config, () => crypto.randomUUID()),
+        body: {
+          expectedVersion: state.version,
+          changes: draftToChanges(draft, state.config, () => crypto.randomUUID()),
+        },
       });
       setErrorMessage(null);
       offerUndo({

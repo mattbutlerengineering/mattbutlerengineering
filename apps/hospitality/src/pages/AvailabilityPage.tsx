@@ -18,14 +18,17 @@ import {
   visibleDates,
   type CalendarView,
 } from "../components/availability/calendar-dates.js";
+import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
+import { LeaveGuard } from "../components/availability/LeaveGuard.js";
+import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import styles from "./AvailabilityPage.module.css";
 
 /**
  * Availability → Calendar (read-only, #7514): the venue's month or week with what governs each
- * day, and a drawer that explains a day. Managers and Hosts see the same thing here; editing
- * arrives with the drawer-editing slice and will be Manager-only (F-HOST).
+ * day, and a drawer that explains a day. Managers and Hosts see the same thing here; only a
+ * Manager gets the drawer's editor (F-HOST).
  */
 export function AvailabilityPage() {
   const { t } = useTranslation();
@@ -39,6 +42,8 @@ export function AvailabilityPage() {
   const [openDate, setOpenDate] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const anchor = chosenAnchor ?? today;
+  // Moving off a day with an unsaved draft asks first (ux.md F2 step 6).
+  const guard = useDiscardGuard<string | null>(setOpenDate);
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
   const days = useAvailabilityDays({
@@ -137,7 +142,8 @@ export function AvailabilityPage() {
         days={days.data ?? undefined}
         isLoading={days.isLoading}
         selectedDate={openDate}
-        onOpenDay={setOpenDate}
+        draftDate={guard.dirty ? openDate : null}
+        onOpenDay={(date) => (date === openDate ? undefined : guard.request(date))}
         onAnchorChange={setChosenAnchor}
       />
       <AvailabilityDayDrawer
@@ -146,7 +152,19 @@ export function AvailabilityPage() {
         isLoading={config.isLoading}
         error={drawerFailure}
         viewerRole={team?.viewerRole}
-        onClose={() => setOpenDate(null)}
+        editing={
+          config.data
+            ? {
+                venueId: selectedVenueId,
+                state: config.data,
+                timezone: timeZone,
+                today,
+                onDirtyChange: guard.setDirty,
+                onFinished: () => guard.release(null),
+              }
+            : undefined
+        }
+        onClose={() => guard.request(null)}
       />
       <AvailabilityHistoryDrawer
         open={historyOpen}
@@ -159,6 +177,13 @@ export function AvailabilityPage() {
           setChosenAnchor(date);
         }}
       />
+      <DiscardChangesDialog
+        open={guard.pending !== null}
+        date={openDate}
+        onDiscard={guard.confirmDiscard}
+        onKeepEditing={guard.keepEditing}
+      />
+      <LeaveGuard active={guard.dirty} date={openDate} />
     </Stack>
   );
 }

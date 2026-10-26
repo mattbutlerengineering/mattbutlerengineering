@@ -2,10 +2,23 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Alert, Drawer, Heading, Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
-import type { TeamRole } from "@mbe/types";
+import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
 import styles from "./AvailabilityDayDrawer.module.css";
+
+/** What a Manager needs to change the day; without it the drawer is read-only. */
+export interface DayEditing {
+  readonly venueId: string;
+  readonly state: AvailabilityConfigState;
+  readonly timezone: string;
+  /** Today on the venue clock. */
+  readonly today: string;
+  readonly onDirtyChange: (dirty: boolean) => void;
+  /** The draft was saved or discarded; close without asking. */
+  readonly onFinished: () => void;
+}
 
 export interface AvailabilityDayDrawerProps {
   /** The service date whose drawer is open; `null` closes it. */
@@ -14,8 +27,9 @@ export interface AvailabilityDayDrawerProps {
   readonly day: ResolvedDay | undefined;
   readonly isLoading: boolean;
   readonly error: string | null;
-  /** `undefined` while the Team read is in flight. Read-only for everyone in this slice. */
+  /** `undefined` while the Team read is in flight. Only a Manager edits; a Host never sees a control. */
   readonly viewerRole: TeamRole | undefined;
+  readonly editing?: DayEditing;
   readonly onClose: () => void;
 }
 
@@ -93,12 +107,13 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
 }
 
 /**
- * Day drawer, read-only (S3, F-HOST): the plain summary and "Why this day", rendered from
- * the engine's `explanation`. No scope select, editors or Remove exist yet, and a Host is
- * pointed at the Tonight panel instead of being shown disabled controls.
+ * Day drawer (S3, F-HOST): the plain summary and "Why this day", rendered from the engine's
+ * `explanation`. A Manager also gets the editor (`editing`); a Host gets neither a scope
+ * select nor an editor, and is pointed at the Tonight panel instead of being shown disabled
+ * controls.
  */
 export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
-  const { date, day, isLoading, error, viewerRole, onClose } = props;
+  const { date, day, isLoading, error, viewerRole, editing, onClose } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
 
@@ -114,7 +129,21 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   } else if (isLoading || !day) {
     body = <Skeleton variant="text" width="100%" height={96} />;
   } else {
-    body = <DayBody day={day} date={date} />;
+    body = (
+      <>
+        <DayBody day={day} date={date} />
+        {viewerRole === "manager" && editing && (
+          <AvailabilityDayEditor
+            // A new date is a new draft.
+            key={date}
+            {...editing}
+            date={date}
+            day={day}
+            onCancel={onClose}
+          />
+        )}
+      </>
+    );
   }
 
   return (

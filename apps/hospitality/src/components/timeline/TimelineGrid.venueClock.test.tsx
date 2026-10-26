@@ -53,6 +53,7 @@ describe("computeReservationLayout on the venue clock", () => {
       startHour: START_HOUR,
       hourWidth: HOUR_WIDTH,
       isMobile: false,
+      serviceDate: "2026-05-14",
       timeZone: "America/Los_Angeles",
     });
     expect(left).toBe((19 - START_HOUR) * HOUR_WIDTH);

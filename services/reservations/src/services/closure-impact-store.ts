@@ -3,7 +3,7 @@ import type { AvailabilityConfig, ClosureImpact, DateRule } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
-import { loadConfigState } from "./availability-config.js";
+import { loadConfigState, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
 import { computeClosureImpact, type ImpactBooking } from "./closure-impact.js";
 import { prisma } from "./database.js";
@@ -16,12 +16,16 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  */
 
 type StoreClient = Pick<PrismaClient, "$transaction">;
+type ImpactDb = Pick<PrismaClient, "table" | "reservation">;
 
 export type ClosureImpactOutcome =
   | { kind: "ok"; impact: ClosureImpact }
   | { kind: "not_found" }
   | { kind: "too_long" }
   | { kind: "invalid"; issues: { path: string; code: string; message: string }[] };
+
+/** Deposits that still hold or await the guest's money: a cancel owes them a refund or void. */
+const LIVE_DEPOSIT_STATUSES: ReadonlySet<string> = new Set(["pending", "held"]);
 
 const toDbDate = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
 
@@ -44,6 +48,63 @@ function scanRange(rule: DateRule, today: string): { from: string; to: string } 
   return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
 }
 
+/**
+ * The impact of a draft rule against an already-loaded config state, inside
+ * the caller's transaction. The closure command runs this same query before
+ * it writes.
+ */
+export async function impactInTransaction(
+  tx: ImpactDb,
+  venueId: string,
+  state: ConfigState,
+  rule: DateRule,
+  now: Date
+): Promise<ClosureImpactOutcome> {
+  const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+  const next = withDraft(state.effective, rule);
+  const issues = [
+    ...validateConfig(next),
+    ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+  ];
+  if (issues.length > 0) return { kind: "invalid", issues };
+
+  const range = scanRange(rule, civilDateIn(now, state.timezone));
+  if (!range) return { kind: "too_long" };
+
+  const rows = await tx.reservation.findMany({
+    where: {
+      venueId,
+      date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
+      startTime: { gte: now },
+      status: { notIn: [...NOT_BOOKED_STATUSES] },
+    },
+    select: {
+      id: true,
+      tableId: true,
+      date: true,
+      startTime: true,
+      endTime: true,
+      partySize: true,
+      guestName: true,
+      deposit: { select: { amountCents: true, currency: true, status: true } },
+    },
+  });
+  const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
+    ...row,
+    heldDeposit:
+      deposit && LIVE_DEPOSIT_STATUSES.has(deposit.status)
+        ? { amountCents: deposit.amountCents, currency: deposit.currency }
+        : null,
+  }));
+  const impact = computeClosureImpact({
+    timezone: state.timezone,
+    config: state.effective,
+    rule,
+    bookings,
+  });
+  return { kind: "ok", impact };
+}
+
 export async function getClosureImpact(
   venueId: string,
   rule: DateRule,
@@ -54,50 +115,7 @@ export async function getClosureImpact(
     await setVenueContext(tx, venueId);
     const state = await loadConfigState(tx, venueId, now);
     if (!state) return { kind: "not_found" as const };
-
-    const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
-    const next = withDraft(state.effective, rule);
-    const issues = [
-      ...validateConfig(next),
-      ...referenceIssues(next, new Set(tables.map((t) => t.id))),
-    ];
-    if (issues.length > 0) return { kind: "invalid" as const, issues };
-
-    const range = scanRange(rule, civilDateIn(now, state.timezone));
-    if (!range) return { kind: "too_long" as const };
-
-    const rows = await tx.reservation.findMany({
-      where: {
-        venueId,
-        date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
-        startTime: { gte: now },
-        status: { notIn: [...NOT_BOOKED_STATUSES] },
-      },
-      select: {
-        id: true,
-        tableId: true,
-        date: true,
-        startTime: true,
-        endTime: true,
-        partySize: true,
-        guestName: true,
-        deposit: { select: { amountCents: true, currency: true, status: true } },
-      },
-    });
-    const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
-      ...row,
-      heldDeposit:
-        deposit?.status === "held"
-          ? { amountCents: deposit.amountCents, currency: deposit.currency }
-          : null,
-    }));
-    const impact = computeClosureImpact({
-      timezone: state.timezone,
-      config: state.effective,
-      rule,
-      bookings,
-    });
-    return { kind: "ok" as const, impact };
+    return impactInTransaction(tx, venueId, state, rule, now);
   });
 }
 

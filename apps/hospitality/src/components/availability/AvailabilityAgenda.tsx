@@ -11,6 +11,8 @@ export interface AvailabilityAgendaProps {
   readonly byDate: ReadonlyMap<string, AvailabilityDaySummary>;
   readonly today: string;
   readonly selectedDate?: string | null;
+  /** The day whose drawer holds an unsaved draft; its row shows a dot. */
+  readonly draftDate?: string | null;
   readonly isLoading: boolean;
   readonly onOpenDay: (date: string) => void;
 }
@@ -21,7 +23,7 @@ export interface AvailabilityAgendaProps {
  * Tab walks the days in order and no grid roles are promised on a stacked layout.
  */
 export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
-  const { dates, byDate, today, selectedDate, isLoading, onOpenDay } = props;
+  const { dates, byDate, today, selectedDate, draftDate, isLoading, onOpenDay } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
 
@@ -39,9 +41,16 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
                 .join(" ")}
               data-date={date}
               aria-current={date === today ? "date" : undefined}
-              aria-label={view.accessibleName}
+              aria-label={
+                date === draftDate
+                  ? `${view.accessibleName}, ${t("availability.calendar.draftName")}`
+                  : view.accessibleName
+              }
               onClick={() => onOpenDay(date)}
             >
+              {date === draftDate && (
+                <span className={styles.draftDot} data-draft-dot aria-hidden="true" />
+              )}
               <span className={styles.date} aria-hidden="true">
                 {format.formatCalendarDate(date, {
                   weekday: "short",

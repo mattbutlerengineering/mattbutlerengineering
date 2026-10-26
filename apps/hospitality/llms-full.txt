@@ -37,6 +37,26 @@
       return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   </file>
+  <file path="src/components/availability/clock-minutes.ts">
+    export function toClock(minute: number): string {
+      const wrapped = minute % MINUTES_PER_DAY;
+      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+      const mm = String(wrapped % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+    export function openFromClock(clock: string): number {
+      const [hh = "0", mm = "0"] = clock.split(":");
+      return Number(hh) * 60 + Number(mm);
+    }
+    export function closeFromClock(clock: string, opensAt: number): number {
+      const minute = openFromClock(clock);
+      return minute <= opensAt ? minute + MINUTES_PER_DAY : minute;
+    }
+    export function lastSeatingFromClock(clock: string, opensAt: number): number {
+      const minute = openFromClock(clock);
+      return minute < opensAt ? minute + MINUTES_PER_DAY : minute;
+    }
+  </file>
   <file path="src/components/availability/closure-band.ts">
     type Closure = AvailabilityDaySummary["closures"][number];
     export interface ClosureBandText {
@@ -128,6 +148,158 @@
           details: accessibleDetails,
         }),
       };
+    }
+  </file>
+  <file path="src/components/availability/draft-changes.ts">
+    export type EditScope =
+      | { readonly kind: "date"; readonly date: string }
+      /** Every weekday of `from`, from `from` until `until` (`null`: until changed again). */
+      | { readonly kind: "weekday"; readonly from: string; readonly until: string | null }
+      | { readonly kind: "schedule"; readonly scheduleId: string };
+    export interface DraftService {
+      /** React key; stable across edits. */
+      readonly key: string;
+      /** `null` for a service the venue has not had before; `name` then names it. */
+      readonly venueServiceId: string | null;
+      /** The stored schedule-service row this edits, in a schedule scope. */
+      readonly scheduleServiceId: string | null;
+      readonly name: string;
+      readonly opensAt: number;
+      readonly lastSeatingAt: number;
+      readonly closesAt: number;
+      readonly seating: Seating;
+      readonly bookingTypes: readonly ("online" | "phone")[];
+    }
+    type SeedService = Pick<
+      DraftService,
+      "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
+    >;
+    export function seedServices(
+      config: AvailabilityConfig,
+      day: Pick<ResolvedDaySummary, "services">,
+      scope: EditScope
+    ): DraftService[] {
+      if (scope.kind !== "schedule") {
+        return day.services.map((s) => ({
+          ...hoursOf(s),
+          key: s.venueServiceId,
+          venueServiceId: s.venueServiceId,
+          scheduleServiceId: null,
+          name: s.name,
+        }));
+      }
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      return config.scheduleServices
+        .filter((s) => s.scheduleId === scope.scheduleId)
+        .sort((a, b) => a.opensAt - b.opensAt)
+        .map((s) => ({
+          ...hoursOf(s),
+          key: s.venueServiceId,
+          venueServiceId: s.venueServiceId,
+          scheduleServiceId: s.id,
+          name: names.get(s.venueServiceId) ?? s.venueServiceId,
+        }));
+    }
+    export function servicesEqual(a: readonly DraftService[], b: readonly DraftService[]): boolean {
+      return comparable(a) === comparable(b);
+    }
+    interface BuildInput {
+      readonly config: AvailabilityConfig;
+      readonly scope: EditScope;
+      readonly services: readonly DraftService[];
+      /** Ids for rows this draft creates. */
+      readonly makeId: () => string;
+    }
+    function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined {
+      return config.dateRules.find(
+        (r) =>
+          r.kind === "special_hours" &&
+          r.targetKind === "venue" &&
+          r.startsOn === date &&
+          r.endsOn === date &&
+          r.repeat == null &&
+          r.window == null &&
+          r.seriesId == null &&
+          r.bookingTypes == null &&
+          r.venueServiceId == null
+      );
+    }
+    function specialHoursRule(base: Partial<DateRule>, id: string, services: SpecialHoursService[]) {
+      return {
+        ...base,
+        id,
+        kind: "special_hours",
+        targetKind: "venue",
+        startsOn: base.startsOn ?? "",
+        payload: { version: 1, services },
+      } as DateRule;
+    }
+    function scheduleServiceRows(
+      config: AvailabilityConfig,
+      scheduleId: string,
+      services: readonly (DraftService & { venueServiceId: string })[],
+      makeId: () => string
+    ): { upsert: ScheduleService[]; removed: string[] } {
+      const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
+      const kept = new Set(services.map((s) => s.venueServiceId));
+      return {
+        upsert: services.map((s) => ({
+          ...hoursOf(s),
+          bookingTypes: [...s.bookingTypes],
+          id:
+            s.scheduleServiceId ??
+            stored.find((row) => row.venueServiceId === s.venueServiceId)?.id ??
+            makeId(),
+          scheduleId,
+          venueServiceId: s.venueServiceId,
+        })),
+        removed: stored.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id),
+      };
+    }
+    export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges {
+      const { config, scope, makeId } = input;
+      const nextPosition = Math.max(-1, ...config.venueServices.map((v) => v.position)) + 1;
+      const created = input.services
+        .filter((s) => s.venueServiceId === null)
+        .map((s, i) => ({ id: makeId(), name: s.name, position: nextPosition + i }));
+      let createdAt = 0;
+      const services = input.services.map((s) => ({
+        ...s,
+        venueServiceId: s.venueServiceId ?? created[createdAt++]!.id,
+      }));
+      const venueServices = created.length > 0 ? { venueServices: created } : {};
+    
+      if (scope.kind === "schedule") {
+        const { upsert, removed } = scheduleServiceRows(config, scope.scheduleId, services, makeId);
+        return {
+          upsert: { ...venueServices, scheduleServices: upsert },
+          remove: removed.length > 0 ? { scheduleServices: removed } : {},
+        };
+      }
+    
+      const payload: SpecialHoursService[] = services.map((s) => ({
+        ...hoursOf(s),
+        bookingTypes: [...s.bookingTypes],
+        venueServiceId: s.venueServiceId,
+      }));
+      const own = scope.kind === "date" ? ownDateRule(config, scope.date) : undefined;
+      const rule =
+        scope.kind === "date"
+          ? specialHoursRule(
+              own ?? { startsOn: scope.date, endsOn: scope.date },
+              own?.id ?? makeId(),
+              payload
+            )
+          : specialHoursRule(
+              {
+                startsOn: scope.from,
+                endsOn: scope.until,
+                repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
+              },
+              makeId(),
+              payload
+            );
+      return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
     }
   </file>
   <file path="src/components/availability/quick-setup-draft.ts">
@@ -413,7 +585,7 @@
       | { kind: "opensAtChanges"; name: string; minute: number }
       | { kind: "closesAtChanges"; name: string; minute: number; later: boolean }
       | { kind: "lastSeatingChanges"; name: string; minute: number }
-      | { kind: "closureLifted"; closure: ResolvedClosure }
+      | { kind: "closureLifted"; closure: ResolvedClosure; serviceName?: string }
       | { kind: "closureApplies"; closure: ResolvedClosure }
       | { kind: "bookingOn"; channel: Channel }
       | { kind: "bookingOff"; channel: Channel }
@@ -468,14 +640,23 @@
     }
     function closureChanges(
       current: readonly ResolvedClosure[],
-      removed: readonly ResolvedClosure[]
+      removed: readonly ResolvedClosure[],
+      services: readonly ResolvedService[]
     ): RemovalChange[] {
+      const nameOf = (c: ResolvedClosure) =>
+        c.targetKind === "service"
+          ? services.find((s) => s.venueServiceId === c.venueServiceId)?.name
+          : undefined;
       // A whole-day closure of services or booking channels already shows up as those changes.
       const worthSaying = (c: ResolvedClosure) => !isWholeDay(c) || c.targetKind === "tables";
       return [
         ...current
           .filter((c) => !removed.some((r) => sameClosure(r, c)) && worthSaying(c))
-          .map((closure): RemovalChange => ({ kind: "closureLifted", closure })),
+          .map((closure): RemovalChange => ({
+            kind: "closureLifted",
+            closure,
+            serviceName: nameOf(closure),
+          })),
         ...removed
           .filter((c) => !current.some((r) => sameClosure(r, c)) && worthSaying(c))
           .map((closure): RemovalChange => ({ kind: "closureApplies", closure })),
@@ -499,10 +680,35 @@
     ): RemovalChange[] {
       return [
         ...serviceChanges(current.services, removed.services),
-        ...closureChanges(current.closures, removed.closures),
+        ...closureChanges(current.closures, removed.closures, current.services),
         ...bookingChanges(current.bookingOpen, removed.bookingOpen),
         ...pacingChanges(current, removed),
       ];
+    }
+    function liftedText(
+      change: Extract<RemovalChange, { kind: "closureLifted" }>,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      const { closure } = change;
+      if (isWholeDay(closure)) return t("availability.drawer.removal.reopensAllDay");
+      const range = {
+        from: minuteText(closure.from, t, format),
+        to: minuteText(closure.to, t, format),
+      };
+      if (closure.targetKind === "booking") {
+        const channels = (closure.bookingTypes ?? []).map((c) =>
+          t(`availability.drawer.removal.channel.${c}`)
+        );
+        return t("availability.drawer.removal.channelBackOn", {
+          ...range,
+          channels: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(channels),
+        });
+      }
+      if (closure.targetKind === "service" && change.serviceName) {
+        return t("availability.drawer.removal.serviceReopens", { ...range, name: change.serviceName });
+      }
+      return t("availability.drawer.removal.reopens", range);
     }
     export function removalChangeText(
       change: RemovalChange,
@@ -537,14 +743,14 @@
             time: at(change.minute),
           });
         case "closureLifted":
+          return liftedText(change, t, format);
+        case "closureApplies":
           return isWholeDay(change.closure)
-            ? t("availability.drawer.removal.reopensAllDay")
-            : t("availability.drawer.removal.reopens", {
+            ? t("availability.calendar.closedAllDayName")
+            : t("availability.drawer.removal.closes", {
                 from: at(change.closure.from),
                 to: at(change.closure.to),
               });
-        case "closureApplies":
-          return closureBandText(change.closure, t, format).text;
         case "bookingOn":
           return t(`availability.drawer.removal.bookingOn.${change.channel}`);
         case "bookingOff":
@@ -620,18 +826,131 @@
       targetKind: "venue",
       payload: { version: 1, pacing: { covers: 6 } },
     };
-    export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay {
-      return resolveDay(
-        { timezone: FIXTURE_TIMEZONE, config: { ...BASE_CONFIG, dateRules: rules } },
-        FIXTURE_DATE
-      );
+    export function fixtureConfig(...rules: DateRule[]): AvailabilityConfig {
+      return { ...BASE_CONFIG, dateRules: rules };
     }
+    export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay {
+      return resolveDay({ timezone: FIXTURE_TIMEZONE, config: fixtureConfig(...rules) }, FIXTURE_DATE);
+    }
+    export const ONLINE_WINDOW: DateRule = {
+      ...ON_DAY,
+      id: "r-online-window",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      window: { version: 1, from: 1080, to: 1140 },
+    };
+    export const LUNCH_WINDOW: DateRule = {
+      ...ON_DAY,
+      id: "r-lunch-window",
+      kind: "closure",
+      targetKind: "service",
+      venueServiceId: "vs-lunch",
+      window: { version: 1, from: 720, to: 780 },
+    };
+    export const LATE_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-late",
+      kind: "closure",
+      targetKind: "venue",
+      window: { version: 1, from: 1380, to: 1500 },
+    };
+    export const WEEKLY_CLOSURE: DateRule = {
+      id: "r-series",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-10-01",
+      endsOn: "2026-12-31",
+      repeat: { version: 1, weekdays: [5] },
+      window: { version: 1, from: 1320, to: 1380 },
+    };
+    export const SKIP_WEEKLY: DateRule = {
+      ...ON_DAY,
+      id: "r-skip",
+      kind: "skip",
+      targetKind: "venue",
+      seriesId: "r-series",
+    };
   </file>
   <file path="src/components/availability/revert-error.ts">
     export function revertErrorText(error: unknown, t: TFunction): string {
       const code = error instanceof ApiClientError ? error.problemDetails.code : undefined;
       const known = REVERT_CODES.find((c) => c === code);
       return known ? t(`availability.undo.errors.${known}`) : describeApiError(error).detail;
+    }
+  </file>
+  <file path="src/components/availability/scope-dates.ts">
+    export const SCOPE_HORIZON_DAYS = 366;
+    interface ScopeContext {
+      readonly config: AvailabilityConfig;
+      readonly timezone: string;
+      /** Today on the venue clock. */
+      readonly today: string;
+    }
+    function eachDate(from: string, to: string, step: number): string[] {
+      const dates: string[] = [];
+      for (let d = from; d <= to; d = addDays(d, step)) dates.push(d);
+      return dates;
+    }
+    export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
+      if (scope.kind === "date") return [scope.date];
+      if (scope.kind === "weekday") {
+        const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
+        const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
+        return eachDate(scope.from, last, 7);
+      }
+      const week = {
+        timezone: context.timezone,
+        config: { ...context.config, dateRules: [] },
+      };
+      return eachDate(context.today, addDays(context.today, SCOPE_HORIZON_DAYS - 1), 1).filter(
+        (d) => resolveDay(week, d).scheduleId === scope.scheduleId
+      );
+    }
+    function coversDate(rule: DateRule, date: string): boolean {
+      return (
+        rule.startsOn <= date &&
+        (rule.endsOn == null || date <= rule.endsOn) &&
+        (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date)))
+      );
+    }
+    export function ownChangeDates(
+      config: AvailabilityConfig,
+      dates: readonly string[],
+      ignoreRuleId: string | null
+    ): string[] {
+      const skipped = new Set(
+        config.dateRules.filter((r) => r.kind === "skip").map((r) => `${r.seriesId}@${r.startsOn}`)
+      );
+      const rules = config.dateRules.filter((r) => isHoursRule(r) && r.id !== ignoreRuleId);
+      return dates.filter((date) =>
+        rules.some((rule) => coversDate(rule, date) && !skipped.has(`${rule.id}@${date}`))
+      );
+    }
+  </file>
+  <file path="src/components/availability/use-discard-guard.ts">
+    export function useDiscardGuard<T>(apply: (next: T) => void) {
+      const [dirty, setDirty] = useState(false);
+      const [pending, setPending] = useState<{ readonly next: T } | null>(null);
+    
+      /** Moves on now, with the draft gone: after a save, or once it has been thrown away. */
+      const release = (next: T) => {
+        setDirty(false);
+        setPending(null);
+        apply(next);
+      };
+    
+      return {
+        dirty,
+        setDirty,
+        pending,
+        request: (next: T) => (dirty ? setPending({ next }) : apply(next)),
+        release,
+        keepEditing: () => setPending(null),
+        confirmDiscard: () => {
+          if (pending) release(pending.next);
+        },
+      };
     }
   </file>
   </section>
@@ -2239,6 +2558,15 @@
           memberSub ? { userSub: decodeURIComponent(memberSub), role: body.role } : body
         );
       });
+    
+      // Availability drawer editing (#7515): a save that always lands (PUT answers the next version).
+      // GETs fall back so the shared days/config mocks (#7616) answer them, whatever the
+      // registration order.
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (route) =>
+        route.request().method() === "PUT"
+          ? jsonOk(route, { version: 1, changeId: "chg_e2e_001" })
+          : route.fallback()
+      );
     
       // Venue Groups
       await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
@@ -4480,12 +4808,16 @@
         params?.venueId ? api.availability.getConfig(params.venueId) : null,
       getEnabled: (params) => !!params?.venueId && params.enabled !== false,
     });
+    export type SaveAvailabilityConfigVariables = {
+      venueId: string;
+      body: Omit<PutAvailabilityConfigBody, "scopeConflicts"> & {
+        scopeConflicts?: ScopeConflictMode;
+      };
+      /** Save against the version the server holds now, not the one the draft was made on. */
+      overwrite?: boolean;
+    };
     export const useSaveAvailabilityConfig = createMutationHook<
-      {
-        venueId: string;
-        expectedVersion: number;
-        changes: AvailabilityConfigChanges;
-      },
+      SaveAvailabilityConfigVariables,
       AvailabilityConfigSaveResult
     >({
       invalidateKeys: [
@@ -4494,8 +4826,12 @@
         AVAILABILITY_CHANGES_QUERY_KEY,
         VENUES_QUERY_KEY,
       ],
-      mutationFn: (api, { venueId, expectedVersion, changes }) =>
-        api.availability.saveConfig(venueId, { expectedVersion, changes }),
+      mutationFn: async (api, { venueId, body, overwrite }) => {
+        const expectedVersion = overwrite
+          ? (await api.availability.getConfig(venueId)).version
+          : body.expectedVersion;
+        return api.availability.saveConfig(venueId, { ...body, expectedVersion });
+      },
     });
     export const useAvailabilityChanges = createQueryHook<
       AvailabilityChangesPage | null,
@@ -8423,6 +8759,8 @@
       startHour: number;
       hourWidth: number;
       isMobile: boolean;
+      /** The service day the grid shows (ADR-029: a reservation's `date`). */
+      serviceDate: string;
       /** The venue's IANA zone; positions are venue wall-clock. Omitted: the device clock. */
       timeZone?: string;
     }
@@ -8430,16 +8768,20 @@
       left: number;
       width: number;
     }
+    export function serviceDayMinute(instant: Date, serviceDate: string, timeZone?: string): number {
+      const minute = minutesOfDayIn(instant, timeZone);
+      const day = venueDate(instant, timeZone);
+      if (day === addDays(serviceDate, 1)) return MINUTES_PER_DAY + minute;
+      if (day === addDays(serviceDate, -1)) return minute - MINUTES_PER_DAY;
+      return minute;
+    }
     export function computeReservationLayout(
       startTime: string,
       endTime: string,
-      { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
+      { startHour, hourWidth, isMobile, serviceDate, timeZone }: ReservationLayoutParams
     ): ReservationLayoutResult {
-      const start = new Date(startTime);
-      const end = new Date(endTime);
-    
-      const startMinutes = minutesOfDayIn(start, timeZone);
-      const endMinutes = minutesOfDayIn(end, timeZone);
+      const startMinutes = serviceDayMinute(new Date(startTime), serviceDate, timeZone);
+      const endMinutes = serviceDayMinute(new Date(endTime), serviceDate, timeZone);
       const startOffset = startMinutes - startHour * 60;
       const duration = endMinutes - startMinutes;
     

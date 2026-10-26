@@ -465,8 +465,9 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       });
     }
     await withOwnerVenue(ctx.venueC.id, async () => {
-      // The availability fixtures write rows to venue C.
+      // The availability and closure fixtures write rows to venue C.
       for (const table of [
+        "closure_outcomes",
         "date_rule_tables",
         "date_rules",
         "availability_changes",

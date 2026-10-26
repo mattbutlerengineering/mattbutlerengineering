@@ -61,7 +61,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Staff override and check endpoint** — `override: {reason}` on staff create and update, persisted to `Reservation.overrideReason` and `overrideLimits`. Adds `POST …/availability/check`, the api-client method and a contract-test entry. (tracker: #7505)
   - Accept: a soft limit with no reason or a blank reason returns 422; with a reason it books, and the reason is stored and logged as a ReservationEvent. Inside a closure it is always 422, even with a reason. This covers SC Staff override, server half.
   - Blocked by: Booking gate
-- [ ] **Service-day conflicts and timeline** — conflict and pacing queries read service days D−1 through D+1. Ports the prior art's after-midnight timeline layout (`reservationLayout.ts`, V5). (tracker: #7506)
+- [x] **Service-day conflicts and timeline** — conflict and pacing queries read service days D−1 through D+1. Ports the prior art's after-midnight timeline layout (`reservationLayout.ts`, V5). (tracker: #7506)
   - Accept: tests show a 00:30 seating from Friday's late service conflicts correctly with Saturday's early seating, and renders on Friday's timeline.
   - Blocked by: Booking gate
 - [x] **Agent tools via availability endpoint** — `services/agent/src/routes/gen-agent-tools.ts` stops reading `operatingHours` and calls the public availability endpoint. A timeout or 5xx reports "couldn't check". (tracker: #7507)
@@ -96,7 +96,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **AvailabilityCalendar and day drawer (read)** — an app-local month and week grid with per-day labels and closure bands, and a drawer showing the plain summary plus "Why this day" from `explanation`. Hosts get a view-only drawer (F-HOST). (tracker: #7514)
   - Accept: component tests render the layer stack and removal results, and the Host view shows no edit controls. The `e2e-selector-drift-reviewer` passes any E2E spec.
   - Blocked by: Config API
-- [ ] **Drawer editing** — a scope select chosen before editing, the services editor, keep or replace for dates that already have their own changes, a save naming the result, a concurrency 409 dialog, a discard guard, and the draft dot. (tracker: #7515)
+- [x] **Drawer editing** — a scope select chosen before editing, the services editor, keep or replace for dates that already have their own changes, a save naming the result, a concurrency 409 dialog, a discard guard, and the draft dot. (tracker: #7515)
   - Accept: tests cover this date only, every Friday from a date, and everywhere a schedule is used. Each saves the right rows, and a conflicting save shows Review, Overwrite and Discard.
   - Blocked by: AvailabilityCalendar and day drawer (read)
 - [ ] **Guest preview panel** — calls the preview endpoint with the debounced draft, showing added and removed marks, the summary line, the stranded list, and the slow-preview fallback. (tracker: #7516)
@@ -117,7 +117,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Closure impact** — `POST …/closures/impact`: affected reservations grouped by date and kind, with covers, deposits held, and runs-into-closure flags. (tracker: #7520)
   - Accept: tests cover a whole-day, a shortened-service, a booking-only (no groups) and a multi-date closure, plus a booking that starts before the closure and runs into it.
   - Blocked by: Config API
-- [ ] **Closure command** — `POST /closures` and `DELETE /closures/:id`. Writes the rule, the outcomes and the transitions (cancel through `cancelReservationWithDeposit` as staff, move, keep) in one transaction, with an `Idempotency-Key` and Host emergency limits. (tracker: #7521)
+- [x] **Closure command** — `POST /closures` and `DELETE /closures/:id`. Writes the rule, the outcomes and the transitions (cancel through `cancelReservationWithDeposit` as staff, move, keep) in one transaction, with an `Idempotency-Key` and Host emergency limits. (tracker: #7521)
   - Accept: an invariant test confirms that after any saved closure no active reservation overlaps it unless the outcome is keep, with who and when recorded (SC Closure integrity, data half). A replayed key returns the first result. A Host without the grant gets 403.
   - Blocked by: Closure impact, Venue roles
 - [x] **Rebook offers** — `rebookOffers` in the engine: up to 3 open slots, same party size, within 14 days, nearest the original time of day. (tracker: #7522)

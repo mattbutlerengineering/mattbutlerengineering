@@ -1,10 +1,11 @@
 import type {
   AvailabilityChangesPage,
   AvailabilityChangesQuery,
-  AvailabilityConfigChanges,
   AvailabilityConfigSaveResult,
   AvailabilityConfigState,
   AvailabilityDaySummary,
+  PutAvailabilityConfigBody,
+  ScopeConflictMode,
 } from "@mbe/types";
 import { createMutationHook } from "./create-mutation-hook.js";
 import { createQueryHook } from "./create-query-hook.js";
@@ -38,16 +39,23 @@ export const useAvailabilityConfig = createQueryHook<
   getEnabled: (params) => !!params?.venueId && params.enabled !== false,
 });
 
+/** What the editors send; `scopeConflicts` defaults to `keep` on the server (quick setup omits it). */
+export type SaveAvailabilityConfigVariables = {
+  venueId: string;
+  body: Omit<PutAvailabilityConfigBody, "scopeConflicts"> & {
+    scopeConflicts?: ScopeConflictMode;
+  };
+  /** Save against the version the server holds now, not the one the draft was made on. */
+  overwrite?: boolean;
+};
+
 /**
- * Saves a config change (Manager only). Venue readiness reads the legacy hours the server
- * projects from the regular week, so the venues list refreshes with the config and the days.
+ * Saves a config change (Manager only). `overwrite` is the Manager's answer to "someone changed
+ * this meanwhile". Venue readiness reads the legacy hours the server projects from the regular
+ * week, so the venues list refreshes with the config and the days.
  */
 export const useSaveAvailabilityConfig = createMutationHook<
-  {
-    venueId: string;
-    expectedVersion: number;
-    changes: AvailabilityConfigChanges;
-  },
+  SaveAvailabilityConfigVariables,
   AvailabilityConfigSaveResult
 >({
   invalidateKeys: [
@@ -56,8 +64,12 @@ export const useSaveAvailabilityConfig = createMutationHook<
     AVAILABILITY_CHANGES_QUERY_KEY,
     VENUES_QUERY_KEY,
   ],
-  mutationFn: (api, { venueId, expectedVersion, changes }) =>
-    api.availability.saveConfig(venueId, { expectedVersion, changes }),
+  mutationFn: async (api, { venueId, body, overwrite }) => {
+    const expectedVersion = overwrite
+      ? (await api.availability.getConfig(venueId)).version
+      : body.expectedVersion;
+    return api.availability.saveConfig(venueId, { ...body, expectedVersion });
+  },
 });
 
 /** The History drawer (F12): who changed availability, newest first. */

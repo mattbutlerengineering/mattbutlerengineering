@@ -62,9 +62,9 @@ describe("AvailabilityQuickSetup", () => {
     setup();
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     const call = mutateAsync.mock.calls[0]?.[0];
-    expect(call).toMatchObject({ venueId: "venue-1", expectedVersion: 4 });
-    expect(call.changes.upsert.schedules[0]).toMatchObject({ isRegular: true });
-    expect(call.changes.upsert.scheduleServices[0]).toMatchObject({
+    expect(call).toMatchObject({ venueId: "venue-1", body: { expectedVersion: 4 } });
+    expect(call.body.changes.upsert.schedules[0]).toMatchObject({ isRegular: true });
+    expect(call.body.changes.upsert.scheduleServices[0]).toMatchObject({
       opensAt: 1020,
       lastSeatingAt: 1275,
       closesAt: 1320,

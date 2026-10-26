@@ -20,6 +20,8 @@ export interface AvailabilityCalendarProps {
   readonly isLoading: boolean;
   /** The day whose drawer is open. */
   readonly selectedDate?: string | null;
+  /** The day whose drawer holds an unsaved draft; its cell shows a dot. */
+  readonly draftDate?: string | null;
   readonly onOpenDay: (date: string) => void;
   readonly onAnchorChange: (date: string) => void;
 }
@@ -31,6 +33,7 @@ interface CellProps {
   readonly detailed: boolean;
   readonly isToday: boolean;
   readonly isSelected: boolean;
+  readonly isDraft: boolean;
   readonly isTabStop: boolean;
   readonly isMuted: boolean;
   readonly format: VenueFormat;
@@ -39,7 +42,8 @@ interface CellProps {
 }
 
 function Cell(props: CellProps) {
-  const { date, summary, isLoading, detailed, isToday, isSelected, isTabStop, isMuted } = props;
+  const { date, summary, isLoading, detailed, isToday, isSelected, isDraft, isTabStop } = props;
+  const { isMuted } = props;
   const { t } = useTranslation();
   const { format } = props;
 
@@ -62,10 +66,15 @@ function Cell(props: CellProps) {
         data-date={date}
         tabIndex={isTabStop ? 0 : -1}
         aria-current={isToday ? "date" : undefined}
-        aria-label={view.accessibleName}
+        aria-label={
+          isDraft
+            ? `${view.accessibleName}, ${t("availability.calendar.draftName")}`
+            : view.accessibleName
+        }
         onClick={() => props.onOpen(date)}
         onKeyDown={(event) => props.onKeyDown(event, date)}
       >
+        {isDraft && <span className={styles.draftDot} data-draft-dot aria-hidden="true" />}
         <span className={styles.dayNumber} aria-hidden="true">
           {format.formatCalendarDate(date, { day: "numeric" })}
         </span>
@@ -120,7 +129,8 @@ function targetFor(key: string, date: string): string | null {
  * tabindex, so the whole grid is one Tab stop.
  */
 export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
-  const { view, anchor, today, days, isLoading, selectedDate, onOpenDay, onAnchorChange } = props;
+  const { view, anchor, today, days, isLoading, selectedDate, draftDate, onOpenDay } = props;
+  const { onAnchorChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -161,6 +171,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
         byDate={byDate}
         today={today}
         selectedDate={selectedDate}
+        draftDate={draftDate}
         isLoading={isLoading}
         onOpenDay={onOpenDay}
       />
@@ -192,6 +203,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               detailed={view === "week"}
               isToday={date === today}
               isSelected={date === selectedDate}
+              isDraft={date === draftDate}
               isTabStop={date === tabStop}
               isMuted={view === "month" && !date.startsWith(anchorMonth)}
               format={format}

@@ -1508,7 +1508,8 @@
       "closedAllDayName": "cerrado todo el día",
       "closedBand": "Cerrado {{from}} – {{to}}",
       "closedBandName": "cerrado {{from}} – {{to}}",
-      "nextDay": "{{time}} (día siguiente)"
+      "nextDay": "{{time}} (día siguiente)",
+      "draftName": "cambios sin guardar"
     },
     "drawer": {
       "summaryOpen": "Abierto para {{services}}.",
@@ -1529,6 +1530,14 @@
         "lastSeating": "{{name}}, última mesa a las {{time}}",
         "reopens": "reabre {{from}} – {{to}}",
         "reopensAllDay": "reabre todo el día",
+        "serviceReopens": "{{name}} reabre {{from}} – {{to}}",
+        "channelBackOn": "reapertura: {{channels}}, {{from}} – {{to}}",
+        "channel": {
+          "online": "las reservas en línea",
+          "phone": "las reservas por teléfono",
+          "waitlist": "la lista de espera"
+        },
+        "closes": "cerrado {{from}} – {{to}}",
         "bookingOn": {
           "online": "las reservas en línea se reactivan",
           "phone": "las reservas por teléfono se reactivan",
@@ -1628,6 +1637,76 @@
       "personMe": "Solo yo",
       "rangeLabel": "Hechos entre",
       "rangePlaceholder": "Cualquier fecha"
+    },
+    "editor": {
+      "edit": "Editar {{name}}",
+      "addService": "Agregar servicio",
+      "addServicePlaceholder": "Agregar servicio…",
+      "newService": "Un servicio nuevo…",
+      "newServiceName": "Servicio nuevo",
+      "serviceName": "Nombre del servicio",
+      "serviceLine": "{{name}} {{from}} – {{to}}",
+      "opens": "Abre",
+      "lastSeating": "Última asignación de mesa",
+      "closes": "Cierra",
+      "seating": "Asignación de mesas",
+      "interval": "Cada {{minutes}} min",
+      "fixedTimes": "Horarios fijos de asignación: {{times}}",
+      "booking": "Reservas",
+      "bookingOptions": {
+        "onlinePhone": "En línea + teléfono",
+        "onlineOnly": "Solo en línea",
+        "phoneOnly": "Solo teléfono",
+        "walkIn": "Solo sin reserva"
+      },
+      "overnight": "Cierra a las {{time}} del día siguiente ({{weekday}})",
+      "remove": "Quitar {{name}}",
+      "scope": {
+        "label": "Estás cambiando",
+        "date": "Solo esta fecha",
+        "weekday": "Cada {{weekday}} desde el {{date}}",
+        "schedule": "En todas partes donde se usa “{{name}}”",
+        "regularWeek": "Tu semana habitual"
+      },
+      "until": "Hasta",
+      "noEnd": "Sin fecha final",
+      "scopeCount_one": "Aplica a {{count}} fecha",
+      "scopeCount_other": "Aplica a {{count}} fechas",
+      "scopeCount_many": "Aplica a {{count}} fechas",
+      "ownChanges_one": "{{count}} fecha de este alcance ya tiene cambios propios",
+      "ownChanges_other": "{{count}} fechas de este alcance ya tienen cambios propios",
+      "ownChanges_many": "{{count}} fechas de este alcance ya tienen cambios propios",
+      "keepTheirs": "Conservar los suyos",
+      "replaceThem": "Reemplazarlos",
+      "save_one": "Guardar {{count}} fecha",
+      "save_other": "Guardar {{count}} fechas",
+      "save_many": "Guardar {{count}} fechas",
+      "cancel": "Cancelar",
+      "savedOne": "{{date}} actualizado",
+      "savedMany_one": "{{count}} fecha actualizada",
+      "savedMany_other": "{{count}} fechas actualizadas",
+      "savedMany_many": "{{count}} fechas actualizadas",
+      "saveError": "No se pudieron guardar estos horarios",
+      "stranded_one": "{{count}} reserva quedaría fuera de estos horarios. Cambia los horarios o atiende primero la reserva.",
+      "stranded_other": "{{count}} reservas quedarían fuera de estos horarios. Cambia los horarios o atiende primero las reservas.",
+      "stranded_many": "{{count}} reservas quedarían fuera de estos horarios. Cambia los horarios o atiende primero las reservas.",
+      "conflict": {
+        "title": "Alguien cambió la disponibilidad primero",
+        "theirs": "{{summary}} (guardado a las {{time}}).",
+        "theirsUnknown": "Se guardó otro cambio después de que abriste este día.",
+        "review": "Revisar su cambio",
+        "overwrite": "Sobrescribir",
+        "discard": "Descartar el mío",
+        "theirsHeading": "Su cambio",
+        "yoursHeading": "Tu borrador",
+        "yourService": "{{name}} {{from}} – {{to}}"
+      }
+    },
+    "discard": {
+      "title": "¿Descartar los cambios del {{date}}?",
+      "description": "Se perderán tus cambios sin guardar en estos horarios.",
+      "confirm": "Descartar",
+      "keep": "Seguir editando"
     }
   },
   "setup": {

@@ -169,6 +169,49 @@ describe("AvailabilityClient config API", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ rule });
   });
 
+  it("createClosure POSTs the body with the Idempotency-Key header", async () => {
+    const result = {
+      ruleId: "dr-new",
+      version: 5,
+      changeId: "chg-1",
+      outcomes: { cancel: 1, move: 0, keep_notify: 0, keep_silent: 0 },
+    };
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: result }));
+    const body = {
+      expectedVersion: 4,
+      rule: {
+        id: "dr-new",
+        kind: "closure" as const,
+        targetKind: "venue" as const,
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+      },
+      decisions: [{ groupKey: "2026-12-24:closed", action: "cancel" as const }],
+    };
+
+    expect(await client().createClosure("v1", body, "key-1")).toEqual(result);
+
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/venues/v1/closures");
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Idempotency-Key")).toBe("key-1");
+    expect(JSON.parse(String(init?.body))).toEqual(body);
+  });
+
+  it("reopenClosure DELETEs the rule with tellCancelledGuests", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { version: 6, changeId: "chg-2" } }));
+
+    expect(await client().reopenClosure("v1", "dr-new", true)).toEqual({
+      version: 6,
+      changeId: "chg-2",
+    });
+
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/venues/v1/closures/dr-new");
+    expect(init?.method).toBe("DELETE");
+    expect(JSON.parse(String(init?.body))).toEqual({ tellCancelledGuests: true });
+  });
+
   it("checkBooking posts the phone booking to the check endpoint and returns the verdict", async () => {
     const verdict = { kind: "soft", limits: ["pacing"], message: "This booking is over." };
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: verdict }));

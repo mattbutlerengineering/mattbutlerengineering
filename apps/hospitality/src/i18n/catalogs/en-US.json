@@ -1484,7 +1484,8 @@
       "closedAllDayName": "closed all day",
       "closedBand": "Closed {{from}} – {{to}}",
       "closedBandName": "closed {{from}} – {{to}}",
-      "nextDay": "{{time}} (next day)"
+      "nextDay": "{{time}} (next day)",
+      "draftName": "unsaved changes"
     },
     "drawer": {
       "summaryOpen": "Open for {{services}}.",
@@ -1505,6 +1506,14 @@
         "lastSeating": "{{name}} last seating {{time}}",
         "reopens": "reopens {{from}} – {{to}}",
         "reopensAllDay": "reopens all day",
+        "serviceReopens": "{{name}} reopens {{from}} – {{to}}",
+        "channelBackOn": "{{channels}} back on {{from}} – {{to}}",
+        "channel": {
+          "online": "online booking",
+          "phone": "phone booking",
+          "waitlist": "waitlist"
+        },
+        "closes": "closed {{from}} – {{to}}",
         "bookingOn": {
           "online": "online booking back on",
           "phone": "phone booking back on",
@@ -1604,6 +1613,71 @@
       "personMe": "Only me",
       "rangeLabel": "Made between",
       "rangePlaceholder": "Any dates"
+    },
+    "editor": {
+      "edit": "Edit {{name}}",
+      "addService": "Add service",
+      "addServicePlaceholder": "Add service…",
+      "newService": "A new service…",
+      "newServiceName": "New service",
+      "serviceName": "Service name",
+      "serviceLine": "{{name}} {{from}} – {{to}}",
+      "opens": "Opens",
+      "lastSeating": "Last seating",
+      "closes": "Closes",
+      "seating": "Seating",
+      "interval": "Every {{minutes}} min",
+      "fixedTimes": "Fixed seating times: {{times}}",
+      "booking": "Booking",
+      "bookingOptions": {
+        "onlinePhone": "Online + phone",
+        "onlineOnly": "Online only",
+        "phoneOnly": "Phone only",
+        "walkIn": "Walk-in only"
+      },
+      "overnight": "Closes {{time}} the next day ({{weekday}})",
+      "remove": "Remove {{name}}",
+      "scope": {
+        "label": "You’re changing",
+        "date": "This date only",
+        "weekday": "Every {{weekday}} from {{date}}",
+        "schedule": "Everywhere “{{name}}” is used",
+        "regularWeek": "Your regular week"
+      },
+      "until": "Until",
+      "noEnd": "No end",
+      "scopeCount_one": "Applies to {{count}} date",
+      "scopeCount_other": "Applies to {{count}} dates",
+      "ownChanges_one": "{{count}} date in this scope already has its own changes",
+      "ownChanges_other": "{{count}} dates in this scope already have their own changes",
+      "keepTheirs": "Keep theirs",
+      "replaceThem": "Replace them",
+      "save_one": "Save {{count}} date",
+      "save_other": "Save {{count}} dates",
+      "cancel": "Cancel",
+      "savedOne": "{{date}} updated",
+      "savedMany_one": "{{count}} date updated",
+      "savedMany_other": "{{count}} dates updated",
+      "saveError": "Couldn’t save these hours",
+      "stranded_one": "{{count}} booking would fall outside these hours. Change the hours, or deal with the booking first.",
+      "stranded_other": "{{count}} bookings would fall outside these hours. Change the hours, or deal with the bookings first.",
+      "conflict": {
+        "title": "Someone changed availability first",
+        "theirs": "{{summary}} (saved at {{time}}).",
+        "theirsUnknown": "Another change was saved after you opened this day.",
+        "review": "Review their change",
+        "overwrite": "Overwrite",
+        "discard": "Discard mine",
+        "theirsHeading": "Their change",
+        "yoursHeading": "Your draft",
+        "yourService": "{{name}} {{from}} – {{to}}"
+      }
+    },
+    "discard": {
+      "title": "Discard changes to {{date}}?",
+      "description": "Your unsaved changes to these hours will be lost.",
+      "confirm": "Discard",
+      "keep": "Keep editing"
     }
   },
   "setup": {

@@ -1037,6 +1037,89 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     expectOk(await asAdmin(ctx, impact(ctx.venueB.id)), "admin venue B");
     expectDenied(await asMember(ctx, impact(ctx.venueB.id)), "member venue B");
   }),
+  // A closure save rewrites the venue's operating hours, so it lands only on a
+  // disposable venue, after a config save gives it a week to close. The empty
+  // venue has no bookings to decide on. The reopen is the same venue's rule.
+  "POST /api/v1/venues/:id/closures": ok(async (ctx) => {
+    const { base, version } = await sharedAvailabilityVenue(ctx);
+    const idempotencyKey = `rls-sweep-1-${randomUUID()}`;
+    const closureRuleId = `rls-sweep-closure-${randomUUID()}`;
+    const closure = {
+      expectedVersion: version,
+      rule: {
+        id: closureRuleId,
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+      },
+      decisions: [],
+    };
+    const saved = await asAdmin(ctx, {
+      method: "POST",
+      url: `${base}/closures`,
+      headers: { "idempotency-key": idempotencyKey },
+      payload: closure,
+    });
+    expectOk(saved, "admin closure");
+    const replayed = await asAdmin(ctx, {
+      method: "POST",
+      url: `${base}/closures`,
+      headers: { "idempotency-key": idempotencyKey },
+      payload: closure,
+    });
+    expect(JSON.parse(replayed.body), "replay returns the first result").toEqual(
+      JSON.parse(saved.body)
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures`,
+        headers: { "idempotency-key": `${idempotencyKey}-b` },
+        payload: closure,
+      }),
+      "member venue B"
+    );
+  }),
+  "DELETE /api/v1/venues/:id/closures/:ruleId": ok(async (ctx) => {
+    const { base, version } = await sharedAvailabilityVenue(ctx);
+    const reopenRuleId = `rls-sweep-reopen-${randomUUID()}`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: `${base}/closures`,
+        headers: { "idempotency-key": `rls-sweep-3-${randomUUID()}` },
+        payload: {
+          expectedVersion: version,
+          rule: {
+            id: reopenRuleId,
+            kind: "closure",
+            targetKind: "venue",
+            startsOn: "2026-12-25",
+            endsOn: "2026-12-25",
+          },
+          decisions: [],
+        },
+      }),
+      "admin closure"
+    );
+    expectOk(
+      await asAdmin(ctx, {
+        method: "DELETE",
+        url: `${base}/closures/${reopenRuleId}`,
+        payload: { tellCancelledGuests: false },
+      }),
+      "admin reopen"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "DELETE",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures/${reopenRuleId}`,
+        payload: { tellCancelledGuests: false },
+      }),
+      "member venue B"
+    );
+  }),
   // A read-only verdict over POST: members of the venue are admitted, other
   // venues are denied, exactly like the GET availability reads.
   "POST /api/v1/venues/:id/availability/check": ok(async (ctx) => {
@@ -1185,7 +1268,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
  * A venue fixtures can write availability rows to without creating one.
  * `POST /venues` is capped at 5 a minute per caller and the sweep already uses
  * all 5, so these share venue C (which no other fixture writes to). Each
- * caller reads the current version, since every save bumps it.
+ * caller reads the current version, since every save (and closure) bumps it.
  */
 async function sharedAvailabilityVenue(
   ctx: SweepContext

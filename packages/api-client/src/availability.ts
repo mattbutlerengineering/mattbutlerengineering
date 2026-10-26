@@ -14,7 +14,10 @@ import type {
   AvailabilityChangesQuery,
   AvailabilityDaySummary,
   ClosureImpact,
+  ClosureResult,
+  CreateClosureBodySchema,
   DateRule,
+  ReopenResult,
   AvailabilityCheckBody,
   AvailabilityCheckResult,
   PreviewAvailabilityBody,
@@ -45,6 +48,9 @@ export interface GetDatesParams {
 
 /** What `saveConfig` sends; `scopeConflicts` defaults to `keep`. */
 export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
+
+/** What `createClosure` sends; `decisions` defaults to none. */
+export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
 
 export class AvailabilityClient {
   constructor(private client: ApiClient) {}
@@ -152,6 +158,26 @@ export class AvailabilityClient {
   }
 
   /**
+   * Saves a closure (or special hours / Tonight change) with one decision per
+   * affected group. `idempotencyKey` makes a retry safe: a replay returns the
+   * first result, so the call is retried on a network error. Rejects with a
+   * problem `code` of `version-conflict`, `decision-required`,
+   * `invalid-decision`, `move-unavailable` or `invalid-config`.
+   */
+  async createClosure(
+    venueId: string,
+    body: CreateClosureRequest,
+    idempotencyKey: string
+  ): Promise<ClosureResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.createClosure,
+      { params: { id: venueId }, body },
+      { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
+    );
+    return response.data;
+  }
+
+  /**
    * What an unsaved draft changes: per-date added/removed times for 30 days
    * from `focusDate`, the focus day, and a page of the future bookings in
    * `scope` it would strand. Read-only, so a gateway failure is retried. A
@@ -196,6 +222,19 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.revertChange, {
       params: { id: venueId, changeId },
       body: { expectedVersion },
+    });
+    return response.data;
+  }
+
+  /** Reopens a closure; guests it cancelled stay cancelled. */
+  async reopenClosure(
+    venueId: string,
+    ruleId: string,
+    tellCancelledGuests: boolean
+  ): Promise<ReopenResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
+      params: { id: venueId, ruleId },
+      body: { tellCancelledGuests },
     });
     return response.data;
   }
