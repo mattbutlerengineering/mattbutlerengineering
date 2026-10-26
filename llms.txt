@@ -1393,6 +1393,814 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="availability">
+  <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
+    <item priority="low">
+      type CalendarView = "month" | "week";
+    </item>
+    <item priority="medium">
+      function daysSinceMonday(date: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function daysInMonth(year: number, month: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function visibleDates(view: CalendarView, anchor: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/clock-minutes.ts">
+    <item priority="high">
+      export function toClock(minute: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function openFromClock(clock: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closeFromClock(clock: string, opensAt: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function lastSeatingFromClock(clock: string, opensAt: number): number { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/close-draft.ts">
+    <item priority="low">
+      type BookingChannel = "online" | "phone" | "waitlist";
+    </item>
+    <item priority="low">
+      type CloseWhat = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "booking"; re;
+    </item>
+    <item priority="low">
+      type CloseWhen = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | {
+            readonly kind: "repeat | { readonly kind: "until-reopen;
+    </item>
+    <item priority="low">
+      interface CloseForm {
+        what: CloseWhat;
+        when: CloseWhen;
+        fromMinute: number | null;
+        staffNote: string;
+        guestMessage: string;
+      }
+    </item>
+    <item priority="low">
+      type CloseField = "what" | "when" | "guestMessage";
+    </item>
+    <item priority="low">
+      interface GroupChoice {
+        action?: ClosureAction;
+        acknowledged: boolean;
+      }
+    </item>
+    <item priority="low">
+      type ChoiceMap = Readonly<Record<string, GroupChoice>>;
+    </item>
+    <item priority="low">
+      type OutcomeCounts = Readonly<Record<ClosureAction, number>>;
+    </item>
+    <item priority="high">
+      interface Span {
+        startsOn: string;
+        endsOn: string | null;
+        weekdays?: readonly number[];
+      }
+    </item>
+    <item priority="medium">
+      function spanOf(when: CloseWhen, today: string): Span { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatIsComplete(what: CloseWhat): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whenIsComplete(when: CloseWhen, today: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateClose(form: CloseForm, today: string): CloseField | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetOf(what: CloseWhat) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toDecisions(
+        groups: readonly ClosureImpactGroup[],
+        choices: ChoiceMap
+      ): ClosureDecision[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function outcomeCounts(
+        groups: readonly ClosureImpactGroup[],
+        choices: ChoiceMap
+      ): OutcomeCounts { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isUrgent(
+        closure: { readonly startsOn: string; readonly fromMinute: number | null },
+        today: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeOnlinePause(
+        rules: readonly DateRule[],
+        today: string,
+        nowMinute: number
+      ): DateRule | null { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/closure-band.ts">
+    <item priority="high">
+      type Closure = AvailabilityDaySummary["closures"][number];
+    </item>
+    <item priority="low">
+      interface ClosureBandText {
+        key: string;
+        text: string;
+        name: string;
+      }
+    </item>
+    <item priority="high">
+      export function minuteText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureBandText(
+        closure: Closure,
+        t: TFunction,
+        format: VenueFormat
+      ): ClosureBandText { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/compare-changes.ts">
+    <item priority="high">
+      type Hours = Pick<
+        ScheduleService,
+        "opensAt" | "lastSeatingAt" | ...;
+    </item>
+    <item priority="low">
+      interface CompareRow {
+        scheduleServiceId: string;
+        scheduleId: string;
+        scheduleName: string;
+      }
+    </item>
+    <item priority="high">
+      export function compareServiceOptions(config: AvailabilityConfig) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildCompareChanges(
+        config: AvailabilityConfig,
+        rows: readonly CompareRow[]
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/copy-day.ts">
+    <item priority="low">
+      interface CopyTarget {
+        weekdays: readonly number[];
+        from: string;
+        until: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function copyDayDates(target: CopyTarget): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildCopyDayChanges(
+        input: CopyTarget & {
+          readonly config: AvailabilityConfig;
+          readonly services: readonly DraftService[];
+          readonly makeId: () => string;
+        }
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function singleDateChangeCount(config: AvailabilityConfig, weekday: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const NUDGE_THRESHOLD: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/day-summary.ts">
+    <item priority="low">
+      interface DayPresentation {
+        bands: readonly ClosureBandText[];
+        count: string | null;
+        onlineOff: boolean;
+        accessibleDetails: string;
+        accessibleName: string;
+      }
+    </item>
+    <item priority="high">
+      export function presentDay(
+        date: string,
+        summary: AvailabilityDaySummary | undefined,
+        detailed: boolean,
+        t: TFunction,
+        format: VenueFormat
+      ): DayPresentation { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/draft-changes.ts">
+    <item priority="low">
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read;
+    </item>
+    <item priority="low">
+      interface DraftService {
+        key: string;
+        venueServiceId: string | null;
+        scheduleServiceId: string | null;
+        name: string;
+        opensAt: number;
+      }
+    </item>
+    <item priority="high">
+      type SeedService = Pick<
+        DraftService,
+        "opensAt" | "lastSeatingAt" | "cl...;
+    </item>
+    <item priority="high">
+      export function seedServices(
+        config: AvailabilityConfig,
+        day: Pick<ResolvedDaySummary, "services">,
+        scope: EditScope
+      ): DraftService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function servicesEqual(a: readonly DraftService[], b: readonly DraftService[]): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      interface BuildInput {
+        config: AvailabilityConfig;
+        scope: EditScope;
+        services: readonly DraftService[];
+        makeId: () => string;
+        leaveOut?: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialHoursRule(base: Partial<DateRule>, id: string, services: SpecialHoursService[]) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dateRule(
+        config: AvailabilityConfig,
+        date: string,
+        services: SpecialHoursService[],
+        makeId: () => string
+      ): DateRule { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleServiceRows(
+        config: AvailabilityConfig,
+        scheduleId: string,
+        services: readonly (DraftService & { venueServiceId: string })[],
+        makeId: () => string
+      ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/outcome-label.ts">
+    <item priority="high">
+      export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
+    <item priority="low">
+      interface ServiceDraft {
+        id: string;
+        name: string;
+        opens: string | null;
+        lastSeating: string | null;
+        closes: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface QuickSetupDraft {
+        services: readonly ServiceDraft[];
+        days: readonly number[];
+      }
+    </item>
+    <item priority="high">
+      export const LAST_SEATING_LEAD_MINUTES: unknown;
+    </item>
+    <item priority="high">
+      export const SERVICE_NAME_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const WEEK_DISPLAY_ORDER: readonly number[];
+    </item>
+    <item priority="high">
+      export const WEEKDAY_SHORTCUT: readonly number[];
+    </item>
+    <item priority="high">
+      export const WEEKEND_SHORTCUT: readonly number[];
+    </item>
+    <item priority="high">
+      export const SERVICE_PRESETS: unknown;
+    </item>
+    <item priority="low">
+      type ServicePresetId = keyof typeof SERVICE_PRESETS;
+    </item>
+    <item priority="high">
+      export const SERVICE_PRESET_IDS: unknown;
+    </item>
+    <item priority="high">
+      export function emptyService(id: string): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emptyDraft(firstServiceId: string): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toMinutes(hhmm: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toClock(minutes: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function autoLastSeating(closes: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceTime(
+        service: ServiceDraft,
+        field: "opens" | "lastSeating" | "closes",
+        value: string | null
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
+    </item>
+    <item priority="low">
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "overlap" | "days_required";
+    </item>
+    <item priority="low">
+      interface QuickSetupIssue {
+        serviceId: string | null;
+        field: QuickSetupField | "days";
+        code: QuickSetupIssueCode;
+      }
+    </item>
+    <item priority="high">
+      interface ServiceMinutes {
+        opensAt: number;
+        lastSeatingAt: number;
+        closesAt: number;
+      }
+    </item>
+    <item priority="medium">
+      function minutesOf(service: ServiceDraft): ServiceMinutes | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function completenessIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftToConfig(
+        draft: QuickSetupDraft,
+        newId: () => string,
+        existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftToChanges(
+        draft: QuickSetupDraft,
+        stored: AvailabilityConfig,
+        newId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateQuickSetupHours(
+        hours: OperatingHours,
+        t: TFunction = localeRuntime.i18n.t
+      ): OperatingHoursValidationErrors | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): QuickSetupDraft { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/removal-diff.ts">
+    <item priority="high">
+      type Channel = keyof BookingOpen;
+    </item>
+    <item priority="low">
+      type RemovalChange = { kind: "serviceOpens"; name:  | { kind: "serviceCloses"; name: | { kind: "opensAtChanges"; name | { kind: "closesAtChanges"; nam | { kind: "lastSeatingChanges";  | { kind: "closureLifted"; closu | { kind: "closureApplies"; clos | { kind: "bookingOn"; channel:  | { kind: "bookingOff"; channel: | { kind: "pacingLifted" } | { kind: "pacingSet"; covers: n;
+    </item>
+    <item priority="medium">
+      function serviceChanges(
+        current: readonly ResolvedService[],
+        removed: readonly ResolvedService[]
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureChanges(
+        current: readonly ResolvedClosure[],
+        removed: readonly ResolvedClosure[],
+        services: readonly ResolvedService[]
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingChanges(current: BookingOpen, removed: BookingOpen): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pacingChanges(current: ResolvedDaySummary, removed: ResolvedDaySummary): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function diffRemoval(
+        current: ResolvedDaySummary,
+        removed: ResolvedDaySummary
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function liftedText(
+        change: Extract<RemovalChange, { kind: "closureLifted" }>,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function removalChangeText(
+        change: RemovalChange,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/resolved-day-fixtures.ts">
+    <item priority="high">
+      export const FIXTURE_DATE: unknown;
+    </item>
+    <item priority="high">
+      export const FIXTURE_TIMEZONE: unknown;
+    </item>
+    <item priority="high">
+      export const EARLY_DINNER: DateRule;
+    </item>
+    <item priority="high">
+      export const PARTY_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const ONLINE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const LUNCH_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const VENUE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_STOP: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_CLOSE: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_PACING: DateRule;
+    </item>
+    <item priority="high">
+      export function fixtureConfig(...rules: DateRule[]): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ONLINE_WINDOW: DateRule;
+    </item>
+    <item priority="high">
+      export const LUNCH_WINDOW: DateRule;
+    </item>
+    <item priority="high">
+      export const LATE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const WEEKLY_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const SKIP_WEEKLY: DateRule;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/revert-error.ts">
+    <item priority="high">
+      export function revertErrorText(error: unknown, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/schedule-changes.ts">
+    <item priority="low">
+      interface UseOn {
+        weekdays: readonly number[];
+        startsOn?: string | null;
+        endsOn?: string | null;
+      }
+    </item>
+    <item priority="low">
+      type Winner = "new" | "existing";
+    </item>
+    <item priority="high">
+      export function weekdayRuns(weekdays: readonly number[]): [number, number][] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="medium">
+      function meets(a: UseOn, b: UseOn): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rankedAssignments(
+        config: AvailabilityConfig,
+        ignoreScheduleId?: string
+      ): ScheduleAssignment[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overlappingSchedules(
+        config: AvailabilityConfig,
+        useOn: UseOn,
+        ignoreScheduleId?: string
+      ): Schedule[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function placeAssignment(
+        config: AvailabilityConfig,
+        mine: ScheduleAssignment,
+        winner: Winner
+      ): ScheduleAssignment[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mergeChanges(
+        a: AvailabilityConfigChanges,
+        b: AvailabilityConfigChanges
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      interface NewScheduleInput {
+        config: AvailabilityConfig;
+        name: string;
+        services: readonly DraftService[];
+        useOn: UseOn;
+        winner: Winner;
+      }
+    </item>
+    <item priority="high">
+      export function buildNewScheduleChanges(input: NewScheduleInput): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      interface RegularWeekInput {
+        startsOn: string;
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildEditScheduleChanges(input: {
+        readonly config: AvailabilityConfig;
+        readonly scheduleId: string;
+        readonly name: string;
+        readonly services: readonly DraftService[];
+        readonly makeId: () => string;
+      }): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="medium">
+      function freshRows(services: readonly DraftService[]): DraftService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function datesOfUse(useOn: UseOn, today: string): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/scope-dates.ts">
+    <item priority="high">
+      export const SCOPE_HORIZON_DAYS: unknown;
+    </item>
+    <item priority="high">
+      interface ScopeContext {
+        config: AvailabilityConfig;
+        timezone: string;
+        today: string;
+      }
+    </item>
+    <item priority="medium">
+      function eachDate(from: string, to: string, step: number): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scopeDates(scope: EditScope, context: ScopeContext): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ownChangeDates(
+        config: AvailabilityConfig,
+        dates: readonly string[],
+        ignoreRuleId: string | null
+      ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/selection.ts">
+    <item priority="high">
+      export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dateRange(a: string, b: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toggleDate(selection: readonly string[], date: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function columnDates(
+        grid: readonly string[],
+        column: number,
+        view: CalendarView,
+        anchor: string
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekdayDatesInMonth(anchor: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function datesUsingSchedule(
+        days: readonly { readonly serviceDate: string; readonly scheduleId: string | null }[],
+        scheduleId: string
+      ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/series-edit.ts">
+    <item priority="low">
+      type SeriesScope = "following" | "all";
+    </item>
+    <item priority="low">
+      interface SeriesEdit {
+        weekdays: readonly number[];
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function isSeries(rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function coversDate(series: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextOccurrence(series: DateRule, from: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dateOverride(
+        rules: readonly DateRule[],
+        seriesId: string,
+        date: string
+      ): DateRule | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function skipDate(
+        series: DateRule,
+        date: string,
+        makeId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editSeriesDates(
+        config: AvailabilityConfig,
+        series: DateRule,
+        scope: SeriesScope,
+        date: string,
+        edit: SeriesEdit,
+        makeId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/special-dates.ts">
+    <item priority="low">
+      type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
+    </item>
+    <item priority="low">
+      type SpecialDateRule = Extract<DateRule, { kind: "closure" | "special_hours" }>;
+    </item>
+    <item priority="low">
+      interface SpecialDateRow {
+        rule: SpecialDateRule;
+        past: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function specialDateRows(
+        rules: readonly DateRule[],
+        today: string,
+        filter: SpecialDatesFilter
+      ): SpecialDateRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function orphanRefundRules(
+        summaries: readonly ClosureSummary[],
+        listedRuleIds: readonly string[]
+      ): ClosureSummary[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/tonight-state.ts">
+    <item priority="low">
+      type TonightChange = { readonly ruleId: string; rea | { readonly ruleId: string; rea | {
+            readonly ruleId: strin | {
+            readonly ruleId: strin | { readonly ruleId: string; rea;
+    </item>
+    <item priority="high">
+      type TonightRule = Extract<DateRule, { kind: "tonight" }>;
+    </item>
+    <item priority="medium">
+      function describe(rule: TonightRule): TonightChange | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeTonightChanges(
+        rules: readonly DateRule[],
+        today: string,
+        now: Date
+      ): readonly TonightChange[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
+    <item priority="high">
+      export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
+    <item priority="high">
+      export function useScheduleSave(
+        onStale: () => void,
+        strandedKey:
+          | "availabilitySchedules.stranded"
+          | "availabilitySpecial.series.stranded" = "availabilitySchedules.stranded"
+      ) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/useDateSelection.ts">
+    <item priority="high">
+      export const LONG_PRESS_MS: unknown;
+    </item>
+    <item priority="low">
+      interface DateSelectionOptions {
+        selection: readonly string[];
+        onSelectionChange: (dates: string[]) => void;
+        onOpenDay: (date: string) => void;
+      }
+    </item>
+    <item priority="low">
+      interface DateGestureHandlers {
+        onClick: (event: MouseEvent) => void;
+        onMouseDown: (event: MouseEvent) => void;
+        onMouseEnter: () => void;
+        onTouchStart: () => void;
+        onTouchMove: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useDateSelection(options: DateSelectionOptions) { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     <item priority="low">
@@ -1460,6 +2268,19 @@
       }
     </item>
     <item priority="low">
+      interface ClosedMidBooking {
+        message: string;
+        lostTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface SlotListing {
+        slots: TimeSlot[];
+        closure?: { message: string };
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="low">
       interface BookingFlowData {
         selectedDate: string | null;
         selectedEndDate: string | null;
@@ -1475,7 +2296,7 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; listing:  | { type: "CLOSED_MID_BOOKING";  | { type: "SET_CLOSED_DATES"; cl | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
     </item>
     <item priority="medium">
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
@@ -1491,6 +2312,9 @@
     </item>
     <item priority="high">
       export function deriveStepKeys(depositRequired: boolean): BookingStep[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outsideAvailabilityMessage(error: unknown): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState { /* ... */ }
@@ -1799,6 +2623,9 @@
     </item>
     <item priority="high">
       export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function displayClockTime(raw: string, locale: string | undefined): string { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/components/catalog-meta.ts">
@@ -2706,8 +3533,8 @@
     </item>
   </file>
   <file path="apps/hospitality/e2e/api-mocks.ts">
-    <item priority="medium">
-      function loadFixture(name: string): string { /* ... */ }
+    <item priority="high">
+      export function loadFixture(name: string): string { /* ... */ }
     </item>
     <item priority="medium">
       function loadStaffVenues(): {
@@ -2746,6 +3573,9 @@
       export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
     </item>
     <item priority="high">
+      export function buildVenueTeamFixture(): VenueTeam { /* ... */ }
+    </item>
+    <item priority="high">
       export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
@@ -2765,6 +3595,9 @@
     </item>
     <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAvailabilityConfigFixture() { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
@@ -2829,6 +3662,11 @@
       export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/e2e/booking-date.ts">
+    <item priority="high">
+      export async function pickBookingDate(page: Page, isoDate: string): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/e2e/fixtures.ts">
     <item priority="high">
       export const test: unknown;
@@ -2849,6 +3687,14 @@
   </file>
   </section>
   <section priority="medium" role="endpoints">
+  <file path="packages/types/src/endpoints/availability-config.ts">
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      export const availabilityConfigEndpoints: unknown;
+    </item>
+  </file>
   <file path="packages/types/src/endpoints/define.ts">
     <item priority="low">
       type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -3541,6 +4387,22 @@
     <item priority="high">
       export function requireVenueAccess(
         lookupMembership: VenueMembershipLookup,
+        resolveVenueId: VenueIdResolver
+      ) { /* ... */ }
+    </item>
+    <item priority="low">
+      type VenueRole = "owner" | "manager" | "staff";
+    </item>
+    <item priority="high">
+      export function hasVenueRole(role: VenueRole | null, minimum: VenueRole): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      type VenueRoleLookup = (userSub: string, venueId: string) => Promise<VenueRole |...;
+    </item>
+    <item priority="high">
+      export function requireVenueRole(
+        minimum: VenueRole,
+        lookupRole: VenueRoleLookup,
         resolveVenueId: VenueIdResolver
       ) { /* ... */ }
     </item>
@@ -4518,6 +5380,64 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useAvailability.ts">
+    <item priority="high">
+      export const AVAILABILITY_DAYS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CHANGES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityDays: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityConfig: unknown;
+    </item>
+    <item priority="low">
+      type SaveAvailabilityConfigVariables = {
+        venueId: string;
+        body: Omit<PutAvailabilityConfigBo...;
+    </item>
+    <item priority="high">
+      export const useSaveAvailabilityConfig: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityChanges: unknown;
+    </item>
+    <item priority="high">
+      export const useRevertAvailabilityChange: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
+    <item priority="high">
+      export const AVAILABILITY_PREVIEW_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface AvailabilityPreviewState {
+        result: PreviewResult | null;
+        isFetching: boolean;
+        error: Error | null;
+        retry: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useAvailabilityPreview(
+        venueId: string,
+        body: PreviewAvailabilityBody | null
+      ): AvailabilityPreviewState { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
+    <item priority="high">
+      export const UNDO_TOAST_MS: unknown;
+    </item>
+    <item priority="high">
+      export function useAvailabilityUndo() { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
     <item priority="high">
       export const BRIEFING_QUERY_KEY: unknown;
@@ -4607,6 +5527,53 @@
     </item>
     <item priority="high">
       export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useClosures.ts">
+    <item priority="high">
+      export const CLOSURE_IMPACT_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureImpact: unknown;
+    </item>
+    <item priority="high">
+      type CreateClosureRequest = Parameters<AvailabilityClient["createClosure"]>[1];
+    </item>
+    <item priority="low">
+      type CreateClosureVariables = {
+        venueId: string;
+        body: CreateClosureRequest;
+        /** ...;
+    </item>
+    <item priority="high">
+      export const useCreateClosure: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_CALL_LIST_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureSummaries: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureCallList: unknown;
+    </item>
+    <item priority="low">
+      type RetryClosureRefundsVariables = { venueId: string; ruleId: string };
+    </item>
+    <item priority="high">
+      export const useRetryClosureRefunds: unknown;
+    </item>
+    <item priority="low">
+      type ReopenClosureVariables = {
+        venueId: string;
+        ruleId: string;
+        tellCancelledGue...;
+    </item>
+    <item priority="high">
+      export const useReopenClosure: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
@@ -5050,6 +6017,14 @@
       export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useOpenTimes.ts">
+    <item priority="high">
+      export const OPEN_TIMES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useOpenTimes: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/usePublicApiClient.ts">
     <item priority="low">
       interface UsePublicApiClientOptions {
@@ -5165,6 +6140,49 @@
       export function useSessionClock(expiresAt: number | undefined): SessionClock { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useStaffBookingCheck.ts">
+    <item priority="high">
+      export const STAFF_BOOKING_CHECK_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      type BookingWindow = { start: string; end: string };
+    </item>
+    <item priority="low">
+      interface StaffCheckParams {
+        venueId: string | null | undefined;
+        window: BookingWindow | null;
+        partySize: number;
+        selectedTableId: string;
+      }
+    </item>
+    <item priority="low">
+      interface StaffCheckResult {
+        phase: "idle" | "checking" | "done" | "failed";
+        verdict: AvailabilityCheckResult | null;
+      }
+    </item>
+    <item priority="high">
+      export function useStaffBookingCheck({
+        venueId,
+        window,
+        partySize,
+        selectedTableId,
+      }: StaffCheckParams): StaffCheckResult { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useStaffTonight.ts">
+    <item priority="low">
+      interface StaffTonight {
+        serviceDate: string | null;
+        config: AvailabilityConfig | null;
+        rules: readonly DateRule[];
+        waitlistClosed: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useStaffTonight(venueId: string | null | undefined): StaffTonight { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useStatusMessage.ts">
     <item priority="low">
       interface StatusMessage {
@@ -5255,6 +6273,17 @@
         entries,
         onActivate,
       }: UseTimelineKeyboardParams): UseTimelineKeyboardResult { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useTonight.ts">
+    <item priority="low">
+      type SetTonightRequest = Parameters<AvailabilityClient["setTonight"]>[1];
+    </item>
+    <item priority="high">
+      export const useSetTonight: unknown;
+    </item>
+    <item priority="high">
+      export const useEndTonight: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
@@ -5357,6 +6386,20 @@
     </item>
     <item priority="high">
       export function useVenueReadiness(): VenueReadiness { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useVenueTeam.ts">
+    <item priority="high">
+      export const VENUE_TEAM_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useVenueTeam: unknown;
+    </item>
+    <item priority="high">
+      export const useSetTeamRole: unknown;
+    </item>
+    <item priority="high">
+      export const useSetHostEmergencyClose: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useVenues.ts">
@@ -5836,7 +6879,13 @@
     <item priority="high">
       export async function dispatchJob(
         handlers: JobHandlerMap,
-        job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+        job: {
+          name: string;
+          data: unknown;
+          updateData?: (data: never) => Promise<void>;
+          attemptsMade?: number;
+          opts?: { attempts?: number };
+        }
       ): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -5862,7 +6911,7 @@
     </item>
     <item priority="low">
       interface JobContext {
-        
+        isFinalAttempt: boolean;
       }
     </item>
     <item priority="low">
@@ -5883,9 +6932,23 @@
       }
     </item>
     <item priority="low">
+      interface ClosureNoticePayload {
+        outcomeId: string;
+        venueId: string;
+        variant?: "closure" | "reopened";
+        urgent?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundPayload {
+        outcomeId: string;
+        venueId: string;
+      }
+    </item>
+    <item priority="low">
       type JobPayloadMap = {
-        [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
-        [JOB...;
+        [JOB_TYPES.CLOSURE_NOTICE]: ClosureNoticePayload;
+        [...;
     </item>
     <item priority="low">
       type JobHandlerMap = Partial<{
@@ -6633,6 +7696,86 @@
       ): BookingEmailContent { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/notifications/closure-content.ts">
+    <item priority="low">
+      type ClosureNoticeKind = "cancelled" | "moved" | "kept" | "reopened";
+    </item>
+    <item priority="low">
+      interface ClosureOffer {
+        label: string;
+        url: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureNoticeContent {
+        kind: ClosureNoticeKind;
+        venueName: string;
+        guestName: string | null;
+        closureDate: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="high">
+      export function toGsm(text: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function smsSegments(body: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function civilParts(date: string): { weekday: string; month: string; day: number } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function shortDate(date: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emailDate(date: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function offerLabel(start: Date, timezone: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function money(refund: { amountCents: number; currency: string }): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function timeOf(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function firstName(name: string | null): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function movedSms(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function keptSms(c: ClosureNoticeContent, withMessage: boolean): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenedSms(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function smsCandidates(c: ClosureNoticeContent): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function venueNameVariants(name: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildClosureSms(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emailSubject(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function link(url: string, text: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emailLines(c: ClosureNoticeContent): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildClosureEmail(c: ClosureNoticeContent): { subject: string; html: string } { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/notifications/email-content.ts">
     <item priority="low">
       type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
@@ -6702,6 +7845,14 @@
       function formatIcalDate(date: Date): string { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/notifications/manage-url.ts">
+    <item priority="high">
+      export const MANAGE_PATH: unknown;
+    </item>
+    <item priority="high">
+      export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/notifications/notification-dispatcher.ts">
     <item priority="low">
       interface NotificationDispatcherConfig {
@@ -6728,7 +7879,6 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl: string;
-        async toSmsInput(): Promise<unknown>;
       }
     </item>
   </file>
@@ -6756,6 +7906,13 @@
         venueName: string;
         visitDate: string;
         feedbackUrl: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureEmailInput {
+        to: string;
+        subject: string;
+        html: string;
       }
     </item>
     <item priority="low">
@@ -6862,6 +8019,12 @@
       interface WaitlistTableReadyInput {
         guestPhone: string;
         guestName: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureSmsInput {
+        to: string;
+        body: string;
       }
     </item>
     <item priority="low">
@@ -7439,6 +8602,9 @@
       function todayDate(): Date { /* ... */ }
     </item>
     <item priority="low">
+      async function upsertSeedVenue(venueGroupId: string, seed: SeedVenue) { /* ... */ }
+    </item>
+    <item priority="low">
       async function main() { /* ... */ }
     </item>
   </file>
@@ -7956,6 +9122,9 @@
         catalogPrompt: string;
       }
     </item>
+    <item priority="high">
+      export function chatComponentReference(catalogPrompt: string): string { /* ... */ }
+    </item>
     <item priority="medium">
       function weekdayIn(timeZone: string, now: Date): string { /* ... */ }
     </item>
@@ -7995,15 +9164,14 @@
       ): T | (T & { localTime: string }) { /* ... */ }
     </item>
     <item priority="high">
-      interface DayHours {
-        closed?: boolean | undefined;
-      }
+      type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAv...;
     </item>
-    <item priority="high">
-      export function closedWeekday(
-        operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
-        date: string
-      ): string | undefined { /* ... */ }
+    <item priority="medium">
+      function availabilityResult(
+        response: PublicAvailability,
+        date: string,
+        timeZone: string | undefined
+      ) { /* ... */ }
     </item>
     <item priority="medium">
       function gateWriteTools(
@@ -8039,6 +9207,12 @@
     </item>
     <item priority="medium">
       function isTimeZone(value: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genAgentSystemPrompt(
+        parsed: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined },
+        catalogPrompt: string
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export const genAgentRoutes: unknown;
@@ -8362,6 +9536,33 @@
       ): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/availability-changes.ts">
+    <item priority="high">
+      export const availabilityChangesRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/availability-config.ts">
+    <item priority="medium">
+      function configProblem(
+        status: 409 | 422 | 503,
+        title: string,
+        detail: string,
+        extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
+      ): AvailabilityConfigProblem { /* ... */ }
+    </item>
+    <item priority="high">
+      type ConfigReply = FastifyReply;
+    </item>
+    <item priority="medium">
+      function sendRefusal(
+        reply: ConfigReply,
+        outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const availabilityConfigRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/availability.ts">
     <item priority="high">
       type SlotsRoute = {
@@ -8393,6 +9594,52 @@
   <file path="services/reservations/src/routes/cancel-reservation.ts">
     <item priority="high">
       export const cancelReservationRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/closure-caller.ts">
+    <item priority="high">
+      export async function closureCaller(
+        request: FastifyRequest,
+        venueId: string,
+        isAdmin: boolean
+      ): Promise<ClosureCaller> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const CLOSURE_FORBIDDEN: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/closure-post-commit.ts">
+    <item priority="high">
+      export async function enqueueNotices(
+        enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
+        input: { venueId: string; ruleId: string },
+        log: FastifyBaseLogger
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function enqueueClosureJobs(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        saved: { venueId: string; ruleId: string; cancelled: number }
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/closures.ts">
+    <item priority="high">
+      type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
+    </item>
+    <item priority="medium">
+      function problem(
+        status: 409 | 422,
+        detail: string,
+        extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
+      ): AvailabilityConfigProblem { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sendRefusal(reply: FastifyReply, outcome: Refusal) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const closureRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/confirm-attendance.ts">
@@ -8516,6 +9763,11 @@
         preamble: Extract<ManagePreambleResult, { ok: false }>,
         action: ManageAction
       ): ReturnType<typeof createProblemDetails> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/manage-rebook.ts">
+    <item priority="high">
+      export const manageRebookRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/manage-reservation.ts">
@@ -8944,6 +10196,14 @@
     <item priority="medium">
       function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
     </item>
+    <item priority="low">
+      async function sharedAvailabilityVenue(
+        ctx: SweepContext
+      ): Promise<{ base: string; version: number }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sweepConfigChanges(options: { alternate?: boolean } = {}) { /* ... */ }
+    </item>
     <item priority="high">
       interface SectionIds {
         sectionId: string;
@@ -9040,6 +10300,11 @@
       export const tableRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/tonight.ts">
+    <item priority="high">
+      export const tonightRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/venue-scope.ts">
     <item priority="high">
       type Handler = RouteHandlerMethod<
@@ -9059,7 +10324,7 @@
             readonly resolve: (req;
     </item>
     <item priority="low">
-      type VenueAccess = "member" | "authenticated" | { readonly owner: (entity: E) ;
+      type VenueAccess = "member" | "manager" | "authenticated" | { readonly owner: (entity: E) ;
     </item>
     <item priority="low">
       interface VenueScope {
@@ -9133,6 +10398,11 @@
       >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/venue-team.ts">
+    <item priority="high">
+      export const venueTeamRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/venues.ts">
     <item priority="high">
       export const VENUE_CREATE_RATE_LIMIT: unknown;
@@ -9191,6 +10461,444 @@
   <file path="packages/types/src/schemas/api.ts">
     <item priority="high">
       export const ProblemDetailsSchema: unknown;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/availability-config-api.ts">
+    <item priority="high">
+      export const AvailabilityConfigChangesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SCOPE_CONFLICT_MODES: unknown;
+    </item>
+    <item priority="high">
+      export const ScopeConflictModeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PutAvailabilityConfigBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSourceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigStateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSaveResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangeSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangeEntrySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CHANGES_MAX_LIMIT: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangesQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangesPageSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RevertAvailabilityChangeBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const StrandedReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_PROBLEM_CODES: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigProblemSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_DAYS_MAX_RANGE: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDaysQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDaySummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_IMPACT_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactGroupSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    </item>
+    <item priority="high">
+      export const SOFT_LIMITS: unknown;
+    </item>
+    <item priority="high">
+      export const SoftLimitSchema: unknown;
+    </item>
+    <item priority="high">
+      export const HARD_REASONS: unknown;
+    </item>
+    <item priority="high">
+      export const HardReasonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_STRANDED_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_SCOPE_MAX_DATES: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewScopeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewAvailabilityBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewDaySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    </item>
+    <item priority="low">
+      type PreviewScope = z.infer<typeof PreviewScopeSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
+    </item>
+    <item priority="low">
+      type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
+    </item>
+    <item priority="low">
+      type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesParsed = z.infer<typeof AvailabilityChangesQuerySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesPage = z.infer<typeof AvailabilityChangesPageSchema>;
+    </item>
+    <item priority="low">
+      type RevertAvailabilityChangeBody = z.infer<typeof RevertAvailabilityChangeBodySchema>;
+    </item>
+    <item priority="low">
+      type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    </item>
+    <item priority="high">
+      export const ClosureDecisionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateClosureBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReopenClosureBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureOutcomeCountsSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReopenResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureSummariesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RetryRefundsResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CallListEntrySchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightChangeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SetTonightBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type TonightChange = z.infer<typeof TonightChangeSchema>;
+    </item>
+    <item priority="low">
+      type SetTonightBody = z.infer<typeof SetTonightBodySchema>;
+    </item>
+    <item priority="low">
+      type TonightResult = z.infer<typeof TonightResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
+    </item>
+    <item priority="low">
+      type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureResult = z.infer<typeof ClosureResultSchema>;
+    </item>
+    <item priority="low">
+      type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
+    </item>
+    <item priority="low">
+      type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/availability-config.ts">
+    <item priority="high">
+      export const SCHEDULE_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const DATE_RULE_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const DATE_RULE_TARGETS: unknown;
+    </item>
+    <item priority="high">
+      export const SERVICE_BOOKING_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const RULE_BOOKING_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const DATE_RULE_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_ACTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_REFUND_STATUSES: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleTargetKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleSourceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureActionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureRefundStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GUEST_MESSAGE_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const MinuteSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ServiceDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SeatingSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WindowSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RepeatSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SpecialHoursServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SpecialHoursPayloadSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightPayloadSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleAssignmentSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSchema: unknown;
+    </item>
+    <item priority="low">
+      type Seating = z.infer<typeof SeatingSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityWindow = z.infer<typeof WindowSchema>;
+    </item>
+    <item priority="low">
+      type Repeat = z.infer<typeof RepeatSchema>;
+    </item>
+    <item priority="low">
+      type SpecialHoursService = z.infer<typeof SpecialHoursServiceSchema>;
+    </item>
+    <item priority="low">
+      type SpecialHoursPayload = z.infer<typeof SpecialHoursPayloadSchema>;
+    </item>
+    <item priority="low">
+      type TonightPayload = z.infer<typeof TonightPayloadSchema>;
+    </item>
+    <item priority="low">
+      type Schedule = z.infer<typeof ScheduleSchema>;
+    </item>
+    <item priority="low">
+      type VenueService = z.infer<typeof VenueServiceSchema>;
+    </item>
+    <item priority="low">
+      type ScheduleService = z.infer<typeof ScheduleServiceSchema>;
+    </item>
+    <item priority="low">
+      type ScheduleAssignment = z.infer<typeof ScheduleAssignmentSchema>;
+    </item>
+    <item priority="low">
+      type DateRule = z.infer<typeof DateRuleSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
+    </item>
+    <item priority="low">
+      type ClosureAction = z.infer<typeof ClosureActionSchema>;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/availability-response.ts">
+    <item priority="high">
+      export const AvailableTableSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TimeSlotSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityClosureSchema: unknown;
+    </item>
+    <item priority="high">
+      export const BookingPausedSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateAvailabilitySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicClosedDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesResponseSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityResponseSchema: unknown;
+    </item>
+    <item priority="low">
+      type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
+    </item>
+    <item priority="low">
+      type BookingPaused = z.infer<typeof BookingPausedSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
     </item>
   </file>
   <file path="packages/types/src/schemas/common.ts">
@@ -9513,6 +11221,15 @@
       export const assignSectionTablesBodyJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const venueTeamResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateTeamMemberRoleBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateVenueTeamBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const createMenuBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -9616,6 +11333,15 @@
     </item>
     <item priority="high">
       export const publicAvailabilityQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityDatesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityDatesResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityResponseJsonSchema: unknown;
     </item>
     <item priority="high">
       export const publicDepositBodyJsonSchema: unknown;
@@ -9760,6 +11486,9 @@
       export const WalkInBodySchema: unknown;
     </item>
     <item priority="high">
+      export const StaffOverrideSchema: unknown;
+    </item>
+    <item priority="high">
       export const CreateReservationBodySchema: unknown;
     </item>
     <item priority="high">
@@ -9868,6 +11597,9 @@
       export const PublicAvailabilityQuerySchema: unknown;
     </item>
     <item priority="high">
+      export const PublicAvailabilityDatesQuerySchema: unknown;
+    </item>
+    <item priority="high">
       export const PublicDepositBodySchema: unknown;
     </item>
     <item priority="high">
@@ -9935,6 +11667,41 @@
     </item>
     <item priority="high">
       export const UserProfileSchema: unknown;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/venue-team.ts">
+    <item priority="high">
+      export const TEAM_ROLES: unknown;
+    </item>
+    <item priority="high">
+      export const TeamRoleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TeamMemberSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueTeamSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateTeamMemberRoleRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateVenueTeamRequestSchema: unknown;
+    </item>
+    <item priority="low">
+      type TeamRole = z.infer<typeof TeamRoleSchema>;
+    </item>
+    <item priority="low">
+      type TeamMember = z.infer<typeof TeamMemberSchema>;
+    </item>
+    <item priority="low">
+      type VenueTeam = z.infer<typeof VenueTeamSchema>;
+    </item>
+    <item priority="low">
+      type UpdateTeamMemberRoleRequest = z.infer<typeof UpdateTeamMemberRoleRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateVenueTeamRequest = z.infer<typeof UpdateVenueTeamRequestSchema>;
     </item>
   </file>
   <file path="packages/types/src/schemas/venue.ts">
@@ -10732,6 +12499,30 @@
       export function isExternalSpecifier(id: string): boolean { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/scripts/backfill-availability.ts">
+    <item priority="low">
+      interface BackfillSummary {
+        apply: boolean;
+        venues: number;
+        counts: Record<string, number>;
+        errors: { venueId: string; message: string }[];
+        unrecognised: { venueId: string; reason: string }[];
+      }
+    </item>
+    <item priority="high">
+      type Log = (line: string) => void;
+    </item>
+    <item priority="high">
+      export async function runBackfill(
+        prisma: PrismaClient,
+        options: { apply: boolean },
+        log: Log
+      ): Promise<BackfillSummary> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main(): Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="services/agent/src/services/database.ts">
@@ -11079,6 +12870,69 @@
     <item priority="high">
       export function assertBookable(opts: AssertBookableOptions): BookableError | undefined { /* ... */ }
     </item>
+    <item priority="low">
+      type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits: ;
+    </item>
+    <item priority="low">
+      type GateOutcome = { kind: "ok"; overrideLimits?: | { kind: "conflict" } | { kind: "rejected"; rejection:;
+    </item>
+    <item priority="low">
+      interface GateRequest {
+        venueId: string;
+        tableId?: string;
+        start: Date;
+        end?: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="high">
+      type GateDb = NonNullable<LoadSnapshotOptions["db"]>;
+    </item>
+    <item priority="low">
+      async function excludedHoldIds(db: GateDb, request: GateRequest): Promise<Set<string>> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withoutExcluded(
+        snapshot: BookingSnapshot,
+        reservationId: string | undefined,
+        holdIds: Set<string>
+      ): BookingSnapshot { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function judgeBooking(
+        db: GateDb,
+        request: GateRequest,
+        now: Date = new Date(),
+        logger: SnapshotLogger = CONSOLE_LOGGER
+      ): Promise<GateOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outcomeOf(verdict: Verdict): GateOutcome { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outsideAvailability(reason: HardReason, message?: string): GateOutcome { /* ... */ }
+    </item>
+    <item priority="medium">
+      function blockingBand(
+        snapshot: BookingSnapshot,
+        serviceDate: string,
+        minute: number,
+        tableId: string | undefined
+      ): { reason: HardReason; message?: string } | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function unsetHoursStaffOutcome(
+        snapshot: BookingSnapshot,
+        request: GateRequest,
+        logger: SnapshotLogger
+      ): GateOutcome { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rejectionDetail(rejection: GateRejection): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function gateProblem(rejection: GateRejection): ProblemDetails { /* ... */ }
+    </item>
   </file>
   <file path="services/reservations/src/services/assume-app-role.ts">
     <item priority="high">
@@ -11096,33 +12950,716 @@
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
     </item>
   </file>
-  <file path="services/reservations/src/services/availability.ts">
+  <file path="services/reservations/src/services/availability-changes.ts">
     <item priority="high">
-      interface VenueWithSettings {
+      export const REVERT_KIND: unknown;
+    </item>
+    <item priority="medium">
+      function whereOf(
+        venueId: string,
+        query: AvailabilityChangesParsed
+      ): Prisma.AvailabilityChangeWhereInput { /* ... */ }
+    </item>
+    <item priority="medium">
+      function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      type StoreTx = Pick<PrismaClient, "venue" | "availabilityChange">;
+    </item>
+    <item priority="high">
+      export async function listAvailabilityChanges(
+        venueId: string,
+        query: AvailabilityChangesParsed,
+        client: StoreClient = prisma
+      ): Promise<AvailabilityChangesPage | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RevertRefusalReason = "guests_notified" | "already_reverted" | "superseded" | "not_revertable";
+    </item>
+    <item priority="low">
+      type RevertOutcome = SaveOutcome | { kind: "change_not_found" } | { kind: "refused"; reason: Rev;
+    </item>
+    <item priority="medium">
+      function readInverse(value: unknown): ConfigInverse | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function revertAvailabilityChange(
+        input: {
+          venueId: string;
+          changeId: string;
+          actorId: string;
+          expectedVersion: number;
+          now: Date;
+        },
+        client: StoreClient = prisma
+      ): Promise<RevertOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const availabilityChangesService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-check.ts">
+    <item priority="medium">
+      function resultOf(outcome: GateOutcome): AvailabilityCheckResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function checkAvailability(
+        venueId: string,
+        body: AvailabilityCheckBody,
+        now: Date
+      ): Promise<AvailabilityCheckResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config-checks.ts">
+    <item priority="low">
+      interface BookedReservation {
         id: string;
-        name: string;
-        slug: string;
-        ianaTimezone: string;
-        settings: VenueSettings | null;
+        tableId: string | null;
+        startTime: Date;
+        partySize: number;
+        date?: Date;
+      }
+    </item>
+    <item priority="high">
+      type StrandReason = StrandedReservation["reason"];
+    </item>
+    <item priority="high">
+      export function strandReason(
+        snapshot: AvailabilitySnapshot,
+        booking: BookedReservation
+      ): StrandReason | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findStrandedReservations(
+        before: AvailabilitySnapshot,
+        after: AvailabilitySnapshot,
+        bookings: readonly BookedReservation[]
+      ): StrandedReservation[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config-plan.ts">
+    <item priority="low">
+      type ConfigTable = keyof AvailabilityConfig;
+    </item>
+    <item priority="high">
+      type Row = AvailabilityConfig[T][number];
+    </item>
+    <item priority="high">
+      type RowsByTable = { [T in ConfigTable]: AvailabilityConfig[T] };
+    </item>
+    <item priority="high">
+      type IdsByTable = Record<ConfigTable, string[]>;
+    </item>
+    <item priority="high">
+      export const CONFIG_TABLES: readonly ConfigTable[];
+    </item>
+    <item priority="high">
+      export const SCOPE_CONFLICT_HORIZON_DAYS: unknown;
+    </item>
+    <item priority="medium">
+      function canonical(value: unknown): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sharedDates(a: DateRule, b: DateRule): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      type Skip = { seriesId: string; date: string };
+    </item>
+    <item priority="medium">
+      function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): Set<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleEditSkips(
+        before: AvailabilityConfig,
+        next: AvailabilityConfig,
+        stored: readonly DateRule[],
+        today: string
+      ): Skip[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveScopeConflicts(
+        before: AvailabilityConfig,
+        next: AvailabilityConfig,
+        mode: ScopeConflictMode,
+        newId: () => string,
+        today: string
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ConfigDiff {
+        create: RowsByTable;
+        update: RowsByTable;
+        remove: IdsByTable;
       }
     </item>
     <item priority="medium">
-      function parseTimeToMinutes(time: string): number { /* ... */ }
+      function diffTable<T extends ConfigTable>(
+        stored: AvailabilityConfig[T],
+        next: AvailabilityConfig[T]
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function diffConfig(stored: AvailabilityConfig, next: AvailabilityConfig): ConfigDiff { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ConfigInverse {
+        version: 1;
+        restore: RowsByTable;
+        remove: IdsByTable;
+        operatingHours: unknown;
+      }
+    </item>
+    <item priority="high">
+      export function inverseOf(
+        stored: AvailabilityConfig,
+        diff: ConfigDiff,
+        operatingHours: unknown
+      ): ConfigInverse { /* ... */ }
+    </item>
+    <item priority="high">
+      export function affectedRange(
+        stored: AvailabilityConfig,
+        diff: ConfigDiff,
+        today: string
+      ): { from: string | null; to: string | null } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ReferenceIssue {
+        path: string;
+        code: "unknown_reference" | "id_taken" | "duplicate_row";
+        message: string;
+      }
+    </item>
+    <item priority="high">
+      export function referenceIssues(
+        config: AvailabilityConfig,
+        venueTableIds: ReadonlySet<string>
+      ): ReferenceIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function settleDraft(input: {
+        snapshot: { timezone: string; config: AvailabilityConfig };
+        changes: AvailabilityConfigChanges;
+        scopeConflicts: ScopeConflictMode;
+        tableIds: ReadonlySet<string>;
+        now: Date;
+        today: string;
+        newId: () => string;
+      }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config-rows.ts">
+    <item priority="low">
+      type ConfigRowDb = Pick<
+        PrismaClient,
+        | "schedule"
+        | "venueService"
+       ...;
+    </item>
+    <item priority="high">
+      export async function readStoredConfig(
+        db: ConfigRowDb,
+        venueId: string
+      ): Promise<{ config: AvailabilityConfig; warnings: SnapshotWarning[] }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      class ConfigRowConflict {
+        
+      }
+    </item>
+    <item priority="medium">
+      function uniqueViolation(error: unknown): { onId: boolean } | null { /* ... */ }
+    </item>
+    <item priority="low">
+      async function guarded(table: ConfigTable, id: string, write: () => Promise<unknown>) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function writeCreates(
+        db: ConfigRowDb,
+        venueId: string,
+        create: ConfigDiff["create"],
+        actorId: string,
+        revive: ReadonlySet<string>
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function writeConfigDiff(
+        db: ConfigRowDb,
+        venueId: string,
+        diff: ConfigDiff,
+        context: { actorId: string; now: Date; revive?: ReadonlySet<string> }
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config-state.ts">
+    <item priority="low">
+      interface ConfigState {
+        stored: AvailabilityConfig;
+        effective: AvailabilityConfig;
+        source: AvailabilityConfigSource;
+        legacyNotes?: LegacyNotes;
+        legacyProblem?: { reason: string; detail: string };
+      }
+    </item>
+    <item priority="low">
+      interface LegacyNotes {
+        unreadableDays: string[];
+        coercions: string[];
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config.ts">
+    <item priority="low">
+      type StoreDb = ConfigRowDb &
+        Pick<PrismaClient, "venue" | "reservation...;
+    </item>
+    <item priority="low">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
+    </item>
+    <item priority="medium">
+      function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function legacyIds(venueId: string): () => string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadConfigState(
+        db: StoreDb,
+        venueId: string,
+        now: Date
+      ): Promise<ConfigState | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readState(client: StoreClient, venueId: string, now: Date): Promise<ConfigState | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getAvailabilityConfig(
+        venueId: string,
+        now: Date,
+        client: StoreClient = prisma
+      ): Promise<{
+        config: AvailabilityConfig;
+        version: number;
+        source: AvailabilityConfigSource;
+        legacyNotes?: LegacyNotes;
+        legacyProblem?: { reason: string; detail: string };
+      } | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listAvailabilityDays(
+        venueId: string,
+        from: string,
+        to: string,
+        now: Date,
+        client: StoreClient = prisma
+      ): Promise<AvailabilityDaySummary[] | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      type SavePlan = { kind: "invalid"; issues: (Co | { kind: "stranded"; reservatio | {
+            kind: "write";
+            n;
+    </item>
+    <item priority="medium">
+      function describeDiff(diff: ConfigDiff): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planSave(input: {
+        state: ConfigState;
+        body: PutAvailabilityConfigBody;
+        bookings: readonly BookedReservation[];
+        /** Every table of the venue, active or not: a date rule may only block these. */
+        tableIds: ReadonlySet<string>;
+        now: Date;
+        newId?: () => string;
+        /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
+        allowNoHours?: boolean;
+      }): SavePlan { /* ... */ }
+    </item>
+    <item priority="low">
+      type SaveOutcome = { kind: "saved"; version: numb | { kind: "version_conflict"; wi | { kind: "not_found" } | Exclude<SavePlan, { kind: "wri;
+    </item>
+    <item priority="medium">
+      class SaveRefused {
+        
+      }
+    </item>
+    <item priority="low">
+      async function futureBookings(
+        db: StoreDb,
+        venueId: string,
+        today: string,
+        now: Date
+      ): Promise<BookedReservation[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome { /* ... */ }
+    </item>
+    <item priority="high">
+      export const toDbDate: unknown;
+    </item>
+    <item priority="low">
+      interface SaveRequest {
+        changes: PutAvailabilityConfigBody["changes"];
+        scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
+        kind: string;
+        summary?: string;
+        operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
+      }
+    </item>
+    <item priority="high">
+      export async function inSaveTransaction<T, R extends { kind: string } = never>(
+        client: StoreClient,
+        venueId: string,
+        work: (tx: StoreDb) => Promise<T>
+      ): Promise<T | SaveOutcome | R> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refuseSave(outcome: { kind: string }): never { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function commitSave(
+        tx: StoreDb,
+        input: { venueId: string; actorId: string; expectedVersion: number; now: Date },
+        resolve: (state: ConfigState) => Promise<SaveRequest>
+      ): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function saveAvailabilityConfig(
+        input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
+        client: StoreClient = prisma
+      ): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const PREVIEW_TIMEOUT_MS: unknown;
+    </item>
+    <item priority="low">
+      type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
+    </item>
+    <item priority="high">
+      export async function previewAvailabilityConfig(
+        input: {
+          venueId: string;
+          body: PreviewAvailabilityParsed;
+          now: Date;
+          timeoutMs?: number;
+        },
+        client: StoreClient = prisma
+      ): Promise<PreviewOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const availabilityConfigService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-migration.ts">
+    <item priority="high">
+      export const MIGRATION_ACTOR: unknown;
+    </item>
+    <item priority="low">
+      interface VenueForMigration {
+        operatingHours: unknown;
+        settings: unknown;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="low">
+      type VenueMigrationPlan = {
+            kind: "migrate";
+            | { kind: "unrecognised"; reason;
+    </item>
+    <item priority="high">
+      export function civilDateIn(now: Date, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planVenueMigration(
+        venue: VenueForMigration,
+        now: Date,
+        newId: () => string = randomUUID,
+        options: { lenient?: boolean } = {}
+      ): VenueMigrationPlan { /* ... */ }
+    </item>
+    <item priority="high">
+      interface MigrationSummary {
+        shape: LegacyShape;
+        notes: LegacyMigrationNotes;
+        rows: number;
+      }
+    </item>
+    <item priority="low">
+      type VenueMigrationOutcome = ({ venueId: string; outcome: " | ({ venueId: string; outcome: " | { venueId: string; outcome: "a | {
+            venueId: string;
+            | { venueId: string; outcome: "n;
+    </item>
+    <item priority="low">
+      type AvailabilityRowWriter = Pick<
+        PrismaClient,
+        "schedule" | "venueService" | "sc...;
+    </item>
+    <item priority="high">
+      export async function writeAvailabilityConfig(
+        tx: AvailabilityRowWriter,
+        venueId: string,
+        config: AvailabilityConfig
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function migrateVenue(
+        prisma: PrismaClient,
+        venueId: string,
+        options: { apply: boolean; now?: Date }
+      ): Promise<VenueMigrationOutcome> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-notices.ts">
+    <item priority="high">
+      export const DEFAULT_CLOSURE_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export const PAUSED_CALL_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export const PAUSED_MESSAGE: unknown;
+    </item>
+    <item priority="low">
+      interface DayNotices {
+        closure?: AvailabilityClosure;
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="medium">
+      function activePause(snapshot: BookingSnapshot, day: ReturnType<typeof resolveDay>) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dayNotices(
+        snapshot: BookingSnapshot,
+        serviceDate: ServiceDate,
+        phone: string | null,
+        /** Online seatings `listSlots` found for the date, booked or not. */
+        seatingCount: number
+      ): DayNotices { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-preview.ts">
+    <item priority="low">
+      interface PreviewInput {
+        state: ConfigState;
+        body: PreviewAvailabilityParsed;
+        bookings: readonly BookedReservation[];
+        tableIds: ReadonlySet<string>;
+        now: Date;
+      }
+    </item>
+    <item priority="low">
+      type PreviewPlan = { kind: "invalid"; issues: (Co | { kind: "ok"; result: PreviewR;
+    </item>
+    <item priority="high">
+      export function scopeIncludes(scope: PreviewScope, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planPreview(input: PreviewInput): PreviewPlan { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-snapshot.ts">
+    <item priority="low">
+      interface SnapshotWarning {
+        table: string;
+        id: string;
+        reason: string;
+      }
+    </item>
+    <item priority="low">
+      interface SnapshotLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      type SnapshotDb = Pick<
+        PrismaClient,
+        | "venue"
+        | "schedule"
+        | "ven...;
+    </item>
+    <item priority="low">
+      interface LoadSnapshotOptions {
+        db?: SnapshotDb;
+        logger?: SnapshotLogger;
+      }
+    </item>
+    <item priority="low">
+      type SnapshotSource = "rows" | "legacy" | "none";
+    </item>
+    <item priority="low">
+      interface LoadedSnapshot {
+        snapshot: BookingSnapshot;
+        version: number;
+        warnings: SnapshotWarning[];
+        source: SnapshotSource;
+        unconfigured: boolean;
+      }
+    </item>
+    <item priority="high">
+      class VenueNotFoundError {
+        
+      }
+    </item>
+    <item priority="high">
+      type RowSchema = {
+        safeParse(
+          value: unknown
+        ):
+          | { success: t...;
+    </item>
+    <item priority="medium">
+      function failureReason(issues: readonly { path: PropertyKey[]; message: string }[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseRows<T>(
+        table: string,
+        schema: RowSchema<T>,
+        candidates: readonly { id: string; value: unknown }[],
+        warnings: SnapshotWarning[],
+        onInvalid?: (id: string, value: unknown) => T | null
+      ): T[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function failClosedRule(row: DateRuleRow): DateRule { /* ... */ }
+    </item>
+    <item priority="low">
+      interface DateRuleRow {
+        id: string;
+        kind: string;
+        targetKind: string;
+        venueServiceId: string | null;
+        bookingTypes: string[];
+      }
+    </item>
+    <item priority="medium">
+      function dateRuleCandidate(row: DateRuleRow): unknown { /* ... */ }
+    </item>
+    <item priority="high">
+      interface LegacyVenue {
+        operatingHours: unknown;
+        settings: unknown;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function effectiveConfig(
+        venueId: string,
+        config: AvailabilityConfig,
+        venue: LegacyVenue,
+        now: Date,
+        warnings: SnapshotWarning[]
+      ): { config: AvailabilityConfig; source: SnapshotSource; unconfigured?: true } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pickEngineSettings(settings: VenueSettings | null): EngineSettings | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ConfigRows {
+        schedules: ScheduleRow[];
+        venueServices: VenueServiceRow[];
+        scheduleServices: ScheduleServiceRow[];
+        assignments: ScheduleAssignmentRow[];
+        dateRules: DateRuleRow[];
+      }
+    </item>
+    <item priority="high">
+      export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadAvailabilitySnapshot(
+        venueId: string,
+        fromDate: ServiceDate,
+        toDate: ServiceDate,
+        now: Date,
+        options: LoadSnapshotOptions = {}
+      ): Promise<LoadedSnapshot> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability.ts">
+    <item priority="low">
+      interface ListingOptions {
+        logger?: SnapshotLogger;
+      }
+    </item>
+    <item priority="low">
+      interface DayAvailability {
+        slots: TimeSlot[];
+        closure?: AvailabilityClosure;
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="low">
+      async function loadOrNull(
+        venueId: string,
+        fromDate: string,
+        toDate: string,
+        now: Date,
+        options: ListingOptions
+      ): Promise<LoadedSnapshot | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withDuration(
+        snapshot: BookingSnapshot,
+        partySize: number,
+        durationMinutes: number | undefined
+      ): BookingSnapshot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toTimeSlot(slot: Slot): TimeSlot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getDayAvailability(
+        venueId: string,
+        date: string,
+        partySize: number,
+        durationOverride?: number,
+        options: ListingOptions = {}
+      ): Promise<DayAvailability> { /* ... */ }
     </item>
     <item priority="high">
       export async function generateTimeSlots(
         venueId: string,
         date: string,
         partySize: number,
-        durationOverride?: number
+        durationOverride?: number,
+        options: ListingOptions = {}
       ): Promise<TimeSlot[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rangeDates(startDate: string, endDate: string): string[] { /* ... */ }
     </item>
     <item priority="high">
       export async function getAvailableDates(
         venueId: string,
         startDate: string,
         endDate: string,
-        partySize: number
+        partySize: number,
+        options: ListingOptions = {}
       ): Promise<DateAvailability[]> { /* ... */ }
     </item>
     <item priority="high">
@@ -11143,9 +13680,6 @@
         date: string
       ): Promise<{ reservations: ReservationSlim[]; holds: HoldSlim[] }> { /* ... */ }
     </item>
-    <item priority="medium">
-      function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date { /* ... */ }
-    </item>
     <item priority="high">
       export const availabilityService: unknown;
     </item>
@@ -11155,13 +13689,10 @@
       export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
     </item>
     <item priority="low">
-      type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+      type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
-      interface SlotConflict {
-        code: SlotConflictCode;
-        message: string;
-      }
+      type SlotConflict = { code: Exclude<SlotConflictCo | { code: "NOT_BOOKABLE"; messag;
     </item>
     <item priority="low">
       type SlotWriteResult = { ok: true; value: T } | { ok: false; conflict: SlotCon;
@@ -11177,6 +13708,13 @@
     </item>
     <item priority="high">
       export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteResult<T>> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function availabilityVerdict(
+        tx: Prisma.TransactionClient,
+        intent: BookSlotIntent<unknown> & { venueId: string },
+        gate: NonNullable<BookSlotIntent<unknown>["gate"]>
+      ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/booking-metrics.ts">
@@ -11255,9 +13793,648 @@
       export const briefingService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/closure-apply.ts">
+    <item priority="high">
+      type Tx = Pick<
+        PrismaClient,
+        "reservation" | "reservationEvent...;
+    </item>
+    <item priority="low">
+      interface PlannedTransition {
+        reservationId: string;
+        action: ClosureAction;
+        movedTo: Date | null;
+      }
+    </item>
+    <item priority="low">
+      type ApplyResult = { kind: "ok" } | { kind: "move_conflict"; reser | { kind: "cannot_cancel"; reser;
+    </item>
+    <item priority="high">
+      interface Existing {
+        id: string;
+        status: string;
+        tableId: string | null;
+        date: Date;
+        startTime: Date;
+      }
+    </item>
+    <item priority="low">
+      async function cancelInTx(
+        tx: Tx,
+        venueId: string,
+        actorId: string,
+        r: Existing
+      ): Promise<ApplyResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function targetTaken(
+        tx: Tx,
+        venueId: string,
+        r: Existing,
+        startTime: Date,
+        endTime: Date
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function moveInTx(
+        tx: Tx,
+        venueId: string,
+        actorId: string,
+        r: Existing,
+        startTime: Date
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function applyTransitions(
+        tx: Tx,
+        venueId: string,
+        actorId: string,
+        planned: readonly PlannedTransition[]
+      ): Promise<ApplyResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-command-plan.ts">
+    <item priority="low">
+      type DecisionCheck = { kind: "ok"; actions: Readonl | { kind: "decision-required"; g | { kind: "invalid-decision"; gr;
+    </item>
+    <item priority="high">
+      export function checkDecisions(
+        impact: ClosureImpact,
+        decisions: readonly ClosureDecision[]
+      ): DecisionCheck { /* ... */ }
+    </item>
+    <item priority="high">
+      export function countActions(actions: readonly ClosureAction[]): Record<ClosureAction, number> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function wallMinutes(instant: Date, serviceDate: string, tz: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function moveTarget(
+        after: AvailabilitySnapshot,
+        serviceDate: string,
+        booking: Pick<ClosureImpactReservation, "startTime" | "endTime">
+      ): { startTime: Date; endTime: Date } | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-command.ts">
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
+    </item>
+    <item priority="high">
+      type Db = StoreDb &
+        Pick<PrismaClient, "closureOutcome" | "reserv...;
+    </item>
+    <item priority="high">
+      export const TONIGHT_RULE_KINDS: ReadonlySet<string>;
+    </item>
+    <item priority="low">
+      interface ClosureCaller {
+        isManager: boolean;
+        actorId: string;
+      }
+    </item>
+    <item priority="low">
+      type CreateClosureOutcome = { kind: "saved"; result: Closu | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: { p | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
+    </item>
+    <item priority="high">
+      type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
+    </item>
+    <item priority="medium">
+      class Refused {
+        
+      }
+    </item>
+    <item priority="high">
+      interface ClosureMeta {
+        ruleId: string;
+        idempotencyKey: string;
+        version: number;
+      }
+    </item>
+    <item priority="high">
+      export async function mayCloseFor(
+        db: StoreDb,
+        venueId: string,
+        caller: Pick<ClosureCaller, "isManager">,
+        rule: DateRule,
+        now: Date
+      ): Promise<boolean | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mayClose(
+        venueId: string,
+        isManager: boolean,
+        rule: DateRule,
+        now: Date,
+        client: StoreClient = prisma
+      ): Promise<boolean | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function findReplay(
+        db: Pick<PrismaClient, "availabilityChange">,
+        venueId: string,
+        key: string
+      ): Promise<{ id: string; actorId: string; closure: ClosureMeta } | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function storedResult(
+        tx: Pick<PrismaClient, "closureOutcome">,
+        venueId: string,
+        replay: { id: string; closure: ClosureMeta }
+      ): Promise<ClosureResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Plan {
+        rows: Prisma.ClosureOutcomeCreateManyInput[];
+        counts: Record<ClosureAction, number>;
+        notifiedGuests: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function planOutcomes(
+        venueId: string,
+        actorId: string,
+        state: ConfigState,
+        rule: DateRule,
+        impact: ClosureImpact,
+        actions: ReadonlyMap<string, { action: ClosureAction }>
+      ): Plan | Refusal { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describe(rule: DateRule, counts: Record<ClosureAction, number>): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function guard(
+        tx: Db,
+        input: { venueId: string; caller: ClosureCaller; rule: DateRule; now: Date }
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      type CommitInput = {
+        venueId: string;
+        caller: ClosureCaller;
+        body: Cre...;
+    </item>
+    <item priority="low">
+      async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function preflight(tx: Db, input: CommitInput): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createClosure(
+        input: {
+          venueId: string;
+          caller: ClosureCaller;
+          body: CreateClosureBody;
+          idempotencyKey: string;
+          now: Date;
+          /** Rule kinds this call may save; the Tonight API widens it to `tonight`. */
+          ruleKinds?: ReadonlySet<string>;
+        },
+        client: StoreClient = prisma
+      ): Promise<CreateClosureOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function requireAuthor(
+        db: Pick<PrismaClient, "availabilityChange">,
+        venueId: string,
+        ruleId: string,
+        actorId: string
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" };
+    </item>
+    <item priority="high">
+      export async function reopenClosure(
+        input: {
+          venueId: string;
+          ruleId: string;
+          caller: ClosureCaller;
+          tellCancelledGuests: boolean;
+          now: Date;
+        },
+        client: StoreClient = prisma
+      ): Promise<ReopenOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const closureCommandService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-impact-store.ts">
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
+    </item>
+    <item priority="high">
+      type ImpactDb = Pick<PrismaClient, "table" | "reservation">;
+    </item>
+    <item priority="low">
+      type ClosureImpactOutcome = { kind: "ok"; impact: ClosureI | { kind: "not_found" } | { kind: "too_long" } | { kind: "invalid"; issues: { p;
+    </item>
+    <item priority="medium">
+      function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scanRange(rule: DateRule, today: string): { from: string; to: string } | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function impactInTransaction(
+        tx: ImpactDb,
+        venueId: string,
+        state: ConfigState,
+        rule: DateRule,
+        now: Date
+      ): Promise<ClosureImpactOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getClosureImpact(
+        venueId: string,
+        rule: DateRule,
+        now: Date,
+        client: StoreClient = prisma
+      ): Promise<ClosureImpactOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const closureImpactService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-impact.ts">
+    <item priority="low">
+      interface ImpactBooking {
+        id: string;
+        tableId: string | null;
+        date: Date;
+        startTime: Date;
+        endTime: Date;
+      }
+    </item>
+    <item priority="medium">
+      function kindOf(rule: DateRule): ClosureImpactKind { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function wallMinutes(instant: Date, serviceDate: string, tz: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runsIntoBand(
+        band: ResolvedClosure,
+        startMin: number,
+        endMin: number,
+        servedServiceIds: ReadonlySet<string>
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Verdicts {
+        runsInto: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function assess(
+        before: AvailabilitySnapshot,
+        after: AvailabilitySnapshot,
+        rule: DateRule,
+        booking: ImpactBooking
+      ): Verdicts | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpactReservation { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toGroup(
+        date: string,
+        kind: ClosureImpactKind,
+        reservations: ClosureImpactReservation[]
+      ): ClosureImpactGroup { /* ... */ }
+    </item>
+    <item priority="high">
+      export function computeClosureImpact(input: {
+        timezone: string;
+        config: AvailabilityConfig;
+        rule: DateRule;
+        bookings: readonly ImpactBooking[];
+      }): ClosureImpact { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-notice-runtime.ts">
+    <item priority="high">
+      export function createClosureNoticeDeps(input: {
+        dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
+        generateManageToken(reservationId: string, guestEmail: string): string;
+        manageBaseUrl: string;
+        logger: ClosureNoticeDeps["logger"];
+        now?: () => Date;
+      }): ClosureNoticeDeps { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-notice-service.ts">
+    <item priority="high">
+      export const URGENT_WINDOW_MS: unknown;
+    </item>
+    <item priority="high">
+      type Store = Pick<
+        typeof defaultStore,
+        "listNotifiable" | "listCa...;
+    </item>
+    <item priority="high">
+      type Scheduler = Pick<JobsPort, "schedule">;
+    </item>
+    <item priority="high">
+      interface EnqueueInput {
+        venueId: string;
+        ruleId: string;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function closureStartsAt(w: ClosureWindow): Date | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createClosureNoticeService(deps: { scheduler: Scheduler; store?: Store }) { /* ... */ }
+    </item>
+    <item priority="low">
+      type ClosureNoticeService = ReturnType<typeof createClosureNoticeService>;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-notice-store.ts">
+    <item priority="high">
+      type Db = Pick<PrismaClient, "closureOutcome">;
+    </item>
+    <item priority="high">
+      type RuleDb = Pick<PrismaClient, "dateRule">;
+    </item>
+    <item priority="low">
+      interface ClosureWindow {
+        startsOn: string;
+        from: number | null;
+        timezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function windowFrom(window: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadClosureWindow(
+        venueId: string,
+        ruleId: string,
+        db: RuleDb = prisma
+      ): Promise<ClosureWindow | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface NotifiableOutcome {
+        outcomeId: string;
+      }
+    </item>
+    <item priority="low">
+      type NoticeVariant = "closure" | "reopened";
+    </item>
+    <item priority="high">
+      export async function listNotifiable(
+        venueId: string,
+        ruleId: string,
+        variant: NoticeVariant,
+        db: Db = prisma
+      ): Promise<NotifiableOutcome[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadNoticeOutcome(
+        outcomeId: string,
+        db: Db = prisma
+      ): Promise<NoticeOutcome | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordDeliveries(
+        outcomeId: string,
+        deliveries: Deliveries,
+        db: Db = prisma
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadRebookSlots(o: NoticeOutcome, now: Date): Promise<Date[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CallListEntry {
+        outcomeId: string;
+        reservationId: string;
+        guestName: string | null;
+        partySize: number;
+        startTime: Date;
+      }
+    </item>
+    <item priority="high">
+      export async function listCallList(
+        venueId: string,
+        ruleId: string,
+        db: Db = prisma
+      ): Promise<CallListEntry[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosureSummary {
+        ruleId: string;
+        total: number;
+        cancelled: number;
+        sent: number;
+        rebooked: number;
+      }
+    </item>
+    <item priority="high">
+      interface SummaryRow {
+        dateRuleId: string;
+        action: NoticeOutcome["action"];
+        deliveries: unknown;
+        rebookedReservationId: string | null;
+        refund: string;
+      }
+    </item>
+    <item priority="high">
+      export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-notice.ts">
+    <item priority="low">
+      type DeliveryStatus = "sent" | "failed" | "skipped";
+    </item>
+    <item priority="low">
+      type ChannelStatuses = Partial<Record<NoticeChannel, DeliveryStatus>>;
+    </item>
+    <item priority="low">
+      type Deliveries = ChannelStatuses & { reopen?: ChannelStatuses };
+    </item>
+    <item priority="low">
+      interface NoticeOutcome {
+        outcomeId: string;
+        venueId: string;
+        reservationId: string;
+        action: "cancel" | "move" | "keep_notify" | "keep_silent";
+        deliveries: Deliveries;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureNoticeDeps {
+        smsEnabled: boolean;
+        logger: { warn(details: object, msg: string): void };
+      }
+    </item>
+    <item priority="high">
+      export function isOnCallList(
+        o: Pick<NoticeOutcome, "action" | "deliveries" | "rebooked">
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      async function contentFor(
+        o: NoticeOutcome,
+        kind: ClosureNoticeKind,
+        deps: ClosureNoticeDeps
+      ): Promise<ClosureNoticeContent> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function send(
+        channel: NoticeChannel,
+        o: NoticeOutcome,
+        content: ClosureNoticeContent,
+        deps: ClosureNoticeDeps
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createClosureNoticeHandler(deps: ClosureNoticeDeps) { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-refund-store.ts">
+    <item priority="high">
+      export function createPrismaClosureRefundStore(): ClosureRefundStore { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-refund.ts">
+    <item priority="low">
+      interface ClosureRefundRow {
+        id: string;
+        venueId: string;
+        reservationId: string;
+        dateRuleId: string;
+        refund: ClosureRefundStatus;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundStore {
+        
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundDeps {
+        deposits: Pick<DepositService, "getByReservationId" | "hold" | "ref...;
+        payments: PaymentsPort;
+        store: ClosureRefundStore;
+      }
+    </item>
+    <item priority="high">
+      class ClosureRefundPermanentError {
+        
+      }
+    </item>
+    <item priority="high">
+      export const closureRefundKey: unknown;
+    </item>
+    <item priority="high">
+      export const closureRefundJobId: unknown;
+    </item>
+    <item priority="high">
+      type Settled = ClosureRefundStatus;
+    </item>
+    <item priority="high">
+      type CapturedStatus = "forfeited" | "applied" | "partial_refunded";
+    </item>
+    <item priority="low">
+      async function writeOff(
+        deps: ClosureRefundDeps,
+        deposit: Deposit,
+        settled: Settled
+      ): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refundCaptured(
+        deps: ClosureRefundDeps,
+        deposit: Deposit,
+        row: ClosureRefundRow
+      ): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function settleClosureRefund(
+        deps: ClosureRefundDeps,
+        payload: ClosureRefundPayload
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runClosureRefundJob(
+        deps: ClosureRefundDeps,
+        payload: ClosureRefundPayload,
+        opts: { isFinalAttempt: boolean }
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      class ClosureRefundEnqueueError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function enqueueClosureRefunds(
+        deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+        venueId: string,
+        ruleId: string,
+        statuses: readonly ClosureRefundStatus[],
+        opts: { retry?: boolean; now?: () => number } = {}
+      ): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosureRefunds {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createClosureRefunds(deps: {
+        store: ClosureRefundStore;
+        jobs: Pick<JobScheduler, "schedule">;
+      }): ClosureRefunds { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     <item priority="high">
-      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
       interface ConfirmHoldInput {
@@ -11269,7 +14446,9 @@
       }
     </item>
     <item priority="low">
-      type ConfirmHoldResult = { success: true; reservation:  | { success: false; error: strin;
+      type ConfirmHoldResult = { success: true; reservation:  | {
+            success: false;
+            ;
     </item>
     <item priority="high">
       export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> { /* ... */ }
@@ -11292,6 +14471,25 @@
     </item>
     <item priority="high">
       export function canContact(state: ContactState, messageClass: MessageClass): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      type NoticeChannel = "email" | "sms";
+    </item>
+    <item priority="low">
+      interface NoticeContacts {
+        hasEmail: boolean;
+        hasSms: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function preferredChannels(preference: CommunicationPreference): NoticeChannel[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureNoticeChannels(
+        preference: CommunicationPreference | null | undefined,
+        contacts: NoticeContacts,
+        urgent: boolean
+      ): NoticeChannel[] { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/database.ts">
@@ -11392,14 +14590,16 @@
     <item priority="low">
       interface DomainServices {
         availabilityService: typeof availabilityService;
-        venueService: typeof venueService;
-        venueGroupService: typeof venueGroupService;
-        tableService: typeof tableService;
-        reservationService: typeof reservationService;
+        availabilityConfigService: typeof availabilityConfigService;
+        availabilityChangesService: typeof availabilityChangesService;
+        closureImpactService: typeof closureImpactService;
+        closureCommandService: typeof closureCommandService;
       }
     </item>
     <item priority="high">
-      export const defaultDomainServices: Omit<DomainServices, "depositService">;
+      export const defaultDomainServices: Omit<
+        DomainServices,
+        "depositService" | "closureNoti...;
     </item>
   </file>
   <file path="services/reservations/src/services/events.ts">
@@ -11622,7 +14822,11 @@
     <item priority="low">
       interface ReservationJobHandlerDeps {
         dispatcher: ReminderDispatcher;
+        closureNotice?: ClosureNoticeDeps;
         logger: JobWorkerLogger;
+        runClosureRefund?: (
+          payload: ClosureRefundPayload,
+          opts: { isFinalA...;
       }
     </item>
     <item priority="high">
@@ -11730,6 +14934,90 @@
       ): Promise<LapsingGuest[]> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/manage-rebook-deps.ts">
+    <item priority="high">
+      export async function rebookRequiresDeposit(
+        venueId: string,
+        reservation: Pick<Reservation, "guestEmail" | "guestPhone">
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const defaultRebookDeps: RebookDeps;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/manage-rebook-types.ts">
+    <item priority="low">
+      type GuestRefundStatus = "none" | "pending" | "done" | "failed";
+    </item>
+    <item priority="low">
+      interface CancelOutcome {
+        id: string;
+        refund: GuestRefundStatus;
+        rebookedReservationId: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface RebookDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      type VenueCancellationDeps = Pick<
+        RebookDeps,
+        "findCancelOutcome" | "findRebooked...;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/manage-rebook.ts">
+    <item priority="low">
+      interface RebookOffer {
+        id: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface VenueCancellation {
+        refundStatus: GuestRefundStatus;
+        offers: RebookOffer[];
+        rebooked: { reservationId: string; startTime: string } | null;
+      }
+    </item>
+    <item priority="low">
+      async function currentOffers(
+        reservation: Reservation,
+        venueId: string,
+        now: Date,
+        deps: Pick<RebookDeps, "loadSnapshot">
+      ): Promise<RebookOffer[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadVenueCancellation(
+        reservation: Reservation,
+        venueId: string,
+        now: Date = new Date(),
+        deps: VenueCancellationDeps = defaultRebookDeps
+      ): Promise<VenueCancellation | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RebookResult = { ok: true; reservation: Reser | {
+            ok: false;
+            reaso | { ok: false; reason: "rejected;
+    </item>
+    <item priority="medium">
+      class AlreadyRebookedError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function rebookVenueCancelled(
+        reservation: Reservation,
+        venueId: string,
+        offerId: string,
+        now: Date,
+        deps: RebookDeps = defaultRebookDeps
+      ): Promise<RebookResult> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/member-venues.ts">
     <item priority="high">
       export async function getMemberVenueIds(
@@ -11778,7 +15066,7 @@
   </file>
   <file path="services/reservations/src/services/move-to-hold.ts">
     <item priority="high">
-      type MoveToHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+      type MoveToHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
       interface MoveToHoldInput {
@@ -11790,7 +15078,9 @@
       }
     </item>
     <item priority="low">
-      type MoveToHoldResult = { success: true; reservation:  | { success: false; error: strin;
+      type MoveToHoldResult = { success: true; reservation:  | {
+            success: false;
+            ;
     </item>
     <item priority="high">
       export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
@@ -11950,6 +15240,8 @@
         startTime: Date;
         endTime: Date;
         partySize: number;
+        overrideReason?: string | null;
+        overrideLimits?: string[];
       }): EventState { /* ... */ }
     </item>
     <item priority="high">
@@ -12012,7 +15304,9 @@
       }
     </item>
     <item priority="low">
-      type ModifyReservationResult = { success: true; reservation:  | { success: false; status: numb;
+      type ModifyReservationResult = { success: true; reservation:  | {
+            success: false;
+            ;
     </item>
     <item priority="medium">
       function hasAnyChange(changes: ReservationChanges): boolean { /* ... */ }
@@ -12166,6 +15460,12 @@
         conflict?: ConflictCheckResult;
         capacityExceeded?: boolean;
       }
+    </item>
+    <item priority="medium">
+      function overrideColumns(override: { reason: string } | undefined, limits: string[] | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function staffSlotFailure(conflict: SlotConflict) { /* ... */ }
     </item>
     <item priority="medium">
       function compareReservationDateDesc(
@@ -12404,6 +15704,9 @@
       ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
     </item>
     <item priority="high">
+      export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } { /* ... */ }
+    </item>
+    <item priority="high">
       export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
     </item>
     <item priority="high">
@@ -12571,6 +15874,9 @@
         webhookSecret: string
       ): Stripe.Event { /* ... */ }
     </item>
+    <item priority="low">
+      type DepositRefundLeg = "refundPartial" | "closureRefund";
+    </item>
     <item priority="high">
       class StripeService {
         stripe: Stripe;
@@ -12647,6 +15953,115 @@
       export const tableService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/tonight-command.ts">
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
+    </item>
+    <item priority="high">
+      type Db = StoreDb;
+    </item>
+    <item priority="low">
+      type SetTonightOutcome = { kind: "saved"; result: Tonig | Exclude<CreateClosureOutcome,  | { kind: "rule_exists" };
+    </item>
+    <item priority="high">
+      type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
+    </item>
+    <item priority="medium">
+      class Refused {
+        
+      }
+    </item>
+    <item priority="high">
+      interface TonightDeps {
+        createClosure: typeof createClosure;
+      }
+    </item>
+    <item priority="medium">
+      function dayBoundary(state: ConfigState, serviceDate: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      type RuleShape = Pick<
+        Extract<DateRule, { kind: "tonight" }>,
+        "target...;
+    </item>
+    <item priority="medium">
+      function shapeOf(change: TonightChange): RuleShape { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildRule(
+        body: SetTonightBody,
+        serviceDate: string,
+        expiresAt: Date
+      ): Extract<DateRule, { kind: "tonight" }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeChange(change: TonightChange): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fingerprint(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function storedSame(
+        state: ConfigState,
+        rule: DateRule
+      ): Extract<DateRule, { kind: "tonight" }> | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeEarlyKey(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface TonightMeta {
+        ruleId: string;
+        version: number;
+      }
+    </item>
+    <item priority="low">
+      async function replayOf(
+        tx: Db,
+        venueId: string,
+        rule: Extract<DateRule, { kind: "tonight" }>,
+        state: ConfigState
+      ): Promise<TonightResult | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function checkRule(
+        tx: Db,
+        venueId: string,
+        state: ConfigState,
+        rule: DateRule
+      ): Promise<AvailabilityConfig> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function writeChange(
+        tx: Db,
+        input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+        state: ConfigState,
+        rule: Extract<DateRule, { kind: "tonight" }>
+      ): Promise<TonightResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      type Prepared = { kind: "saved"; result: Tonig | { kind: "delegate"; rule: Extr;
+    </item>
+    <item priority="high">
+      export async function setTonight(
+        input: { venueId: string; caller: ClosureCaller; body: SetTonightBody; now: Date },
+        client: StoreClient = prisma,
+        deps: TonightDeps = { createClosure }
+      ): Promise<SetTonightOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      type EndTonightOutcome = { kind: "ended"; result: Reope | { kind: "not_found" };
+    </item>
+    <item priority="high">
+      export async function endTonight(
+        input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+        client: StoreClient = prisma
+      ): Promise<EndTonightOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const tonightCommandService: unknown;
+    </item>
+  </file>
   <file path="services/reservations/src/services/venue-context-store.ts">
     <item priority="high">
       export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> { /* ... */ }
@@ -12658,6 +16073,9 @@
   <file path="services/reservations/src/services/venue-membership.ts">
     <item priority="high">
       export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createVenueRoleLookup(client: PrismaClient = prisma): VenueRoleLookup { /* ... */ }
     </item>
     <item priority="high">
       export function createHasAnyVenueMembership(client: PrismaClient = prisma): HasAnyVenueMembership { /* ... */ }
@@ -12676,6 +16094,33 @@
     </item>
     <item priority="high">
       export function withVenueScopedQueries(client: PrismaClient): PrismaClient { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/venue-team.ts">
+    <item priority="medium">
+      function toTeamRole(role: VenueRole): TeamRole { /* ... */ }
+    </item>
+    <item priority="high">
+      class LastManagerError {
+        
+      }
+    </item>
+    <item priority="high">
+      class OwnerProtectedError {
+        
+      }
+    </item>
+    <item priority="low">
+      interface TeamCaller {
+        isAdmin: boolean;
+        role: VenueRole | null;
+      }
+    </item>
+    <item priority="high">
+      export function createVenueTeamService(client: PrismaClient = prisma) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const venueTeamService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/venue.ts">
@@ -15563,11 +19008,21 @@
         partySize: number;
       }
     </item>
+    <item priority="low">
+      type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
+    </item>
+    <item priority="low">
+      type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
+    </item>
     <item priority="high">
       class AvailabilityClient {
         async getTimeSlots(): Promise<unknown>;
         async getTimeSlotsForVenue(): Promise<unknown>;
-        async getDates(): Promise<unknown>;
+        async getPublicAvailability(): Promise<unknown>;
+        async getClosedDates(): Promise<unknown>;
       }
     </item>
     <item priority="high">
@@ -15867,9 +19322,31 @@
       }
     </item>
     <item priority="low">
+      interface ManagedRebookOffer {
+        id: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManagedVenueCancellation {
+        refundStatus: "none" | "pending" | "done" | "failed";
+        offers: ManagedRebookOffer[];
+        rebooked: { startTime: string; manageToken: string } | null;
+      }
+    </item>
+    <item priority="low">
+      interface RebookedReservation {
+        reservationId: string;
+        startTime: string;
+        manageToken: string;
+      }
+    </item>
+    <item priority="low">
       interface ManageReservationData {
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
+        venueCancellation?: ManagedVenueCancellation | null;
       }
     </item>
     <item priority="high">
@@ -15948,6 +19425,18 @@
       }
     </item>
   </file>
+  <file path="packages/api-client/src/venue-team.ts">
+    <item priority="medium">
+      function teamPath(venueId: string, ...segments: string[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      class VenueTeamClient {
+        async get(): Promise<unknown>;
+        async setRole(): Promise<unknown>;
+        async setHostEmergencyClose(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="packages/api-client/src/venues.ts">
     <item priority="high">
       class VenuesClient {
@@ -15974,6 +19463,821 @@
         async create(): Promise<unknown>;
         async seat(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="packages/availability/src/apply-draft.ts">
+    <item priority="high">
+      type ConfigTable = keyof AvailabilityConfig;
+    </item>
+    <item priority="high">
+      type Row = AvailabilityConfig[T][number];
+    </item>
+    <item priority="high">
+      export const ARCHIVED_ON_REMOVE: ReadonlySet<ConfigTable>;
+    </item>
+    <item priority="medium">
+      function applyTable<T extends ConfigTable>(
+        table: T,
+        rows: AvailabilityConfig[T],
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): AvailabilityConfig[T] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyChanges(
+        config: AvailabilityConfig,
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyDraft<S extends AvailabilitySnapshot>(
+        snapshot: S,
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): S { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/civil-date.ts">
+    <item priority="medium">
+      function toUtcMs(date: ServiceDate): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fromUtcMs(ms: number): ServiceDate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addDays(date: ServiceDate, n: number): ServiceDate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekdayOf(date: ServiceDate): Weekday { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekdayIndexOf(date: ServiceDate): number { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/date-rules.ts">
+    <item priority="low">
+      type RuleOf = Extract<DateRule, { kind: K }>;
+    </item>
+    <item priority="high">
+      export const WHOLE_DAY: unknown;
+    </item>
+    <item priority="medium">
+      function covers(rule: DateRule, serviceDate: ServiceDate): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeRules(rules: readonly DateRule[], serviceDate: ServiceDate): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ofKind<K extends DateRule["kind"]>(
+        rules: readonly DateRule[],
+        kind: K
+      ): RuleOf<K>[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function timeRange(from: number, to: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function targetLabel(rule: DateRule, serviceName: string | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seriesLabel(rule: DateRule, serviceName: string | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function windowEffect(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tonightEffect(rule: RuleOf<"tonight">): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursEffect(
+        services: readonly { name: string; opensAt: number; closesAt: number }[]
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/diff-days.ts">
+    <item priority="low">
+      interface DayDiff {
+        serviceDate: ServiceDate;
+        added: number[];
+        removed: number[];
+      }
+    </item>
+    <item priority="low">
+      interface DiffDaysOptions {
+        partySize: number;
+        channel: BookingChannel;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function diffDays(
+        before: BookingSnapshot,
+        after: BookingSnapshot,
+        dates: readonly ServiceDate[],
+        options: DiffDaysOptions
+      ): DayDiff[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/format-minute.ts">
+    <item priority="high">
+      export function formatMinute(minute: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/instant.ts">
+    <item priority="medium">
+      function formatterFor(tz: string): Intl.DateTimeFormat { /* ... */ }
+    </item>
+    <item priority="high">
+      interface WallFields {
+        year: number;
+        month: number;
+        day: number;
+        hour: number;
+        minute: number;
+      }
+    </item>
+    <item priority="medium">
+      function wallFieldsOf(instantMs: number, tz: string): WallFields { /* ... */ }
+    </item>
+    <item priority="medium">
+      function offsetAt(instantMs: number, tz: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceDayInstant(
+        serviceDate: ServiceDate,
+        minute: number,
+        tz: string
+      ): Date | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localDateTimeOf(instant: Date, tz: string): { date: ServiceDate; minute: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/legacy-hours.ts">
+    <item priority="low">
+      type LegacyShape = "weekday" | "seed_array" | "v2";
+    </item>
+    <item priority="low">
+      interface LegacyWindow {
+        name?: string;
+        open: number;
+        close: number;
+        wrapped?: true;
+      }
+    </item>
+    <item priority="low">
+      interface LegacyOverride {
+        date: ServiceDate;
+        windows: readonly LegacyWindow[];
+        note?: string;
+      }
+    </item>
+    <item priority="low">
+      interface LegacyHours {
+        weekly: Readonly<Record<Weekday, readonly LegacyWindow[]>>;
+        overrides: readonly LegacyOverride[];
+      }
+    </item>
+    <item priority="low">
+      type LegacyHoursFailure = { ok: false; reason: "no_hours | { ok: false; reason: "unknown_ | { ok: false; reason: "unknown_ | { ok: false; reason: "unreadab | { ok: false; reason: "unreadab;
+    </item>
+    <item priority="low">
+      interface LegacyHoursOptions {
+        lenient?: boolean;
+      }
+    </item>
+    <item priority="low">
+      type LegacyHoursResult = {
+            ok: true;
+            shape: | LegacyHoursFailure;
+    </item>
+    <item priority="high">
+      type Loose = Record<string, unknown>;
+    </item>
+    <item priority="medium">
+      function parseTime(value: unknown, lenient: boolean): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type Problems = string[];
+    </item>
+    <item priority="high">
+      interface Reader {
+        problems: Problems;
+        lenient: boolean;
+        unreadableDays: string[];
+      }
+    </item>
+    <item priority="medium">
+      function toWindow(
+        where: string,
+        problems: Problems,
+        lenient: boolean,
+        open: unknown,
+        close: unknown,
+        name?: unknown
+      ): LegacyWindow | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function finish(shape: LegacyShape, reader: Reader, hours: LegacyHours): LegacyHoursResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weeklyFrom(
+        reader: Reader,
+        windowsFor: (day: Weekday, problems: Problems) => LegacyWindow[]
+      ): Record<Weekday, readonly LegacyWindow[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fromWeekdayKeyed(raw: Loose, reader: Reader): LegacyHoursResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fromSeedArray(raw: unknown[], reader: Reader): LegacyHoursResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toWindows(
+        where: string,
+        problems: Problems,
+        lenient: boolean,
+        raw: unknown
+      ): LegacyWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toOverrides(problems: Problems, lenient: boolean, raw: unknown): LegacyOverride[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fromV2(raw: Loose, reader: Reader): LegacyHoursResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeLegacyHours(
+        raw: unknown,
+        options: LegacyHoursOptions = {}
+      ): LegacyHoursResult { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/legacy-migration.ts">
+    <item priority="high">
+      export const DEFAULT_LAST_SEATING_BUFFER: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_PAST_MIDNIGHT_SPAN: unknown;
+    </item>
+    <item priority="low">
+      interface LegacyMigrationInput {
+        hours: LegacyHours;
+        slotIntervalMinutes?: number | null;
+        lastSeatingBuffer?: number | null;
+        today: ServiceDate;
+        newId: () => string;
+      }
+    </item>
+    <item priority="low">
+      interface PastMidnightWindow {
+        day: string;
+        open: number;
+        close: number;
+        span: number;
+      }
+    </item>
+    <item priority="low">
+      interface LegacyMigrationNotes {
+        pastMidnightWindows: PastMidnightWindow[];
+        droppedWindows: number;
+        skippedPastOverrides: number;
+        migratedOverrides: number;
+        unreadableDays?: string[];
+      }
+    </item>
+    <item priority="low">
+      type LegacyMigrationResult = { ok: true; config: Availabili | {
+            ok: false;
+            reaso;
+    </item>
+    <item priority="high">
+      interface SeatedWindow {
+        name?: string;
+        open: number;
+        close: number;
+        last: number;
+      }
+    </item>
+    <item priority="high">
+      interface NamedWindow {
+        serviceName: string;
+      }
+    </item>
+    <item priority="medium">
+      function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule | LegacyMigrationResult { /* ... */ }
+    </item>
+    <item priority="high">
+      interface SeatingRule {
+        interval: number;
+        fixedStep?: number;
+        buffer: number;
+        coercions: string[];
+      }
+    </item>
+    <item priority="medium">
+      function lenientIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fixedSeatings(open: number, last: number, step: number): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeImplausibleDays(hours: LegacyHours): { hours: LegacyHours; closed: string[] } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/legacy-projection.ts">
+    <item priority="low">
+      type LegacyDayHours = {
+        open: string;
+        close: string;
+        closed?: boolean;
+      };
+    </item>
+    <item priority="low">
+      type LegacyOperatingHours = Record<Weekday, LegacyDayHours>;
+    </item>
+    <item priority="medium">
+      function clock(minute: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyOperatingHours { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/rebook.ts">
+    <item priority="high">
+      export const MAX_REBOOK_OFFERS: unknown;
+    </item>
+    <item priority="high">
+      export const REBOOK_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export function rebookOfferId(start: Date): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RebookReservation {
+        startTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      type RebookResult = { kind: "offers"; slots: Slot[ | { kind: "picker" };
+    </item>
+    <item priority="medium">
+      function timeOfDayDistance(a: number, b: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Ranked {
+        slot: Slot;
+        distance: number;
+        dayRank: number;
+      }
+    </item>
+    <item priority="medium">
+      function compareRanked(a: Ranked, b: Ranked): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rankDay(slots: Slot[], originalMinute: number, timezone: string): Ranked[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rebookOffers(
+        snapshot: BookingSnapshot,
+        reservation: RebookReservation,
+        now: Date
+      ): RebookResult { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/resolve-day.ts">
+    <item priority="low">
+      interface AvailabilitySnapshot {
+        timezone: string;
+        config: AvailabilityConfig;
+      }
+    </item>
+    <item priority="low">
+      interface ResolvedService {
+        scheduleServiceId: string | null;
+        name: string;
+      }
+    </item>
+    <item priority="low">
+      interface ResolvedClosure {
+        ruleId: string;
+        targetKind: DateRule["targetKind"];
+        venueServiceId?: string;
+        tableIds?: string[];
+        bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
+      }
+    </item>
+    <item priority="low">
+      type BookingOpen = Record<"online" | "phone" | "waitlist", boolean>;
+    </item>
+    <item priority="low">
+      type LayerKind = "schedule" | DateRule["kind"];
+    </item>
+    <item priority="low">
+      interface Layer {
+        kind: LayerKind;
+        id: string;
+        label: string;
+        effect: string;
+        removalResult: ResolvedDaySummary;
+      }
+    </item>
+    <item priority="low">
+      interface ResolvedDaySummary {
+        serviceDate: ServiceDate;
+        scheduleId: string | null;
+        services: ResolvedService[];
+        closures: ResolvedClosure[];
+        bookingOpen: BookingOpen;
+      }
+    </item>
+    <item priority="low">
+      interface ResolvedDay {
+        explanation: Layer[];
+      }
+    </item>
+    <item priority="high">
+      type PendingLayer = Omit<Layer, "removalResult">;
+    </item>
+    <item priority="high">
+      interface Resolution {
+        day: ResolvedDaySummary;
+        layers: PendingLayer[];
+      }
+    </item>
+    <item priority="medium">
+      function coversDate(assignment: ScheduleAssignment, serviceDate: ServiceDate): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function assignmentFor(
+        config: AvailabilityConfig,
+        serviceDate: ServiceDate
+      ): ScheduleAssignment | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toResolved(
+        service: ScheduleService | SpecialHoursService,
+        venueService: VenueService
+      ): ResolvedService { /* ... */ }
+    </item>
+    <item priority="medium">
+      function liveServices(
+        services: readonly (ScheduleService | SpecialHoursService)[],
+        venueServices: ReadonlyMap<string, VenueService>
+      ): ResolvedService[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureOf(rule: DateRule, band: { from: number; to: number }): ResolvedClosure { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeBookingTypes(open: BookingOpen, rule: DateRule): BookingOpen { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyClosure(day: ResolvedDaySummary, rule: RuleOf<"closure">): ResolvedDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeEarly(service: ResolvedService, closeAt: number): ResolvedService[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyTonight(day: ResolvedDaySummary, rule: RuleOf<"tonight">): ResolvedDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withMessage(day: ResolvedDaySummary, rule: DateRule): ResolvedDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Resolution { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withoutRow(config: AvailabilityConfig, id: string): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate): ResolvedDay { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/slot-rules.ts">
+    <item priority="high">
+      export const DEFAULT_SLOT_INTERVAL: unknown;
+    </item>
+    <item priority="low">
+      type EngineSettings = Pick<
+        VenueSettings,
+        | "durationRules"
+        | "defaultRe...;
+    </item>
+    <item priority="low">
+      interface TableFilter {
+        id: string;
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+        isActive: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface TableCandidate {
+        id: string;
+        capacity: number;
+        priority: number;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationSlim {
+        id: string;
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface HoldSlim {
+        id: string;
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="high">
+      type DateThreshold = { lt: Date } | { gt: Date };
+    </item>
+    <item priority="medium">
+      function passesThreshold(value: Date, threshold: DateThreshold): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateDuration(partySize: number, settings?: EngineSettings | null): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overlapWindow(
+        startTime: Date,
+        endTime: Date
+      ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkTableConflict(
+        tableId: string,
+        startTime: Date,
+        endTime: Date,
+        reservations: readonly ReservationSlim[],
+        holds: readonly HoldSlim[],
+        now: Date
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkPacingForSlot(
+        startTime: Date,
+        partySize: number,
+        settings: EngineSettings | null | undefined,
+        reservations: readonly ReservationSlim[],
+        holds: readonly HoldSlim[],
+        now: Date,
+        coverCap?: number
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectBestTable<T extends TableCandidate>(
+        candidates: readonly T[],
+        startTime: Date,
+        endTime: Date,
+        reservations: readonly ReservationSlim[],
+        holds: readonly HoldSlim[],
+        now: Date
+      ): T | null { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/slots.ts">
+    <item priority="low">
+      type BookingChannel = "online" | "phone";
+    </item>
+    <item priority="low">
+      interface EngineTable {
+        name: string;
+        priority: number;
+      }
+    </item>
+    <item priority="low">
+      interface BookingSnapshot {
+        tables: EngineTable[];
+        reservations: ReservationSlim[];
+        holds: HoldSlim[];
+        settings: EngineSettings | null;
+      }
+    </item>
+    <item priority="low">
+      interface Slot {
+        start: Date;
+        serviceDate: ServiceDate;
+        minute: number;
+        venueServiceId: string;
+        tables: EngineTable[];
+      }
+    </item>
+    <item priority="low">
+      type SoftLimit = "after_last_seating" | "pacing" | "party_size";
+    </item>
+    <item priority="low">
+      type HardReason = "closed" | "booking_closed" | "outside_service" | "table_blocked" | "conflict";
+    </item>
+    <item priority="low">
+      type Verdict = { kind: "ok" } | { kind: "ok_with_override"; li | { kind: "soft"; limits: SoftLi | { kind: "hard"; reason: HardRe;
+    </item>
+    <item priority="low">
+      interface BookingRequest {
+        start: Date;
+        partySize: number;
+        channel: BookingChannel;
+        tableId?: string;
+        end?: Date;
+      }
+    </item>
+    <item priority="medium">
+      function seatingMinutes(service: ResolvedService): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function inBand(band: ResolvedClosure, minute: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closesSeating(
+        band: ResolvedClosure,
+        minute: number,
+        venueServiceId: string,
+        channel: BookingChannel
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function blockedTables(day: ResolvedDaySummary, minute: number): Set<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function freeTables(
+        snapshot: BookingSnapshot,
+        day: ResolvedDaySummary,
+        minute: number,
+        partySize: number,
+        start: Date,
+        now: Date,
+        requestedEnd?: Date
+      ): EngineTable[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pacingOk(
+        snapshot: BookingSnapshot,
+        day: ResolvedDaySummary,
+        start: Date,
+        partySize: number,
+        now: Date
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function listSlots(
+        snapshot: BookingSnapshot,
+        serviceDate: ServiceDate,
+        partySize: number,
+        channel: BookingChannel,
+        now: Date
+      ): Slot[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function plannedDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function owningServiceDay(snapshot: AvailabilitySnapshot, start: Date) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hard(reason: HardReason, message?: string): Verdict { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tableVerdict(
+        snapshot: BookingSnapshot,
+        day: ResolvedDaySummary,
+        minute: number,
+        request: BookingRequest,
+        now: Date
+      ): Verdict | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function softLimits(
+        snapshot: BookingSnapshot,
+        day: ResolvedDaySummary,
+        service: ResolvedService,
+        minute: number,
+        request: BookingRequest,
+        now: Date
+      ): SoftLimit[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function judge(snapshot: BookingSnapshot, request: BookingRequest, now: Date): Verdict { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/types.ts">
+    <item priority="low">
+      type ServiceDate = string;
+    </item>
+    <item priority="high">
+      export const WEEKDAYS: unknown;
+    </item>
+    <item priority="low">
+      type Weekday = (typeof WEEKDAYS)[number];
+    </item>
+    <item priority="high">
+      export const MINUTES_PER_DAY: unknown;
+    </item>
+  </file>
+  <file path="packages/availability/src/validate-config.ts">
+    <item priority="low">
+      type ConfigIssueCode = "invalid" | "overlap" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start" | "booking_types_required";
+    </item>
+    <item priority="low">
+      interface ConfigIssue {
+        path: string;
+        code: ConfigIssueCode;
+        message: string;
+      }
+    </item>
+    <item priority="high">
+      type ServiceHours = Pick<SpecialHoursService, "opensAt" | "lastSeatingAt" | "...;
+    </item>
+    <item priority="high">
+      interface PathedService {
+        path: string;
+        hours: ServiceHours;
+      }
+    </item>
+    <item priority="medium">
+      function issue(path: string, code: ConfigIssueCode, message: string): ConfigIssue { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatPath(segments: readonly PropertyKey[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fixedSeatingIssues({ path, hours }: PathedService): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursIssues({ path, hours }: PathedService): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlapIssues(services: readonly PathedService[]): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function serviceListIssues(services: readonly PathedService[]): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleServiceIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialHoursIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularScheduleIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function endsBeforeStart(
+        startsOn: string | null | undefined,
+        endsOn: string | null | undefined
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rangeIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function latest(a?: string | null, b?: string | null): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function earliest(a?: string | null, b?: string | null): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function assignmentsMeet(a: ScheduleAssignment, b: ScheduleAssignment): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function precedenceIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function windowIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingTypesIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateConfig(input: unknown): ConfigIssue[] { /* ... */ }
     </item>
   </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">
@@ -17407,6 +21711,7 @@
         date: string;
         hasAvailability: boolean;
         slotCount?: number;
+        closure?: { message: string };
       }
     </item>
     <item priority="low">
@@ -18211,8 +22516,8 @@
         notificationPort?: NotificationDispatcher;
         jobs?: JobsPort;
         payments?: PaymentsPort;
+        closureRefunds?: ClosureRefunds;
         reservationEvents?: ReservationEventEmitter;
-        waitlistNotifier?: WaitlistNotifier;
       }
     </item>
     <item priority="medium">
@@ -19037,6 +23342,32 @@
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/test/legacy-slot-oracle.ts">
+    <item priority="low">
+      interface OracleVenue {
+        ianaTimezone: string;
+        settings: VenueSettings | null;
+        operatingHours: OperatingHours | null;
+      }
+    </item>
+    <item priority="low">
+      interface OracleTable {
+        name: string;
+      }
+    </item>
+    <item priority="medium">
+      function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyTimeSlots(
+        venue: OracleVenue,
+        tables: OracleTable[],
+        date: string,
+        partySize: number,
+        now: Date
+      ): TimeSlot[] { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/test/mocks.ts">
     <item priority="high">
       type MockTable = Table;
@@ -19084,6 +23415,28 @@
     </item>
     <item priority="high">
       export const ERROR_FORBIDDEN: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/test/seed-venues.ts">
+    <item priority="low">
+      interface SeedHoursRow {
+        dayOfWeek: number;
+        openTime: string;
+        closeTime: string;
+        isClosed: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface SeedVenue {
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        hours: SeedHoursRow[];
+        settings: { defaultReservationDuration: number; maxPartySize: number };
+      }
+    </item>
+    <item priority="high">
+      export const SEED_VENUES: readonly SeedVenue[];
     </item>
   </file>
   <file path="services/reservations/src/test/shared-schema-compilers.ts">
@@ -19264,6 +23617,7 @@
         startHour: number;
         hourWidth: number;
         isMobile: boolean;
+        serviceDate: string;
         timeZone?: string;
       }
     </item>
@@ -19274,10 +23628,13 @@
       }
     </item>
     <item priority="high">
+      export function serviceDayMinute(instant: Date, serviceDate: string, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function computeReservationLayout(
         startTime: string,
         endTime: string,
-        { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
+        { startHour, hourWidth, isMobile, serviceDate, timeZone }: ReservationLayoutParams
       ): ReservationLayoutResult { /* ... */ }
     </item>
   </file>
@@ -20007,6 +24364,23 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/current-service-date.ts">
+    <item priority="high">
+      export function currentServiceDate(
+        config: AvailabilityConfig,
+        timeZone: string,
+        now: Date
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/dinner-config.fixture.ts">
+    <item priority="high">
+      export const DINNER_CONFIG: AvailabilityConfig;
+    </item>
+    <item priority="high">
+      export const DINNER_TZ: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -20264,6 +24638,33 @@
       export function stripReservationsIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/tonight-blocks.ts">
+    <item priority="high">
+      export function bookingMinuteOnServiceDay(
+        config: AvailabilityConfig,
+        timeZone: string,
+        serviceDate: string,
+        date: string,
+        time: string
+      ): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function blockedTableIds(
+        rules: readonly DateRule[],
+        serviceDate: string,
+        startMinute: number | null
+      ): ReadonlySet<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function waitlistClosingRule(
+        rules: readonly DateRule[],
+        serviceDate: string
+      ): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isTonightOnlyWaitlistClosure(rule: DateRule): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/venue-wall-time.ts">
     <item priority="medium">
       function zoneOffsetMs(instantMs: number, timeZone: string): number { /* ... */ }
@@ -20277,12 +24678,10 @@
   </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
     <item priority="high">
-      export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
-    </item>
-    <item priority="high">
       export function formatVenueOpenLabel(
         s: VenueOpenState,
-        formatClock: (hhmm: string) => string = formatLocalTime
+        formatClock: (hhmm: string) => string = formatLocalTime,
+        t: TFunction = defaultT
       ): string { /* ... */ }
     </item>
   </file>

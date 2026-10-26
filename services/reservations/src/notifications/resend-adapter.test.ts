@@ -30,7 +30,7 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://app.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
@@ -51,7 +51,7 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://app.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
@@ -68,7 +68,7 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: null,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://app.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
@@ -81,7 +81,7 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://app.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
@@ -96,7 +96,7 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://app.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
@@ -112,7 +112,7 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://app.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
@@ -134,7 +134,7 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://app.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
@@ -154,7 +154,7 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: null,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://app.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
@@ -173,14 +173,16 @@ describe("ResendNotificationAdapter", () => {
     const adapter = new ResendNotificationAdapter({
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
-      manageBaseUrl: "https://web.mbe.dev/reservations/manage",
+      manageBaseUrl: "https://web.mbe.dev",
       publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await adapter.sendBookingConfirmation(defaultInput);
 
     const call = mockSend.mock.calls[0]![0];
-    expect(call.html).toContain("https://web.mbe.dev/reservations/manage?token=tok_abc123");
+    expect(call.html).toContain(
+      "https://web.mbe.dev/hospitality/reservations/manage?token=tok_abc123"
+    );
     expect(call.html).not.toContain("https://api.mbe.dev");
   });
 

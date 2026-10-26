@@ -7,9 +7,11 @@ export const DEFAULT_JOB_OPTIONS = {
 
 export const JOB_TYPES = {
   BOOKING_REMINDER: "booking-reminder",
+  CLOSURE_NOTICE: "closure-notice",
   DAY_OF_REMINDER: "day-of-reminder",
   POST_VISIT_FOLLOWUP: "post-visit-followup",
   WAITLIST_EXPIRY: "waitlist-expiry",
+  CLOSURE_REFUND: "closure-refund",
 } as const;
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
@@ -37,6 +39,12 @@ export interface ReminderPayload {
 export interface JobContext {
   /** Persist a patch of new job data (shallow-merged over the current payload) for the retry. */
   updateData(patch: object): Promise<void>;
+  /**
+   * True when a failure now will not be retried (the last of the job's
+   * attempts, or a job whose attempt count is unknown). A handler that must
+   * record a terminal failure does so only when this is set.
+   */
+  isFinalAttempt: boolean;
 }
 
 export interface PostVisitFollowupPayload {
@@ -68,11 +76,33 @@ export interface WaitlistExpiryPayload {
   venueId?: string;
 }
 
+/**
+ * One guest's closure notice (docs/features/venue-availability/architecture.md
+ * § Jobs). The job id is `closure-notice_<outcomeId>[_reopened]` (BullMQ rejects `:` in custom ids), so a replayed
+ * enqueue is a no-op while the job is queued.
+ */
+export interface ClosureNoticePayload {
+  outcomeId: string;
+  venueId: string;
+  /** `reopened` is the opt-in "we've reopened" notice; default is the closure notice. */
+  variant?: "closure" | "reopened";
+  /** The booking starts within 6 hours: SMS and email wherever the guest has them. */
+  urgent?: boolean;
+}
+
+/** Refunds the deposit behind one `ClosureOutcome` (services/closure-refund.ts). */
+export interface ClosureRefundPayload {
+  outcomeId: string;
+  venueId: string;
+}
+
 export type JobPayloadMap = {
+  [JOB_TYPES.CLOSURE_NOTICE]: ClosureNoticePayload;
   [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
   [JOB_TYPES.DAY_OF_REMINDER]: ReminderPayload;
   [JOB_TYPES.POST_VISIT_FOLLOWUP]: PostVisitFollowupPayload;
   [JOB_TYPES.WAITLIST_EXPIRY]: WaitlistExpiryPayload;
+  [JOB_TYPES.CLOSURE_REFUND]: ClosureRefundPayload;
 };
 
 export type JobHandlerMap = Partial<{

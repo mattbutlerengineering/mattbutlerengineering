@@ -14,6 +14,15 @@ vi.mock("../../contexts/venue-context-object.js", () => ({
   }),
 }));
 
+vi.mock("../../hooks/useStaffBookingCheck.js", () => ({
+  useStaffBookingCheck: () => ({ phase: "idle", verdict: null }),
+}));
+vi.mock("../../hooks/useStaffTonight.js", () => ({
+  useStaffTonight: () => ({ serviceDate: null, rules: [], waitlistClosed: false }),
+}));
+vi.mock("../../hooks/useOpenTimes.js", () => ({
+  useOpenTimes: () => ({ data: [], isLoading: false, error: null }),
+}));
 vi.mock("../../hooks/useGuestLookup.js", () => ({
   useGuestLookup: () => ({ rows: [], hasMore: false, isLoading: false, failed: false, query: "" }),
 }));

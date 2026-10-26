@@ -57,6 +57,11 @@ vi.mock("../components/venue-profile/VenueProfileCard.js", () => ({
   VenueProfileCard: () => <div data-testid="venue-profile-card" />,
 }));
 
+// Settings → Team has its own suite at components/venue-team/TeamRolesCard.test.tsx.
+vi.mock("../components/venue-team/TeamRolesCard.js", () => ({
+  TeamRolesCard: () => <div data-testid="team-roles-card" />,
+}));
+
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="page-header">
@@ -274,14 +279,14 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("navigates to /setup/hours when Operating Hours is clicked (#4982)", async () => {
+  it("navigates to /availability when Operating Hours is clicked (#4982)", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Venue")).toBeDefined();
     });
 
     fireEvent.click(screen.getByText("Operating Hours"));
-    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
+    expect(mockNavigate).toHaveBeenCalledWith("/availability");
   });
 
   it("links to the Friday-night rehearsal from the venue card", async () => {
@@ -305,6 +310,13 @@ describe("SettingsPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("venue-profile-card")).toBeDefined();
+    });
+  });
+
+  it("renders the Team roles card after loading (#7510)", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("team-roles-card")).toBeDefined();
     });
   });
 

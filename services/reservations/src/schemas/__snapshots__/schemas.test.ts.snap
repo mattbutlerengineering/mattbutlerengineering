@@ -731,6 +731,12 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
         },
       ],
     },
+    "overrideReason": {
+      "type": [
+        "string",
+        "null",
+      ],
+    },
     "partySize": {
       "type": "number",
     },

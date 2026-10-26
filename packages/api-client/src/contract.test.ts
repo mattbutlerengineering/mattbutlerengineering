@@ -11,6 +11,8 @@ import {
   GuestRiskResultSchema,
   GuestRecognitionSchema,
   WaitlistJoinResultSchema,
+  VenueTeamSchema,
+  TeamMemberSchema,
 } from "@mbe/types/schemas";
 
 // JSON Schemas from @mbe/types (the server's source of truth — services re-export these)
@@ -23,6 +25,7 @@ import {
   guestRiskResultJsonSchema as ServiceGuestRiskResultSchema,
   guestRecognitionJsonSchema as ServiceGuestRecognitionSchema,
   waitlistJoinResultJsonSchema as ServiceWaitlistJoinResultSchema,
+  venueTeamResponseJsonSchema as ServiceVenueTeamSchema,
 } from "@mbe/types/schemas";
 
 /**
@@ -126,6 +129,27 @@ describe("API Client ↔ Service Schema Contracts", () => {
         zodKeys(WaitlistJoinResultSchema),
         jsonSchemaKeys(ServiceWaitlistJoinResultSchema)
       );
+    });
+
+    it("VenueTeam schema properties match between @mbe/types and reservations service", () => {
+      assertKeysMatch(
+        "VenueTeam",
+        zodKeys(VenueTeamSchema),
+        jsonSchemaKeys(ServiceVenueTeamSchema)
+      );
+      const members = ServiceVenueTeamSchema.properties as Record<string, Record<string, unknown>>;
+      assertKeysMatch(
+        "TeamMember",
+        zodKeys(TeamMemberSchema),
+        jsonSchemaKeys(members.members!.items as Record<string, unknown>)
+      );
+      // No name or email crosses the wire: members are keyed by Auth0 sub only.
+      expect([...zodKeys(TeamMemberSchema)].sort()).toEqual([
+        "isOwner",
+        "isViewer",
+        "role",
+        "userSub",
+      ]);
     });
   });
 });

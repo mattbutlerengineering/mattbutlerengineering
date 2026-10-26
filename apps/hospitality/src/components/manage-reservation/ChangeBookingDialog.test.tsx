@@ -90,7 +90,9 @@ describe("ChangeBookingDialog", () => {
   it("opens prefilled with the current date and party size", () => {
     setup();
     expect(screen.getByRole("dialog")).toBeDefined();
-    expect((screen.getByLabelText(/^date/i) as HTMLInputElement).value).toBe("2099-06-16");
+    expect(screen.getByRole("gridcell", { selected: true }).getAttribute("data-date")).toBe(
+      "2099-06-16"
+    );
     expect(screen.getByRole("button", { name: "4", pressed: true })).toBeDefined();
   });
 

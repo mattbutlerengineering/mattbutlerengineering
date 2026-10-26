@@ -20,6 +20,13 @@ vi.mock("./database.js", async () => {
         findFirst: vi.fn(),
         aggregate: vi.fn(),
       },
+      // Availability rows: none by default, so listing derives the week from the
+      // legacy operatingHours column (a venue the backfill has not reached).
+      schedule: { findMany: vi.fn() },
+      venueService: { findMany: vi.fn() },
+      scheduleService: { findMany: vi.fn() },
+      scheduleAssignment: { findMany: vi.fn() },
+      dateRule: { findMany: vi.fn() },
     },
   });
 });
@@ -76,6 +83,18 @@ const FIXED_NOW = new Date("2026-05-01T12:00:00Z");
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(FIXED_NOW);
+  // Prisma's findMany always resolves to an array; tests override per case.
+  for (const delegate of [
+    prisma.reservation,
+    prisma.reservationHold,
+    prisma.schedule,
+    prisma.venueService,
+    prisma.scheduleService,
+    prisma.scheduleAssignment,
+    prisma.dateRule,
+  ]) {
+    vi.mocked(delegate.findMany).mockResolvedValue([] as never);
+  }
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -165,6 +184,10 @@ describe("availabilityService.generateTimeSlots", () => {
     vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(
       makePrismaVenue({ operatingHours: allClosed }) as never
     );
+    // The snapshot loads inventory in the same batch as the hours.
+    vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
 
     const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-04", 2);
 
@@ -654,6 +677,228 @@ describe("availabilityService.getAvailableDates", () => {
     expect(dates[0]!.hasAvailability).toBe(anySlotAvailable);
     expect(dates[0]!.slotCount).toBe(0);
   });
+
+  it("loads one snapshot for the whole range, not one per date", async () => {
+    stubOpenVenue();
+
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-04",
+      "2026-06-02",
+      2
+    );
+
+    expect(dates).toHaveLength(30);
+    expect(prisma.venue.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.reservation.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.reservationHold.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.dateRule.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts each date exactly as that date's own slot list does, with bookings across the range", async () => {
+    // Bookings every day of the range, including late ones whose instant falls on
+    // the next UTC day, so a per-date view that dropped a relevant booking (or kept
+    // a booking from another day) would change some date's count.
+    const tables = [makePrismaTable(), makePrismaTable({ id: "table-2", name: "Table 2" })];
+    const reservations = Array.from({ length: 10 }, (_, i) => {
+      const day = `2026-05-${String(4 + i).padStart(2, "0")}`;
+      return [
+        { id: `early-${i}`, tableId: "table-1", hour: "15:00:00", minutes: 90 },
+        { id: `late-${i}`, tableId: "table-2", hour: "23:30:00", minutes: 180 }, // 19:30 ET
+      ].map((r) => {
+        const startTime = new Date(`${day}T${r.hour}Z`);
+        return {
+          id: r.id,
+          tableId: r.tableId,
+          date: new Date(day),
+          startTime,
+          endTime: new Date(startTime.getTime() + r.minutes * 60_000),
+          partySize: 2,
+        };
+      });
+    }).flat();
+    const stubAll = () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValue(makePrismaVenue() as never);
+      vi.mocked(prisma.table.findMany).mockResolvedValue(tables as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValue(reservations as never);
+      vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([] as never);
+    };
+    stubAll();
+
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-04",
+      "2026-05-13",
+      2
+    );
+
+    for (const day of dates) {
+      stubAll();
+      const slots = await availabilityService.generateTimeSlots(VENUE_ID, day.date, 2);
+      expect(day.slotCount, day.date).toBe(slots.filter((s) => s.available).length);
+    }
+    expect(dates.some((d) => d.slotCount! > 0)).toBe(true);
+  });
+
+  it("carries a closure message on a closed date only", async () => {
+    stubOpenVenue();
+    vi.mocked(prisma.dateRule.findMany).mockResolvedValueOnce([
+      closureRow({ guestMessage: "Closed for a private event" }),
+    ] as never);
+
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-05",
+      "2026-05-06",
+      2
+    );
+
+    expect(dates[0]).toEqual({
+      date: "2026-05-05",
+      hasAvailability: false,
+      slotCount: 0,
+      closure: { message: "Closed for a private event" },
+    });
+    expect(dates[1]).not.toHaveProperty("closure");
+    expect(dates[1]!.hasAvailability).toBe(true);
+  });
+});
+
+function stubOpenVenue(overrides: Record<string, unknown> = {}) {
+  vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue(overrides) as never);
+  vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+  vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+  vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+}
+
+/** A `date_rules` row as Prisma returns it: a whole-venue closure of 2026-05-05. */
+function closureRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "rule-closed",
+    kind: "closure",
+    targetKind: "venue",
+    venueServiceId: null,
+    bookingTypes: [],
+    startsOn: new Date("2026-05-05T00:00:00Z"),
+    endsOn: new Date("2026-05-05T00:00:00Z"),
+    repeat: null,
+    window: null,
+    payload: {},
+    useScheduleId: null,
+    seriesId: null,
+    guestMessage: null,
+    staffNote: null,
+    expiresAt: null,
+    tables: [],
+    ...overrides,
+  };
+}
+
+describe("availabilityService.getDayAvailability", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the slots with no notice on an open date", async () => {
+    stubOpenVenue();
+
+    const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2);
+
+    expect(day.slots).toHaveLength(39);
+    expect(day).not.toHaveProperty("closure");
+    expect(day).not.toHaveProperty("bookingPaused");
+  });
+
+  it("returns no slots and the closure message on a closed date", async () => {
+    stubOpenVenue();
+    vi.mocked(prisma.dateRule.findMany).mockResolvedValueOnce([
+      closureRow({ guestMessage: "Burst pipe" }),
+    ] as never);
+
+    const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2);
+
+    expect(day).toEqual({ slots: [], closure: { message: "Burst pipe" } });
+  });
+
+  it("returns the booking pause with the venue phone while phone booking is open", async () => {
+    stubOpenVenue({ settings: { phone: "(555) 123-4567" } });
+    vi.mocked(prisma.dateRule.findMany).mockResolvedValueOnce([
+      closureRow({ targetKind: "booking", bookingTypes: ["online"], endsOn: null }),
+    ] as never);
+
+    const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2);
+
+    expect(day).toEqual({
+      slots: [],
+      bookingPaused: { message: "Online booking is paused right now.", phone: "(555) 123-4567" },
+    });
+  });
+
+  it("reads the availability rows, not the legacy column, once they exist", async () => {
+    // Rows say Tuesday 17:00-19:00 at 60 minutes; the legacy column says 11:00-22:00.
+    stubOpenVenue();
+    vi.mocked(prisma.schedule.findMany).mockResolvedValueOnce([
+      {
+        id: "s1",
+        venueId: VENUE_ID,
+        name: "Regular week",
+        kind: "regular",
+        isRegular: true,
+        archivedAt: null,
+      },
+    ] as never);
+    vi.mocked(prisma.venueService.findMany).mockResolvedValueOnce([
+      { id: "vs1", venueId: VENUE_ID, name: "Dinner", position: 0, archivedAt: null },
+    ] as never);
+    vi.mocked(prisma.scheduleService.findMany).mockResolvedValueOnce([
+      {
+        id: "ss1",
+        venueId: VENUE_ID,
+        scheduleId: "s1",
+        venueServiceId: "vs1",
+        opensAt: 1020,
+        lastSeatingAt: 1140,
+        closesAt: 1200,
+        seating: { version: 1, interval: 60 },
+        bookingTypes: ["online", "phone"],
+        rules: {},
+      },
+    ] as never);
+    vi.mocked(prisma.scheduleAssignment.findMany).mockResolvedValueOnce([
+      {
+        id: "a1",
+        venueId: VENUE_ID,
+        scheduleId: "s1",
+        weekdays: [2],
+        startsOn: null,
+        endsOn: null,
+        precedence: 0,
+      },
+    ] as never);
+
+    const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2);
+
+    expect(day.slots.map((s) => s.time)).toEqual([
+      "2026-05-05T21:00:00.000Z",
+      "2026-05-05T22:00:00.000Z",
+      "2026-05-05T23:00:00.000Z",
+    ]);
+  });
+
+  it("is closed, and logs a warning, when the legacy hours cannot be read", async () => {
+    stubOpenVenue({ operatingHours: { version: 7 } });
+    const logger = { warn: vi.fn() };
+
+    const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2, undefined, {
+      logger,
+    });
+
+    expect(day).toEqual({ slots: [] });
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ table: "venues", id: VENUE_ID }),
+      "availability_snapshot_row_invalid"
+    );
+  });
 });
 
 describe("availabilityService.findBestTable", () => {
@@ -785,7 +1030,7 @@ describe("fetchConflictData", () => {
     expect(result.holds).toEqual(holds);
   });
 
-  it("filters reservations by venue, date and active status", async () => {
+  it("filters reservations by venue, service days D-1..D+1 and active status", async () => {
     vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
     vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
 
@@ -795,7 +1040,7 @@ describe("fetchConflictData", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           venueId: VENUE_ID,
-          date: new Date("2026-05-05"),
+          date: { gte: new Date("2026-05-04"), lte: new Date("2026-05-06") },
           status: { notIn: ["CANCELLED", "NO_SHOW"] },
         }),
       })

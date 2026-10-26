@@ -306,3 +306,32 @@ for (const storyId of TIMELINE_GEOMETRY_STORIES) {
     expect([...nodeXs], "every node shares one x").toHaveLength(1);
   });
 }
+
+/**
+ * Review of gen-ui-elements-2: a dated time ("Fri Oct 16, 7:30 PM") used to wrap
+ * to three lines in a fixed 4.5rem column. The list is now a subgrid, so each
+ * time stays on one line and every row's guest starts at one x.
+ */
+test("ReservationList geometry / data-display-reservationlist--multi-date", async ({ page }) => {
+  await loadStory(page, "data-display-reservationlist--multi-date");
+  const rows = await page.locator("#storybook-root li").evaluateAll((items) =>
+    items.map((item) => {
+      const time = item.children[0] as HTMLElement;
+      const who = item.children[1] as HTMLElement;
+      const range = document.createRange();
+      range.selectNodeContents(time);
+      const lineTops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+      return {
+        text: time.textContent ?? "",
+        lines: lineTops.size,
+        whoLeft: who.getBoundingClientRect().left,
+      };
+    })
+  );
+
+  expect(rows.length).toBe(2);
+  for (const row of rows) {
+    expect(row.lines, `time "${row.text}" wraps to ${row.lines} lines`).toBe(1);
+  }
+  expect(new Set(rows.map((row) => Math.round(row.whoLeft))).size, "guests share one x").toBe(1);
+});

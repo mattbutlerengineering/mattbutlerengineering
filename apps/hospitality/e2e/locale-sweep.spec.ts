@@ -35,6 +35,7 @@ import { esMX as rialtoEsMX } from "@mattbutlerengineering/rialto/locales/es-MX"
 import { frCA as rialtoFrCA } from "@mattbutlerengineering/rialto/locales/fr-CA";
 import { atLocal, localDay } from "./local-day.js";
 import { test, expect } from "./fixtures.js";
+import { pickBookingDate } from "./booking-date.js";
 
 const VENUE_SLUG = "e2e-test-bistro";
 const VENUE_NAME = "E2E Test Bistro";
@@ -350,9 +351,7 @@ for (const locale of LOCALES) {
         await expect(page.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
         await sweep(page, locale, "date-party step");
 
-        const bookingDate = new Date();
-        bookingDate.setDate(bookingDate.getDate() + 3);
-        await page.locator('input[type="date"]').fill(bookingDate.toISOString().slice(0, 10));
+        await pickBookingDate(page, localDay(3));
         await page
           .getByRole("button", { name: label(locale, "bookingWidget.dateParty.findTimes") })
           .click();

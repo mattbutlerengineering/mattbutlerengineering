@@ -1,11 +1,35 @@
+import type { z } from "zod";
 import type {
   TimeSlot,
+  PublicAvailabilityResponse,
+  PublicClosedDate,
   DateAvailability,
   ReservationHold,
   CreateHoldRequest,
   ConfirmHoldRequest,
   Reservation,
+  AvailabilityConfigState,
+  AvailabilityConfigSaveResult,
+  AvailabilityChangesPage,
+  AvailabilityChangesQuery,
+  AvailabilityDaySummary,
+  ClosureImpact,
+  ClosureResult,
+  ClosureSummary,
+  ClosureCallListEntry,
+  RetryRefundsResult,
+  CreateClosureBodySchema,
+  DateRule,
+  ReopenResult,
+  SetTonightBodySchema,
+  TonightResult,
+  AvailabilityCheckBody,
+  AvailabilityCheckResult,
+  PreviewAvailabilityBody,
+  PreviewResult,
+  PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
+import { availabilityConfigEndpoints } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
 
 export interface GetTimeSlotsParams {
@@ -26,6 +50,15 @@ export interface GetDatesParams {
   endDate: string;
   partySize: number;
 }
+
+/** What `saveConfig` sends; `scopeConflicts` defaults to `keep`. */
+export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
+
+/** What `createClosure` sends; `decisions` defaults to none. */
+export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+
+/** What `setTonight` sends; `decisions` defaults to none. */
+export type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
 
 export class AvailabilityClient {
   constructor(private client: ApiClient) {}
@@ -53,6 +86,36 @@ export class AvailabilityClient {
   }
 
   /**
+   * Same public route as {@link getTimeSlotsForVenue}, but returns the whole
+   * response — the slots plus the engine's per-date `closure` and venue-level
+   * `bookingPaused` — for callers that must tell "closed" from "fully booked".
+   */
+  async getPublicAvailability(
+    slug: string,
+    params: GetVenueTimeSlotsParams
+  ): Promise<PublicAvailabilityResponse> {
+    return this.client.get<PublicAvailabilityResponse>(publicAvailabilityPath(slug), {
+      date: params.date,
+      partySize: params.partySize,
+    });
+  }
+
+  /**
+   * The dates in `from`..`to` (at most 60 days) the venue is closed, each with
+   * its guest message, from the public route — so a calendar can disable them
+   * before a guest picks one.
+   */
+  async getClosedDates(
+    slug: string,
+    range: { from: string; to: string }
+  ): Promise<PublicClosedDate[]> {
+    return this.client.getOne<PublicClosedDate[]>(`${publicAvailabilityPath(slug)}/dates`, {
+      from: range.from,
+      to: range.to,
+    });
+  }
+
+  /**
    * Get dates with availability in a range
    */
   async getDates(params: GetDatesParams): Promise<DateAvailability[]> {
@@ -61,6 +124,203 @@ export class AvailabilityClient {
       `/api/v1/availability/${venueId}/dates`,
       query as QueryParams
     );
+  }
+
+  /** A venue's availability config and the `version` a save must send back. */
+  async getConfig(venueId: string): Promise<AvailabilityConfigState> {
+    const response = await this.client.call(availabilityConfigEndpoints.getConfig, {
+      params: { id: venueId },
+    });
+    return response.data;
+  }
+
+  /**
+   * Save config changes with a compare-and-set on `expectedVersion`. A stale
+   * version, an invalid config and a change that strands bookings reject with
+   * an `ApiClientError` whose `problemDetails.code` is `version-conflict`
+   * (with `winningChange`), `invalid-config` (with `issues`) or
+   * `stranded-bookings` (with `reservations`).
+   */
+  async saveConfig(
+    venueId: string,
+    body: SaveAvailabilityConfigRequest
+  ): Promise<AvailabilityConfigSaveResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.putConfig, {
+      params: { id: venueId },
+      body,
+    });
+    return response.data;
+  }
+
+  /**
+   * Read-only preview of which future bookings a draft date rule (closure,
+   * special hours or Tonight change) would affect, grouped by date and kind.
+   * Requires a Manager.
+   */
+  async getClosureImpact(venueId: string, rule: DateRule): Promise<ClosureImpact> {
+    const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
+      params: { id: venueId },
+      body: { rule },
+    });
+    return response.data;
+  }
+
+  /**
+   * Saves a closure (or special hours / Tonight change) with one decision per
+   * affected group. `idempotencyKey` makes a retry safe: a replay returns the
+   * first result, so the call is retried on a network error. Rejects with a
+   * problem `code` of `version-conflict`, `decision-required`,
+   * `invalid-decision`, `move-unavailable` or `invalid-config`.
+   */
+  async createClosure(
+    venueId: string,
+    body: CreateClosureRequest,
+    idempotencyKey: string
+  ): Promise<ClosureResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.createClosure,
+      { params: { id: venueId }, body },
+      { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
+    );
+    return response.data;
+  }
+
+  /**
+   * What an unsaved draft changes: per-date added/removed times for 30 days
+   * from `focusDate`, the focus day, and a page of the future bookings in
+   * `scope` it would strand. Read-only, so a gateway failure is retried. A
+   * 503 `preview-timeout` rejects with an `ApiClientError`; keep the last
+   * good preview.
+   */
+  async previewConfig(venueId: string, body: PreviewAvailabilityBody): Promise<PreviewResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.previewAvailability,
+      { params: { id: venueId }, body },
+      { idempotentRetry: true }
+    );
+    return response.data;
+  }
+
+  /**
+   * A page of the venue's availability history, newest first. `revertible`
+   * marks the one change that can still be undone.
+   */
+  async listChanges(
+    venueId: string,
+    query: AvailabilityChangesQuery = {}
+  ): Promise<AvailabilityChangesPage> {
+    const response = await this.client.call(availabilityConfigEndpoints.listChanges, {
+      params: { id: venueId },
+      query,
+    });
+    return response.data;
+  }
+
+  /**
+   * Undo a change by applying its stored inverse as a new save. Requires a
+   * Manager. Rejects with an `ApiClientError` whose `problemDetails.code` is
+   * `guests-notified`, `already-reverted`, `superseded`, `not-revertable`,
+   * `version-conflict` or `stranded-bookings`.
+   */
+  async revertChange(
+    venueId: string,
+    changeId: string,
+    expectedVersion: number
+  ): Promise<AvailabilityConfigSaveResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.revertChange, {
+      params: { id: venueId, changeId },
+      body: { expectedVersion },
+    });
+    return response.data;
+  }
+
+  /** Sent / Rebooked / Unreachable and refund counts per closure (Special dates tab). */
+  async listClosures(venueId: string): Promise<ClosureSummary[]> {
+    const response = await this.client.call(availabilityConfigEndpoints.listClosures, {
+      params: { id: venueId },
+    });
+    return response.data;
+  }
+
+  /** Guests a closure told without a confirmed delivery or rebooking. */
+  async closureCallList(venueId: string, ruleId: string): Promise<ClosureCallListEntry[]> {
+    const response = await this.client.call(availabilityConfigEndpoints.closureCallList, {
+      params: { id: venueId, ruleId },
+    });
+    return response.data;
+  }
+
+  /** Re-enqueues a closure's `pending` / `failed` refunds (Manager). */
+  async retryClosureRefunds(venueId: string, ruleId: string): Promise<RetryRefundsResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.retryClosureRefunds, {
+      params: { id: venueId, ruleId },
+    });
+    return response.data;
+  }
+
+  /** Reopens a closure; guests it cancelled stay cancelled. */
+  async reopenClosure(
+    venueId: string,
+    ruleId: string,
+    tellCancelledGuests: boolean
+  ): Promise<ReopenResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
+      params: { id: venueId, ruleId },
+      body: { tellCancelledGuests },
+    });
+    return response.data;
+  }
+
+  /**
+   * Applies one Tonight change (pause online, close early, stop a window,
+   * block tables, pacing) for the current service day; it ends at the day's
+   * boundary on its own. `body.ruleId` makes a retry safe. A close-early with
+   * bookings rejects with `decision-required` until `decisions` answer each
+   * affected group.
+   */
+  async setTonight(venueId: string, body: SetTonightRequest): Promise<TonightResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.setTonight,
+      { params: { id: venueId }, body },
+      { idempotentRetry: true }
+    );
+    return response.data;
+  }
+
+  /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
+  async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
+      params: { id: venueId, ruleId },
+    });
+    return response.data;
+  }
+
+  /** Calendar summaries for each service date from `from` to `to` inclusive (≤62 days). */
+  async listDays(
+    venueId: string,
+    range: { from: string; to: string }
+  ): Promise<AvailabilityDaySummary[]> {
+    const response = await this.client.call(availabilityConfigEndpoints.listDays, {
+      params: { id: venueId },
+      query: { from: range.from, to: range.to },
+    });
+    return response.data;
+  }
+
+  /**
+   * Ask the booking gate whether it would take a staff (phone) booking:
+   * `ok`, `soft` (limits a reason can override), or `hard` (closures, never
+   * overridable), each with a human message.
+   */
+  async checkBooking(
+    venueId: string,
+    body: AvailabilityCheckBody
+  ): Promise<AvailabilityCheckResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.check, {
+      params: { id: venueId },
+      body,
+    });
+    return response.data;
   }
 }
 

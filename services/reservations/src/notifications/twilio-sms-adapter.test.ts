@@ -19,7 +19,7 @@ const defaultSmsInput: SmsNotificationInput = {
   guestPhone: "+15551234567",
   venueName: "The Oak Table",
   manageToken: "tok_abc123",
-  manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+  manageBaseUrl: "https://app.mbe.dev",
 };
 
 const defaultWaitlistInput: WaitlistUpdateInput = {
@@ -29,14 +29,14 @@ const defaultWaitlistInput: WaitlistUpdateInput = {
   date: "2026-06-15",
   partySize: 2,
   manageToken: "tok_abc123",
-  manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+  manageBaseUrl: "https://app.mbe.dev",
 };
 
 const defaultWinbackInput: WinbackMessageInput = {
   guestName: "Jane Doe",
   guestPhone: "+15551234567",
   venueName: "The Oak Table",
-  manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+  manageBaseUrl: "https://app.mbe.dev",
 };
 
 describe("TwilioSmsAdapter", () => {
@@ -83,7 +83,9 @@ describe("TwilioSmsAdapter", () => {
     await adapter.sendBookingReminder(defaultSmsInput);
 
     const call = mockCreate.mock.calls[0]![0];
-    expect(call.body).toContain("https://app.mbe.dev/reservations/manage");
+    expect(call.body).toContain(
+      "https://app.mbe.dev/hospitality/reservations/manage?token=tok_abc123"
+    );
   });
 
   it("sendWaitlistUpdate sends SMS with waitlist info", async () => {
@@ -99,6 +101,9 @@ describe("TwilioSmsAdapter", () => {
     expect(call.to).toBe("+15551234567");
     expect(call.body).toContain("The Oak Table");
     expect(call.body).toContain("waitlist");
+    expect(call.body).toContain(
+      "https://app.mbe.dev/hospitality/reservations/manage?token=tok_abc123"
+    );
     expect(call.body.length).toBeLessThanOrEqual(160);
   });
 

@@ -119,7 +119,7 @@
       name: "Calendar",
       include: false,
       description:
-        "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+        "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, an optional getDateLabel(iso) accessible-name callback, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
     } satisfies CatalogMeta;
   </file>
   <file path="src/components/Calendar/date-grid.ts">
@@ -1264,7 +1264,7 @@
     export const reservationListCatalogMeta = {
       name: "ReservationList",
       description:
-        "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (display text such as 7:30 PM), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+        "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (the tool's localTime copied as is (HH:mm); the element writes it in the locale's clock. Only when the rows span more than one date, write the date and time together instead), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
       // Row fields are nullish and untyped beyond string/number, with no .max():
       // the seam validates the array as one value, so a strict nested rule would
       // drop the whole list over one row (F13). Reservation.guestName is
@@ -2206,7 +2206,7 @@
     export const timeSlotsCatalogMeta = {
       name: "TimeSlots",
       description:
-        "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times as display text, such as 7:30 PM, in time order). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
+        "Open times for one date and party size, as static labels under a date line. Required: date (display text for the day, such as Friday, Oct 30), partySize (a number) and times (an array of open times in time order, each the tool's localTime copied as is (HH:mm); the element writes them in the locale's clock). List open times only; a closed or fully booked day is said in words, not with this element. The element writes the party size in words itself.",
       // date is clamped at 40 chars, never dropped. times entries carry no .max():
       // the seam validates the array as one value (F13); the adapter drops blanks.
       charLimits: {
@@ -2355,6 +2355,16 @@
     }
     export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> {
       return RISK[canonical(raw)] ?? UNKNOWN;
+    }
+    export function displayClockTime(raw: string, locale: string | undefined): string {
+      const match = CLOCK_TIME.exec(raw);
+      if (!match) return raw;
+      const at = Date.UTC(1970, 0, 1, Number(match[1] ?? 0), Number(match[2] ?? 0));
+      return new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "UTC",
+      }).format(at);
     }
   </file>
   <file path="src/components/catalog-meta.ts">

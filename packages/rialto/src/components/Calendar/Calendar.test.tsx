@@ -92,6 +92,31 @@ describe("Calendar — min/max + predicate disabling", () => {
   });
 });
 
+describe("Calendar — getDateLabel", () => {
+  it("uses the label as the day's accessible name and leaves other days unnamed", () => {
+    const { container } = renderCalendar({
+      getDateLabel: (iso) => (iso === "2024-06-12" ? "June 12, closed, private event" : undefined),
+    });
+    expect(cell(container, "2024-06-12")).toHaveAttribute(
+      "aria-label",
+      "June 12, closed, private event"
+    );
+    expect(cell(container, "2024-06-13")).not.toHaveAttribute("aria-label");
+  });
+
+  it("keeps a labelled disabled day focusable and unselectable", async () => {
+    const { container, onChange } = renderCalendar({
+      isDateDisabled: (iso) => iso === "2024-06-12",
+      getDateLabel: (iso) => (iso === "2024-06-12" ? "June 12, closed" : undefined),
+    });
+    const closed = cell(container, "2024-06-12");
+    expect(closed).toHaveAttribute("aria-disabled", "true");
+    await user.click(closed);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("gridcell", { name: "June 12, closed" })).toBe(closed);
+  });
+});
+
 describe("Calendar — keyboard navigation", () => {
   it("ArrowRight / ArrowLeft move by one day", async () => {
     const { container } = renderCalendar();

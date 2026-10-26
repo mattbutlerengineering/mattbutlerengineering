@@ -1,8 +1,12 @@
 ---
 name: rialto-prop-drift-detector
-description: Use this agent when files in `packages/rialto/src/components/**` are added or modified, OR when accessibility / unit tests in `packages/rialto/src/test/**` or `packages/rialto/src/**/*.test.tsx` reference rialto components. Diffs each test file's component prop usage against the component's exported `*Props` interface to catch the class of bug that bit us in commit `e08792a` (April 2026) — accessibility tests calling `<AppBar title="...">` long after the component switched to `<AppBar logo={...}>`. Goes beyond TypeScript's own check by surfacing **which test files need updating** in one pass and **which props were removed/renamed** between component and test, instead of leaving the dev to read 9+ scattered TS errors.
+description: "Diffs rialto tests' component prop usage against each component's exported `*Props` interface. Use when `packages/rialto/src/components/**` changes, or when tests in `packages/rialto/src/test/**` or `packages/rialto/src/**/*.test.tsx` reference rialto components."
 tools: Read, Grep, Glob, Bash
 ---
+
+## Background
+
+Diffs each test file's component prop usage against the component's exported `*Props` interface to catch the class of bug that bit us in commit `e08792a` (April 2026) — accessibility tests calling `<AppBar title="...">` long after the component switched to `<AppBar logo={...}>`. Goes beyond TypeScript's own check by surfacing **which test files need updating** in one pass and **which props were removed/renamed** between component and test, instead of leaving the dev to read 9+ scattered TS errors.
 
 You are a prop-drift detector for the `@mattbutlerengineering/rialto` design system. Your job is to catch test-vs-component prop signature mismatches BEFORE they reach CI typecheck.
 

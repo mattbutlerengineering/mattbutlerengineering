@@ -4,10 +4,13 @@ import { prisma } from "./database.js";
 import {
   checkPacingForSlot,
   overlapWindow,
+  serviceDayConflictWindow,
   activeHoldWindow,
   NOT_BOOKED_STATUSES,
 } from "./slot-rules.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import type { BookingChannel, SoftLimit } from "@mbe/availability";
+import { judgeBooking, type GateRejection } from "./assert-bookable.js";
 
 /**
  * Builds a transaction-scoped advisory lock statement keyed on the table id.
@@ -28,12 +31,12 @@ export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
 }
 
 /** Why a slot could not be written. */
-export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
 
-export interface SlotConflict {
-  code: SlotConflictCode;
-  message: string;
-}
+/** `NOT_BOOKABLE` is the availability gate's refusal and carries its {@link GateRejection}. */
+export type SlotConflict =
+  | { code: Exclude<SlotConflictCode, "NOT_BOOKABLE">; message: string }
+  | { code: "NOT_BOOKABLE"; message: string; rejection: GateRejection };
 
 /**
  * Outcome of a {@link bookSlot} call: the value produced by the caller's write
@@ -63,6 +66,12 @@ export interface BookSlotIntent<T> {
   /** Re-check pacing under the lock. Requires venueId. */
   checkPacing?: boolean;
   /**
+   * Judge the slot against the venue's resolved availability under the lock,
+   * reading the committed configuration through this transaction
+   * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
+   */
+  gate?: { channel: BookingChannel; override?: { reason: string } };
+  /**
    * Runs immediately after the lock, before the conflict re-check. Returning a
    * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
    * between lookup and acquiring the lock).
@@ -74,8 +83,12 @@ export interface BookSlotIntent<T> {
    * hold that could not be confirmed.
    */
   onUnbookable?: (tx: Prisma.TransactionClient, conflict: SlotConflict) => Promise<void>;
-  /** Performs the actual mutation once the slot is confirmed bookable. */
-  write: (tx: Prisma.TransactionClient) => Promise<T>;
+  /**
+   * Performs the actual mutation once the slot is confirmed bookable.
+   * `gated.overrideLimits` lists the soft limits a staff override passed, so
+   * the write can store them with the booking.
+   */
+  write: (tx: Prisma.TransactionClient, gated: { overrideLimits?: SoftLimit[] }) => Promise<T>;
 }
 
 /**
@@ -108,10 +121,12 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     excludeSessionId,
     checkHoldConflict = false,
     checkPacing = false,
+    gate,
     guard,
     onUnbookable,
     write,
   } = intent;
+  const serviceDays = serviceDayConflictWindow(date);
 
   return prisma.$transaction(async (tx): Promise<SlotWriteResult<T>> => {
     // This `prisma.$transaction` call bypasses the per-call auto-wrap
@@ -138,7 +153,7 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     const conflictingReservation = await tx.reservation.findFirst({
       where: {
         tableId,
-        date,
+        date: serviceDays,
         status: { notIn: [...NOT_BOOKED_STATUSES] },
         ...overlapWindow(startTime, endTime),
         ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
@@ -153,7 +168,7 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
       const conflictingHold = await tx.reservationHold.findFirst({
         where: {
           tableId,
-          date,
+          date: serviceDays,
           expiresAt: activeHoldWindow(new Date()),
           ...overlapWindow(startTime, endTime),
           ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
@@ -169,13 +184,13 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     if (checkPacing && venueId) {
       const now = new Date();
       const reservations = await tx.reservation.findMany({
-        where: { venueId, date, status: { notIn: [...NOT_BOOKED_STATUSES] } },
+        where: { venueId, date: serviceDays, status: { notIn: [...NOT_BOOKED_STATUSES] } },
         select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
       });
       const holds = await tx.reservationHold.findMany({
         where: {
           venueId,
-          date,
+          date: serviceDays,
           expiresAt: activeHoldWindow(now),
           ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
           ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
@@ -202,7 +217,45 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
       }
     }
 
-    const value = await write(tx);
+    let gated: { overrideLimits?: SoftLimit[] } = {};
+    if (gate && venueId) {
+      const verdict = await availabilityVerdict(tx, { ...intent, venueId }, gate);
+      if (verdict.conflict) return fail(verdict.conflict);
+      gated = { overrideLimits: verdict.overrideLimits };
+    }
+
+    const value = await write(tx, gated);
     return { ok: true, value };
   });
+}
+
+const GATE_MESSAGE = "Requested time is outside the venue's availability";
+
+/** The availability gate's verdict on this intent's slot: a {@link SlotConflict}, or the limits a staff override passed. */
+async function availabilityVerdict(
+  tx: Prisma.TransactionClient,
+  intent: BookSlotIntent<unknown> & { venueId: string },
+  gate: NonNullable<BookSlotIntent<unknown>["gate"]>
+): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> {
+  const outcome = await judgeBooking(tx, {
+    venueId: intent.venueId,
+    tableId: intent.tableId,
+    start: intent.window.startTime,
+    end: intent.window.endTime,
+    partySize: intent.partySize,
+    channel: gate.channel,
+    override: gate.override,
+    excludeReservationId: intent.excludeReservationId,
+    excludeHoldId: intent.excludeHoldId,
+    excludeSessionId: intent.excludeSessionId,
+  });
+  if (outcome.kind === "conflict") {
+    return { conflict: { code: "CONFLICT", message: "Table is not available for this time slot" } };
+  }
+  if (outcome.kind === "rejected") {
+    return {
+      conflict: { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection },
+    };
+  }
+  return { overrideLimits: outcome.overrideLimits };
 }

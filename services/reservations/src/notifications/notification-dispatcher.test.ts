@@ -3,9 +3,10 @@ import { NotificationDispatcher, PartialDeliveryError } from "./notification-dis
 import type { BookingNotificationInput, NotificationPort } from "./port.js";
 import type { SmsPort } from "./sms-port.js";
 
-const SMS_MANAGE_BASE_URL = "https://app.mbe.dev/reservations/manage";
+const SMS_MANAGE_BASE_URL = "https://app.mbe.dev";
 
 const mockEmailAdapter = {
+  sendClosureNotice: vi.fn().mockResolvedValue(undefined),
   sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
   sendBookingReminder: vi.fn().mockResolvedValue(undefined),
   sendBookingModified: vi.fn().mockResolvedValue(undefined),
@@ -15,6 +16,7 @@ const mockEmailAdapter = {
 } satisfies NotificationPort;
 
 const mockSmsAdapter = {
+  sendClosureNotice: vi.fn().mockResolvedValue(undefined),
   sendBookingReminder: vi.fn().mockResolvedValue(undefined),
   sendWaitlistUpdate: vi.fn().mockResolvedValue(undefined),
   sendWinbackMessage: vi.fn().mockResolvedValue(undefined),

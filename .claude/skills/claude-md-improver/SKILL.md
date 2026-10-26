@@ -1,6 +1,6 @@
 ---
 name: claude-md-improver
-description: "Audit Claude Code instruction files (CLAUDE.md, AGENTS.md, .claude/rules/*) for staleness and gaps — dangling paths, skill/agent tables that drift from disk, mandates pointing at things that don't resolve, and repo surfaces no instruction file documents. Proposes fixes; never writes silently. Use when instructions feel out of date, after a big refactor or extraction, or from the monthly mbe-monthly-meta-audit routine."
+description: "Audits CLAUDE.md, AGENTS.md and .claude/rules/* for dangling paths, table drift, unresolvable mandates and undocumented surfaces; proposes, never writes silently. Use when instructions feel stale, after a big refactor or extraction, or from the monthly mbe-monthly-meta-audit routine."
 user-invocable: true
 allowed-tools: Read, Edit, Write, Glob, Grep, Bash, AskUserQuestion, TodoWrite
 ---
@@ -15,7 +15,7 @@ This skill mechanically checks the claims instruction files make against what is
 
 ## Arguments
 
-- (none) — audit `CLAUDE.md`, `AGENTS.md`, and `.claude/rules/*.md`.
+- (none) — audit `CLAUDE.md`, `docs/claude-reference.md` (the skill/subagent/CLI tables moved out of CLAUDE.md), `AGENTS.md`, `docs/agents-reference.md` (the package inventory and tool lists moved out of AGENTS.md), and `.claude/rules/*.md`.
 - `--file <path>` — audit one file only.
 - `--apply` — after review, apply the accepted fixes.
 - `--dry-run` — report only; make no edits even if accepted.
@@ -36,7 +36,7 @@ Every repo-relative path mentioned in an instruction file should exist. Extract 
 
 ```bash
 # path-like tokens from markdown links and backticked spans
-grep -ohE '\]\(\./[^)]+\)|`[a-zA-Z0-9_./-]+\.(md|js|mjs|ts|tsx|json|sh|yml|yaml)`' CLAUDE.md AGENTS.md \
+grep -ohE '\]\(\./[^)]+\)|`[a-zA-Z0-9_./-]+\.(md|js|mjs|ts|tsx|json|sh|yml|yaml)`' CLAUDE.md docs/claude-reference.md AGENTS.md docs/agents-reference.md \
   | tr -d '`()[]' | sed 's|^\./||;s|#.*$||' | sort -u \
   | while read -r p; do [ -e "$p" ] || echo "MISSING: $p"; done
 ```
@@ -44,7 +44,7 @@ grep -ohE '\]\(\./[^)]+\)|`[a-zA-Z0-9_./-]+\.(md|js|mjs|ts|tsx|json|sh|yml|yaml)
 Also test paths that appear inside command examples (`node scripts/foo.js`, `bash .claude/hooks/bar.sh`) — those are the ones a session will actually try to run:
 
 ```bash
-grep -ohE '(node|bash|sh) [a-zA-Z0-9_./-]+\.(js|mjs|sh)' CLAUDE.md AGENTS.md \
+grep -ohE '(node|bash|sh) [a-zA-Z0-9_./-]+\.(js|mjs|sh)' CLAUDE.md docs/claude-reference.md AGENTS.md docs/agents-reference.md \
   | awk '{print $2}' | sort -u \
   | while read -r p; do [ -e "$p" ] || echo "MISSING (in command): $p"; done
 ```
@@ -58,8 +58,8 @@ A path inside a fenced block is still a real reference. Do not skip fenced block
 Instruction files carry hand-maintained tables of skills, labels, and commands. Diff each against reality — in **both** directions.
 
 ```bash
-# skills: documented in CLAUDE.md vs. directories on disk
-grep -oE '^\| `/[a-z0-9-]+`' CLAUDE.md | tr -d '|` /' | sort -u > /tmp/doc-skills
+# skills: documented in docs/claude-reference.md vs. directories on disk
+grep -oE '^\| `/[a-z0-9-]+`' docs/claude-reference.md | tr -d '|` /' | sort -u > /tmp/doc-skills
 ls .claude/skills/ | sort -u > /tmp/disk-skills
 echo "--- documented but absent from .claude/skills/:"; comm -23 /tmp/doc-skills /tmp/disk-skills
 echo "--- on disk but undocumented:"; comm -13 /tmp/doc-skills /tmp/disk-skills
@@ -81,7 +81,7 @@ Apply the same both-directions diff to the GitHub label table (`gh label list`) 
 The highest-severity class. An instruction file says _do X_, and X does not resolve in the environment reading it. Collect every imperative reference to a skill or command and check it:
 
 ```bash
-grep -nE '(Use|Run|Always use|Invoke) .*`/[a-z0-9-]+`' CLAUDE.md AGENTS.md
+grep -nE '(Use|Run|Always use|Invoke) .*`/[a-z0-9-]+`' CLAUDE.md docs/claude-reference.md AGENTS.md docs/agents-reference.md
 ```
 
 For each, check all three resolution sites — `.claude/skills/<name>/`, `plugins/*/skills/<name>/`, and `~/.claude/skills/<name>/`.
@@ -99,7 +99,7 @@ The inverse of steps 1–3: things that exist and matter, that no instruction fi
 ```bash
 for d in .claude/agents .claude/hooks .claude/rules plugins; do
   [ -d "$d" ] || continue
-  if grep -qF "$d" CLAUDE.md AGENTS.md 2>/dev/null; then echo "documented: $d"; else echo "UNDOCUMENTED: $d"; fi
+  if grep -qF "$d" CLAUDE.md docs/claude-reference.md AGENTS.md docs/agents-reference.md 2>/dev/null; then echo "documented: $d"; else echo "UNDOCUMENTED: $d"; fi
 done
 ```
 

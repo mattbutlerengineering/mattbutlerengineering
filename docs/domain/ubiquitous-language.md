@@ -252,7 +252,7 @@ Context covers `packages/agent-core`, `services/agent`, `apps/gen`, `tools/` (mb
 
 **Definition:** GitHub issue labels that represent the lifecycle state of an issue in the implement-queue coordination protocol.
 
-**Source:** `CLAUDE.md` (GitHub Labels table), `.claude/implement-queue.md` (`transition` hook)
+**Source:** `docs/claude-reference.md` (GitHub Labels table), `.claude/implement-queue.md` (`transition` hook)
 
 | Label          | Meaning                                               |
 | -------------- | ----------------------------------------------------- |

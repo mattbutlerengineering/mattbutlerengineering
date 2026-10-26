@@ -279,12 +279,20 @@ function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T):
         : schema;
     wrapped[name] = (context) => {
       const clamped = { ...context, props: clampToCharLimits(name, context.props) };
-      const check = Children.count(context.children) > 0 ? withoutWords : schema;
-      return check.safeParse(clamped.props).success ? (
-        adapter(clamped)
-      ) : (
-        <SeamFallback name={name} />
-      );
+      const hasChildElements = Children.count(context.children) > 0;
+      const check = hasChildElements ? withoutWords : schema;
+      if (check.safeParse(clamped.props).success) return adapter(clamped);
+      // A leaf slot component whose only fault is missing words has nothing to
+      // show, so drop it rather than show the fallback (chat batch 8, F28). The
+      // hidden marker keeps the model's miss countable in live audits.
+      if (
+        !hasChildElements &&
+        withoutWords !== schema &&
+        withoutWords.safeParse(clamped.props).success
+      ) {
+        return <span hidden data-rialto-seam-dropped={name} />;
+      }
+      return <SeamFallback name={name} />;
     };
   }
   // The structural rebuild erases the literal's per-key types; re-assert the

@@ -1,6 +1,8 @@
 import { retry } from "./retry.js";
 import { toVenueLocalTime } from "./venue-time.js";
+import { buildManageUrl } from "./manage-url.js";
 import type {
+  ClosureSmsInput,
   SmsPort,
   SmsNotificationInput,
   WaitlistUpdateInput,
@@ -73,7 +75,7 @@ export class TwilioSmsAdapter implements SmsPort {
     const name = input.guestName ?? "Guest";
     const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
     const dateStr = formatDate(when.date);
-    const manageUrl = `${input.manageBaseUrl}?token=${encodeURIComponent(input.manageToken)}`;
+    const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
 
     await this.sendWithRetry(
       input.guestPhone,
@@ -85,12 +87,17 @@ export class TwilioSmsAdapter implements SmsPort {
     );
   }
 
+  async sendClosureNotice(input: ClosureSmsInput): Promise<void> {
+    if (!this.client) return;
+    await this.sendWithRetry(input.to, input.body);
+  }
+
   async sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void> {
     if (!this.client) return;
 
     const name = input.guestName ?? "Guest";
     const dateStr = formatDate(input.date);
-    const manageUrl = `${input.manageBaseUrl}?token=${input.manageToken}`;
+    const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
 
     const body = `${name}, you&apos;re on the waitlist at ${input.venueName} for ${dateStr}, party of ${input.partySize}. Check: ${manageUrl}`;
     // Strip HTML entities for SMS

@@ -23,6 +23,11 @@ import {
   FloorPlanSectionVenueQuerySchema,
 } from "./floor-plan-section.js";
 import {
+  VenueTeamSchema,
+  UpdateTeamMemberRoleRequestSchema,
+  UpdateVenueTeamRequestSchema,
+} from "./venue-team.js";
+import {
   AgentSessionSchema,
   AgentSessionEventSchema,
   CreateAgentSessionRequestSchema,
@@ -54,6 +59,10 @@ import {
 import { WaitlistJoinResultSchema, WaitlistEstimateSchema } from "./waitlist.js";
 import { ProblemDetailsSchema } from "./api.js";
 import { PaginationSchema } from "./common.js";
+import {
+  PublicAvailabilityDatesResponseSchema,
+  PublicAvailabilityResponseSchema,
+} from "./availability-response.js";
 import {
   ListReservationsQuerySchema,
   ListMyReservationsQuerySchema,
@@ -94,6 +103,7 @@ import {
   CreateWaitlistBodySchema,
   ListWaitlistQuerySchema,
   PublicAvailabilityQuerySchema,
+  PublicAvailabilityDatesQuerySchema,
   PublicDepositBodySchema,
   PublicGuestRecognitionQuerySchema,
   PublicGuestRiskQuerySchema,
@@ -398,6 +408,11 @@ export const reorderFloorPlanSectionsBodyJsonSchema = toRequestJsonSchema(
 export const assignSectionTablesBodyJsonSchema = toRequestJsonSchema(
   AssignSectionTablesRequestSchema
 );
+export const venueTeamResponseJsonSchema = toResponseJsonSchema(VenueTeamSchema);
+export const updateTeamMemberRoleBodyJsonSchema = toRequestJsonSchema(
+  UpdateTeamMemberRoleRequestSchema
+);
+export const updateVenueTeamBodyJsonSchema = toRequestJsonSchema(UpdateVenueTeamRequestSchema);
 export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
 export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
 export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
@@ -442,6 +457,15 @@ export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBo
 export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
 
 export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+export const publicAvailabilityDatesQueryJsonSchema = toRequestJsonSchema(
+  PublicAvailabilityDatesQuerySchema
+);
+export const publicAvailabilityDatesResponseJsonSchema = toResponseJsonSchema(
+  PublicAvailabilityDatesResponseSchema
+);
+export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
+  PublicAvailabilityResponseSchema
+);
 export const publicDepositBodyJsonSchema = toRequestJsonSchema(PublicDepositBodySchema);
 export const publicGuestRecognitionQueryJsonSchema = toRequestJsonSchema(
   PublicGuestRecognitionQuerySchema

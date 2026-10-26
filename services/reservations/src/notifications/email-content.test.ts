@@ -64,7 +64,7 @@ describe("buildBookingEmail", () => {
     venueTimezone: "America/Los_Angeles",
     venueAddress: "123 Main St, Portland OR",
     manageToken: "tok_abc123",
-    manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+    manageBaseUrl: "https://app.mbe.dev",
   };
 
   it("confirmation: builds subject, heading, address, and manage link", () => {
@@ -73,21 +73,27 @@ describe("buildBookingEmail", () => {
     expect(html).toContain("Your reservation is confirmed");
     expect(html).toContain("The Oak Table");
     expect(html).toContain("123 Main St, Portland OR");
-    expect(html).toContain(`${baseInput.manageBaseUrl}?token=tok_abc123`);
+    expect(html).toContain(
+      `${baseInput.manageBaseUrl}/hospitality/reservations/manage?token=tok_abc123`
+    );
   });
 
   it("reminder: builds subject, heading, address, and manage link", () => {
     const { subject, html } = buildBookingEmail(baseInput, "reminder");
     expect(subject).toBe("Reminder: Reservation at The Oak Table");
     expect(html).toContain("Your reservation is tomorrow");
-    expect(html).toContain(`${baseInput.manageBaseUrl}?token=tok_abc123`);
+    expect(html).toContain(
+      `${baseInput.manageBaseUrl}/hospitality/reservations/manage?token=tok_abc123`
+    );
   });
 
   it("modified: builds subject, heading, address, and manage link", () => {
     const { subject, html } = buildBookingEmail(baseInput, "modified");
     expect(subject).toBe("Updated: Reservation at The Oak Table");
     expect(html).toContain("Your reservation has been updated");
-    expect(html).toContain(`${baseInput.manageBaseUrl}?token=tok_abc123`);
+    expect(html).toContain(
+      `${baseInput.manageBaseUrl}/hospitality/reservations/manage?token=tok_abc123`
+    );
   });
 
   it("cancelled: builds subject and heading, but omits address and manage link", () => {

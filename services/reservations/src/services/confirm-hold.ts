@@ -1,7 +1,8 @@
 import { type ConfirmHoldRequest, type Reservation, type VenueSettings } from "@mbe/types";
+import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
-import { assertBookable } from "./assert-bookable.js";
+import { assertBookable, type GateRejection } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
 import { runWithVenueContext } from "./venue-context-store.js";
@@ -13,7 +14,7 @@ import {
 } from "./reservation-events.js";
 
 type ConfirmHoldErrorCode =
-  "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+  "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
 
 export interface ConfirmHoldInput {
   holdId: string;
@@ -30,11 +31,22 @@ export interface ConfirmHoldInput {
   venueId?: string;
   /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
   actor?: ReservationEventActor;
+  /**
+   * Runs inside the confirm transaction, after the reservation insert. Throwing
+   * rolls the whole confirm back (the hold survives for the caller to release).
+   */
+  inTransaction?: (tx: Prisma.TransactionClient, reservationId: string) => Promise<void>;
 }
 
 export type ConfirmHoldResult =
   | { success: true; reservation: Reservation }
-  | { success: false; error: string; errorCode: ConfirmHoldErrorCode };
+  | {
+      success: false;
+      error: string;
+      errorCode: ConfirmHoldErrorCode;
+      /** Set with `NOT_BOOKABLE`: the availability gate's refusal (route answers 422). */
+      rejection?: GateRejection;
+    };
 
 /**
  * Orchestrates hold-to-reservation confirmation.
@@ -124,6 +136,9 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     excludeHoldId: holdId,
     checkHoldConflict: true,
     checkPacing: hold.venueId != null,
+    // Re-judge the slot against the committed availability, so a closure saved
+    // after the hold was created wins over the hold.
+    gate: { channel: "online" },
     // Re-check expiry under the lock so an expired hold never produces a
     // reservation, even if it expired between the lookup and acquiring the lock.
     guard: async () =>
@@ -171,16 +186,22 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
       // Delete the hold in the same transaction as the reservation insert.
       await tx.reservationHold.delete({ where: { id: holdId } });
 
+      await input.inTransaction?.(tx, reservation.id);
+
       return reservation;
     },
   });
 
   if (!result.ok) {
-    const { code } = result.conflict;
-    if (code === "EXPIRED") {
+    const { conflict } = result;
+    if (conflict.code === "NOT_BOOKABLE") {
+      const { message: error, rejection } = conflict;
+      return { success: false, error, errorCode: "NOT_BOOKABLE", rejection };
+    }
+    if (conflict.code === "EXPIRED") {
       return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
     }
-    if (code === "PACING_EXCEEDED") {
+    if (conflict.code === "PACING_EXCEEDED") {
       return {
         success: false,
         error: "Pacing limit reached for this time slot",

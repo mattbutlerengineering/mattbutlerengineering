@@ -227,6 +227,50 @@ describe("createGenRunner", () => {
         { type: "text", content: "world" },
       ]);
     });
+
+    // Live chat batch 8 (F29): text before a tool call and text after it are
+    // separate steps, and joined bare they read "…for 2 people:Monday's slots…".
+    it("starts a later step's text on a new paragraph", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "text-delta", text: "Here are the open times:" },
+          { type: "finish-step", finishReason: "tool-calls" },
+          { type: "text-delta", text: "Monday's slots" },
+          { type: "text-delta", text: " run every 15 minutes." },
+        ]),
+        usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "hi" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([
+        { type: "text", content: "Here are the open times:" },
+        { type: "text", content: "\n\nMonday's slots" },
+        { type: "text", content: " run every 15 minutes." },
+      ]);
+    });
+
+    it("adds no break before the first text when an earlier step had none", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "finish-step", finishReason: "tool-calls" },
+          { type: "text-delta", text: "No bookings tonight." },
+        ]),
+        usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "hi" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([{ type: "text", content: "No bookings tonight." }]);
+    });
   });
 
   describe("output-token cap", () => {

@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
+import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
 
 /**
  * #5369 PR 2 — the route-sweep completeness data. Kept out of the `.test.ts`
@@ -65,6 +66,9 @@ export function normalizeRouteKey(key: string): string {
 }
 
 const HOLDS_URL = "/api/v1/holds";
+
+/** Settings → Team routes (#7510), addressed by the venue's own id. */
+const teamUrl = (venueId: string, suffix = "") => `/api/v1/venues/${venueId}/team${suffix}`;
 
 /** Routes with no venue-scoped data at all — excluded from the sweep by design. */
 export const INFRA_ROUTES: ReadonlySet<string> = new Set([
@@ -950,6 +954,34 @@ const venueFixtures: Record<string, RouteFixture> = {
     (ctx) => ctx.venueA.id,
     (ctx) => ctx.venueB.id
   ),
+  // Settings → Team (#7510). The member is venue A's manager, so both writes
+  // are Manager-gated own-venue writes; each is idempotent (the grant stays
+  // off, the member stays a Manager) so no later fixture sees a changed venue.
+  "GET /api/v1/venues/:id/team": okEntityRead(
+    (id) => teamUrl(id),
+    (ctx) => ctx.venueA.id,
+    (ctx) => ctx.venueB.id
+  ),
+  "PATCH /api/v1/venues/:id/team": ok(async (ctx) => {
+    const request = (venueId: string) => ({
+      method: "PATCH" as const,
+      url: teamUrl(venueId),
+      payload: { hostEmergencyClose: false },
+    });
+    expectOk(await asAdmin(ctx, request(ctx.venueB.id)), "admin venue B");
+    expectOk(await asMember(ctx, request(ctx.venueA.id)), "member venue A (own venue)");
+    expectDenied(await asMember(ctx, request(ctx.venueB.id)), "member venue B (not a member)");
+  }),
+  "PATCH /api/v1/venues/:id/team/members/:userSub": ok(async (ctx) => {
+    const request = (venueId: string) => ({
+      method: "PATCH" as const,
+      url: teamUrl(venueId, `/members/${encodeURIComponent(ctx.memberSub)}`),
+      payload: { role: "manager" },
+    });
+    expectOk(await asAdmin(ctx, request(ctx.venueA.id)), "admin venue A");
+    expectOk(await asMember(ctx, request(ctx.venueA.id)), "member venue A (own venue)");
+    expectDenied(await asMember(ctx, request(ctx.venueB.id)), "member venue B (not a member)");
+  }),
 };
 
 /**
@@ -977,7 +1009,392 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     (venueId) =>
       `/api/v1/availability/${venueId}/dates?startDate=2026-10-01&endDate=2026-10-07&partySize=2`
   ),
+  "GET /api/v1/venues/:id/availability/config": okAvailabilityByParam(
+    (venueId) => `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/config`
+  ),
+  "GET /api/v1/venues/:id/availability/days": okAvailabilityByParam(
+    (venueId) =>
+      `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/days?from=2026-10-01&to=2026-10-07`
+  ),
+  // Read-only (the draft is never saved), so it may run against the shared
+  // venues. The member leg proves the cross-venue denial; the Manager-role admission
+  // is pinned by `venue-scope-manager.test.ts`.
+  "POST /api/v1/venues/:id/closures/impact": ok(async (ctx) => {
+    const impact = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures/impact`,
+      payload: {
+        rule: {
+          id: "rls-sweep-impact",
+          kind: "closure",
+          targetKind: "venue",
+          startsOn: "2026-12-24",
+          endsOn: "2026-12-24",
+        },
+      },
+    });
+    expectOk(await asAdmin(ctx, impact(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, impact(ctx.venueB.id)), "admin venue B");
+    expectDenied(await asMember(ctx, impact(ctx.venueB.id)), "member venue B");
+  }),
+  // A closure save rewrites the venue's operating hours, so it lands only on a
+  // disposable venue, after a config save gives it a week to close. The empty
+  // venue has no bookings to decide on. The reopen is the same venue's rule.
+  "POST /api/v1/venues/:id/closures": ok(async (ctx) => {
+    const { base, version } = await sharedAvailabilityVenue(ctx);
+    const idempotencyKey = `rls-sweep-1-${randomUUID()}`;
+    const closureRuleId = `rls-sweep-closure-${randomUUID()}`;
+    const closure = {
+      expectedVersion: version,
+      rule: {
+        id: closureRuleId,
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+      },
+      decisions: [],
+    };
+    const saved = await asAdmin(ctx, {
+      method: "POST",
+      url: `${base}/closures`,
+      headers: { "idempotency-key": idempotencyKey },
+      payload: closure,
+    });
+    expectOk(saved, "admin closure");
+    const replayed = await asAdmin(ctx, {
+      method: "POST",
+      url: `${base}/closures`,
+      headers: { "idempotency-key": idempotencyKey },
+      payload: closure,
+    });
+    expect(JSON.parse(replayed.body), "replay returns the first result").toEqual(
+      JSON.parse(saved.body)
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures`,
+        headers: { "idempotency-key": `${idempotencyKey}-b` },
+        payload: closure,
+      }),
+      "member venue B"
+    );
+  }),
+  "DELETE /api/v1/venues/:id/closures/:ruleId": ok(async (ctx) => {
+    const { base, version } = await sharedAvailabilityVenue(ctx);
+    const reopenRuleId = `rls-sweep-reopen-${randomUUID()}`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: `${base}/closures`,
+        headers: { "idempotency-key": `rls-sweep-3-${randomUUID()}` },
+        payload: {
+          expectedVersion: version,
+          rule: {
+            id: reopenRuleId,
+            kind: "closure",
+            targetKind: "venue",
+            startsOn: "2026-12-25",
+            endsOn: "2026-12-25",
+          },
+          decisions: [],
+        },
+      }),
+      "admin closure"
+    );
+    expectOk(
+      await asAdmin(ctx, {
+        method: "DELETE",
+        url: `${base}/closures/${reopenRuleId}`,
+        payload: { tellCancelledGuests: false },
+      }),
+      "admin reopen"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "DELETE",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures/${reopenRuleId}`,
+        payload: { tellCancelledGuests: false },
+      }),
+      "member venue B"
+    );
+  }),
+  // Read-only listings and a retry of a rule with no outcomes (enqueues
+  // nothing), so they run against the shared venues; the member leg proves the
+  // cross-venue denial.
+  "GET /api/v1/venues/:id/closures": ok(async (ctx) => {
+    const list = (venueId: string) => ({
+      method: "GET" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures`,
+    });
+    expectOk(await asAdmin(ctx, list(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, list(ctx.venueB.id)), "admin venue B");
+    expectDenied(await asMember(ctx, list(ctx.venueB.id)), "member venue B");
+  }),
+  "GET /api/v1/venues/:id/closures/:ruleId/call-list": ok(async (ctx) => {
+    const list = (venueId: string) => ({
+      method: "GET" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures/rls-sweep-none/call-list`,
+    });
+    expectOk(await asAdmin(ctx, list(ctx.venueA.id)), "admin venue A");
+    expectDenied(await asMember(ctx, list(ctx.venueB.id)), "member venue B");
+  }),
+  "POST /api/v1/venues/:id/closures/:ruleId/refunds/retry": ok(async (ctx) => {
+    const retry = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures/rls-sweep-none/refunds/retry`,
+    });
+    expectOk(await asAdmin(ctx, retry(ctx.venueA.id)), "admin venue A");
+    expectDenied(await asMember(ctx, retry(ctx.venueB.id)), "member venue B");
+  }),
+  // Tonight writes the current service day's rule on the same disposable
+  // venue C as the closures (no extra POST /venues, which is capped at 5/min).
+  "POST /api/v1/venues/:id/tonight": ok(async (ctx) => {
+    const { base, version } = await sharedAvailabilityVenue(ctx);
+    const tonight = {
+      expectedVersion: version,
+      ruleId: `rls-sweep-tonight-${randomUUID()}`,
+      change: { type: "pause_online" },
+    };
+    const saved = await asAdmin(ctx, { method: "POST", url: `${base}/tonight`, payload: tonight });
+    expectOk(saved, "admin tonight");
+    const replayed = await asAdmin(ctx, {
+      method: "POST",
+      url: `${base}/tonight`,
+      payload: tonight,
+    });
+    expect(JSON.parse(replayed.body), "replay returns the first result").toEqual(
+      JSON.parse(saved.body)
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/tonight`,
+        payload: tonight,
+      }),
+      "member venue B"
+    );
+  }),
+  "DELETE /api/v1/venues/:id/tonight/:ruleId": ok(async (ctx) => {
+    const { base, version } = await sharedAvailabilityVenue(ctx);
+    const ruleId = `rls-sweep-tonight-end-${randomUUID()}`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: `${base}/tonight`,
+        payload: { expectedVersion: version, ruleId, change: { type: "pacing", covers: 20 } },
+      }),
+      "admin tonight"
+    );
+    expectOk(
+      await asAdmin(ctx, { method: "DELETE", url: `${base}/tonight/${ruleId}` }),
+      "admin end"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "DELETE",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/tonight/${ruleId}`,
+      }),
+      "member venue B"
+    );
+  }),
+  // A read-only verdict over POST: members of the venue are admitted, other
+  // venues are denied, exactly like the GET availability reads.
+  "POST /api/v1/venues/:id/availability/check": ok(async (ctx) => {
+    const check = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/check`,
+      payload: { start: "2026-10-01T19:00:00.000Z", partySize: 2, channel: "phone" },
+    });
+    expectOk(await asAdmin(ctx, check(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, check(ctx.venueB.id)), "admin venue B");
+    expectOk(await asMember(ctx, check(ctx.venueA.id)), "member venue A");
+    expectDenied(await asMember(ctx, check(ctx.venueB.id)), "member venue B");
+  }),
+  // Read-only, but Manager-gated like the save: the member leg proves the
+  // denial. Its stranded scan reads reservations under RLS.
+  "POST /api/v1/venues/:id/availability/preview": ok(async (ctx) => {
+    const request = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/preview`,
+      payload: {
+        draft: { changes: { upsert: {}, remove: {} }, scopeConflicts: "keep" },
+        scope: { from: "2026-10-01" },
+        focusDate: "2026-10-01",
+      },
+    });
+    const preview = await asAdmin(ctx, request(ctx.venueA.id));
+    expectOk(preview, "admin venue A");
+    expect(JSON.parse(preview.body).data.days).toHaveLength(30);
+    expectOk(await asAdmin(ctx, request(ctx.venueB.id)), "admin venue B");
+    expectDenied(await asMember(ctx, request(ctx.venueB.id)), "member venue B (not a member)");
+  }),
+  // The write lands only on a disposable venue: venue A's operating hours feed
+  // the hold and availability fixtures, and a save rewrites them. The member
+  // leg proves the denial; the Manager-role admission is pinned by
+  // `venue-scope-manager.test.ts`.
+  "PUT /api/v1/venues/:id/availability/config": ok(async (ctx) => {
+    const venueId = await createDisposableVenue(ctx);
+    const url = `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/config`;
+    const changes = sweepConfigChanges();
+    const saved = await asAdmin(ctx, {
+      method: "PUT",
+      url,
+      payload: { expectedVersion: 0, changes, scopeConflicts: "keep" },
+    });
+    expectOk(saved, "admin disposable venue");
+    // The rows, audit row and version bump landed under RLS: the read sees
+    // them, and a second save from the same stale version names the first.
+    const read = await asAdmin(ctx, { method: "GET", url });
+    expect(JSON.parse(read.body).data).toMatchObject({ version: 1, source: "rows" });
+    const stale = await asAdmin(ctx, {
+      method: "PUT",
+      url,
+      payload: { expectedVersion: 0, changes: { upsert: {}, remove: {} }, scopeConflicts: "keep" },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(JSON.parse(stale.body).winningChange.id).toBe(JSON.parse(saved.body).data.changeId);
+    // Another venue reusing those ids cannot see them (RLS), so the primary
+    // key refuses the write; that is a 422 naming the row, never a 500.
+    const otherVenue = await createDisposableVenue(ctx);
+    const reused = await asAdmin(ctx, {
+      method: "PUT",
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${otherVenue}/availability/config`,
+      payload: { expectedVersion: 0, changes, scopeConflicts: "keep" },
+    });
+    expect(reused.statusCode, reused.body).toBe(422);
+    expect(JSON.parse(reused.body).issues[0]).toMatchObject({
+      path: "schedules[0].id",
+      code: "id_taken",
+    });
+    expectDenied(
+      await asMember(ctx, {
+        method: "PUT",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/availability/config`,
+        payload: { expectedVersion: 0, changes: sweepConfigChanges(), scopeConflicts: "keep" },
+      }),
+      "member venue B"
+    );
+  }),
+  "GET /api/v1/venues/:id/availability/changes": okAvailabilityByParam(
+    (venueId) => `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/changes`
+  ),
+  // Like the save, the write lands off venue A (on shared venue C). The second
+  // save is the change to undo (undo is offered on the newest change only).
+  "POST /api/v1/venues/:id/availability/changes/:changeId/revert": ok(async (ctx) => {
+    const { base: venueBase, version } = await sharedAvailabilityVenue(ctx);
+    const base = `${venueBase}/availability`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PUT",
+        url: `${base}/config`,
+        payload: {
+          expectedVersion: version,
+          changes: sweepConfigChanges({ alternate: true }),
+          scopeConflicts: "keep",
+        },
+      }),
+      "admin first save"
+    );
+    const extra = `rls-sweep-vs-${randomUUID()}`;
+    const second = await asAdmin(ctx, {
+      method: "PUT",
+      url: `${base}/config`,
+      payload: {
+        expectedVersion: version + 1,
+        changes: {
+          upsert: { venueServices: [{ id: extra, name: "Brunch", position: 1 }] },
+          remove: {},
+        },
+        scopeConflicts: "keep",
+      },
+    });
+    expectOk(second, "admin second save");
+    const changeId = JSON.parse(second.body).data.changeId as string;
+    const revert = (expectedVersion: number) => ({
+      method: "POST" as const,
+      url: `${base}/changes/${changeId}/revert`,
+      payload: { expectedVersion },
+    });
+    const reverted = await asAdmin(ctx, revert(version + 2));
+    expect(reverted.statusCode, reverted.body).toBe(200);
+    expect(JSON.parse(reverted.body).data.version).toBe(version + 3);
+    // The inverse landed as rows under RLS, and the original now points at the revert.
+    const history = await asAdmin(ctx, { method: "GET", url: `${base}/changes` });
+    const items = JSON.parse(history.body).data.items as {
+      id: string;
+      revertedById: string | null;
+    }[];
+    expect(items.find((i) => i.id === changeId)?.revertedById).toBe(
+      JSON.parse(reverted.body).data.changeId
+    );
+    const again = await asAdmin(ctx, revert(version + 3));
+    expect(again.statusCode).toBe(409);
+    expect(JSON.parse(again.body).code).toBe("already-reverted");
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/availability/changes/nope/revert`,
+        payload: { expectedVersion: 0 },
+      }),
+      "member venue B"
+    );
+  }),
 };
+
+/**
+ * A venue fixtures can write availability rows to without creating one.
+ * `POST /venues` is capped at 5 a minute per caller and the sweep already uses
+ * all 5, so these share venue C (which no other fixture writes to). Each
+ * caller reads the current version, since every save (and closure) bumps it.
+ */
+async function sharedAvailabilityVenue(
+  ctx: SweepContext
+): Promise<{ base: string; version: number }> {
+  const base = `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueC.id}`;
+  const read = await asAdmin(ctx, { method: "GET", url: `${base}/availability/config` });
+  expectOk(read, "admin config read");
+  return { base, version: JSON.parse(read.body).data.version as number };
+}
+
+/** A one-schedule, one-service week: the smallest config `validateConfig` accepts. Fresh ids per call (they are table-wide keys). `alternate` adds it as a non-regular schedule for a venue that already has a regular week. */
+function sweepConfigChanges(options: { alternate?: boolean } = {}) {
+  const alternate = options.alternate === true;
+  const id = (row: string) => `rls-sweep-${row}-${randomUUID()}`;
+  const [schedule, service] = [id("sch"), id("vs")];
+  return {
+    upsert: {
+      schedules: [
+        alternate
+          ? { id: schedule, name: "Alternate", kind: "alternate", isRegular: false }
+          : { id: schedule, name: "Regular", kind: "regular", isRegular: true },
+      ],
+      venueServices: [{ id: service, name: "Dinner", position: 0 }],
+      scheduleServices: [
+        {
+          id: id("ss"),
+          scheduleId: schedule,
+          venueServiceId: service,
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+          seating: { version: 1, interval: 15 },
+          bookingTypes: ["online", "phone"],
+        },
+      ],
+      assignments: [
+        {
+          id: id("as"),
+          scheduleId: schedule,
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          precedence: alternate ? 1 : 0,
+        },
+      ],
+    },
+    remove: {},
+  };
+}
 
 /** A minimal valid `TableShapeMetadata` for the positions/assign fixtures below. */
 const DISPOSABLE_SHAPE = { x: 0, y: 0, width: 80, height: 80, shape: "rectangle" as const };

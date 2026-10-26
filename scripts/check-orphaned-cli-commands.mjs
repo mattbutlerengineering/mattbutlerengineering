@@ -151,7 +151,7 @@ export const FAIL_MESSAGE =
   '"unknown command" — while its unit tests keep passing against the exported\n' +
   "object. Either attach it (a LOADERS entry in tools/cli/src/command-loaders.ts\n" +
   "for a top-level command,\n" +
-  "or to its parent command) and add it to the CLAUDE.md CLI table, or delete it.\n" +
+  "or to its parent command) and add it to the CLI table in docs/claude-reference.md, or delete it.\n" +
   "If it must stay unattached, add it to ALLOWLIST in\n" +
   "scripts/check-orphaned-cli-commands.mjs with a reason.\n" +
   "A stale ALLOWLIST entry is reported too — an exemption must not outlive its reason.";

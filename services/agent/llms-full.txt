@@ -241,8 +241,18 @@
       /** The venue's IANA time zone; UTC when absent. */
       readonly timeZone?: string | undefined;
       readonly now: Date;
-      /** The rialto catalog's component rules, appended verbatim. */
+      /** The rialto component reference (see chatComponentReference), appended verbatim. */
       readonly catalogPrompt: string;
+    }
+    export function chatComponentReference(catalogPrompt: string): string {
+      const start = catalogPrompt.indexOf(COMPONENTS_START);
+      const end = catalogPrompt.indexOf(COMPONENTS_END, start);
+      if (start === -1 || end === -1) {
+        throw new Error(
+          `catalog prompt layout changed: expected "${COMPONENTS_START}" followed by "AVAILABLE ACTIONS:"`
+        );
+      }
+      return catalogPrompt.slice(start, end);
     }
     function weekdayIn(timeZone: string, now: Date): string {
       return new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(now);
@@ -263,9 +273,10 @@
         "A change (booking, walk-in, cancellation, table status) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
+        "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
         "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
         "Pick the element that fits the data, one shape per line below.",
-        "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out.",
+        "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out. When the rows span more than one date, write each row's date and time together as its time, in the user's language and their usual clock.",
         "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element.",
         "Guests from search_guests: show them as GuestCards, each card with the guest's name, its visitCount as visits, its riskScore copied as is as risk, and its tags; at most five cards, then say in a sentence how many more matched. Never put a guest's email, phone, notes or spend on a card.",
         "A guest's visit history: show it as a Timeline.",
@@ -326,17 +337,30 @@
       const localTime = localTimeIn((item as Record<string, unknown>)[field], timeZone);
       return localTime ? { ...item, localTime } : item;
     }
-    interface DayHours {
-      readonly closed?: boolean | undefined;
-    }
-    export function closedWeekday(
-      operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
-      date: string
-    ): string | undefined {
-      const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
-      if (!weekday) return undefined;
-      const hours = operatingHours?.[weekday];
-      return !hours || hours.closed ? weekday : undefined;
+    type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAvailability"]>>;
+    function availabilityResult(
+      response: PublicAvailability,
+      date: string,
+      timeZone: string | undefined
+    ) {
+      const slots = response.data.map((slot) => withLocalTime(slot, "time", timeZone));
+      const { closure, bookingPaused } = response;
+      return {
+        slots,
+        ...(closure
+          ? {
+              closed: true,
+              closureMessage: closure.message,
+              note: `The venue is closed on ${date} (${closure.message}), so nothing can be booked. Say so rather than calling the day fully booked.`,
+            }
+          : {}),
+        ...(bookingPaused
+          ? {
+              bookingPaused,
+              note: `Online booking is paused: ${bookingPaused.message}${bookingPaused.phone ? ` Guests can call ${bookingPaused.phone}.` : ""} Say so rather than calling the day fully booked.`,
+            }
+          : {}),
+      };
     }
     function gateWriteTools(
       tools: ToolSet,
@@ -424,28 +448,14 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId, date, partySize }, "check_availability tool called");
             try {
-              const slots = (await api.availability.getTimeSlots({ venueId, date, partySize })).map(
-                (slot) => withLocalTime(slot, "time", timeZone)
-              );
-              if (slots.length > 0) return { slots };
-              // No slots reads as "fully booked" unless the model knows the venue is closed.
-              const weekday = await api.venues.get(venueId).then(
-                (venue) => closedWeekday(venue.operatingHours, date),
-                (err: unknown) => {
-                  log.warn({ err, venueId }, "check_availability: venue hours lookup failed");
-                  return undefined;
-                }
-              );
-              if (!weekday) return { slots };
-              const day = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-              return {
-                slots,
-                closed: true,
-                note: `The venue is closed on ${day}: it has no operating hours that day, so nothing can be booked. Say so rather than calling the day fully booked.`,
-              };
+              // The public endpoint is slug-scoped and already carries closures and pauses.
+              const { slug } = await api.venues.get(venueId);
+              const response = await api.availability.getPublicAvailability(slug, { date, partySize });
+              return availabilityResult(response, date, timeZone);
             } catch (err) {
+              // Timeout, 5xx or network failure: unknown, never "closed".
               log.error({ err, venueId, date, partySize }, "check_availability failed");
-              return { error: "Failed to check availability. Please try again." };
+              return AVAILABILITY_UNKNOWN;
             }
           },
         }),
@@ -737,6 +747,17 @@
         return false;
       }
     }
+    export function genAgentSystemPrompt(
+      parsed: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined },
+      catalogPrompt: string
+    ): string {
+      return buildAgentSystemPrompt({
+        venueId: parsed.venueId,
+        timeZone: parsed.timeZone,
+        now: new Date(),
+        catalogPrompt: chatComponentReference(catalogPrompt),
+      });
+    }
     export const genAgentRoutes = createGenRoute({
       path: "/api/gen/agent",
       costLogLabel: "gen-agent cost log",
@@ -747,13 +768,7 @@
       schema: GenAgentBodySchema,
       streamFormat: "ndjson",
       maxSteps: 5,
-      getSystemPrompt: (parsed, catalogPrompt) =>
-        buildAgentSystemPrompt({
-          venueId: parsed.venueId,
-          timeZone: parsed.timeZone,
-          now: new Date(),
-          catalogPrompt,
-        }),
+      getSystemPrompt: genAgentSystemPrompt,
       toMessages: (parsed) =>
         parsed.actionConfirm
           ? [
@@ -1185,9 +1200,18 @@
               : undefined,
           });
     
+          // Text from a later step (after a tool call) would otherwise run straight
+          // on from the previous step's: "…for 2 people:Monday's slots…" (F29).
+          let textSoFar = false;
+          let stepEnded = false;
           for await (const event of result.fullStream) {
             if (event.type === "text-delta") {
-              await onEvent({ type: "text", content: event.text });
+              const content = textSoFar && stepEnded ? `\n\n${event.text}` : event.text;
+              textSoFar = true;
+              stepEnded = false;
+              await onEvent({ type: "text", content });
+            } else if (event.type === "finish-step" && event.finishReason !== "length") {
+              stepEnded = true;
             } else if (event.type === "tool-call") {
               await handleToolCall(event, onEvent);
             } else if (event.type === "tool-result") {

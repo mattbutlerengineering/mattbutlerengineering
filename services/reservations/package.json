@@ -20,11 +20,13 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:backfill-availability": "tsx src/scripts/backfill-availability.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
     "@mbe/auth": "workspace:*",
+    "@mbe/availability": "workspace:*",
     "@mbe/cancellation-policy": "workspace:*",
     "@mbe/database": "workspace:*",
     "@mbe/sentry": "workspace:*",

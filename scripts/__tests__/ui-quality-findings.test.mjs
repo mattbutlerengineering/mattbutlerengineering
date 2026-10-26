@@ -61,10 +61,16 @@ const record = (issue, extra = {}) => ({
  * `search_issues`. A bare number in a test's list means an issue whose title
  * is no finding title — the plan can never adopt it.
  */
-const labelledIssue = (number, title = "an unrelated ui-quality issue", state = "open") => ({
+const labelledIssue = (
+  number,
+  title = "an unrelated ui-quality issue",
+  state = "open",
+  stateReason
+) => ({
   number,
   title,
   state,
+  ...(stateReason === undefined ? {} : { state_reason: stateReason }),
 });
 const toLabelled = (list) => list.map((i) => (typeof i === "number" ? labelledIssue(i) : i));
 
@@ -369,6 +375,167 @@ describe("findings.mjs plan — unknown labelled issues: adopt or escalate once"
   });
 });
 
+// #7603: a closed `not_planned` issue is a human's decision, not lost state —
+// it must not block filing like an open-unknown or closed-completed issue.
+describe("findings.mjs plan — closed not_planned issues never block", () => {
+  const DEAD_KEY = findingKey(DEAD, 1);
+
+  it("an open unknown issue still blocks (today's behaviour, unchanged)", () => {
+    const { code, err } = plan([[DEAD]], {}, [], [labelledIssue(777, "unrelated", "open")]);
+    expect(code).toBe(2);
+    expect(err).toContain("#777");
+  });
+
+  it("a closed completed unknown issue still blocks unless its title adopts (today's behaviour, unchanged)", () => {
+    const { code, err } = plan(
+      [[DEAD]],
+      {},
+      [],
+      [labelledIssue(777, "unrelated", "closed", "completed")]
+    );
+    expect(code).toBe(2);
+    expect(err).toContain("#777");
+  });
+
+  it("a closed not_planned issue with a resolvable key is recorded declined, not blocked", () => {
+    const {
+      code,
+      plan: p,
+      err,
+    } = plan([[DEAD]], {}, [], [labelledIssue(777, titleFor(DEAD, 1), "closed", "not_planned")]);
+    expect(code).toBe(0);
+    expect(err).toContain("declined #777");
+    // DEAD is detected this fire, so it goes through the main loop as a
+    // skip, not the post-loop `decline` action reserved for an absent key.
+    const decline = p.actions.find((a) => a.key === DEAD_KEY);
+    expect(decline).toMatchObject({ action: "skip-vetoed", issue: 777, state: "declined" });
+
+    const executed = writeJson("in/executed.json", p);
+    expect(main(["record", "--executed", executed, "--root", root], { stderr: () => {} })).toBe(0);
+    const ledger = JSON.parse(readFileSync(join(root, LEDGER), "utf8"));
+    expect(ledger[DEAD_KEY]).toMatchObject({ issue: 777, state: "declined" });
+
+    // The same finding recurring on a later fire is skipped, never reopened,
+    // and the decline survives another record round-trip.
+    const next = plan([[DEAD]], { 777: "closed" }, [], [777]);
+    expect(next.code).toBe(0);
+    expect(next.plan.actions).toEqual([
+      expect.objectContaining({ key: DEAD_KEY, action: "skip-vetoed", issue: 777 }),
+    ]);
+    const nextExecuted = writeJson("in/executed2.json", next.plan);
+    expect(main(["record", "--executed", nextExecuted, "--root", root], { stderr: () => {} })).toBe(
+      0
+    );
+    expect(JSON.parse(readFileSync(join(root, LEDGER), "utf8"))[DEAD_KEY]).toMatchObject({
+      issue: 777,
+      state: "declined",
+    });
+  });
+
+  it("declines an issue whose finding is absent this fire as a `decline` action that record writes", () => {
+    const { code, plan: p } = plan(
+      [[AXE]],
+      {},
+      [],
+      [labelledIssue(777, titleFor(DEAD, 1), "closed", "not_planned")]
+    );
+    expect(code).toBe(0);
+    expect(byAction(p, "decline")).toEqual([
+      expect.objectContaining({ key: DEAD_KEY, issue: 777, carrier: "issue", state: "declined" }),
+    ]);
+
+    const executed = writeJson("in/executed.json", execute(p));
+    expect(main(["record", "--executed", executed, "--root", root], { stderr: () => {} })).toBe(0);
+    const ledger = JSON.parse(readFileSync(join(root, LEDGER), "utf8"));
+    expect(ledger[DEAD_KEY]).toMatchObject({ issue: 777, state: "declined" });
+  });
+
+  it("a closed not_planned issue whose title resolves to no key is ignored, reported, never blocks", () => {
+    const {
+      code,
+      plan: p,
+      err,
+    } = plan(
+      [[DEAD]],
+      {},
+      [],
+      [labelledIssue(777, "an unrelated ui-quality issue", "closed", "not_planned")]
+    );
+    expect(code).toBe(0);
+    expect(err).toContain("#777");
+    expect(err).toMatch(/ignored/);
+    expect(p.actions.map((a) => a.key)).toEqual([DEAD_KEY]);
+    expect(byAction(p, "create")).toHaveLength(1);
+  });
+
+  it("the escalation body never advises retitling a not_planned issue, since none ever blocks", () => {
+    const { escalation } = (() => {
+      const ESCALATION = join(".ui-quality", "findings.escalation.json");
+      plan(
+        [[DEAD]],
+        {},
+        [],
+        [
+          labelledIssue(777, "unrelated open issue", "open"),
+          labelledIssue(778, "an unrelated ui-quality issue", "closed", "not_planned"),
+        ]
+      );
+      return {
+        escalation: existsSync(join(root, ESCALATION))
+          ? JSON.parse(readFileSync(join(root, ESCALATION), "utf8"))
+          : null,
+      };
+    })();
+    expect(escalation.unknown).toEqual([777]);
+    expect(escalation.body).not.toContain("#778");
+  });
+
+  // Regression: #7477's exact shape — five ui-quality-labelled issues, four
+  // closed not_planned with titles this loop never generates, one closed
+  // completed and already known to the ledger under its finding key.
+  it("the #7385-#7389 shape: one already-known completed issue, four unresolvable not_planned issues — nothing blocks", () => {
+    writeJson(LEDGER, { [DEAD_KEY]: record(7385, { severity: "P1" }) });
+    const labelled = [
+      labelledIssue(
+        7385,
+        "[Feature] Marketing ui-quality findings [1/5]: fix /status failed-request",
+        "closed",
+        "completed"
+      ),
+      labelledIssue(
+        7386,
+        "[Feature] Marketing ui-quality findings [2/5]: fix axe-serious on /acmm",
+        "closed",
+        "not_planned"
+      ),
+      labelledIssue(
+        7387,
+        "[Feature] Marketing ui-quality findings [3/5]: fix axe-serious on /ai-health",
+        "closed",
+        "not_planned"
+      ),
+      labelledIssue(
+        7388,
+        "[Feature] Marketing ui-quality findings [4/5]: fix axe-serious on /metrics",
+        "closed",
+        "not_planned"
+      ),
+      labelledIssue(
+        7389,
+        "[Feature] Marketing ui-quality findings [5/5]: fix home vague-link-purpose",
+        "closed",
+        "not_planned"
+      ),
+    ];
+    const { code, plan: p, err } = plan([[DEAD]], { 7385: "closed" }, [], labelled);
+    expect(code).toBe(0);
+    expect(p.actions).toEqual([
+      expect.objectContaining({ key: DEAD_KEY, action: "reopen", issue: 7385 }),
+    ]);
+    for (const n of [7386, 7387, 7388, 7389]) expect(err).toContain(`#${n}`);
+  });
+});
+
 describe("findings.mjs plan — unmigrated keys after a rubric bump", () => {
   const OLD = "hospitality|book/:venueSlug|r1|accessibility/axe-moderate";
 
@@ -477,6 +644,21 @@ describe("findings.mjs plan — carrier rules", () => {
       PASS
     );
     expect(p.fix_pr_candidate).toBeNull();
+  });
+
+  it("never marks a declined (not_planned) finding as the fix-PR candidate", () => {
+    const alt = finding("marketing", "acmm", "accessibility/non-descriptive-alt", "P2", {
+      evidence: { message: 'alt="image"', file: "apps/marketing/src/pages/AcmmPage.tsx" },
+    });
+    const { plan: p } = plan([[alt]], {}, PASS, [
+      labelledIssue(777, titleFor(alt, 1), "closed", "not_planned"),
+    ]);
+    expect(p.actions.find((a) => a.key === findingKey(alt, 1))).toMatchObject({
+      action: "skip-vetoed",
+      state: "declined",
+    });
+    expect(p.fix_pr_candidate).toBeNull();
+    expect(p.actions.some((a) => a.fix_pr_candidate)).toBe(false);
   });
 
   it("calibration failed removes agent-built findings only; pass keeps them", () => {

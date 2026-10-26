@@ -10,8 +10,13 @@ vi.mock("./database.js", async () => {
   });
 });
 
+vi.mock("./assert-bookable.js", () => ({
+  judgeBooking: vi.fn().mockResolvedValue({ kind: "ok" }),
+}));
+
 import { moveReservationToHold } from "./move-to-hold.js";
 import { prisma } from "./database.js";
+import { judgeBooking } from "./assert-bookable.js";
 import type { Reservation } from "@mbe/types";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
@@ -201,6 +206,27 @@ describe("moveReservationToHold", () => {
     expect(result).toMatchObject({ success: false, errorCode: "CONFLICT" });
     expect(tx.reservation.update).not.toHaveBeenCalled();
     expect(tx.reservationHold.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns NOT_BOOKABLE when the gate refuses the held slot, leaving the reservation unchanged", async () => {
+    vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makeHold() as never);
+    const rejection = { code: "outside-availability", reason: "closed" } as const;
+    vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+    const tx = makeTx();
+    useTx(tx);
+
+    const result = await moveReservationToHold(input);
+
+    expect(result).toMatchObject({ success: false, errorCode: "NOT_BOOKABLE", rejection });
+    expect(judgeBooking).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        channel: "online",
+        excludeReservationId: "res-1",
+        excludeHoldId: "hold-1",
+      })
+    );
+    expect(tx.reservation.update).not.toHaveBeenCalled();
   });
 
   it("records one moved event with pre- and post-move state in the move transaction", async () => {

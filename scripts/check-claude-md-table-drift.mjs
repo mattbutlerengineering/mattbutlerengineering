@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Fails when a hand-maintained table in CLAUDE.md drifts from the repo tree
+ * Fails when a hand-maintained table in docs/claude-reference.md (moved out of
+ * the always-loaded CLAUDE.md to save context) drifts from the repo tree
  * it claims to document — the `## mbe CLI Commands`, `### Skills` /
  * `### Scaffolding Skills`, and `### Subagents` tables.
  *
@@ -27,6 +28,8 @@ import { runCheck } from "./lib/fitness-check.mjs";
 
 const CLI_COMMANDS_DIR = "tools/cli/src/commands";
 const CLI_INDEX_FILE = "tools/cli/src/command-loaders.ts";
+/** The doc that holds the drift-checked tables, relative to the repo root. */
+export const TABLES_DOC = "docs/claude-reference.md";
 const CLI_HEADING = "## mbe CLI Commands";
 const SKILLS_HEADINGS = ["### Skills", "### Scaffolding Skills"];
 const SUBAGENTS_HEADING = "### Subagents";
@@ -359,7 +362,7 @@ function diffSets({ table, documented, actual }) {
  * @returns {{ table: string; kind: string; name: string }[]}
  */
 export function findTableDrift(root) {
-  const claudeMdPath = path.join(root, "CLAUDE.md");
+  const claudeMdPath = path.join(root, TABLES_DOC);
   if (!fs.existsSync(claudeMdPath)) return [];
   const claudeMdContent = fs.readFileSync(claudeMdPath, "utf-8");
 
@@ -387,11 +390,11 @@ if (isMain) {
 
   process.exit(
     runCheck({
-      name: "CLAUDE.md table drift",
+      name: "claude-reference.md table drift",
       findings,
       formatFinding,
-      passMessage: "PASS: CLAUDE.md tables (CLI commands, skills, subagents) match the repo tree.",
-      failMessage: `FAIL: CLAUDE.md table drift — ${findings.length} issue(s) found:`,
+      passMessage: `PASS: ${TABLES_DOC} tables (CLI commands, skills, subagents) match the repo tree.`,
+      failMessage: `FAIL: ${TABLES_DOC} table drift — ${findings.length} issue(s) found:`,
     })
   );
 }

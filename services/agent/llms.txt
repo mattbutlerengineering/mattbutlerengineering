@@ -35,6 +35,9 @@
         catalogPrompt: string;
       }
     </item>
+    <item priority="high">
+      export function chatComponentReference(catalogPrompt: string): string { /* ... */ }
+    </item>
     <item priority="medium">
       function weekdayIn(timeZone: string, now: Date): string { /* ... */ }
     </item>
@@ -74,15 +77,14 @@
       ): T | (T & { localTime: string }) { /* ... */ }
     </item>
     <item priority="high">
-      interface DayHours {
-        closed?: boolean | undefined;
-      }
+      type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAv...;
     </item>
-    <item priority="high">
-      export function closedWeekday(
-        operatingHours: Partial<Readonly<Record<(typeof WEEKDAYS)[number], DayHours>>> | null,
-        date: string
-      ): string | undefined { /* ... */ }
+    <item priority="medium">
+      function availabilityResult(
+        response: PublicAvailability,
+        date: string,
+        timeZone: string | undefined
+      ) { /* ... */ }
     </item>
     <item priority="medium">
       function gateWriteTools(
@@ -118,6 +120,12 @@
     </item>
     <item priority="medium">
       function isTimeZone(value: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genAgentSystemPrompt(
+        parsed: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined },
+        catalogPrompt: string
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export const genAgentRoutes: unknown;

@@ -45,6 +45,16 @@
       "limit": "4 kB"
     },
     {
+      "name": "Quick Setup Form (shared by the availability page and onboarding)",
+      "path": "dist/assets/QuickSetupForm-*.js",
+      "limit": "8 kB"
+    },
+    {
+      "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
+      "path": "dist/assets/CloseDialog-*.js",
+      "limit": "5.5 kB"
+    },
+    {
       "name": "Venue Onboarding (lazy chunk)",
       "path": "dist/assets/VenueOnboardingPage-*.js",
       "limit": "7.5 kB"
@@ -85,6 +95,11 @@
       "limit": "33 kB"
     },
     {
+      "name": "Quick-setup draft + legacy-hours reader (shared by onboarding and the Availability page)",
+      "path": "dist/assets/quick-setup-draft-*.js",
+      "limit": "8 kB"
+    },
+    {
       "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
       "path": "dist/assets/copilotContext-*.js",
       "limit": "11 kB"
@@ -94,6 +109,7 @@
     "@json-render/react": "^0.21.1",
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/api-client": "workspace:*",
+    "@mbe/availability": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/cancellation-policy": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",

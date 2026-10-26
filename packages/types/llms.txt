@@ -1,5 +1,13 @@
 <codebase path="packages/types">
   <section priority="medium" role="endpoints">
+  <file path="src/endpoints/availability-config.ts">
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      export const availabilityConfigEndpoints: unknown;
+    </item>
+  </file>
   <file path="src/endpoints/define.ts">
     <item priority="low">
       type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -145,6 +153,444 @@
   <file path="src/schemas/api.ts">
     <item priority="high">
       export const ProblemDetailsSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/availability-config-api.ts">
+    <item priority="high">
+      export const AvailabilityConfigChangesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SCOPE_CONFLICT_MODES: unknown;
+    </item>
+    <item priority="high">
+      export const ScopeConflictModeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PutAvailabilityConfigBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSourceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigStateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSaveResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangeSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangeEntrySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CHANGES_MAX_LIMIT: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangesQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangesPageSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RevertAvailabilityChangeBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const StrandedReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_PROBLEM_CODES: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigProblemSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_DAYS_MAX_RANGE: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDaysQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDaySummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_IMPACT_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactGroupSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureImpactSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
+    </item>
+    <item priority="low">
+      type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    </item>
+    <item priority="high">
+      export const SOFT_LIMITS: unknown;
+    </item>
+    <item priority="high">
+      export const SoftLimitSchema: unknown;
+    </item>
+    <item priority="high">
+      export const HARD_REASONS: unknown;
+    </item>
+    <item priority="high">
+      export const HardReasonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_STRANDED_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_SCOPE_MAX_DATES: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewScopeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewAvailabilityBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewDaySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    </item>
+    <item priority="low">
+      type PreviewScope = z.infer<typeof PreviewScopeSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
+    </item>
+    <item priority="low">
+      type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
+    </item>
+    <item priority="low">
+      type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesParsed = z.infer<typeof AvailabilityChangesQuerySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesPage = z.infer<typeof AvailabilityChangesPageSchema>;
+    </item>
+    <item priority="low">
+      type RevertAvailabilityChangeBody = z.infer<typeof RevertAvailabilityChangeBodySchema>;
+    </item>
+    <item priority="low">
+      type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    </item>
+    <item priority="high">
+      export const ClosureDecisionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateClosureBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReopenClosureBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureOutcomeCountsSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReopenResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureSummariesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RetryRefundsResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CallListEntrySchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightChangeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SetTonightBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type TonightChange = z.infer<typeof TonightChangeSchema>;
+    </item>
+    <item priority="low">
+      type SetTonightBody = z.infer<typeof SetTonightBodySchema>;
+    </item>
+    <item priority="low">
+      type TonightResult = z.infer<typeof TonightResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
+    </item>
+    <item priority="low">
+      type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureResult = z.infer<typeof ClosureResultSchema>;
+    </item>
+    <item priority="low">
+      type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
+    </item>
+    <item priority="low">
+      type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
+    </item>
+  </file>
+  <file path="src/schemas/availability-config.ts">
+    <item priority="high">
+      export const SCHEDULE_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const DATE_RULE_KINDS: unknown;
+    </item>
+    <item priority="high">
+      export const DATE_RULE_TARGETS: unknown;
+    </item>
+    <item priority="high">
+      export const SERVICE_BOOKING_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const RULE_BOOKING_TYPES: unknown;
+    </item>
+    <item priority="high">
+      export const DATE_RULE_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_ACTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_REFUND_STATUSES: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleTargetKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleSourceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureActionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureRefundStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GUEST_MESSAGE_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const MinuteSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ServiceDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SeatingSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WindowSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RepeatSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SpecialHoursServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SpecialHoursPayloadSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightPayloadSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleServiceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ScheduleAssignmentSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateRuleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityConfigSchema: unknown;
+    </item>
+    <item priority="low">
+      type Seating = z.infer<typeof SeatingSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityWindow = z.infer<typeof WindowSchema>;
+    </item>
+    <item priority="low">
+      type Repeat = z.infer<typeof RepeatSchema>;
+    </item>
+    <item priority="low">
+      type SpecialHoursService = z.infer<typeof SpecialHoursServiceSchema>;
+    </item>
+    <item priority="low">
+      type SpecialHoursPayload = z.infer<typeof SpecialHoursPayloadSchema>;
+    </item>
+    <item priority="low">
+      type TonightPayload = z.infer<typeof TonightPayloadSchema>;
+    </item>
+    <item priority="low">
+      type Schedule = z.infer<typeof ScheduleSchema>;
+    </item>
+    <item priority="low">
+      type VenueService = z.infer<typeof VenueServiceSchema>;
+    </item>
+    <item priority="low">
+      type ScheduleService = z.infer<typeof ScheduleServiceSchema>;
+    </item>
+    <item priority="low">
+      type ScheduleAssignment = z.infer<typeof ScheduleAssignmentSchema>;
+    </item>
+    <item priority="low">
+      type DateRule = z.infer<typeof DateRuleSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityConfig = z.infer<typeof AvailabilityConfigSchema>;
+    </item>
+    <item priority="low">
+      type ClosureAction = z.infer<typeof ClosureActionSchema>;
+    </item>
+  </file>
+  <file path="src/schemas/availability-response.ts">
+    <item priority="high">
+      export const AvailableTableSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TimeSlotSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityClosureSchema: unknown;
+    </item>
+    <item priority="high">
+      export const BookingPausedSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DateAvailabilitySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicClosedDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesResponseSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityResponseSchema: unknown;
+    </item>
+    <item priority="low">
+      type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
+    </item>
+    <item priority="low">
+      type BookingPaused = z.infer<typeof BookingPausedSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
     </item>
   </file>
   <file path="src/schemas/common.ts">
@@ -467,6 +913,15 @@
       export const assignSectionTablesBodyJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const venueTeamResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateTeamMemberRoleBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateVenueTeamBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const createMenuBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -570,6 +1025,15 @@
     </item>
     <item priority="high">
       export const publicAvailabilityQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityDatesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityDatesResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityResponseJsonSchema: unknown;
     </item>
     <item priority="high">
       export const publicDepositBodyJsonSchema: unknown;
@@ -714,6 +1178,9 @@
       export const WalkInBodySchema: unknown;
     </item>
     <item priority="high">
+      export const StaffOverrideSchema: unknown;
+    </item>
+    <item priority="high">
       export const CreateReservationBodySchema: unknown;
     </item>
     <item priority="high">
@@ -822,6 +1289,9 @@
       export const PublicAvailabilityQuerySchema: unknown;
     </item>
     <item priority="high">
+      export const PublicAvailabilityDatesQuerySchema: unknown;
+    </item>
+    <item priority="high">
       export const PublicDepositBodySchema: unknown;
     </item>
     <item priority="high">
@@ -889,6 +1359,41 @@
     </item>
     <item priority="high">
       export const UserProfileSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/venue-team.ts">
+    <item priority="high">
+      export const TEAM_ROLES: unknown;
+    </item>
+    <item priority="high">
+      export const TeamRoleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TeamMemberSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueTeamSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateTeamMemberRoleRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateVenueTeamRequestSchema: unknown;
+    </item>
+    <item priority="low">
+      type TeamRole = z.infer<typeof TeamRoleSchema>;
+    </item>
+    <item priority="low">
+      type TeamMember = z.infer<typeof TeamMemberSchema>;
+    </item>
+    <item priority="low">
+      type VenueTeam = z.infer<typeof VenueTeamSchema>;
+    </item>
+    <item priority="low">
+      type UpdateTeamMemberRoleRequest = z.infer<typeof UpdateTeamMemberRoleRequestSchema>;
+    </item>
+    <item priority="low">
+      type UpdateVenueTeamRequest = z.infer<typeof UpdateVenueTeamRequestSchema>;
     </item>
   </file>
   <file path="src/schemas/venue.ts">
@@ -1093,6 +1598,7 @@
         date: string;
         hasAvailability: boolean;
         slotCount?: number;
+        closure?: { message: string };
       }
     </item>
     <item priority="low">

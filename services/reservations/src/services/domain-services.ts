@@ -1,4 +1,10 @@
 import { availabilityService } from "./availability.js";
+import { availabilityConfigService } from "./availability-config.js";
+import { availabilityChangesService } from "./availability-changes.js";
+import { closureImpactService } from "./closure-impact-store.js";
+import type { ClosureNoticeService } from "./closure-notice-service.js";
+import { closureCommandService } from "./closure-command.js";
+import { tonightCommandService } from "./tonight-command.js";
 import { venueService, venueGroupService } from "./venue.js";
 import { tableService } from "./table.js";
 import { reservationService } from "./reservation.js";
@@ -10,6 +16,7 @@ import { holdService } from "./hold.js";
 import type { DepositService } from "./deposit.js";
 import { waitlistService } from "./waitlist.js";
 import { briefingService } from "./briefing.js";
+import { venueTeamService } from "./venue-team.js";
 
 /**
  * The reservations domain-service seam (issue #3357).
@@ -33,6 +40,13 @@ import { briefingService } from "./briefing.js";
  */
 export interface DomainServices {
   availabilityService: typeof availabilityService;
+  availabilityConfigService: typeof availabilityConfigService;
+  availabilityChangesService: typeof availabilityChangesService;
+  closureImpactService: typeof closureImpactService;
+  closureCommandService: typeof closureCommandService;
+  /** Built in `buildApp` over the notifier scheduler — never a module singleton. */
+  closureNoticeService: ClosureNoticeService;
+  tonightCommandService: typeof tonightCommandService;
   venueService: typeof venueService;
   venueGroupService: typeof venueGroupService;
   tableService: typeof tableService;
@@ -46,6 +60,7 @@ export interface DomainServices {
   depositService: DepositService;
   waitlistService: typeof waitlistService;
   briefingService: typeof briefingService;
+  venueTeamService: typeof venueTeamService;
 }
 
 /**
@@ -53,8 +68,16 @@ export interface DomainServices {
  * spreads any `options.services` overrides on top of this, so callers that pass
  * nothing get identical runtime behaviour.
  */
-export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
+export const defaultDomainServices: Omit<
+  DomainServices,
+  "depositService" | "closureNoticeService"
+> = {
   availabilityService,
+  availabilityConfigService,
+  availabilityChangesService,
+  closureImpactService,
+  closureCommandService,
+  tonightCommandService,
   venueService,
   venueGroupService,
   tableService,
@@ -66,4 +89,5 @@ export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
   holdService,
   waitlistService,
   briefingService,
+  venueTeamService,
 };

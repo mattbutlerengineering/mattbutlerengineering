@@ -11,6 +11,7 @@ import {
   hasPermission,
   requireOwnershipOrAdmin,
   requireVenueAccess,
+  requireVenueRole,
   type AuthUser,
 } from "@mbe/auth/fastify";
 import { createProblemDetails, titleForStatus, type ProblemDetails } from "@mbe/types";
@@ -98,6 +99,11 @@ export type VenueSource<RG extends RouteGenericInterface, E> =
 export type VenueAccess<E> =
   /** Default: ADR-020 venue membership (`requireVenueAccess`). Admins pass. */
   | "member"
+  /**
+   * Venue configuration writes: `requireVenueRole("manager")` — an owner or
+   * manager membership (owner ⊇ manager ⊇ staff). Admins pass; staff get 403.
+   */
+  | "manager"
   /** RLS context only; relies on `requireAuth` in the route's preHandler. */
   | "authenticated"
   /** ADR-020 ownership: the verified email equals `owner(entity)`. Admins pass. */
@@ -226,6 +232,12 @@ export function venueScoped<
         async () => (entity == null ? null : ownerAccess.owner(entity)),
         resolveCurrentUserEmail
       )(request, reply);
+    } else if (access === "manager") {
+      await requireVenueRole(
+        "manager",
+        request.server.venueRoleLookup,
+        () => venueId
+      )(request, reply);
     } else {
       await requireVenueAccess(request.server.venueMembershipLookup, () => venueId)(request, reply);
     }
@@ -267,7 +279,8 @@ export function venueScoped<
     );
     if (problem) return reply.code(problem.status).send(problem);
 
-    if (access === "member" && !(await decide(request, reply, venueId, null))) return reply;
+    const membershipAccess = access === "member" || access === "manager";
+    if (membershipAccess && !(await decide(request, reply, venueId, null))) return reply;
 
     const resolvedVenueId = venueId;
     return runWithVenueContext(resolvedVenueId, async () => {

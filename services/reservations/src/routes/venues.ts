@@ -40,6 +40,7 @@ import { publicVenueScoped } from "./public-venue-scope.js";
  * venue's RLS context (`venue_isolation` is keyed on the row's own `id`).
  */
 const venueFromRouteId = { venue: { from: "params", field: "id" } } as const;
+const venueManagerFromRouteId = { ...venueFromRouteId, access: "manager" } as const;
 
 /**
  * Per-identity cap on venue creation. The bootstrap case admits callers who
@@ -706,7 +707,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         summary: "Update a venue",
         operationId: "updateVenue",
         description:
-          "Update an existing venue. Only provided fields will be updated. Requires authentication.",
+          "Update an existing venue. Only provided fields will be updated. Requires a Manager (owner or manager) membership of the venue, or the admin role.",
         tags: ["Venues"],
         security: [{ bearerAuth: [] }],
         params: {
@@ -733,7 +734,8 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
             $ref: "Error#",
           },
           403: {
-            description: "Admin role required to change the venue's venue group",
+            description:
+              "Caller is not a Manager (owner or manager) of this venue, or is not an admin and is changing the venue's venue group",
             $ref: "Error#",
           },
           404: {
@@ -743,17 +745,18 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    venueScoped(venueFromRouteId, async (request, reply, { venueId, isAdmin }) => {
+    // Venue configuration write: needs Manager (owner or manager membership,
+    // #7509); staff/Host members are refused, admins bypass.
+    venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
       const { venueGroupId } = request.body;
 
       if (venueGroupId !== undefined && !isAdmin) {
-        // Venue scope proves MEMBERSHIP of this venue only — it never inspects
-        // a per-venue role (ADR-020). Re-parenting a venue into a different
-        // venue group is an org-hierarchy-defining mutation, the same class as
-        // venue-group CRUD and venue creation, both admin-gated in this file.
-        // Every other editable field stays open to members, so the check is
-        // scoped to an actual CHANGE of venueGroupId rather than gating the
-        // whole route.
+        // Manager scope proves a per-venue role, never platform authority.
+        // Re-parenting a venue into a different venue group is an
+        // org-hierarchy-defining mutation, the same class as venue-group CRUD
+        // and venue creation, both admin-gated in this file. Every other
+        // editable field stays open to Managers, so the check is scoped to an
+        // actual CHANGE of venueGroupId rather than gating the whole route.
         const current = await venueService.getById(venueId);
         // A venue that does not exist is not a reassignment — fall through so
         // the update below surfaces the existing 404.

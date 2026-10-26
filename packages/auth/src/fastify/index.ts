@@ -9,5 +9,17 @@ export type { AuthPluginOptions, JwtVerifier } from "./plugin.js";
 export type { AuthUser } from "../types/index.js";
 export { requireOwnershipOrAdmin } from "./ownership.js";
 export type { OwnerResolver, AuthorizationContext, OwnershipOptions } from "./ownership.js";
-export { requireAdmin, requireVenueAccess, requireVenueCreateAccess } from "./authz.js";
-export type { HasAnyVenueMembership, VenueIdResolver, VenueMembershipLookup } from "./authz.js";
+export {
+  hasVenueRole,
+  requireAdmin,
+  requireVenueAccess,
+  requireVenueCreateAccess,
+  requireVenueRole,
+} from "./authz.js";
+export type {
+  HasAnyVenueMembership,
+  VenueIdResolver,
+  VenueMembershipLookup,
+  VenueRole,
+  VenueRoleLookup,
+} from "./authz.js";

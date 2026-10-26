@@ -32,7 +32,13 @@ vi.mock("../services/gen-spend-ceiling.js", async (importActual) => {
 });
 
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
-  catalog: { prompt: vi.fn(() => "mock system prompt") },
+  // gen-agent keeps only the component list, so the mock carries its markers.
+  catalog: {
+    prompt: vi.fn(
+      () =>
+        "mock system prompt\n\nAVAILABLE COMPONENTS (1):\n\n- MockCard: {}\n\nAVAILABLE ACTIONS:"
+    ),
+  },
 }));
 
 vi.mock("@mbe/auth/fastify", () => ({

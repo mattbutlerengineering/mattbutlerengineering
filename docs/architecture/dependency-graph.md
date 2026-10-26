@@ -22,6 +22,7 @@ flowchart TD
     agent_core["agent-core"]
     api_client["api-client"]
     auth["auth"]
+    availability["availability"]
     cancellation_policy["cancellation-policy"]
     config["config"]
     database["database"]
@@ -51,6 +52,7 @@ flowchart TD
   gen --> config
   hospitality --> rialto
   hospitality --> api_client
+  hospitality --> availability
   hospitality --> auth
   hospitality --> cancellation_policy
   hospitality --> rialto_catalog
@@ -77,6 +79,7 @@ flowchart TD
   agent_service --> types
   agent_service --> config
   reservations_service --> auth
+  reservations_service --> availability
   reservations_service --> cancellation_policy
   reservations_service --> database
   reservations_service --> sentry
@@ -96,6 +99,8 @@ flowchart TD
   api_client --> config
   auth --> types
   auth --> config
+  availability --> types
+  availability --> config
   cancellation_policy --> config
   database --> config
   gh_client --> config
@@ -141,6 +146,7 @@ flowchart TD
   class agent_core shared
   class api_client shared
   class auth shared
+  class availability shared
   class cancellation_policy shared
   class config shared
   class database shared

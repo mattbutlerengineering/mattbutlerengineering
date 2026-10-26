@@ -1,0 +1,129 @@
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--rialto-space-xs);
+}
+
+.columnHeader {
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.dayCell {
+  display: flex;
+  min-width: 0;
+}
+
+.cell {
+  position: relative;
+  user-select: none;
+  -webkit-touch-callout: none;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-xs);
+  min-height: 5.5rem;
+  padding: var(--rialto-space-sm);
+  border: 0;
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  box-shadow: var(--rialto-shadow-sm);
+  color: var(--rialto-text-primary);
+  font-family: var(--rialto-font-sans);
+  text-align: start;
+  cursor: pointer;
+}
+
+.cell:hover {
+  background: var(--rialto-surface-recessed);
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: 2px;
+}
+
+.cell[aria-current="date"] .dayNumber {
+  text-decoration: underline;
+}
+
+.muted {
+  color: var(--rialto-text-secondary);
+}
+
+.selected {
+  outline: 2px solid var(--rialto-accent);
+}
+
+/* Picked for a bulk edit: a recessed surface plus the outline, never colour alone. */
+.picked {
+  background: var(--rialto-surface-recessed);
+  outline: 2px dashed var(--rialto-accent);
+}
+
+.detailed {
+  min-height: 9rem;
+}
+
+.dayNumber {
+  font-size: var(--rialto-text-sm);
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  min-width: 0;
+  width: 100%;
+}
+
+.label {
+  font-size: var(--rialto-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
+/* A closure band reads as text first; the left rule is only a reinforcement. */
+.band {
+  padding-inline-start: var(--rialto-space-sm);
+  border-inline-start: 3px solid var(--rialto-text-secondary);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-primary);
+}
+
+.draftDot {
+  position: absolute;
+  inset-block-start: var(--rialto-space-xs);
+  inset-inline-end: var(--rialto-space-xs);
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--rialto-accent);
+}
+
+.columnButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.columnButton:focus-visible {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: 2px;
+}

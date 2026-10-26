@@ -23,6 +23,7 @@ import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { LanguageRegionCard } from "../components/LanguageRegionCard.js";
 import { VenueProfileCard } from "../components/venue-profile/VenueProfileCard.js";
 import { VenueThemeCard } from "../components/venue-theme/VenueThemeCard.js";
+import { TeamRolesCard } from "../components/venue-team/TeamRolesCard.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import styles from "./SettingsPage.module.css";
 
@@ -280,6 +281,9 @@ export function SettingsPage() {
             {/* Venue Profile — what guests see on the public booking page */}
             <VenueProfileCard />
 
+            {/* Team — Manager / Host roles and the Host emergency-close grant */}
+            <TeamRolesCard />
+
             {/* Venue Defaults */}
             <Card title={t("settings.defaults.title")}>
               <Stack gap="sm">
@@ -371,7 +375,7 @@ export function SettingsPage() {
                 <Text variant="caption" color="secondary">
                   {t("settings.venue.description")}
                 </Text>
-                <Button variant="secondary" onClick={() => navigate("/setup/hours")}>
+                <Button variant="secondary" onClick={() => navigate("/availability")}>
                   {t("settings.venue.operatingHours")}
                 </Button>
                 <Button variant="secondary" onClick={() => navigate("/timeline?rehearsal=true")}>

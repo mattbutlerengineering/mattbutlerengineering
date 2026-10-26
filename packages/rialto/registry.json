@@ -1,5 +1,5 @@
 {
-  "version": "0.8.6",
+  "version": "0.8.7",
   "components": [
     {
       "name": "Accordion",
@@ -555,6 +555,12 @@
           "type": "((isoDate: string) => boolean) | undefined",
           "required": false,
           "description": "Predicate deciding whether a date is disabled. When supplied it is\nauthoritative and wins over `min`/`max`; range bounds apply only when no\npredicate is given."
+        },
+        {
+          "name": "getDateLabel",
+          "type": "((isoDate: string) => string | undefined) | undefined",
+          "required": false,
+          "description": "Optional accessible name for a day (`yyyy-mm-dd` in), e.g. why a date is\nclosed. Returning `undefined` leaves the day with its number as the name.\nA labelled disabled day stays focusable so the label can be reached."
         },
         {
           "name": "locale",
@@ -4855,7 +4861,7 @@
           "name": "times",
           "type": "string[]",
           "required": true,
-          "description": "Open times as display text, in time order. Empty shows the no-open-times line."
+          "description": "Open times as display text, in time order; a bare 24-hour \"19:30\" shows in the locale's clock. Empty shows the no-open-times line."
         }
       ],
       "slots": [

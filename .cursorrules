@@ -6,6 +6,7 @@
 > This file is the primary source of project context for all AI agents (Gemini, Claude, OpenCode, Codex, Cursor).
 > For tool-specific mandates, see [CLAUDE.md](./CLAUDE.md) (Claude), [GEMINI.md](./GEMINI.md) (Gemini), or [.cursorrules](./.cursorrules) (Cursor).
 > OpenCode reads [opencode.json](./opencode.json). Codex reads [.codex/config.toml](./.codex/config.toml).
+> Reference material (package inventory, tool lists, routing/Auth0/deploy facts, Semgrep config, Turborepo caching, AI context catalog) lives in [docs/agents-reference.md](./docs/agents-reference.md).
 
 ## Project Identity
 
@@ -19,7 +20,7 @@
 
 - `apps/` — Frontend React (Vite) applications: `marketing` (/), `hospitality` (/hospitality), `rialto-web` (/rialto), `gen` (/gen).
 - `services/` — Backend Fastify/Node APIs: `users` (3001), `agent` (3003), `reservations` (3004).
-- `packages/` — Shared libraries: `agent-core` (incl. `./testing` test doubles), `api-client`, `auth`, `cancellation-policy` (pure cancellation-fee/deposit decision engine), `config`, `database` (Prisma/Postgres pool wrapper), `gh-client` (typed GitHub wrapper + coordination-label state machine), `rialto` (Design System) + `rialto-catalog`/`rialto-plugin`, `sentry`, `service-bootstrap` (API versioning, service scaffolding, telemetry/health/readiness), `types`, `ui-quality-capture` (shared Playwright capture helper for the ui-quality loop). Each has its own `CLAUDE.md`.
+- `packages/` — Shared libraries; each has its own `CLAUDE.md`. Inventory: [docs/agents-reference.md § Packages](./docs/agents-reference.md#packages).
 - `infrastructure/` — Pulumi (IaC) and Docker configuration.
 - `tools/` — Developer CLI (`mbe`).
 
@@ -35,46 +36,11 @@ pnpm typecheck      # Run tsc across workspace
 pnpm clean          # Wipe artifacts and node_modules
 ```
 
-### Multi-Repo Orchestration
-
-`scripts/orchestrate-multi.mjs` (clone downstream repo → branch → commit → push → PR) was deleted as dead code in #3044. There is no scripted replacement — coordinating changes with external consumers (e.g. published `@mattbutlerengineering/rialto` versions) is manual today. See `docs/acmm/multi-repo-orchestration.md` for the current coordination strategy. <!-- rot-ignore: scripts/orchestrate-multi.mjs -->
-
 ## Development Flow with Metrics & Continuous Improvement
 
-The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. Claude Code loads project skills from `.claude/skills/` (both project automation and general engineering advice). See [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop) for the full skill catalog and scheduling.
+The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. Claude Code loads project skills from `.claude/skills/` (both project automation and general engineering advice). See [docs/claude-reference.md](./docs/claude-reference.md) for the full skill catalog and [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop) for scheduling.
 
-Quick reference:
-
-- `/idea-to-prod:implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
-- `/site-audit [smoke|sweep|scout]` — crawl live site
-- `/ci-monitor` — auto-fix simple CI failures
-- `/progress-tracker` — metrics + circuit breaker
-- `/acmm-audit` — score repo against AI Codebase Maturity Model
-
-### ACMM Audit (All Agents)
-
-The AI Codebase Maturity Model audit is a plain Node.js script — no Claude Code plugin required:
-
-```bash
-node plugins/acmm/scripts/audit.js              # Dry run — scores repo, writes report
-node plugins/acmm/scripts/audit.js --apply       # Also files GitHub issues for next-level gaps
-node plugins/acmm/scripts/audit.js --badge        # Also rewrites README badge
-node plugins/acmm/scripts/audit.js --apply --badge # Full run
-node plugins/acmm/scripts/audit.js --trend        # Print level history from state.json
-node plugins/acmm/scripts/evals/index.js --report # Print instruction regression results
-```
-
-Output: `.claude/acmm/state.json` (machine-readable) and `.claude/acmm/report.md` (human-readable scorecard). Tests: `node --test plugins/acmm/scripts/__tests__/`.
-
-### Synthetic Bug Audit (#1191)
-
-The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high signal quality and continuous learning:
-
-- **Chaos Agent:** Scheduled script (`scripts/chaos-agent.mjs`) that seeds detectable non-breaking bugs (console errors, Lighthouse regressions, a11y violations) to verify that audit loops catch them.
-- **Revert RCA Loop:** Automatic trigger (`scripts/revert-rca.mjs`) that fires when an AI PR is reverted. It creates a critical RCA issue tasked for an agent to perform a Root Cause Analysis and update `.claude/rules/gotchas.md`.
-
-`mbe` CLI subcommands (real binary):
-`agent`, `pack`, `pack-changed`, `check-adr`, `check-deps`, `check-model`, `issue`, `loop`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
+Skill quick reference, ACMM audit commands, the synthetic-bug audit and the `mbe` subcommand list: [docs/agents-reference.md](./docs/agents-reference.md#continuous-improvement-quick-reference). Multi-repo coordination is manual: [docs/agents-reference.md § Multi-Repo Orchestration](./docs/agents-reference.md#multi-repo-orchestration).
 
 ---
 
@@ -118,22 +84,7 @@ Synonyms listed there as "avoid" must not appear in code or API responses.
 
 ## Architecture & Conventions
 
-### Routing & URLs
-
-- Served via Cloudflare Worker `edge-router` at `mattbutlerengineering.com`.
-- Apps use path-prefix routing (e.g., `apps/hospitality` -> `/hospitality`).
-- API services at `api.mattbutlerengineering.com` (DO App Platform).
-
-### Auth0 Configuration
-
-- Domain: `dev-ytbgmz5ls3wh4xdx.us.auth0.com`
-- API Identifier: `https://api.mattbutlerengineering.com`
-
-### Deployment
-
-- Static sites (`apps/*`): `wrangler deploy` to Workers Static Assets.
-- API Services (`services/*`): DO App Platform via `doctl`.
-- Infrastructure: Pulumi (TypeScript).
+Routing & URLs, Auth0 configuration and deployment targets: [docs/agents-reference.md § Routing, Auth0 and Deployment](./docs/agents-reference.md#routing-auth0-and-deployment).
 
 ### Code Style
 
@@ -171,18 +122,7 @@ Semgrep provides Static Application Security Testing (SAST) integrated into the 
 
 The `.husky/pre-commit` hook runs `semgrep --config semgrep.yml --error` on staged files before commit.
 
-### Configuration
-
-- **Rules file:** `semgrep.yml` (root) — covers CWE-top vulnerabilities
-- **Categories:** Code injection, SQL injection, XSS, hardcoded secrets, missing auth, insecure JWT
-- **Registry rules:** `semgrep --config "p/security-audit"` for extended coverage
-
-### Running Manually
-
-```bash
-semgrep --config semgrep.yml --error .           # Custom rules
-semgrep --config "p/security-audit" --error .  # Semgrep registry rules
-```
+Rules file, categories and manual commands: [docs/agents-reference.md § Semgrep configuration](./docs/agents-reference.md#semgrep-configuration).
 
 ## Model Governance
 
@@ -193,14 +133,6 @@ To ensure cost-efficiency and technical integrity, follow this model tiering str
 - **Tier 3: Opus / Gemini Ultra** - Architectural design, complex migrations, cross-cutting system changes (>$0.50).
 
 Use `mbe check-model "<directive>"` to verify the recommended tier before starting high-complexity work.
-
-## Performance Infrastructure
-
-The monorepo uses Turborepo for orchestration and caching. To maximize velocity:
-
-- **Remote Caching:** Configured via Vercel Remote Cache. See [docs/TURBO.md](docs/TURBO.md) for setup instructions. CI authenticates automatically using `TURBO_TOKEN` and `TURBO_TEAM` variables.
-- **Selective Typechecking:** Use `pnpm turbo typecheck --filter='...[HEAD]'` to only check packages affected by current changes.
-- **Autonomous Refresh:** `.husky/pre-commit` runs `scripts/precommit-llms-stage.mjs` to regenerate and stage AI context skeletons (`llms.txt`) for the packages affected by the staged commit; `.husky/post-checkout` runs `mbe pack-changed --mode checkout` after a branch switch. (The old `post-commit` hook was removed in #6633.)
 
 ## RIPER Workflow
 
@@ -225,17 +157,7 @@ Agents must signal their current phase using the following tokens:
 
 ## AI Context Catalog
 
-Files agents should know about (in load order):
-
-- `AGENTS.md` (this file) — primary cross-tool project context.
-- `CLAUDE.md` — Claude Code mandates, skill catalog, deploy commands.
-- `GEMINI.md` — Gemini-specific mandates (Silent TDD, Extreme Speed).
-- `.cursorrules` — Cursor AI rules and project context.
-- `opencode.json` — OpenCode configuration (models, permissions, MCP servers).
-- `.codex/config.toml` — Codex CLI configuration (model, approval policy, sandbox).
-- `.claude/rules/gotchas.md` — session-tested traps (pre-commit, CI, releases, Prisma).
-- `packages/*/CLAUDE.md` and `services/*/CLAUDE.md` — domain-specific authoring rules.
-- `llms.txt` — Rialto component catalog (UI patterns), regenerated by the pre-commit `precommit-llms-stage.mjs` hook (and `pack-changed` on checkout).
+The files agents should know about, in load order (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.claude/rules/gotchas.md`, per-package `CLAUDE.md`, `llms.txt`, …): [docs/agents-reference.md § AI Context Catalog](./docs/agents-reference.md#ai-context-catalog).
 
 ## AI Tooling Adoption Gate
 
@@ -243,14 +165,7 @@ Before adding any new tool, skill, plugin, or MCP server to the workflow, run `/
 
 The authoritative installed-vs-STACK gap report is at [`docs/ai-tooling-audit.md`](docs/ai-tooling-audit.md). Keep the report current whenever you add or remove tools. `/audit-workflow` does **not** resolve from a session here — it lives in the external `ai-tooling` marketplace, which that report itself records as not registered; the current report was produced by following its `SKILL.md` protocol by hand.
 
-**Install the ai-tooling marketplace:**
-
-```bash
-claude plugin marketplace add https://github.com/mattbutlerengineering/ai-tooling.git
-claude plugin install ai-tooling
-```
-
-- `llms-full.txt` — Detailed prop tables and advanced examples.
+Marketplace install commands: [docs/agents-reference.md](./docs/agents-reference.md#installing-the-ai-tooling-marketplace).
 
 <!-- BEGIN:turborepo-agent-rules -->
 

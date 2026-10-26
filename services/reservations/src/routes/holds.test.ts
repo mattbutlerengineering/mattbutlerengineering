@@ -285,6 +285,34 @@ describe("Hold Routes", () => {
       expect(body.title).toBe("Conflict");
     });
 
+    it("returns 422 outside-availability when the booking gate refuses the slot", async () => {
+      vi.mocked(holdService.create).mockResolvedValue({
+        success: false,
+        error: "Requested time is outside the venue's availability",
+        rejection: { code: "outside-availability", reason: "outside_service" },
+      });
+
+      const response = await authInject({
+        method: "POST",
+        url: HOLDS_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: {
+          venueId: "venue-123",
+          date: "2024-02-15",
+          time: "2024-02-15T10:00:00.000Z",
+          partySize: 4,
+        },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 422,
+        title: "Outside Availability",
+        code: "outside-availability",
+        reason: "outside_service",
+      });
+    });
+
     it("should return 404 when venue not found", async () => {
       vi.mocked(holdService.create).mockResolvedValue({
         success: false,
@@ -624,6 +652,30 @@ describe("Hold Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.title).toBe("Pacing Limit Reached");
       expect(body.detail).toBe("Pacing limit reached for this time slot");
+    });
+
+    it("returns 422 soft-limit when the confirm re-check reports a soft limit", async () => {
+      vi.mocked(confirmHold).mockResolvedValue({
+        success: false,
+        error: "Requested time is outside the venue's availability",
+        errorCode: "NOT_BOOKABLE",
+        rejection: { code: "soft-limit", limits: ["after_last_seating"] },
+      });
+
+      const response = await authInject({
+        method: "POST",
+        url: CONFIRM_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: { guestName: "John Doe" },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 422,
+        title: "Soft Limit",
+        code: "soft-limit",
+        limits: ["after_last_seating"],
+      });
     });
   });
 

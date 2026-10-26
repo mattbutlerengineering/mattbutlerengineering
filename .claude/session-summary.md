@@ -54,3 +54,14 @@ gemini to start and use haiku later."
 - Explore-confirmed: all 5 generative-UI PRD phases are built (incl. persistence
   `StoredSpec` + hospitality ChatPanel embed); `/api/gen/chat` has no caller
   outside tests (possible dead code, not filed this session).
+
+## Next steps
+
+- #6948 (gen-UI go-live) stays `ready-for-human`: Anthropic key → Anthropic bake-off arm → `GEN_DAILY_CEILING_USD` → key as SECRET env on agent-api via the DO dashboard → verify live → label #7231 `ready`.
+- #7376 (Dress Rehearsal E2E spec) needs a session with `E2E_AUTH0_*` credentials; Claude Code Remote sessions have none.
+- Decide whether `/api/gen/chat`, which nothing outside tests calls, is dead code.
+
+## Continuity notes
+
+- Gemini free-tier bake-off results live in `docs/evaluations/2026-10-22-gen-ui-bakeoff-gemini.md`; production stays on Haiku 5.5, inert.
+- Hard $0 on Gemini comes from the key's project having no billing account, not from removing the card.

@@ -158,7 +158,7 @@ export interface EffectsRecorder {
 }
 
 function reminderJobId(jobType: string, reservationId: string): string {
-  return `${jobType}:${reservationId}`;
+  return `${jobType}_${reservationId}`;
 }
 
 function createRecordingDispatcher(messages: RecordedMessage[]): NotificationDispatcher {

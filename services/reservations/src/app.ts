@@ -5,6 +5,12 @@ import { registerSchemas } from "./schemas/index.js";
 import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
+import { venueTeamRoutes } from "./routes/venue-team.js";
+import { availabilityConfigRoutes } from "./routes/availability-config.js";
+import { availabilityChangesRoutes } from "./routes/availability-changes.js";
+import { closureRoutes } from "./routes/closures.js";
+import { tonightRoutes } from "./routes/tonight.js";
+import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
@@ -22,6 +28,7 @@ import { publicGuestRiskRoutes } from "./routes/public-guest-risk.js";
 import { publicWaitlistRoutes } from "./routes/public-waitlist.js";
 import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
+import { manageRebookRoutes } from "./routes/manage-rebook.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 import { depositRoutes } from "./routes/deposits.js";
@@ -40,7 +47,15 @@ import {
 import { createDefaultPostVisitNotifier } from "./services/post-visit-notifier.js";
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
+import { createClosureNoticeService } from "./services/closure-notice-service.js";
+import { createClosureNoticeDeps } from "./services/closure-notice-runtime.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
+import {
+  createClosureRefunds,
+  runClosureRefundJob,
+  type ClosureRefunds,
+} from "./services/closure-refund.js";
+import { createPrismaClosureRefundStore } from "./services/closure-refund-store.js";
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
 import { db, prisma } from "./services/database.js";
@@ -48,8 +63,13 @@ import { venueScopeOf } from "./routes/venue-scope.js";
 import {
   createHasAnyVenueMembership,
   createVenueMembershipLookup,
+  createVenueRoleLookup,
 } from "./services/venue-membership.js";
-import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
+import type {
+  HasAnyVenueMembership,
+  VenueMembershipLookup,
+  VenueRoleLookup,
+} from "@mbe/auth/fastify";
 import { getStripeConfig } from "./config/stripe.js";
 import { getManageTokenConfig } from "./config/manage-token.js";
 import { ReservationEventEmitter } from "./services/events.js";
@@ -75,9 +95,12 @@ export interface ReservationsAppOptions extends AppOptions {
    * `STRIPE_SECRET_KEY`; tests inject `createInMemoryPayments`.
    */
   payments?: PaymentsPort;
+  /** Closure refund enqueue/retry. Defaults to the Prisma store over the job scheduler. */
+  closureRefunds?: ClosureRefunds;
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
+  venueRoleLookup?: VenueRoleLookup;
   hasAnyVenueMembership?: HasAnyVenueMembership;
   /**
    * Domain-service overrides (issue #3357). Defaults to the production Prisma-backed
@@ -204,6 +227,11 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
   fastify.decorate("venueMembershipLookup", venueMembershipLookup);
 
+  // Wire the venue-role lookup (requireVenueRole) the same way: per request,
+  // so a demotion from manager takes effect on the next call.
+  const venueRoleLookup = options.venueRoleLookup ?? createVenueRoleLookup(prisma);
+  fastify.decorate("venueRoleLookup", venueRoleLookup);
+
   // Wire the "holds any venue membership" lookup (ADR-020, third case) —
   // injectable for testing, Prisma-backed for production.
   // requireVenueCreateAccess consults it to recognise the first-venue
@@ -231,6 +259,9 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     ...defaultDomainServices,
     ...options.services,
     depositService: options.services?.depositService ?? new DepositService(payments),
+    closureNoticeService:
+      options.services?.closureNoticeService ??
+      createClosureNoticeService({ scheduler: options.jobs ?? notifierRuntime.scheduler }),
   };
   fastify.decorate("services", services);
 
@@ -259,11 +290,29 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   });
   fastify.decorate("transitions", transitions);
 
+  // CLOSURE_REFUND (#7524): the closure route enqueues after commit; the worker
+  // below settles each deposit through DepositService.
+  const closureRefundStore = createPrismaClosureRefundStore();
+  fastify.decorate(
+    "closureRefunds",
+    options.closureRefunds ??
+      createClosureRefunds({
+        store: closureRefundStore,
+        jobs: options.jobs ?? notifierRuntime.scheduler,
+      })
+  );
+
   // Register routes
   await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
   await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
   await fastify.register(reservationEventRoutes, { prefix: "/api/v1/reservations" });
-  await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
+  const venuesPrefix = "/api/v1/venues";
+  await fastify.register(venueRoutes, { prefix: venuesPrefix });
+  await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
+  await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+  await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+  await fastify.register(closureRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+  await fastify.register(tonightRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(availabilityRoutes, {
     prefix: "/api/v1/availability",
   });
@@ -294,6 +343,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(publicWaitlistRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(confirmAttendanceRoutes);
   await fastify.register(manageReservationRoutes);
+  await fastify.register(manageRebookRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
   await fastify.register(publicUnsubscribeRoutes);
@@ -331,8 +381,20 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
           getVenue: (id) => services.venueService.getById(id),
           dispatcher: notificationPort,
           generateManageToken,
+          closureNotice: createClosureNoticeDeps({
+            dispatcher: notificationPort,
+            generateManageToken,
+            manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+            logger: fastify.log,
+          }),
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
           logger: fastify.log,
+          runClosureRefund: (payload, opts) =>
+            runClosureRefundJob(
+              { deposits: services.depositService, payments, store: closureRefundStore },
+              payload,
+              opts
+            ),
         }),
       });
       fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
@@ -356,7 +418,10 @@ declare module "fastify" {
     payments: PaymentsPort;
     /** Reservation transitions — one verb per transition, effects planned in one table. */
     transitions: ReservationTransitions;
+    /** Enqueues/retries a closure's refund jobs (services/closure-refund.ts). */
+    closureRefunds: ClosureRefunds;
     venueMembershipLookup: VenueMembershipLookup;
+    venueRoleLookup: VenueRoleLookup;
     hasAnyVenueMembership: HasAnyVenueMembership;
     /** Resolved domain-service seam (issue #3357) — see {@link DomainServices}. */
     services: DomainServices;

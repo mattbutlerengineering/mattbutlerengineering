@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { buildApp } from "../app.js";
 import type { DomainServices } from "../services/domain-services.js";
 import type { FastifyInstance } from "fastify";
-import { generateManageToken } from "./public-reservations.js";
+import { generateManageToken, verifyManageToken } from "./public-reservations.js";
 
 vi.mock("../notifications/index.js", () => {
   class MockResendNotificationAdapter {
@@ -62,6 +62,12 @@ vi.mock("../services/resolve-venue.js", () => ({
 }));
 
 import { resolveVenueId } from "../services/resolve-venue.js";
+
+vi.mock("../services/manage-rebook.js", () => ({
+  loadVenueCancellation: vi.fn().mockResolvedValue(null),
+}));
+
+import { loadVenueCancellation } from "../services/manage-rebook.js";
 
 const mockReservation = {
   id: "res_1",
@@ -186,6 +192,76 @@ describe("GET /public/v1/reservations/manage", () => {
     });
     expect(unset.json().data.venue.modificationCutoffHours).toBeNull();
     expect(unset.json().data.venue.maxPartySizeChange).toBeNull();
+  });
+
+  it("adds venueCancellation (refund status and offers) for a booking the venue cancelled", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+    const cancelled = { ...mockReservation, status: "CANCELLED" };
+    const venueCancellation = {
+      refundStatus: "done",
+      offers: [
+        {
+          id: "2026-11-05T01:30:00.000Z",
+          date: "2026-11-04",
+          startTime: "2026-11-05T01:30:00.000Z",
+        },
+      ],
+    };
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(cancelled as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(loadVenueCancellation).mockResolvedValueOnce(venueCancellation as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    expect(response.json().data.venueCancellation).toEqual(venueCancellation);
+    expect(loadVenueCancellation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: "res_1" }),
+      "venue_1"
+    );
+  });
+
+  it("hands a rebooked booking's manage token to the guest once they have rebooked", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...mockReservation,
+      status: "CANCELLED",
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(loadVenueCancellation).mockResolvedValueOnce({
+      refundStatus: "done",
+      offers: [],
+      rebooked: { reservationId: "res_2", startTime: "2026-11-08T02:00:00.000Z" },
+    } as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    const { rebooked, offers } = response.json().data.venueCancellation;
+    expect(offers).toEqual([]);
+    expect(rebooked.startTime).toBe("2026-11-08T02:00:00.000Z");
+    expect(verifyManageToken(rebooked.manageToken)).toMatchObject({
+      valid: true,
+      reservationId: "res_2",
+      guestEmail: "jane@example.com",
+    });
+  });
+
+  it("sends venueCancellation as null when the venue did not cancel", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    expect(response.json().data.venueCancellation).toBeNull();
   });
 
   it("returns 404 with a code extension when reservation not found", async () => {

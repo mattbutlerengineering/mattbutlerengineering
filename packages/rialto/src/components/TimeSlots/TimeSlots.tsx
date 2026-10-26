@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes } from "react";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
+import { displayClockTime } from "../booking-vocabulary";
 import { Tag } from "../Tag/Tag";
 import styles from "./TimeSlots.module.css";
 
@@ -17,13 +18,13 @@ export interface TimeSlotsProps extends HTMLAttributes<HTMLDivElement> {
   /** Display text for the day, such as "Friday, Oct 30". */
   date: string;
   partySize: number;
-  /** Open times as display text, in time order. Empty shows the no-open-times line. */
+  /** Open times as display text, in time order; a bare 24-hour "19:30" shows in the locale's clock. Empty shows the no-open-times line. */
   times: string[];
 }
 
 export const TimeSlots = forwardRef<HTMLDivElement, TimeSlotsProps>(
   ({ date, partySize, times, className, ...props }, ref) => {
-    const { messages } = useRialtoLocale();
+    const { locale, messages } = useRialtoLocale();
 
     return (
       <div ref={ref} className={cn(styles.root, className)} {...props}>
@@ -32,7 +33,7 @@ export const TimeSlots = forwardRef<HTMLDivElement, TimeSlotsProps>(
           <ul aria-label={messages.openTimes} className={styles.times}>
             {times.map((time, i) => (
               <li key={i} className={styles.slot}>
-                <Tag>{time}</Tag>
+                <Tag>{displayClockTime(time, locale)}</Tag>
               </li>
             ))}
           </ul>

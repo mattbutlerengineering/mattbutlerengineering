@@ -14,6 +14,18 @@ vi.mock("../../hooks/useGuestLookup.js", () => ({
   useGuestLookup: (params: UseGuestLookupParams) => mockUseGuestLookup(params),
 }));
 
+// The live check and open times have their own suite (NewReservationDialog.liveCheck.test.tsx).
+vi.mock("../../hooks/useStaffBookingCheck.js", () => ({
+  useStaffBookingCheck: () => ({ phase: "idle", verdict: null }),
+}));
+vi.mock("../../hooks/useOpenTimes.js", () => ({
+  useOpenTimes: () => ({ data: [], isLoading: false, error: null }),
+}));
+// Blocked tables have their own suite (NewReservationDialog.blockedTables.test.tsx).
+vi.mock("../../hooks/useStaffTonight.js", () => ({
+  useStaffTonight: () => ({ serviceDate: null, rules: [], waitlistClosed: false }),
+}));
+
 const idleLookup: UseGuestLookupResult = {
   rows: [],
   hasMore: false,

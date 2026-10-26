@@ -62,6 +62,8 @@ export interface Reservation {
   userId: string | null;
   occasion: Occasion | null;
   seatingPreference: SeatingPreference | null;
+  /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
+  overrideReason?: string | null;
   tableId: string;
   table?: Table;
   guest?: {
@@ -88,6 +90,8 @@ export interface CreateReservationRequest {
   guestPhone?: string;
   guestId?: string;
   venueId?: string;
+  /** Staff override of a soft availability limit; stored with the booking. */
+  override?: { reason: string };
 }
 
 export interface UpdateReservationRequest {
@@ -102,6 +106,8 @@ export interface UpdateReservationRequest {
   seatingPreference?: SeatingPreference;
   cancellationReason?: string;
   cancellationNote?: string;
+  /** Staff override of a soft availability limit on a time or table move. */
+  override?: { reason: string };
 }
 
 export interface UpdateTableStatusRequest {

@@ -8,10 +8,8 @@ import type {
 import { localeRuntime } from "../../i18n/runtime.js";
 import { validateBasicInfo, type BasicInfoData, type SlugStatus } from "./BasicInfoStep.js";
 import { validateLocationTime, detectTimezone, type LocationTimeData } from "./LocationTimeStep.js";
-import {
-  validateOperatingHours,
-  type OperatingHoursValidationErrors,
-} from "./OperatingHoursStep.js";
+import type { OperatingHoursValidationErrors } from "./OperatingHoursStep.js";
+import { validateQuickSetupHours } from "../availability/quick-setup-draft.js";
 import { validateSettings, RECOMMENDED_SETTINGS, type SettingsData } from "./SettingsStep.js";
 import {
   EMPTY_FLOOR_PLAN_DRAFT,
@@ -123,7 +121,7 @@ function runStepValidation(state: OnboardingWizardState): {
       };
     }
     case 3: {
-      const errors = validateOperatingHours(state.data.operatingHours);
+      const errors = validateQuickSetupHours(state.data.operatingHours);
       return {
         state: { ...state, errors: { ...state.errors, operatingHours: errors } },
         valid: errors === null,

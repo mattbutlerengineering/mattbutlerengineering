@@ -105,8 +105,12 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
 
   const declarations = parseRlsDeclarations(sqlFiles);
 
-  it("enables RLS on exactly the venue-scoped tables ADR-026 §1 lists plus reservation_events, table_events, the menus tables and floor_plan_sections", () => {
+  it("enables RLS on exactly the venue-scoped tables ADR-026 §1 lists plus reservation_events, table_events, the menus tables, floor_plan_sections and the availability tables", () => {
     expect([...declarations.enabled].sort()).toEqual([
+      "availability_changes",
+      "closure_outcomes",
+      "date_rule_tables",
+      "date_rules",
       "deposits",
       "floor_plan_sections",
       "floor_plans",
@@ -116,10 +120,28 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
       "menus",
       "reservation_events",
       "reservations",
+      "schedule_assignments",
+      "schedule_services",
+      "schedules",
       "table_events",
       "tables",
+      "venue_services",
       "venues",
       "waitlist_entries",
+    ]);
+  });
+
+  it("keeps availability_changes append-only: no DELETE, UPDATE only on reverted_by", () => {
+    const sql = readFileSync(
+      join(MIGRATIONS_DIR, "20261025000000_add_venue_availability", "migration.sql"),
+      "utf8"
+    );
+    const grants = sqlStatements(sql)
+      .filter((stmt) => /^grant\b/i.test(stmt) && stmt.includes('"availability_changes"'))
+      .map((stmt) => stmt.replace(/\s+/g, " "));
+    expect(grants).toEqual([
+      'GRANT SELECT, INSERT ON TABLE "availability_changes" TO app_reservations',
+      'GRANT UPDATE ("reverted_by") ON TABLE "availability_changes" TO app_reservations',
     ]);
   });
 

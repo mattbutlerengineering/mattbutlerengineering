@@ -113,7 +113,7 @@ export function BookingWidgetDemoPage() {
     [venues, effectiveVenueId]
   );
 
-  const handleSetHours = useCallback(() => navigate("/setup/hours"), [navigate]);
+  const handleSetHours = useCallback(() => navigate("/availability"), [navigate]);
 
   const embedCode = useMemo(() => {
     const venueIdValue = effectiveVenueId ?? "YOUR_VENUE_ID";

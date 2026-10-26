@@ -42,13 +42,14 @@ vi.mock("./slot-rules.js", async (importOriginal) => {
 
 vi.mock("./assert-bookable.js", () => ({
   assertBookable: vi.fn().mockReturnValue(undefined),
+  judgeBooking: vi.fn().mockResolvedValue({ kind: "ok" }),
 }));
 
 import { reservationService } from "./reservation.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { checkTableConflict, checkPacingForSlot } from "./slot-rules.js";
-import { assertBookable } from "./assert-bookable.js";
+import { assertBookable, judgeBooking, type GateRejection } from "./assert-bookable.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import { getCurrentVenueId } from "./venue-context-store.js";
 
@@ -178,6 +179,7 @@ describe("reservationService", () => {
     vi.mocked(checkPacingForSlot).mockReturnValue(true);
     // assertBookable: slot is bookable by default (returns undefined = no error).
     vi.mocked(assertBookable).mockReturnValue(undefined);
+    vi.mocked(judgeBooking).mockResolvedValue({ kind: "ok" });
     // Default: every table the suite names belongs to venue-1, the venue every
     // fixture books at. The cross-venue suite below overrides this.
     vi.mocked(prisma.table.findUnique).mockResolvedValue({
@@ -668,6 +670,28 @@ describe("reservationService", () => {
       expect(assertBookable).toHaveBeenCalledTimes(1);
     });
 
+    it("judges the slot on the phone channel and returns the gate's rejection", async () => {
+      const rejection: GateRejection = { code: "soft-limit", limits: ["after_last_seating"] };
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+      const tx = useSlotTxOnce();
+
+      const result = await reservationService.createWithConflictCheck({
+        date: "2026-05-05",
+        startTime: "2026-05-05T18:00:00Z",
+        endTime: "2026-05-05T19:30:00Z",
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(result).toMatchObject({ success: false, rejection });
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ channel: "phone", tableId: "table-1", partySize: 2 })
+      );
+      expect(tx.reservation.create).not.toHaveBeenCalled();
+    });
+
     it("returns failure when assertBookable reports CONFLICT", async () => {
       vi.mocked(assertBookable).mockReturnValueOnce({
         code: "CONFLICT",
@@ -689,13 +713,10 @@ describe("reservationService", () => {
       expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
     });
 
-    it("returns failure via assertBookable when pacing limit is reached", async () => {
-      vi.mocked(assertBookable).mockReturnValueOnce({
-        code: "PACING_EXCEEDED",
-        message: "Pacing limit reached. Maximum 10 covers per time window.",
-      });
+    it("leaves pacing to the booking gate: the pre-check is given no pacing settings", async () => {
+      useSlotTxOnce();
 
-      const result = await reservationService.createWithConflictCheck({
+      await reservationService.createWithConflictCheck({
         date: "2026-05-05",
         startTime: "2026-05-05T18:00:00Z",
         endTime: "2026-05-05T19:30:00Z",
@@ -704,8 +725,70 @@ describe("reservationService", () => {
         venueId: "venue-1",
       });
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Pacing limit reached. Maximum 10 covers per time window.");
+      expect(assertBookable).toHaveBeenCalledWith(expect.objectContaining({ settings: null }));
+    });
+
+    it("stores a staff override the gate passed, and logs it on the created event", async () => {
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "ok", overrideLimits: ["pacing"] });
+      const row = makePrismaReservation({
+        overrideReason: "Regular, owner approved",
+        overrideLimits: ["pacing"],
+      });
+      const tx = useSlotTxOnce(row);
+
+      const result = await reservationService.createWithConflictCheck(
+        {
+          date: "2026-05-05",
+          startTime: "2026-05-05T18:00:00Z",
+          endTime: "2026-05-05T19:30:00Z",
+          partySize: 2,
+          tableId: "table-1",
+          venueId: "venue-1",
+          override: { reason: "  Regular, owner approved " },
+        },
+        "user-1",
+        { type: "staff", id: "user-1" }
+      );
+
+      expect(result.success).toBe(true);
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ override: { reason: "  Regular, owner approved " } })
+      );
+      expect(tx.reservation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            overrideReason: "Regular, owner approved",
+            overrideLimits: ["pacing"],
+          }),
+        })
+      );
+      expect(tx.reservationEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          kind: "created",
+          toState: expect.objectContaining({
+            override: { reason: "Regular, owner approved", limits: ["pacing"] },
+          }),
+        }),
+      });
+    });
+
+    it("does not store an override when the slot needed none", async () => {
+      const tx = useSlotTxOnce();
+
+      await reservationService.createWithConflictCheck({
+        date: "2026-05-05",
+        startTime: "2026-05-05T18:00:00Z",
+        endTime: "2026-05-05T19:30:00Z",
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+        override: { reason: "Just in case" },
+      });
+
+      const data = tx.reservation.create.mock.calls[0]![0].data;
+      expect(data).not.toHaveProperty("overrideReason");
+      expect(data).not.toHaveProperty("overrideLimits");
     });
 
     it("passes the named table's fit fields to assertBookable and reports a misfit", async () => {
@@ -1318,6 +1401,26 @@ describe("reservationService", () => {
       expect(assertBookable).not.toHaveBeenCalled();
     });
 
+    it("judges a move on the phone channel, excluding itself, and returns the gate's rejection", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      const rejection = { code: "outside-availability", reason: "closed" } as const;
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+      const tx = useSlotTxOnce();
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        startTime: "2026-05-05T19:00:00Z",
+      });
+
+      expect(result).toMatchObject({ success: false, rejection });
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ channel: "phone", excludeReservationId: "res-1" })
+      );
+      expect(tx.reservation.update).not.toHaveBeenCalled();
+    });
+
     it("checks the booking invariant via assertBookable when time changes", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
@@ -1366,23 +1469,56 @@ describe("reservationService", () => {
       expect(result.conflict?.hasConflict).toBe(true);
     });
 
-    it("returns failure when the move would exceed pacing (assertBookable)", async () => {
-      // Pacing is now enforced on slot moves too — previously moves checked
-      // conflict only, so a move could push a window over its cover limit.
+    it("stores a staff override on a move the gate passed, and logs it on the moved event", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
       );
-      vi.mocked(assertBookable).mockReturnValueOnce({
-        code: "PACING_EXCEEDED",
-        message: "Pacing limit reached. Maximum 4 covers per time window.",
+      vi.mocked(judgeBooking).mockResolvedValueOnce({
+        kind: "ok",
+        overrideLimits: ["after_last_seating"],
       });
+      const tx = useSlotTxOnce(
+        makePrismaReservation({ overrideReason: "VIP", overrideLimits: ["after_last_seating"] })
+      );
 
-      const result = await reservationService.updateWithConflictCheck("res-1", {
-        startTime: "2026-05-05T19:00:00Z",
+      const result = await reservationService.updateWithConflictCheck(
+        "res-1",
+        { startTime: "2026-05-05T22:00:00Z", override: { reason: "VIP" } },
+        { type: "staff", id: "u1" }
+      );
+
+      expect(result.success).toBe(true);
+      expect(tx.reservation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            overrideReason: "VIP",
+            overrideLimits: ["after_last_seating"],
+          }),
+        })
+      );
+      expect(tx.reservationEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          kind: "moved",
+          toState: expect.objectContaining({
+            override: { reason: "VIP", limits: ["after_last_seating"] },
+          }),
+        }),
       });
+    });
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Pacing limit reached. Maximum 4 covers per time window.");
+    it("clears an earlier override when the new slot needs none", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ overrideReason: "VIP", overrideLimits: ["pacing"] }) as never
+      );
+      const tx = useSlotTxOnce(makePrismaReservation({ tableId: "table-2" }));
+
+      await reservationService.updateWithConflictCheck("res-1", { tableId: "table-2" });
+
+      expect(tx.reservation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ overrideReason: null, overrideLimits: [] }),
+        })
+      );
     });
 
     it("rejects a table-only move onto a table the party does not fit", async () => {

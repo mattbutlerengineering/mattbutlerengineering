@@ -36,13 +36,14 @@ vi.mock("./slot-rules.js", async (importOriginal) => {
 
 vi.mock("./assert-bookable.js", () => ({
   assertBookable: vi.fn().mockReturnValue(undefined),
+  judgeBooking: vi.fn().mockResolvedValue({ kind: "ok" }),
 }));
 
 import { confirmHold } from "./confirm-hold.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { checkPacingForSlot } from "./slot-rules.js";
-import { assertBookable } from "./assert-bookable.js";
+import { assertBookable, judgeBooking } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
 const TEN_MIN_FROM_NOW = new Date(NOW.getTime() + 10 * 60 * 1000);
@@ -342,6 +343,31 @@ describe("confirmHold", () => {
       }
 
       // Expired hold deleted, but NO reservation created.
+      expect(holdDelete).toHaveBeenCalledWith({ where: { id: "hold-1" } });
+      expect(reservationCreate).not.toHaveBeenCalled();
+    });
+
+    it("re-checks availability under the lock and returns NOT_BOOKABLE, consuming the hold", async () => {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makePrismaHold() as never);
+      const rejection = { code: "outside-availability", reason: "closed" } as const;
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+      const holdDelete = vi.fn().mockResolvedValue(undefined);
+      const reservationCreate = vi.fn();
+      const tx = makeTxMock({
+        reservation: { ...makeTxMock().reservation, create: reservationCreate },
+        reservationHold: { ...makeTxMock().reservationHold, delete: holdDelete },
+      });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (client: never) => Promise<unknown>) => fn(tx as never)
+      );
+
+      const result = await confirmHold({ holdId: "hold-1", guestDetails: {} });
+
+      expect(result).toMatchObject({ success: false, errorCode: "NOT_BOOKABLE", rejection });
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ channel: "online", excludeHoldId: "hold-1" })
+      );
       expect(holdDelete).toHaveBeenCalledWith({ where: { id: "hold-1" } });
       expect(reservationCreate).not.toHaveBeenCalled();
     });

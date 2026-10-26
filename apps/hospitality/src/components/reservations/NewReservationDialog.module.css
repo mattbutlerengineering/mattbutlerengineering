@@ -54,3 +54,15 @@
   gap: var(--rialto-space-sm);
   justify-content: flex-end;
 }
+
+.softNotice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.openTimes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+}

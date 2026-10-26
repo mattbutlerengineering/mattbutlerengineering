@@ -130,6 +130,31 @@ describe("POST /public/v1/venues/:slug/holds", () => {
     expect(response.statusCode).toBe(409);
   });
 
+  it("returns 422 outside-availability when the booking gate refuses the slot", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(holdService.create).mockResolvedValueOnce({
+      success: false,
+      error: "Requested time is outside the venue's availability",
+      rejection: { code: "outside-availability", reason: "closed", message: "Private event" },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      type: "about:blank",
+      status: 422,
+      title: "Outside Availability",
+      detail: "Private event",
+      code: "outside-availability",
+      reason: "closed",
+    });
+  });
+
   it("returns an RFC 7807 problem-details body for a 409 (ADR-008)", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(holdService.create).mockResolvedValueOnce({
@@ -591,6 +616,31 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
     });
 
     expect(response.statusCode).toBe(410);
+  });
+
+  it("returns 422 outside-availability when a closure saved after the hold wins at confirm", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: false,
+      error: "Requested time is outside the venue's availability",
+      errorCode: "NOT_BOOKABLE",
+      rejection: { code: "outside-availability", reason: "closed" },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace" },
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      status: 422,
+      code: "outside-availability",
+      reason: "closed",
+      detail: "The venue is closed at this time.",
+    });
   });
 
   // Mirrors the staff route: a manage token signed with "" can never validate

@@ -20,9 +20,9 @@ import { setVenueContext } from "../middleware/venue-context.js";
 import { assumeAppRole } from "./assume-app-role.js";
 import { getCurrentVenueId, runWithVenueContext } from "./venue-context-store.js";
 import { availabilityService } from "./availability.js";
-import { assertBookable } from "./assert-bookable.js";
+import { assertBookable, type GateRejection } from "./assert-bookable.js";
 import { venueLocalDateString } from "./slot-rules.js";
-import { bookSlot } from "./book-slot.js";
+import { bookSlot, type SlotConflict } from "./book-slot.js";
 import { toReservation, toTable } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import { guestService } from "./guest.js";
@@ -72,6 +72,8 @@ export interface CreateReservationResult {
   tableNotInVenue?: boolean;
   /** The party does not fit the caller-named table (route answers 422). */
   partyDoesNotFit?: boolean;
+  /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
+  rejection?: GateRejection;
 }
 
 /** True when the patch moves the reservation's slot (date, time or table). */
@@ -92,6 +94,29 @@ export interface UpdateReservationResult {
   capacityExceeded?: boolean;
   /** The requested table is missing or belongs to another venue (route answers 403). */
   tableNotInVenue?: boolean;
+  /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
+  rejection?: GateRejection;
+}
+
+/**
+ * The columns that record a staff override. Only the limits the gate actually
+ * passed count: an override sent for a slot that needed none is not stored.
+ */
+function overrideColumns(override: { reason: string } | undefined, limits: string[] | undefined) {
+  if (!override || !limits || limits.length === 0) return {};
+  return { overrideReason: override.reason.trim(), overrideLimits: limits };
+}
+
+/** A staff create or move that {@link bookSlot} refused: the gate's verdict, else a conflict. */
+function staffSlotFailure(conflict: SlotConflict) {
+  if (conflict.code === "NOT_BOOKABLE") {
+    return { success: false, error: conflict.message, rejection: conflict.rejection } as const;
+  }
+  return {
+    success: false,
+    error: "Time slot has a conflict with an existing reservation or hold",
+    conflict: { hasConflict: true },
+  } as const;
 }
 
 /**
@@ -300,11 +325,10 @@ export const reservationService = {
 
     if (venueId) {
       // Fetch venue settings + conflict slices once, then evaluate the single
-      // canonical booking invariant (conflict + pacing) through assertBookable —
-      // the same seam confirmHold and createWalkIn cross, so staff direct
-      // bookings can never apply a different rule than guest bookings.
-      const venue = await prisma.venue.findUnique({ where: { id: venueId } });
-      const settings = (venue?.settings ?? null) as VenueSettings | null;
+      // canonical booking invariant (party fit + conflict) through assertBookable —
+      // the same seam confirmHold and createWalkIn cross. Pacing is NOT checked
+      // here (settings: null): it is a soft limit the booking gate judges below,
+      // so a staff override with a reason can pass it.
       const { reservations, holds } = await availabilityService.fetchConflictData(
         venueId,
         data.date
@@ -315,7 +339,7 @@ export const reservationService = {
         table: await loadTableFit(data.tableId),
         window: { startTime, endTime },
         partySize: data.partySize,
-        settings,
+        settings: null,
         reservations,
         holds,
       });
@@ -330,14 +354,6 @@ export const reservationService = {
           conflict: { hasConflict: true },
         };
       }
-      if (bookingError?.code === "PACING_EXCEEDED") {
-        const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot ?? Infinity;
-        return {
-          success: false,
-          error: bookingError.message,
-          pacing: { withinLimit: false, currentCovers: 0, maxCovers },
-        };
-      }
     }
 
     // Restore the advisory-lock + transaction this staff-booking path silently
@@ -350,7 +366,8 @@ export const reservationService = {
       window: { startTime, endTime },
       partySize: data.partySize,
       checkHoldConflict: true,
-      write: async (tx) => {
+      gate: { channel: "phone", override: data.override },
+      write: async (tx, gated) => {
         const created = await tx.reservation.create({
           data: {
             date: new Date(data.date),
@@ -367,6 +384,7 @@ export const reservationService = {
             guestId: data.guestId ?? null,
             userId: userId ?? null,
             venueId: data.venueId ?? null,
+            ...overrideColumns(data.override, gated.overrideLimits),
           },
           include: {
             table: true,
@@ -387,13 +405,7 @@ export const reservationService = {
       },
     });
 
-    if (!result.ok) {
-      return {
-        success: false,
-        error: "Time slot has a conflict with an existing reservation or hold",
-        conflict: { hasConflict: true },
-      };
-    }
+    if (!result.ok) return staffSlotFailure(result.conflict);
 
     return { success: true, reservation: toReservation(result.value) };
   },
@@ -661,13 +673,11 @@ export const reservationService = {
 
     if (venueId) {
       // Fetch venue settings + conflict slices once, then evaluate the single
-      // canonical booking invariant (conflict + pacing) through assertBookable —
-      // the same seam every other write path crosses. Exclude the current
-      // reservation from the slices so a move doesn't conflict or pace against
-      // itself. This closes the pacing gap: moves previously checked conflict
-      // only, so a slot move could push a window over its cover limit.
-      const venue = await prisma.venue.findUnique({ where: { id: venueId } });
-      const settings = (venue?.settings ?? null) as VenueSettings | null;
+      // canonical booking invariant (conflict) through assertBookable — the same
+      // seam every other write path crosses. Exclude the current reservation
+      // from the slices so a move doesn't conflict against itself. Pacing is a
+      // soft limit judged by the booking gate below (settings: null here), so a
+      // staff override with a reason can pass it.
       const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
       const filteredReservations = reservations.filter((r) => r.id !== id);
 
@@ -675,7 +685,7 @@ export const reservationService = {
         tableId,
         window: { startTime, endTime },
         partySize: data.partySize ?? existing.partySize,
-        settings,
+        settings: null,
         reservations: filteredReservations,
         holds,
       });
@@ -685,12 +695,6 @@ export const reservationService = {
           success: false,
           error: "Time slot has a conflict with an existing reservation or hold",
           conflict: { hasConflict: true },
-        };
-      }
-      if (bookingError?.code === "PACING_EXCEEDED") {
-        return {
-          success: false,
-          error: bookingError.message,
         };
       }
     }
@@ -720,11 +724,19 @@ export const reservationService = {
       partySize: data.partySize ?? existing.partySize,
       excludeReservationId: id,
       checkHoldConflict: true,
-      write: async (tx) => {
+      gate: { channel: "phone", override: data.override },
+      write: async (tx, gated) => {
         try {
           const moved = await tx.reservation.update({
             where: { id },
-            data: updateData,
+            // A re-judged slot replaces any earlier override: it stays only if
+            // this move needed one.
+            data: {
+              ...updateData,
+              overrideReason: null,
+              overrideLimits: [],
+              ...overrideColumns(data.override, gated.overrideLimits),
+            },
             include: { table: true },
           });
           await recordReservationEvent(tx, {
@@ -743,13 +755,7 @@ export const reservationService = {
       },
     });
 
-    if (!result.ok) {
-      return {
-        success: false,
-        error: "Time slot has a conflict with an existing reservation or hold",
-        conflict: { hasConflict: true },
-      };
-    }
+    if (!result.ok) return staffSlotFailure(result.conflict);
 
     if (!result.value) {
       return { success: false, error: "Failed to update reservation" };

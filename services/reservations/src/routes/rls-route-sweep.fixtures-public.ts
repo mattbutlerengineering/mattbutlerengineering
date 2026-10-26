@@ -198,6 +198,26 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       );
     },
   },
+  "GET /public/v1/venues/:slug/availability/dates": {
+    kind: "ok",
+    run: async (ctx) => {
+      expectOk(
+        await asAdmin(ctx, {
+          method: "GET",
+          url: `/public/v1/venues/${ctx.venueA.slug}/availability/dates?from=2026-10-01&to=2026-10-07`,
+        }),
+        "list closed dates under the slug-resolved venue"
+      );
+
+      expectDenied(
+        await asAdmin(ctx, {
+          method: "GET",
+          url: `/public/v1/venues/${UNKNOWN_SLUG}/availability/dates?from=2026-10-01&to=2026-10-07`,
+        }),
+        "unknown slug"
+      );
+    },
+  },
   "POST /public/v1/venues/:slug/holds": {
     kind: "ok",
     run: async (ctx) => {
@@ -621,6 +641,34 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
       const denied = await asAdmin(ctx, {
         method: "DELETE",
         url: `/public/v1/reservations/manage?token=${goneToken}`,
+      });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
+  "POST /public/v1/reservations/manage/rebook": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { generateManageToken } = await loadTokenHelpers();
+      const guestEmail = `rls-sweep-rebook-${randomUUID()}@example.com`;
+      // A live (not venue-cancelled) booking: the scoped read resolves it under
+      // its venue and the rebook refuses it with 409, writing nothing.
+      const reservationId = await createDisposableManagedReservation(ctx, guestEmail, "2026-10-18");
+      const token = generateManageToken(reservationId, guestEmail);
+
+      const refused = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/reservations/manage/rebook?token=${token}`,
+        payload: { offerId: "2026-10-19T01:00:00.000Z" },
+      });
+      expect(refused.statusCode, `expected 409, got ${refused.statusCode}: ${refused.body}`).toBe(
+        409
+      );
+
+      const goneToken = generateManageToken("rls-sweep-no-such-reservation", "nobody@example.com");
+      const denied = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/reservations/manage/rebook?token=${goneToken}`,
+        payload: { offerId: "2026-10-19T01:00:00.000Z" },
       });
       expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
     },

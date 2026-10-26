@@ -9,11 +9,13 @@ import type {
   PublicVenue,
   PublicVenueConfig,
   GuestRiskResult,
+  VenueTeam,
 } from "@mbe/types";
 import {
   PublicVenueSchema,
   PublicVenueConfigSchema,
   GuestRiskResultSchema,
+  VenueTeamSchema,
   toPublicVenueProfile,
 } from "@mbe/types/schemas";
 import { atLocal, localDay } from "./local-day.js";
@@ -21,7 +23,7 @@ import { createProblemDetails } from "@mbe/types";
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
-function loadFixture(name: string): string {
+export function loadFixture(name: string): string {
   return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
 }
 
@@ -198,6 +200,24 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
  */
 export function buildGuestRiskFixture(): GuestRiskResult {
   return GuestRiskResultSchema.parse({ requiresDeposit: false });
+}
+
+/**
+ * Settings → Team (#7510): the viewer is a Manager, alongside the venue's
+ * owner and one Host. Stable subs, so the card (and its visual baseline)
+ * renders identically every run.
+ */
+export function buildVenueTeamFixture(): VenueTeam {
+  return VenueTeamSchema.parse({
+    members: [
+      { userSub: "auth0|e2e-owner", role: "manager", isViewer: false, isOwner: true },
+      { userSub: "auth0|e2e-manager", role: "manager", isViewer: true, isOwner: false },
+      { userSub: "auth0|e2e-host", role: "host", isViewer: false, isOwner: false },
+    ],
+    hostEmergencyClose: false,
+    viewerRole: "manager",
+    viewerCanChangeOwners: false,
+  });
 }
 
 /** Deposits backing the dashboard's exposure stats; `nowDate` stamps every timestamp. */
@@ -575,6 +595,70 @@ export async function mockApi(page: Page): Promise<void> {
     }
     return jsonOk(route, venues.data[0]);
   });
+
+  // Settings → Team (#7510): GET returns a constant team (the viewer is a
+  // Manager, plus an owner and one Host) so the Settings page renders the same
+  // card every run; PATCHes echo the body back as the stored value.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/team(\/members\/[^/?]+)?$/, (route) => {
+    const request = route.request();
+    if (request.method() !== "PATCH") return jsonOk(route, buildVenueTeamFixture());
+    const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+    const memberSub = request.url().match(/\/members\/([^/?]+)$/)?.[1];
+    return jsonOk(
+      route,
+      memberSub ? { userSub: decodeURIComponent(memberSub), role: body.role } : body
+    );
+  });
+
+  // Availability drawer editing (#7515): a save that always lands (PUT answers the next version).
+  // GETs fall back so the shared days/config mocks (#7616) answer them, whatever the
+  // registration order.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (route) =>
+    route.request().method() === "PUT"
+      ? jsonOk(route, { version: 1, changeId: "chg_e2e_001" })
+      : route.fallback()
+  );
+  // Availability page (#7514): the calendar lists `?from&to` as one open
+  // "Regular" day each (two services, no closures), and the drawer reads a
+  // constant one-schedule config. Deterministic so the page renders the same
+  // grid every run.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/days(\?|$)/, (route) => {
+    const url = new URL(route.request().url());
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
+    const data: Array<Record<string, unknown>> = [];
+    if (from && to) {
+      // Civil-date stepping: the query's dates are service dates, not instants.
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const civil = (t: Date) =>
+        `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+      for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`);) {
+        data.push({
+          serviceDate: civil(d),
+          label: "Regular",
+          scheduleId: "sch-regular",
+          serviceCount: 2,
+          closures: [],
+          bookingOpen: { online: true, phone: true, waitlist: true },
+        });
+        d = new Date(d.getTime() + 86_400_000);
+      }
+    }
+    return jsonOk(route, data);
+  });
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return jsonOk(route, buildAvailabilityConfigFixture());
+  });
+
+  // Special dates tab (#7527): no closures have outcomes yet. Only GET; the Close dialog's POST
+  // (and each spec's own stateful mock) falls through.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/closures$/, (route) =>
+    route.request().method() === "GET" ? jsonOk(route, []) : route.fallback()
+  );
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/closures\/[^/?]+\/call-list$/, (route) =>
+    jsonOk(route, [])
+  );
 
   // Venue Groups
   await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
@@ -1134,6 +1218,15 @@ export async function mockApi(page: Page): Promise<void> {
   // (the staff route above 401s for guests). The `**/public/v1/venues/*`
   // config glob below never reaches it (`*` never crosses `/`).
   await page.route("**/public/v1/venues/*/availability*", slotsResponse);
+  // Closed dates for the calendar. The glob above never reaches this path
+  // (`*` does not cross `/`); no closures by default.
+  await page.route("**/public/v1/venues/*/availability/dates*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [] }),
+    })
+  );
 
   // Holds
   await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -1246,4 +1339,39 @@ export async function mockApi(page: Page): Promise<void> {
   );
 
   await mockMenus(page);
+}
+
+/** One regular schedule, Lunch and Dinner every day, as `GET …/availability/config` returns it. */
+function buildAvailabilityConfigFixture() {
+  const service = (id: string, opensAt: number, lastSeatingAt: number, closesAt: number) => ({
+    id: `ss-${id}`,
+    scheduleId: "sch-regular",
+    venueServiceId: `vs-${id}`,
+    opensAt,
+    lastSeatingAt,
+    closesAt,
+    seating: { version: 1, interval: 15 },
+    bookingTypes: ["online", "phone"],
+  });
+  return {
+    config: {
+      schedules: [{ id: "sch-regular", name: "Regular", kind: "regular", isRegular: true }],
+      venueServices: [
+        { id: "vs-lunch", name: "Lunch", position: 0 },
+        { id: "vs-dinner", name: "Dinner", position: 1 },
+      ],
+      scheduleServices: [service("lunch", 690, 840, 900), service("dinner", 1020, 1290, 1380)],
+      assignments: [
+        {
+          id: "as-regular",
+          scheduleId: "sch-regular",
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          precedence: 0,
+        },
+      ],
+      dateRules: [],
+    },
+    version: 1,
+    source: "rows",
+  };
 }

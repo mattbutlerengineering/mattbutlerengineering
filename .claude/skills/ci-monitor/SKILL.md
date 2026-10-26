@@ -1,6 +1,6 @@
 ---
 name: ci-monitor
-description: Check GitHub CI status on main branch and open PRs. Self-healing loop — diagnoses failures, spawns mbe agent run to fix them, validates fixes via the Reviewer Agent Contract, and auto-merges green fix PRs. Falls back to filing issues for failures requiring human judgment. Circuit breaker stops the loop after 3 consecutive fix-PR failures. Invoke with /ci-monitor.
+description: "Self-healing CI loop: checks CI on main and open PRs, spawns `mbe agent run` fixes, validates them via the Reviewer Agent Contract, auto-merges green fix PRs, files issues for the rest. Circuit breaker after 3 failed fix PRs. Invoke with /ci-monitor."
 user-invocable: true
 ---
 

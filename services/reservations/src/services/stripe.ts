@@ -93,6 +93,14 @@ export function verifyStripeWebhookSignature(
  * Adapter around the Stripe SDK.
  * All Stripe API calls go through this class so tests can mock it cleanly.
  */
+/**
+ * Which flow issued a refund on a deposit's charge. The tag is how a retry
+ * finds ITS OWN refund among the charge's refunds: `refundPartial` for the
+ * cancellation fee-split leg, `closureRefund` for the venue-closure refund of
+ * a captured deposit.
+ */
+export type DepositRefundLeg = "refundPartial" | "closureRefund";
+
 export class StripeService {
   private readonly stripe: Stripe;
 
@@ -182,7 +190,8 @@ export class StripeService {
     paymentIntentId: string,
     refundAmountCents: number,
     depositId: string,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    leg: DepositRefundLeg = "refundPartial"
   ): Promise<{ id: string; status: string; amount: number }> {
     try {
       const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
@@ -204,7 +213,7 @@ export class StripeService {
           // Tags this refund as OURS so a retry can find it specifically via
           // findDepositRefund, rather than reading the charge's aggregate
           // amount_refunded — which includes unrelated refunds (#5722 MED-2).
-          metadata: { depositId, leg: "refundPartial" },
+          metadata: { depositId, leg },
         },
         idempotencyKey ? { idempotencyKey } : undefined
       );
@@ -253,7 +262,8 @@ export class StripeService {
    */
   async findDepositRefund(
     paymentIntentId: string,
-    depositId: string
+    depositId: string,
+    leg: DepositRefundLeg = "refundPartial"
   ): Promise<{ id: string; amount: number } | null> {
     try {
       const refunds = await this.stripe.refunds.list({
@@ -263,7 +273,7 @@ export class StripeService {
       const ours = refunds.data.find(
         (refund) =>
           refund.metadata?.depositId === depositId &&
-          refund.metadata?.leg === "refundPartial" &&
+          refund.metadata?.leg === leg &&
           (refund.status === "succeeded" ||
             refund.status === "pending" ||
             refund.status === "requires_action")

@@ -42,6 +42,7 @@ import { ErrorRetryBanner } from "./ErrorRetryBanner.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { LocalePicker } from "./LocalePicker/index.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
+import { OnlinePausedPill } from "./availability/OnlinePausedPill.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
 import styles from "./DashboardLayout.module.css";
 
@@ -54,6 +55,7 @@ const ROUTE_LABEL_KEYS = {
   waitlist: "layout.routes.waitlist",
   briefing: "layout.routes.briefing",
   "floor-plans": "layout.routes.floorPlans",
+  availability: "layout.routes.availability",
   menus: "layout.routes.menus",
   "booking-widget": "layout.routes.bookingWidget",
   onboarding: "layout.routes.onboarding",
@@ -397,6 +399,7 @@ function DashboardLayoutInner() {
           <div className={styles.breadcrumbBar}>
             <Breadcrumb items={breadcrumbs} />
             <SystemHealthBadge />
+            <OnlinePausedPill />
           </div>
           <ErrorBoundary
             fallback={

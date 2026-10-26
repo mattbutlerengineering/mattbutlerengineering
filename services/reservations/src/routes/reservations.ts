@@ -26,6 +26,7 @@ import { staffActor, type ReservationEventActor } from "../services/reservation-
 import type { DomainServices } from "../services/domain-services.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
+import { gateProblem } from "../services/assert-bookable.js";
 import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { generateManageToken } from "./public-reservations.js";
 import { bodyVenueId, inNamedVenueContext } from "./named-venue.js";
@@ -395,8 +396,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           400: {
-            description:
-              "Invalid request body, unknown guest for this venue, or pacing limit exceeded",
+            description: "Invalid request body, unknown guest for this venue",
             $ref: "Error#",
           },
           401: {
@@ -472,6 +472,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             .send(
               createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
             );
+        }
+
+        if (result.rejection) {
+          return reply.code(422).send(gateProblem(result.rejection));
         }
 
         if (!result.success) {
@@ -684,6 +688,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
                   result.error ?? "Party does not fit this table"
                 )
               );
+          }
+
+          if (result.rejection) {
+            return reply.code(422).send(gateProblem(result.rejection));
           }
 
           if (result.conflict?.hasConflict) {

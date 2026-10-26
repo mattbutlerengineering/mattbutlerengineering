@@ -23,6 +23,7 @@ import {
   MAX_ACTIVE_HOLDS,
 } from "../middleware/public-rate-limit.js";
 import { guestActor } from "../services/reservation-events.js";
+import { gateProblem } from "../services/assert-bookable.js";
 
 const SESSION_ID_HEADER = "x-session-id";
 
@@ -128,6 +129,10 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
           { venueId, date, time: startTime, partySize },
           sessionId
         );
+
+        if (result.rejection) {
+          return reply.status(422).send(gateProblem(result.rejection));
+        }
 
         if (!result.success) {
           return reply
@@ -289,6 +294,10 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
                 : undefined,
           }
         );
+
+        if (!result.success && result.rejection) {
+          return reply.status(422).send(gateProblem(result.rejection));
+        }
 
         if (!result.success) {
           const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;

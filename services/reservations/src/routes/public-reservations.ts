@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiResponse, Reservation } from "@mbe/types";
+import type { ApiResponse, ProblemDetails, Reservation } from "@mbe/types";
 import { AppError, publicReservationBodyJsonSchema } from "@mbe/types";
 import { createHmac, timingSafeEqual } from "crypto";
 import { resolveGuestLink } from "../services/guest-link.js";
@@ -9,6 +9,7 @@ import { decrementHoldCount } from "../middleware/public-rate-limit.js";
 import { getManageTokenConfig } from "../config/manage-token.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
 import { guestActor } from "../services/reservation-events.js";
+import { gateProblem } from "../services/assert-bookable.js";
 
 const TOKEN_SECRET = getManageTokenConfig({
   nodeEnv: process.env.NODE_ENV,
@@ -89,7 +90,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
       guestPhone?: string;
       specialRequests?: string;
     };
-    Reply: ApiResponse<PublicReservationResponse>;
+    Reply: ApiResponse<PublicReservationResponse> | ProblemDetails;
   }>(
     "/:slug/reservations",
     {
@@ -167,6 +168,10 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
               (manageToken = generateManageToken(reservation.id, guestEmail)),
           }
         );
+
+        if (!result.success && result.rejection) {
+          return reply.status(422).send(gateProblem(result.rejection));
+        }
 
         if (!result.success) {
           // A hold the caller does not own answers exactly as a hold that does not

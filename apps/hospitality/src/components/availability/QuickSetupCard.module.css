@@ -1,0 +1,7 @@
+.errorSlot:focus {
+  outline: none;
+}
+
+.errorSlot:focus-visible {
+  box-shadow: var(--rialto-shadow-focus);
+}

@@ -8,6 +8,7 @@ import {
 import { manageTokenScoped } from "./manage-token-scope.js";
 import { serializeManagedReservation } from "../services/serializers.js";
 import { guestActor } from "../services/reservation-events.js";
+import { gateProblem } from "../services/assert-bookable.js";
 
 interface ModifyBody {
   date?: string;
@@ -73,6 +74,10 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
           hold,
           guestActor(preamble.reservation.guestId)
         );
+
+        if (!result.success && result.rejection) {
+          return reply.status(422).send(gateProblem(result.rejection));
+        }
 
         if (!result.success) {
           return reply.status(result.status).send(

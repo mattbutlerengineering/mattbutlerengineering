@@ -87,3 +87,11 @@ button.ctaButton {
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-secondary);
 }
+
+/* The venue message for the closed date under focus (ux.md F9.1). */
+.closureNote {
+  min-height: 1lh;
+  margin-block: var(--rialto-space-xs) 0;
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}

@@ -60,7 +60,9 @@ export function applyExecuted(ledger, executed, now) {
     }
     const prevCarrier = ledger[a.key]?.carrier ?? "";
     const carrier = prevCarrier.startsWith("fix-pr:") ? prevCarrier : "issue";
-    return [[a.key, { issue: a.issue, carrier, severity: a.severity, legacy: a.legacy }]];
+    return [
+      [a.key, { issue: a.issue, carrier, severity: a.severity, legacy: a.legacy, state: a.state }],
+    ];
   });
   const seedUpdates = (executed.seeds ?? []).map((s) => [
     s.key,

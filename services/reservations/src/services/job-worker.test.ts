@@ -15,7 +15,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation, Venue } from "@mbe/types";
+import { UnrecoverableError } from "bullmq";
 import { PartialDeliveryError } from "../notifications/index.js";
+import { ClosureRefundPermanentError } from "./closure-refund.js";
 
 interface JobsModuleShape {
   dispatchJob(handlers: unknown, job: { name: string; data: unknown }): Promise<void>;
@@ -379,6 +381,40 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     expect(deps.dispatcher.sendBookingReminder).not.toHaveBeenCalled();
   });
 
+  it.each(["CANCELLED", "NO_SHOW", "COMPLETED"] as const)(
+    "reminder handler skips delivery for a %s reservation (a closure cancel must not be reminded)",
+    async (status) => {
+      for (const type of [JOB_TYPES.BOOKING_REMINDER, JOB_TYPES.DAY_OF_REMINDER]) {
+        const deps = makeDeps();
+        deps.getReservation.mockResolvedValueOnce(makeReservation({ status }));
+        new JobWorker({
+          redisUrl: "redis://localhost:6379",
+          handlers: createReservationJobHandlers(deps),
+        });
+
+        await bus.processor!({ name: type, data: reminderPayload });
+
+        expect(deps.dispatcher.sendBookingReminder).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it.each(["PENDING", "CONFIRMED"] as const)(
+    "reminder handler still delivers for a live %s reservation",
+    async (status) => {
+      const deps = makeDeps();
+      deps.getReservation.mockResolvedValueOnce(makeReservation({ status }));
+      new JobWorker({
+        redisUrl: "redis://localhost:6379",
+        handlers: createReservationJobHandlers(deps),
+      });
+
+      await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: reminderPayload });
+
+      expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it("reminder handler skips delivery when the guest has no email", async () => {
     const deps = makeDeps();
     deps.getReservation.mockResolvedValueOnce(makeReservation({ guestEmail: null }));
@@ -418,6 +454,65 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     await expect(
       dispatchJob(handlers, { name: JOB_TYPES.POST_VISIT_FOLLOWUP, data: {} })
     ).rejects.toThrow(UnknownJobTypeError);
+  });
+});
+
+describe("CLOSURE_REFUND handler", () => {
+  const payload = { outcomeId: "out_1", venueId: "venue_1" };
+
+  it("runs the refund inside the venue's RLS context with the attempt's finality", async () => {
+    let seenVenue: string | null = null;
+    const runClosureRefund = vi.fn(async () => {
+      seenVenue = getCurrentVenueId();
+    });
+    const handlers = createReservationJobHandlers({ ...makeDeps(), runClosureRefund });
+
+    await dispatchJob(handlers, {
+      name: JOB_TYPES.CLOSURE_REFUND,
+      data: payload,
+      attemptsMade: 2,
+      opts: { attempts: 3 },
+    });
+
+    expect(runClosureRefund).toHaveBeenCalledWith(payload, { isFinalAttempt: true });
+    expect(seenVenue).toBe("venue_1");
+  });
+
+  it("is not final on an earlier attempt", async () => {
+    const runClosureRefund = vi.fn().mockResolvedValue(undefined);
+    const handlers = createReservationJobHandlers({ ...makeDeps(), runClosureRefund });
+
+    await dispatchJob(handlers, {
+      name: JOB_TYPES.CLOSURE_REFUND,
+      data: payload,
+      attemptsMade: 0,
+      opts: { attempts: 3 },
+    });
+
+    expect(runClosureRefund).toHaveBeenCalledWith(payload, { isFinalAttempt: false });
+  });
+
+  it("turns a permanent refund failure into an UnrecoverableError so it is never retried", async () => {
+    const runClosureRefund = vi
+      .fn()
+      .mockRejectedValue(new ClosureRefundPermanentError("cannot transition"));
+    const handlers = createReservationJobHandlers({ ...makeDeps(), runClosureRefund });
+
+    await expect(
+      dispatchJob(handlers, { name: JOB_TYPES.CLOSURE_REFUND, data: payload })
+    ).rejects.toBeInstanceOf(UnrecoverableError);
+  });
+
+  it("lets a retryable failure through as is", async () => {
+    const boom = new Error("stripe down");
+    const handlers = createReservationJobHandlers({
+      ...makeDeps(),
+      runClosureRefund: vi.fn().mockRejectedValue(boom),
+    });
+
+    await expect(
+      dispatchJob(handlers, { name: JOB_TYPES.CLOSURE_REFUND, data: payload })
+    ).rejects.toBe(boom);
   });
 });
 

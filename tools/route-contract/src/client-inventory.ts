@@ -190,6 +190,7 @@ function buildRoster(): { roster: RosterEntry[]; transportClassName: string } {
     { name: "publicVenue", instance: api.publicVenue },
     { name: "waitlist", instance: api.waitlist },
     { name: "availability", instance: api.availability },
+    { name: "venueTeam", instance: api.venueTeam },
     {
       name: "holds",
       instance: api.holds,

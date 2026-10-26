@@ -1,4 +1,10 @@
+import type { Prisma } from "../src/generated/prisma/index.js";
 import { PrismaClient } from "../src/generated/prisma/index.js";
+import {
+  planVenueMigration,
+  writeAvailabilityConfig,
+} from "../src/services/availability-migration.js";
+import { SEED_VENUES, type SeedVenue } from "../src/test/seed-venues.js";
 
 const prisma = new PrismaClient();
 
@@ -14,8 +20,45 @@ function todayDate(): Date {
   return d;
 }
 
+/**
+ * Creates a seed venue with the availability rows the engine reads, plus the
+ * legacy `operatingHours` column as their derived projection (#7502). The rows
+ * come from the same builder production venues go through.
+ */
+async function upsertSeedVenue(venueGroupId: string, seed: SeedVenue) {
+  const plan = planVenueMigration(
+    { operatingHours: seed.hours, settings: seed.settings, ianaTimezone: seed.ianaTimezone },
+    new Date()
+  );
+  if (plan.kind !== "migrate")
+    throw new Error(`Seed hours for ${seed.slug} unreadable: ${plan.reason}`);
+  // One transaction, so a failed row write cannot leave a venue that later runs skip.
+  // Written as the connection owner like the rest of the seed (no venue context).
+  const venue = await prisma.$transaction(async (tx) => {
+    const upserted = await tx.venue.upsert({
+      where: { venueGroupId_slug: { venueGroupId, slug: seed.slug } },
+      update: {},
+      create: {
+        venueGroupId,
+        name: seed.name,
+        slug: seed.slug,
+        ianaTimezone: seed.ianaTimezone,
+        currencyCode: "USD",
+        operatingHours: plan.projection as unknown as Prisma.InputJsonValue,
+        settings: seed.settings,
+      },
+    });
+    const hasRows = await tx.schedule.count({
+      where: { venueId: upserted.id, isRegular: true },
+    });
+    if (hasRows === 0) await writeAvailabilityConfig(tx, upserted.id, plan.config);
+    return upserted;
+  });
+  return venue;
+}
+
 async function main() {
-  console.log("Seeding reservations database...");
+  console.info("Seeding reservations database...");
 
   // --- Venue Group ---
   const group = await prisma.venueGroup.upsert({
@@ -29,49 +72,10 @@ async function main() {
   });
 
   // --- Venues ---
-  const venueA = await prisma.venue.upsert({
-    where: { venueGroupId_slug: { venueGroupId: group.id, slug: "the-grand-bistro" } },
-    update: {},
-    create: {
-      venueGroupId: group.id,
-      name: "The Grand Bistro",
-      slug: "the-grand-bistro",
-      ianaTimezone: "America/New_York",
-      currencyCode: "USD",
-      operatingHours: [
-        { dayOfWeek: 0, openTime: "10:00", closeTime: "21:00", isClosed: false },
-        { dayOfWeek: 1, openTime: "11:00", closeTime: "22:00", isClosed: false },
-        { dayOfWeek: 2, openTime: "11:00", closeTime: "22:00", isClosed: false },
-        { dayOfWeek: 3, openTime: "11:00", closeTime: "22:00", isClosed: false },
-        { dayOfWeek: 4, openTime: "11:00", closeTime: "23:00", isClosed: false },
-        { dayOfWeek: 5, openTime: "11:00", closeTime: "23:00", isClosed: false },
-        { dayOfWeek: 6, openTime: "10:00", closeTime: "22:00", isClosed: false },
-      ],
-      settings: { defaultDurationMinutes: 90, maxPartySize: 12 },
-    },
-  });
-
-  const venueB = await prisma.venue.upsert({
-    where: { venueGroupId_slug: { venueGroupId: group.id, slug: "rooftop-lounge" } },
-    update: {},
-    create: {
-      venueGroupId: group.id,
-      name: "Rooftop Lounge",
-      slug: "rooftop-lounge",
-      ianaTimezone: "America/New_York",
-      currencyCode: "USD",
-      operatingHours: [
-        { dayOfWeek: 0, openTime: "16:00", closeTime: "23:00", isClosed: false },
-        { dayOfWeek: 1, openTime: "00:00", closeTime: "00:00", isClosed: true },
-        { dayOfWeek: 2, openTime: "16:00", closeTime: "23:00", isClosed: false },
-        { dayOfWeek: 3, openTime: "16:00", closeTime: "23:00", isClosed: false },
-        { dayOfWeek: 4, openTime: "16:00", closeTime: "00:00", isClosed: false },
-        { dayOfWeek: 5, openTime: "16:00", closeTime: "01:00", isClosed: false },
-        { dayOfWeek: 6, openTime: "14:00", closeTime: "00:00", isClosed: false },
-      ],
-      settings: { defaultDurationMinutes: 120, maxPartySize: 8 },
-    },
-  });
+  const [venueA, venueB] = await Promise.all(
+    SEED_VENUES.map((seed) => upsertSeedVenue(group.id, seed))
+  );
+  if (!venueA || !venueB) throw new Error("Seed venues missing");
 
   // --- Floor Plans ---
   const floorA = await prisma.floorPlan.create({
@@ -344,7 +348,7 @@ async function main() {
     reservations.map((r) => prisma.reservation.create({ data: r }))
   );
 
-  console.log("Seeded reservations database:", {
+  console.info("Seeded reservations database:", {
     venueGroup: group.id,
     venues: [venueA.id, venueB.id],
     floorPlans: [floorA.id, floorB.id],
