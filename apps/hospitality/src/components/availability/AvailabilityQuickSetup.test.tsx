@@ -4,10 +4,12 @@ import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState } from "@mbe/types";
 
 const mutateAsync = vi.hoisted(() => vi.fn());
+const revertAsync = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: revertAsync }),
 }));
 import type * as Rialto from "@mattbutlerengineering/rialto";
 vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
@@ -73,6 +75,29 @@ describe("AvailabilityQuickSetup", () => {
           title: expect.stringMatching(/^Bookings are open Mon, Tue, Wed, Thu,? and Fri$/),
         })
       )
+    );
+  });
+
+  it("offers Undo on the toast, reverting that save against the version it produced", async () => {
+    mutateAsync.mockResolvedValue({ version: 5, changeId: "c1" });
+    revertAsync.mockResolvedValue({ version: 6, changeId: "c2" });
+    setup();
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    const { action, duration } = toast.mock.calls[0]![0];
+    expect(action.label).toBe("Undo");
+    expect(duration).toBe(10_000);
+
+    action.onClick();
+
+    await waitFor(() =>
+      expect(revertAsync).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        changeId: "c1",
+        expectedVersion: 5,
+      })
+    );
+    await waitFor(() =>
+      expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: "Change undone" }))
     );
   });
 

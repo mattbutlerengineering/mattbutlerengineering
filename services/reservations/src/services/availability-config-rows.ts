@@ -155,7 +155,8 @@ async function writeCreates(
   db: ConfigRowDb,
   venueId: string,
   create: ConfigDiff["create"],
-  actorId: string
+  actorId: string,
+  revive: ReadonlySet<string>
 ): Promise<void> {
   for (const s of create.schedules) {
     await guarded("schedules", s.id, () =>
@@ -178,9 +179,18 @@ async function writeCreates(
     );
   }
   for (const r of create.dateRules) {
-    await guarded("dateRules", r.id, () =>
-      db.dateRule.create({ data: { id: r.id, venueId, createdBy: actorId, ...dateRuleData(r) } })
-    );
+    if (revive.has(r.id)) {
+      // Undoing a removal: the soft-deleted row comes back, whole.
+      await db.dateRule.update({
+        where: { id: r.id },
+        data: { ...dateRuleData(r), deletedAt: null },
+      });
+      await db.dateRuleTable.deleteMany({ where: { venueId, dateRuleId: r.id } });
+    } else {
+      await guarded("dateRules", r.id, () =>
+        db.dateRule.create({ data: { id: r.id, venueId, createdBy: actorId, ...dateRuleData(r) } })
+      );
+    }
     await writeRuleTables(db, venueId, r);
   }
 }
@@ -196,7 +206,7 @@ export async function writeConfigDiff(
   db: ConfigRowDb,
   venueId: string,
   diff: ConfigDiff,
-  context: { actorId: string; now: Date }
+  context: { actorId: string; now: Date; revive?: ReadonlySet<string> }
 ): Promise<void> {
   const { create, update, remove } = diff;
   const demotionsFirst = [...update.schedules].sort(
@@ -225,7 +235,7 @@ export async function writeConfigDiff(
     });
   }
 
-  await writeCreates(db, venueId, create, context.actorId);
+  await writeCreates(db, venueId, create, context.actorId, context.revive ?? new Set());
 
   for (const s of update.scheduleServices) {
     await guarded("scheduleServices", s.id, () =>

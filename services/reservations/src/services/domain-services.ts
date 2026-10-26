@@ -1,5 +1,6 @@
 import { availabilityService } from "./availability.js";
 import { availabilityConfigService } from "./availability-config.js";
+import { availabilityChangesService } from "./availability-changes.js";
 import { closureImpactService } from "./closure-impact-store.js";
 import { venueService, venueGroupService } from "./venue.js";
 import { tableService } from "./table.js";
@@ -37,6 +38,7 @@ import { venueTeamService } from "./venue-team.js";
 export interface DomainServices {
   availabilityService: typeof availabilityService;
   availabilityConfigService: typeof availabilityConfigService;
+  availabilityChangesService: typeof availabilityChangesService;
   closureImpactService: typeof closureImpactService;
   venueService: typeof venueService;
   venueGroupService: typeof venueGroupService;
@@ -62,6 +64,7 @@ export interface DomainServices {
 export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
   availabilityService,
   availabilityConfigService,
+  availabilityChangesService,
   closureImpactService,
   venueService,
   venueGroupService,

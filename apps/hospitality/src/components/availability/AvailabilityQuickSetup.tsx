@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useToast } from "@mattbutlerengineering/rialto";
 import { addDays } from "@mbe/availability";
 import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { QuickSetupCard } from "./QuickSetupCard.js";
@@ -23,7 +23,7 @@ export interface AvailabilityQuickSetupProps {
 /** Wires S1 to the config API: save, toast, and the three ways a save can fail. */
 export function AvailabilityQuickSetup({ venueId, state, onStale }: AvailabilityQuickSetupProps) {
   const { t } = useTranslation();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const format = useVenueFormat();
   const save = useSaveAvailabilityConfig();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -39,16 +39,16 @@ export function AvailabilityQuickSetup({ venueId, state, onStale }: Availability
 
   const onSave = async (draft: QuickSetupDraft) => {
     try {
-      await save.mutateAsync({
+      const saved = await save.mutateAsync({
         venueId,
         expectedVersion: state.version,
         changes: draftToChanges(draft, state.config, () => crypto.randomUUID()),
       });
       setErrorMessage(null);
-      toast({
+      offerUndo({
+        venueId,
+        saved,
         title: t("availability.quickSetup.savedToast", { days: openDays(draft) }),
-        variant: "success",
-        duration: 5000,
       });
     } catch (error) {
       const lostRace =

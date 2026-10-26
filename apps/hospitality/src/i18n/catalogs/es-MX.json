@@ -1589,6 +1589,45 @@
         "overlap": "Este servicio se traslapa con otro.",
         "days_required": "Elige al menos un día."
       }
+    },
+    "migrationBanner": "Se conservaron tus horarios. No cambió nada para los comensales.",
+    "historyButton": "Historial",
+    "undo": {
+      "action": "Deshacer",
+      "done": "Cambio deshecho",
+      "errors": {
+        "guests-notified": "Este cambio avisó a los comensales, así que no se puede deshacer.",
+        "already-reverted": "Este cambio ya se deshizo.",
+        "superseded": "Hay un cambio más reciente. Solo se puede deshacer el último cambio.",
+        "not-revertable": "Este cambio no se puede deshacer.",
+        "version-conflict": "Alguien acaba de cambiar la disponibilidad. Recarga e inténtalo de nuevo.",
+        "stranded-bookings": "Al deshacerlo, quedarían reservaciones existentes sin servicio.",
+        "invalid-config": "Este cambio ya no se puede deshacer con tus horarios actuales."
+      }
+    },
+    "history": {
+      "title": "Historial",
+      "byWhen": "por {{who}} · {{when}}",
+      "you": "ti",
+      "teammate": "un compañero",
+      "guestsTold": "Se avisó a los comensales",
+      "undone": "Deshecho",
+      "viewDay": "Ver día",
+      "revert": "Revertir",
+      "empty": "Aún no hay cambios.",
+      "noMatch": "Ningún cambio coincide con estos filtros.",
+      "loadError": "No se pudo cargar el historial",
+      "retry": "Reintentar",
+      "showMore": "Mostrar más",
+      "typeLabel": "Tipo",
+      "typeAll": "Todos los cambios",
+      "typeConfig": "Cambios de horario",
+      "typeRevert": "Deshacer",
+      "personLabel": "Persona",
+      "personAll": "Todos",
+      "personMe": "Solo yo",
+      "rangeLabel": "Hechos entre",
+      "rangePlaceholder": "Cualquier fecha"
     }
   },
   "setup": {

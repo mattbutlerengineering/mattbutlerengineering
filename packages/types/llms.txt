@@ -184,6 +184,21 @@
       export const AvailabilityChangeSummarySchema: unknown;
     </item>
     <item priority="high">
+      export const AvailabilityChangeEntrySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CHANGES_MAX_LIMIT: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangesQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityChangesPageSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RevertAvailabilityChangeBodySchema: unknown;
+    </item>
+    <item priority="high">
       export const StrandedReservationSchema: unknown;
     </item>
     <item priority="high">
@@ -305,6 +320,21 @@
     </item>
     <item priority="low">
       type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesParsed = z.infer<typeof AvailabilityChangesQuerySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangesPage = z.infer<typeof AvailabilityChangesPageSchema>;
+    </item>
+    <item priority="low">
+      type RevertAvailabilityChangeBody = z.infer<typeof RevertAvailabilityChangeBodySchema>;
     </item>
     <item priority="low">
       type StrandedReservation = z.infer<typeof StrandedReservationSchema>;

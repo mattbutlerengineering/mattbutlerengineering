@@ -9,6 +9,8 @@ import { venueDate } from "../utils/service-day.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
+import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
+import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
 import { AvailabilityDayDrawer } from "../components/availability/AvailabilityDayDrawer.js";
 import {
@@ -35,6 +37,7 @@ export function AvailabilityPage() {
   // `null` follows today until the viewer navigates.
   const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
   const [openDate, setOpenDate] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const anchor = chosenAnchor ?? today;
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
@@ -103,6 +106,9 @@ export function AvailabilityPage() {
         <Button variant="secondary" onClick={() => setChosenAnchor(null)}>
           {t("availability.toolbar.today")}
         </Button>
+        <Button variant="secondary" onClick={() => setHistoryOpen(true)}>
+          {t("availability.historyButton")}
+        </Button>
         <SegmentedControl
           aria-label={t("availability.toolbar.viewLabel")}
           segments={[
@@ -113,6 +119,9 @@ export function AvailabilityPage() {
           onChange={(id) => setView(id as CalendarView)}
         />
       </div>
+      {config.data?.source === "legacy" && (
+        <AvailabilityMigrationBanner key={selectedVenueId} venueId={selectedVenueId} />
+      )}
       {failure && (
         <ErrorRetryBanner
           title={t("availability.loadError")}
@@ -138,6 +147,17 @@ export function AvailabilityPage() {
         error={drawerFailure}
         viewerRole={team?.viewerRole}
         onClose={() => setOpenDate(null)}
+      />
+      <AvailabilityHistoryDrawer
+        open={historyOpen}
+        venueId={selectedVenueId}
+        viewerRole={team?.viewerRole}
+        onClose={() => setHistoryOpen(false)}
+        onOpenDay={(date) => {
+          setHistoryOpen(false);
+          setOpenDate(date);
+          setChosenAnchor(date);
+        }}
       />
     </Stack>
   );

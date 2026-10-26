@@ -200,6 +200,39 @@
         return response.data;
       }
     
+      /**
+       * A page of the venue's availability history, newest first. `revertible`
+       * marks the one change that can still be undone.
+       */
+      async listChanges(
+        venueId: string,
+        query: AvailabilityChangesQuery = {}
+      ): Promise<AvailabilityChangesPage> {
+        const response = await this.client.call(availabilityConfigEndpoints.listChanges, {
+          params: { id: venueId },
+          query,
+        });
+        return response.data;
+      }
+    
+      /**
+       * Undo a change by applying its stored inverse as a new save. Requires a
+       * Manager. Rejects with an `ApiClientError` whose `problemDetails.code` is
+       * `guests-notified`, `already-reverted`, `superseded`, `not-revertable`,
+       * `version-conflict` or `stranded-bookings`.
+       */
+      async revertChange(
+        venueId: string,
+        changeId: string,
+        expectedVersion: number
+      ): Promise<AvailabilityConfigSaveResult> {
+        const response = await this.client.call(availabilityConfigEndpoints.revertChange, {
+          params: { id: venueId, changeId },
+          body: { expectedVersion },
+        });
+        return response.data;
+      }
+    
       /** Calendar summaries for each service date from `from` to `to` inclusive (≤62 days). */
       async listDays(
         venueId: string,

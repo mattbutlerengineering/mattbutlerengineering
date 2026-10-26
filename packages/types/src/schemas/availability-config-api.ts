@@ -103,6 +103,45 @@ export const AvailabilityChangeSummarySchema = z.object({
   summary: z.string(),
 });
 
+/** One row of the history drawer: the audit row, plus whether undo is still on offer. */
+export const AvailabilityChangeEntrySchema = AvailabilityChangeSummarySchema.extend({
+  /** First and last service dates the change can alter; `null` end means onward. */
+  affectedFrom: ServiceDateSchema.nullable(),
+  affectedTo: ServiceDateSchema.nullable(),
+  /** Whether guests were told; a change that told them can never be undone. */
+  notifiedGuests: z.boolean(),
+  /** The change that undid this one. */
+  revertedById: z.string().nullable(),
+  /** `Revert` is offered only on the newest change, and only when it told no guest. */
+  revertible: z.boolean(),
+});
+
+/** Most entries one `GET …/availability/changes` page returns. */
+export const AVAILABILITY_CHANGES_MAX_LIMIT = 100;
+
+export const AvailabilityChangesQuerySchema = z.object({
+  /** Made on or after this UTC date. */
+  from: ServiceDateSchema.optional(),
+  /** Made on or before this UTC date. */
+  to: ServiceDateSchema.optional(),
+  actorId: z.string().min(1).optional(),
+  kind: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(AVAILABILITY_CHANGES_MAX_LIMIT).default(25),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const AvailabilityChangesPageSchema = z.object({
+  total: z.number().int(),
+  offset: z.number().int(),
+  /** Newest first. */
+  items: z.array(AvailabilityChangeEntrySchema),
+});
+
+/** `POST …/availability/changes/:changeId/revert`: the version the client read, for the compare-and-set. */
+export const RevertAvailabilityChangeBodySchema = z.object({
+  expectedVersion: z.number().int().min(0),
+});
+
 export const StrandedReservationSchema = z.object({
   id: z.string(),
   startTime: z.string(),
@@ -115,6 +154,10 @@ export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
   "invalid-config",
   "stranded-bookings",
   "preview-timeout",
+  "guests-notified",
+  "already-reverted",
+  "superseded",
+  "not-revertable",
 ] as const;
 
 /** RFC 9457 problem with the config API's extension members. */
@@ -309,6 +352,11 @@ export type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSc
 export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
 export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
 export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
+export type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
+export type AvailabilityChangesParsed = z.infer<typeof AvailabilityChangesQuerySchema>;
+export type AvailabilityChangesPage = z.infer<typeof AvailabilityChangesPageSchema>;
+export type RevertAvailabilityChangeBody = z.infer<typeof RevertAvailabilityChangeBodySchema>;
 export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
 export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
 export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;

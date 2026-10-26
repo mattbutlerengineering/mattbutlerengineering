@@ -1565,6 +1565,45 @@
         "overlap": "This service overlaps another one.",
         "days_required": "Choose at least one day."
       }
+    },
+    "migrationBanner": "Your hours were carried over. Nothing changed for guests.",
+    "historyButton": "History",
+    "undo": {
+      "action": "Undo",
+      "done": "Change undone",
+      "errors": {
+        "guests-notified": "This change told guests, so it can’t be undone.",
+        "already-reverted": "This change was already undone.",
+        "superseded": "A newer change exists. Only the latest change can be undone.",
+        "not-revertable": "This change can’t be undone.",
+        "version-conflict": "Someone else just changed availability. Reload and try again.",
+        "stranded-bookings": "Undoing this would leave existing bookings without service.",
+        "invalid-config": "This change can no longer be undone against your current hours."
+      }
+    },
+    "history": {
+      "title": "History",
+      "byWhen": "by {{who}} · {{when}}",
+      "you": "you",
+      "teammate": "a teammate",
+      "guestsTold": "Guests were told",
+      "undone": "Undone",
+      "viewDay": "View day",
+      "revert": "Revert",
+      "empty": "No changes yet.",
+      "noMatch": "No changes match these filters.",
+      "loadError": "Couldn’t load the history",
+      "retry": "Retry",
+      "showMore": "Show more",
+      "typeLabel": "Type",
+      "typeAll": "All changes",
+      "typeConfig": "Hours changes",
+      "typeRevert": "Undos",
+      "personLabel": "Person",
+      "personAll": "Everyone",
+      "personMe": "Only me",
+      "rangeLabel": "Made between",
+      "rangePlaceholder": "Any dates"
     }
   },
   "setup": {

@@ -1115,6 +1115,66 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
+  "GET /api/v1/venues/:id/availability/changes": okAvailabilityByParam(
+    (venueId) => `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/changes`
+  ),
+  // Like the save, the write lands only on a disposable venue. The second save
+  // is the change to undo (undo is offered on the newest change only).
+  "POST /api/v1/venues/:id/availability/changes/:changeId/revert": ok(async (ctx) => {
+    const venueId = await createDisposableVenue(ctx);
+    const base = `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PUT",
+        url: `${base}/config`,
+        payload: { expectedVersion: 0, changes: sweepConfigChanges(), scopeConflicts: "keep" },
+      }),
+      "admin first save"
+    );
+    const extra = `rls-sweep-vs-${randomUUID()}`;
+    const second = await asAdmin(ctx, {
+      method: "PUT",
+      url: `${base}/config`,
+      payload: {
+        expectedVersion: 1,
+        changes: {
+          upsert: { venueServices: [{ id: extra, name: "Brunch", position: 1 }] },
+          remove: {},
+        },
+        scopeConflicts: "keep",
+      },
+    });
+    expectOk(second, "admin second save");
+    const changeId = JSON.parse(second.body).data.changeId as string;
+    const revert = (expectedVersion: number) => ({
+      method: "POST" as const,
+      url: `${base}/changes/${changeId}/revert`,
+      payload: { expectedVersion },
+    });
+    const reverted = await asAdmin(ctx, revert(2));
+    expect(reverted.statusCode, reverted.body).toBe(200);
+    expect(JSON.parse(reverted.body).data.version).toBe(3);
+    // The inverse landed as rows under RLS, and the original now points at the revert.
+    const history = await asAdmin(ctx, { method: "GET", url: `${base}/changes` });
+    const items = JSON.parse(history.body).data.items as {
+      id: string;
+      revertedById: string | null;
+    }[];
+    expect(items.find((i) => i.id === changeId)?.revertedById).toBe(
+      JSON.parse(reverted.body).data.changeId
+    );
+    const again = await asAdmin(ctx, revert(3));
+    expect(again.statusCode).toBe(409);
+    expect(JSON.parse(again.body).code).toBe("already-reverted");
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/availability/changes/nope/revert`,
+        payload: { expectedVersion: 0 },
+      }),
+      "member venue B"
+    );
+  }),
 };
 
 /** A one-schedule, one-service week: the smallest config `validateConfig` accepts. Fresh ids per call (they are table-wide keys). */

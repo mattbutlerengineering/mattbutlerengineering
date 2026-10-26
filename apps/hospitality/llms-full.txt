@@ -627,6 +627,13 @@
       );
     }
   </file>
+  <file path="src/components/availability/revert-error.ts">
+    export function revertErrorText(error: unknown, t: TFunction): string {
+      const code = error instanceof ApiClientError ? error.problemDetails.code : undefined;
+      const known = REVERT_CODES.find((c) => c === code);
+      return known ? t(`availability.undo.errors.${known}`) : describeApiError(error).detail;
+    }
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -4452,6 +4459,7 @@
   <file path="src/hooks/useAvailability.ts">
     export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
     export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
+    export const AVAILABILITY_CHANGES_QUERY_KEY = "availabilityChanges" as const;
     export const useAvailabilityDays = createQueryHook<
       AvailabilityDaySummary[] | null,
       { venueId: string | null; from: string; to: string }
@@ -4472,15 +4480,77 @@
         params?.venueId ? api.availability.getConfig(params.venueId) : null,
       getEnabled: (params) => !!params?.venueId && params.enabled !== false,
     });
-    export const useSaveAvailabilityConfig = createMutationHook<{
-      venueId: string;
-      expectedVersion: number;
-      changes: AvailabilityConfigChanges;
-    }>({
-      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY, VENUES_QUERY_KEY],
+    export const useSaveAvailabilityConfig = createMutationHook<
+      {
+        venueId: string;
+        expectedVersion: number;
+        changes: AvailabilityConfigChanges;
+      },
+      AvailabilityConfigSaveResult
+    >({
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        AVAILABILITY_CHANGES_QUERY_KEY,
+        VENUES_QUERY_KEY,
+      ],
       mutationFn: (api, { venueId, expectedVersion, changes }) =>
         api.availability.saveConfig(venueId, { expectedVersion, changes }),
     });
+    export const useAvailabilityChanges = createQueryHook<
+      AvailabilityChangesPage | null,
+      { venueId: string | null; query: AvailabilityChangesQuery }
+    >({
+      key: AVAILABILITY_CHANGES_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId ? api.availability.listChanges(params.venueId, params.query) : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useRevertAvailabilityChange = createMutationHook<
+      { venueId: string; changeId: string; expectedVersion: number },
+      AvailabilityConfigSaveResult
+    >({
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        AVAILABILITY_CHANGES_QUERY_KEY,
+        VENUES_QUERY_KEY,
+      ],
+      mutationFn: (api, { venueId, changeId, expectedVersion }) =>
+        api.availability.revertChange(venueId, changeId, expectedVersion),
+    });
+  </file>
+  <file path="src/hooks/useAvailabilityUndo.ts">
+    export const UNDO_TOAST_MS = 10_000;
+    export function useAvailabilityUndo() {
+      const { t } = useTranslation();
+      const { toast } = useToast();
+      const revert = useRevertAvailabilityChange();
+    
+      return useCallback(
+        (input: { venueId: string; title: string; saved: AvailabilityConfigSaveResult }) => {
+          const undo = async () => {
+            try {
+              await revert.mutateAsync({
+                venueId: input.venueId,
+                changeId: input.saved.changeId,
+                expectedVersion: input.saved.version,
+              });
+              toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
+            } catch (error) {
+              toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
+            }
+          };
+          toast({
+            title: input.title,
+            variant: "success",
+            duration: UNDO_TOAST_MS,
+            action: { label: t("availability.undo.action"), onClick: () => void undo() },
+          });
+        },
+        [revert, t, toast]
+      );
+    }
   </file>
   <file path="src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;

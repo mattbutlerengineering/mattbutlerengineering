@@ -599,6 +599,11 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="src/routes/availability-changes.ts">
+    <item priority="high">
+      export const availabilityChangesRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/availability-config.ts">
     <item priority="medium">
       function configProblem(
@@ -1592,6 +1597,54 @@
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/availability-changes.ts">
+    <item priority="high">
+      export const REVERT_KIND: unknown;
+    </item>
+    <item priority="medium">
+      function whereOf(
+        venueId: string,
+        query: AvailabilityChangesParsed
+      ): Prisma.AvailabilityChangeWhereInput { /* ... */ }
+    </item>
+    <item priority="medium">
+      function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      type StoreTx = Pick<PrismaClient, "venue" | "availabilityChange">;
+    </item>
+    <item priority="high">
+      export async function listAvailabilityChanges(
+        venueId: string,
+        query: AvailabilityChangesParsed,
+        client: StoreClient = prisma
+      ): Promise<AvailabilityChangesPage | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RevertRefusalReason = "guests_notified" | "already_reverted" | "superseded" | "not_revertable";
+    </item>
+    <item priority="low">
+      type RevertOutcome = SaveOutcome | { kind: "change_not_found" } | { kind: "refused"; reason: Rev;
+    </item>
+    <item priority="medium">
+      function readInverse(value: unknown): ConfigInverse | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function revertAvailabilityChange(
+        input: {
+          venueId: string;
+          changeId: string;
+          actorId: string;
+          expectedVersion: number;
+          now: Date;
+        },
+        client: StoreClient = prisma
+      ): Promise<RevertOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const availabilityChangesService: unknown;
+    </item>
+  </file>
   <file path="src/services/availability-check.ts">
     <item priority="medium">
       function resultOf(outcome: GateOutcome): AvailabilityCheckResult { /* ... */ }
@@ -1784,7 +1837,8 @@
         db: ConfigRowDb,
         venueId: string,
         create: ConfigDiff["create"],
-        actorId: string
+        actorId: string,
+        revive: ReadonlySet<string>
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
@@ -1792,7 +1846,7 @@
         db: ConfigRowDb,
         venueId: string,
         diff: ConfigDiff,
-        context: { actorId: string; now: Date }
+        context: { actorId: string; now: Date; revive?: ReadonlySet<string> }
       ): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -1814,11 +1868,11 @@
     </item>
   </file>
   <file path="src/services/availability-config.ts">
-    <item priority="high">
+    <item priority="low">
       type StoreDb = ConfigRowDb &
         Pick<PrismaClient, "venue" | "reservation...;
     </item>
-    <item priority="high">
+    <item priority="low">
       type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="medium">
@@ -1876,6 +1930,8 @@
         tableIds: ReadonlySet<string>;
         now: Date;
         newId?: () => string;
+        /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
+        allowNoHours?: boolean;
       }): SavePlan { /* ... */ }
     </item>
     <item priority="low">
@@ -1899,6 +1955,32 @@
     </item>
     <item priority="medium">
       function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SaveRequest {
+        changes: PutAvailabilityConfigBody["changes"];
+        scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
+        kind: string;
+        summary?: string;
+        operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
+      }
+    </item>
+    <item priority="high">
+      export async function inSaveTransaction<T, R extends { kind: string } = never>(
+        client: StoreClient,
+        venueId: string,
+        work: (tx: StoreDb) => Promise<T>
+      ): Promise<T | SaveOutcome | R> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refuseSave(outcome: { kind: string }): never { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function commitSave(
+        tx: StoreDb,
+        input: { venueId: string; actorId: string; expectedVersion: number; now: Date },
+        resolve: (state: ConfigState) => Promise<SaveRequest>
+      ): Promise<SaveOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export async function saveAvailabilityConfig(
@@ -2579,9 +2661,9 @@
       interface DomainServices {
         availabilityService: typeof availabilityService;
         availabilityConfigService: typeof availabilityConfigService;
+        availabilityChangesService: typeof availabilityChangesService;
         closureImpactService: typeof closureImpactService;
         venueService: typeof venueService;
-        venueGroupService: typeof venueGroupService;
       }
     </item>
     <item priority="high">

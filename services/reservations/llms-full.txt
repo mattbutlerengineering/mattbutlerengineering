@@ -1975,6 +1975,92 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="src/routes/availability-changes.ts">
+    export const availabilityChangesRoutes: FastifyPluginAsync = async (fastify) => {
+      const { availabilityChangesService } = fastify.services;
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.listChanges, {
+        docs: {
+          summary: "List a venue's availability history",
+          operationId: "listAvailabilityChanges",
+          description:
+            "Who changed availability, when and what, newest first. `revertible` marks the one change that can still be undone. Filter by the UTC dates a change was made, by person (`actorId`) and by `kind`.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId }) => {
+          const page = await availabilityChangesService.list(venueId, request.query);
+          if (!page) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+          }
+          return { data: page };
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.revertChange, {
+        docs: {
+          summary: "Undo an availability change",
+          operationId: "revertAvailabilityChange",
+          description:
+            "Applies the change's stored inverse as a new save (compare-and-set on `expectedVersion`, validation and the stranded-bookings check all apply). Refused with 409 `guests-notified` when the change told guests, and `already-reverted`, `superseded` or `not-revertable` otherwise. Requires a Manager (owner or manager) membership, or the admin role.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          { ...VENUE_FROM_ID, access: "manager" },
+          async (request, reply, { venueId }) => {
+            const outcome = await availabilityChangesService.revert({
+              venueId,
+              changeId: request.params.changeId,
+              actorId: request.user?.id ?? "unknown",
+              expectedVersion: request.body.expectedVersion,
+              now: new Date(),
+            });
+            switch (outcome.kind) {
+              case "saved":
+                return { data: { version: outcome.version, changeId: outcome.changeId } };
+              case "not_found":
+                return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+              case "change_not_found":
+                return reply.code(404).send(createProblemDetails(404, "Not Found", "Change not found"));
+              case "refused": {
+                const { code, detail } = REFUSALS[outcome.reason];
+                return reply.code(409).send(conflict("Conflict", detail, { code }));
+              }
+              case "version_conflict":
+                return reply.code(409).send(
+                  conflict("Conflict", "Availability changed since you loaded it.", {
+                    code: "version-conflict",
+                    winningChange: outcome.winningChange,
+                  })
+                );
+              case "stranded":
+                return reply
+                  .code(409)
+                  .send(
+                    conflict(
+                      "Conflict",
+                      "Undoing this would leave existing bookings without service.",
+                      { code: "stranded-bookings", reservations: outcome.reservations }
+                    )
+                  );
+              case "invalid":
+                return reply.code(422).send({
+                  type: "about:blank",
+                  title: "Unprocessable Entity",
+                  status: 422,
+                  detail: "The change can no longer be undone against the current availability.",
+                  code: "invalid-config",
+                  issues: outcome.issues,
+                } satisfies AvailabilityConfigProblem);
+            }
+          }
+        ),
+      });
+    };
+  </file>
   <file path="src/routes/availability-config.ts">
     function configProblem(
       status: 409 | 422 | 503,
@@ -9893,6 +9979,139 @@
       await tx.$executeRawUnsafe(appRoleSetStatement());
     }
   </file>
+  <file path="src/services/availability-changes.ts">
+    export const REVERT_KIND = "revert";
+    function whereOf(
+      venueId: string,
+      query: AvailabilityChangesParsed
+    ): Prisma.AvailabilityChangeWhereInput {
+      return {
+        venueId,
+        ...(query.actorId ? { actorId: query.actorId } : {}),
+        ...(query.kind ? { kind: query.kind } : {}),
+        ...(query.from || query.to
+          ? {
+              at: {
+                ...(query.from ? { gte: dayStart(query.from) } : {}),
+                ...(query.to ? { lt: dayStart(addDays(query.to, 1)) } : {}),
+              },
+            }
+          : {}),
+      };
+    }
+    function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string) {
+      return db.availabilityChange.findFirst({
+        where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
+        orderBy: [{ at: "desc" }, { id: "desc" }],
+        select: { id: true },
+      });
+    }
+    type StoreTx = Pick<PrismaClient, "venue" | "availabilityChange">;
+    export async function listAvailabilityChanges(
+      venueId: string,
+      query: AvailabilityChangesParsed,
+      client: StoreClient = prisma
+    ): Promise<AvailabilityChangesPage | null> {
+      return client.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const db = tx as unknown as StoreTx;
+        const venue = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+        if (!venue) return null;
+        const where = whereOf(venueId, query);
+        const [rows, total, newest] = await Promise.all([
+          db.availabilityChange.findMany({
+            where,
+            orderBy: [{ at: "desc" }, { id: "desc" }],
+            skip: query.offset,
+            take: query.limit,
+          }),
+          db.availabilityChange.count({ where }),
+          newestInForce(db, venueId),
+        ]);
+        const items: AvailabilityChangeEntry[] = rows.map((r) => ({
+          id: r.id,
+          actorId: r.actorId,
+          at: r.at.toISOString(),
+          kind: r.kind,
+          summary: r.summary,
+          affectedFrom: toDay(r.affectedFrom),
+          affectedTo: toDay(r.affectedTo),
+          notifiedGuests: r.notifiedGuests,
+          revertedById: r.revertedById,
+          revertible:
+            r.id === newest?.id &&
+            !r.notifiedGuests &&
+            r.revertedById == null &&
+            r.kind !== REVERT_KIND,
+        }));
+        return { total, offset: query.offset, items };
+      });
+    }
+    export type RevertRefusalReason =
+      "guests_notified" | "already_reverted" | "superseded" | "not_revertable";
+    export type RevertOutcome =
+      SaveOutcome | { kind: "change_not_found" } | { kind: "refused"; reason: RevertRefusalReason };
+    function readInverse(value: unknown): ConfigInverse | null {
+      if (typeof value !== "object" || value === null) return null;
+      const v = value as Partial<ConfigInverse>;
+      if (v.version !== 1 || typeof v.restore !== "object" || typeof v.remove !== "object") {
+        return null;
+      }
+      const tables = CONFIG_TABLES.every(
+        (t) => Array.isArray(v.restore?.[t]) && Array.isArray(v.remove?.[t])
+      );
+      return tables ? (v as ConfigInverse) : null;
+    }
+    export async function revertAvailabilityChange(
+      input: {
+        venueId: string;
+        changeId: string;
+        actorId: string;
+        expectedVersion: number;
+        now: Date;
+      },
+      client: StoreClient = prisma
+    ): Promise<RevertOutcome> {
+      const { venueId, changeId, actorId, expectedVersion, now } = input;
+      return inSaveTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
+        commitSave(tx, { venueId, actorId, expectedVersion, now }, async (state) => {
+          const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
+          if (!change) return refuseSave({ kind: "change_not_found" });
+          if (change.revertedById) return refuseSave(refused("already_reverted"));
+          if (change.kind === REVERT_KIND) return refuseSave(refused("not_revertable"));
+          if (change.notifiedGuests) return refuseSave(refused("guests_notified"));
+          const newest = await newestInForce(tx, venueId);
+          if (newest?.id !== change.id) return refuseSave(refused("superseded"));
+          const inverse = readInverse(change.inverse);
+          if (!inverse) return refuseSave(refused("not_revertable"));
+    
+          const stored = new Set(state.stored.dateRules.map((r) => r.id));
+          const restore = inverse.restore;
+          return {
+            changes: { upsert: restore, remove: inverse.remove },
+            scopeConflicts: "keep",
+            kind: REVERT_KIND,
+            summary: `Reverted: ${change.summary}`,
+            // The column exactly as it was (null included), so undoing a venue's first
+            // save puts its hours back rather than projecting an empty week over them.
+            operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
+            allowNoHours: true,
+            revive: new Set(restore.dateRules.map((r) => r.id).filter((id) => !stored.has(id))),
+            afterChange: async (db, revertId) => {
+              await db.availabilityChange.update({
+                where: { id: changeId },
+                data: { revertedById: revertId },
+              });
+            },
+          };
+        })
+      );
+    }
+    export const availabilityChangesService = {
+      list: listAvailabilityChanges,
+      revert: revertAvailabilityChange,
+    };
+  </file>
   <file path="src/services/availability-check.ts">
     function resultOf(outcome: GateOutcome): AvailabilityCheckResult {
       switch (outcome.kind) {
@@ -10370,7 +10589,8 @@
       db: ConfigRowDb,
       venueId: string,
       create: ConfigDiff["create"],
-      actorId: string
+      actorId: string,
+      revive: ReadonlySet<string>
     ): Promise<void> {
       for (const s of create.schedules) {
         await guarded("schedules", s.id, () =>
@@ -10393,9 +10613,18 @@
         );
       }
       for (const r of create.dateRules) {
-        await guarded("dateRules", r.id, () =>
-          db.dateRule.create({ data: { id: r.id, venueId, createdBy: actorId, ...dateRuleData(r) } })
-        );
+        if (revive.has(r.id)) {
+          // Undoing a removal: the soft-deleted row comes back, whole.
+          await db.dateRule.update({
+            where: { id: r.id },
+            data: { ...dateRuleData(r), deletedAt: null },
+          });
+          await db.dateRuleTable.deleteMany({ where: { venueId, dateRuleId: r.id } });
+        } else {
+          await guarded("dateRules", r.id, () =>
+            db.dateRule.create({ data: { id: r.id, venueId, createdBy: actorId, ...dateRuleData(r) } })
+          );
+        }
         await writeRuleTables(db, venueId, r);
       }
     }
@@ -10403,7 +10632,7 @@
       db: ConfigRowDb,
       venueId: string,
       diff: ConfigDiff,
-      context: { actorId: string; now: Date }
+      context: { actorId: string; now: Date; revive?: ReadonlySet<string> }
     ): Promise<void> {
       const { create, update, remove } = diff;
       const demotionsFirst = [...update.schedules].sort(
@@ -10432,7 +10661,7 @@
         });
       }
     
-      await writeCreates(db, venueId, create, context.actorId);
+      await writeCreates(db, venueId, create, context.actorId, context.revive ?? new Set());
     
       for (const s of update.scheduleServices) {
         await guarded("scheduleServices", s.id, () =>
@@ -10470,9 +10699,9 @@
     }
   </file>
   <file path="src/services/availability-config.ts">
-    type StoreDb = ConfigRowDb &
+    export type StoreDb = ConfigRowDb &
       Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
-    type StoreClient = Pick<PrismaClient, "$transaction">;
+    export type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
       return {
         schedules: [...legacy.schedules, ...stored.schedules],
@@ -10605,9 +10834,11 @@
       tableIds: ReadonlySet<string>;
       now: Date;
       newId?: () => string;
+      /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
+      allowNoHours?: boolean;
     }): SavePlan {
       const { state, body, bookings, now } = input;
-      const { next, issues } = settleDraft({
+      const { next, issues: allIssues } = settleDraft({
         snapshot: { timezone: state.timezone, config: state.effective },
         changes: body.changes,
         scopeConflicts: body.scopeConflicts,
@@ -10616,6 +10847,11 @@
         today: civilDateIn(now, state.timezone),
         newId: input.newId ?? randomUUID,
       });
+      const noHours = next.schedules.every((s) => s.archivedAt);
+      const issues =
+        input.allowNoHours && noHours
+          ? allIssues.filter((i) => !("code" in i && i.code === "no_regular_schedule"))
+          : allIssues;
       if (issues.length > 0) return { kind: "invalid", issues };
     
       const reservations = findStrandedReservations(
@@ -10641,7 +10877,7 @@
       | { kind: "not_found" }
       | Exclude<SavePlan, { kind: "write" }>;
     class SaveRefused extends Error {
-      constructor(readonly outcome: SaveOutcome) {
+      constructor(readonly outcome: { kind: string }) {
         super(outcome.kind);
       }
     }
@@ -10695,61 +10931,113 @@
         ],
       };
     }
+    export interface SaveRequest {
+      changes: PutAvailabilityConfigBody["changes"];
+      scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
+      /** The audit row's `kind`. */
+      kind: string;
+      /** Replaces the generated summary. */
+      summary?: string;
+      /** Written to `Venue.operatingHours` in place of the projection of the next config. */
+      operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
+      /** Permit the result to have no live schedule (an undone first save). */
+      allowNoHours?: boolean;
+      /** Date rules to bring back from soft-deletion instead of creating. */
+      revive?: ReadonlySet<string>;
+      /** Runs in the save transaction once the audit row exists. */
+      afterChange?: (tx: StoreDb, changeId: string) => Promise<void>;
+    }
+    export async function inSaveTransaction<T, R extends { kind: string } = never>(
+      client: StoreClient,
+      venueId: string,
+      work: (tx: StoreDb) => Promise<T>
+    ): Promise<T | SaveOutcome | R> {
+      try {
+        return await client.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          return work(tx);
+        });
+      } catch (error) {
+        // Invariant: only `refuseSave` and `commitSave` throw it, with a SaveOutcome or the caller's R.
+        if (error instanceof SaveRefused) return error.outcome as SaveOutcome | R;
+        throw error;
+      }
+    }
+    export function refuseSave(outcome: { kind: string }): never {
+      throw new SaveRefused(outcome);
+    }
+    export async function commitSave(
+      tx: StoreDb,
+      input: { venueId: string; actorId: string; expectedVersion: number; now: Date },
+      resolve: (state: ConfigState) => Promise<SaveRequest>
+    ): Promise<SaveOutcome> {
+      const { venueId, actorId, expectedVersion, now } = input;
+      const cas = await tx.venue.updateMany({
+        where: { id: venueId, availabilityVersion: expectedVersion },
+        data: { availabilityVersion: { increment: 1 } },
+      });
+      if (cas.count === 0) return refuseStale(tx, venueId);
+    
+      const state = await loadConfigState(tx, venueId, now);
+      if (!state) throw new SaveRefused({ kind: "not_found" });
+      const request = await resolve(state);
+      const today = civilDateIn(now, state.timezone);
+      const [bookings, tables] = await Promise.all([
+        futureBookings(tx, venueId, today, now),
+        tx.table.findMany({ where: { venueId }, select: { id: true } }),
+      ]);
+      const tableIds = new Set(tables.map((t) => t.id));
+      const plan = planSave({
+        state,
+        body: { expectedVersion, changes: request.changes, scopeConflicts: request.scopeConflicts },
+        bookings,
+        tableIds,
+        now,
+        ...(request.allowNoHours ? { allowNoHours: true } : {}),
+      });
+      if (plan.kind !== "write") throw new SaveRefused(plan);
+    
+      await writeConfigDiff(tx, venueId, plan.diff, {
+        actorId,
+        now,
+        ...(request.revive ? { revive: request.revive } : {}),
+      }).catch((error: unknown) => {
+        throw error instanceof ConfigRowConflict
+          ? new SaveRefused(conflictIssue(error, plan.next))
+          : error;
+      });
+      const change = await tx.availabilityChange.create({
+        data: {
+          venueId,
+          actorId,
+          at: now,
+          kind: request.kind,
+          summary: request.summary ?? plan.summary,
+          affectedFrom: toDbDate(plan.range.from),
+          affectedTo: toDbDate(plan.range.to),
+          inverse: plan.inverse as unknown as Prisma.InputJsonValue,
+        },
+        select: { id: true },
+      });
+      await request.afterChange?.(tx, change.id);
+      await tx.venue.update({
+        where: { id: venueId },
+        data: { operatingHours: request.operatingHours ?? projectLegacyOperatingHours(plan.next) },
+      });
+      return { kind: "saved" as const, version: expectedVersion + 1, changeId: change.id };
+    }
     export async function saveAvailabilityConfig(
       input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
       client: StoreClient = prisma
     ): Promise<SaveOutcome> {
       const { venueId, actorId, body, now } = input;
-      try {
-        return await client.$transaction(async (tx) => {
-          await setVenueContext(tx, venueId);
-          // Compare-and-set first: it takes the venue row lock, so concurrent
-          // saves serialize here and a stale one never reads past this point.
-          const cas = await tx.venue.updateMany({
-            where: { id: venueId, availabilityVersion: body.expectedVersion },
-            data: { availabilityVersion: { increment: 1 } },
-          });
-          if (cas.count === 0) return refuseStale(tx, venueId);
-    
-          const state = await loadConfigState(tx, venueId, now);
-          if (!state) throw new SaveRefused({ kind: "not_found" });
-          const today = civilDateIn(now, state.timezone);
-          const [bookings, tables] = await Promise.all([
-            futureBookings(tx, venueId, today, now),
-            tx.table.findMany({ where: { venueId }, select: { id: true } }),
-          ]);
-          const tableIds = new Set(tables.map((t) => t.id));
-          const plan = planSave({ state, body, bookings, tableIds, now });
-          if (plan.kind !== "write") throw new SaveRefused(plan);
-    
-          await writeConfigDiff(tx, venueId, plan.diff, { actorId, now }).catch((error: unknown) => {
-            throw error instanceof ConfigRowConflict
-              ? new SaveRefused(conflictIssue(error, plan.next))
-              : error;
-          });
-          const change = await tx.availabilityChange.create({
-            data: {
-              venueId,
-              actorId,
-              at: now,
-              kind: "config",
-              summary: plan.summary,
-              affectedFrom: toDbDate(plan.range.from),
-              affectedTo: toDbDate(plan.range.to),
-              inverse: plan.inverse as unknown as Prisma.InputJsonValue,
-            },
-            select: { id: true },
-          });
-          await tx.venue.update({
-            where: { id: venueId },
-            data: { operatingHours: projectLegacyOperatingHours(plan.next) },
-          });
-          return { kind: "saved" as const, version: body.expectedVersion + 1, changeId: change.id };
-        });
-      } catch (error) {
-        if (error instanceof SaveRefused) return error.outcome;
-        throw error;
-      }
+      return inSaveTransaction(client, venueId, (tx) =>
+        commitSave(tx, { venueId, actorId, expectedVersion: body.expectedVersion, now }, async () => ({
+          changes: body.changes,
+          scopeConflicts: body.scopeConflicts,
+          kind: "config",
+        }))
+      );
     }
     export const PREVIEW_TIMEOUT_MS = 5000;
     export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
@@ -13652,6 +13940,7 @@
     export interface DomainServices {
       availabilityService: typeof availabilityService;
       availabilityConfigService: typeof availabilityConfigService;
+      availabilityChangesService: typeof availabilityChangesService;
       closureImpactService: typeof closureImpactService;
       venueService: typeof venueService;
       venueGroupService: typeof venueGroupService;
@@ -13671,6 +13960,7 @@
     export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
       availabilityConfigService,
+      availabilityChangesService,
       closureImpactService,
       venueService,
       venueGroupService,
@@ -21182,6 +21472,7 @@
       await fastify.register(venueRoutes, { prefix: venuesPrefix });
       await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
       await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+      await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
       });

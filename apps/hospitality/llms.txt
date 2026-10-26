@@ -264,6 +264,11 @@
       export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/revert-error.ts">
+    <item priority="high">
+      export function revertErrorText(error: unknown, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -1451,6 +1456,9 @@
       export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
     </item>
     <item priority="high">
+      export const AVAILABILITY_CHANGES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
       export const useAvailabilityDays: unknown;
     </item>
     <item priority="high">
@@ -1458,6 +1466,20 @@
     </item>
     <item priority="high">
       export const useSaveAvailabilityConfig: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityChanges: unknown;
+    </item>
+    <item priority="high">
+      export const useRevertAvailabilityChange: unknown;
+    </item>
+  </file>
+  <file path="src/hooks/useAvailabilityUndo.ts">
+    <item priority="high">
+      export const UNDO_TOAST_MS: unknown;
+    </item>
+    <item priority="high">
+      export function useAvailabilityUndo() { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useBriefing.ts">
