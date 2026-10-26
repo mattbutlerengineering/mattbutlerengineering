@@ -788,6 +788,9 @@
     <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
     </item>
+    <item priority="medium">
+      function buildAvailabilityConfigFixture() { /* ... */ }
+    </item>
   </file>
   <file path="e2e/auth-helpers.ts">
     <item priority="low">
