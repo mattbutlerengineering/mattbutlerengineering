@@ -1508,7 +1508,8 @@
       "closedAllDayName": "fermé toute la journée",
       "closedBand": "Fermé {{from}} – {{to}}",
       "closedBandName": "fermé {{from}} – {{to}}",
-      "nextDay": "{{time}} (lendemain)"
+      "nextDay": "{{time}} (lendemain)",
+      "draftName": "changements non enregistrés"
     },
     "drawer": {
       "summaryOpen": "Ouvert pour {{services}}.",
@@ -1597,6 +1598,76 @@
         "overlap": "Ce service chevauche un autre service.",
         "days_required": "Choisissez au moins un jour."
       }
+    },
+    "editor": {
+      "edit": "Modifier {{name}}",
+      "addService": "Ajouter un service",
+      "addServicePlaceholder": "Ajouter un service…",
+      "newService": "Un nouveau service…",
+      "newServiceName": "Nouveau service",
+      "serviceName": "Nom du service",
+      "serviceLine": "{{name}} {{from}} – {{to}}",
+      "opens": "Ouvre",
+      "lastSeating": "Dernière prise de table",
+      "closes": "Ferme",
+      "seating": "Prise de table",
+      "interval": "Aux {{minutes}} min",
+      "fixedTimes": "Heures de prise de table fixes : {{times}}",
+      "booking": "Réservations",
+      "bookingOptions": {
+        "onlinePhone": "En ligne + téléphone",
+        "onlineOnly": "En ligne seulement",
+        "phoneOnly": "Téléphone seulement",
+        "walkIn": "Sans réservation seulement"
+      },
+      "overnight": "Ferme à {{time}} le lendemain ({{weekday}})",
+      "remove": "Retirer {{name}}",
+      "scope": {
+        "label": "Vous modifiez",
+        "date": "Cette date seulement",
+        "weekday": "Chaque {{weekday}} à partir du {{date}}",
+        "schedule": "Partout où “{{name}}” est utilisé",
+        "regularWeek": "Votre semaine habituelle"
+      },
+      "until": "Jusqu’au",
+      "noEnd": "Sans date de fin",
+      "scopeCount_one": "S’applique à {{count}} date",
+      "scopeCount_other": "S’applique à {{count}} dates",
+      "scopeCount_many": "S’applique à {{count}} dates",
+      "ownChanges_one": "{{count}} date de cette portée a déjà ses propres changements",
+      "ownChanges_other": "{{count}} dates de cette portée ont déjà leurs propres changements",
+      "ownChanges_many": "{{count}} dates de cette portée ont déjà leurs propres changements",
+      "keepTheirs": "Garder les leurs",
+      "replaceThem": "Les remplacer",
+      "save_one": "Enregistrer {{count}} date",
+      "save_other": "Enregistrer {{count}} dates",
+      "save_many": "Enregistrer {{count}} dates",
+      "cancel": "Annuler",
+      "savedOne": "{{date}} mis à jour",
+      "savedMany_one": "{{count}} date mise à jour",
+      "savedMany_other": "{{count}} dates mises à jour",
+      "savedMany_many": "{{count}} dates mises à jour",
+      "saveError": "Impossible d’enregistrer ces heures",
+      "stranded_one": "{{count}} réservation serait hors de ces heures. Modifiez les heures ou réglez d’abord la réservation.",
+      "stranded_other": "{{count}} réservations seraient hors de ces heures. Modifiez les heures ou réglez d’abord les réservations.",
+      "stranded_many": "{{count}} réservations seraient hors de ces heures. Modifiez les heures ou réglez d’abord les réservations.",
+      "conflict": {
+        "title": "Quelqu’un a modifié la disponibilité avant vous",
+        "theirs": "{{summary}} (enregistré à {{time}}).",
+        "theirsUnknown": "Un autre changement a été enregistré après l’ouverture de ce jour.",
+        "review": "Examiner son changement",
+        "overwrite": "Remplacer",
+        "discard": "Abandonner le mien",
+        "theirsHeading": "Son changement",
+        "yoursHeading": "Votre brouillon",
+        "yourService": "{{name}} {{from}} – {{to}}"
+      }
+    },
+    "discard": {
+      "title": "Abandonner les changements du {{date}} ?",
+      "description": "Vos changements non enregistrés à ces heures seront perdus.",
+      "confirm": "Abandonner",
+      "keep": "Continuer à modifier"
     }
   },
   "setup": {

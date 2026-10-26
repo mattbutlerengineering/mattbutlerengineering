@@ -117,12 +117,14 @@ export const TONIGHT_PACING: DateRule = {
   payload: { version: 1, pacing: { covers: 6 } },
 };
 
+/** The fixture venue's whole config with these date rules applied. */
+export function fixtureConfig(...rules: DateRule[]): AvailabilityConfig {
+  return { ...BASE_CONFIG, dateRules: rules };
+}
+
 /** The engine's resolution of the fixture Friday with these date rules applied. */
 export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay {
-  return resolveDay(
-    { timezone: FIXTURE_TIMEZONE, config: { ...BASE_CONFIG, dateRules: rules } },
-    FIXTURE_DATE
-  );
+  return resolveDay({ timezone: FIXTURE_TIMEZONE, config: fixtureConfig(...rules) }, FIXTURE_DATE);
 }
 
 /** Online booking closed 6:00-7:00 PM only; the venue stays open. */

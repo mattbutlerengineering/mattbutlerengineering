@@ -610,6 +610,15 @@ export async function mockApi(page: Page): Promise<void> {
     );
   });
 
+  // Availability drawer editing (#7515): a save that always lands (PUT answers the next version).
+  // GETs fall back so the shared days/config mocks (#7616) answer them, whatever the
+  // registration order.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (route) =>
+    route.request().method() === "PUT"
+      ? jsonOk(route, { version: 1, changeId: "chg_e2e_001" })
+      : route.fallback()
+  );
+
   // Venue Groups
   await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
 

@@ -67,6 +67,20 @@ describe("AvailabilityCalendar", () => {
     expect(screen.getByRole("button", { name: /^Monday, October 26: Closed/ })).toBeInTheDocument();
   });
 
+  it("marks the day that holds an unsaved draft with a dot and says so in its name", () => {
+    const { container } = renderCalendar({ draftDate: "2026-10-30" });
+    expect(container.querySelectorAll("[data-draft-dot]")).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: /^Friday, October 30: .*, unsaved changes$/ })
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /unsaved changes/ })).toHaveLength(1);
+  });
+
+  it("shows no dot when no draft is open", () => {
+    const { container } = renderCalendar();
+    expect(container.querySelector("[data-draft-dot]")).toBeNull();
+  });
+
   it("says when a day is closed all day and when online booking is off", () => {
     renderCalendar();
     expect(
