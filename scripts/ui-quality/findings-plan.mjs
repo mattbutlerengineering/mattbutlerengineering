@@ -113,17 +113,36 @@ export function keyFromTitle(title, rubric) {
 }
 
 /**
+ * A closed issue a human explicitly decided against — never "unknown" state,
+ * so it must never block filing or be offered the retitle-to-adopt remedy
+ * (#7603). A missing/unknown `state_reason` on a closed issue is NOT this —
+ * it falls back to blocking, same as today.
+ */
+function isDeclined(issue) {
+  return String(issue.state).toLowerCase() === "closed" && issue.state_reason === "not_planned";
+}
+
+/**
  * Reconcile every `ui-quality`-labelled issue with the findings ledger
  * (re-review N3). An unknown issue whose title names a finding key at the
  * current rubric version — and that key is not already carried by another
- * issue — is adopted under that key. Any other unknown issue blocks filing,
- * and asks for one escalation issue unless an open one already exists.
- * Escalation issues themselves are never unknown.
+ * issue — is adopted under that key. A closed `not_planned` unknown issue is
+ * never adopted or blocked: its title's key (if any) is recorded `declined`;
+ * otherwise it is ignored. Any other unknown issue blocks filing, and asks
+ * for one escalation issue unless an open one already exists. Escalation
+ * issues themselves are never unknown.
  *
  * @param {Record<string, object>} ledger
- * @param {Array<{number: number, title: string, state: string}>} labelled
+ * @param {Array<{number: number, title: string, state: string, state_reason?: string}>} labelled
  * @param {object} rubric
- * @returns {{ adopted: Array<{key: string, issue: number, state: string, severity: string}>, blocked: number[], escalationOpen: number[], escalation: object|null }}
+ * @returns {{
+ *   adopted: Array<{key: string, issue: number, state: string, severity: string}>,
+ *   declined: Array<{key: string, issue: number, severity: string}>,
+ *   ignored: number[],
+ *   blocked: number[],
+ *   escalationOpen: number[],
+ *   escalation: object|null,
+ * }}
  */
 export function reconcileLabelled(ledger, labelled, rubric) {
   const isEscalation = (i) => i.title === ESCALATION_TITLE;
@@ -133,17 +152,26 @@ export function reconcileLabelled(ledger, labelled, rubric) {
       labelled.filter((i) => !isEscalation(i)).map((i) => i.number)
     )
   );
-  const candidates = labelled
-    .filter((i) => unknown.has(i.number) && !isEscalation(i))
+  const unknownIssues = labelled.filter((i) => unknown.has(i.number) && !isEscalation(i));
+  const candidates = unknownIssues
+    .filter((i) => !isDeclined(i))
     .sort((a, b) => a.number - b.number);
-  const adopted = [];
-  const blocked = [];
-  for (const issue of candidates) {
+  const declineCandidates = unknownIssues.filter(isDeclined).sort((a, b) => a.number - b.number);
+
+  /** The title's finding key, unless unresolvable or already carried by `ledger` or `claimed`. */
+  const availableKey = (issue, claimed) => {
     const parsed = keyFromTitle(issue.title, rubric);
     const taken =
       parsed !== null &&
-      (Number.isInteger(ledger[parsed.key]?.issue) || adopted.some((a) => a.key === parsed.key));
-    if (parsed === null || taken) {
+      (Number.isInteger(ledger[parsed.key]?.issue) || claimed.some((c) => c.key === parsed.key));
+    return taken ? null : parsed;
+  };
+
+  const adopted = [];
+  const blocked = [];
+  for (const issue of candidates) {
+    const parsed = availableKey(issue, adopted);
+    if (parsed === null) {
       if (!blocked.includes(issue.number)) blocked.push(issue.number);
       continue;
     }
@@ -153,6 +181,16 @@ export function reconcileLabelled(ledger, labelled, rubric) {
       state: String(issue.state).toLowerCase(),
       severity: parsed.severity,
     });
+  }
+  const declined = [];
+  const ignored = [];
+  for (const issue of declineCandidates) {
+    const parsed = availableKey(issue, [...adopted, ...declined]);
+    if (parsed === null) {
+      ignored.push(issue.number);
+      continue;
+    }
+    declined.push({ key: parsed.key, issue: issue.number, severity: parsed.severity });
   }
   const escalationOpen = labelled
     .filter((i) => isEscalation(i) && String(i.state).toLowerCase() === "open")
@@ -167,7 +205,7 @@ export function reconcileLabelled(ledger, labelled, rubric) {
           unknown: blocked,
           body: escalationBody(blocked),
         };
-  return { adopted, blocked, escalationOpen, escalation };
+  return { adopted, declined, ignored, blocked, escalationOpen, escalation };
 }
 
 function escalationBody(blocked) {
@@ -326,6 +364,12 @@ function isFixCandidate(finding, record) {
  *   issues `reconcileLabelled` adopted — `input.ledger` and `input.states`
  *   already carry them; a key no finding of this fire names is emitted as an
  *   `adopt` action so `record` writes it
+ * @param {Array<{key: string, issue: number, severity: string}>} [input.declined]
+ *   issues `reconcileLabelled` declined (closed `not_planned`, title resolved)
+ *   — `input.ledger` already carries them with `state: "declined"`; a
+ *   recurring finding under that key is skipped (never reopened) instead of
+ *   going through `fileIssue()`, and a key no finding of this fire names is
+ *   emitted as a `decline` action so `record` persists it
  * @returns {{ actions: object[], seeds: object[], fix_pr_candidate: string|null, dropped: string[], reports: string[] }}
  */
 export function planFindings({
@@ -336,6 +380,7 @@ export function planFindings({
   calibrationStatus,
   backlogLines = [],
   adopted = [],
+  declined = [],
 }) {
   const version = rubric.rubric_version;
   const tells = tellsById(rubric);
@@ -385,6 +430,10 @@ export function planFindings({
       actions.push({ ...base, carrier: "seed", action: "skip", issue: null });
       continue;
     }
+    if (record?.state === "declined") {
+      actions.push({ ...base, action: "skip-vetoed", issue: record.issue, state: "declined" });
+      continue;
+    }
     const decision = decide(key, base, ctx.issueLedger[key] ?? legacy, ctx);
     if (decision.action === "create" && finding.severity === "P2") {
       if (p2Budget === 0) {
@@ -412,9 +461,20 @@ export function planFindings({
       severity: a.severity,
     });
   }
+  const declines = [];
+  for (const d of declined.filter((x) => !planned.has(x.key))) {
+    declines.push({
+      key: d.key,
+      action: "decline",
+      issue: d.issue,
+      carrier: "issue",
+      severity: d.severity,
+      state: "declined",
+    });
+  }
 
   return {
-    actions: [...actions, ...adoptions].map((a) =>
+    actions: [...actions, ...adoptions, ...declines].map((a) =>
       a === candidate ? { ...a, fix_pr_candidate: true } : a
     ),
     seeds,
