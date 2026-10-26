@@ -14,7 +14,12 @@ import { describeApiError } from "../../lib/describe-api-error.js";
  * messages the Schedules surfaces show in an `Alert`. A concurrent change is not merged here:
  * the Manager is told, and the config is reloaded (`onStale`) so the next try is against it.
  */
-export function useScheduleSave(onStale: () => void) {
+export function useScheduleSave(
+  onStale: () => void,
+  strandedKey:
+    | "availabilitySchedules.stranded"
+    | "availabilitySpecial.series.stranded" = "availabilitySchedules.stranded"
+) {
   const { t } = useTranslation();
   const { mutateAsync, isPending } = useSaveAvailabilityConfig();
   const [failure, setFailure] = useState<readonly string[]>([]);
@@ -29,9 +34,7 @@ export function useScheduleSave(onStale: () => void) {
     } else if (problem?.code === "invalid-config" && problem.issues?.length) {
       setFailure(problem.issues.map((i) => i.message));
     } else if (problem?.code === "stranded-bookings") {
-      setFailure([
-        t("availabilitySchedules.stranded", { count: problem.reservations?.length ?? 0 }),
-      ]);
+      setFailure([t(strandedKey, { count: problem.reservations?.length ?? 0 })]);
     } else {
       setFailure([describeApiError(error).detail]);
     }

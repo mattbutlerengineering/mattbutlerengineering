@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigState, ClosureImpact } from "@mbe/types";
+import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
@@ -26,6 +26,18 @@ import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 const DATE = "2026-12-24";
+
+/** A weekly dinner-only closure from 10:00 PM: the series whose one date is being edited. */
+const DINNER_SERIES: DateRule = {
+  id: "series-1",
+  kind: "closure",
+  targetKind: "service",
+  venueServiceId: "vs-dinner",
+  startsOn: "2026-10-01",
+  endsOn: "2027-03-31",
+  repeat: { version: 1, weekdays: [4] },
+  window: { version: 1, from: 1320, to: 2880 },
+};
 
 const IMPACT: ClosureImpact = {
   reservations: 14,
@@ -79,6 +91,44 @@ describe("CloseDialog", () => {
   beforeEach(() => {
     create.mockReset();
     impactState.value = IMPACT;
+  });
+
+  it("edits one date of a series: When is fixed to that date and What starts as the series", async () => {
+    create.mockResolvedValue({
+      ruleId: "rule",
+      version: 8,
+      changeId: "c",
+      outcomes: { cancel: 14, move: 0, keep_notify: 0, keep_silent: 0 },
+    });
+    renderDialog({ series: DINNER_SERIES });
+    const dialog = screen.getByRole("dialog");
+
+    // No range, repeat or until-reopen can be typed: the engine applies the edit on its start only.
+    expect(within(dialog).queryByRole("radio", { name: "Date range" })).toBeNull();
+    expect(within(dialog).queryByRole("radio", { name: "Repeats" })).toBeNull();
+    expect(within(dialog).queryByRole("radio", { name: "Until I reopen" })).toBeNull();
+    expect(within(dialog).getByRole("radio", { name: "One service" })).toHaveProperty(
+      "checked",
+      true
+    );
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const { body } = create.mock.calls[0]![0];
+    expect(body.rule).toMatchObject({
+      kind: "closure",
+      seriesId: "series-1",
+      targetKind: "service",
+      venueServiceId: "vs-dinner",
+      startsOn: DATE,
+      endsOn: DATE,
+      repeat: null,
+      window: { from: 1320 },
+    });
+    expect(body.decisions).toHaveLength(1);
   });
 
   it("shows the live count, then requires a choice before it will save", async () => {

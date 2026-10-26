@@ -41,6 +41,8 @@ export interface CloseStepOneProps {
   readonly invalid: "what" | "when" | "guestMessage" | null;
   /** A Host's emergency close: What and When are fixed to the whole venue, tonight. */
   readonly locked?: boolean;
+  /** An edit of one date of a series: When is fixed to that single date (the engine applies it on its start only). */
+  readonly dateLocked?: boolean;
 }
 
 function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
@@ -152,61 +154,70 @@ export function CloseStepOne(props: CloseStepOneProps) {
             </Stack>
           )}
 
-          <RadioGroup
-            label={t("availability.close.when.label")}
-            name="close-when"
-            value={when.kind}
-            onChange={(kind) =>
-              patch({ when: whenKindDefaults(kind as CloseWhen["kind"], firstDate || today) })
-            }
-          >
-            <Radio value="tonight" label={t("availability.close.when.tonight")} />
-            <Radio value="date" label={t("availability.close.when.date")} />
-            <Radio value="range" label={t("availability.close.when.range")} />
-            <Radio value="repeats" label={t("availability.close.when.repeats")} />
-            <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
-          </RadioGroup>
-          <div className={styles.row}>
-            {when.kind === "date" &&
-              dateField(t("availability.close.when.dateLabel"), when.date, (date) =>
-                patch({ when: { kind: "date", date } })
-              )}
-            {when.kind === "until-reopen" &&
-              dateField(t("availability.close.when.startingLabel"), when.from, (from) =>
-                patch({ when: { kind: "until-reopen", from } })
-              )}
-            {(when.kind === "range" || when.kind === "repeats") && (
-              <>
-                {dateField(t("availability.close.when.fromLabel"), when.from, (from) =>
-                  patch({ when: { ...when, from } })
+          {props.dateLocked && when.kind === "date" ? (
+            <dl className={styles.locked}>
+              <dt>{t("availability.close.when.label")}</dt>
+              <dd>{fullDate(when.date)}</dd>
+            </dl>
+          ) : (
+            <>
+              <RadioGroup
+                label={t("availability.close.when.label")}
+                name="close-when"
+                value={when.kind}
+                onChange={(kind) =>
+                  patch({ when: whenKindDefaults(kind as CloseWhen["kind"], firstDate || today) })
+                }
+              >
+                <Radio value="tonight" label={t("availability.close.when.tonight")} />
+                <Radio value="date" label={t("availability.close.when.date")} />
+                <Radio value="range" label={t("availability.close.when.range")} />
+                <Radio value="repeats" label={t("availability.close.when.repeats")} />
+                <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
+              </RadioGroup>
+              <div className={styles.row}>
+                {when.kind === "date" &&
+                  dateField(t("availability.close.when.dateLabel"), when.date, (date) =>
+                    patch({ when: { kind: "date", date } })
+                  )}
+                {when.kind === "until-reopen" &&
+                  dateField(t("availability.close.when.startingLabel"), when.from, (from) =>
+                    patch({ when: { kind: "until-reopen", from } })
+                  )}
+                {(when.kind === "range" || when.kind === "repeats") && (
+                  <>
+                    {dateField(t("availability.close.when.fromLabel"), when.from, (from) =>
+                      patch({ when: { ...when, from } })
+                    )}
+                    {dateField(t("availability.close.when.toLabel"), when.to, (to) =>
+                      patch({ when: { ...when, to } })
+                    )}
+                  </>
                 )}
-                {dateField(t("availability.close.when.toLabel"), when.to, (to) =>
-                  patch({ when: { ...when, to } })
-                )}
-              </>
-            )}
-          </div>
-          {when.kind === "repeats" && (
-            <fieldset className={styles.weekdays}>
-              <legend className={styles.legend}>{t("availability.close.when.weekdays")}</legend>
-              {[1, 2, 3, 4, 5, 6, 0].map((day) => (
-                <Checkbox
-                  key={day}
-                  label={format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" })}
-                  checked={when.weekdays.includes(day)}
-                  onCheckedChange={(on) =>
-                    patch({
-                      when: {
-                        ...when,
-                        weekdays: on
-                          ? [...when.weekdays, day]
-                          : when.weekdays.filter((d) => d !== day),
-                      },
-                    })
-                  }
-                />
-              ))}
-            </fieldset>
+              </div>
+              {when.kind === "repeats" && (
+                <fieldset className={styles.weekdays}>
+                  <legend className={styles.legend}>{t("availability.close.when.weekdays")}</legend>
+                  {[1, 2, 3, 4, 5, 6, 0].map((day) => (
+                    <Checkbox
+                      key={day}
+                      label={format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" })}
+                      checked={when.weekdays.includes(day)}
+                      onCheckedChange={(on) =>
+                        patch({
+                          when: {
+                            ...when,
+                            weekdays: on
+                              ? [...when.weekdays, day]
+                              : when.weekdays.filter((d) => d !== day),
+                          },
+                        })
+                      }
+                    />
+                  ))}
+                </fieldset>
+              )}
+            </>
           )}
           {props.invalid === "when" && (
             <Text variant="caption" color="secondary" role="alert">

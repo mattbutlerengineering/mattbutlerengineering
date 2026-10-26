@@ -218,8 +218,10 @@ export function AvailabilityPage() {
         {scheduleControls}
         <SpecialDatesTab
           venueId={selectedVenueId}
-          rules={config.data.config.dateRules}
+          state={config.data}
+          timezone={timeZone}
           today={today}
+          onStale={() => void config.refetch()}
           isManager={team?.viewerRole === "manager"}
         />
       </Stack>

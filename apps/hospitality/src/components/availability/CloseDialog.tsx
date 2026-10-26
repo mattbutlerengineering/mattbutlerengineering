@@ -6,6 +6,7 @@ import {
   AvailabilityConfigProblemSchema,
   type AvailabilityConfigState,
   type ClosureImpact,
+  type DateRule,
 } from "@mbe/types";
 import { useClosureImpact, useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
@@ -38,13 +39,19 @@ export interface CloseDialogProps {
   readonly initialDate: string | null;
   /** Start with "Booking only: online" and "Until I reopen" (pause online booking). */
   readonly pauseOnline?: boolean;
+  /**
+   * Makes the closure an edit of the one date `initialDate` of this series (ux.md F-SER "Edit
+   * this date"): What and the window start as the series has them, and When is fixed to that date.
+   */
+  readonly series?: DateRule;
   /** A Host's emergency close (ux.md F7): Whole venue and Tonight, shown as text and not editable. */
   readonly hostLocked?: boolean;
   readonly onClose: () => void;
 }
 
 function initialForm(props: CloseDialogProps): CloseForm {
-  const { initialDate, pauseOnline, hostLocked, today } = props;
+  const { initialDate, pauseOnline, hostLocked, series, today } = props;
+  if (series && initialDate) return seriesForm(series, initialDate);
   if (hostLocked) {
     return {
       what: { kind: "venue" },
@@ -65,6 +72,36 @@ function initialForm(props: CloseDialogProps): CloseForm {
     staffNote: "",
     guestMessage: "",
   };
+}
+
+function whatOf(series: DateRule): CloseForm["what"] {
+  if (series.targetKind === "service" && series.venueServiceId) {
+    return { kind: "service", serviceId: series.venueServiceId };
+  }
+  if (series.targetKind === "booking" && series.bookingTypes?.length) {
+    return { kind: "booking", types: [...series.bookingTypes] };
+  }
+  return { kind: "venue" };
+}
+
+/** The form for editing one date of `series`: the series' target and start time, on that date. */
+function seriesForm(series: DateRule, date: string): CloseForm {
+  return {
+    what: whatOf(series),
+    when: { kind: "date", date },
+    fromMinute: series.window?.from ?? null,
+    staffNote: "",
+    guestMessage: "",
+  };
+}
+
+/**
+ * An edit of one date of a series. The engine applies a rule with a `seriesId` on its start date
+ * only, so the rule is pinned to that single date whatever the form says.
+ */
+function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
+  if (!rule || !series) return rule;
+  return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
 }
 
 function failureText(error: unknown, t: TFunction): string {
@@ -97,14 +134,16 @@ export function CloseDialog(props: CloseDialogProps) {
   // One id per dialog: the rule is created at most once, whatever the Manager retries.
   const [ruleId] = useState(() => crypto.randomUUID());
 
+  const { series } = props;
   const impactRule = useMemo(
-    () => buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today),
-    [form, ruleId, today]
+    () =>
+      inSeries(buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today), series),
+    [form, ruleId, today, series]
   );
   const impactQuery = useClosureImpact({ venueId, rule: impactRule });
   const impact: ClosureImpact | null | undefined = impactRule ? impactQuery.data : null;
   const groups = impact?.groups ?? [];
-  const rule = buildCloseRule(form, ruleId, today);
+  const rule = inSeries(buildCloseRule(form, ruleId, today), series);
   const services = state.config.venueServices.filter((s) => !s.archivedAt);
 
   const startsOn = rule?.startsOn ?? today;
@@ -222,6 +261,7 @@ export function CloseDialog(props: CloseDialogProps) {
           replacedDate={replacedDate}
           invalid={invalid}
           locked={props.hostLocked}
+          dateLocked={series !== undefined}
         />
       ) : (
         impact && (

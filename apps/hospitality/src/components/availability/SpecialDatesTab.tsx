@@ -11,12 +11,15 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
-import type { ClosureSummary, DateRule } from "@mbe/types";
+import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/types";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { CallListDialog } from "./CallListDialog.js";
+import { CloseDialog } from "./CloseDialog.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
+import { SeriesEditDialog } from "./SeriesEditDialog.js";
+import { isSeries, skippedDates } from "./series-edit.js";
 import {
   orphanRefundRules,
   specialDateRows,
@@ -27,9 +30,13 @@ import styles from "./SpecialDatesTab.module.css";
 
 export interface SpecialDatesTabProps {
   readonly venueId: string;
-  readonly rules: readonly DateRule[];
+  /** The loaded config: its date rules are the list, and series edits save against its version. */
+  readonly state: AvailabilityConfigState;
+  readonly timezone: string;
   /** Today on the venue clock. */
   readonly today: string;
+  /** A concurrent change was refused; reload the config. */
+  readonly onStale: () => void;
   /** Only a Manager can reopen or retry refunds; a Host views the list and the call list. */
   readonly isManager: boolean;
 }
@@ -66,6 +73,8 @@ interface RowProps {
   readonly ruleId: string;
   /** Present when the row can be reopened (a closure, not special hours). */
   readonly onRemove?: () => void;
+  /** Present on a repeating closure: Edit dates… (ux.md F-SER). */
+  readonly onEditDates?: () => void;
 }
 
 function SpecialDateItem(props: RowProps) {
@@ -112,6 +121,11 @@ function SpecialDateItem(props: RowProps) {
             {t("availabilitySpecial.retry")}
           </Button>
         )}
+        {isManager && props.onEditDates && (
+          <Button variant="ghost" onClick={props.onEditDates}>
+            {t("availabilitySpecial.series.editDates")}
+          </Button>
+        )}
         {isManager && props.onRemove && (
           <Button variant="ghost" onClick={props.onRemove}>
             {t("availabilitySpecial.remove")}
@@ -126,7 +140,9 @@ function SpecialDateItem(props: RowProps) {
  * Availability → Special dates (ux.md S6b, F6): every closure and special-hours date with what
  * became of the bookings it touched, the call list, reopening, and refund retry.
  */
-export function SpecialDatesTab({ venueId, rules, today, isManager }: SpecialDatesTabProps) {
+export function SpecialDatesTab(props: SpecialDatesTabProps) {
+  const { venueId, state, timezone, today, onStale, isManager } = props;
+  const rules = state.config.dateRules;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -135,6 +151,8 @@ export function SpecialDatesTab({ venueId, rules, today, isManager }: SpecialDat
   const [filter, setFilter] = useState<SpecialDatesFilter>("all");
   const [callListFor, setCallListFor] = useState<string | null>(null);
   const [reopening, setReopening] = useState<SpecialDateRule | null>(null);
+  const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
+  const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const rows = specialDateRows(rules, today, filter);
@@ -161,6 +179,15 @@ export function SpecialDatesTab({ venueId, rules, today, isManager }: SpecialDat
     } finally {
       setRetryingId(null);
     }
+  };
+
+  const skippedLabel = (seriesId: string): string | null => {
+    const dates = skippedDates(rules, seriesId);
+    return dates.length === 0
+      ? null
+      : t("availabilitySpecial.series.skipped", {
+          dates: dates.map((d) => format.formatCalendarDate(d, DATE_FORMAT)).join(", "),
+        });
   };
 
   const shared = {
@@ -202,6 +229,7 @@ export function SpecialDatesTab({ venueId, rules, today, isManager }: SpecialDat
                   ? t("availabilitySpecial.kind.closure")
                   : t("availabilitySpecial.kind.specialHours"),
                 rule.repeat ? t("availabilitySpecial.repeating") : null,
+                skippedLabel(rule.id),
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -209,6 +237,7 @@ export function SpecialDatesTab({ venueId, rules, today, isManager }: SpecialDat
               summary={summaryOf(rule.id)}
               retrying={retryingId === rule.id}
               onRemove={rule.kind === "closure" ? () => setReopening(rule) : undefined}
+              onEditDates={isSeries(rule) ? () => setEditingSeries(rule) : undefined}
             />
           ))}
           {orphans.map((summary) => (
@@ -229,6 +258,31 @@ export function SpecialDatesTab({ venueId, rules, today, isManager }: SpecialDat
           venueId={venueId}
           ruleId={callListFor}
           onClose={() => setCallListFor(null)}
+        />
+      )}
+      {editingSeries && (
+        <SeriesEditDialog
+          venueId={venueId}
+          state={state}
+          series={editingSeries}
+          today={today}
+          onStale={onStale}
+          onEditDate={(series, date) => {
+            setEditingSeries(null);
+            setEditingDate({ series, date });
+          }}
+          onClose={() => setEditingSeries(null)}
+        />
+      )}
+      {editingDate && (
+        <CloseDialog
+          venueId={venueId}
+          state={state}
+          timezone={timezone}
+          today={today}
+          initialDate={editingDate.date}
+          series={editingDate.series}
+          onClose={() => setEditingDate(null)}
         />
       )}
       {reopening && (
