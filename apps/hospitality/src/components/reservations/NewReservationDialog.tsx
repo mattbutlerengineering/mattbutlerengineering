@@ -18,8 +18,7 @@ import { GuestHistoryStrip } from "../crm/GuestHistoryStrip.js";
 import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { applyClear, applyPick, type PrefillSnapshot } from "../crm/guest-prefill.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { venueWallTimeToInstant } from "../../utils/venue-wall-time.js";
-import { serviceDayStartInstant } from "../../utils/service-day-start.js";
+import { serviceDayCalendarDate, serviceDayStartInstant } from "../../utils/service-day-start.js";
 import { useStaffBookingCheck } from "../../hooks/useStaffBookingCheck.js";
 import { useOpenTimes } from "../../hooks/useOpenTimes.js";
 import { useStaffTonight } from "../../hooks/useStaffTonight.js";
@@ -122,14 +121,17 @@ export function NewReservationDialog({
   const date = watch("date");
   const startTime = watch("startTime");
 
-  // The booking's real window, read on the venue clock; null until date and time are both entered.
+  const tonight = useStaffTonight(venueId);
+
+  // The booking's real window on the venue clock; null until date and time are both entered.
+  // `date` is the service day, so an after-midnight time sits on the next calendar date.
   const bookingWindow = useMemo(() => {
     if (!date || !startTime) return null;
-    const start = venueWallTimeToInstant(date, startTime, timeZone);
+    const start = serviceDayStartInstant(tonight.config, timeZone, date, startTime);
     if (Number.isNaN(start.getTime())) return null;
     const end = new Date(start.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
     return { start: start.toISOString(), end: end.toISOString() };
-  }, [date, startTime, timeZone]);
+  }, [date, startTime, timeZone, tonight.config]);
 
   const handlePick = (guest: Guest) => {
     setValue("guestName", guest.name);
@@ -167,7 +169,6 @@ export function NewReservationDialog({
     selectedTableId: tableId,
   });
   const openTimes = useOpenTimes({ venueId, date, partySize });
-  const tonight = useStaffTonight(venueId);
   const isHardBlocked = check.verdict?.kind === "hard";
   const needsOverride = check.verdict?.kind === "soft";
   const trimmedReason = overrideReason.trim();
@@ -183,7 +184,7 @@ export function NewReservationDialog({
               tonight.config,
               timeZone,
               tonight.serviceDate,
-              date,
+              serviceDayCalendarDate(tonight.config, timeZone, date, startTime),
               startTime
             )
           )

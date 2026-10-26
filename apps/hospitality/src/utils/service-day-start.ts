@@ -17,7 +17,12 @@ export function serviceDayCalendarDate(
   const match = /^(\d{2}):(\d{2})$/.exec(hhmm);
   if (!config || !match) return serviceDate;
   const minute = Number(match[1]) * 60 + Number(match[2]);
-  const { services } = resolveDay({ timezone: timeZone, config }, serviceDate);
+  // The planned day (closures and Tonight changes stripped), as the engine's `judge` owns it.
+  const planned: AvailabilityConfig = {
+    ...config,
+    dateRules: config.dateRules.filter((r) => r.kind !== "closure" && r.kind !== "tonight"),
+  };
+  const { services } = resolveDay({ timezone: timeZone, config: planned }, serviceDate);
   const isOpen = (at: number): boolean => services.some((s) => s.opensAt <= at && at < s.closesAt);
   return !isOpen(minute) && isOpen(minute + MINUTES_PER_DAY)
     ? addDays(serviceDate, 1)

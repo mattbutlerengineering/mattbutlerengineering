@@ -13,8 +13,9 @@ vi.mock("../../contexts/venue-context-object.js", () => ({
     selectedVenue: { ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
   }),
 }));
+const mockCheck = vi.fn((_args: unknown) => ({ phase: "idle", verdict: null }));
 vi.mock("../../hooks/useStaffBookingCheck.js", () => ({
-  useStaffBookingCheck: () => ({ phase: "idle", verdict: null }),
+  useStaffBookingCheck: (args: unknown) => mockCheck(args),
 }));
 vi.mock("../../hooks/useStaffTonight.js", () => ({
   useStaffTonight: () => ({
@@ -72,6 +73,24 @@ describe("NewReservationDialog past-midnight seatings", () => {
     expect(data.date).toBe("2026-05-10");
     expect(data.startTime).toBe("2026-05-11T07:30:00.000Z");
     expect(data.endTime).toBe("2026-05-11T09:00:00.000Z");
+  });
+
+  it("checks the live booking against the D+1 window it will send", () => {
+    render(
+      <NewReservationDialog
+        tables={[TABLE]}
+        venueId="venue-1"
+        defaultDate="2026-05-10"
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: "00:30" } });
+    expect(mockCheck).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        window: { start: "2026-05-11T07:30:00.000Z", end: "2026-05-11T09:00:00.000Z" },
+      })
+    );
   });
 
   it("leaves an ordinary 19:00 booking on the picked calendar date", async () => {
