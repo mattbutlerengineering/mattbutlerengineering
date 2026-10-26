@@ -1,15 +1,24 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, SegmentedControl, Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  DropdownMenu,
+  SegmentedControl,
+  Skeleton,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailability.js";
 import { useNow } from "../hooks/useNow.js";
 import { venueDate } from "../utils/service-day.js";
+import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
+import { AvailabilitySelectionBar } from "../components/availability/AvailabilitySelectionBar.js";
 import { AvailabilityDayDrawer } from "../components/availability/AvailabilityDayDrawer.js";
 import {
   AvailabilityScheduleControls,
@@ -24,9 +33,19 @@ import {
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
+import { datesUsingSchedule, weekdayDatesInMonth } from "../components/availability/selection.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import styles from "./AvailabilityPage.module.css";
+
+const EMPTY: string[] = [];
+
+/** What the drawer shows: one date, or the dates picked in the selection bar (`fixedDates`). */
+interface OpenTarget {
+  readonly date: string | null;
+  readonly fixedDates?: readonly string[];
+}
+const CLOSED: OpenTarget = { date: null };
 
 /**
  * Availability → Calendar (read-only, #7514): the venue's month or week with what governs each
@@ -42,11 +61,24 @@ export function AvailabilityPage() {
   const [view, setView] = useState<CalendarView>("month");
   // `null` follows today until the viewer navigates.
   const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
-  const [openDate, setOpenDate] = useState<string | null>(null);
+  const [target, setTarget] = useState<OpenTarget>(CLOSED);
+  const openDate = target.date;
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
   const anchor = chosenAnchor ?? today;
-  // Moving off a day with an unsaved draft asks first (ux.md F2 step 6).
-  const guard = useDiscardGuard<string | null>(setOpenDate);
+  // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
+  const [picked, setPicked] = useState<{ venueId: string | null; dates: string[] }>({
+    venueId: selectedVenueId,
+    dates: [],
+  });
+  const selection = picked.venueId === selectedVenueId ? picked.dates : EMPTY;
+  const setSelection = (dates: string[]) => setPicked({ venueId: selectedVenueId, dates });
+  // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
+  // Opening a single day drops the selection, but only once the guard lets the move happen.
+  const guard = useDiscardGuard<OpenTarget>((next) => {
+    setTarget(next);
+    if (next.date !== null && !next.fixedDates) setSelection([]);
+  });
+  const format = useVenueFormat();
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
   const days = useAvailabilityDays({
@@ -98,6 +130,37 @@ export function AvailabilityPage() {
     );
   }
 
+  const openDay = (date: string) => {
+    if (date !== openDate || target.fixedDates) guard.request({ date });
+    else if (selection.length > 0) setSelection([]);
+  };
+  const editSelection = (dates: readonly string[]) =>
+    guard.request({ date: dates[0] ?? null, fixedDates: dates });
+  const anchorSummary = days.data?.find((d) => d.serviceDate === anchor);
+  // The schedule's own name, not the day's label ("Closed", "Special hours").
+  const anchorSchedule = config.data?.config.schedules.find(
+    (s) => s.id === anchorSummary?.scheduleId
+  );
+  const selectItems = [
+    {
+      id: "weekday",
+      label: t("availability.selection.weekdayInMonth", {
+        weekday: format.formatCalendarDate(anchor, { weekday: "long" }),
+        month: format.formatCalendarDate(anchor, { month: "long" }),
+      }),
+      onSelect: () => setSelection(weekdayDatesInMonth(anchor)),
+    },
+    ...(anchorSchedule
+      ? [
+          {
+            id: "schedule",
+            label: t("availability.selection.usingSchedule", { schedule: anchorSchedule.name }),
+            onSelect: () => setSelection(datesUsingSchedule(days.data ?? [], anchorSchedule.id)),
+          },
+        ]
+      : []),
+  ];
+
   const scheduleControls =
     team?.viewerRole === "manager" && config.data ? (
       <AvailabilityScheduleControls
@@ -106,7 +169,7 @@ export function AvailabilityPage() {
         today={today}
         tab={tab}
         // Leaving the calendar with an unsaved draft asks first; the tab changes on the next try.
-        onTabChange={(next) => (guard.dirty ? guard.request(null) : setTab(next))}
+        onTabChange={(next) => (guard.dirty ? guard.request(CLOSED) : setTab(next))}
         onStale={() => void config.refetch()}
       />
     ) : null;
@@ -144,6 +207,10 @@ export function AvailabilityPage() {
         <Button variant="secondary" onClick={() => setChosenAnchor(null)}>
           {t("availability.toolbar.today")}
         </Button>
+        <DropdownMenu
+          trigger={<Button variant="secondary">{t("availability.selection.selectMenu")}</Button>}
+          items={selectItems}
+        />
         <SegmentedControl
           aria-label={t("availability.toolbar.viewLabel")}
           segments={[
@@ -162,6 +229,12 @@ export function AvailabilityPage() {
           onRetry={() => void days.refetch()}
         />
       )}
+      <AvailabilitySelectionBar
+        selection={selection}
+        canEdit={team?.viewerRole === "manager"}
+        onEditHours={editSelection}
+        onClear={() => setSelection([])}
+      />
       <AvailabilityCalendar
         view={view}
         anchor={anchor}
@@ -170,7 +243,9 @@ export function AvailabilityPage() {
         isLoading={days.isLoading}
         selectedDate={openDate}
         draftDate={guard.dirty ? openDate : null}
-        onOpenDay={(date) => (date === openDate ? undefined : guard.request(date))}
+        selection={selection}
+        onSelectionChange={setSelection}
+        onOpenDay={openDay}
         onAnchorChange={setChosenAnchor}
       />
       <AvailabilityDayDrawer
@@ -187,12 +262,13 @@ export function AvailabilityPage() {
                 timezone: timeZone,
                 today,
                 onDirtyChange: guard.setDirty,
-                onFinished: () => guard.release(null),
+                onFinished: () => guard.release(CLOSED),
+                fixedDates: target.fixedDates,
                 onStale: () => void config.refetch(),
               }
             : undefined
         }
-        onClose={() => guard.request(null)}
+        onClose={() => guard.request(CLOSED)}
       />
       <DiscardChangesDialog
         open={guard.pending !== null}

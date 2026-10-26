@@ -6,6 +6,8 @@ import type { AvailabilityDaySummary } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { shiftAnchor, visibleDates, type CalendarView } from "./calendar-dates.js";
+import { columnDates } from "./selection.js";
+import { useDateSelection, type DateGestureHandlers } from "./useDateSelection.js";
 import { presentDay } from "./day-summary.js";
 import { AvailabilityAgenda } from "./AvailabilityAgenda.js";
 import styles from "./AvailabilityCalendar.module.css";
@@ -22,6 +24,9 @@ export interface AvailabilityCalendarProps {
   readonly selectedDate?: string | null;
   /** The day whose drawer holds an unsaved draft; its cell shows a dot. */
   readonly draftDate?: string | null;
+  /** The dates picked for a bulk edit (ux.md F-MS), in date order. */
+  readonly selection: readonly string[];
+  readonly onSelectionChange: (dates: string[]) => void;
   readonly onOpenDay: (date: string) => void;
   readonly onAnchorChange: (date: string) => void;
 }
@@ -34,16 +39,17 @@ interface CellProps {
   readonly isToday: boolean;
   readonly isSelected: boolean;
   readonly isDraft: boolean;
+  readonly isPicked: boolean;
   readonly isTabStop: boolean;
   readonly isMuted: boolean;
   readonly format: VenueFormat;
-  readonly onOpen: (date: string) => void;
+  readonly handlers: DateGestureHandlers;
   readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>, date: string) => void;
 }
 
 function Cell(props: CellProps) {
-  const { date, summary, isLoading, detailed, isToday, isSelected, isDraft, isTabStop } = props;
-  const { isMuted } = props;
+  const { date, summary, isLoading, detailed, isToday, isSelected, isPicked, isTabStop } = props;
+  const { isMuted, handlers, isDraft } = props;
   const { t } = useTranslation();
   const { format } = props;
 
@@ -53,13 +59,14 @@ function Cell(props: CellProps) {
     styles.cell,
     isMuted ? styles.muted : "",
     isSelected ? styles.selected : "",
+    isPicked ? styles.picked : "",
     detailed ? styles.detailed : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div role="gridcell" className={styles.dayCell}>
+    <div role="gridcell" aria-selected={isPicked} className={styles.dayCell}>
       <button
         type="button"
         className={className}
@@ -71,8 +78,12 @@ function Cell(props: CellProps) {
             ? `${view.accessibleName}, ${t("availability.calendar.draftName")}`
             : view.accessibleName
         }
-        onClick={() => props.onOpen(date)}
+        {...handlers}
         onKeyDown={(event) => props.onKeyDown(event, date)}
+        // Firefox clicks a button on Space keyup; Space toggles selection, so it must not open the day.
+        onKeyUp={(event) => {
+          if (event.key === " ") event.preventDefault();
+        }}
       >
         {isDraft && <span className={styles.draftDot} data-draft-dot aria-hidden="true" />}
         <span className={styles.dayNumber} aria-hidden="true">
@@ -129,8 +140,8 @@ function targetFor(key: string, date: string): string | null {
  * tabindex, so the whole grid is one Tab stop.
  */
 export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
-  const { view, anchor, today, days, isLoading, selectedDate, draftDate, onOpenDay } = props;
-  const { onAnchorChange } = props;
+  const { view, anchor, today, days, isLoading, selectedDate, draftDate } = props;
+  const { selection, onAnchorChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -149,11 +160,22 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   }, [anchor, view]);
 
   const isMobile = useViewport() !== "desktop";
+  const { handlersFor, extendSelection, toggleSelected, pivot } = useDateSelection(props);
+  const picked = useMemo(() => new Set(selection), [selection]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, date: string) => {
+    // Enter opens the day; Space toggles it in the selection (ux.md S2).
+    if (event.key === " ") {
+      event.preventDefault();
+      toggleSelected(date);
+      return;
+    }
     const next = targetFor(event.key, date);
     if (!next) return;
     event.preventDefault();
+    // Shift+Arrow is the keyboard twin of Shift-click: grow the range from where it started.
+    if (event.shiftKey && event.key.startsWith("Arrow"))
+      extendSelection(pivot.current ?? date, next);
     focusRequested.current = true;
     onAnchorChange(next);
   };
@@ -172,8 +194,9 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
         today={today}
         selectedDate={selectedDate}
         draftDate={draftDate}
+        picked={picked}
         isLoading={isLoading}
-        onOpenDay={onOpenDay}
+        handlersFor={handlersFor}
       />
     );
   }
@@ -186,9 +209,19 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
       className={styles.calendar}
     >
       <div role="row" className={styles.row}>
-        {(weeks[0] ?? []).map((date) => (
+        {(weeks[0] ?? []).map((date, column) => (
           <div key={date} role="columnheader" className={styles.columnHeader}>
-            {format.formatCalendarDate(date, { weekday: "short" })}
+            <button
+              type="button"
+              className={styles.columnButton}
+              tabIndex={-1}
+              aria-label={t("availability.selection.selectColumn", {
+                weekday: format.formatCalendarDate(date, { weekday: "long" }),
+              })}
+              onClick={() => props.onSelectionChange(columnDates(dates, column, view, anchor))}
+            >
+              {format.formatCalendarDate(date, { weekday: "short" })}
+            </button>
           </div>
         ))}
       </div>
@@ -204,10 +237,11 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               isToday={date === today}
               isSelected={date === selectedDate}
               isDraft={date === draftDate}
+              isPicked={picked.has(date)}
               isTabStop={date === tabStop}
               isMuted={view === "month" && !date.startsWith(anchorMonth)}
               format={format}
-              onOpen={onOpenDay}
+              handlers={handlersFor(date)}
               onKeyDown={handleKeyDown}
             />
           ))}

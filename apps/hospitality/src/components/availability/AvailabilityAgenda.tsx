@@ -3,6 +3,7 @@ import { Skeleton } from "@mattbutlerengineering/rialto";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { presentDay } from "./day-summary.js";
+import type { DateGestureHandlers } from "./useDateSelection.js";
 import styles from "./AvailabilityAgenda.module.css";
 
 export interface AvailabilityAgendaProps {
@@ -13,8 +14,10 @@ export interface AvailabilityAgendaProps {
   readonly selectedDate?: string | null;
   /** The day whose drawer holds an unsaved draft; its row shows a dot. */
   readonly draftDate?: string | null;
+  readonly picked: ReadonlySet<string>;
   readonly isLoading: boolean;
-  readonly onOpenDay: (date: string) => void;
+  /** Click and long-press handlers for one row (see `useDateSelection`). */
+  readonly handlersFor: (date: string) => DateGestureHandlers;
 }
 
 /**
@@ -23,7 +26,7 @@ export interface AvailabilityAgendaProps {
  * Tab walks the days in order and no grid roles are promised on a stacked layout.
  */
 export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
-  const { dates, byDate, today, selectedDate, draftDate, isLoading, onOpenDay } = props;
+  const { dates, byDate, today, selectedDate, draftDate, picked, isLoading, handlersFor } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
 
@@ -36,17 +39,22 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
           <li key={date} className={styles.item}>
             <button
               type="button"
-              className={[styles.row, date === selectedDate ? styles.selected : ""]
+              className={[
+                styles.row,
+                date === selectedDate ? styles.selected : "",
+                picked.has(date) ? styles.picked : "",
+              ]
                 .filter(Boolean)
                 .join(" ")}
               data-date={date}
               aria-current={date === today ? "date" : undefined}
               aria-label={
-                date === draftDate
-                  ? `${view.accessibleName}, ${t("availability.calendar.draftName")}`
-                  : view.accessibleName
+                (picked.has(date)
+                  ? t("availability.selection.selectedName", { name: view.accessibleName })
+                  : view.accessibleName) +
+                (date === draftDate ? `, ${t("availability.calendar.draftName")}` : "")
               }
-              onClick={() => onOpenDay(date)}
+              {...handlersFor(date)}
             >
               {date === draftDate && (
                 <span className={styles.draftDot} data-draft-dot aria-hidden="true" />

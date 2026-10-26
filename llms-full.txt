@@ -4899,7 +4899,9 @@
       | { readonly kind: "date"; readonly date: string }
       /** Every weekday of `from`, from `from` until `until` (`null`: until changed again). */
       | { readonly kind: "weekday"; readonly from: string; readonly until: string | null }
-      | { readonly kind: "schedule"; readonly scheduleId: string };
+      | { readonly kind: "schedule"; readonly scheduleId: string }
+      /** Exactly these dates, picked in the multi-select bar (ux.md F-MS). */
+      | { readonly kind: "dates"; readonly dates: readonly string[] };
     export interface DraftService {
       /** React key; stable across edits. */
       readonly key: string;
@@ -4953,6 +4955,11 @@
       readonly services: readonly DraftService[];
       /** Ids for rows this draft creates. */
       readonly makeId: () => string;
+      /**
+       * Dates left out of a dates save: under "Keep theirs" the ones with their own hours change,
+       * since the server treats a changed rule as incoming and would overwrite it.
+       */
+      readonly leaveOut?: readonly string[];
     }
     function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined {
       return config.dateRules.find(
@@ -4977,6 +4984,15 @@
         startsOn: base.startsOn ?? "",
         payload: { version: 1, services },
       } as DateRule;
+    }
+    function dateRule(
+      config: AvailabilityConfig,
+      date: string,
+      services: SpecialHoursService[],
+      makeId: () => string
+    ): DateRule {
+      const own = ownDateRule(config, date);
+      return specialHoursRule(own ?? { startsOn: date, endsOn: date }, own?.id ?? makeId(), services);
     }
     function scheduleServiceRows(
       config: AvailabilityConfig,
@@ -5026,23 +5042,22 @@
         bookingTypes: [...s.bookingTypes],
         venueServiceId: s.venueServiceId,
       }));
-      const own = scope.kind === "date" ? ownDateRule(config, scope.date) : undefined;
-      const rule =
-        scope.kind === "date"
-          ? specialHoursRule(
-              own ?? { startsOn: scope.date, endsOn: scope.date },
-              own?.id ?? makeId(),
-              payload
-            )
-          : specialHoursRule(
-              {
-                startsOn: scope.from,
-                endsOn: scope.until,
-                repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
-              },
-              makeId(),
-              payload
-            );
+      if (scope.kind === "dates" || scope.kind === "date") {
+        const picked = scope.kind === "date" ? [scope.date] : scope.dates;
+        const skipped = new Set(input.leaveOut ?? []);
+        const singles = picked.filter((d) => !skipped.has(d));
+        const dateRules = singles.map((d) => dateRule(config, d, payload, makeId));
+        return { upsert: { ...venueServices, dateRules }, remove: {} };
+      }
+      const rule = specialHoursRule(
+        {
+          startsOn: scope.from,
+          endsOn: scope.until,
+          repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
+        },
+        makeId(),
+        payload
+      );
       return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
     }
   </file>
@@ -5901,6 +5916,7 @@
     }
     export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
       if (scope.kind === "date") return [scope.date];
+      if (scope.kind === "dates") return [...scope.dates];
       if (scope.kind === "weekday") {
         const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
         const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
@@ -5933,6 +5949,46 @@
       return dates.filter((date) =>
         rules.some((rule) => coversDate(rule, date) && !skipped.has(`${rule.id}@${date}`))
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/selection.ts">
+    export function normalizeDates(dates: readonly string[]): string[] {
+      return [...new Set(dates)].sort();
+    }
+    export function dateRange(a: string, b: string): string[] {
+      const [from, to] = a <= b ? [a, b] : [b, a];
+      const dates: string[] = [];
+      for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
+      return dates;
+    }
+    export function toggleDate(selection: readonly string[], date: string): string[] {
+      return selection.includes(date)
+        ? selection.filter((d) => d !== date)
+        : normalizeDates([...selection, date]);
+    }
+    export function columnDates(
+      grid: readonly string[],
+      column: number,
+      view: CalendarView,
+      anchor: string
+    ): string[] {
+      const month = anchor.slice(0, 7);
+      return grid.filter((d, i) => i % 7 === column && (view === "week" || d.startsWith(month)));
+    }
+    export function weekdayDatesInMonth(anchor: string): string[] {
+      const month = anchor.slice(0, 7);
+      const weekday = weekdayIndexOf(anchor);
+      const dates: string[] = [];
+      for (let d = `${month}-01`; d.startsWith(month); d = addDays(d, 1)) {
+        if (weekdayIndexOf(d) === weekday) dates.push(d);
+      }
+      return dates;
+    }
+    export function datesUsingSchedule(
+      days: readonly { readonly serviceDate: string; readonly scheduleId: string | null }[],
+      scheduleId: string
+    ): string[] {
+      return normalizeDates(days.filter((d) => d.scheduleId === scheduleId).map((d) => d.serviceDate));
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
@@ -6005,6 +6061,112 @@
       };
     
       return { save, isPending, failure, clearFailure: () => setFailure([]) };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/useDateSelection.ts">
+    export const LONG_PRESS_MS = 500;
+    export interface DateSelectionOptions {
+      readonly selection: readonly string[];
+      readonly onSelectionChange: (dates: string[]) => void;
+      readonly onOpenDay: (date: string) => void;
+    }
+    export interface DateGestureHandlers {
+      readonly onClick: (event: MouseEvent) => void;
+      readonly onMouseDown: (event: MouseEvent) => void;
+      readonly onMouseEnter: () => void;
+      readonly onTouchStart: () => void;
+      readonly onTouchMove: () => void;
+      readonly onTouchEnd: (event: TouchEvent) => void;
+      readonly onContextMenu: (event: MouseEvent) => void;
+    }
+    export function useDateSelection(options: DateSelectionOptions) {
+      const { selection, onSelectionChange, onOpenDay } = options;
+      const pivot = useRef<string | null>(null);
+      const drag = useRef<{ from: string; moved: boolean } | null>(null);
+      const suppressClick = useRef(false);
+      const touchMode = useRef(false);
+      const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+      const pressed = useRef(false);
+    
+      useEffect(() => {
+        const endDrag = () => {
+          if (drag.current?.moved) {
+            // The click that follows a drag's mouseup fires synchronously; clear the flag after it.
+            suppressClick.current = true;
+            setTimeout(() => {
+              suppressClick.current = false;
+            }, 0);
+          }
+          drag.current = null;
+        };
+        window.addEventListener("mouseup", endDrag);
+        return () => window.removeEventListener("mouseup", endDrag);
+      }, []);
+    
+      const clearTimer = () => {
+        if (pressTimer.current) clearTimeout(pressTimer.current);
+        pressTimer.current = null;
+      };
+    
+      /** Select from `from` through `to`, keeping `from` as the pivot (Shift+Arrow, drag). */
+      const extendSelection = (from: string, to: string) => {
+        pivot.current = from;
+        onSelectionChange(dateRange(from, to));
+      };
+    
+      /** Add or remove one day, and make it the pivot a later Shift-click or Shift+Arrow grows from. */
+      const toggleSelected = (date: string) => {
+        pivot.current = date;
+        onSelectionChange(toggleDate(selection, date));
+      };
+    
+      const handlersFor = (date: string): DateGestureHandlers => ({
+        onMouseDown: (event) => {
+          if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+            drag.current = { from: date, moved: false };
+          }
+        },
+        onMouseEnter: () => {
+          const d = drag.current;
+          if (!d || (date === d.from && !d.moved)) return;
+          d.moved = true;
+          extendSelection(d.from, date);
+        },
+        onClick: (event) => {
+          if (suppressClick.current) return;
+          if (event.shiftKey) {
+            onSelectionChange(dateRange(pivot.current ?? date, date));
+          } else if (event.ctrlKey || event.metaKey || (touchMode.current && selection.length > 0)) {
+            toggleSelected(date);
+          } else {
+            pivot.current = date;
+            touchMode.current = false;
+            onOpenDay(date);
+          }
+        },
+        onTouchStart: () => {
+          pressed.current = false;
+          clearTimer();
+          pressTimer.current = setTimeout(() => {
+            pressed.current = true;
+            touchMode.current = true;
+            pivot.current = date;
+            onSelectionChange(normalizeDates([...selection, date]));
+          }, LONG_PRESS_MS);
+        },
+        onTouchMove: clearTimer,
+        onTouchEnd: (event) => {
+          clearTimer();
+          // Swallow the click the browser synthesises after a long-press.
+          if (pressed.current) event.preventDefault();
+          pressed.current = false;
+        },
+        onContextMenu: (event) => {
+          if (pressTimer.current || pressed.current) event.preventDefault();
+        },
+      });
+    
+      return { handlersFor, extendSelection, toggleSelected, pivot };
     }
   </file>
   </section>
@@ -11682,6 +11844,46 @@
           401: authRequired,
           403: notClosureCaller,
           404: problem("Venue or closure not found"),
+        },
+      }),
+      setTonight: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/tonight`,
+        params: VenueParamsSchema,
+        body: SetTonightBodySchema,
+        responses: {
+          200: {
+            description:
+              "Saved for the current service day, ending at its boundary (or replayed from the same `ruleId`): the rule, the version, the day, `expiresAt` and outcome counts (all zero unless a close-early cancelled or moved bookings)",
+            body: z.object({ data: TonightResultSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+          409: {
+            description:
+              "`version-conflict`, or `closure-exists` (this rule id was already used with a different change)",
+            body: AvailabilityConfigProblemSchema,
+          },
+          422: {
+            description:
+              "`invalid-config`, or for a close-early with bookings `decision-required`, `invalid-decision` or `move-unavailable`",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
+      endTonight: defineEndpoint({
+        method: "DELETE",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/tonight/:ruleId`,
+        params: TonightParamsSchema,
+        responses: {
+          200: {
+            description: "Ended; bookings a close-early cancelled stay cancelled",
+            body: z.object({ data: ReopenResultSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: problem("Venue or Tonight change not found"),
         },
       }),
       listDays: defineEndpoint({
@@ -29503,7 +29705,7 @@
         ...extension,
       };
     }
-    function sendRefusal(reply: FastifyReply, outcome: Refusal) {
+    export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
       switch (outcome.kind) {
         case "not_found":
           return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -35375,6 +35577,62 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/tonight.ts">
+    export const tonightRoutes: FastifyPluginAsync = async (fastify) => {
+      const { tonightCommandService } = fastify.services;
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.setTonight, {
+        docs: {
+          summary: "Apply a Tonight change for the current service day",
+          operationId: "setTonight",
+          description:
+            "Pause online booking, close early, stop a time window, block tables or lower pacing for the venue's current service day. The server writes a `tonight` date rule that ends at the service-day boundary (`expiresAt`); schedules are never touched. A close-early with bookings after the new close runs the closure command: answer `decision-required` with `decisions`. The client-chosen `ruleId` makes a retry safe. Host or Manager.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await tonightCommandService.set({
+            venueId,
+            caller,
+            body: request.body,
+            now: new Date(),
+          });
+          if (outcome.kind === "saved") return { data: outcome.result };
+          return sendRefusal(
+            reply,
+            outcome.kind === "rule_exists" ? { kind: "closure_exists" } : outcome
+          );
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.endTonight, {
+        docs: {
+          summary: "End a Tonight change early",
+          operationId: "endTonight",
+          description:
+            "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Host or Manager.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await tonightCommandService.end({
+            venueId,
+            ruleId: request.params.ruleId,
+            caller,
+            now: new Date(),
+          });
+          if (outcome.kind === "ended") return { data: outcome.result };
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Tonight change not found"));
+        }),
+      });
+    };
+  </file>
   <file path="services/reservations/src/routes/venue-scope.ts">
     type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
       RawServerDefault,
@@ -37525,6 +37783,40 @@
       outcomes: ClosureOutcomeCountsSchema,
     });
     export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const TonightChangeSchema = z.discriminatedUnion("type", [
+      z.strictObject({ type: z.literal("pause_online") }),
+      z.strictObject({
+        type: z.literal("close_early"),
+        closeAt: MinuteSchema,
+        /** Close one service early; omitted closes every service. */
+        venueServiceId: TonightIdSchema.optional(),
+      }),
+      z.strictObject({ type: z.literal("stop_window"), from: MinuteSchema, to: MinuteSchema }),
+      z.strictObject({
+        type: z.literal("block_tables"),
+        tableIds: z.array(TonightIdSchema).min(1),
+        from: MinuteSchema.optional(),
+        to: MinuteSchema.optional(),
+      }),
+      z.strictObject({ type: z.literal("pacing"), covers: z.number().int().min(1) }),
+    ]);
+    export const SetTonightBodySchema = z.object({
+      expectedVersion: z.number().int().min(0),
+      ruleId: TonightIdSchema,
+      change: TonightChangeSchema,
+      guestMessage: z.string().max(GUEST_MESSAGE_MAX_LENGTH).optional(),
+      staffNote: z.string().max(500).optional(),
+      decisions: z.array(ClosureDecisionSchema).default([]),
+    });
+    export const TonightResultSchema = ClosureResultSchema.extend({
+      /** The service day the change applies to. */
+      serviceDate: ServiceDateSchema,
+      /** When it ends: the service day's boundary, as an ISO instant. */
+      expiresAt: z.string(),
+    });
+    export type TonightChange = z.infer<typeof TonightChangeSchema>;
+    export type SetTonightBody = z.infer<typeof SetTonightBodySchema>;
+    export type TonightResult = z.infer<typeof TonightResultSchema>;
     export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
     export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
@@ -45287,6 +45579,21 @@
       const yesterday = addDays(today, -1);
       return isOpen(yesterday) ? yesterday : today;
     }
+    export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
+      if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
+      const { closeAt } = rule.payload;
+      const planned = {
+        ...snapshot,
+        config: {
+          ...snapshot.config,
+          dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
+        },
+      };
+      const targeted = resolveDay(planned, rule.startsOn).services.filter(
+        (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
+      );
+      return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+    }
     export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean {
       return (
         rule.kind === "closure" &&
@@ -45302,6 +45609,7 @@
     type StoreClient = Pick<PrismaClient, "$transaction">;
     type Db = StoreDb &
       Pick<PrismaClient, "closureOutcome" | "reservationEvent" | "reservationHold" | "$executeRaw">;
+    export const TONIGHT_RULE_KINDS: ReadonlySet<string> = new Set(["tonight"]);
     export interface ClosureCaller {
       /** Owner, manager or platform admin. Anyone else is a Host. */
       isManager: boolean;
@@ -45343,14 +45651,16 @@
       });
       if (!venue) return null;
       if (caller.isManager) return true;
-      if (!venue.hostEmergencyClose) return false;
+      // Tonight changes are a Host's own job, so only the emergency close needs the grant.
+      if (rule.kind !== "tonight" && !venue.hostEmergencyClose) return false;
       const state = await loadConfigState(db, venueId, now);
       if (!state) return null;
-      const serviceDate = currentServiceDate(
-        { timezone: state.timezone, config: state.effective },
-        now
-      );
-      return isHostEmergencyClose(rule, serviceDate);
+      const snapshot = { timezone: state.timezone, config: state.effective };
+      const serviceDate = currentServiceDate(snapshot, now);
+      if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
+      if (rule.startsOn !== serviceDate) return false;
+      // A close-early that leaves no targeted service tonight is the emergency close in effect.
+      return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
     }
     export function mayClose(
       venueId: string,
@@ -45443,7 +45753,8 @@
           ? `${rule.startsOn} to ${rule.endsOn}`
           : rule.startsOn;
       const kept = counts.keep_notify + counts.keep_silent;
-      return `Closure saved for ${span}: ${counts.cancel} cancelled, ${counts.move} moved, ${kept} kept`;
+      const what = rule.kind === "tonight" ? "Closing early" : "Closure saved for";
+      return `${what} ${span}: ${counts.cancel} cancelled, ${counts.move} moved, ${kept} kept`;
     }
     async function guard(
       tx: Db,
@@ -45459,6 +45770,7 @@
       body: CreateClosureBody;
       key: string;
       now: Date;
+      ruleKinds: ReadonlySet<string>;
     };
     async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
       const { venueId, caller, body, key } = input;
@@ -45474,7 +45786,7 @@
       const { venueId, caller, body, now } = input;
       const { rule } = body;
       await guard(tx, { venueId, caller, rule, now });
-      if (!CLOSURE_RULE_KINDS.has(rule.kind)) {
+      if (!input.ruleKinds.has(rule.kind)) {
         throw new Refused({
           kind: "invalid",
           issues: [
@@ -45584,14 +45896,17 @@
         body: CreateClosureBody;
         idempotencyKey: string;
         now: Date;
+        /** Rule kinds this call may save; the Tonight API widens it to `tonight`. */
+        ruleKinds?: ReadonlySet<string>;
       },
       client: StoreClient = prisma
     ): Promise<CreateClosureOutcome> {
       const { venueId, caller, body, idempotencyKey: key, now } = input;
+      const ruleKinds = input.ruleKinds ?? CLOSURE_RULE_KINDS;
       try {
         const result = await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
-          return commit(tx, { venueId, caller, body, key, now });
+          return commit(tx, { venueId, caller, body, key, now, ruleKinds });
         });
         return { kind: "saved", result };
       } catch (error) {
@@ -47947,6 +48262,7 @@
       closureCommandService: typeof closureCommandService;
       /** Built in `buildApp` over the notifier scheduler — never a module singleton. */
       closureNoticeService: ClosureNoticeService;
+      tonightCommandService: typeof tonightCommandService;
       venueService: typeof venueService;
       venueGroupService: typeof venueGroupService;
       tableService: typeof tableService;
@@ -47970,6 +48286,7 @@
       availabilityConfigService,
       closureImpactService,
       closureCommandService,
+      tonightCommandService,
       venueService,
       venueGroupService,
       tableService,
@@ -54101,6 +54418,332 @@
         }
       },
     };
+  </file>
+  <file path="services/reservations/src/services/tonight-command.ts">
+    type StoreClient = Pick<PrismaClient, "$transaction">;
+    type Db = StoreDb;
+    export type SetTonightOutcome =
+      | { kind: "saved"; result: TonightResult }
+      | Exclude<CreateClosureOutcome, { kind: "saved" }>
+      | { kind: "rule_exists" };
+    type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
+    class Refused extends Error {
+      constructor(readonly outcome: Refusal) {
+        super(outcome.kind);
+      }
+    }
+    interface TonightDeps {
+      createClosure: typeof createClosure;
+    }
+    function dayBoundary(state: ConfigState, serviceDate: string): Date {
+      const planned: AvailabilityConfig = {
+        ...state.effective,
+        dateRules: state.effective.dateRules.filter((r) => r.kind !== "tonight"),
+      };
+      const closes = resolveDay(
+        { timezone: state.timezone, config: planned },
+        serviceDate
+      ).services.map((s) => s.closesAt);
+      const end = Math.max(MINUTES_PER_DAY, ...closes);
+      return (
+        serviceDayInstant(serviceDate, end, state.timezone) ??
+        serviceDayInstant(serviceDate, end + 60, state.timezone) ??
+        new Date(`${addDays(serviceDate, 1)}T00:00:00.000Z`)
+      );
+    }
+    type RuleShape = Pick<
+      Extract<DateRule, { kind: "tonight" }>,
+      "targetKind" | "payload" | "venueServiceId" | "bookingTypes" | "tableIds"
+    >;
+    function shapeOf(change: TonightChange): RuleShape {
+      switch (change.type) {
+        case "pause_online":
+          return {
+            targetKind: "booking",
+            bookingTypes: ["online"],
+            payload: { version: 1, stop: { from: 0, to: REST_OF_TONIGHT } },
+          };
+        case "close_early":
+          return change.venueServiceId
+            ? {
+                targetKind: "service",
+                venueServiceId: change.venueServiceId,
+                payload: { version: 1, closeAt: change.closeAt },
+              }
+            : { targetKind: "venue", payload: { version: 1, closeAt: change.closeAt } };
+        case "stop_window":
+          return {
+            targetKind: "venue",
+            payload: { version: 1, stop: { from: change.from, to: change.to } },
+          };
+        case "block_tables":
+          return {
+            targetKind: "tables",
+            tableIds: change.tableIds,
+            payload: {
+              version: 1,
+              stop: { from: change.from ?? 0, to: change.to ?? REST_OF_TONIGHT },
+            },
+          };
+        case "pacing":
+          return { targetKind: "venue", payload: { version: 1, pacing: { covers: change.covers } } };
+      }
+    }
+    function buildRule(
+      body: SetTonightBody,
+      serviceDate: string,
+      expiresAt: Date
+    ): Extract<DateRule, { kind: "tonight" }> {
+      return {
+        id: body.ruleId,
+        kind: "tonight",
+        ...shapeOf(body.change),
+        startsOn: serviceDate,
+        endsOn: serviceDate,
+        expiresAt: expiresAt.toISOString(),
+        ...(body.guestMessage ? { guestMessage: body.guestMessage } : {}),
+        ...(body.staffNote ? { staffNote: body.staffNote } : {}),
+      };
+    }
+    function describeChange(change: TonightChange): string {
+      switch (change.type) {
+        case "pause_online":
+          return "Tonight: online booking paused";
+        case "close_early":
+          return "Tonight: closing early";
+        case "stop_window":
+          return "Tonight: booking stopped for a window";
+        case "block_tables":
+          return `Tonight: ${change.tableIds.length} table(s) blocked`;
+        case "pacing":
+          return `Tonight: pacing lowered to ${change.covers} covers`;
+      }
+    }
+    function fingerprint(rule: DateRule): string {
+      return JSON.stringify(
+        sortKeys({
+          kind: rule.kind,
+          targetKind: rule.targetKind,
+          venueServiceId: rule.venueServiceId ?? null,
+          bookingTypes: rule.bookingTypes ?? [],
+          tableIds: [...(rule.tableIds ?? [])].sort(),
+          payload: "payload" in rule ? rule.payload : null,
+        })
+      );
+    }
+    function storedSame(
+      state: ConfigState,
+      rule: DateRule
+    ): Extract<DateRule, { kind: "tonight" }> | null {
+      const existing = state.stored.dateRules.find((r) => r.id === rule.id);
+      if (!existing) return null;
+      if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
+        throw new Refused({ kind: "rule_exists" });
+      }
+      return existing;
+    }
+    function closeEarlyKey(rule: DateRule): string {
+      const digest = createHash("sha256").update(fingerprint(rule)).digest("hex").slice(0, 16);
+      return `tonight:${rule.id}:${digest}`;
+    }
+    interface TonightMeta {
+      ruleId: string;
+      version: number;
+    }
+    async function replayOf(
+      tx: Db,
+      venueId: string,
+      rule: Extract<DateRule, { kind: "tonight" }>,
+      state: ConfigState
+    ): Promise<TonightResult | null> {
+      const existing = storedSame(state, rule);
+      if (!existing) return null;
+      const saved = await tx.availabilityChange.findFirst({
+        where: { venueId, kind: "tonight", inverse: { path: ["tonight", "ruleId"], equals: rule.id } },
+        select: { id: true, inverse: true },
+      });
+      const meta = (saved?.inverse as { tonight?: TonightMeta } | null | undefined)?.tonight;
+      return {
+        ruleId: rule.id,
+        version: meta?.version ?? state.version,
+        changeId: saved?.id ?? "",
+        serviceDate: existing.startsOn,
+        expiresAt: existing.expiresAt ?? rule.expiresAt ?? "",
+        outcomes: ZERO_OUTCOMES,
+      };
+    }
+    async function checkRule(
+      tx: Db,
+      venueId: string,
+      state: ConfigState,
+      rule: DateRule
+    ): Promise<AvailabilityConfig> {
+      const next: AvailabilityConfig = {
+        ...state.effective,
+        dateRules: [...state.effective.dateRules.filter((r) => r.id !== rule.id), rule],
+      };
+      const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+      const issues = [
+        ...validateConfig(next),
+        ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+      ];
+      if (issues.length > 0) throw new Refused({ kind: "invalid", issues });
+      return next;
+    }
+    async function writeChange(
+      tx: Db,
+      input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+      state: ConfigState,
+      rule: Extract<DateRule, { kind: "tonight" }>
+    ): Promise<TonightResult> {
+      const { venueId, actorId, now, body } = input;
+      const cas = await tx.venue.updateMany({
+        where: { id: venueId, availabilityVersion: body.expectedVersion },
+        data: { availabilityVersion: { increment: 1 } },
+      });
+      if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+    
+      const next = await checkRule(tx, venueId, state, rule);
+      const diff = diffConfig(state.stored, next);
+      await writeConfigDiff(tx, venueId, diff, { actorId, now }).catch((e: unknown) => {
+        throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
+      });
+      const version = body.expectedVersion + 1;
+      const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+      const meta: TonightMeta = { ruleId: rule.id, version };
+      const change = await tx.availabilityChange.create({
+        data: {
+          venueId,
+          actorId,
+          at: now,
+          kind: "tonight",
+          summary: describeChange(body.change),
+          affectedFrom: toDbDate(range.from),
+          affectedTo: toDbDate(range.to),
+          inverse: {
+            ...inverseOf(state.stored, diff, state.operatingHours),
+            tonight: meta,
+          } as unknown as Prisma.InputJsonValue,
+        },
+        select: { id: true },
+      });
+      await tx.venue.update({
+        where: { id: venueId },
+        data: { operatingHours: projectLegacyOperatingHours(next) },
+      });
+      return {
+        ruleId: rule.id,
+        version,
+        changeId: change.id,
+        serviceDate: rule.startsOn,
+        expiresAt: rule.expiresAt ?? "",
+        outcomes: ZERO_OUTCOMES,
+      };
+    }
+    type Prepared =
+      | { kind: "saved"; result: TonightResult }
+      | { kind: "delegate"; rule: Extract<DateRule, { kind: "tonight" }> };
+    export async function setTonight(
+      input: { venueId: string; caller: ClosureCaller; body: SetTonightBody; now: Date },
+      client: StoreClient = prisma,
+      deps: TonightDeps = { createClosure }
+    ): Promise<SetTonightOutcome> {
+      const { venueId, caller, body, now } = input;
+      try {
+        const prepared = await client.$transaction(async (tx): Promise<Prepared> => {
+          await setVenueContext(tx, venueId);
+          const state = await loadConfigState(tx, venueId, now);
+          if (!state) throw new Refused({ kind: "not_found" });
+          const serviceDate = currentServiceDate(
+            { timezone: state.timezone, config: state.effective },
+            now
+          );
+          const rule = buildRule(body, serviceDate, dayBoundary(state, serviceDate));
+          if (body.change.type === "close_early") {
+            storedSame(state, rule);
+            return { kind: "delegate", rule };
+          }
+          const replayed = await replayOf(tx, venueId, rule, state);
+          if (replayed) return { kind: "saved", result: replayed };
+          const result = await writeChange(
+            tx,
+            { venueId, actorId: caller.actorId, now, body },
+            state,
+            rule
+          );
+          return { kind: "saved", result };
+        });
+        if (prepared.kind === "saved") return prepared;
+        const { rule } = prepared;
+        const closed = await deps.createClosure({
+          venueId,
+          caller,
+          body: { expectedVersion: body.expectedVersion, rule, decisions: body.decisions },
+          idempotencyKey: closeEarlyKey(rule),
+          now,
+          ruleKinds: TONIGHT_RULE_KINDS,
+        });
+        if (closed.kind !== "saved") return closed;
+        return {
+          kind: "saved",
+          result: { ...closed.result, serviceDate: rule.startsOn, expiresAt: rule.expiresAt ?? "" },
+        };
+      } catch (error) {
+        if (error instanceof Refused) return error.outcome;
+        throw error;
+      }
+    }
+    export type EndTonightOutcome = { kind: "ended"; result: ReopenResult } | { kind: "not_found" };
+    export async function endTonight(
+      input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+      client: StoreClient = prisma
+    ): Promise<EndTonightOutcome> {
+      const { venueId, ruleId, caller, now } = input;
+      return client.$transaction(async (tx): Promise<EndTonightOutcome> => {
+        await setVenueContext(tx, venueId);
+        const state = await loadConfigState(tx, venueId, now);
+        const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
+        if (!state || !rule || rule.kind !== "tonight") return { kind: "not_found" };
+    
+        const next = {
+          ...state.stored,
+          dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+        };
+        const diff = diffConfig(state.stored, next);
+        await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now });
+        const bumped = await tx.venue.update({
+          where: { id: venueId },
+          data: {
+            availabilityVersion: { increment: 1 },
+            operatingHours: projectLegacyOperatingHours(next),
+          },
+          select: { availabilityVersion: true },
+        });
+        const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+        const change = await tx.availabilityChange.create({
+          data: {
+            venueId,
+            actorId: caller.actorId,
+            at: now,
+            kind: "tonight_end",
+            summary: "Tonight change ended",
+            affectedFrom: toDbDate(range.from),
+            affectedTo: toDbDate(range.to),
+            inverse: inverseOf(
+              state.stored,
+              diff,
+              state.operatingHours
+            ) as unknown as Prisma.InputJsonValue,
+          },
+          select: { id: true },
+        });
+        return {
+          kind: "ended",
+          result: { version: bumped.availabilityVersion, changeId: change.id },
+        };
+      });
+    }
+    export const tonightCommandService = { set: setTonight, end: endTonight };
   </file>
   <file path="services/reservations/src/services/venue-context-store.ts">
     export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> {
@@ -64059,6 +64702,7 @@
     }
     export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
     export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+    export type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
     export class AvailabilityClient {
       constructor(private client: ApiClient) {}
     
@@ -64209,6 +64853,30 @@
         const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
           params: { id: venueId, ruleId },
           body: { tellCancelledGuests },
+        });
+        return response.data;
+      }
+    
+      /**
+       * Applies one Tonight change (pause online, close early, stop a window,
+       * block tables, pacing) for the current service day; it ends at the day's
+       * boundary on its own. `body.ruleId` makes a retry safe. A close-early with
+       * bookings rejects with `decision-required` until `decisions` answer each
+       * affected group.
+       */
+      async setTonight(venueId: string, body: SetTonightRequest): Promise<TonightResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.setTonight,
+          { params: { id: venueId }, body },
+          { idempotentRetry: true }
+        );
+        return response.data;
+      }
+    
+      /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
+      async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
+        const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
+          params: { id: venueId, ruleId },
         });
         return response.data;
       }
@@ -73186,6 +73854,7 @@
       await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
       await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(closureRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+      await fastify.register(tonightRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
       });

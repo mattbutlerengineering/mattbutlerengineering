@@ -3,6 +3,7 @@ import { availabilityConfigService } from "./availability-config.js";
 import { closureImpactService } from "./closure-impact-store.js";
 import type { ClosureNoticeService } from "./closure-notice-service.js";
 import { closureCommandService } from "./closure-command.js";
+import { tonightCommandService } from "./tonight-command.js";
 import { venueService, venueGroupService } from "./venue.js";
 import { tableService } from "./table.js";
 import { reservationService } from "./reservation.js";
@@ -43,6 +44,7 @@ export interface DomainServices {
   closureCommandService: typeof closureCommandService;
   /** Built in `buildApp` over the notifier scheduler — never a module singleton. */
   closureNoticeService: ClosureNoticeService;
+  tonightCommandService: typeof tonightCommandService;
   venueService: typeof venueService;
   venueGroupService: typeof venueGroupService;
   tableService: typeof tableService;
@@ -72,6 +74,7 @@ export const defaultDomainServices: Omit<
   availabilityConfigService,
   closureImpactService,
   closureCommandService,
+  tonightCommandService,
   venueService,
   venueGroupService,
   tableService,

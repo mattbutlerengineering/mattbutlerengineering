@@ -25,6 +25,7 @@ import { civilDateIn } from "./availability-migration.js";
 import { applyTransitions } from "./closure-apply.js";
 import {
   checkDecisions,
+  closesAllOfTonight,
   countActions,
   currentServiceDate,
   isHostEmergencyClose,
@@ -52,6 +53,9 @@ type Db = StoreDb &
 
 /** Rule kinds `POST /closures` saves (and `DELETE` reopens); Tonight has its own endpoints. */
 const CLOSURE_RULE_KINDS: ReadonlySet<string> = new Set(["closure", "special_hours"]);
+
+/** The one kind the Tonight API sends through the closure path: a close-early. */
+export const TONIGHT_RULE_KINDS: ReadonlySet<string> = new Set(["tonight"]);
 
 export interface ClosureCaller {
   /** Owner, manager or platform admin. Anyone else is a Host. */
@@ -105,14 +109,16 @@ export async function mayCloseFor(
   });
   if (!venue) return null;
   if (caller.isManager) return true;
-  if (!venue.hostEmergencyClose) return false;
+  // Tonight changes are a Host's own job, so only the emergency close needs the grant.
+  if (rule.kind !== "tonight" && !venue.hostEmergencyClose) return false;
   const state = await loadConfigState(db, venueId, now);
   if (!state) return null;
-  const serviceDate = currentServiceDate(
-    { timezone: state.timezone, config: state.effective },
-    now
-  );
-  return isHostEmergencyClose(rule, serviceDate);
+  const snapshot = { timezone: state.timezone, config: state.effective };
+  const serviceDate = currentServiceDate(snapshot, now);
+  if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
+  if (rule.startsOn !== serviceDate) return false;
+  // A close-early that leaves no targeted service tonight is the emergency close in effect.
+  return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
 }
 
 /** Read-only form of the same limits, for the impact preview: `null` for an unknown venue. */
@@ -217,7 +223,8 @@ function describe(rule: DateRule, counts: Record<ClosureAction, number>): string
       ? `${rule.startsOn} to ${rule.endsOn}`
       : rule.startsOn;
   const kept = counts.keep_notify + counts.keep_silent;
-  return `Closure saved for ${span}: ${counts.cancel} cancelled, ${counts.move} moved, ${kept} kept`;
+  const what = rule.kind === "tonight" ? "Closing early" : "Closure saved for";
+  return `${what} ${span}: ${counts.cancel} cancelled, ${counts.move} moved, ${kept} kept`;
 }
 
 async function guard(
@@ -235,6 +242,7 @@ type CommitInput = {
   body: CreateClosureBody;
   key: string;
   now: Date;
+  ruleKinds: ReadonlySet<string>;
 };
 
 /**
@@ -258,7 +266,7 @@ async function preflight(tx: Db, input: CommitInput): Promise<void> {
   const { venueId, caller, body, now } = input;
   const { rule } = body;
   await guard(tx, { venueId, caller, rule, now });
-  if (!CLOSURE_RULE_KINDS.has(rule.kind)) {
+  if (!input.ruleKinds.has(rule.kind)) {
     throw new Refused({
       kind: "invalid",
       issues: [
@@ -370,14 +378,17 @@ export async function createClosure(
     body: CreateClosureBody;
     idempotencyKey: string;
     now: Date;
+    /** Rule kinds this call may save; the Tonight API widens it to `tonight`. */
+    ruleKinds?: ReadonlySet<string>;
   },
   client: StoreClient = prisma
 ): Promise<CreateClosureOutcome> {
   const { venueId, caller, body, idempotencyKey: key, now } = input;
+  const ruleKinds = input.ruleKinds ?? CLOSURE_RULE_KINDS;
   try {
     const result = await client.$transaction(async (tx) => {
       await setVenueContext(tx, venueId);
-      return commit(tx, { venueId, caller, body, key, now });
+      return commit(tx, { venueId, caller, body, key, now, ruleKinds });
     });
     return { kind: "saved", result };
   } catch (error) {

@@ -8,6 +8,7 @@ import {
   CreateClosureBodySchema,
   PreviewAvailabilityBodySchema,
   PutAvailabilityConfigBodySchema,
+  SetTonightBodySchema,
 } from "./availability-config-api.js";
 
 describe("CreateClosureBodySchema", () => {
@@ -160,5 +161,29 @@ describe("PreviewAvailabilityBodySchema", () => {
       PreviewAvailabilityBodySchema.safeParse({ ...base, scope: ["2026-11-06"] }).success
     ).toBe(true);
     expect(PreviewAvailabilityBodySchema.safeParse({ ...base, scope: [] }).success).toBe(false);
+  });
+});
+
+describe("SetTonightBodySchema", () => {
+  const base = { expectedVersion: 1, ruleId: "t-1" };
+
+  it("takes each Tonight change and defaults decisions to none", () => {
+    const changes = [
+      { type: "pause_online" },
+      { type: "close_early", closeAt: 1260 },
+      { type: "stop_window", from: 1170, to: 1200 },
+      { type: "block_tables", tableIds: ["t-1"] },
+      { type: "pacing", covers: 12 },
+    ];
+    for (const change of changes) {
+      expect(SetTonightBodySchema.parse({ ...base, change }).decisions).toEqual([]);
+    }
+  });
+
+  it("refuses an unknown change, an empty table block and stray fields", () => {
+    const parse = (change: unknown) => SetTonightBodySchema.safeParse({ ...base, change }).success;
+    expect(parse({ type: "close_venue" })).toBe(false);
+    expect(parse({ type: "block_tables", tableIds: [] })).toBe(false);
+    expect(parse({ type: "pause_online", closeAt: 5 })).toBe(false);
   });
 });
