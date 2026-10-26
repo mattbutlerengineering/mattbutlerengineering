@@ -51,6 +51,8 @@ export interface PrismaReservationRow {
   guestPhone: string | null;
   guestId: string | null;
   userId: string | null;
+  /** Staff override reason; selected rows predating the column or partial selects omit it. */
+  overrideReason?: string | null;
   tableId: string;
   table?: PrismaTableRow | null;
   guest?: {
@@ -125,7 +127,7 @@ export function serializeManagedReservation(reservation: Reservation): ManagedRe
  * (SC11) — so the link the service just made is scrubbed here, and only here, on the way out.
  */
 export function withoutGuestLink(reservation: Reservation): Reservation {
-  return { ...reservation, guestId: null, guest: null };
+  return { ...reservation, guestId: null, guest: null, overrideReason: null };
 }
 
 /** Maps a Prisma reservation row (with optional table/guest relations) to a domain Reservation. */
@@ -147,6 +149,7 @@ export function toReservation(row: PrismaReservationRow): Reservation {
     guestPhone: row.guestPhone,
     guestId: row.guestId,
     userId: row.userId,
+    overrideReason: row.overrideReason ?? null,
     tableId: row.tableId,
     table: row.table ? toTable(row.table) : undefined,
     guest: row.guest ?? null,

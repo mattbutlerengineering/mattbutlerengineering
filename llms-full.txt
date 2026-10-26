@@ -17611,6 +17611,26 @@
       return now;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useOpenTimes.ts">
+    export const OPEN_TIMES_QUERY_KEY = "staffOpenTimes" as const;
+    export const useOpenTimes = createQueryHook<
+      TimeSlot[] | null,
+      { venueId: string | null | undefined; date: string; partySize: number },
+      TimeSlot[]
+    >({
+      key: OPEN_TIMES_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId
+          ? api.availability.getTimeSlots({
+              venueId: params.venueId,
+              date: params.date,
+              partySize: params.partySize,
+            })
+          : null,
+      getEnabled: (params) => !!params?.venueId && !!params.date && params.enabled !== false,
+      select: (data) => (data ?? []).filter((slot) => slot.available),
+    });
+  </file>
   <file path="apps/hospitality/src/hooks/usePublicApiClient.ts">
     export interface UsePublicApiClientOptions {
       baseUrl?: string;
@@ -17871,6 +17891,73 @@
     
       const remainingMs = Math.max(0, expiresAt * 1000 - now);
       return { remainingMs, phase: classifySessionPhase(remainingMs) };
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useStaffBookingCheck.ts">
+    export const STAFF_BOOKING_CHECK_QUERY_KEY = "staffBookingCheck" as const;
+    type BookingWindow = { start: string; end: string };
+    export interface StaffCheckParams {
+      venueId: string | null | undefined;
+      /** The booking's real start and end (ISO); null until date and time are both entered. */
+      window: BookingWindow | null;
+      partySize: number;
+      /** The table the form has selected; empty means nothing to check. */
+      selectedTableId: string;
+    }
+    export interface StaffCheckResult {
+      /** `idle`: nothing to ask yet. `failed`: the check errored, so the server decides. */
+      phase: "idle" | "checking" | "done" | "failed";
+      verdict: AvailabilityCheckResult | null;
+    }
+    export function useStaffBookingCheck({
+      venueId,
+      window,
+      partySize,
+      selectedTableId,
+    }: StaffCheckParams): StaffCheckResult {
+      const api = useApiClient();
+      const [settled, setSettled] = useState<BookingWindow | null>(null);
+      const startKey = window?.start;
+      const endKey = window?.end;
+    
+      useEffect(() => {
+        const timer = setTimeout(
+          () => setSettled(startKey && endKey ? { start: startKey, end: endKey } : null),
+          DEBOUNCE_MS
+        );
+        return () => clearTimeout(timer);
+      }, [startKey, endKey]);
+    
+      const enabled = !!venueId && !!selectedTableId && settled !== null && window !== null;
+      const query = useQuery({
+        queryKey: [
+          STAFF_BOOKING_CHECK_QUERY_KEY,
+          venueId,
+          settled?.start,
+          settled?.end,
+          partySize,
+          selectedTableId,
+        ],
+        queryFn: () =>
+          api.availability.checkBooking(venueId as string, {
+            start: (settled as BookingWindow).start,
+            end: (settled as BookingWindow).end,
+            partySize,
+            channel: "phone",
+            tableId: selectedTableId,
+          }),
+        enabled,
+        retry: false,
+      });
+    
+      if (window === null || !venueId || !selectedTableId) return { phase: "idle", verdict: null };
+      // Still inside the pause: the answer on hand (if any) is for an earlier window.
+      if (settled === null || settled.start !== window.start || settled.end !== window.end) {
+        return { phase: "checking", verdict: null };
+      }
+      if (query.isError) return { phase: "failed", verdict: null };
+      if (query.data === undefined) return { phase: "checking", verdict: null };
+      return { phase: "done", verdict: query.data };
     }
   </file>
   <file path="apps/hospitality/src/hooks/useStatusMessage.ts">
@@ -39496,6 +39583,8 @@
       guestPhone: z.string().nullable(),
       guestId: z.string().nullable(),
       userId: z.string().nullable(),
+      /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
+      overrideReason: z.string().nullable().optional(),
       tableId: z.string(),
       table: TableSchema.optional(),
       guest: z
@@ -53917,6 +54006,8 @@
       guestPhone: string | null;
       guestId: string | null;
       userId: string | null;
+      /** Staff override reason; selected rows predating the column or partial selects omit it. */
+      overrideReason?: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
       guest?: {
@@ -53973,7 +54064,7 @@
       };
     }
     export function withoutGuestLink(reservation: Reservation): Reservation {
-      return { ...reservation, guestId: null, guest: null };
+      return { ...reservation, guestId: null, guest: null, overrideReason: null };
     }
     export function toReservation(row: PrismaReservationRow): Reservation {
       return {
@@ -53993,6 +54084,7 @@
         guestPhone: row.guestPhone,
         guestId: row.guestId,
         userId: row.userId,
+        overrideReason: row.overrideReason ?? null,
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
@@ -73449,6 +73541,8 @@
       userId: string | null;
       occasion: Occasion | null;
       seatingPreference: SeatingPreference | null;
+      /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
+      overrideReason?: string | null;
       tableId: string;
       table?: Table;
       guest?: {

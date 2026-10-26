@@ -89,3 +89,13 @@
   border-inline-start-color: var(--rialto-error);
   color: var(--rialto-error);
 }
+
+/* Staff booked past a soft limit; the reason is in the title and the spoken label. */
+.overrideTag {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--rialto-warning);
+}

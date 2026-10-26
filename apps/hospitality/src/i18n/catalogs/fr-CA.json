@@ -736,7 +736,9 @@
     "visitOrdinalOther": "{{count}}e visite",
     "block": {
       "title": "{{guest}} - {{party}} à {{time}}",
-      "seatedWord": "installés"
+      "seatedWord": "installés",
+      "overrideTag": "Dérogation",
+      "overrideLabel": "Dérogation : {{reason}}"
     },
     "grid": {
       "label": "Chronologie des réservations",
@@ -1002,7 +1004,27 @@
     "needContact": "Veuillez fournir un courriel ou un numéro de téléphone du client.",
     "cancel": "Annuler",
     "create": "Créer la réservation",
-    "creating": "Création…"
+    "creating": "Création…",
+    "check": {
+      "checking": "Vérification…",
+      "failed": "Impossible de vérifier la disponibilité; nous vérifierons à la réservation.",
+      "softHeading_one": "Dépasse {{count}} limite : {{limits}}. Ajoutez un motif pour réserver quand même.",
+      "softHeading_many": "Dépasse {{count}} de limites : {{limits}}. Ajoutez un motif pour réserver quand même.",
+      "softHeading_other": "Dépasse {{count}} limites : {{limits}}. Ajoutez un motif pour réserver quand même.",
+      "limit": {
+        "after_last_seating": "après la dernière heure d’arrivée",
+        "pacing": "au-delà du rythme permis",
+        "party_size": "au-delà de la taille maximale du groupe"
+      },
+      "hardHeading": "Réservation impossible : {{message}}",
+      "reasonLabel": "Motif (obligatoire)",
+      "reasonPlaceholder": "p. ex., client régulier, la cuisine est d’accord",
+      "bookWithOverride": "Réserver avec dérogation",
+      "openTimes": "Heures disponibles",
+      "openTimesNone_one": "Aucune heure disponible pour {{count}} personne à cette date.",
+      "openTimesNone_many": "Aucune heure disponible pour {{count}} de personnes à cette date.",
+      "openTimesNone_other": "Aucune heure disponible pour {{count}} personnes à cette date."
+    }
   },
   "crm": {
     "clear": "Retirer",

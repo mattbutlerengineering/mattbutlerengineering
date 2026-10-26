@@ -2510,6 +2510,14 @@
       export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useOpenTimes.ts">
+    <item priority="high">
+      export const OPEN_TIMES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useOpenTimes: unknown;
+    </item>
+  </file>
   <file path="src/hooks/usePublicApiClient.ts">
     <item priority="low">
       interface UsePublicApiClientOptions {
@@ -2623,6 +2631,36 @@
     </item>
     <item priority="high">
       export function useSessionClock(expiresAt: number | undefined): SessionClock { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useStaffBookingCheck.ts">
+    <item priority="high">
+      export const STAFF_BOOKING_CHECK_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      type BookingWindow = { start: string; end: string };
+    </item>
+    <item priority="low">
+      interface StaffCheckParams {
+        venueId: string | null | undefined;
+        window: BookingWindow | null;
+        partySize: number;
+        selectedTableId: string;
+      }
+    </item>
+    <item priority="low">
+      interface StaffCheckResult {
+        phase: "idle" | "checking" | "done" | "failed";
+        verdict: AvailabilityCheckResult | null;
+      }
+    </item>
+    <item priority="high">
+      export function useStaffBookingCheck({
+        venueId,
+        window,
+        partySize,
+        selectedTableId,
+      }: StaffCheckParams): StaffCheckResult { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useStatusMessage.ts">

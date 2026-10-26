@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Button, Input, Select, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
@@ -19,7 +19,11 @@ import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { applyClear, applyPick, type PrefillSnapshot } from "../crm/guest-prefill.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { venueWallTimeToInstant } from "../../utils/venue-wall-time.js";
+import { useStaffBookingCheck } from "../../hooks/useStaffBookingCheck.js";
+import { useOpenTimes } from "../../hooks/useOpenTimes.js";
 import { OccasionSeatingFields } from "./OccasionSeatingFields.js";
+import { OpenTimesStrip } from "./OpenTimesStrip.js";
+import { StaffCheckNotice } from "./StaffCheckNotice.js";
 import styles from "./NewReservationDialog.module.css";
 
 interface NewReservationDialogProps {
@@ -73,6 +77,7 @@ export function NewReservationDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<GuestLink | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
   const { status, announce } = useStatusMessage();
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -109,6 +114,17 @@ export function NewReservationDialog({
   });
 
   const guestName = watch("guestName");
+  const date = watch("date");
+  const startTime = watch("startTime");
+
+  // The booking's real window, read on the venue clock; null until date and time are both entered.
+  const bookingWindow = useMemo(() => {
+    if (!date || !startTime) return null;
+    const start = venueWallTimeToInstant(date, startTime, timeZone);
+    if (Number.isNaN(start.getTime())) return null;
+    const end = new Date(start.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
+    return { start: start.toISOString(), end: end.toISOString() };
+  }, [date, startTime, timeZone]);
 
   const handlePick = (guest: Guest) => {
     setValue("guestName", guest.name);
@@ -139,6 +155,17 @@ export function NewReservationDialog({
     .filter((table) => table.isActive && table.capacity >= partySize)
     .sort((a, b) => a.capacity - b.capacity);
 
+  const check = useStaffBookingCheck({
+    venueId,
+    window: bookingWindow,
+    partySize,
+    selectedTableId: tableId,
+  });
+  const openTimes = useOpenTimes({ venueId, date, partySize });
+  const isHardBlocked = check.verdict?.kind === "hard";
+  const needsOverride = check.verdict?.kind === "soft";
+  const trimmedReason = overrideReason.trim();
+
   const tableOptions = availableTables.map((table) => ({
     value: table.id,
     label: t("newReservation.tableOption", { name: table.name, capacity: table.capacity }),
@@ -165,19 +192,23 @@ export function NewReservationDialog({
       return;
     }
 
+    if (isHardBlocked) return;
+    if (needsOverride && !trimmedReason) {
+      setError(t("newReservation.check.reasonLabel"));
+      return;
+    }
+
     // The picked date and time are the venue's wall clock; the API takes the UTC instant.
     const startDate = venueWallTimeToInstant(data.date, data.startTime, timeZone);
     const endDate = new Date(startDate.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
-    const startTime = startDate.toISOString();
-    const endTime = endDate.toISOString();
 
     setIsLoading(true);
     setError(null);
     try {
       await onConfirm({
         date: data.date,
-        startTime,
-        endTime,
+        startTime: startDate.toISOString(),
+        endTime: endDate.toISOString(),
         partySize,
         tableId,
         venueId,
@@ -188,6 +219,7 @@ export function NewReservationDialog({
         ...(link ? { guestId: link.guest.id } : {}),
         ...(occasion !== "none" ? { occasion } : {}),
         ...(seatingPreference !== "no_preference" ? { seatingPreference } : {}),
+        ...(needsOverride ? { override: { reason: trimmedReason } } : {}),
       });
     } catch (err) {
       setError(describeApiError(err).detail);
@@ -281,6 +313,20 @@ export function NewReservationDialog({
                 />
               </div>
 
+              <OpenTimesStrip
+                slots={openTimes.data ?? []}
+                partySize={partySize}
+                selectedTime={startTime}
+                onPick={(hhmm) => setValue("startTime", hhmm, { shouldValidate: true })}
+                disabled={isLoading}
+              />
+              <StaffCheckNotice
+                check={check}
+                reason={overrideReason}
+                onReasonChange={setOverrideReason}
+                disabled={isLoading}
+              />
+
               <div>
                 <Text
                   variant="label"
@@ -335,10 +381,14 @@ export function NewReservationDialog({
                 variant="primary"
                 type="submit"
                 isLoading={isLoading}
-                disabled={availableTables.length === 0}
+                disabled={
+                  availableTables.length === 0 || isHardBlocked || (needsOverride && !trimmedReason)
+                }
                 loadingText={t("newReservation.creating")}
               >
-                {t("newReservation.create")}
+                {needsOverride
+                  ? t("newReservation.check.bookWithOverride")
+                  : t("newReservation.create")}
               </Button>
             </div>
           </Stack>
