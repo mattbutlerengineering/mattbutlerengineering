@@ -19,6 +19,13 @@ describe("scopeDates", () => {
     expect(dates({ kind: "date", date: FIXTURE_DATE })).toEqual([FIXTURE_DATE]);
   });
 
+  it("selected dates are exactly those dates", () => {
+    expect(dates({ kind: "dates", dates: ["2026-10-30", "2026-11-02"] })).toEqual([
+      "2026-10-30",
+      "2026-11-02",
+    ]);
+  });
+
   it("every Friday from a date runs weekly up to the end date, inclusive", () => {
     const fridays = dates({ kind: "weekday", from: FIXTURE_DATE, until: "2026-12-25" });
     expect(fridays).toHaveLength(9);

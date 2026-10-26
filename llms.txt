@@ -1778,6 +1778,58 @@
       export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/selection.ts">
+    <item priority="high">
+      export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dateRange(a: string, b: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toggleDate(selection: readonly string[], date: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function columnDates(
+        grid: readonly string[],
+        column: number,
+        view: CalendarView,
+        anchor: string
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekdayDatesInMonth(anchor: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function datesUsingSchedule(
+        days: readonly { readonly serviceDate: string; readonly scheduleId: string | null }[],
+        scheduleId: string
+      ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/useDateSelection.ts">
+    <item priority="high">
+      export const LONG_PRESS_MS: unknown;
+    </item>
+    <item priority="low">
+      interface DateSelectionOptions {
+        selection: readonly string[];
+        onSelectionChange: (dates: string[]) => void;
+        onOpenDay: (date: string) => void;
+      }
+    </item>
+    <item priority="low">
+      interface DateGestureHandlers {
+        onClick: (event: MouseEvent) => void;
+        onMouseDown: (event: MouseEvent) => void;
+        onMouseEnter: () => void;
+        onTouchStart: () => void;
+        onTouchMove: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useDateSelection(options: DateSelectionOptions) { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">

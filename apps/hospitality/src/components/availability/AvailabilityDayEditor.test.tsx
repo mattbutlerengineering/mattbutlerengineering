@@ -27,7 +27,7 @@ import {
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
-function renderEditor(rules: DateRule[] = []) {
+function renderEditor(rules: DateRule[] = [], fixedDates?: readonly string[]) {
   const state: AvailabilityConfigState = {
     config: fixtureConfig(...rules),
     version: 4,
@@ -48,6 +48,7 @@ function renderEditor(rules: DateRule[] = []) {
           state={state}
           timezone={FIXTURE_TIMEZONE}
           today="2026-10-28"
+          fixedDates={fixedDates}
           {...handlers}
         />
       </main>
@@ -136,6 +137,28 @@ describe("AvailabilityDayEditor", () => {
       rule?.kind === "special_hours" && rule.payload.services.map((s) => s.venueServiceId)
     ).toEqual(["vs-dinner"]);
     expect(await screen.findByText("Friday, October 30 updated")).toBeInTheDocument();
+  });
+
+  it("selected dates: hides the scope select and saves exactly those dates", async () => {
+    const picked = [
+      "2026-10-30",
+      "2026-11-02",
+      "2026-11-03",
+      "2026-11-04",
+      "2026-11-05",
+      "2026-11-09",
+    ];
+    const { onFinished } = renderEditor([], picked);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    expect(screen.queryByRole("combobox", { name: "You’re changing" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 6 dates" }));
+    await waitFor(() => expect(onFinished).toHaveBeenCalled());
+    const rules = sentBody().body.changes.upsert.dateRules as {
+      startsOn: string;
+      endsOn: string;
+    }[];
+    expect(rules.map((r) => [r.startsOn, r.endsOn])).toEqual(picked.map((d) => [d, d]));
   });
 
   it("every Friday from a date: saves a repeating rule and names how many dates", async () => {

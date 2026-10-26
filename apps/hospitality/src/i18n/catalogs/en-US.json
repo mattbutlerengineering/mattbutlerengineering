@@ -1639,6 +1639,19 @@
       "description": "Your unsaved changes to these hours will be lost.",
       "confirm": "Discard",
       "keep": "Keep editing"
+    },
+    "selection": {
+      "selectColumn": "Select every {{weekday}}",
+      "selectedName": "{{name}}, selected",
+      "barLabel": "Selected dates",
+      "count_one": "{{count}} date selected",
+      "count_other": "{{count}} dates selected",
+      "count_many": "{{count}} dates selected",
+      "editHours": "Edit hours",
+      "clear": "Clear selection",
+      "selectMenu": "Select…",
+      "weekdayInMonth": "Every {{weekday}} in {{month}}",
+      "usingSchedule": "All dates using {{schedule}}"
     }
   },
   "setup": {

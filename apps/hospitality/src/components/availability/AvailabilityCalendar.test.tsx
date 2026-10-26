@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import { AvailabilityCalendar } from "./AvailabilityCalendar.js";
@@ -38,6 +39,7 @@ const WEEK = [
 function renderCalendar(props: Partial<React.ComponentProps<typeof AvailabilityCalendar>> = {}) {
   const onOpenDay = vi.fn();
   const onAnchorChange = vi.fn();
+  const onSelectionChange = vi.fn();
   const utils = render(
     <main>
       <AvailabilityCalendar
@@ -46,13 +48,15 @@ function renderCalendar(props: Partial<React.ComponentProps<typeof AvailabilityC
         today="2026-10-28"
         days={WEEK}
         isLoading={false}
+        selection={[]}
+        onSelectionChange={onSelectionChange}
         onOpenDay={onOpenDay}
         onAnchorChange={onAnchorChange}
         {...props}
       />
     </main>
   );
-  return { ...utils, onOpenDay, onAnchorChange };
+  return { ...utils, onOpenDay, onAnchorChange, onSelectionChange };
 }
 
 describe("AvailabilityCalendar", () => {
@@ -136,12 +140,12 @@ describe("AvailabilityCalendar", () => {
   it("shows skeletons instead of labels while loading", () => {
     renderCalendar({ days: undefined, isLoading: true });
     expect(screen.queryByText("Weeknight")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(7);
+    expect(screen.getAllByRole("gridcell")).toHaveLength(7);
   });
 
   it("lays a month out as whole Monday-first weeks", () => {
     renderCalendar({ view: "month", anchor: "2026-10-15", days: [] });
-    expect(screen.getAllByRole("button")).toHaveLength(35);
+    expect(screen.getAllByRole("gridcell")).toHaveLength(35);
     expect(screen.getAllByRole("columnheader")).toHaveLength(7);
   });
 
@@ -201,6 +205,42 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
     expect(onOpenDay).toHaveBeenCalledWith("2026-10-30");
   });
 
+  it("long-press on a row selects it and names it as selected", () => {
+    vi.useFakeTimers();
+    setViewportWidth(500);
+    const onSelectionChange = vi.fn();
+    const { rerender } = renderCalendar({
+      view: "month",
+      anchor: "2026-10-15",
+      days: MONTH_DAYS,
+      onSelectionChange,
+    });
+    const row = screen.getByRole("button", { name: /Friday, October 30/ });
+    fireEvent.touchStart(row);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    fireEvent.touchEnd(row);
+    expect(onSelectionChange).toHaveBeenCalledWith(["2026-10-30"]);
+    rerender(
+      <main>
+        <AvailabilityCalendar
+          view="month"
+          anchor="2026-10-15"
+          today="2026-10-28"
+          days={MONTH_DAYS}
+          isLoading={false}
+          selection={["2026-10-30"]}
+          onSelectionChange={onSelectionChange}
+          onOpenDay={vi.fn()}
+          onAnchorChange={vi.fn()}
+        />
+      </main>
+    );
+    expect(screen.getByRole("button", { name: /Friday, October 30.*, selected$/ })).toBeVisible();
+    vi.useRealTimers();
+  });
+
   it("shows the closure band in the row", () => {
     setViewportWidth(500);
     renderCalendar({ view: "month", anchor: "2026-10-15", days: WEEK });
@@ -212,5 +252,128 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
     setViewportWidth(500);
     const { container } = renderCalendar({ view: "month", anchor: "2026-10-15", days: MONTH_DAYS });
     expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
+  });
+});
+
+/** A calendar that owns its selection, the way the page does. */
+function Harness(props: { readonly view?: "week" | "month"; readonly anchor?: string }) {
+  const [selection, setSelection] = useState<string[]>([]);
+  return (
+    <main>
+      <AvailabilityCalendar
+        view={props.view ?? "week"}
+        anchor={props.anchor ?? "2026-10-30"}
+        today="2026-10-28"
+        days={WEEK}
+        isLoading={false}
+        selection={selection}
+        onSelectionChange={setSelection}
+        onOpenDay={onOpenDayMock}
+        onAnchorChange={vi.fn()}
+      />
+      <output data-testid="picked">{selection.join(",")}</output>
+    </main>
+  );
+}
+const onOpenDayMock = vi.fn();
+const picked = () => screen.getByTestId("picked").textContent;
+const cell = (re: RegExp) => screen.getByRole("button", { name: re });
+
+describe("AvailabilityCalendar multi-select", () => {
+  afterEach(() => {
+    onOpenDayMock.mockReset();
+    vi.useRealTimers();
+  });
+
+  it("selects a range by click-dragging and does not open a day", () => {
+    render(<Harness />);
+    fireEvent.mouseDown(cell(/Tuesday, October 27/));
+    fireEvent.mouseEnter(cell(/Wednesday, October 28/));
+    fireEvent.mouseEnter(cell(/Thursday, October 29/));
+    fireEvent.mouseUp(cell(/Thursday, October 29/));
+    fireEvent.click(cell(/Thursday, October 29/));
+    expect(picked()).toBe("2026-10-27,2026-10-28,2026-10-29");
+    expect(onOpenDayMock).not.toHaveBeenCalled();
+  });
+
+  it("extends from the last clicked day with Shift-click", () => {
+    render(<Harness />);
+    fireEvent.click(cell(/Tuesday, October 27/), { ctrlKey: true });
+    fireEvent.click(cell(/Thursday, October 29/), { shiftKey: true });
+    expect(picked()).toBe("2026-10-27,2026-10-28,2026-10-29");
+  });
+
+  it("adds and removes single days with Ctrl or Cmd-click", () => {
+    render(<Harness />);
+    fireEvent.click(cell(/Tuesday, October 27/), { ctrlKey: true });
+    fireEvent.click(cell(/Friday, October 30/), { metaKey: true });
+    expect(picked()).toBe("2026-10-27,2026-10-30");
+    fireEvent.click(cell(/Tuesday, October 27/), { ctrlKey: true });
+    expect(picked()).toBe("2026-10-30");
+    expect(onOpenDayMock).not.toHaveBeenCalled();
+  });
+
+  it("marks selected days for assistive tech", () => {
+    render(<Harness />);
+    fireEvent.click(cell(/Friday, October 30/), { ctrlKey: true });
+    expect(cell(/Friday, October 30/).closest("[role=gridcell]")).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(cell(/Saturday, October 31/).closest("[role=gridcell]")).toHaveAttribute(
+      "aria-selected",
+      "false"
+    );
+  });
+
+  it("selects a weekday column of the month from its header", () => {
+    render(<Harness view="month" anchor="2026-10-15" />);
+    fireEvent.click(screen.getByRole("button", { name: "Select every Friday" }));
+    expect(picked()).toBe("2026-10-02,2026-10-09,2026-10-16,2026-10-23,2026-10-30");
+  });
+
+  it("extends the selection with Shift+Arrow from the keyboard", () => {
+    render(<Harness />);
+    const friday = cell(/Friday, October 30/);
+    fireEvent.keyDown(friday, { key: "ArrowRight", shiftKey: true });
+    expect(picked()).toBe("2026-10-30,2026-10-31");
+  });
+
+  it("long-press selects a day, then taps toggle more", () => {
+    vi.useFakeTimers();
+    render(<Harness />);
+    const tue = cell(/Tuesday, October 27/);
+    fireEvent.touchStart(tue);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    fireEvent.touchEnd(tue);
+    expect(picked()).toBe("2026-10-27");
+    fireEvent.click(cell(/Thursday, October 29/));
+    expect(picked()).toBe("2026-10-27,2026-10-29");
+    expect(onOpenDayMock).not.toHaveBeenCalled();
+  });
+
+  it("a short touch is a plain tap and does not select", () => {
+    vi.useFakeTimers();
+    render(<Harness />);
+    const tue = cell(/Tuesday, October 27/);
+    fireEvent.touchStart(tue);
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    fireEvent.touchEnd(tue);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(picked()).toBe("");
+  });
+
+  it("a plain click still opens the day and clears the selection", () => {
+    render(<Harness />);
+    fireEvent.click(cell(/Tuesday, October 27/), { ctrlKey: true });
+    fireEvent.click(cell(/Friday, October 30/));
+    expect(onOpenDayMock).toHaveBeenCalledWith("2026-10-30");
+    expect(picked()).toBe("");
   });
 });

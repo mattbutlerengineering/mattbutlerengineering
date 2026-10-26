@@ -1668,6 +1668,19 @@
       "description": "Vos changements non enregistrés à ces heures seront perdus.",
       "confirm": "Abandonner",
       "keep": "Continuer à modifier"
+    },
+    "selection": {
+      "selectColumn": "Sélectionner chaque {{weekday}}",
+      "selectedName": "{{name}}, sélectionné",
+      "barLabel": "Dates sélectionnées",
+      "count_one": "{{count}} date sélectionnée",
+      "count_other": "{{count}} dates sélectionnées",
+      "count_many": "{{count}} dates sélectionnées",
+      "editHours": "Modifier les heures",
+      "clear": "Effacer la sélection",
+      "selectMenu": "Sélectionner…",
+      "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
+      "usingSchedule": "Toutes les dates avec {{schedule}}"
     }
   },
   "setup": {

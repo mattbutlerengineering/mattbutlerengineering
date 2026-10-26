@@ -20,7 +20,9 @@ export type EditScope =
   | { readonly kind: "date"; readonly date: string }
   /** Every weekday of `from`, from `from` until `until` (`null`: until changed again). */
   | { readonly kind: "weekday"; readonly from: string; readonly until: string | null }
-  | { readonly kind: "schedule"; readonly scheduleId: string };
+  | { readonly kind: "schedule"; readonly scheduleId: string }
+  /** Exactly these dates, picked in the multi-select bar (ux.md F-MS). */
+  | { readonly kind: "dates"; readonly dates: readonly string[] };
 
 /** One editable service row. */
 export interface DraftService {
@@ -122,6 +124,17 @@ function specialHoursRule(base: Partial<DateRule>, id: string, services: Special
   } as DateRule;
 }
 
+/** One single-date special-hours rule for `date`, reusing the date's own rule when it has one. */
+function dateRule(
+  config: AvailabilityConfig,
+  date: string,
+  services: SpecialHoursService[],
+  makeId: () => string
+): DateRule {
+  const own = ownDateRule(config, date);
+  return specialHoursRule(own ?? { startsOn: date, endsOn: date }, own?.id ?? makeId(), services);
+}
+
 function scheduleServiceRows(
   config: AvailabilityConfig,
   scheduleId: string,
@@ -172,22 +185,19 @@ export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges 
     bookingTypes: [...s.bookingTypes],
     venueServiceId: s.venueServiceId,
   }));
-  const own = scope.kind === "date" ? ownDateRule(config, scope.date) : undefined;
-  const rule =
-    scope.kind === "date"
-      ? specialHoursRule(
-          own ?? { startsOn: scope.date, endsOn: scope.date },
-          own?.id ?? makeId(),
-          payload
-        )
-      : specialHoursRule(
-          {
-            startsOn: scope.from,
-            endsOn: scope.until,
-            repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
-          },
-          makeId(),
-          payload
-        );
+  if (scope.kind === "dates" || scope.kind === "date") {
+    const singles = scope.kind === "date" ? [scope.date] : scope.dates;
+    const dateRules = singles.map((d) => dateRule(config, d, payload, makeId));
+    return { upsert: { ...venueServices, dateRules }, remove: {} };
+  }
+  const rule = specialHoursRule(
+    {
+      startsOn: scope.from,
+      endsOn: scope.until,
+      repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
+    },
+    makeId(),
+    payload
+  );
   return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
 }

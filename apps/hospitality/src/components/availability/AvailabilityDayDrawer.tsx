@@ -18,6 +18,11 @@ export interface DayEditing {
   readonly onDirtyChange: (dirty: boolean) => void;
   /** The draft was saved or discarded; close without asking. */
   readonly onFinished: () => void;
+  /**
+   * Set when the drawer was opened from the multi-select bar: the dates the edit applies to.
+   * It replaces the scope choice ("Applies to 6 dates") and the editor writes exactly these.
+   */
+  readonly fixedDates?: readonly string[];
 }
 
 export interface AvailabilityDayDrawerProps {

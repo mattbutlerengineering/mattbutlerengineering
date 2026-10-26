@@ -1,0 +1,23 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  box-shadow: var(--rialto-shadow-md);
+}
+
+.count {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}

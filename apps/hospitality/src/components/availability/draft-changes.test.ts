@@ -85,6 +85,24 @@ describe("buildDraftChanges", () => {
     expect(changes.upsert.dateRules?.[0]?.id).toBe(EARLY_DINNER.id);
   });
 
+  it("selected dates: one single-date special-hours rule per date, like this date only", () => {
+    const { config, services } = seeded();
+    const dates = ["2026-10-30", "2026-11-02", "2026-11-05"];
+    const changes = buildDraftChanges({
+      config,
+      scope: { kind: "dates", dates },
+      services,
+      makeId: counter(),
+    });
+    const rules = changes.upsert.dateRules ?? [];
+    expect(rules.map((r) => [r.startsOn, r.endsOn, r.kind])).toEqual(
+      dates.map((d) => [d, d, "special_hours"])
+    );
+    expect(new Set(rules.map((r) => r.id)).size).toBe(3);
+    expect(changes.remove).toEqual({});
+    expect(parses(changes)).toBe(true);
+  });
+
   it("every Friday from a date: one repeating rule from that date, open-ended or until a date", () => {
     const { config, services } = seeded();
     const open = buildDraftChanges({

@@ -946,6 +946,148 @@
       };
     }
   </file>
+  <file path="src/components/availability/selection.ts">
+    export function normalizeDates(dates: readonly string[]): string[] {
+      return [...new Set(dates)].sort();
+    }
+    export function dateRange(a: string, b: string): string[] {
+      const [from, to] = a <= b ? [a, b] : [b, a];
+      const dates: string[] = [];
+      for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
+      return dates;
+    }
+    export function toggleDate(selection: readonly string[], date: string): string[] {
+      return selection.includes(date)
+        ? selection.filter((d) => d !== date)
+        : normalizeDates([...selection, date]);
+    }
+    export function columnDates(
+      grid: readonly string[],
+      column: number,
+      view: CalendarView,
+      anchor: string
+    ): string[] {
+      const month = anchor.slice(0, 7);
+      return grid.filter((d, i) => i % 7 === column && (view === "week" || d.startsWith(month)));
+    }
+    export function weekdayDatesInMonth(anchor: string): string[] {
+      const month = anchor.slice(0, 7);
+      const weekday = weekdayIndexOf(anchor);
+      const dates: string[] = [];
+      for (let d = `${month}-01`; d.startsWith(month); d = addDays(d, 1)) {
+        if (weekdayIndexOf(d) === weekday) dates.push(d);
+      }
+      return dates;
+    }
+    export function datesUsingSchedule(
+      days: readonly { readonly serviceDate: string; readonly scheduleId: string | null }[],
+      scheduleId: string
+    ): string[] {
+      return normalizeDates(days.filter((d) => d.scheduleId === scheduleId).map((d) => d.serviceDate));
+    }
+  </file>
+  <file path="src/components/availability/useDateSelection.ts">
+    export const LONG_PRESS_MS = 500;
+    export interface DateSelectionOptions {
+      readonly selection: readonly string[];
+      readonly onSelectionChange: (dates: string[]) => void;
+      readonly onOpenDay: (date: string) => void;
+    }
+    export interface DateGestureHandlers {
+      readonly onClick: (event: MouseEvent) => void;
+      readonly onMouseDown: (event: MouseEvent) => void;
+      readonly onMouseEnter: () => void;
+      readonly onTouchStart: () => void;
+      readonly onTouchMove: () => void;
+      readonly onTouchEnd: (event: TouchEvent) => void;
+      readonly onContextMenu: (event: MouseEvent) => void;
+    }
+    export function useDateSelection(options: DateSelectionOptions) {
+      const { selection, onSelectionChange, onOpenDay } = options;
+      const pivot = useRef<string | null>(null);
+      const drag = useRef<{ from: string; moved: boolean } | null>(null);
+      const suppressClick = useRef(false);
+      const touchMode = useRef(false);
+      const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+      const pressed = useRef(false);
+    
+      useEffect(() => {
+        const endDrag = () => {
+          if (drag.current?.moved) {
+            // The click that follows a drag's mouseup fires synchronously; clear the flag after it.
+            suppressClick.current = true;
+            setTimeout(() => {
+              suppressClick.current = false;
+            }, 0);
+          }
+          drag.current = null;
+        };
+        window.addEventListener("mouseup", endDrag);
+        return () => window.removeEventListener("mouseup", endDrag);
+      }, []);
+    
+      const clearTimer = () => {
+        if (pressTimer.current) clearTimeout(pressTimer.current);
+        pressTimer.current = null;
+      };
+    
+      /** Select from `from` through `to`, keeping `from` as the pivot (Shift+Arrow, drag). */
+      const extendSelection = (from: string, to: string) => {
+        pivot.current = from;
+        onSelectionChange(dateRange(from, to));
+      };
+    
+      const handlersFor = (date: string): DateGestureHandlers => ({
+        onMouseDown: (event) => {
+          if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+            drag.current = { from: date, moved: false };
+          }
+        },
+        onMouseEnter: () => {
+          const d = drag.current;
+          if (!d || (date === d.from && !d.moved)) return;
+          d.moved = true;
+          extendSelection(d.from, date);
+        },
+        onClick: (event) => {
+          if (suppressClick.current) return;
+          if (event.shiftKey) {
+            onSelectionChange(dateRange(pivot.current ?? date, date));
+          } else if (event.ctrlKey || event.metaKey || (touchMode.current && selection.length > 0)) {
+            pivot.current = date;
+            onSelectionChange(toggleDate(selection, date));
+          } else {
+            pivot.current = date;
+            touchMode.current = false;
+            if (selection.length > 0) onSelectionChange([]);
+            onOpenDay(date);
+          }
+        },
+        onTouchStart: () => {
+          pressed.current = false;
+          clearTimer();
+          pressTimer.current = setTimeout(() => {
+            pressed.current = true;
+            touchMode.current = true;
+            pivot.current = date;
+            onSelectionChange(normalizeDates([...selection, date]));
+          }, LONG_PRESS_MS);
+        },
+        onTouchMove: clearTimer,
+        onTouchEnd: (event) => {
+          clearTimer();
+          // Swallow the click the browser synthesises after a long-press.
+          if (pressed.current) event.preventDefault();
+          pressed.current = false;
+        },
+        onContextMenu: (event) => {
+          if (pressTimer.current || pressed.current) event.preventDefault();
+        },
+      });
+    
+      return { handlersFor, extendSelection, pivot };
+    }
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">

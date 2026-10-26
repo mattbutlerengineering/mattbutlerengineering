@@ -13,6 +13,8 @@
 
 .row {
   position: relative;
+  user-select: none;
+  -webkit-touch-callout: none;
   display: flex;
   flex: 1;
   align-items: flex-start;
@@ -44,6 +46,12 @@
 
 .selected {
   outline: 2px solid var(--rialto-accent);
+}
+
+/* Picked for a bulk edit: a recessed surface plus the outline, never colour alone. */
+.picked {
+  background: var(--rialto-surface-recessed);
+  outline: 2px dashed var(--rialto-accent);
 }
 
 .date {
