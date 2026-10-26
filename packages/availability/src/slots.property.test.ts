@@ -217,18 +217,23 @@ describe("engine correctness (property)", () => {
             listSlots(snapshot, d, 2, "online", NOW).map((s) => s.start.getTime())
           )
         );
-        for (let minute = 0; minute < 1440; minute += 5) {
-          const start = serviceDayInstant(date, minute, snapshot.timezone);
-          if (!start) continue;
-          const verdict = judge(snapshot, { start, partySize: 2, channel: "online" }, NOW);
-          if (verdict.kind === "ok") {
-            expect(listed.has(start.getTime()), `${start.toISOString()}`).toBe(true);
+        // Absolute 5-minute steps (so a repeated fall-back hour is probed twice), each
+        // also nudged by a millisecond and by 30 s: none of those may be accepted unless listed.
+        const base = serviceDayInstant(date, 0, snapshot.timezone)?.getTime();
+        if (base === undefined) return;
+        for (let step = 0; step < 288; step++) {
+          for (const nudge of [0, 1, 30_000]) {
+            const start = new Date(base + step * 300_000 + nudge);
+            const verdict = judge(snapshot, { start, partySize: 2, channel: "online" }, NOW);
+            if (verdict.kind === "ok") {
+              expect(listed.has(start.getTime()), `${start.toISOString()}`).toBe(true);
+            }
           }
         }
       }),
-      { numRuns: 300 }
+      { numRuns: 100 }
     );
-  });
+  }, 30_000);
 
   it("judges every instant inside a closure as hard", () => {
     fc.assert(

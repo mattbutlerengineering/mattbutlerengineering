@@ -306,6 +306,58 @@ describe("judge", () => {
     });
   });
 
+  it("does not let an online sub-minute offset step past a pacing window", () => {
+    const busy = snapshot({
+      settings: { pacingRules: [{ maxCoversPerSlot: 1 }] },
+      reservations: [
+        {
+          id: "r1",
+          tableId: "t-4",
+          partySize: 2,
+          status: "confirmed",
+          reservationTime: at("17:00"),
+          duration: 90,
+        } as never,
+      ],
+    });
+    const offset = new Date(at("17:00").getTime() + 30_000);
+    expect(judge(busy, { start: offset, partySize: 2, channel: "online" }, NOW)).toEqual({
+      kind: "hard",
+      reason: "outside_service",
+    });
+  });
+
+  it("accepts only the first occurrence of a repeated fall-back hour online", () => {
+    const fallBack: BookingSnapshot = snapshot({
+      config: {
+        ...CONFIG,
+        scheduleServices: [
+          {
+            id: "night",
+            scheduleId: "regular",
+            venueServiceId: "vs-dinner",
+            opensAt: 1500, // 01:00 next day
+            lastSeatingAt: 1590,
+            closesAt: 1620,
+            seating: { version: 1, interval: 30 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+      },
+    });
+    // 2026-10-31 service day; 01:30 on 2026-11-01 happens twice in Los Angeles.
+    const request = (iso: string) => ({
+      start: new Date(iso),
+      partySize: 2,
+      channel: "online" as const,
+    });
+    expect(judge(fallBack, request("2026-11-01T08:30:00Z"), NOW)).toEqual({ kind: "ok" });
+    expect(judge(fallBack, request("2026-11-01T09:30:00Z"), NOW)).toEqual({
+      kind: "hard",
+      reason: "outside_service",
+    });
+  });
+
   it("never lets an override past a closure", () => {
     const closed = withRules({ id: "c", kind: "closure", targetKind: "venue", startsOn: DATE });
     expect(
